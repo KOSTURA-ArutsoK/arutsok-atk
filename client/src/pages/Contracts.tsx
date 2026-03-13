@@ -2235,7 +2235,7 @@ export default function Contracts() {
   const [preSelectNumberType, setPreSelectNumberType] = useState<"proposal" | "contract" | "both">("proposal");
   const [preSelectNumberValue2, setPreSelectNumberValue2] = useState("");
   const [preSelectNumberValue, setPreSelectNumberValue] = useState("");
-  const [preSelectNumberDuplicates, setPreSelectNumberDuplicates] = useState<Array<{ id: number; contractNumber: string | null; proposalNumber: string | null; subjectName: string; lifecyclePhase: number | null }>>([]);
+  const [preSelectNumberDuplicates, setPreSelectNumberDuplicates] = useState<Array<{ id: number; contractNumber: string | null; proposalNumber: string | null; stateId: number | null; sameState: boolean; subjectName: string; titleBefore: string; titleAfter: string; lifecyclePhase: number | null }>>([]);
   const [preSelectCheckingDuplicates, setPreSelectCheckingDuplicates] = useState(false);
   const [preSelectTitleBefore, setPreSelectTitleBefore] = useState("");
   const [preSelectFirstName, setPreSelectFirstName] = useState("");
@@ -4390,6 +4390,13 @@ export default function Contracts() {
     }
   }, [preSelectStep]);
 
+  const handlePreSelectStep1ForceNext = () => {
+    setPreSelectNumberDuplicates([]);
+    setPreSelectStep(2);
+    setPreSelectSubjectSearch("");
+    setPreSelectSubjectId("");
+  };
+
   const handlePreSelectStep2Back = () => {
     setPreSelectStep(1);
     setPreSelectSubjectSearch("");
@@ -4869,21 +4876,26 @@ export default function Contracts() {
             )}
 
             {preSelectNumberDuplicates.length > 0 && (
-              <div className="rounded-md border border-red-500/40 bg-red-500/5 dark:bg-red-900/10 p-3 space-y-2" data-testid="panel-number-duplicates">
+              <div className="rounded-md border border-orange-500/40 bg-orange-500/5 dark:bg-orange-900/10 p-3 space-y-2" data-testid="panel-number-duplicates">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
-                  <span className="text-xs font-semibold text-red-600 dark:text-red-400">
-                    Toto číslo už existuje v systéme — zmluvu nie je možné pridať
+                  <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0" />
+                  <span className="text-xs font-semibold text-orange-600 dark:text-orange-400">
+                    Zmluva s týmto číslom sa v systéme už nachádza ako reálna zmluva
                   </span>
                 </div>
                 <div className="space-y-1">
                   {preSelectNumberDuplicates.map(d => (
-                    <div key={d.id} className="flex items-center gap-2 py-0.5 px-1 text-xs rounded bg-red-500/5" data-testid={`row-duplicate-${d.id}`}>
-                      <span className="font-mono text-red-700 dark:text-red-300 shrink-0">
+                    <div key={d.id} className="flex items-center gap-2 py-1 px-2 text-xs rounded bg-orange-500/5 border border-orange-500/20" data-testid={`row-duplicate-${d.id}`}>
+                      <span className="font-mono text-orange-700 dark:text-orange-300 shrink-0">
                         {d.contractNumber || d.proposalNumber || "—"}
                       </span>
-                      <span className="text-muted-foreground">—</span>
+                      <span className="text-muted-foreground">·</span>
                       <span className="font-medium truncate">{d.subjectName}</span>
+                      {d.sameState && (
+                        <span className="ml-1 shrink-0 text-[10px] text-orange-600 dark:text-orange-400 font-semibold border border-orange-400/40 rounded px-1 py-0">
+                          tento štát
+                        </span>
+                      )}
                       {d.lifecyclePhase !== null && (
                         <span className="ml-auto shrink-0 text-[10px] text-muted-foreground border border-border rounded px-1 py-0">
                           {({ 1: "Nahratie", 2: "Odoslané", 3: "Výhrady", 4: "Archív", 5: "Prijaté CK", 6: "V spracovaní", 7: "Intervencia", 8: "Pripravené", 9: "Odoslané OP", 10: "Prijaté OP" } as Record<number, string>)[d.lifecyclePhase] || `Fáza ${d.lifecyclePhase}`}
@@ -4892,11 +4904,20 @@ export default function Contracts() {
                     </div>
                   ))}
                 </div>
+                <p className="text-[11px] text-muted-foreground">Chcete napriek tomu zmluvu nahrať?</p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="border-orange-500/40 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10" onClick={handlePreSelectStep1ForceNext} data-testid="button-duplicate-confirm-upload">
+                    Nahrať zmluvu
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setPreSelectNumberDuplicates([]); resetPreSelectDialog(); }} data-testid="button-duplicate-cancel">
+                    Nie
+                  </Button>
+                </div>
               </div>
             )}
 
             <div className="flex justify-end gap-2">
-              <Button ref={refStep1Next} onClick={handlePreSelectStep1Next} disabled={!preSelectPartnerId || preSelectCheckingDuplicates || preSelectNumberDuplicates.length > 0} data-testid="button-preselect-next">
+              <Button ref={refStep1Next} onClick={handlePreSelectStep1Next} disabled={!preSelectPartnerId || preSelectCheckingDuplicates} style={{ display: preSelectNumberDuplicates.length > 0 ? 'none' : undefined }} data-testid="button-preselect-next">
                 {preSelectCheckingDuplicates && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />}
                 Dalej
               </Button>

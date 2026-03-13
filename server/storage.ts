@@ -410,7 +410,7 @@ export interface IStorage {
   getContractsByAcquirer(userId: number): Promise<Contract[]>;
   getSubjectIdsWhereUserIsAcquirer(userId: number): Promise<number[]>;
   checkContractDuplicate(contractNumber: string): Promise<{ exists: boolean; contract?: Contract; subjectName?: string }>;
-  findContractsByNumbers(params: { contractNumber?: string; proposalNumber?: string }): Promise<Array<{ id: number; contractNumber: string | null; proposalNumber: string | null; subjectName: string; lifecyclePhase: number | null; partnerId: number | null; }>>;
+  findContractsByNumbers(params: { contractNumber?: string; proposalNumber?: string }): Promise<Array<{ id: number; contractNumber: string | null; proposalNumber: string | null; stateId: number | null; subjectName: string; titleBefore: string; titleAfter: string; lifecyclePhase: number | null; partnerId: number | null; }>>;
 
   getSystemContractStatusByName(name: string): Promise<ContractStatus | undefined>;
   getAcceptedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
@@ -2831,7 +2831,7 @@ export class DatabaseStorage implements IStorage {
     return { exists: true, contract: found, subjectName };
   }
 
-  async findContractsByNumbers(params: { contractNumber?: string; proposalNumber?: string }): Promise<Array<{ id: number; contractNumber: string | null; proposalNumber: string | null; subjectName: string; lifecyclePhase: number | null; partnerId: number | null; }>> {
+  async findContractsByNumbers(params: { contractNumber?: string; proposalNumber?: string }): Promise<Array<{ id: number; contractNumber: string | null; proposalNumber: string | null; stateId: number | null; subjectName: string; titleBefore: string; titleAfter: string; lifecyclePhase: number | null; partnerId: number | null; }>> {
     const { contractNumber, proposalNumber } = params;
     if (!contractNumber?.trim() && !proposalNumber?.trim()) return [];
     const conditions: any[] = [eq(contracts.isDeleted, false)];
@@ -2841,16 +2841,23 @@ export class DatabaseStorage implements IStorage {
     if (orConditions.length === 1) conditions.push(orConditions[0]);
     else conditions.push(or(...orConditions));
     const found = await db.select().from(contracts).where(and(...conditions));
-    const result: Array<{ id: number; contractNumber: string | null; proposalNumber: string | null; subjectName: string; lifecyclePhase: number | null; partnerId: number | null; }> = [];
+    const result: Array<{ id: number; contractNumber: string | null; proposalNumber: string | null; stateId: number | null; subjectName: string; titleBefore: string; titleAfter: string; lifecyclePhase: number | null; partnerId: number | null; }> = [];
     for (const c of found) {
       let subjectName = "—";
+      let titleBefore = "";
+      let titleAfter = "";
       if (c.subjectId) {
         const [subj] = await db.select().from(subjects).where(eq(subjects.id, c.subjectId)).limit(1);
         if (subj) {
-          subjectName = subj.type === "person" ? `${subj.firstName || ""} ${subj.lastName || ""}`.trim() : (subj.companyName || "—");
+          const dyn = (subj.details as any)?.dynamicFields || (subj.details as any) || {};
+          titleBefore = dyn.titul_pred || dyn.titleBefore || "";
+          titleAfter = dyn.titul_za || dyn.titleAfter || "";
+          subjectName = subj.type === "person"
+            ? `${titleBefore ? titleBefore + " " : ""}${subj.firstName || ""} ${subj.lastName || ""}${titleAfter ? ", " + titleAfter : ""}`.trim()
+            : (subj.companyName || "—");
         }
       }
-      result.push({ id: c.id, contractNumber: c.contractNumber, proposalNumber: c.proposalNumber, subjectName, lifecyclePhase: c.lifecyclePhase, partnerId: c.partnerId });
+      result.push({ id: c.id, contractNumber: c.contractNumber, proposalNumber: c.proposalNumber, stateId: c.stateId ?? null, subjectName, titleBefore, titleAfter, lifecyclePhase: c.lifecyclePhase, partnerId: c.partnerId });
     }
     return result;
   }

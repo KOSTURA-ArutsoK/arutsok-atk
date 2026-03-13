@@ -5103,8 +5103,10 @@ export async function registerRoutes(
       const contractNumber = (req.query.contractNumber as string) || undefined;
       const proposalNumber = (req.query.proposalNumber as string) || undefined;
       if (!contractNumber?.trim() && !proposalNumber?.trim()) return res.json([]);
+      const currentStateId = req.appUser?.activeStateId ?? null;
       const duplicates = await storage.findContractsByNumbers({ contractNumber, proposalNumber });
-      res.json(duplicates);
+      const result = duplicates.map(d => ({ ...d, sameState: currentStateId !== null && d.stateId === currentStateId }));
+      res.json(result);
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }
