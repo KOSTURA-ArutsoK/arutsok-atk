@@ -4493,7 +4493,37 @@ export default function Contracts() {
     const lookupType = preSelectSubjectType === "szco" ? "szco" : "company";
     fetch(`/api/lookup/ico/${encodeURIComponent(result.normalized || val)}?type=${lookupType}`, { credentials: "include" })
       .then(r => r.json())
-      .then(data => { setPreSelectIcoLookup(data.found ? data : { found: false, message: data.message || "Subjekt nenájdený v štátnych registroch" }); })
+      .then(data => {
+        if (data.found) {
+          setPreSelectIcoLookup(data);
+          if (data.name) setPreSelectBusinessName(data.name);
+          if (preSelectSubjectType === "szco" && data.name) {
+            const TITLES = ["Ing.", "Mgr.", "MUDr.", "JUDr.", "RNDr.", "PhDr.", "Bc.", "PhD.", "MVDr.", "Doc.", "Prof.", "Ing.arch.", "PaedDr.", "ThDr.", "ThMgr.", "ThLic."];
+            let raw = data.name.trim();
+            const dashIdx = raw.search(/\s[-–]\s/);
+            if (dashIdx > 0) raw = raw.slice(0, dashIdx).trim();
+            let titleBefore = "";
+            for (const t of TITLES) {
+              if (raw.toUpperCase().startsWith(t.toUpperCase())) {
+                titleBefore = t;
+                raw = raw.slice(t.length).trim();
+                break;
+              }
+            }
+            const parts = raw.split(/\s+/);
+            if (parts.length >= 2) {
+              if (titleBefore) setPreSelectTitleBefore(titleBefore);
+              setPreSelectFirstName(parts[0]);
+              setPreSelectLastName(parts.slice(1).join(" "));
+            } else if (parts.length === 1 && parts[0]) {
+              setPreSelectLastName(parts[0]);
+            }
+          }
+          setPreSelectShowNameFields(true);
+        } else {
+          setPreSelectIcoLookup({ found: false, message: data.message || "Subjekt nenájdený v štátnych registroch" });
+        }
+      })
       .catch(() => setPreSelectIcoLookup({ found: false, message: "Chyba pri vyhľadávaní v registroch" }))
       .finally(() => setPreSelectIcoLookupLoading(false));
   };
@@ -5374,40 +5404,10 @@ export default function Contracts() {
                   {preSelectIcoLookup.legalForm && (
                     <p className="text-[10px] text-muted-foreground">{preSelectIcoLookup.legalForm}{preSelectIcoLookup.dic ? ` | DIČ: ${preSelectIcoLookup.dic}` : ""}</p>
                   )}
-                  <button
-                    type="button"
-                    className="text-xs px-2.5 py-1.5 rounded border border-border hover:bg-muted transition-colors"
-                    onClick={() => {
-                      if (preSelectIcoLookup.name) setPreSelectBusinessName(preSelectIcoLookup.name);
-                      if (preSelectSubjectType === "szco" && preSelectIcoLookup.name) {
-                        const TITLES = ["Ing.", "Mgr.", "MUDr.", "JUDr.", "RNDr.", "PhDr.", "Bc.", "PhD.", "MVDr.", "Doc.", "Prof.", "Ing.arch.", "PaedDr.", "ThDr.", "ThMgr.", "ThLic."];
-                        let raw = preSelectIcoLookup.name.trim();
-                        const dashIdx = raw.search(/\s[-–]\s/);
-                        if (dashIdx > 0) raw = raw.slice(0, dashIdx).trim();
-                        let titleBefore = "";
-                        for (const t of TITLES) {
-                          if (raw.toUpperCase().startsWith(t.toUpperCase())) {
-                            titleBefore = t;
-                            raw = raw.slice(t.length).trim();
-                            break;
-                          }
-                        }
-                        const parts = raw.split(/\s+/);
-                        if (parts.length >= 2) {
-                          if (titleBefore) setPreSelectTitleBefore(titleBefore);
-                          setPreSelectFirstName(parts[0]);
-                          setPreSelectLastName(parts.slice(1).join(" "));
-                        } else if (parts.length === 1 && parts[0]) {
-                          setPreSelectLastName(parts[0]);
-                        }
-                      }
-                      setPreSelectShowNameFields(true);
-                      setPreSelectIcoLookup(null);
-                    }}
-                    data-testid="button-preselect-ico-use"
-                  >
-                    Použiť údaje z registra
-                  </button>
+                  <div className="flex items-center gap-1.5 text-[10px] text-green-400">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>Údaje automaticky doplnené</span>
+                  </div>
                 </div>
               )}
               {preSelectIcoLookup && !preSelectIcoLookup.found && (
