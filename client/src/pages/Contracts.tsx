@@ -2150,7 +2150,7 @@ export default function Contracts() {
   const isEvidencia = location === "/evidencia-zmluv";
 
   const searchString = useSearch();
-  const VALID_VIEWS = ["moje", "portfolio", "dokumentacia"] as const;
+  const VALID_VIEWS = ["moje", "portfolio"] as const;
   type ContractViewType = typeof VALID_VIEWS[number];
   const contractView = useMemo(() => {
     const params = new URLSearchParams(searchString);
@@ -2162,13 +2162,6 @@ export default function Contracts() {
   const VIEW_TITLES: Record<string, string> = {
     moje: "Moje zmluvy",
     portfolio: "Klientske portfólio",
-    dokumentacia: "Zmluvná dokumentácia",
-  };
-
-  const INTERNAL_TYPE_PATTERNS = [/intern/i, /mandát/i, /\bnda\b/i, /spolupráca|spoluprac/i, /dohod/i, /protokol/i];
-  const isInternalContractType = (type: string | null | undefined): boolean => {
-    if (!type) return false;
-    return INTERNAL_TYPE_PATTERNS.some(pattern => pattern.test(type));
   };
 
   const { data: migrationModeMainData } = useQuery<{ value: string | null }>({
@@ -2489,8 +2482,6 @@ export default function Contracts() {
           const s = (c.specialistaUid || "").replace(/\s/g, "");
           return z === normalizedUserUid || s === normalizedUserUid;
         });
-      case "dokumentacia":
-        return contractPages.filter(c => isInternalContractType(c.contractType));
       default:
         return contractPages;
     }
@@ -6436,7 +6427,7 @@ export default function Contracts() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-1.5">
           <h1 className="text-2xl font-bold" data-testid="text-page-title">{contractView ? VIEW_TITLES[contractView] || "Evidencia zmlúv" : "Evidencia zmlúv"}</h1>
-          <HelpIcon text={contractView === "moje" ? "Zmluvy, kde ste klientom (poistený, majiteľ, nájomca)." : contractView === "portfolio" ? "Zmluvy klientov, ktoré spravujete ako sprostredkovateľ alebo špecialista." : contractView === "dokumentacia" ? "Interné zmluvy s firmou (mandátna zmluva, NDA, zmluva o spolupráci)." : "Prehled vsetkych zmluv v systeme. Zmluvy sa viazu na klientov, produkty a partnerov."} side="right" />
+          <HelpIcon text={contractView === "moje" ? "Zmluvy, kde ste klientom (poistený, majiteľ, nájomca)." : contractView === "portfolio" ? "Zmluvy klientov, ktoré spravujete ako sprostredkovateľ alebo špecialista." : "Prehled vsetkych zmluv v systeme. Zmluvy sa viazu na klientov, produkty a partnerov."} side="right" />
         </div>
         <div className="flex items-center gap-2">
           {canCreateRecords(appUser) && (

@@ -67,6 +67,7 @@ import ReportyOdosielanie from "@/pages/ReportyOdosielanie";
 import ReportyNBS from "@/pages/ReportyNBS";
 import ObchodnePrilezitosti from "@/pages/ObchodnePrilezitosti";
 import NastavenieObchodnychPrilezitosti from "@/pages/NastavenieObchodnychPrilezitosti";
+import ZmluvnaDokumentacia from "@/pages/ZmluvnaDokumentacia";
 import { AppShell } from "@/components/layout/AppShell";
 import { RedListNotificationPopup } from "@/components/red-list-notification-popup";
 import { BlackListNotificationPopup } from "@/components/black-list-notification-popup";
@@ -138,6 +139,7 @@ const PrivateContractTemplates = () => <PrivateRoute><ContractTemplates /></Priv
 const PrivateContractFieldSettings = () => <PrivateRoute><ContractFieldSettings /></PrivateRoute>;
 const PrivateContractInventories = () => <PrivateRoute><ContractInventories /></PrivateRoute>;
 const PrivateSupisky = () => <PrivateRoute><SupiskyPage /></PrivateRoute>;
+const PrivateZmluvnaDokumentacia = () => <PrivateRoute><ZmluvnaDokumentacia /></PrivateRoute>;
 const PrivateClientGroups = () => <PrivateRoute><ClientGroups /></PrivateRoute>;
 const PrivatePartnerContacts = () => <PrivateRoute><PartnerContacts /></PrivateRoute>;
 const PrivateSectors = () => <PrivateRoute><Sectors /></PrivateRoute>;
@@ -203,6 +205,8 @@ function Router() {
       <Route path="/contract-field-settings" component={PrivateContractFieldSettings} />
       <Route path="/contract-inventories" component={PrivateContractInventories} />
       <Route path="/supisky" component={PrivateSupisky} />
+      <Route path="/zmluvna-dokumentacia/pridat" component={PrivateZmluvnaDokumentacia} />
+      <Route path="/zmluvna-dokumentacia" component={PrivateZmluvnaDokumentacia} />
       <Route path="/client-groups" component={PrivateClientGroups} />
       <Route path="/partner-contacts" component={PrivatePartnerContacts} />
       <Route path="/sektory-zmluv" component={PrivateSectors} />
