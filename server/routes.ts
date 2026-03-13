@@ -13795,17 +13795,17 @@ export async function registerRoutes(
           obchodne_meno: "name",
           company_name: "name",
           nazov_firmy: "name",
-          sidlo: "city",
+          address: "street",
           adresa: "street",
+          ulica: "street",
+          sidlo: "city",
           mesto: "city",
           psc: "zip",
-          ulica: "street",
           dic: "dic",
           pravna_forma: "legalForm",
         };
 
         const icoField = results.find((r: any) => r.fieldKey && (r.fieldKey.toLowerCase() === "ico" || r.fieldKey.toLowerCase().includes("ico")) && r.matchedValue);
-        const companyNameField = results.find((r: any) => r.fieldKey && ["obchodne_meno", "company_name", "nazov_firmy"].includes(r.fieldKey.toLowerCase()) && r.matchedValue);
 
         let matchedSnapshot: any = null;
         if (icoField?.matchedValue) {
@@ -13814,17 +13814,6 @@ export async function registerRoutes(
             .orderBy(desc(registrySnapshots.fetchedAt))
             .limit(1);
           if (snapshots.length > 0) matchedSnapshot = snapshots[0];
-        }
-
-        if (!matchedSnapshot && companyNameField?.matchedValue) {
-          const allSnapshots = await db.select().from(registrySnapshots)
-            .orderBy(desc(registrySnapshots.fetchedAt))
-            .limit(100);
-          const extractedName = companyNameField.matchedValue.trim().toLowerCase();
-          matchedSnapshot = allSnapshots.find((s: any) => {
-            const regName = (s.parsedFields as any)?.name?.toLowerCase();
-            return regName && (regName === extractedName || regName.includes(extractedName) || extractedName.includes(regName));
-          });
         }
 
         if (matchedSnapshot) {
