@@ -6278,11 +6278,9 @@ export default function Contracts() {
                                                   {hasScans ? <Check className="w-4 h-4 text-green-500 inline" /> : <span className="text-muted-foreground">—</span>}
                                                 </td>
                                                 <td className="p-2 text-right">
-                                                  {!hasOcr && !hasScans && (
-                                                    <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => manualCompletePhase6Mutation.mutate(contract.id)} disabled={manualCompletePhase6Mutation.isPending} data-testid={`button-manual-complete-${contract.id}`}>
-                                                      <Upload className="w-3 h-3 mr-1" />Manuálne nahrať
-                                                    </Button>
-                                                  )}
+                                                  <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => manualCompletePhase6Mutation.mutate(contract.id)} disabled={manualCompletePhase6Mutation.isPending} data-testid={`button-manual-complete-${contract.id}`}>
+                                                    <Upload className="w-3 h-3 mr-1" />Manuálne dokončiť
+                                                  </Button>
                                                 </td>
                                               </tr>
                                             );
