@@ -833,42 +833,6 @@ export function AppSidebar() {
 
                       <SidebarMenuSubItem>
                         <Collapsible
-                          open={zmluvySubId === "sablony"}
-                          onOpenChange={(val) => setZmluvySubId(val ? "sablony" : null)}
-                        >
-                          <CollapsibleTrigger asChild>
-                            <SidebarMenuSubButton
-                              data-testid="nav-submenu-nastavenia-sablon"
-                              className={`cursor-pointer ${nastaveniaSablonChildren.some(i => i.href === location) ? "text-sidebar-accent-foreground font-medium" : ""}`}
-                            >
-                              <FileCog className="w-3.5 h-3.5" />
-                              <span className="flex-1">Nastavenia sablon</span>
-                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${zmluvySubId === "sablony" ? "rotate-90" : ""}`} />
-                            </SidebarMenuSubButton>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
-                              {nastaveniaSablonChildren.map(item => (
-                                <SidebarMenuSubItem key={item.href}>
-                                  <SidebarMenuSubButton
-                                    asChild
-                                    isActive={location === item.href}
-                                    data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
-                                  >
-                                    <Link href={item.href}>
-                                      <item.icon className="w-3.5 h-3.5" />
-                                      <span>{item.label}</span>
-                                    </Link>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              ))}
-                            </div>
-                          </CollapsibleContent>
-                        </Collapsible>
-                      </SidebarMenuSubItem>
-
-                      <SidebarMenuSubItem>
-                        <Collapsible
                           open={zmluvySubId === "protokoly"}
                           onOpenChange={(val) => setZmluvySubId(val ? "protokoly" : null)}
                         >
@@ -921,6 +885,42 @@ export function AppSidebar() {
                           <CollapsibleContent>
                             <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
                               {importItems.map(item => (
+                                <SidebarMenuSubItem key={item.href}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={location === item.href}
+                                    data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                                  >
+                                    <Link href={item.href}>
+                                      <item.icon className="w-3.5 h-3.5" />
+                                      <span>{item.label}</span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </SidebarMenuSubItem>
+
+                      <SidebarMenuSubItem>
+                        <Collapsible
+                          open={zmluvySubId === "sablony"}
+                          onOpenChange={(val) => setZmluvySubId(val ? "sablony" : null)}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuSubButton
+                              data-testid="nav-submenu-nastavenia-sablon"
+                              className={`cursor-pointer ${nastaveniaSablonChildren.some(i => i.href === location) ? "text-sidebar-accent-foreground font-medium" : ""}`}
+                            >
+                              <FileCog className="w-3.5 h-3.5" />
+                              <span className="flex-1">Nastavenia sablon</span>
+                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${zmluvySubId === "sablony" ? "rotate-90" : ""}`} />
+                            </SidebarMenuSubButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
+                              {nastaveniaSablonChildren.map(item => (
                                 <SidebarMenuSubItem key={item.href}>
                                   <SidebarMenuSubButton
                                     asChild
