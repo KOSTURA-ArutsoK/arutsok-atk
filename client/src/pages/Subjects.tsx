@@ -2470,6 +2470,7 @@ function FullPageEditor({
   const [szcoIcoError, setSzcoIcoError] = useState<string | null>(null);
   const [szcoAresLookup, setSzcoAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; directors?: string[]; found: boolean; message?: string } | null>(null);
   const [szcoAresLoading, setSzcoAresLoading] = useState(false);
+  const [pendingRegistrySnapshot, setPendingRegistrySnapshot] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string } | null>(null);
 
   const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>(() => {
     const base: Record<string, string> = { korespond_rovnaka: "true", kontaktna_rovnaka: "true", tp_stat: DEFAULT_COUNTRY, ka_stat: DEFAULT_COUNTRY, koa_stat: DEFAULT_COUNTRY, sidlo_stat: DEFAULT_COUNTRY, vykon_stat: DEFAULT_COUNTRY };
@@ -2695,8 +2696,8 @@ function FullPageEditor({
     mutate(submitData, {
       onSuccess: async (createdSubject: any) => {
         if (createdSubject?.id && !isPerson) {
-          const snapshotData = initialData.aresData || (szcoAresLookup?.found ? szcoAresLookup : null);
-          const snapshotSource = initialData.aresData?.source || szcoAresLookup?.source || "ORSR";
+          const snapshotData = initialData.aresData || pendingRegistrySnapshot || (szcoAresLookup?.found ? szcoAresLookup : null);
+          const snapshotSource = snapshotData?.source || "ORSR";
           if (snapshotData) {
             try {
               const icoVal = isSzcoType ? szcoData.ico : (dynamicValues.ico || initialData.baseValue);
@@ -2885,6 +2886,16 @@ function FullPageEditor({
                     size="sm"
                     className="text-xs"
                     onClick={() => {
+                      setPendingRegistrySnapshot({
+                        name: szcoAresLookup.name,
+                        street: szcoAresLookup.street,
+                        streetNumber: szcoAresLookup.streetNumber,
+                        zip: szcoAresLookup.zip,
+                        city: szcoAresLookup.city,
+                        legalForm: szcoAresLookup.legalForm,
+                        dic: szcoAresLookup.dic,
+                        source: szcoAresLookup.source,
+                      });
                       setSzcoData(prev => ({
                         ...prev,
                         obchodne_meno: szcoAresLookup.name || prev.obchodne_meno,
