@@ -1795,7 +1795,10 @@ export async function registerRoutes(
     const companyMap = new Map(allCompanies.map(c => [c.id, c.name]));
     allSubjects = allSubjects.map((s: any) => ({
       ...s,
-      companyName: companyMap.get(s.myCompanyId) || null,
+      myCompanyName: companyMap.get(s.myCompanyId) || null,
+      companyName: s.type === 'person'
+        ? (companyMap.get(s.myCompanyId) || null)
+        : (s.companyName || null),
     }));
 
     const statusFiltersRaw = req.query.statusFilters as string | undefined;

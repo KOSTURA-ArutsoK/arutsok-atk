@@ -4842,8 +4842,17 @@ export default function Contracts() {
         ? `${s.companyName || ""} ${s.firstName || ""} ${s.lastName || ""}`.trim()
         : `${s.firstName || ""} ${s.lastName || ""}`.trim();
       const birthNum = s.birthNumber || "";
-      const ico = (s.details as any)?.ico || "";
-      return fullName.toLowerCase().includes(q) || birthNum.includes(q) || ico.includes(q) || (s.uid || "").toLowerCase().includes(q);
+      const icoFromDetails = (s.details as any)?.ico || (s.details as any)?.dynamicFields?.ico || "";
+      const icoFromTop = (s as any).ico || "";
+      const email = (s as any).email || "";
+      const phone = (s as any).phone || "";
+      return fullName.toLowerCase().includes(q)
+        || birthNum.includes(q)
+        || icoFromDetails.includes(q)
+        || icoFromTop.includes(q)
+        || email.toLowerCase().includes(q)
+        || phone.includes(q)
+        || (s.uid || "").replace(/\s/g, "").includes(q.replace(/\s/g, ""));
     });
   })();
 
