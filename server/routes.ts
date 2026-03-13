@@ -5664,14 +5664,20 @@ export async function registerRoutes(
         }
       }
       // Normalize a raw UID from Excel: short numeric values get padded + country prefix applied
+      // Output format: "421 000 000 000 001" (groups of 3 separated by space)
       const normalizeImportUid = (raw: string | null): string | null => {
         if (!raw) return null;
         const clean = raw.replace(/[\s\-]/g, '');
-        // Already a valid 15-digit UID — return as-is
-        if (/^\d{15}$/.test(clean)) return clean;
+        let digits: string | null = null;
+        // Already a valid 15-digit UID — use as-is
+        if (/^\d{15}$/.test(clean)) digits = clean;
         // Pure numeric but short — pad to 12 digits and prepend country prefix
-        if (/^\d+$/.test(clean) && clean.length <= 12) {
-          return `${importUidPrefix}${clean.padStart(12, '0')}`;
+        else if (/^\d+$/.test(clean) && clean.length <= 12) digits = `${importUidPrefix}${clean.padStart(12, '0')}`;
+        if (digits) {
+          // Format as groups of 3: "421 000 000 000 001"
+          const groups: string[] = [];
+          for (let i = 0; i < digits.length; i += 3) groups.push(digits.slice(i, i + 3));
+          return groups.join(' ');
         }
         return raw.trim();
       };
