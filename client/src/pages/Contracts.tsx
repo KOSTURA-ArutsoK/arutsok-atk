@@ -2165,7 +2165,11 @@ export default function Contracts() {
     dokumentacia: "Zmluvná dokumentácia",
   };
 
-  const INTERNAL_CONTRACT_TYPES = new Set(["interná", "mandátna", "nda", "spolupráca", "dohoda", "protokol"]);
+  const INTERNAL_TYPE_PATTERNS = [/intern/i, /mandát/i, /\bnda\b/i, /spolupráca|spoluprac/i, /dohod/i, /protokol/i];
+  const isInternalContractType = (type: string | null | undefined): boolean => {
+    if (!type) return false;
+    return INTERNAL_TYPE_PATTERNS.some(pattern => pattern.test(type));
+  };
 
   const { data: migrationModeMainData } = useQuery<{ value: string | null }>({
     queryKey: ["/api/system-settings", "MIGRATION_MODE"],
@@ -2486,9 +2490,7 @@ export default function Contracts() {
           return z === normalizedUserUid || s === normalizedUserUid;
         });
       case "dokumentacia":
-        return contractPages.filter(c => {
-          return INTERNAL_CONTRACT_TYPES.has((c.contractType || "").toLowerCase());
-        });
+        return contractPages.filter(c => isInternalContractType(c.contractType));
       default:
         return contractPages;
     }
