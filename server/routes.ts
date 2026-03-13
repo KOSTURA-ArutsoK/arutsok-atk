@@ -10,7 +10,7 @@ import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from 
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
-import { eq, and, or, isNotNull, sql, inArray, desc, asc, gte, lte, lt } from "drizzle-orm";
+import { eq, and, or, isNull, isNotNull, sql, inArray, desc, asc, gte, lte, lt } from "drizzle-orm";
 import multer from "multer";
 import ExcelJS from "exceljs";
 import { parse as csvParse } from "csv-parse/sync";
