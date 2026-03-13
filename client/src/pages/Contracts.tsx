@@ -3288,7 +3288,7 @@ export default function Contracts() {
             const fieldMissing = (field: string) => incompleteFields.some((f: string) => f.includes(field));
             const isRowSelected = selectedIds.includes(contract.id);
             const phaseSelectedClass = isRowSelected ? (({
-              1: "bg-amber-500/20 hover:bg-amber-500/25 border-l-2 border-l-amber-500",
+              1: "bg-blue-500/20 hover:bg-blue-500/25 border-l-2 border-l-blue-500",
               2: "bg-blue-500/20 hover:bg-blue-500/25 border-l-2 border-l-blue-500",
               3: "bg-red-500/20 hover:bg-red-500/25 border-l-2 border-l-red-500",
               4: "bg-zinc-400/20 hover:bg-zinc-400/25 border-l-2 border-l-zinc-400",
