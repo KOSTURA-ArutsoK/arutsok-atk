@@ -2165,7 +2165,7 @@ export default function Contracts() {
     dokumentacia: "Zmluvná dokumentácia",
   };
 
-  const INTERNAL_CONTRACT_TYPES = new Set(["Interná", "Mandátna", "NDA", "Spolupráca", "Dohoda", "Protokol"]);
+  const INTERNAL_CONTRACT_TYPES = new Set(["interná", "mandátna", "nda", "spolupráca", "dohoda", "protokol"]);
 
   const { data: migrationModeMainData } = useQuery<{ value: string | null }>({
     queryKey: ["/api/system-settings", "MIGRATION_MODE"],
@@ -2487,7 +2487,7 @@ export default function Contracts() {
         });
       case "dokumentacia":
         return contractPages.filter(c => {
-          return INTERNAL_CONTRACT_TYPES.has(c.contractType || "");
+          return INTERNAL_CONTRACT_TYPES.has((c.contractType || "").toLowerCase());
         });
       default:
         return contractPages;

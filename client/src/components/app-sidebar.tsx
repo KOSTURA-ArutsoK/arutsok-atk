@@ -216,8 +216,14 @@ function CollapsibleMenu({
 }) {
   const matchesHref = (href: string) => {
     if (href.includes("?")) {
-      const [path, query] = href.split("?");
-      return location === path && window.location.search.includes(query);
+      const [path, queryString] = href.split("?");
+      if (location !== path) return false;
+      const targetParams = new URLSearchParams(queryString);
+      const currentParams = new URLSearchParams(window.location.search);
+      for (const [key, value] of targetParams.entries()) {
+        if (currentParams.get(key) !== value) return false;
+      }
+      return true;
     }
     return location === href;
   };
