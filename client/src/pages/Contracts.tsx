@@ -3626,20 +3626,6 @@ export default function Contracts() {
               <Upload className="w-3.5 h-3.5 mr-1" />
               Vybrať súbor
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const a = document.createElement("a");
-                a.href = "/api/contracts/import-template";
-                a.download = "sablona_import_zmluv.xlsx";
-                a.click();
-              }}
-              data-testid="button-download-template"
-            >
-              <Download className="w-3.5 h-3.5 mr-1" />
-              Stiahnuť šablónu
-            </Button>
             <span className="text-xs text-muted-foreground truncate max-w-[250px]" data-testid="text-selected-file">
               {importFile ? importFile.name : "Žiadny súbor"}
             </span>
@@ -3998,16 +3984,33 @@ export default function Contracts() {
         )}
 
         </DialogScrollContent>
-        <DialogFooter>
+        <DialogFooter className="flex !justify-between">
           {importStep === 1 && (
             <>
-              <Button variant="outline" onClick={() => setImportDialogOpen(false)} data-testid="button-import-cancel">
-                Zavrieť
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mr-auto text-xs"
+                onClick={() => {
+                  const a = document.createElement("a");
+                  a.href = "/api/contracts/import-template";
+                  a.download = "sablona_import_zmluv.xlsx";
+                  a.click();
+                }}
+                data-testid="button-download-template"
+              >
+                <Download className="w-3.5 h-3.5 mr-1" />
+                Stiahnuť šablónu
               </Button>
-              <Button onClick={() => setImportConfirmOpen(true)} disabled={!importFile || importLoading} data-testid="button-import-submit">
-                {importLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Importovať
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setImportDialogOpen(false)} data-testid="button-import-cancel">
+                  Zavrieť
+                </Button>
+                <Button onClick={() => setImportConfirmOpen(true)} disabled={!importFile || importLoading} data-testid="button-import-submit">
+                  {importLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Importovať
+                </Button>
+              </div>
             </>
           )}
           {importStep === 2 && (
