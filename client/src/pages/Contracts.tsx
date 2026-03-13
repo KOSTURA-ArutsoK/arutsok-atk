@@ -4449,6 +4449,26 @@ export default function Contracts() {
     setPreSelectBusinessName("");
     setPreSelectBirthNumber("");
     setPreSelectShowNameFields(false);
+    setPreSelectIcoLookup(null);
+    setPreSelectIcoLookupLoading(false);
+    setPreSelectIcoError(null);
+  };
+
+  const triggerIcoLookup = () => {
+    const val = preSelectIco.trim();
+    if (!val) { setPreSelectIcoError(null); setPreSelectIcoLookup(null); return; }
+    const result = validateSlovakICO(val);
+    if (!result.valid) { setPreSelectIcoError(result.error || "Neplatné IČO"); setPreSelectIcoLookup(null); return; }
+    setPreSelectIcoError(null);
+    if (result.normalized) setPreSelectIco(result.normalized);
+    setPreSelectIcoLookupLoading(true);
+    setPreSelectIcoLookup(null);
+    const lookupType = preSelectSubjectType === "szco" ? "szco" : "company";
+    fetch(`/api/lookup/ico/${encodeURIComponent(result.normalized || val)}?type=${lookupType}`, { credentials: "include" })
+      .then(r => r.json())
+      .then(data => { setPreSelectIcoLookup(data.found ? data : { found: false, message: data.message || "Subjekt nenájdený v štátnych registroch" }); })
+      .catch(() => setPreSelectIcoLookup({ found: false, message: "Chyba pri vyhľadávaní v registroch" }))
+      .finally(() => setPreSelectIcoLookupLoading(false));
   };
 
   const resetPreSelectDialog = () => {
@@ -5245,6 +5265,7 @@ export default function Contracts() {
                 </div>
                 <div className="space-y-1">
                   <label className={`text-xs font-medium ${preSelectIcoError ? "text-red-500" : ""}`}>IČO</label>
+                  <div className="flex gap-1.5">
                   <Input
                     ref={refIcoInput}
                     value={preSelectIco}
@@ -5252,31 +5273,27 @@ export default function Contracts() {
                     placeholder="napr. 12345678"
                     readOnly={!!preSelectSubjectId}
                     className={`font-mono ${preSelectIcoError ? "border-red-500 ring-red-500/30" : ""}`}
-                    onBlur={() => {
-                      if (preSelectSubjectId) return;
-                      const val = preSelectIco.trim();
-                      if (!val) { setPreSelectIcoError(null); setPreSelectIcoLookup(null); return; }
-                      const result = validateSlovakICO(val);
-                      if (!result.valid) { setPreSelectIcoError(result.error || "Neplatné IČO"); setPreSelectIcoLookup(null); return; }
-                      setPreSelectIcoError(null);
-                      if (result.normalized) setPreSelectIco(result.normalized);
-                      setPreSelectIcoLookupLoading(true);
-                      const lookupType = preSelectSubjectType === "szco" ? "szco" : "company";
-                      fetch(`/api/lookup/ico/${encodeURIComponent(result.normalized || val)}?type=${lookupType}`, { credentials: "include" })
-                        .then(r => r.json())
-                        .then(data => { setPreSelectIcoLookup(data.found ? data : { found: false, message: data.message || "Subjekt nenájdený v štátnych registroch" }); })
-                        .catch(() => setPreSelectIcoLookup({ found: false, message: "Chyba pri vyhľadávaní v registroch" }))
-                        .finally(() => setPreSelectIcoLookupLoading(false));
-                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        setPreSelectShowNameFields(true);
-                        setTimeout(() => focusNextEmptyRequired("ico"), 50);
+                        triggerIcoLookup();
                       }
                     }}
                     data-testid="input-preselect-ico"
                   />
+                  {!preSelectSubjectId && (
+                    <button
+                      type="button"
+                      disabled={preSelectIcoLookupLoading || !preSelectIco.trim()}
+                      onClick={() => triggerIcoLookup()}
+                      className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-xs rounded border border-border bg-muted hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      data-testid="button-preselect-ico-lookup"
+                    >
+                      {preSelectIcoLookupLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                      Register
+                    </button>
+                  )}
+                  </div>
                   {preSelectIcoError && <p className="text-[10px] text-red-500 leading-tight" data-testid="text-preselect-ico-error">{preSelectIcoError}</p>}
                   {preSelectIcoLookupLoading && (
                     <div className="flex items-center gap-2 mt-1" data-testid="text-preselect-ico-loading">
