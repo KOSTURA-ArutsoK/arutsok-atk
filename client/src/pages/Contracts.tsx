@@ -5732,7 +5732,7 @@ export default function Contracts() {
         {preSelectDialog}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-1.5">
-            <h1 className="text-2xl font-bold" data-testid="text-page-title">Spracovanie papierových zmlúv</h1>
+            <h1 className="text-2xl font-bold" data-testid="text-page-title">Spracovanie zmlúv</h1>
             <HelpIcon text="Prehled vsetkych zmluv v systeme. Zmluvy sa viazu na klientov, produkty a partnerov." side="right" />
           </div>
           <div className="flex items-center gap-2">

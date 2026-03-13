@@ -827,7 +827,7 @@ export function AppSidebar() {
                               className={`cursor-pointer ${spracovanieZmluvChildren.some(i => i.href === location) ? "text-sidebar-accent-foreground font-medium" : ""}`}
                             >
                               <ClipboardList className="w-3.5 h-3.5" />
-                              <span className="flex-1">Spracovanie papierových zmlúv</span>
+                              <span className="flex-1">Spracovanie zmlúv</span>
                               <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${zmluvySubId === "spracovanie" ? "rotate-90" : ""}`} />
                             </SidebarMenuSubButton>
                           </CollapsibleTrigger>
