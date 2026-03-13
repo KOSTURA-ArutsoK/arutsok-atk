@@ -11,6 +11,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation, useSearch } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
+import { validateSlovakICO } from "@shared/ico-validator";
 import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building2, ArrowLeftRight, Info, Download } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
@@ -2247,6 +2248,9 @@ export default function Contracts() {
   const [preSelectBusinessName, setPreSelectBusinessName] = useState("");
   const [preSelectBirthNumber, setPreSelectBirthNumber] = useState("");
   const [preSelectShowNameFields, setPreSelectShowNameFields] = useState(false);
+  const [preSelectIcoLookup, setPreSelectIcoLookup] = useState<{ found: boolean; name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; message?: string } | null>(null);
+  const [preSelectIcoLookupLoading, setPreSelectIcoLookupLoading] = useState(false);
+  const [preSelectIcoError, setPreSelectIcoError] = useState<string | null>(null);
   const [preSelectEditingContractId, setPreSelectEditingContractId] = useState<number | null>(null);
   const [preSelectFiles, setPreSelectFiles] = useState<File[]>([]);
   const [preSelectCreatedContractId, setPreSelectCreatedContractId] = useState<number | null>(null);
@@ -4469,6 +4473,9 @@ export default function Contracts() {
     setPreSelectBusinessName("");
     setPreSelectBirthNumber("");
     setPreSelectShowNameFields(false);
+    setPreSelectIcoLookup(null);
+    setPreSelectIcoLookupLoading(false);
+    setPreSelectIcoError(null);
     setPreSelectEditingContractId(null);
     setPreSelectFiles([]);
     setPreSelectCreatedContractId(null);
@@ -5216,6 +5223,7 @@ export default function Contracts() {
             </div>
 
             {(preSelectSubjectType === "szco" || preSelectSubjectType === "company") && (
+              <>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-medium">{preSelectSubjectType === "szco" ? "Nazov zivnosti" : "Nazov spolocnosti"} *</label>
@@ -5236,13 +5244,30 @@ export default function Contracts() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">ICO</label>
+                  <label className={`text-xs font-medium ${preSelectIcoError ? "text-red-500" : ""}`}>IČO</label>
                   <Input
                     ref={refIcoInput}
                     value={preSelectIco}
-                    onChange={(e) => setPreSelectIco(e.target.value)}
-                    placeholder="ICO"
+                    onChange={(e) => { setPreSelectIco(e.target.value); setPreSelectIcoError(null); setPreSelectIcoLookup(null); }}
+                    placeholder="napr. 12345678"
                     readOnly={!!preSelectSubjectId}
+                    className={`font-mono ${preSelectIcoError ? "border-red-500 ring-red-500/30" : ""}`}
+                    onBlur={() => {
+                      if (preSelectSubjectId) return;
+                      const val = preSelectIco.trim();
+                      if (!val) { setPreSelectIcoError(null); setPreSelectIcoLookup(null); return; }
+                      const result = validateSlovakICO(val);
+                      if (!result.valid) { setPreSelectIcoError(result.error || "Neplatné IČO"); setPreSelectIcoLookup(null); return; }
+                      setPreSelectIcoError(null);
+                      if (result.normalized) setPreSelectIco(result.normalized);
+                      setPreSelectIcoLookupLoading(true);
+                      const lookupType = preSelectSubjectType === "szco" ? "szco" : "company";
+                      fetch(`/api/lookup/ico/${encodeURIComponent(result.normalized || val)}?type=${lookupType}`, { credentials: "include" })
+                        .then(r => r.json())
+                        .then(data => { setPreSelectIcoLookup(data.found ? data : { found: false, message: data.message || "Subjekt nenájdený v štátnych registroch" }); })
+                        .catch(() => setPreSelectIcoLookup({ found: false, message: "Chyba pri vyhľadávaní v registroch" }))
+                        .finally(() => setPreSelectIcoLookupLoading(false));
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -5252,8 +5277,52 @@ export default function Contracts() {
                     }}
                     data-testid="input-preselect-ico"
                   />
+                  {preSelectIcoError && <p className="text-[10px] text-red-500 leading-tight" data-testid="text-preselect-ico-error">{preSelectIcoError}</p>}
+                  {preSelectIcoLookupLoading && (
+                    <div className="flex items-center gap-2 mt-1" data-testid="text-preselect-ico-loading">
+                      <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
+                      <span className="text-xs text-blue-400">Preberám údaje z registra...</span>
+                    </div>
+                  )}
                 </div>
               </div>
+              {preSelectIcoLookup?.found && (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-md p-3 space-y-2" data-testid="panel-preselect-ico-lookup">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
+                    <span className="text-xs font-semibold text-blue-400">
+                      {preSelectIcoLookup.source === "ORSR" ? "Obchodný register SR" : preSelectIcoLookup.source === "ZRSR" ? "Živnostenský register SR" : "ARES Register"}
+                    </span>
+                  </div>
+                  {preSelectIcoLookup.name && <p className="text-sm font-medium" data-testid="text-preselect-ico-lookup-name">{preSelectIcoLookup.name}</p>}
+                  {(preSelectIcoLookup.street || preSelectIcoLookup.city) && (
+                    <p className="text-xs text-muted-foreground">
+                      {[preSelectIcoLookup.street, preSelectIcoLookup.streetNumber].filter(Boolean).join(" ")}
+                      {(preSelectIcoLookup.street || preSelectIcoLookup.streetNumber) && (preSelectIcoLookup.zip || preSelectIcoLookup.city) ? ", " : ""}
+                      {[preSelectIcoLookup.zip, preSelectIcoLookup.city].filter(Boolean).join(" ")}
+                    </p>
+                  )}
+                  {preSelectIcoLookup.legalForm && (
+                    <p className="text-[10px] text-muted-foreground">{preSelectIcoLookup.legalForm}{preSelectIcoLookup.dic ? ` | DIČ: ${preSelectIcoLookup.dic}` : ""}</p>
+                  )}
+                  <button
+                    type="button"
+                    className="text-xs px-2.5 py-1.5 rounded border border-border hover:bg-muted transition-colors"
+                    onClick={() => {
+                      if (preSelectIcoLookup.name) setPreSelectBusinessName(preSelectIcoLookup.name);
+                      setPreSelectShowNameFields(true);
+                      setPreSelectIcoLookup(null);
+                    }}
+                    data-testid="button-preselect-ico-use"
+                  >
+                    Použiť údaje z registra
+                  </button>
+                </div>
+              )}
+              {preSelectIcoLookup && !preSelectIcoLookup.found && (
+                <p className="text-xs text-muted-foreground" data-testid="text-preselect-ico-not-found">{preSelectIcoLookup.message}</p>
+              )}
+              </>
             )}
 
 
