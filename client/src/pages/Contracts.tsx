@@ -2262,6 +2262,17 @@ export default function Contracts() {
   const [preSelectNewRecommenderUid, setPreSelectNewRecommenderUid] = useState("");
   const [preSelectNewRecommenderPercentage, setPreSelectNewRecommenderPercentage] = useState("");
 
+  const [quickFixOpen, setQuickFixOpen] = useState(false);
+  const [quickFixContract, setQuickFixContract] = useState<Contract | null>(null);
+  const [quickFixPartnerId, setQuickFixPartnerId] = useState("");
+  const [quickFixProductId, setQuickFixProductId] = useState("");
+  const [quickFixNumberType, setQuickFixNumberType] = useState<"proposal" | "contract" | "both">("proposal");
+  const [quickFixNumberValue, setQuickFixNumberValue] = useState("");
+  const [quickFixNumberValue2, setQuickFixNumberValue2] = useState("");
+  const [quickFixSubjectId, setQuickFixSubjectId] = useState("");
+  const [quickFixSubjectSearch, setQuickFixSubjectSearch] = useState("");
+  const [quickFixSaving, setQuickFixSaving] = useState(false);
+
   const preSelectRewardTotal = useMemo(() => {
     const specPct = parseFloat(preSelectSpecialistPercentage) || 0;
     const recPct = preSelectRecommenders.reduce((sum, r) => sum + (parseFloat(r.percentage) || 0), 0);
@@ -3301,7 +3312,7 @@ export default function Contracts() {
             } as Record<number, string>)[(contract as any).lifecyclePhase] || "[&>td]:bg-blue-500/25 hover:[&>td]:bg-blue-500/30 border-l-2 border-l-blue-500") : null;
             const rowClass = isRowSelected ? phaseSelectedClass! : isIncomplete ? "bg-red-500/15 hover:bg-red-500/20 border-l-2 border-l-red-500" : (needsNameConfirm && !isIncomplete) ? "bg-orange-500/8 hover:bg-orange-500/15 border-l-2 border-l-orange-500" : "";
             return (
-              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={rowClass} onRowClick={() => { if (needsNameConfirm && !checkboxOnly) { setNameConfirmContract(contract); setNameConfirmOpen(true); return; } if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (earlyPhase && isIncomplete) { openIncompleteEdit(contract); } else if (earlyPhase && !isIncomplete) { toggleSelect(contract.id); } else if (!isIncomplete) { toggleSelect(contract.id); } } else if (!checkboxOnly) { if (earlyPhase || isIncomplete) { openIncompleteEdit(contract); } else { openEdit(contract); } } }}>
+              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={rowClass} onRowClick={() => { if (needsNameConfirm && !checkboxOnly) { setNameConfirmContract(contract); setNameConfirmOpen(true); return; } if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (earlyPhase && isIncomplete) { openQuickFix(contract); } else if (earlyPhase && !isIncomplete) { toggleSelect(contract.id); } else if (!isIncomplete) { toggleSelect(contract.id); } } else if (!checkboxOnly) { if (isIncomplete) { openQuickFix(contract); } else if (earlyPhase) { openIncompleteEdit(contract); } else { openEdit(contract); } } }}>
                 {showCheckbox && (
                   <TableCell>
                     {isIncomplete ? (
@@ -4673,6 +4684,56 @@ export default function Contracts() {
     setPreSelectOpen(true);
   };
 
+  const openQuickFix = (contract: Contract) => {
+    setQuickFixContract(contract);
+    setQuickFixPartnerId(contract.partnerId ? String(contract.partnerId) : "");
+    setQuickFixProductId(contract.productId ? String(contract.productId) : "");
+    const hasProposal = !!(contract.proposalNumber || "").trim();
+    const hasContract2 = !!(contract.contractNumber || "").trim();
+    if (hasProposal && hasContract2) {
+      setQuickFixNumberType("both");
+      setQuickFixNumberValue(contract.proposalNumber || "");
+      setQuickFixNumberValue2(contract.contractNumber || "");
+    } else if (hasContract2) {
+      setQuickFixNumberType("contract");
+      setQuickFixNumberValue(contract.contractNumber || "");
+      setQuickFixNumberValue2("");
+    } else {
+      setQuickFixNumberType("proposal");
+      setQuickFixNumberValue(contract.proposalNumber || "");
+      setQuickFixNumberValue2("");
+    }
+    setQuickFixSubjectId(contract.subjectId ? String(contract.subjectId) : "");
+    setQuickFixSubjectSearch("");
+    setQuickFixOpen(true);
+  };
+
+  const handleQuickFixSave = async () => {
+    setQuickFixSaving(true);
+    try {
+      const contractData: Record<string, any> = {};
+      if (quickFixPartnerId) contractData.partnerId = parseInt(quickFixPartnerId);
+      if (quickFixProductId) contractData.productId = parseInt(quickFixProductId);
+      if (quickFixSubjectId) contractData.subjectId = parseInt(quickFixSubjectId);
+      if (quickFixNumberType === "proposal" && quickFixNumberValue.trim()) {
+        contractData.proposalNumber = quickFixNumberValue.trim();
+      } else if (quickFixNumberType === "contract" && quickFixNumberValue.trim()) {
+        contractData.contractNumber = quickFixNumberValue.trim();
+      } else if (quickFixNumberType === "both") {
+        if (quickFixNumberValue.trim()) contractData.proposalNumber = quickFixNumberValue.trim();
+        if (quickFixNumberValue2.trim()) contractData.contractNumber = quickFixNumberValue2.trim();
+      }
+      await apiRequest("PATCH", `/api/contracts/${quickFixContract!.id}`, contractData);
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      toast({ title: "Uložené", description: "Zmluva bola aktualizovaná" });
+      setQuickFixOpen(false);
+    } catch (err: any) {
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa uložiť", variant: "destructive" });
+    } finally {
+      setQuickFixSaving(false);
+    }
+  };
+
   const openIncompleteEdit = (contract: Contract) => {
     setPreSelectEditingContractId(contract.id);
     setPreSelectStep(1);
@@ -5756,10 +5817,140 @@ export default function Contracts() {
   const { sortedData: sortedArchived, sortKey: skArch, sortDirection: sdArch, requestSort: rsArch } = useTableSort(archivedFilter.filteredData);
   const { sortedData: sortedMain, sortKey: skMain, sortDirection: sdMain, requestSort: rsMain } = useTableSort(mainFilter.filteredData);
 
-  if (isEvidencia) {
+  const quickFixMissingFields = (quickFixContract?.incompleteDataReason || "").replace(/^Chýba:\s*/, "").split(",").map((f: string) => f.trim().toLowerCase());
+  const qfMissing = (field: string) => quickFixMissingFields.some((f: string) => f.includes(field));
+  const quickFixFilteredSubjects = !subjects ? [] : subjects.filter(s => {
+    const q = quickFixSubjectSearch.toLowerCase().trim();
+    if (!q) return true;
+    const fullName = s.type === "company" ? (s.companyName || "") : `${s.firstName || ""} ${s.lastName || ""}`.trim();
+    return fullName.toLowerCase().includes(q) || (s.birthNumber || "").includes(q) || ((s.details as any)?.ico || "").includes(q) || (s.uid || "").toLowerCase().includes(q);
+  }).slice(0, 8);
+  const quickFixSelectedSubject = quickFixSubjectId ? subjects?.find(s => String(s.id) === quickFixSubjectId) : null;
+  const quickFixPartnerProducts = quickFixPartnerId ? (products || []).filter(p => p.partnerId === parseInt(quickFixPartnerId)) : (products || []);
 
+  const quickFixDialog = (
+      <Dialog open={quickFixOpen} onOpenChange={(open) => { if (!open) setQuickFixOpen(false); }}>
+        <DialogContent size="md" data-testid="dialog-quick-fix-contract">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-500" />
+              Doplniť neúplnú zmluvu
+            </DialogTitle>
+            {quickFixContract?.incompleteDataReason && (
+              <p className="text-xs text-red-400 mt-1">{quickFixContract.incompleteDataReason}</p>
+            )}
+          </DialogHeader>
+          <div className="px-6 pb-6 space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className={`space-y-1 ${qfMissing("partner") ? "ring-1 ring-red-500/50 rounded p-2 -m-2" : ""}`}>
+                <label className="text-xs font-medium text-muted-foreground">Partner {qfMissing("partner") && <span className="text-red-400">*</span>}</label>
+                <Select value={quickFixPartnerId} onValueChange={v => { setQuickFixPartnerId(v); setQuickFixProductId(""); }}>
+                  <SelectTrigger className="h-8 text-sm" data-testid="select-qf-partner">
+                    <SelectValue placeholder="Vyber partnera" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(partners || []).map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className={`space-y-1 ${qfMissing("produkt") ? "ring-1 ring-red-500/50 rounded p-2 -m-2" : ""}`}>
+                <label className="text-xs font-medium text-muted-foreground">Produkt {qfMissing("produkt") && <span className="text-red-400">*</span>}</label>
+                <Select value={quickFixProductId} onValueChange={setQuickFixProductId}>
+                  <SelectTrigger className="h-8 text-sm" data-testid="select-qf-product">
+                    <SelectValue placeholder="Vyber produkt" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {quickFixPartnerProducts.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className={`space-y-2 ${qfMissing("číslo") ? "ring-1 ring-red-500/50 rounded p-2 -m-2" : ""}`}>
+              <div className="flex items-center gap-3">
+                <label className="text-xs font-medium text-muted-foreground">Typ čísla {qfMissing("číslo") && <span className="text-red-400">*</span>}</label>
+                <div className="flex gap-3 text-xs">
+                  {(["proposal", "contract", "both"] as const).map(t => (
+                    <label key={t} className="flex items-center gap-1 cursor-pointer">
+                      <input type="radio" name="qf-numtype" checked={quickFixNumberType === t} onChange={() => setQuickFixNumberType(t)} className="accent-primary" />
+                      {t === "proposal" ? "Návrhu" : t === "contract" ? "Zmluvy" : "Obe"}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  className="h-8 text-sm font-mono"
+                  placeholder={quickFixNumberType === "contract" ? "Číslo zmluvy" : "Číslo návrhu"}
+                  value={quickFixNumberValue}
+                  onChange={e => setQuickFixNumberValue(e.target.value)}
+                  data-testid="input-qf-number1"
+                />
+                {quickFixNumberType === "both" && (
+                  <Input
+                    className="h-8 text-sm font-mono"
+                    placeholder="Číslo zmluvy"
+                    value={quickFixNumberValue2}
+                    onChange={e => setQuickFixNumberValue2(e.target.value)}
+                    data-testid="input-qf-number2"
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className={`space-y-2 ${qfMissing("klient") ? "ring-1 ring-red-500/50 rounded p-2 -m-2" : ""}`}>
+              <label className="text-xs font-medium text-muted-foreground">Klient {qfMissing("klient") && <span className="text-red-400">*</span>}</label>
+              {quickFixSelectedSubject && (
+                <div className="flex items-center gap-2 p-2 rounded border bg-muted/30 text-sm">
+                  <span className="flex-1">{quickFixSelectedSubject.type === "company" ? quickFixSelectedSubject.companyName : `${quickFixSelectedSubject.firstName || ""} ${quickFixSelectedSubject.lastName || ""}`.trim()}</span>
+                  <button onClick={() => { setQuickFixSubjectId(""); setQuickFixSubjectSearch(""); }} className="text-muted-foreground hover:text-foreground text-xs" data-testid="button-qf-clear-subject">✕</button>
+                </div>
+              )}
+              {!quickFixSelectedSubject && (
+                <>
+                  <Input
+                    className="h-8 text-sm"
+                    placeholder="Hľadaj podľa mena, RČ, IČO..."
+                    value={quickFixSubjectSearch}
+                    onChange={e => setQuickFixSubjectSearch(e.target.value)}
+                    data-testid="input-qf-subject-search"
+                  />
+                  {quickFixSubjectSearch.trim() && (
+                    <div className="border rounded divide-y max-h-40 overflow-y-auto">
+                      {quickFixFilteredSubjects.length === 0 ? (
+                        <p className="text-xs text-muted-foreground px-2 py-2">Žiadne výsledky</p>
+                      ) : quickFixFilteredSubjects.map(s => {
+                        const name = s.type === "company" ? (s.companyName || "—") : `${s.firstName || ""} ${s.lastName || ""}`.trim() || "—";
+                        return (
+                          <button key={s.id} className="w-full text-left px-2 py-1.5 text-sm hover:bg-muted/50 flex items-center gap-2" onClick={() => { setQuickFixSubjectId(String(s.id)); setQuickFixSubjectSearch(""); }} data-testid={`button-qf-subject-${s.id}`}>
+                            <Badge variant="outline" className="text-[9px] shrink-0">{s.type === "person" ? "FO" : s.type === "szco" ? "SZČO" : "PO"}</Badge>
+                            <span>{name}</span>
+                            <span className="text-muted-foreground text-xs ml-auto">{s.birthNumber || (s.details as any)?.ico || ""}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="flex justify-between pt-2">
+              <Button variant="outline" size="sm" onClick={() => setQuickFixOpen(false)} data-testid="button-qf-cancel">Zrušiť</Button>
+              <Button size="sm" onClick={handleQuickFixSave} disabled={quickFixSaving} data-testid="button-qf-save">
+                {quickFixSaving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Check className="w-3.5 h-3.5 mr-1.5" />}
+                Uložiť zmeny
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+  );
+
+  if (isEvidencia) {
     return (
       <div className="p-6 space-y-4">
+        {quickFixDialog}
         {preSelectDialog}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-1.5">
@@ -6682,6 +6873,7 @@ export default function Contracts() {
 
   return (
     <div className="p-6 space-y-6">
+      {quickFixDialog}
       {preSelectDialog}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-1.5">
