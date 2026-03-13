@@ -5310,6 +5310,28 @@ export default function Contracts() {
                     className="text-xs px-2.5 py-1.5 rounded border border-border hover:bg-muted transition-colors"
                     onClick={() => {
                       if (preSelectIcoLookup.name) setPreSelectBusinessName(preSelectIcoLookup.name);
+                      if (preSelectSubjectType === "szco" && preSelectIcoLookup.name) {
+                        const TITLES = ["Ing.", "Mgr.", "MUDr.", "JUDr.", "RNDr.", "PhDr.", "Bc.", "PhD.", "MVDr.", "Doc.", "Prof.", "Ing.arch.", "PaedDr.", "ThDr.", "ThMgr.", "ThLic."];
+                        let raw = preSelectIcoLookup.name.trim();
+                        const dashIdx = raw.search(/\s[-–]\s/);
+                        if (dashIdx > 0) raw = raw.slice(0, dashIdx).trim();
+                        let titleBefore = "";
+                        for (const t of TITLES) {
+                          if (raw.toUpperCase().startsWith(t.toUpperCase())) {
+                            titleBefore = t;
+                            raw = raw.slice(t.length).trim();
+                            break;
+                          }
+                        }
+                        const parts = raw.split(/\s+/);
+                        if (parts.length >= 2) {
+                          if (titleBefore) setPreSelectTitleBefore(titleBefore);
+                          setPreSelectFirstName(parts[0]);
+                          setPreSelectLastName(parts.slice(1).join(" "));
+                        } else if (parts.length === 1 && parts[0]) {
+                          setPreSelectLastName(parts[0]);
+                        }
+                      }
                       setPreSelectShowNameFields(true);
                       setPreSelectIcoLookup(null);
                     }}
