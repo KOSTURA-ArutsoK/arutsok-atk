@@ -4567,7 +4567,14 @@ export class DatabaseStorage implements IStorage {
       ));
 
     if (existing.length > 0) {
-      return existing[0];
+      const current = existing[0];
+      const newCount = (current.confirmationCount || 0) + 1;
+      const newStatus = newCount >= 5 ? "confirmed" : "learning";
+      const [updated] = await db.update(parameterSynonyms)
+        .set({ confirmationCount: newCount, status: newStatus })
+        .where(eq(parameterSynonyms.id, current.id))
+        .returning();
+      return updated;
     }
 
     const [created] = await db.insert(parameterSynonyms).values({
