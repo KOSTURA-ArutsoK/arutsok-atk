@@ -393,6 +393,7 @@ export interface IStorage {
 
   // Contracts
   getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<Contract[]>;
+  getContractNumbers(companyId?: number): Promise<{ proposalNumbers: Set<string>; contractNumbers: Set<string> }>;
   getContractsPaginated(filters?: { stateId?: number; statusId?: number; statusIds?: number[]; needsManualVerification?: boolean; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<{ data: Contract[]; total: number }>;
   getDispatchedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
   getSystemContractStatus(): Promise<ContractStatus | undefined>;
@@ -2665,6 +2666,18 @@ export class DatabaseStorage implements IStorage {
       return await db.select().from(contracts).where(and(...conditions)).orderBy(sql`${contracts.createdAt} DESC`);
     }
     return await db.select().from(contracts).orderBy(sql`${contracts.createdAt} DESC`);
+  }
+
+  async getContractNumbers(companyId?: number): Promise<{ proposalNumbers: Set<string>; contractNumbers: Set<string> }> {
+    const conditions = [eq(contracts.isDeleted, false)];
+    if (companyId) conditions.push(eq(contracts.companyId, companyId));
+    const rows = await db
+      .select({ proposalNumber: contracts.proposalNumber, contractNumber: contracts.contractNumber })
+      .from(contracts)
+      .where(and(...conditions));
+    const proposalNumbers = new Set<string>(rows.filter(r => r.proposalNumber).map(r => r.proposalNumber!.trim()));
+    const contractNumbers = new Set<string>(rows.filter(r => r.contractNumber).map(r => r.contractNumber!.trim()));
+    return { proposalNumbers, contractNumbers };
   }
 
   async getContractsPaginated(filters?: { stateId?: number; statusId?: number; statusIds?: number[]; needsManualVerification?: boolean; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<{ data: Contract[]; total: number }> {

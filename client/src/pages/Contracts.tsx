@@ -2358,7 +2358,7 @@ export default function Contracts() {
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importResult, setImportResult] = useState<{ total: number; success: number; errors: number; created?: number; updated?: number; warnings?: number; incomplete?: number; nameConfirmationNeeded?: number; duplicityWarnings?: any[]; details: any[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ total: number; success: number; errors: number; duplicates?: number; created?: number; updated?: number; warnings?: number; incomplete?: number; nameConfirmationNeeded?: number; duplicityWarnings?: any[]; details: any[] } | null>(null);
   const [importSummaryOpen, setImportSummaryOpen] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
@@ -4217,6 +4217,12 @@ export default function Contracts() {
                   <p className="text-[11px] text-muted-foreground">Odmietnutých</p>
                 </div>
               )}
+              {(importResult.duplicates || 0) > 0 && (
+                <div className="text-center px-4 py-2 rounded border border-yellow-500/30 bg-yellow-500/5">
+                  <p className="text-2xl font-bold text-yellow-500" data-testid="text-summary-duplicates">{importResult.duplicates}</p>
+                  <p className="text-[11px] text-muted-foreground">Duplikátov</p>
+                </div>
+              )}
               {(importResult.nameConfirmationNeeded || 0) > 0 && (
                 <div className="text-center px-4 py-2 rounded border border-orange-500/30 bg-orange-500/5">
                   <p className="text-2xl font-bold text-orange-500" data-testid="text-summary-name-confirm">{importResult.nameConfirmationNeeded}</p>
@@ -4234,6 +4240,14 @@ export default function Contracts() {
                 <p className="text-xs text-red-400 flex items-center gap-1">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                   <span className="font-semibold">Odmietnuté riadky — chýbajú povinné údaje. Opravte Excel a importujte znova.</span>
+                </p>
+              </div>
+            )}
+            {(importResult.duplicates || 0) > 0 && (
+              <div className="border border-yellow-500/30 rounded p-2 bg-yellow-500/5">
+                <p className="text-xs text-yellow-500 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span className="font-semibold">Duplikáty preskočené — zmluvy s týmito číslami návrhu/zmluvy už existujú v systéme.</span>
                 </p>
               </div>
             )}
@@ -4278,14 +4292,17 @@ export default function Contracts() {
                       const rd = row.rawData || {};
                       const isErr = row.status === "error";
                       const isInc = row.status === "incomplete";
+                      const isDup = row.status === "duplicate";
                       return (
-                        <TableRow key={i} className={isErr ? "bg-destructive/5" : isInc ? "bg-red-500/5" : ""} data-testid={`row-import-result-${i}`}>
+                        <TableRow key={i} className={isErr ? "bg-destructive/5" : isInc ? "bg-red-500/5" : isDup ? "bg-yellow-500/5" : ""} data-testid={`row-import-result-${i}`}>
                           <TableCell className="text-xs text-muted-foreground sticky left-0 bg-inherit">{row.row ?? i + 2}</TableCell>
                           <TableCell className="sticky left-8 bg-inherit">
                             {isErr ? (
                               <span title={row.error}><XCircle className="w-4 h-4 text-destructive" /></span>
                             ) : isInc ? (
                               <span title={row.incompleteFields?.join(", ")}><AlertTriangle className="w-4 h-4 text-red-500" /></span>
+                            ) : isDup ? (
+                              <span title={`Duplikát: ${row.duplicateNumber}`}><AlertTriangle className="w-4 h-4 text-yellow-500" /></span>
                             ) : (
                               <Check className="w-4 h-4 text-green-500" />
                             )}

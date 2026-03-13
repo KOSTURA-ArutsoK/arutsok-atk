@@ -5650,9 +5650,13 @@ export async function registerRoutes(
       const allPartners = await storage.getPartners();
       const allProducts = await storage.getProducts();
 
-      const results: { row: number; status: string; action?: string; contractId?: number; subjectId?: number; warnings?: string[]; error?: string; incompleteFields?: string[] }[] = [];
+      // Preload existing contract/proposal numbers for duplicate detection (lean query)
+      const { proposalNumbers: existingProposalNumbers, contractNumbers: existingContractNumbers } = await storage.getContractNumbers(appUser?.activeCompanyId || undefined);
+
+      const results: { row: number; status: string; action?: string; contractId?: number; subjectId?: number; warnings?: string[]; error?: string; incompleteFields?: string[]; duplicateNumber?: string }[] = [];
       const batchId = req.body?.batchId || `IMPORT-${Date.now()}`;
       let incompleteCount = 0;
+      let duplicateCount = 0;
 
       for (let i = 0; i < rawRows.length; i++) {
         const rowData = rawRows[i];
@@ -5701,6 +5705,30 @@ export async function registerRoutes(
 
           const cisloNavrhu = rowData["cislo_navrhu"] || rowData["proposal_number"] || null;
           const cisloZmluvy = rowData["cislo_zmluvy"] || rowData["contract_number"] || null;
+
+          // Duplicate check — skip row if contract/proposal number already exists
+          const pnTrim = cisloNavrhu?.trim();
+          const cnTrim = cisloZmluvy?.trim();
+          const duplicateNumber = (pnTrim && existingProposalNumbers.has(pnTrim)) ? pnTrim : (cnTrim && existingContractNumbers.has(cnTrim)) ? cnTrim : null;
+          if (duplicateNumber) {
+            duplicateCount++;
+            results.push({
+              row: rowNum,
+              status: "duplicate",
+              duplicateNumber,
+              rawData: {
+                partner: rowData["partner"] || rowData["partner_name"] || null,
+                produkt: rowData["produkt"] || rowData["product"] || rowData["product_name"] || null,
+                cislo_navrhu: cisloNavrhu,
+                cislo_zmluvy: cisloZmluvy,
+                typ_subjektu: rowData["typ_subjektu"] || rowData["typ"] || rowData["subject_type"] || null,
+                rc_ico: rowData["rc_ico"] || rowData["rodne_cislo"] || rowData["rc"] || rowData["ico"] || rowData["birth_number"] || null,
+                meno: rowData["meno"] || rowData["first_name"] || null,
+                priezvisko: rowData["priezvisko"] || rowData["last_name"] || null,
+              } as any,
+            });
+            continue;
+          }
 
           const specialistaUid = rowData["specialista"] || rowData["specialist"] || rowData["specialista_uid"] || null;
           const specialistaPodiel = rowData["specialista_podiel"] || rowData["specialist_percentage"] || rowData["specialista_pct"] || rowData["specialista_%"] || null;
@@ -5893,8 +5921,8 @@ export async function registerRoutes(
       await logAudit(req, {
         action: "IMPORT",
         module: "zmluvy",
-        entityName: `Import ${fileName}: ${successCount} úspešných, ${savedIncompleteCount} neúplných, ${errorCount} chýb`,
-        newData: { successCount, savedIncompleteCount, errorCount, total: results.length },
+        entityName: `Import ${fileName}: ${successCount} úspešných, ${savedIncompleteCount} neúplných, ${errorCount} chýb, ${duplicateCount} duplicít`,
+        newData: { successCount, savedIncompleteCount, errorCount, duplicateCount, total: results.length },
       });
 
       res.json({
@@ -5902,6 +5930,7 @@ export async function registerRoutes(
         success: successCount,
         errors: errorCount,
         incomplete: incompleteCount,
+        duplicates: duplicateCount,
         details: results,
       });
     } catch (err: any) {
