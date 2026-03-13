@@ -3312,7 +3312,7 @@ export default function Contracts() {
             } as Record<number, string>)[(contract as any).lifecyclePhase] || "[&>td]:bg-blue-500/25 hover:[&>td]:bg-blue-500/30 border-l-2 border-l-blue-500") : null;
             const rowClass = isRowSelected ? phaseSelectedClass! : isIncomplete ? "bg-red-500/15 hover:bg-red-500/20 border-l-2 border-l-red-500" : (needsNameConfirm && !isIncomplete) ? "bg-orange-500/8 hover:bg-orange-500/15 border-l-2 border-l-orange-500" : "";
             return (
-              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={rowClass} onRowClick={() => { if (needsNameConfirm && !checkboxOnly) { setNameConfirmContract(contract); setNameConfirmOpen(true); return; } if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (earlyPhase && isIncomplete) { openQuickFix(contract); } else if (earlyPhase && !isIncomplete) { toggleSelect(contract.id); } else if (!isIncomplete) { toggleSelect(contract.id); } } else if (!checkboxOnly) { if (isIncomplete) { openQuickFix(contract); } else if (earlyPhase) { openIncompleteEdit(contract); } else { openEdit(contract); } } }}>
+              <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={rowClass} onRowClick={() => { if (needsNameConfirm && !checkboxOnly) { setNameConfirmContract(contract); setNameConfirmOpen(true); return; } if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (earlyPhase && isIncomplete) { openIncompleteEdit(contract); } else if (earlyPhase && !isIncomplete) { toggleSelect(contract.id); } else if (!isIncomplete) { toggleSelect(contract.id); } } else if (!checkboxOnly) { if (earlyPhase || isIncomplete) { openIncompleteEdit(contract); } else { openEdit(contract); } } }}>
                 {showCheckbox && (
                   <TableCell>
                     {isIncomplete ? (
@@ -4734,9 +4734,13 @@ export default function Contracts() {
     }
   };
 
-  const openIncompleteEdit = (contract: Contract) => {
+  const openIncompleteEdit = (contract: Contract, forceStep?: 1 | 2 | 3 | 4) => {
     setPreSelectEditingContractId(contract.id);
-    setPreSelectStep(1);
+
+    const step1Ok = !!(contract.partnerId) && !!(contract.productId) && !!(((contract.proposalNumber || "").trim()) || ((contract.contractNumber || "").trim()));
+    const step2Ok = !!(contract.subjectId);
+    const startStep: 1 | 2 | 3 | 4 = forceStep ?? (!step1Ok ? 1 : !step2Ok ? 2 : 3);
+    setPreSelectStep(startStep);
     setPreSelectSaving(false);
     setPreSelectShowNameFields(false);
 
