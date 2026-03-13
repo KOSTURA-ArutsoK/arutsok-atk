@@ -5821,7 +5821,7 @@ export async function registerRoutes(
             if (subjectType === "company") {
               ico = rcIcoRaw;
             } else if (subjectType === "szco") {
-              if (cleaned.length === 8 && /^\d+$/.test(cleaned)) ico = rcIcoRaw;
+              if (cleaned.length <= 8 && /^\d+$/.test(cleaned)) ico = rcIcoRaw;
               else rc = rcIcoRaw;
             } else {
               rc = rcIcoRaw;
