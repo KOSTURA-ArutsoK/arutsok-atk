@@ -200,6 +200,7 @@ function CollapsibleMenu({
   icon: Icon,
   items,
   location,
+  searchString,
   testId,
   menuId,
   openMenuId,
