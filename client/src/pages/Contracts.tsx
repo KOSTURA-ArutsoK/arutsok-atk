@@ -3251,10 +3251,27 @@ export default function Contracts() {
             <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>
             <TableHead sortKey="productId" sortDirection={sk === "productId" ? sd : null} onSort={rs}>Produkt</TableHead>
             <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs}>Číslo návrhu zmluvy</TableHead>
-            {earlyPhase && <TableHead>Číslo zmluvy</TableHead>}
+            {earlyPhase && <TableHead className="whitespace-nowrap text-xs">D: Číslo zmluvy</TableHead>}
             {!earlyPhase && !hideContractNumbers && <TableHead>Číslo zmluvy</TableHead>}
-            <TableHead>Typ subjektu</TableHead>
-            <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Subjekt</TableHead>
+            <TableHead className="whitespace-nowrap text-xs">{earlyPhase ? "E: " : ""}Typ subjektu</TableHead>
+            {earlyPhase ? (
+              <>
+                <TableHead className="whitespace-nowrap text-xs">F: RČ / IČO</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">G: Názov firmy</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">H: Titul pred</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">I: Meno</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">J: Priezvisko</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">K: Titul za</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">L: Špecialist UID</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">M: Špecialist %</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">N: Odporúčateľ 1 UID</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">O: Odporúčateľ 1 %</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">P: Odporúčateľ 2 UID</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">Q: Odporúčateľ 2 %</TableHead>
+              </>
+            ) : (
+              <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Subjekt</TableHead>
+            )}
             <TableHead className="text-center w-[60px]">🗂️</TableHead>
             {showTimer && <TableHead>Zostáva dní</TableHead>}
             {showActions && <TableHead className="text-right">Akcie</TableHead>}
@@ -3345,45 +3362,83 @@ export default function Contracts() {
                     )}
                   </span>
                 </TableCell>
-                {earlyPhase && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-insurancenumber-${contract.id}`}>{contract.insuranceContractNumber || "—"}</TableCell>}
+                {earlyPhase && <TableCell className="text-xs font-mono py-1" data-testid={`text-contract-insurancenumber-${contract.id}`}>{contract.insuranceContractNumber || "—"}</TableCell>}
                 {!earlyPhase && !hideContractNumbers && <TableCell className="text-sm font-mono py-1" data-testid={`text-contract-insurancenumber-${contract.id}`}>{contract.insuranceContractNumber || "—"}</TableCell>}
                 <TableCell className="text-sm py-1">
                   <Badge variant="outline" className={`text-[10px] ${subjectType === "FO" ? "border-blue-500/50 text-blue-400" : subjectType === "SZČO" ? "border-amber-500/50 text-amber-400" : subjectType === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground"}`}>{subjectType}</Badge>
                 </TableCell>
-                <TableCell className="text-sm py-1" data-testid={`text-subject-name-${contract.id}`}>
-                  <span className="flex items-center gap-1 flex-wrap">
-                    <span>{subjectFullName}</span>
-                    {earlyPhase && (() => {
-                      const rcIco = sub ? (sub.type === "person" ? sub.birthNumber : sub.type === "szco" ? ((contract as any).szcoIco || sub.birthNumber) : (sub as any).ico) : null;
-                      return rcIco ? <span className="text-[10px] font-mono text-muted-foreground" data-testid={`text-subject-rcico-${contract.id}`}>{rcIco}</span> : null;
-                    })()}
-                    {isIncomplete && (fieldMissing("meno") || fieldMissing("priezvisko") || fieldMissing("rodné") || fieldMissing("ičo") || fieldMissing("názov firmy")) && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-[250px] text-xs">
-                          <p className="font-semibold text-red-400">Neúplné údaje subjektu</p>
-                          <p>{incompleteFields.filter((f: string) => f.includes("meno") || f.includes("priezvisko") || f.includes("rodné") || f.includes("ičo") || f.includes("názov firmy")).join(", ")}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                    {needsNameConfirm && !isIncomplete && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-orange-500/40 bg-orange-500/10 text-orange-400 text-[10px] font-semibold whitespace-nowrap cursor-pointer" data-testid={`badge-name-confirm-${contract.id}`}>
-                            <AlertTriangle className="w-3 h-3 mr-0.5 shrink-0" />
-                            Sporné meno
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-[250px] text-xs">
-                          <p className="font-semibold text-orange-400">Vyžaduje potvrdenie mena</p>
-                          <p>Kliknite na riadok pre prehodenie alebo potvrdenie mena a priezviska.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                  </span>
-                </TableCell>
+                {earlyPhase ? (() => {
+                  const raw = (contract as any).importedRawData || {};
+                  const rcIco = sub ? (sub.type === "person" ? sub.birthNumber : sub.type === "szco" ? ((contract as any).szcoIco || sub.birthNumber) : (sub as any).ico) : (raw.rc_ico || null);
+                  const nazovFirmy = sub?.companyName || raw.nazov_firmy || null;
+                  const titulPred = sub?.titleBefore || raw.titul_pred || null;
+                  const meno = sub?.firstName || raw.meno || null;
+                  const priezvisko = sub?.lastName || raw.priezvisko || null;
+                  const titulZa = sub?.titleAfter || raw.titul_za || null;
+                  return (
+                    <>
+                      <TableCell className="text-xs font-mono py-1 whitespace-nowrap" data-testid={`text-subject-rcico-${contract.id}`}>
+                        <span className="flex items-center gap-1">
+                          {rcIco || <span className="text-muted-foreground/40">—</span>}
+                          {isIncomplete && (fieldMissing("rodné") || fieldMissing("ičo")) && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba RČ / IČO</TooltipContent></Tooltip>}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs py-1 max-w-[120px] truncate" title={nazovFirmy || ""}>{nazovFirmy || <span className="text-muted-foreground/40">—</span>}</TableCell>
+                      <TableCell className="text-xs py-1">{titulPred || <span className="text-muted-foreground/40">—</span>}</TableCell>
+                      <TableCell className="text-xs py-1" data-testid={`text-subject-firstname-${contract.id}`}>
+                        <span className="flex items-center gap-1">
+                          {meno || <span className="text-muted-foreground/40">—</span>}
+                          {isIncomplete && fieldMissing("meno") && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Meno</TooltipContent></Tooltip>}
+                          {needsNameConfirm && !isIncomplete && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-orange-400 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Sporné meno — kliknite pre potvrdenie</TooltipContent></Tooltip>}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs py-1" data-testid={`text-subject-lastname-${contract.id}`}>
+                        <span className="flex items-center gap-1">
+                          {priezvisko || <span className="text-muted-foreground/40">—</span>}
+                          {isIncomplete && fieldMissing("priezvisko") && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Priezvisko</TooltipContent></Tooltip>}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs py-1">{titulZa || <span className="text-muted-foreground/40">—</span>}</TableCell>
+                      <TableCell className="text-xs font-mono py-1 text-muted-foreground whitespace-nowrap">{raw.specialista || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                      <TableCell className="text-xs py-1 text-right">{raw.specialista_podiel != null && raw.specialista_podiel !== "" ? `${raw.specialista_podiel}%` : <span className="text-muted-foreground/30">—</span>}</TableCell>
+                      <TableCell className="text-xs font-mono py-1 text-muted-foreground whitespace-nowrap">{raw.odporucitel || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                      <TableCell className="text-xs py-1 text-right">{raw.odporucitel_podiel != null && raw.odporucitel_podiel !== "" ? `${raw.odporucitel_podiel}%` : <span className="text-muted-foreground/30">—</span>}</TableCell>
+                      <TableCell className="text-xs font-mono py-1 text-muted-foreground whitespace-nowrap">{raw.odporucitel2 || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                      <TableCell className="text-xs py-1 text-right">{raw.odporucitel2_podiel != null && raw.odporucitel2_podiel !== "" ? `${raw.odporucitel2_podiel}%` : <span className="text-muted-foreground/30">—</span>}</TableCell>
+                    </>
+                  );
+                })() : (
+                  <TableCell className="text-sm py-1" data-testid={`text-subject-name-${contract.id}`}>
+                    <span className="flex items-center gap-1 flex-wrap">
+                      <span>{subjectFullName}</span>
+                      {isIncomplete && (fieldMissing("meno") || fieldMissing("priezvisko") || fieldMissing("rodné") || fieldMissing("ičo") || fieldMissing("názov firmy")) && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[250px] text-xs">
+                            <p className="font-semibold text-red-400">Neúplné údaje subjektu</p>
+                            <p>{incompleteFields.filter((f: string) => f.includes("meno") || f.includes("priezvisko") || f.includes("rodné") || f.includes("ičo") || f.includes("názov firmy")).join(", ")}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {needsNameConfirm && !isIncomplete && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-orange-500/40 bg-orange-500/10 text-orange-400 text-[10px] font-semibold whitespace-nowrap cursor-pointer" data-testid={`badge-name-confirm-${contract.id}`}>
+                              <AlertTriangle className="w-3 h-3 mr-0.5 shrink-0" />
+                              Sporné meno
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[250px] text-xs">
+                            <p className="font-semibold text-orange-400">Vyžaduje potvrdenie mena</p>
+                            <p>Kliknite na riadok pre prehodenie alebo potvrdenie mena a priezviska.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </span>
+                  </TableCell>
+                )}
                 {Array.isArray(contract.documents) && contract.documents.length > 0 && (
                   <TableCell className="py-1 text-center" data-testid={`text-docs-count-${contract.id}`}>
                     <span className="inline-flex items-center gap-1">
