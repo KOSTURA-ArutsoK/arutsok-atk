@@ -17,25 +17,8 @@ export function validateSlovakRC(rc: string | null | undefined): RCValidationRes
   }
 
   const yy = parseInt(cleaned.substring(0, 2), 10);
-  let mm = parseInt(cleaned.substring(2, 4), 10);
+  const rawMM = parseInt(cleaned.substring(2, 4), 10);
   const dd = parseInt(cleaned.substring(4, 6), 10);
-
-  let gender: "M" | "F" = "M";
-
-  if (mm > 70) {
-    mm -= 70;
-    gender = "F";
-  } else if (mm > 50) {
-    mm -= 50;
-    gender = "F";
-  } else if (mm > 20) {
-    mm -= 20;
-    gender = "M";
-  }
-
-  if (mm < 1 || mm > 12) {
-    return { valid: false, error: `Neplatný mesiac v RČ (${cleaned.substring(2, 4)})` };
-  }
 
   let year: number;
   if (cleaned.length === 9) {
@@ -49,6 +32,30 @@ export function validateSlovakRC(rc: string | null | undefined): RCValidationRes
     } else {
       year = 2000 + yy;
     }
+  }
+
+  let mm = rawMM;
+  let gender: "M" | "F" = "M";
+
+  if (mm > 70) {
+    if (year < 2004) {
+      return { valid: false, error: `Mesiac +70 (${rawMM}) je povolený len od roku 2004` };
+    }
+    mm -= 70;
+    gender = "F";
+  } else if (mm > 50) {
+    mm -= 50;
+    gender = "F";
+  } else if (mm > 20) {
+    if (year < 2004) {
+      return { valid: false, error: `Mesiac +20 (${rawMM}) je povolený len od roku 2004` };
+    }
+    mm -= 20;
+    gender = "M";
+  }
+
+  if (mm < 1 || mm > 12) {
+    return { valid: false, error: `Neplatný mesiac v RČ (${cleaned.substring(2, 4)})` };
   }
 
   const testDate = new Date(year, mm - 1, dd);

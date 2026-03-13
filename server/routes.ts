@@ -2012,6 +2012,13 @@ export async function registerRoutes(
     try {
       const input = api.subjects.create.input.parse(req.body);
 
+      if (input.birthNumber && (input.type === "person" || input.type === "szco")) {
+        const rcResult = validateSlovakRC(input.birthNumber);
+        if (!rcResult.valid) {
+          return res.status(400).json({ message: `Neplatné rodné číslo: ${rcResult.error}` });
+        }
+      }
+
       if (input.birthNumber || (input as any).szcoIco) {
         const dupCheck = await storage.checkDuplicateSubject({ birthNumber: input.birthNumber || undefined, ico: (input as any).szcoIco || undefined });
         if (dupCheck) {
@@ -2095,6 +2102,10 @@ export async function registerRoutes(
       }
 
       if (input.birthNumber) {
+        const rcResult = validateSlovakRC(input.birthNumber);
+        if (!rcResult.valid) {
+          return res.status(400).json({ message: `Neplatné rodné číslo: ${rcResult.error}` });
+        }
         input.birthNumber = encryptField(input.birthNumber);
       }
 

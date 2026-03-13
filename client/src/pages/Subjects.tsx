@@ -1893,15 +1893,17 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
 }) {
   const [nameWarning, setNameWarning] = useState<string | null>(null);
   const [titleWarning, setTitleWarning] = useState<string | null>(null);
+  const [rcFieldError, setRcFieldError] = useState<string | null>(null);
 
   const isNameField = field.fieldKey === "meno" || field.fieldKey === "priezvisko";
   const isTitleField = field.fieldKey === "titul_pred" || field.fieldKey === "titul_za";
+  const isRcField = field.fieldKey === "rodne_cislo" || field.fieldKey === "zi_rodne_cislo";
 
   const numberFieldValidity = useMemo(() => {
     return isNumberFieldWithExpiredPair(field.fieldKey, dynamicValues);
   }, [field.fieldKey, dynamicValues]);
   const isExpiredNumber = numberFieldValidity?.status === "expired";
-  const errorBorder = hasError ? "border-red-500 ring-1 ring-red-500" : isExpiredNumber ? "border-red-500/60 bg-red-500/10 ring-1 ring-red-500/30" : titleWarning ? "border-amber-500 ring-1 ring-amber-500/60" : "";
+  const errorBorder = hasError || rcFieldError ? "border-red-500 ring-1 ring-red-500" : isExpiredNumber ? "border-red-500/60 bg-red-500/10 ring-1 ring-red-500/30" : titleWarning ? "border-amber-500 ring-1 ring-amber-500/60" : "";
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-1">
@@ -2088,6 +2090,30 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           className={cn(errorBorder, nameWarning && "border-amber-500")}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
+      ) : isRcField ? (
+        <Input
+          value={dynamicValues[field.fieldKey] || ""}
+          onChange={e => {
+            setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }));
+            if (rcFieldError) {
+              const result = validateSlovakRC(e.target.value);
+              if (result.valid) setRcFieldError(null);
+            }
+          }}
+          onBlur={() => {
+            const val = (dynamicValues[field.fieldKey] || "").trim();
+            if (!val || val.replace(/[\s\/-]/g, "").length < 6) { setRcFieldError(null); return; }
+            const result = validateSlovakRC(val);
+            if (!result.valid) {
+              setRcFieldError(result.error || "Neplatné rodné číslo");
+            } else {
+              setRcFieldError(null);
+            }
+          }}
+          className={`font-mono ${errorBorder}`}
+          placeholder="XXXXXX/XXXX"
+          data-testid={`input-dynamic-${field.fieldKey}`}
+        />
       ) : (
         <Input
           value={dynamicValues[field.fieldKey] || ""}
@@ -2101,6 +2127,9 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
       )}
       {titleWarning && isTitleField && (
         <p className="text-[10px] text-amber-500 leading-tight">{titleWarning}</p>
+      )}
+      {rcFieldError && isRcField && (
+        <p className="text-[10px] text-red-500 leading-tight" data-testid={`text-rc-error-${field.fieldKey}`}>{rcFieldError}</p>
       )}
     </div>
   );
