@@ -135,6 +135,8 @@ import {
   type NbsReportStatus, type InsertNbsReportStatus,
   businessOpportunities,
   type BusinessOpportunity, type InsertBusinessOpportunity,
+  registrySnapshots,
+  type RegistrySnapshot, type InsertRegistrySnapshot,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -307,6 +309,9 @@ export interface IStorage {
   createBusinessOpportunity(data: InsertBusinessOpportunity): Promise<BusinessOpportunity>;
   updateBusinessOpportunity(id: number, data: Partial<InsertBusinessOpportunity>): Promise<BusinessOpportunity>;
   deleteBusinessOpportunity(id: number): Promise<void>;
+
+  getRegistrySnapshots(subjectId: number): Promise<RegistrySnapshot[]>;
+  createRegistrySnapshot(data: InsertRegistrySnapshot): Promise<RegistrySnapshot>;
 
   findClientByEmailPhone(email: string, phone: string): Promise<Subject | undefined>;
   createVerificationCode(subjectId: number, channel: string, code: string, expiresAt: Date): Promise<VerificationCode>;
@@ -2090,6 +2095,18 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBusinessOpportunity(id: number): Promise<void> {
     await db.delete(businessOpportunities).where(eq(businessOpportunities.id, id));
+  }
+
+  async getRegistrySnapshots(subjectId: number): Promise<RegistrySnapshot[]> {
+    return db.select()
+      .from(registrySnapshots)
+      .where(eq(registrySnapshots.subjectId, subjectId))
+      .orderBy(desc(registrySnapshots.fetchedAt));
+  }
+
+  async createRegistrySnapshot(data: InsertRegistrySnapshot): Promise<RegistrySnapshot> {
+    const [result] = await db.insert(registrySnapshots).values(data).returning();
+    return result;
   }
 
   async findClientByEmailPhone(email: string, phone: string): Promise<Subject | undefined> {

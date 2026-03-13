@@ -2693,7 +2693,22 @@ function FullPageEditor({
       submitData.details = existingDet;
     }
     mutate(submitData, {
-      onSuccess: () => { onCancel(); },
+      onSuccess: async (createdSubject: any) => {
+        if (createdSubject?.id && initialData.aresData && !isPerson) {
+          try {
+            const icoVal = isSzcoType ? szcoData.ico : (dynamicValues.ico || initialData.baseValue);
+            if (icoVal) {
+              await apiRequest("POST", `/api/subjects/${createdSubject.id}/registry-snapshots`, {
+                source: "ORSR",
+                ico: icoVal,
+                parsedFields: initialData.aresData,
+                rawData: initialData.aresData,
+              });
+            }
+          } catch {}
+        }
+        onCancel();
+      },
     });
   }
 

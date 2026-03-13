@@ -7140,7 +7140,7 @@ export async function registerRoutes(
           const [snapSubject] = await db.select().from(subjects).where(eq(subjects.id, subjectIdParam));
           const snapAppUser = (req as any).appUser;
           if (snapSubject && (isAdmin(snapAppUser) || await isSubjectAccessible(snapAppUser, snapSubject))) {
-            await db.insert(registrySnapshots).values({
+            await storage.createRegistrySnapshot({
               subjectId: subjectIdParam,
               source: result.source,
               ico: result.normalized || ico,
@@ -7178,11 +7178,41 @@ export async function registerRoutes(
       if (!isAdmin(appUser) && !(await isSubjectAccessible(appUser, subject))) {
         return res.status(403).json({ message: "Nemáte oprávnenie" });
       }
-      const snapshots = await db.select()
-        .from(registrySnapshots)
-        .where(eq(registrySnapshots.subjectId, subjectId))
-        .orderBy(desc(registrySnapshots.fetchedAt));
+      const snapshots = await storage.getRegistrySnapshots(subjectId);
       res.json(snapshots);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/subjects/:id/registry-snapshots", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (!subjectId) return res.status(400).json({ message: "Neplatné ID subjektu" });
+      const [subject] = await db.select().from(subjects).where(eq(subjects.id, subjectId));
+      if (!subject) return res.status(404).json({ message: "Subjekt nenájdený" });
+      const appUser = (req as any).appUser;
+      if (!isAdmin(appUser) && !(await isSubjectAccessible(appUser, subject))) {
+        return res.status(403).json({ message: "Nemáte oprávnenie" });
+      }
+      const { source, ico, rawData, parsedFields } = req.body;
+      if (!source || !ico) return res.status(400).json({ message: "Chýba source alebo ico" });
+      const snapshot = await storage.createRegistrySnapshot({
+        subjectId,
+        source,
+        ico,
+        rawData: rawData || null,
+        parsedFields: parsedFields || null,
+        fetchedByUserId: appUser?.id || null,
+      });
+      await logAudit(req, {
+        action: "CREATE",
+        module: "registry_snapshots",
+        entityId: subjectId,
+        entityName: `Snapshot z ${source}`,
+        newData: { source, ico, snapshotId: snapshot.id },
+      });
+      res.json(snapshot);
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }
@@ -7208,7 +7238,7 @@ export async function registerRoutes(
       if (!result.found || !result.source) {
         return res.json({ success: false, message: result.message || "Subjekt nenájdený v registroch" });
       }
-      const [snapshot] = await db.insert(registrySnapshots).values({
+      const snapshot = await storage.createRegistrySnapshot({
         subjectId,
         source: result.source,
         ico: result.normalized || ico,
@@ -7224,7 +7254,7 @@ export async function registerRoutes(
           directors: result.directors,
         },
         fetchedByUserId: (req as any).appUser?.id || null,
-      }).returning();
+      });
       await logAudit(req, {
         action: "CREATE",
         module: "registry_snapshots",
