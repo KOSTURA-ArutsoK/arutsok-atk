@@ -9089,7 +9089,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/contracts/import-template", isAuthenticated, async (req: any, res) => {
+  app.get("/api/import-contracts-template", isAuthenticated, async (req: any, res) => {
     try {
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet("Import zmlúv");

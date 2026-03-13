@@ -3993,7 +3993,7 @@ export default function Contracts() {
                 className="mr-auto text-xs"
                 onClick={() => {
                   const a = document.createElement("a");
-                  a.href = "/api/contracts/import-template";
+                  a.href = "/api/import-contracts-template";
                   a.download = "sablona_import_zmluv.xlsx";
                   a.click();
                 }}
