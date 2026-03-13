@@ -5500,8 +5500,9 @@ export async function registerRoutes(
           const row3 = sheet.getRow(3);
           const row3A = String(row3.getCell(1).value ?? "").trim();
           if ((row2A === "Allianz" && row2B === "PZP Auto") || (row3A === "Generali")) {
-            dataStartRow = 4;
-            console.log("[IMPORT] Detekované vzorové riadky zo šablóny — preskakujem riadky 2 a 3");
+            const hasRow5Template = sheet.rowCount >= 5 && String(sheet.getRow(5).getCell(1).value ?? "").trim() === "Uniqa";
+            dataStartRow = hasRow5Template ? 6 : 4;
+            console.log(`[IMPORT] Detekované vzorové riadky zo šablóny — preskakujem riadky 2 až ${dataStartRow - 1}`);
           }
         }
 
@@ -9110,23 +9111,23 @@ export async function registerRoutes(
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet("Import zmlúv");
       sheet.columns = [
-        { header: "A: partner", key: "partner", width: 20 },
-        { header: "B: produkt", key: "produkt", width: 20 },
-        { header: "C: cislo_navrhu", key: "cislo_navrhu", width: 18 },
-        { header: "D: cislo_zmluvy", key: "cislo_zmluvy", width: 18 },
-        { header: "E: typ_subjektu", key: "typ_subjektu", width: 15 },
-        { header: "F: rc_ico", key: "rc_ico", width: 18 },
-        { header: "G: nazov_firmy", key: "nazov_firmy", width: 22 },
-        { header: "H: titul_pred", key: "titul_pred", width: 12 },
-        { header: "I: meno", key: "meno", width: 18 },
-        { header: "J: priezvisko", key: "priezvisko", width: 18 },
-        { header: "K: titul_za", key: "titul_za", width: 12 },
-        { header: "L: specialista_uid", key: "specialista_uid", width: 20 },
-        { header: "M: specialista_%", key: "specialista_pct", width: 16 },
-        { header: "N: odporucitel1_uid", key: "odporucitel1_uid", width: 20 },
-        { header: "O: odporucitel1_%", key: "odporucitel1_pct", width: 16 },
-        { header: "P: odporucitel2_uid", key: "odporucitel2_uid", width: 20 },
-        { header: "Q: odporucitel2_%", key: "odporucitel2_pct", width: 16 },
+        { header: "A: Partner", key: "partner", width: 22 },
+        { header: "B: Produkt", key: "produkt", width: 22 },
+        { header: "C: Číslo návrhu", key: "cislo_navrhu", width: 18 },
+        { header: "D: Číslo zmluvy", key: "cislo_zmluvy", width: 18 },
+        { header: "E: Typ subjektu", key: "typ_subjektu", width: 18 },
+        { header: "F: RČ / IČO", key: "rc_ico", width: 18 },
+        { header: "G: Názov firmy", key: "nazov_firmy", width: 24 },
+        { header: "H: Titul pred", key: "titul_pred", width: 14 },
+        { header: "I: Meno", key: "meno", width: 18 },
+        { header: "J: Priezvisko", key: "priezvisko", width: 18 },
+        { header: "K: Titul za", key: "titul_za", width: 14 },
+        { header: "L: Špecialista UID", key: "specialista_uid", width: 22 },
+        { header: "M: Špecialista %", key: "specialista_pct", width: 16 },
+        { header: "N: Odporúčateľ 1 UID", key: "odporucitel1_uid", width: 22 },
+        { header: "O: Odporúčateľ 1 %", key: "odporucitel1_pct", width: 18 },
+        { header: "P: Odporúčateľ 2 UID", key: "odporucitel2_uid", width: 22 },
+        { header: "Q: Odporúčateľ 2 %", key: "odporucitel2_pct", width: 18 },
       ];
 
       const headerRow = sheet.getRow(1);
@@ -9141,29 +9142,49 @@ export async function registerRoutes(
         }
       }
 
-      const exRow2 = sheet.addRow({
-        partner: "Allianz", produkt: "PZP Auto", cislo_navrhu: "N-2024-001", cislo_zmluvy: "",
-        typ_subjektu: "person", rc_ico: "850101/1234", nazov_firmy: "", titul_pred: "",
-        meno: "Ján", priezvisko: "Novák", titul_za: "",
-        specialista_uid: "421000000001", specialista_pct: "100",
-        odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "",
-      });
-      const exRow3 = sheet.addRow({
-        partner: "Generali", produkt: "Životné poistenie", cislo_navrhu: "", cislo_zmluvy: "Z-2024-050",
-        typ_subjektu: "company", rc_ico: "12345678", nazov_firmy: "Firma s.r.o.", titul_pred: "",
-        meno: "", priezvisko: "", titul_za: "",
-        specialista_uid: "421000000002", specialista_pct: "70",
-        odporucitel1_uid: "421000000003", odporucitel1_pct: "30", odporucitel2_uid: "", odporucitel2_pct: "",
-      });
+      const exampleRows = [
+        {
+          partner: "Allianz", produkt: "PZP Auto", cislo_navrhu: "N-2024-001", cislo_zmluvy: "",
+          typ_subjektu: "person", rc_ico: "850101/1234", nazov_firmy: "", titul_pred: "Ing.",
+          meno: "Ján", priezvisko: "Novák", titul_za: "",
+          specialista_uid: "421000000001", specialista_pct: "100",
+          odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "",
+        },
+        {
+          partner: "Generali", produkt: "Životné poistenie", cislo_navrhu: "N-2024-002", cislo_zmluvy: "",
+          typ_subjektu: "szco", rc_ico: "900515/4567", nazov_firmy: "Peter Horváth - stolárstvo", titul_pred: "",
+          meno: "Peter", priezvisko: "Horváth", titul_za: "",
+          specialista_uid: "421000000002", specialista_pct: "70",
+          odporucitel1_uid: "421000000003", odporucitel1_pct: "30", odporucitel2_uid: "", odporucitel2_pct: "",
+        },
+        {
+          partner: "ČSOB", produkt: "Podnikateľské poistenie", cislo_navrhu: "", cislo_zmluvy: "Z-2024-050",
+          typ_subjektu: "company", rc_ico: "12345678", nazov_firmy: "ABC Trading s.r.o.", titul_pred: "",
+          meno: "", priezvisko: "", titul_za: "",
+          specialista_uid: "421000000001", specialista_pct: "80",
+          odporucitel1_uid: "421000000004", odporucitel1_pct: "20", odporucitel2_uid: "", odporucitel2_pct: "",
+        },
+        {
+          partner: "Uniqa", produkt: "Poistenie zodpovednosti", cislo_navrhu: "N-2024-003", cislo_zmluvy: "",
+          typ_subjektu: "organization", rc_ico: "31234567", nazov_firmy: "Nadácia Dobré srdce", titul_pred: "",
+          meno: "", priezvisko: "", titul_za: "",
+          specialista_uid: "421000000002", specialista_pct: "100",
+          odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "",
+        },
+      ];
 
       const yellowFill: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF3CD" } };
-      for (const exRow of [exRow2, exRow3]) {
-        exRow.fill = yellowFill;
-        exRow.font = { italic: true, color: { argb: "FF6B5B00" } };
+      const yellowFont: Partial<ExcelJS.Font> = { italic: true, color: { argb: "FF6B5B00" } };
+
+      for (const rowData of exampleRows) {
+        const exRow = sheet.addRow(rowData);
+        exRow.font = yellowFont;
         for (let c = 1; c <= 17; c++) {
           exRow.getCell(c).fill = yellowFill;
         }
       }
+
+      sheet.views = [{ state: "frozen", ySplit: 5, xSplit: 0 }];
 
       sheet.protect("", {
         selectLockedCells: true,
@@ -9180,14 +9201,14 @@ export async function registerRoutes(
         autoFilter: false,
       });
 
-      for (let r = 1; r <= 3; r++) {
+      for (let r = 1; r <= 5; r++) {
         const row = sheet.getRow(r);
         for (let c = 1; c <= 17; c++) {
           row.getCell(c).protection = { locked: true };
         }
       }
 
-      for (let r = 4; r <= 1000; r++) {
+      for (let r = 6; r <= 1100; r++) {
         const row = sheet.getRow(r);
         for (let c = 1; c <= 17; c++) {
           row.getCell(c).protection = { locked: false };
