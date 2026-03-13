@@ -144,6 +144,11 @@ async function logAudit(req: any, params: {
   }
 }
 
+function capitalizeName(name: string | null | undefined): string | null {
+  if (!name || !name.trim()) return name ?? null;
+  return name.trim().replace(/\S+/g, word => word.charAt(0).toUpperCase() + word.slice(1));
+}
+
 function isArchitekt(appUser: any): boolean {
   return appUser?.role === 'architekt';
 }
@@ -1987,6 +1992,9 @@ export async function registerRoutes(
         }
       }
 
+      if (input.firstName) input.firstName = capitalizeName(input.firstName) ?? input.firstName;
+      if (input.lastName) input.lastName = capitalizeName(input.lastName) ?? input.lastName;
+
       if (input.type === 'szco') {
         if (input.birthNumber) {
           input.birthNumber = encryptField(input.birthNumber);
@@ -2048,6 +2056,8 @@ export async function registerRoutes(
       }
 
       input.changeReason = input.changeReason || "Manualna editacia cez Register subjektov";
+      if (input.firstName) input.firstName = capitalizeName(input.firstName) ?? input.firstName;
+      if (input.lastName) input.lastName = capitalizeName(input.lastName) ?? input.lastName;
 
       const docFieldKeys = ["typ_dokladu", "cislo_dokladu", "platnost_dokladu", "kod_vydavajuceho_organu"];
       const oldDetails = (original.details as any) || {};
@@ -5615,8 +5625,8 @@ export async function registerRoutes(
             else if (["fo", "person", "fyzická osoba", "fyzicka_osoba", "fyzicka osoba", "fyzická", "fyzicka", "f.o.", "f.o", "fyz"].includes(tLower)) subjectType = "person";
           }
 
-          const firstName = rowData["meno"] || rowData["first_name"] || null;
-          const lastName = rowData["priezvisko"] || rowData["last_name"] || null;
+          const firstName = capitalizeName(rowData["meno"] || rowData["first_name"] || null);
+          const lastName = capitalizeName(rowData["priezvisko"] || rowData["last_name"] || null);
           const companyName = rowData["nazov_firmy"] || rowData["company_name"] || null;
           const titleBefore = rowData["titul_pred"] || rowData["title_before"] || null;
           const titleAfter = rowData["titul_za"] || rowData["title_after"] || null;
