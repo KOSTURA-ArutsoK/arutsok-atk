@@ -1588,7 +1588,7 @@ function SynonymManager({ parameterId, parameterLabel }: { parameterId: number; 
                 <span className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30 ml-0.5" data-testid={`badge-registry-origin-${syn.id}`}>Z registra</span>
               )}
               {syn.status === "learning" && (
-                <span className="text-[9px] text-muted-foreground ml-0.5" data-testid={`text-learning-${syn.id}`}>({syn.confirmationCount || 0}/5)</span>
+                <span className="text-[9px] text-muted-foreground ml-0.5" data-testid={`text-learning-${syn.id}`}>Učí sa ({syn.confirmationCount || 0}/5)</span>
               )}
               {syn.status === "confirmed" && (
                 <CheckCircle2 className="w-3 h-3 text-green-500 ml-0.5" />
