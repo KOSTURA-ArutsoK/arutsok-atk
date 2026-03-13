@@ -210,23 +210,24 @@ export default function BulkImport() {
                       data-testid="input-file-upload"
                     />
                     <p className="text-xs text-muted-foreground">Podporované formáty: .xlsx, .xls</p>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="mt-2 text-xs"
-                      onClick={() => {
-                        const a = document.createElement("a");
-                        a.href = "/api/bulk-import/template";
-                        a.download = "sablona_import_zmluv.xlsx";
-                        a.click();
-                      }}
-                      data-testid="button-download-template"
-                    >
-                      <Download className="w-3.5 h-3.5 mr-1" />
-                      Stiahnuť Excel šablónu
-                    </Button>
                   </div>
                 )}
+              </div>
+              <div className="mt-4 flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = "/api/bulk-import/template";
+                    a.download = "sablona_import_zmluv.xlsx";
+                    a.click();
+                  }}
+                  data-testid="button-download-template"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Stiahnuť Excel šablónu
+                </Button>
               </div>
             </CardContent>
           </Card>
