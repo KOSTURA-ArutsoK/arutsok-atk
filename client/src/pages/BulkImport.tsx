@@ -15,7 +15,13 @@ const MAPPING_FIELDS = [
   { key: "agent", label: "Sprostredkovateľ", required: false },
   { key: "commission", label: "Suma provízie", required: false },
   { key: "note", label: "Poznámka", required: false },
+  { key: "specialista", label: "Špecialist (UID)", required: false },
+  { key: "odporucitel", label: "Odporúčateľ (UID)", required: false },
 ];
+
+const SUBJECT_TYPE_LABELS: Record<string, string> = {
+  person: "FO", szco: "SZČO", company: "PO", organization: "Org.",
+};
 
 export default function BulkImport() {
   const { toast } = useToast();
@@ -332,7 +338,11 @@ export default function BulkImport() {
                         <TableHead className="text-xs w-10">#</TableHead>
                         <TableHead className="text-xs w-10">Stav</TableHead>
                         <TableHead className="text-xs">Č. zmluvy</TableHead>
+                        <TableHead className="text-xs">Subjekt</TableHead>
+                        <TableHead className="text-xs w-14">Typ</TableHead>
                         <TableHead className="text-xs">Stav zmluvy</TableHead>
+                        <TableHead className="text-xs">Špecialist</TableHead>
+                        <TableHead className="text-xs">Odporúčateľ</TableHead>
                         <TableHead className="text-xs">Sprostredkovateľ</TableHead>
                         <TableHead className="text-xs text-right">Provízia</TableHead>
                         <TableHead className="text-xs">Poznámka</TableHead>
@@ -365,6 +375,14 @@ export default function BulkImport() {
                               )}
                             </TableCell>
                             <TableCell className="text-xs font-mono">{row.contractNumber || "-"}</TableCell>
+                            <TableCell className="text-xs max-w-[140px] truncate" title={row.subjectName || ""}>
+                              {row.subjectName || <span className="text-muted-foreground">—</span>}
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {row.subjectType ? (
+                                <span className="font-mono text-muted-foreground">{SUBJECT_TYPE_LABELS[row.subjectType] || row.subjectType}</span>
+                              ) : <span className="text-muted-foreground">—</span>}
+                            </TableCell>
                             <TableCell className="text-xs">
                               {row.statusId && row.statusColor ? (
                                 <div className="flex items-center gap-1">
@@ -374,6 +392,12 @@ export default function BulkImport() {
                               ) : (
                                 <span className="text-muted-foreground">{row.statusName || "-"}</span>
                               )}
+                            </TableCell>
+                            <TableCell className="text-xs font-mono text-muted-foreground truncate max-w-[110px]" title={row.specialistaStr || ""}>
+                              {row.specialistaStr || <span className="text-muted-foreground/40">—</span>}
+                            </TableCell>
+                            <TableCell className="text-xs font-mono text-muted-foreground truncate max-w-[110px]" title={row.odporucitelStr || ""}>
+                              {row.odporucitelStr || <span className="text-muted-foreground/40">—</span>}
                             </TableCell>
                             <TableCell className="text-xs">{row.agentName || "-"}</TableCell>
                             <TableCell className="text-xs text-right font-mono">
@@ -391,7 +415,7 @@ export default function BulkImport() {
                               </Button>
                             </TableCell>
                             {isExpanded && (
-                              <TableCell colSpan={8} className="p-0">
+                              <TableCell colSpan={12} className="p-0">
                                 <div className="p-3 bg-muted/50 border-t space-y-2">
                                   {row.errors.length > 0 && (
                                     <div className="space-y-1">

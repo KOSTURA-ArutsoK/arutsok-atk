@@ -9378,6 +9378,13 @@ export async function registerRoutes(
       const allContracts = await storage.getContracts(companyId ? { companyId } : undefined);
       const allUsers = await storage.getAppUsers();
 
+      const allSubjects = await db.select({
+        id: subjects.id, uid: subjects.uid, type: subjects.type,
+        firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName
+      }).from(subjects).where(isNull(subjects.deletedAt));
+      const subjectMapById = new Map(allSubjects.map(s => [s.id, s]));
+      const subjectMapByUid = new Map(allSubjects.filter(s => s.uid).map(s => [s.uid!, s]));
+
       const results: any[] = [];
       let totalCommission = 0;
       let errorCount = 0;
@@ -9393,6 +9400,10 @@ export async function registerRoutes(
           statusId: null,
           agentId: null,
           commissionAmount: 0,
+          subjectName: null,
+          subjectType: null,
+          specialistaStr: null,
+          odporucitelStr: null,
         };
 
         const contractNumber = mapping.contractNumber ? String(row[mapping.contractNumber] || "").trim() : "";
@@ -9400,12 +9411,16 @@ export async function registerRoutes(
         const agentName = mapping.agent ? String(row[mapping.agent] || "").trim() : "";
         const commissionStr = mapping.commission ? String(row[mapping.commission] || "").trim() : "";
         const noteText = mapping.note ? String(row[mapping.note] || "").trim() : "";
+        const specialistaRaw = mapping.specialista ? String(row[mapping.specialista] || "").trim() : "";
+        const odporucitelRaw = mapping.odporucitel ? String(row[mapping.odporucitel] || "").trim() : "";
 
         result.contractNumber = contractNumber;
         result.statusName = statusName;
         result.agentName = agentName;
         result.commissionStr = commissionStr;
         result.note = noteText;
+        if (specialistaRaw) result.specialistaStr = specialistaRaw;
+        if (odporucitelRaw) result.odporucitelStr = odporucitelRaw;
 
         if (contractNumber) {
           const contract = allContracts.find(c =>
@@ -9416,11 +9431,32 @@ export async function registerRoutes(
           if (contract) {
             result.contractId = contract.id;
             result.currentStatusId = contract.statusId;
+            if ((contract as any).subjectId) {
+              const subj = subjectMapById.get((contract as any).subjectId);
+              if (subj) {
+                result.subjectName = subj.type === "person" || subj.type === "szco"
+                  ? `${subj.firstName || ""} ${subj.lastName || ""}`.trim()
+                  : subj.companyName || "";
+                result.subjectType = subj.type;
+              }
+            }
+            if (!specialistaRaw && (contract as any).specialistaUid) {
+              result.specialistaStr = (contract as any).specialistaUid;
+            }
           } else {
             result.errors.push(`Zmluva "${contractNumber}" nenájdená`);
           }
         } else if (mapping.contractNumber) {
           result.errors.push("Chýba číslo zmluvy");
+        }
+
+        if (specialistaRaw) {
+          const specSubj = subjectMapByUid.get(specialistaRaw);
+          if (!specSubj) result.warnings.push(`Špecialist UID "${specialistaRaw}" nenájdený`);
+        }
+        if (odporucitelRaw) {
+          const odpSubj = subjectMapByUid.get(odporucitelRaw);
+          if (!odpSubj) result.warnings.push(`Odporúčateľ UID "${odporucitelRaw}" nenájdený`);
         }
 
         if (statusName) {
@@ -9493,15 +9529,19 @@ export async function registerRoutes(
 
       const revalidated: any[] = [];
       for (const row of rows) {
-        const result: any = { originalData: row, errors: [], contractId: null, statusId: null, agentId: null, commissionAmount: 0, currentStatusId: null, note: "" };
+        const result: any = { originalData: row, errors: [], contractId: null, statusId: null, agentId: null, commissionAmount: 0, currentStatusId: null, note: "", specialistaStr: null, odporucitelStr: null };
 
         const contractNumber = mapping.contractNumber ? String(row[mapping.contractNumber] || "").trim() : "";
         const statusName = mapping.status ? String(row[mapping.status] || "").trim() : "";
         const agentName = mapping.agent ? String(row[mapping.agent] || "").trim() : "";
         const commissionStr = mapping.commission ? String(row[mapping.commission] || "").trim() : "";
+        const specialistaRaw = mapping.specialista ? String(row[mapping.specialista] || "").trim() : "";
+        const odporucitelRaw = mapping.odporucitel ? String(row[mapping.odporucitel] || "").trim() : "";
         result.note = mapping.note ? String(row[mapping.note] || "").trim() : "";
         result.contractNumber = contractNumber;
         result.statusName = statusName;
+        if (specialistaRaw) result.specialistaStr = specialistaRaw;
+        if (odporucitelRaw) result.odporucitelStr = odporucitelRaw;
 
         if (contractNumber) {
           const contract = allContracts.find(c =>
@@ -9598,6 +9638,7 @@ export async function registerRoutes(
           } else {
             contractUpdate.expiryDate = null;
           }
+          if (row.specialistaStr) contractUpdate.specialistaUid = row.specialistaStr;
           await tx.update(contracts)
             .set(contractUpdate)
             .where(eq(contracts.id, row.contractId));
