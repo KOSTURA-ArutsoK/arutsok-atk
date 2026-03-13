@@ -2497,6 +2497,7 @@ export const ocrProcessingJobs = pgTable("ocr_processing_jobs", {
   error: text("error"),
   uploadedByUserId: integer("uploaded_by_user_id").references(() => appUsers.id),
   uploadedByUsername: text("uploaded_by_username"),
+  subjectId: integer("subject_id").references(() => subjects.id),
   createdAt: timestamp("created_at").defaultNow(),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),

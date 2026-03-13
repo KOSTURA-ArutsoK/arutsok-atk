@@ -13808,7 +13808,14 @@ export async function registerRoutes(
         const icoField = results.find((r: any) => r.fieldKey && (r.fieldKey.toLowerCase() === "ico" || r.fieldKey.toLowerCase().includes("ico")) && r.matchedValue);
 
         let matchedSnapshot: any = null;
-        if (icoField?.matchedValue) {
+        if (job.subjectId) {
+          const snapshots = await db.select().from(registrySnapshots)
+            .where(eq(registrySnapshots.subjectId, job.subjectId))
+            .orderBy(desc(registrySnapshots.fetchedAt))
+            .limit(1);
+          if (snapshots.length > 0) matchedSnapshot = snapshots[0];
+        }
+        if (!matchedSnapshot && icoField?.matchedValue) {
           const snapshots = await db.select().from(registrySnapshots)
             .where(eq(registrySnapshots.ico, icoField.matchedValue.trim()))
             .orderBy(desc(registrySnapshots.fetchedAt))
