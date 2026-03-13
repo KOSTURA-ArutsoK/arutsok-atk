@@ -5690,6 +5690,7 @@ export default function Contracts() {
                                   {sprievodkaColumnVisibility.isVisible("contractNumber") && <TableHead>Číslo zmluvy</TableHead>}
                                   <TableHead>Typ subjektu</TableHead>
                                   {sprievodkaColumnVisibility.isVisible("subjectId") && <TableHead>Klient</TableHead>}
+                                  <TableHead className="text-center w-[60px]">🗂️</TableHead>
                                   <TableHead className="text-right">Akcie</TableHead>
                                 </TableRow>
                               </TableHeader>
@@ -5725,6 +5726,20 @@ export default function Contracts() {
                                         })()}
                                       </span>
                                     </TableCell>}
+                                    <TableCell className="py-1 text-center">
+                                      {Array.isArray(contract.documents) && contract.documents.length > 0 ? (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold whitespace-nowrap">
+                                              🗂️ {contract.documents.length}
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent className="text-xs">
+                                            {contract.documents.length} {contract.documents.length === 1 ? "nahraný dokument" : contract.documents.length < 5 ? "nahrané dokumenty" : "nahraných dokumentov"}
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      ) : null}
+                                    </TableCell>
                                     <TableCell className="text-right">
                                       <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-dispatched-${contract.id}`}>
                                         <Eye className="w-4 h-4" />
