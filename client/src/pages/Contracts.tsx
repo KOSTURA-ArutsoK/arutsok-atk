@@ -9,7 +9,7 @@ import { useTableSort } from "@/hooks/use-table-sort";
 import { useSmartFilter } from "@/hooks/use-smart-filter";
 import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
 import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building2, ArrowLeftRight, Info } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -2149,15 +2149,15 @@ export default function Contracts() {
 
   const isEvidencia = location === "/evidencia-zmluv";
 
-  const currentSearchParams = typeof window !== "undefined" ? window.location.search : "";
+  const searchString = useSearch();
   const VALID_VIEWS = ["moje", "portfolio", "dokumentacia"] as const;
   type ContractViewType = typeof VALID_VIEWS[number];
   const contractView = useMemo(() => {
-    const params = new URLSearchParams(currentSearchParams);
+    const params = new URLSearchParams(searchString);
     const raw = params.get("view");
     if (raw && (VALID_VIEWS as readonly string[]).includes(raw)) return raw as ContractViewType;
     return null;
-  }, [currentSearchParams]);
+  }, [searchString]);
 
   const VIEW_TITLES: Record<string, string> = {
     moje: "Moje zmluvy",
@@ -6499,7 +6499,7 @@ export default function Contracts() {
             {VIEW_TITLES[contractView]} — {activeContracts.length} {activeContracts.length === 1 ? "zmluva" : activeContracts.length < 5 ? "zmluvy" : "zmlúv"}
           </Badge>
           <Button variant="ghost" size="sm" onClick={() => {
-            const params = new URLSearchParams(window.location.search);
+            const params = new URLSearchParams(searchString);
             params.delete("view");
             const qs = params.toString();
             navigate(qs ? `/contracts?${qs}` : "/contracts");

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useHelp } from "@/contexts/help-context";
 import { RankBadge } from "@/components/rank-badge";
@@ -209,6 +209,7 @@ function CollapsibleMenu({
   icon: React.ElementType;
   items: { href: string; icon: React.ElementType; label: string; badge?: string }[];
   location: string;
+  searchString: string;
   testId: string;
   menuId: string;
   openMenuId: string | null;
@@ -219,7 +220,7 @@ function CollapsibleMenu({
       const [path, queryString] = href.split("?");
       if (location !== path) return false;
       const targetParams = new URLSearchParams(queryString);
-      const currentParams = new URLSearchParams(window.location.search);
+      const currentParams = new URLSearchParams(searchString);
       for (const [key, value] of targetParams.entries()) {
         if (currentParams.get(key) !== value) return false;
       }
@@ -397,7 +398,7 @@ export function AppSidebar() {
     { id: "reporty", items: reportyItems },
     { id: "informacie", items: informacieItems },
   ];
-  const currentSearch = typeof window !== "undefined" ? window.location.search : "";
+  const currentSearch = useSearch();
   const currentView = new URLSearchParams(currentSearch).get("view");
   const locationWithSearch = currentView ? `${location}?view=${currentView}` : location;
 
@@ -610,6 +611,7 @@ export function AppSidebar() {
                   { href: "/profil-subjektu", icon: Users, label: "Profil subjektu" },
                 ]}
                 location={location}
+                searchString={currentSearch}
                 testId="nav-sektory"
                 menuId="sektory"
                 openMenuId={openMenuId}
@@ -766,6 +768,7 @@ export function AppSidebar() {
                 icon={Briefcase}
                 items={partneriProduktyItems}
                 location={location}
+                searchString={currentSearch}
                 testId="nav-menu-partneri-produkty"
                 menuId="partneri"
                 openMenuId={openMenuId}
@@ -776,6 +779,7 @@ export function AppSidebar() {
                 icon={Users}
                 items={klientiItems}
                 location={location}
+                searchString={currentSearch}
                 testId="nav-menu-klienti"
                 menuId="klienti"
                 openMenuId={openMenuId}
@@ -999,6 +1003,7 @@ export function AppSidebar() {
                 icon={Banknote}
                 items={financieItems}
                 location={location}
+                searchString={currentSearch}
                 testId="nav-menu-financie"
                 menuId="financie"
                 openMenuId={openMenuId}
@@ -1010,6 +1015,7 @@ export function AppSidebar() {
                   icon={FileBarChart}
                   items={reportyItems}
                   location={location}
+                  searchString={currentSearch}
                   testId="nav-menu-reporty"
                   menuId="reporty"
                   openMenuId={openMenuId}
@@ -1021,6 +1027,7 @@ export function AppSidebar() {
                 icon={Info}
                 items={informacieItems}
                 location={location}
+                searchString={currentSearch}
                 testId="nav-menu-informacie"
                 menuId="informacie"
                 openMenuId={openMenuId}
