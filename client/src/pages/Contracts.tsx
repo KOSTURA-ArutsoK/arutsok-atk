@@ -3287,7 +3287,19 @@ export default function Contracts() {
             const incompleteFields = isIncomplete ? (incompleteReason.replace(/^Chýba:\s*/, "").split(",").map((f: string) => f.trim().toLowerCase())) : [];
             const fieldMissing = (field: string) => incompleteFields.some((f: string) => f.includes(field));
             const isRowSelected = selectedIds.includes(contract.id);
-            const rowClass = isRowSelected ? "bg-blue-500/20 hover:bg-blue-500/25 border-l-2 border-l-blue-500" : isIncomplete ? "bg-red-500/15 hover:bg-red-500/20 border-l-2 border-l-red-500" : (needsNameConfirm && !isIncomplete) ? "bg-orange-500/8 hover:bg-orange-500/15 border-l-2 border-l-orange-500" : "";
+            const phaseSelectedClass = isRowSelected ? (({
+              1: "bg-amber-500/20 hover:bg-amber-500/25 border-l-2 border-l-amber-500",
+              2: "bg-blue-500/20 hover:bg-blue-500/25 border-l-2 border-l-blue-500",
+              3: "bg-red-500/20 hover:bg-red-500/25 border-l-2 border-l-red-500",
+              4: "bg-zinc-400/20 hover:bg-zinc-400/25 border-l-2 border-l-zinc-400",
+              5: "bg-green-500/20 hover:bg-green-500/25 border-l-2 border-l-green-500",
+              6: "bg-cyan-500/20 hover:bg-cyan-500/25 border-l-2 border-l-cyan-500",
+              7: "bg-orange-500/20 hover:bg-orange-500/25 border-l-2 border-l-orange-500",
+              8: "bg-emerald-500/20 hover:bg-emerald-500/25 border-l-2 border-l-emerald-500",
+              9: "bg-indigo-500/20 hover:bg-indigo-500/25 border-l-2 border-l-indigo-500",
+              10: "bg-yellow-500/20 hover:bg-yellow-500/25 border-l-2 border-l-yellow-500",
+            } as Record<number, string>)[(contract as any).lifecyclePhase] || "bg-blue-500/20 hover:bg-blue-500/25 border-l-2 border-l-blue-500") : null;
+            const rowClass = isRowSelected ? phaseSelectedClass! : isIncomplete ? "bg-red-500/15 hover:bg-red-500/20 border-l-2 border-l-red-500" : (needsNameConfirm && !isIncomplete) ? "bg-orange-500/8 hover:bg-orange-500/15 border-l-2 border-l-orange-500" : "";
             return (
               <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={rowClass} onRowClick={() => { if (needsNameConfirm && !checkboxOnly) { setNameConfirmContract(contract); setNameConfirmOpen(true); return; } if (checkboxOnly && showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (earlyPhase && isIncomplete) { openIncompleteEdit(contract); } else if (earlyPhase && !isIncomplete) { toggleSelect(contract.id); } else if (!isIncomplete) { toggleSelect(contract.id); } } else if (!checkboxOnly) { if (earlyPhase || isIncomplete) { openIncompleteEdit(contract); } else { openEdit(contract); } } }}>
                 {showCheckbox && (
