@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
 import { formatPhone } from "@/lib/utils";
+import { validateSlovakRC } from "@shared/rc-validator";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 
@@ -42,6 +43,7 @@ export default function RegisterPage() {
   const [emailCode, setEmailCode] = useState("");
 
   const [fullBirthNumber, setFullBirthNumber] = useState("");
+  const [fullBirthNumberError, setFullBirthNumberError] = useState<string | null>(null);
   const [idCardNumber, setIdCardNumber] = useState("");
 
   const [clientData, setClientData] = useState<ClientData | null>(null);
@@ -387,12 +389,26 @@ export default function RegisterPage() {
                     value={fullBirthNumber}
                     onChange={(e) => {
                       setFullBirthNumber(e.target.value);
+                      if (fullBirthNumberError) {
+                        const result = validateSlovakRC(e.target.value);
+                        if (result.valid) setFullBirthNumberError(null);
+                      }
                       const cleanVal = e.target.value.replace(/[^0-9]/g, "");
                       if (cleanVal.length >= 9 && cleanVal.length <= 10) {
                         setTimeout(() => {
                           const idCardInput = document.getElementById("id-card");
                           if (idCardInput) idCardInput.focus();
                         }, 50);
+                      }
+                    }}
+                    onBlur={() => {
+                      const cleanVal = fullBirthNumber.replace(/[^0-9]/g, "");
+                      if (!cleanVal || cleanVal.length < 6) { setFullBirthNumberError(null); return; }
+                      const result = validateSlovakRC(fullBirthNumber);
+                      if (!result.valid) {
+                        setFullBirthNumberError(result.error || "Neplatné rodné číslo");
+                      } else {
+                        setFullBirthNumberError(null);
                       }
                     }}
                     onKeyDown={(e) => {
@@ -402,9 +418,12 @@ export default function RegisterPage() {
                         if (idCardInput) idCardInput.focus();
                       }
                     }}
-                    className="font-mono"
+                    className={`font-mono ${fullBirthNumberError ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     data-testid="input-full-birth-number"
                   />
+                  {fullBirthNumberError && (
+                    <p className="text-xs text-red-500 mt-1" data-testid="text-rc-register-error">{fullBirthNumberError}</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="id-card" className="text-xs">Cislo obcianskeho preukazu (OP)</Label>

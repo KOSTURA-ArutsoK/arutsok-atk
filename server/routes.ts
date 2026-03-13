@@ -19,6 +19,7 @@ import fs from "fs";
 import crypto from "crypto";
 import { encryptField, decryptField } from "./crypto";
 import { detectAmbiguousName } from "./name-parser";
+import { validateSlovakRC } from "@shared/rc-validator";
 import { scanUploadedFile, scanMultipleFiles, sanitizeExcelWorkbook, checkClamAvStatus } from "./services/file-security";
 
 function stripBallast(str: string): string {
@@ -5780,6 +5781,14 @@ export async function registerRoutes(
             }
           }
 
+          let rcValidationError: string | null = null;
+          if (rc && (subjectType === "person" || subjectType === "szco")) {
+            const rcResult = validateSlovakRC(rc);
+            if (!rcResult.valid) {
+              rcValidationError = rcResult.error || "Neplatné rodné číslo";
+            }
+          }
+
           let resolvedSubjectId: number | null = null;
           if (rc || ico) {
             const dupCheck = await storage.checkDuplicateSubject({
@@ -5806,6 +5815,9 @@ export async function registerRoutes(
               if (!companyName) missingFields.push("Názov firmy");
             }
           }
+          if (rcValidationError) {
+            missingFields.push(`Neplatné RČ: ${rcValidationError}`);
+          }
           const isIncomplete = missingFields.length > 0;
 
           const importedRawData: Record<string, string | null> = {
@@ -5822,6 +5834,7 @@ export async function registerRoutes(
           };
           if (spz) importedRawData["spz"] = spz;
           if (vin) importedRawData["vin"] = vin;
+          if (rcValidationError) importedRawData["rc_validation_error"] = rcValidationError;
           for (const [k, v] of Object.entries(rowData)) {
             if (v && !importedRawData.hasOwnProperty(k)) {
               importedRawData[k] = v;
@@ -5917,6 +5930,8 @@ export async function registerRoutes(
             contractId: created.id,
             subjectId: resolvedSubjectId || undefined,
             incompleteFields: isIncomplete ? missingFields : undefined,
+            rcCritical: !!rcValidationError,
+            rcValidationError: rcValidationError || undefined,
             hasDistributions,
             rawData: {
               partner: partnerName,

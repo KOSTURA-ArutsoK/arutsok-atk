@@ -6,6 +6,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak, formatPhone, formatUid, canCreateSubjects, canEditRecords } from "@/lib/utils";
+import { validateSlovakRC } from "@shared/rc-validator";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, type ValidityResult } from "@/lib/document-validity";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark, ChevronRight, ChevronDown, FolderOpen, Tag, Hash, Package, FileText as FileTextIcon, SquareIcon, TrendingDown, Shield, Save } from "lucide-react";
@@ -1609,6 +1610,7 @@ function InitialRegistrationModal({
   const [checking, setChecking] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; uid: string; id: number; matchedField?: string; managerName?: string | null; managerId?: number | null; isBlacklisted?: boolean; blacklistMessage?: string } | null>(null);
   const [duplicateChecked, setDuplicateChecked] = useState(false);
+  const [rcError, setRcError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const baseInputRef = useRef<HTMLInputElement>(null);
   const proceedBtnRef = useRef<HTMLButtonElement>(null);
@@ -1649,15 +1651,24 @@ function InitialRegistrationModal({
     if (!baseValue.trim() || !selectedType) {
       setDuplicateInfo(null);
       setDuplicateChecked(false);
+      setRcError(null);
       return;
     }
     const isRc = selectedClientType?.baseParameter === "rc";
     if (isRc) {
       const digitsOnly = baseValue.replace(/[^0-9]/g, "");
-      if (digitsOnly.length < 10) {
+      if (digitsOnly.length < 9) {
+        setDuplicateChecked(false);
+        setRcError(null);
+        return;
+      }
+      const result = validateSlovakRC(baseValue);
+      if (!result.valid) {
+        setRcError(result.error || "Neplatné rodné číslo");
         setDuplicateChecked(false);
         return;
       }
+      setRcError(null);
       performDuplicateCheck(baseValue, selectedClientType?.baseParameter);
     } else {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -1682,7 +1693,7 @@ function InitialRegistrationModal({
     setDuplicateChecked(false);
   }
 
-  const canProceed = selectedType && appUser?.activeStateId && baseValue.trim() && duplicateChecked && !duplicateInfo;
+  const canProceed = selectedType && appUser?.activeStateId && baseValue.trim() && duplicateChecked && !duplicateInfo && !rcError;
 
   return (
     <Dialog open={open} onOpenChange={(o) => {
@@ -1723,15 +1734,22 @@ function InitialRegistrationModal({
                   setBaseValue(e.target.value);
                 }}
                 onKeyDown={(e) => { if (e.key === "Enter" && canProceed && !checking) handleProceed(); }}
+                className={rcError ? "border-red-500 focus-visible:ring-red-500" : ""}
                 data-testid="input-base-parameter"
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2" style={{ display: checking ? 'block' : 'none' }}>
                 <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
               </div>
-              <div className="absolute right-2 top-1/2 -translate-y-1/2" style={{ display: (!checking && duplicateChecked && !duplicateInfo && baseValue.trim()) ? 'block' : 'none' }}>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2" style={{ display: (!checking && duplicateChecked && !duplicateInfo && baseValue.trim() && !rcError) ? 'block' : 'none' }}>
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
               </div>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2" style={{ display: rcError ? 'block' : 'none' }}>
+                <AlertTriangle className="w-4 h-4 text-red-500" />
+              </div>
             </div>
+            {rcError && (
+              <p className="text-xs text-red-500 mt-1" data-testid="text-rc-error">{rcError}</p>
+            )}
           </div>
 
           <div style={{ display: duplicateInfo ? 'block' : 'none' }}>
@@ -2112,6 +2130,7 @@ function FullPageEditor({
   const [szcoFoData, setSzcoFoData] = useState({ firstName: "", lastName: "", birthNumber: "", fo_uid: "" });
   const [szcoFoLinkedId, setSzcoFoLinkedId] = useState<number | null>(null);
   const [szcoFoLoading, setSzcoFoLoading] = useState(false);
+  const [szcoFoRcError, setSzcoFoRcError] = useState<string | null>(null);
 
   const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>({ korespond_rovnaka: "true", kontaktna_rovnaka: "true", tp_stat: DEFAULT_COUNTRY, ka_stat: DEFAULT_COUNTRY, koa_stat: DEFAULT_COUNTRY, sidlo_stat: DEFAULT_COUNTRY, vykon_stat: DEFAULT_COUNTRY });
   const [documents, setDocuments] = useState<DocumentEntry[]>([]);
@@ -2260,6 +2279,11 @@ function FullPageEditor({
       const rcValue = dynamicValues["rodne_cislo"]?.trim() || initialData.baseValue?.trim();
       if (!rcValue) {
         missingFields.push({ fieldKey: "rodne_cislo", label: "Rodné číslo" } as any);
+      } else {
+        const rcResult = validateSlovakRC(rcValue);
+        if (!rcResult.valid) {
+          missingFields.push({ fieldKey: "rodne_cislo", label: `Rodné číslo: ${rcResult.error}` } as any);
+        }
       }
     }
 
@@ -2500,10 +2524,22 @@ function FullPageEditor({
                   <Label className="text-xs text-muted-foreground">Rodné číslo</Label>
                   <Input
                     value={szcoFoData.birthNumber}
-                    onChange={e => setSzcoFoData(prev => ({ ...prev, birthNumber: e.target.value }))}
+                    onChange={e => {
+                      setSzcoFoData(prev => ({ ...prev, birthNumber: e.target.value }));
+                      if (szcoFoRcError) {
+                        const result = validateSlovakRC(e.target.value);
+                        if (result.valid) setSzcoFoRcError(null);
+                      }
+                    }}
                     onBlur={async () => {
                       const val = szcoFoData.birthNumber.trim().replace(/[\s\/]/g, "");
-                      if (!val || val.length < 6) return;
+                      if (!val || val.length < 6) { setSzcoFoRcError(null); return; }
+                      const rcResult = validateSlovakRC(val);
+                      if (!rcResult.valid) {
+                        setSzcoFoRcError(rcResult.error || "Neplatné rodné číslo");
+                        return;
+                      }
+                      setSzcoFoRcError(null);
                       setSzcoFoLoading(true);
                       try {
                         const resp = await fetch(`/api/subjects/search-fo?q=${encodeURIComponent(val)}`);
@@ -2517,8 +2553,12 @@ function FullPageEditor({
                       setSzcoFoLoading(false);
                     }}
                     placeholder="XXXXXX/XXXX"
+                    className={szcoFoRcError ? "border-red-500 focus-visible:ring-red-500" : ""}
                     data-testid="input-szco-rc"
                   />
+                  {szcoFoRcError && (
+                    <p className="text-[10px] text-red-500" data-testid="text-szco-rc-error">{szcoFoRcError}</p>
+                  )}
                 </div>
               </div>
             </CardContent>

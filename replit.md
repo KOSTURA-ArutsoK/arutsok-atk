@@ -36,7 +36,8 @@ The system utilizes a modern full-stack architecture built for data integrity, s
 - **Settlement Sheets Module**: Handles settlement sheets and contracts, including locking and status workflows.
 - **Client Management**: Features multi-step registration, granular ownership, a Bonita Point System, risk linking, and an AML module.
 - **Universal Guardian Access Hierarchy**: Manages legal guardians for individuals and organizations.
-- **Foolproof System (`Blbuvzdornosť`)**: Incorporates data conflict alerts, transaction deduplication, Zod validation, and subject-level authorization.
+- **Foolproof System (`Blbuvzdornosť`)**: Incorporates data conflict alerts, transaction deduplication, Zod validation, subject-level authorization, and Slovak birth number (RČ) validation (MOD11 + date + gender).
+- **Birth Number (RČ) Validation**: Global `validateSlovakRC()` in `shared/rc-validator.ts` — MOD11, date existence, gender detection (+50/+20/+70 offsets), 9-digit pre-1954 support. Used in: import endpoint (critical error), Subject registration dialog (on-the-fly), SZČO FO field (onBlur), Register page (onBlur), and subject save validation.
 - **GDPR & Privacy System**: Provides privacy controls, household management, privacy blocks, and access consent logging.
 - **Global Subject Relations System**: Enables universal cross-entity linking with temporal validity and context-aware relations.
 - **First Contract Rule (`Pravidlo Prvej Zmluvy`)**: Identifies and flags the first contract for an agent within a division, influencing commission redirection and visual indicators.
