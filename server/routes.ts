@@ -5535,7 +5535,7 @@ export async function registerRoutes(
       let headers: string[] = [];
       const rawRows: Record<string, string>[] = [];
 
-      const POSITIONAL_COLUMNS = ["partner", "produkt", "cislo_navrhu", "cislo_zmluvy", "typ_subjektu", "rc_ico", "nazov_firmy", "titul_pred", "meno", "priezvisko", "titul_za"];
+      const POSITIONAL_COLUMNS = ["partner", "produkt", "typ_zmluvy", "cislo_navrhu", "cislo_zmluvy", "typ_subjektu", "rc_ico", "nazov_firmy", "titul_pred", "meno", "priezvisko", "titul_za"];
 
       const HEADER_ALIASES: Record<string, string> = {
         "cislo navrhu": "cislo_navrhu", "cislo_navrhu": "cislo_navrhu", "proposal_number": "cislo_navrhu", "č. návrhu": "cislo_navrhu", "číslo návrhu": "cislo_navrhu", "cislo navrhu": "cislo_navrhu",
@@ -5549,13 +5549,13 @@ export async function registerRoutes(
         "meno": "meno", "first_name": "meno", "krstne meno": "meno", "krstné meno": "meno",
         "priezvisko": "priezvisko", "last_name": "priezvisko",
         "titul za": "titul_za", "titul_za": "titul_za", "title_after": "titul_za", "titul za menom": "titul_za",
-        "specialista": "specialista", "specialist": "specialista", "specialista_uid": "specialista", "specialista uid": "specialista", "l: specialista uid": "specialista", "l: špecialista uid": "specialista",
-        "specialista podiel": "specialista_podiel", "specialista_podiel": "specialista_podiel", "specialist_percentage": "specialista_podiel", "specialista_%": "specialista_podiel", "specialista_pct": "specialista_podiel", "m: specialista %": "specialista_podiel", "m: špecialista %": "specialista_podiel",
-        "odporucitel": "odporucitel", "odporucatel": "odporucitel", "recommender": "odporucitel", "odporucitel1_uid": "odporucitel", "odporucitel1 uid": "odporucitel", "odporucatel 1 uid": "odporucitel", "odporucatel_1_uid": "odporucitel", "n: odporucitel 1 uid": "odporucitel", "n: odporúčateľ 1 uid": "odporucitel",
-        "odporucitel podiel": "odporucitel_podiel", "odporucitel_podiel": "odporucitel_podiel", "recommender_percentage": "odporucitel_podiel", "odporucitel1_%": "odporucitel_podiel", "odporucitel1_pct": "odporucitel_podiel", "o: odporucitel 1 %": "odporucitel_podiel", "o: odporúčateľ 1 %": "odporucitel_podiel", "odporucatel 1 %": "odporucitel_podiel", "odporucatel_1_%": "odporucitel_podiel",
-        "odporucitel2_uid": "odporucitel2", "odporucitel2 uid": "odporucitel2", "odporucatel 2 uid": "odporucitel2", "odporucatel_2_uid": "odporucitel2", "p: odporucitel 2 uid": "odporucitel2", "p: odporúčateľ 2 uid": "odporucitel2",
-        "odporucitel2_%": "odporucitel2_podiel", "odporucitel2_pct": "odporucitel2_podiel", "odporucitel2_podiel": "odporucitel2_podiel", "q: odporucitel 2 %": "odporucitel2_podiel", "q: odporúčateľ 2 %": "odporucitel2_podiel", "odporucatel 2 %": "odporucitel2_podiel", "odporucatel_2_%": "odporucitel2_podiel",
-        "typ zmluvy": "typ_zmluvy", "typ_zmluvy": "typ_zmluvy", "type_of_contract": "typ_zmluvy", "contract_type": "typ_zmluvy", "r: typ zmluvy": "typ_zmluvy",
+        "specialista": "specialista", "specialist": "specialista", "specialista_uid": "specialista", "specialista uid": "specialista", "m: specialista uid": "specialista", "m: špecialista uid": "specialista",
+        "specialista podiel": "specialista_podiel", "specialista_podiel": "specialista_podiel", "specialist_percentage": "specialista_podiel", "specialista_%": "specialista_podiel", "specialista_pct": "specialista_podiel", "n: specialista %": "specialista_podiel", "n: špecialista %": "specialista_podiel",
+        "odporucitel": "odporucitel", "odporucatel": "odporucitel", "recommender": "odporucitel", "odporucitel1_uid": "odporucitel", "odporucitel1 uid": "odporucitel", "odporucatel 1 uid": "odporucitel", "odporucatel_1_uid": "odporucitel", "o: odporucitel 1 uid": "odporucitel", "o: odporúčateľ 1 uid": "odporucitel",
+        "odporucitel podiel": "odporucitel_podiel", "odporucitel_podiel": "odporucitel_podiel", "recommender_percentage": "odporucitel_podiel", "odporucitel1_%": "odporucitel_podiel", "odporucitel1_pct": "odporucitel_podiel", "p: odporucitel 1 %": "odporucitel_podiel", "p: odporúčateľ 1 %": "odporucitel_podiel", "odporucatel 1 %": "odporucitel_podiel", "odporucatel_1_%": "odporucitel_podiel",
+        "odporucitel2_uid": "odporucitel2", "odporucitel2 uid": "odporucitel2", "odporucatel 2 uid": "odporucitel2", "odporucatel_2_uid": "odporucitel2", "q: odporucitel 2 uid": "odporucitel2", "q: odporúčateľ 2 uid": "odporucitel2",
+        "odporucitel2_%": "odporucitel2_podiel", "odporucitel2_pct": "odporucitel2_podiel", "odporucitel2_podiel": "odporucitel2_podiel", "r: odporucitel 2 %": "odporucitel2_podiel", "r: odporúčateľ 2 %": "odporucitel2_podiel", "odporucatel 2 %": "odporucitel2_podiel", "odporucatel_2_%": "odporucitel2_podiel",
+        "typ zmluvy": "typ_zmluvy", "typ_zmluvy": "typ_zmluvy", "type_of_contract": "typ_zmluvy", "contract_type": "typ_zmluvy", "c: typ zmluvy": "typ_zmluvy",
       };
 
       function removeDiacritics(str: string): string {
@@ -9521,22 +9521,22 @@ export async function registerRoutes(
       sheet.columns = [
         { header: "A: Partner", key: "partner", width: 22 },
         { header: "B: Produkt", key: "produkt", width: 22 },
-        { header: "C: Číslo návrhu", key: "cislo_navrhu", width: 18 },
-        { header: "D: Číslo zmluvy", key: "cislo_zmluvy", width: 18 },
-        { header: "E: Typ subjektu", key: "typ_subjektu", width: 18 },
-        { header: "F: RČ / IČO", key: "rc_ico", width: 18 },
-        { header: "G: Názov firmy", key: "nazov_firmy", width: 24 },
-        { header: "H: Titul pred", key: "titul_pred", width: 14 },
-        { header: "I: Meno", key: "meno", width: 18 },
-        { header: "J: Priezvisko", key: "priezvisko", width: 18 },
-        { header: "K: Titul za", key: "titul_za", width: 14 },
-        { header: "L: Špecialista UID", key: "specialista_uid", width: 22 },
-        { header: "M: Špecialista %", key: "specialista_pct", width: 16 },
-        { header: "N: Odporúčateľ 1 UID", key: "odporucitel1_uid", width: 22 },
-        { header: "O: Odporúčateľ 1 %", key: "odporucitel1_pct", width: 18 },
-        { header: "P: Odporúčateľ 2 UID", key: "odporucitel2_uid", width: 22 },
-        { header: "Q: Odporúčateľ 2 %", key: "odporucitel2_pct", width: 18 },
-        { header: "R: Typ zmluvy", key: "typ_zmluvy", width: 20 },
+        { header: "C: Typ zmluvy", key: "typ_zmluvy", width: 20 },
+        { header: "D: Číslo návrhu", key: "cislo_navrhu", width: 18 },
+        { header: "E: Číslo zmluvy", key: "cislo_zmluvy", width: 18 },
+        { header: "F: Typ subjektu", key: "typ_subjektu", width: 18 },
+        { header: "G: RČ / IČO", key: "rc_ico", width: 18 },
+        { header: "H: Názov firmy", key: "nazov_firmy", width: 24 },
+        { header: "I: Titul pred", key: "titul_pred", width: 14 },
+        { header: "J: Meno", key: "meno", width: 18 },
+        { header: "K: Priezvisko", key: "priezvisko", width: 18 },
+        { header: "L: Titul za", key: "titul_za", width: 14 },
+        { header: "M: Špecialista UID", key: "specialista_uid", width: 22 },
+        { header: "N: Špecialista %", key: "specialista_pct", width: 16 },
+        { header: "O: Odporúčateľ 1 UID", key: "odporucitel1_uid", width: 22 },
+        { header: "P: Odporúčateľ 1 %", key: "odporucitel1_pct", width: 18 },
+        { header: "Q: Odporúčateľ 2 UID", key: "odporucitel2_uid", width: 22 },
+        { header: "R: Odporúčateľ 2 %", key: "odporucitel2_pct", width: 18 },
       ];
 
       const headerRow = sheet.getRow(1);
@@ -9545,7 +9545,7 @@ export async function registerRoutes(
 
       for (let i = 1; i <= 18; i++) {
         const cell = headerRow.getCell(i);
-        if ([1, 2, 5, 12, 13, 18].includes(i)) {
+        if ([1, 2, 3, 6, 13, 14].includes(i)) {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF991B1B" } };
           cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
         }
@@ -9621,7 +9621,7 @@ export async function registerRoutes(
         }
       }
 
-      sheet.getColumn(18).eachCell({ includeEmpty: false }, (cell, rowNumber) => {
+      sheet.getColumn(3).eachCell({ includeEmpty: false }, (cell, rowNumber) => {
         if (rowNumber >= 6) {
           cell.dataValidation = {
             type: "list",
@@ -9639,7 +9639,7 @@ export async function registerRoutes(
         for (let c = 1; c <= 18; c++) {
           row.getCell(c).protection = { locked: false };
         }
-        row.getCell(18).dataValidation = {
+        row.getCell(3).dataValidation = {
           type: "list",
           allowBlank: true,
           formulae: ['"Nova,Prestupova,Zmenova"'],
