@@ -5655,6 +5655,27 @@ export async function registerRoutes(
       // Preload existing contract/proposal numbers for duplicate detection (lean query)
       const { proposalNumbers: existingProposalNumbers, contractNumbers: existingContractNumbers } = await storage.getContractNumbers(appUser?.activeCompanyId || undefined);
 
+      // Determine UID prefix from active state code (e.g. 421 for SK, 420 for CZ)
+      let importUidPrefix = '421';
+      if (appUser?.activeStateId) {
+        const activeState = await storage.getState(appUser.activeStateId);
+        if (activeState?.code && /^\d{2,3}$/.test(activeState.code)) {
+          importUidPrefix = activeState.code;
+        }
+      }
+      // Normalize a raw UID from Excel: short numeric values get padded + country prefix applied
+      const normalizeImportUid = (raw: string | null): string | null => {
+        if (!raw) return null;
+        const clean = raw.replace(/[\s\-]/g, '');
+        // Already a valid 15-digit UID — return as-is
+        if (/^\d{15}$/.test(clean)) return clean;
+        // Pure numeric but short — pad to 12 digits and prepend country prefix
+        if (/^\d+$/.test(clean) && clean.length <= 12) {
+          return `${importUidPrefix}${clean.padStart(12, '0')}`;
+        }
+        return raw.trim();
+      };
+
       const results: { row: number; status: string; action?: string; contractId?: number; subjectId?: number; warnings?: string[]; error?: string; incompleteFields?: string[]; duplicateNumber?: string }[] = [];
       const batchId = req.body?.batchId || `IMPORT-${Date.now()}`;
       let incompleteCount = 0;
@@ -5732,11 +5753,11 @@ export async function registerRoutes(
             continue;
           }
 
-          const specialistaUid = rowData["specialista"] || rowData["specialist"] || rowData["specialista_uid"] || null;
+          const specialistaUid = normalizeImportUid(rowData["specialista"] || rowData["specialist"] || rowData["specialista_uid"] || null);
           const specialistaPodiel = rowData["specialista_podiel"] || rowData["specialist_percentage"] || rowData["specialista_pct"] || rowData["specialista_%"] || null;
-          const odporucitelUid = rowData["odporucitel"] || rowData["recommender"] || rowData["odporucitel1_uid"] || null;
+          const odporucitelUid = normalizeImportUid(rowData["odporucitel"] || rowData["recommender"] || rowData["odporucitel1_uid"] || null);
           const odporucitelPodiel = rowData["odporucitel_podiel"] || rowData["recommender_percentage"] || rowData["odporucitel1_pct"] || rowData["odporucitel1_%"] || null;
-          const odporucitel2Uid = rowData["odporucitel2"] || rowData["odporucitel2_uid"] || null;
+          const odporucitel2Uid = normalizeImportUid(rowData["odporucitel2"] || rowData["odporucitel2_uid"] || null);
           const odporucitel2Podiel = rowData["odporucitel2_podiel"] || rowData["odporucitel2_pct"] || rowData["odporucitel2_%"] || null;
 
           let rc: string | null = null;
