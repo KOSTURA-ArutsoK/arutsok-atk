@@ -2149,6 +2149,24 @@ export default function Contracts() {
 
   const isEvidencia = location === "/evidencia-zmluv";
 
+  const currentSearchParams = typeof window !== "undefined" ? window.location.search : "";
+  const VALID_VIEWS = ["moje", "portfolio", "dokumentacia"] as const;
+  type ContractViewType = typeof VALID_VIEWS[number];
+  const contractView = useMemo(() => {
+    const params = new URLSearchParams(currentSearchParams);
+    const raw = params.get("view");
+    if (raw && (VALID_VIEWS as readonly string[]).includes(raw)) return raw as ContractViewType;
+    return null;
+  }, [currentSearchParams]);
+
+  const VIEW_TITLES: Record<string, string> = {
+    moje: "Moje zmluvy",
+    portfolio: "Klientske portfólio",
+    dokumentacia: "Zmluvná dokumentácia",
+  };
+
+  const INTERNAL_CONTRACT_TYPES = new Set(["Interná", "Mandátna", "NDA", "Spolupráca", "Dohoda", "Protokol"]);
+
   const { data: migrationModeMainData } = useQuery<{ value: string | null }>({
     queryKey: ["/api/system-settings", "MIGRATION_MODE"],
     queryFn: async () => {
@@ -2449,7 +2467,34 @@ export default function Contracts() {
 
   const isLoading = isLoadingContracts && contractsOffset === 0;
   const isLoadingMore = isFetchingContracts && contractsOffset > 0;
-  const contracts = contractPages;
+  const userUid = appUser?.uid || "";
+
+  const viewFilteredContracts = useMemo(() => {
+    if (!contractView) return contractPages;
+    if ((contractView === "moje" || contractView === "portfolio") && !userUid) return [];
+    const normalizedUserUid = userUid.replace(/\s/g, "");
+    switch (contractView) {
+      case "moje":
+        return contractPages.filter(c => {
+          const k = (c.klientUid || "").replace(/\s/g, "");
+          return k === normalizedUserUid;
+        });
+      case "portfolio":
+        return contractPages.filter(c => {
+          const z = (c.ziskatelUid || "").replace(/\s/g, "");
+          const s = (c.specialistaUid || "").replace(/\s/g, "");
+          return z === normalizedUserUid || s === normalizedUserUid;
+        });
+      case "dokumentacia":
+        return contractPages.filter(c => {
+          return INTERNAL_CONTRACT_TYPES.has(c.contractType || "");
+        });
+      default:
+        return contractPages;
+    }
+  }, [contractPages, contractView, userUid]);
+
+  const contracts = viewFilteredContracts;
   const hasMoreContracts = contractPages.length < contractsTotal;
 
   const loadMoreContracts = useCallback(() => {
@@ -6388,8 +6433,8 @@ export default function Contracts() {
       {preSelectDialog}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-1.5">
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Evidencia zmlúv</h1>
-          <HelpIcon text="Prehled vsetkych zmluv v systeme. Zmluvy sa viazu na klientov, produkty a partnerov." side="right" />
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">{contractView ? VIEW_TITLES[contractView] || "Evidencia zmlúv" : "Evidencia zmlúv"}</h1>
+          <HelpIcon text={contractView === "moje" ? "Zmluvy, kde ste klientom (poistený, majiteľ, nájomca)." : contractView === "portfolio" ? "Zmluvy klientov, ktoré spravujete ako sprostredkovateľ alebo špecialista." : contractView === "dokumentacia" ? "Interné zmluvy s firmou (mandátna zmluva, NDA, zmluva o spolupráci)." : "Prehled vsetkych zmluv v systeme. Zmluvy sa viazu na klientov, produkty a partnerov."} side="right" />
         </div>
         <div className="flex items-center gap-2">
           {canCreateRecords(appUser) && (
@@ -6446,6 +6491,22 @@ export default function Contracts() {
         <ColumnManager columnVisibility={columnVisibility} />
       </div>
 
+      {contractView && (
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" data-testid="badge-view-filter">
+            {VIEW_TITLES[contractView]} — {activeContracts.length} {activeContracts.length === 1 ? "zmluva" : activeContracts.length < 5 ? "zmluvy" : "zmlúv"}
+          </Badge>
+          <Button variant="ghost" size="sm" onClick={() => {
+            const params = new URLSearchParams(window.location.search);
+            params.delete("view");
+            const qs = params.toString();
+            navigate(qs ? `/contracts?${qs}` : "/contracts");
+          }} data-testid="button-clear-view">
+            <X className="w-3.5 h-3.5 mr-1" /> Zobraziť všetky
+          </Button>
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
@@ -6454,7 +6515,7 @@ export default function Contracts() {
             </div>
           ) : activeContracts.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-12" data-testid="text-no-contracts">
-              Ziadne zmluvy
+              {contractView ? `Žiadne zmluvy v sekcii "${VIEW_TITLES[contractView]}"` : "Ziadne zmluvy"}
             </p>
           ) : (
             <div className="relative overflow-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>

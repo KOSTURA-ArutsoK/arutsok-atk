@@ -61,6 +61,8 @@ import {
   Mail,
   FileBarChart,
   Target,
+  User,
+  FolderOpen,
 } from "lucide-react";
 import {
   Sidebar,
@@ -123,7 +125,13 @@ const klientiItems: { href: string; icon: React.ElementType; label: string }[] =
 ];
 
 const zmluvyFlatItems = [
-  { href: "/contracts", icon: FileText, label: "Zoznam zmlúv" },
+  { href: "/contracts", icon: FileText, label: "Všetky zmluvy" },
+];
+
+const zoznamZmluvChildren = [
+  { href: "/contracts?view=moje", icon: User, label: "Moje zmluvy" },
+  { href: "/contracts?view=portfolio", icon: Briefcase, label: "Klientske portfólio" },
+  { href: "/contracts?view=dokumentacia", icon: FolderOpen, label: "Zmluvná dokumentácia" },
 ];
 
 const spracovanieZmluvChildren = [
@@ -149,7 +157,7 @@ const importItems = [
 ];
 
 const allZmluvyHrefs = [
-  ...zmluvyFlatItems.map(i => i.href),
+  "/contracts",
   ...spracovanieZmluvChildren.map(i => i.href),
   ...nastaveniaSablonChildren.map(i => i.href),
   ...protokolyChildren.map(i => i.href),
@@ -378,12 +386,16 @@ export function AppSidebar() {
     { id: "nastavenie-systemu", items: nastavenieSystemuItems },
     { id: "partneri", items: partneriProduktyItems },
     { id: "klienti", items: klientiItems },
-    { id: "zmluvy", items: [...zmluvyFlatItems, ...protokolyChildren, ...importItems, ...nastaveniaSablonChildren] },
+    { id: "zmluvy", items: [...zmluvyFlatItems, ...zoznamZmluvChildren, ...protokolyChildren, ...importItems, ...nastaveniaSablonChildren] },
     { id: "financie", items: financieItems },
     { id: "reporty", items: reportyItems },
     { id: "informacie", items: informacieItems },
   ];
-  const activeMenuId = allMenus.find(m => m.items.some(i => i.href === location))?.id || null;
+  const currentSearch = typeof window !== "undefined" ? window.location.search : "";
+  const currentView = new URLSearchParams(currentSearch).get("view");
+  const locationWithSearch = currentView ? `${location}?view=${currentView}` : location;
+
+  const activeMenuId = allMenus.find(m => m.items.some(i => i.href === location || i.href === locationWithSearch))?.id || null;
   const [openMenuId, setOpenMenuId] = useState<string | null>(activeMenuId);
 
   const isNastavenieActive = allNastavenieHrefs.includes(location);
@@ -396,6 +408,7 @@ export function AppSidebar() {
   const isZmluvyActive = allZmluvyHrefs.includes(location);
   const isZmluvyOpen = openMenuId === "zmluvy";
   const zmluvyInitialSub = spracovanieZmluvChildren.some(i => i.href === location) ? "spracovanie"
+    : (location === "/contracts") ? "zoznam"
     : protokolyChildren.some(i => i.href === location) ? "protokoly"
     : importItems.some(i => i.href === location) ? "import"
     : nastaveniaSablonChildren.some(i => i.href === location) ? "sablony" : null;
@@ -816,20 +829,53 @@ export function AppSidebar() {
                         </Collapsible>
                       </SidebarMenuSubItem>
 
-                      {zmluvyFlatItems.map(item => (
-                        <SidebarMenuSubItem key={item.href}>
-                          <SidebarMenuSubButton
-                            asChild
-                            isActive={location === item.href}
-                            data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
-                          >
-                            <Link href={item.href}>
-                              <item.icon className="w-3.5 h-3.5" />
-                              <span>{item.label}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
+                      <SidebarMenuSubItem>
+                        <Collapsible
+                          open={zmluvySubId === "zoznam"}
+                          onOpenChange={(val) => setZmluvySubId(val ? "zoznam" : null)}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuSubButton
+                              data-testid="nav-submenu-zoznam-zmluv"
+                              className={`cursor-pointer ${location === "/contracts" ? "text-sidebar-accent-foreground font-medium" : ""}`}
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              <span className="flex-1">Zoznam zmlúv</span>
+                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${zmluvySubId === "zoznam" ? "rotate-90" : ""}`} />
+                            </SidebarMenuSubButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
+                              <SidebarMenuSubItem>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={location === "/contracts" && !currentView}
+                                  data-testid="nav-všetky-zmluvy"
+                                >
+                                  <Link href="/contracts">
+                                    <FileText className="w-3.5 h-3.5" />
+                                    <span>Všetky zmluvy</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                              {zoznamZmluvChildren.map(item => (
+                                <SidebarMenuSubItem key={item.href}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={locationWithSearch === item.href}
+                                    data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                                  >
+                                    <Link href={item.href}>
+                                      <item.icon className="w-3.5 h-3.5" />
+                                      <span>{item.label}</span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </SidebarMenuSubItem>
 
                       <SidebarMenuSubItem>
                         <Collapsible
