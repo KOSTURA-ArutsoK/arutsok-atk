@@ -4314,8 +4314,9 @@ export default function Contracts() {
                       const isInc = row.status === "incomplete";
                       const isDup = row.status === "duplicate";
                       const hasRcError = !!row.rcCritical;
+                      const hasIcoError = !!row.icoCritical;
                       return (
-                        <TableRow key={i} className={isErr ? "bg-destructive/5" : hasRcError ? "bg-red-500/10" : isInc ? "bg-red-500/5" : isDup ? "bg-yellow-500/5" : ""} data-testid={`row-import-result-${i}`}>
+                        <TableRow key={i} className={isErr ? "bg-destructive/5" : (hasRcError || hasIcoError) ? "bg-red-500/10" : isInc ? "bg-red-500/5" : isDup ? "bg-yellow-500/5" : ""} data-testid={`row-import-result-${i}`}>
                           <TableCell className="text-xs text-muted-foreground sticky left-0 bg-inherit">{row.row ?? i + 2}</TableCell>
                           <TableCell className="sticky left-8 bg-inherit">
                             {isErr ? (
@@ -4324,6 +4325,11 @@ export default function Contracts() {
                               <span className="flex items-center gap-1" title={row.rcValidationError || row.incompleteFields?.join(", ")}>
                                 <AlertTriangle className="w-4 h-4 text-red-500" />
                                 <span className="text-[9px] text-red-500 font-semibold whitespace-nowrap">Kritická chyba RČ</span>
+                              </span>
+                            ) : hasIcoError ? (
+                              <span className="flex items-center gap-1" title={row.icoValidationError || row.incompleteFields?.join(", ")}>
+                                <AlertTriangle className="w-4 h-4 text-red-500" />
+                                <span className="text-[9px] text-red-500 font-semibold whitespace-nowrap">Kritická chyba IČO</span>
                               </span>
                             ) : isInc ? (
                               <span title={row.incompleteFields?.join(", ")}><AlertTriangle className="w-4 h-4 text-red-500" /></span>

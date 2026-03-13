@@ -7,6 +7,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak, formatPhone, formatUid, canCreateSubjects, canEditRecords } from "@/lib/utils";
 import { validateSlovakRC } from "@shared/rc-validator";
+import { validateSlovakICO } from "@shared/ico-validator";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, type ValidityResult } from "@/lib/document-validity";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark, ChevronRight, ChevronDown, FolderOpen, Tag, Hash, Package, FileText as FileTextIcon, SquareIcon, TrendingDown, Shield, Save } from "lucide-react";
@@ -1611,6 +1612,9 @@ function InitialRegistrationModal({
   const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; uid: string; id: number; matchedField?: string; managerName?: string | null; managerId?: number | null; isBlacklisted?: boolean; blacklistMessage?: string } | null>(null);
   const [duplicateChecked, setDuplicateChecked] = useState(false);
   const [rcError, setRcError] = useState<string | null>(null);
+  const [icoError, setIcoError] = useState<string | null>(null);
+  const [aresLookup, setAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; found: boolean; message?: string } | null>(null);
+  const [aresLoading, setAresLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const baseInputRef = useRef<HTMLInputElement>(null);
   const proceedBtnRef = useRef<HTMLButtonElement>(null);
@@ -1652,10 +1656,15 @@ function InitialRegistrationModal({
       setDuplicateInfo(null);
       setDuplicateChecked(false);
       setRcError(null);
+      setIcoError(null);
+      setAresLookup(null);
       return;
     }
     const isRc = selectedClientType?.baseParameter === "rc";
+    const isIco = selectedClientType?.baseParameter === "ico";
     if (isRc) {
+      setIcoError(null);
+      setAresLookup(null);
       const digitsOnly = baseValue.replace(/[^0-9]/g, "");
       if (digitsOnly.length < 9) {
         setDuplicateChecked(false);
@@ -1670,6 +1679,39 @@ function InitialRegistrationModal({
       }
       setRcError(null);
       performDuplicateCheck(baseValue, selectedClientType?.baseParameter);
+    } else if (isIco) {
+      setRcError(null);
+      const digitsOnly = baseValue.replace(/[\s\/-]/g, "");
+      if (digitsOnly.length < 1) {
+        setDuplicateChecked(false);
+        setIcoError(null);
+        setAresLookup(null);
+        return;
+      }
+      const icoResult = validateSlovakICO(baseValue);
+      if (!icoResult.valid) {
+        setIcoError(icoResult.error || "Neplatné IČO");
+        setDuplicateChecked(false);
+        setAresLookup(null);
+        return;
+      }
+      setIcoError(null);
+      performDuplicateCheck(baseValue, selectedClientType?.baseParameter);
+      setAresLoading(true);
+      const normalizedIco = icoResult.normalized || digitsOnly;
+      fetch(`/api/lookup/ico/${encodeURIComponent(normalizedIco)}`, { credentials: "include" })
+        .then(r => r.json())
+        .then(data => {
+          if (data.found) {
+            setAresLookup(data);
+          } else {
+            setAresLookup({ found: false, message: data.message || "Firma nenájdená" });
+          }
+        })
+        .catch(() => {
+          setAresLookup({ found: false, message: "Chyba pri vyhľadávaní v ARES" });
+        })
+        .finally(() => setAresLoading(false));
     } else {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       setDuplicateChecked(false);
@@ -1693,11 +1735,11 @@ function InitialRegistrationModal({
     setDuplicateChecked(false);
   }
 
-  const canProceed = selectedType && appUser?.activeStateId && baseValue.trim() && duplicateChecked && !duplicateInfo && !rcError;
+  const canProceed = selectedType && appUser?.activeStateId && baseValue.trim() && duplicateChecked && !duplicateInfo && !rcError && !icoError;
 
   return (
     <Dialog open={open} onOpenChange={(o) => {
-      if (!o) { setDuplicateInfo(null); setDuplicateChecked(false); setBaseValue(""); setSelectedType(""); }
+      if (!o) { setDuplicateInfo(null); setDuplicateChecked(false); setBaseValue(""); setSelectedType(""); setIcoError(null); setAresLookup(null); }
       onOpenChange(o);
     }}>
       <DialogContent size="sm" className="flex flex-col items-stretch justify-start">
@@ -1734,21 +1776,44 @@ function InitialRegistrationModal({
                   setBaseValue(e.target.value);
                 }}
                 onKeyDown={(e) => { if (e.key === "Enter" && canProceed && !checking) handleProceed(); }}
-                className={rcError ? "border-red-500 focus-visible:ring-red-500" : ""}
+                className={(rcError || icoError) ? "border-red-500 focus-visible:ring-red-500" : ""}
                 data-testid="input-base-parameter"
               />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2" style={{ display: checking ? 'block' : 'none' }}>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2" style={{ display: (checking || aresLoading) ? 'block' : 'none' }}>
                 <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
               </div>
-              <div className="absolute right-2 top-1/2 -translate-y-1/2" style={{ display: (!checking && duplicateChecked && !duplicateInfo && baseValue.trim() && !rcError) ? 'block' : 'none' }}>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2" style={{ display: (!checking && !aresLoading && duplicateChecked && !duplicateInfo && baseValue.trim() && !rcError && !icoError) ? 'block' : 'none' }}>
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
               </div>
-              <div className="absolute right-2 top-1/2 -translate-y-1/2" style={{ display: rcError ? 'block' : 'none' }}>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2" style={{ display: (rcError || icoError) ? 'block' : 'none' }}>
                 <AlertTriangle className="w-4 h-4 text-red-500" />
               </div>
             </div>
             {rcError && (
               <p className="text-xs text-red-500 mt-1" data-testid="text-rc-error">{rcError}</p>
+            )}
+            {icoError && (
+              <p className="text-xs text-red-500 mt-1" data-testid="text-ico-error">{icoError}</p>
+            )}
+            {aresLookup?.found && (
+              <div className="mt-2 bg-blue-500/10 border border-blue-500/30 rounded-md p-3 space-y-1" data-testid="ares-lookup-result">
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
+                  <span className="text-xs font-semibold text-blue-400">ARES Register</span>
+                </div>
+                {aresLookup.name && <p className="text-sm font-medium">{aresLookup.name}</p>}
+                {(aresLookup.street || aresLookup.city) && (
+                  <p className="text-xs text-muted-foreground">
+                    {[aresLookup.street, aresLookup.streetNumber].filter(Boolean).join(" ")}
+                    {(aresLookup.street || aresLookup.streetNumber) && (aresLookup.zip || aresLookup.city) ? ", " : ""}
+                    {[aresLookup.zip, aresLookup.city].filter(Boolean).join(" ")}
+                  </p>
+                )}
+                {aresLookup.legalForm && <p className="text-[10px] text-muted-foreground">{aresLookup.legalForm}{aresLookup.dic ? ` | DIČ: ${aresLookup.dic}` : ""}</p>}
+              </div>
+            )}
+            {aresLookup && !aresLookup.found && !icoError && (
+              <p className="text-xs text-muted-foreground mt-1">{aresLookup.message}</p>
             )}
           </div>
 
@@ -1894,16 +1959,18 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
   const [nameWarning, setNameWarning] = useState<string | null>(null);
   const [titleWarning, setTitleWarning] = useState<string | null>(null);
   const [rcFieldError, setRcFieldError] = useState<string | null>(null);
+  const [icoFieldError, setIcoFieldError] = useState<string | null>(null);
 
   const isNameField = field.fieldKey === "meno" || field.fieldKey === "priezvisko";
   const isTitleField = field.fieldKey === "titul_pred" || field.fieldKey === "titul_za";
   const isRcField = field.fieldKey === "rodne_cislo" || field.fieldKey === "zi_rodne_cislo";
+  const isIcoField = field.fieldKey === "ico" || field.fieldKey === "zi_ico";
 
   const numberFieldValidity = useMemo(() => {
     return isNumberFieldWithExpiredPair(field.fieldKey, dynamicValues);
   }, [field.fieldKey, dynamicValues]);
   const isExpiredNumber = numberFieldValidity?.status === "expired";
-  const errorBorder = hasError || rcFieldError ? "border-red-500 ring-1 ring-red-500" : isExpiredNumber ? "border-red-500/60 bg-red-500/10 ring-1 ring-red-500/30" : titleWarning ? "border-amber-500 ring-1 ring-amber-500/60" : "";
+  const errorBorder = hasError || rcFieldError || icoFieldError ? "border-red-500 ring-1 ring-red-500" : isExpiredNumber ? "border-red-500/60 bg-red-500/10 ring-1 ring-red-500/30" : titleWarning ? "border-amber-500 ring-1 ring-amber-500/60" : "";
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-1">
@@ -2114,6 +2181,33 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           placeholder="XXXXXX/XXXX"
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
+      ) : isIcoField ? (
+        <Input
+          value={dynamicValues[field.fieldKey] || ""}
+          onChange={e => {
+            setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }));
+            if (icoFieldError) {
+              const r = validateSlovakICO(e.target.value);
+              if (r.valid) setIcoFieldError(null);
+            }
+          }}
+          onBlur={() => {
+            const val = (dynamicValues[field.fieldKey] || "").trim();
+            if (!val) { setIcoFieldError(null); return; }
+            const result = validateSlovakICO(val);
+            if (!result.valid) {
+              setIcoFieldError(result.error || "Neplatné IČO");
+            } else {
+              setIcoFieldError(null);
+              if (result.normalized && result.normalized !== val) {
+                setDynamicValues(prev => ({ ...prev, [field.fieldKey]: result.normalized! }));
+              }
+            }
+          }}
+          className={`font-mono ${errorBorder}`}
+          placeholder="12345678"
+          data-testid={`input-dynamic-${field.fieldKey}`}
+        />
       ) : (
         <Input
           value={dynamicValues[field.fieldKey] || ""}
@@ -2130,6 +2224,9 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
       )}
       {rcFieldError && isRcField && (
         <p className="text-[10px] text-red-500 leading-tight" data-testid={`text-rc-error-${field.fieldKey}`}>{rcFieldError}</p>
+      )}
+      {icoFieldError && isIcoField && (
+        <p className="text-[10px] text-red-500 leading-tight" data-testid={`text-ico-error-${field.fieldKey}`}>{icoFieldError}</p>
       )}
     </div>
   );
@@ -2160,6 +2257,9 @@ function FullPageEditor({
   const [szcoFoLinkedId, setSzcoFoLinkedId] = useState<number | null>(null);
   const [szcoFoLoading, setSzcoFoLoading] = useState(false);
   const [szcoFoRcError, setSzcoFoRcError] = useState<string | null>(null);
+  const [szcoIcoError, setSzcoIcoError] = useState<string | null>(null);
+  const [szcoAresLookup, setSzcoAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; found: boolean; message?: string } | null>(null);
+  const [szcoAresLoading, setSzcoAresLoading] = useState(false);
 
   const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>({ korespond_rovnaka: "true", kontaktna_rovnaka: "true", tp_stat: DEFAULT_COUNTRY, ka_stat: DEFAULT_COUNTRY, koa_stat: DEFAULT_COUNTRY, sidlo_stat: DEFAULT_COUNTRY, vykon_stat: DEFAULT_COUNTRY });
   const [documents, setDocuments] = useState<DocumentEntry[]>([]);
@@ -2345,6 +2445,14 @@ function FullPageEditor({
         toast({ title: "Chýbajúce obchodné údaje", description: "Vyplňte obchodné meno SZČO.", variant: "destructive" });
         return;
       }
+      if (szcoData.ico) {
+        const icoCheck = validateSlovakICO(szcoData.ico);
+        if (!icoCheck.valid) {
+          setSzcoIcoError(icoCheck.error || "Neplatné IČO");
+          toast({ title: "Neplatné IČO", description: icoCheck.error || "Kontrolná číslica nesedí", variant: "destructive" });
+          return;
+        }
+      }
       submitData.firstName = szcoFoData.firstName;
       submitData.lastName = szcoFoData.lastName;
       if (szcoFoData.birthNumber) submitData.birthNumber = szcoFoData.birthNumber;
@@ -2439,12 +2547,45 @@ function FullPageEditor({
                   />
                 </div>
                 <div className="space-y-1 w-[160px] min-w-[120px]">
-                  <Label className="text-xs text-muted-foreground">IČO *</Label>
+                  <Label className={`text-xs ${szcoIcoError ? "text-red-500" : "text-muted-foreground"}`}>IČO *</Label>
                   <Input
                     value={szcoData.ico}
-                    onChange={e => setSzcoData(prev => ({ ...prev, ico: e.target.value }))}
+                    onChange={e => {
+                      setSzcoData(prev => ({ ...prev, ico: e.target.value }));
+                      if (szcoIcoError) {
+                        const r = validateSlovakICO(e.target.value);
+                        if (r.valid) { setSzcoIcoError(null); }
+                      }
+                    }}
+                    onBlur={() => {
+                      const val = szcoData.ico.trim();
+                      if (!val) { setSzcoIcoError(null); setSzcoAresLookup(null); return; }
+                      const result = validateSlovakICO(val);
+                      if (!result.valid) {
+                        setSzcoIcoError(result.error || "Neplatné IČO");
+                        setSzcoAresLookup(null);
+                        return;
+                      }
+                      setSzcoIcoError(null);
+                      if (result.normalized) setSzcoData(prev => ({ ...prev, ico: result.normalized! }));
+                      setSzcoAresLoading(true);
+                      fetch(`/api/lookup/ico/${encodeURIComponent(result.normalized || val)}`, { credentials: "include" })
+                        .then(r => r.json())
+                        .then(data => {
+                          if (data.found) {
+                            setSzcoAresLookup(data);
+                          } else {
+                            setSzcoAresLookup({ found: false, message: data.message });
+                          }
+                        })
+                        .catch(() => setSzcoAresLookup({ found: false, message: "Chyba ARES" }))
+                        .finally(() => setSzcoAresLoading(false));
+                    }}
+                    className={szcoIcoError ? "border-red-500 focus-visible:ring-red-500 font-mono" : "font-mono"}
                     data-testid="input-szco-ico"
                   />
+                  {szcoIcoError && <p className="text-[10px] text-red-500 leading-tight" data-testid="text-szco-ico-error">{szcoIcoError}</p>}
+                  {szcoAresLoading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground mt-1" />}
                 </div>
                 <div className="space-y-1 w-[160px] min-w-[120px]">
                   <Label className="text-xs text-muted-foreground">DIČ</Label>
@@ -2479,6 +2620,44 @@ function FullPageEditor({
                   />
                 </div>
               </div>
+              {szcoAresLookup?.found && (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-md p-3 space-y-2" data-testid="szco-ares-lookup-result">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
+                    <span className="text-xs font-semibold text-blue-400">ARES Register</span>
+                  </div>
+                  {szcoAresLookup.name && <p className="text-sm font-medium">{szcoAresLookup.name}</p>}
+                  {(szcoAresLookup.street || szcoAresLookup.city) && (
+                    <p className="text-xs text-muted-foreground">
+                      {[szcoAresLookup.street, szcoAresLookup.streetNumber].filter(Boolean).join(" ")}
+                      {(szcoAresLookup.street || szcoAresLookup.streetNumber) && (szcoAresLookup.zip || szcoAresLookup.city) ? ", " : ""}
+                      {[szcoAresLookup.zip, szcoAresLookup.city].filter(Boolean).join(" ")}
+                    </p>
+                  )}
+                  {szcoAresLookup.legalForm && <p className="text-[10px] text-muted-foreground">{szcoAresLookup.legalForm}{szcoAresLookup.dic ? ` | DIČ: ${szcoAresLookup.dic}` : ""}</p>}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => {
+                      setSzcoData(prev => ({
+                        ...prev,
+                        obchodne_meno: szcoAresLookup.name || prev.obchodne_meno,
+                        dic: szcoAresLookup.dic || prev.dic,
+                        miesto_podnikania: [szcoAresLookup.street, szcoAresLookup.streetNumber, szcoAresLookup.zip, szcoAresLookup.city].filter(Boolean).join(", ") || prev.miesto_podnikania,
+                      }));
+                      setSzcoAresLookup(null);
+                    }}
+                    data-testid="button-szco-ares-use"
+                  >
+                    Použiť údaje z registra
+                  </Button>
+                </div>
+              )}
+              {szcoAresLookup && !szcoAresLookup.found && !szcoIcoError && (
+                <p className="text-xs text-muted-foreground">{szcoAresLookup.message}</p>
+              )}
             </CardContent>
           </Card>
 

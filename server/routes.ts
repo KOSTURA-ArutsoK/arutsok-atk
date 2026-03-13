@@ -20,6 +20,7 @@ import crypto from "crypto";
 import { encryptField, decryptField } from "./crypto";
 import { detectAmbiguousName } from "./name-parser";
 import { validateSlovakRC } from "@shared/rc-validator";
+import { validateSlovakICO } from "@shared/ico-validator";
 import { scanUploadedFile, scanMultipleFiles, sanitizeExcelWorkbook, checkClamAvStatus } from "./services/file-security";
 
 function stripBallast(str: string): string {
@@ -2019,8 +2020,26 @@ export async function registerRoutes(
         }
       }
 
-      if (input.birthNumber || (input as any).szcoIco) {
-        const dupCheck = await storage.checkDuplicateSubject({ birthNumber: input.birthNumber || undefined, ico: (input as any).szcoIco || undefined });
+      const inputIco = (input.details as any)?.ico || (input as any).szcoIco || (input.details as any)?.dynamicFields?.ico || (input.details as any)?.dynamicFields?.zi_ico;
+      if (inputIco && (input.type === "company" || input.type === "szco" || input.type === "organization")) {
+        const icoResult = validateSlovakICO(inputIco);
+        if (!icoResult.valid) {
+          return res.status(400).json({ message: `Neplatné IČO: ${icoResult.error}` });
+        }
+        if (icoResult.normalized && input.details && typeof input.details === 'object') {
+          (input.details as any).ico = icoResult.normalized;
+          if ((input.details as any)?.dynamicFields?.ico) {
+            (input.details as any).dynamicFields.ico = icoResult.normalized;
+          }
+          if ((input.details as any)?.dynamicFields?.zi_ico) {
+            (input.details as any).dynamicFields.zi_ico = icoResult.normalized;
+          }
+        }
+      }
+
+      const dupIco = (input.details as any)?.ico || (input as any).szcoIco;
+      if (input.birthNumber || dupIco) {
+        const dupCheck = await storage.checkDuplicateSubject({ birthNumber: input.birthNumber || undefined, ico: dupIco || undefined });
         if (dupCheck) {
           const isBlacklisted = await storage.isSubjectInGroup(dupCheck.id, "group_cierny_zoznam");
           if (isBlacklisted) {
@@ -2107,6 +2126,23 @@ export async function registerRoutes(
           return res.status(400).json({ message: `Neplatné rodné číslo: ${rcResult.error}` });
         }
         input.birthNumber = encryptField(input.birthNumber);
+      }
+
+      const updateIco = (input.details as any)?.ico || (input.details as any)?.dynamicFields?.ico || (input.details as any)?.dynamicFields?.zi_ico;
+      if (updateIco && (original.type === "company" || original.type === "szco" || original.type === "organization")) {
+        const icoResult = validateSlovakICO(updateIco);
+        if (!icoResult.valid) {
+          return res.status(400).json({ message: `Neplatné IČO: ${icoResult.error}` });
+        }
+        if (icoResult.normalized && input.details && typeof input.details === 'object') {
+          (input.details as any).ico = icoResult.normalized;
+          if ((input.details as any)?.dynamicFields?.ico) {
+            (input.details as any).dynamicFields.ico = icoResult.normalized;
+          }
+          if ((input.details as any)?.dynamicFields?.zi_ico) {
+            (input.details as any).dynamicFields.zi_ico = icoResult.normalized;
+          }
+        }
       }
 
       const changedFields: Record<string, { old: any; new: any }> = {};
@@ -5800,6 +5836,16 @@ export async function registerRoutes(
             }
           }
 
+          let icoValidationError: string | null = null;
+          if (ico && (subjectType === "company" || subjectType === "szco" || subjectType === "organization")) {
+            const icoResult = validateSlovakICO(ico);
+            if (!icoResult.valid) {
+              icoValidationError = icoResult.error || "Neplatné IČO";
+            } else if (icoResult.normalized) {
+              ico = icoResult.normalized;
+            }
+          }
+
           let resolvedSubjectId: number | null = null;
           if (rc || ico) {
             const dupCheck = await storage.checkDuplicateSubject({
@@ -5829,6 +5875,9 @@ export async function registerRoutes(
           if (rcValidationError) {
             missingFields.push(`Neplatné RČ: ${rcValidationError}`);
           }
+          if (icoValidationError) {
+            missingFields.push(`Neplatné IČO: ${icoValidationError}`);
+          }
           const isIncomplete = missingFields.length > 0;
 
           const importedRawData: Record<string, string | null> = {
@@ -5846,6 +5895,7 @@ export async function registerRoutes(
           if (spz) importedRawData["spz"] = spz;
           if (vin) importedRawData["vin"] = vin;
           if (rcValidationError) importedRawData["rc_validation_error"] = rcValidationError;
+          if (icoValidationError) importedRawData["ico_validation_error"] = icoValidationError;
           for (const [k, v] of Object.entries(rowData)) {
             if (v && !importedRawData.hasOwnProperty(k)) {
               importedRawData[k] = v;
@@ -5943,6 +5993,8 @@ export async function registerRoutes(
             incompleteFields: isIncomplete ? missingFields : undefined,
             rcCritical: !!rcValidationError,
             rcValidationError: rcValidationError || undefined,
+            icoCritical: !!icoValidationError,
+            icoValidationError: icoValidationError || undefined,
             hasDistributions,
             rawData: {
               partner: partnerName,
@@ -7068,6 +7120,78 @@ export async function registerRoutes(
       ].filter(Boolean);
       const displayName = nameParts.join(' ') || subject.companyName || 'Neznámy subjekt';
       res.json({ id: subject.id, uid: subject.uid, displayName, type: subject.type });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/lookup/ico/:ico", isAuthenticated, async (req, res) => {
+    try {
+      const { ico } = req.params;
+      const icoResult = validateSlovakICO(ico);
+      if (!icoResult.valid) {
+        return res.status(400).json({ valid: false, error: icoResult.error });
+      }
+      const normalized = icoResult.normalized || ico;
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const aresResp = await fetch(`https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/${encodeURIComponent(normalized)}`, {
+          signal: controller.signal,
+          headers: { "Accept": "application/json" },
+        });
+        clearTimeout(timeout);
+        if (!aresResp.ok) {
+          if (aresResp.status === 404) {
+            return res.json({ valid: true, normalized, found: false, message: "Firma nenájdená v registri ARES" });
+          }
+          return res.json({ valid: true, normalized, found: false, message: `ARES vrátil chybu (${aresResp.status})` });
+        }
+        const aresData = await aresResp.json();
+        const name = aresData.obchodniJmeno || aresData.nazev || null;
+        const sidlo = aresData.sidlo || {};
+        const street = sidlo.nazevUlice || sidlo.nazevObce || "";
+        const streetNumber = [sidlo.cisloDomovni, sidlo.cisloOrientacni].filter(Boolean).join("/");
+        const zip = sidlo.psc ? String(sidlo.psc) : "";
+        const city = sidlo.nazevObce || sidlo.nazevMestskeCasti || "";
+        const legalFormCode = aresData.pravniForma;
+        const legalFormMap: Record<string, string> = {
+          "101": "Fyzická osoba podnikajúca",
+          "112": "Spoločnosť s ručením obmedzeným",
+          "111": "Verejná obchodná spoločnosť",
+          "113": "Spoločnosť komanditná",
+          "121": "Akciová spoločnosť",
+          "141": "Všeobecne prospešná spoločnosť",
+          "205": "Družstvo",
+          "301": "Štátny podnik",
+          "331": "Príspevková organizácia",
+          "421": "Zahraničná osoba",
+          "701": "Občianske združenie",
+          "711": "Politická strana",
+          "721": "Cirkevná organizácia",
+          "745": "Nadácia",
+          "801": "Spoločenstvo vlastníkov jednotiek",
+        };
+        const legalForm = legalFormMap[String(legalFormCode)] || (legalFormCode ? `Kód ${legalFormCode}` : "");
+        const dic = aresData.dic || null;
+        res.json({
+          valid: true,
+          normalized,
+          found: true,
+          name,
+          street,
+          streetNumber,
+          zip,
+          city,
+          legalForm,
+          dic,
+        });
+      } catch (fetchErr: any) {
+        if (fetchErr.name === "AbortError") {
+          return res.json({ valid: true, normalized, found: false, message: "ARES nedostupný (timeout)" });
+        }
+        return res.json({ valid: true, normalized, found: false, message: "Chyba pri komunikácii s ARES" });
+      }
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }
