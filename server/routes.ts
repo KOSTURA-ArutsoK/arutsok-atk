@@ -5422,10 +5422,12 @@ export async function registerRoutes(
         "meno": "meno", "first_name": "meno", "krstne meno": "meno", "krstné meno": "meno",
         "priezvisko": "priezvisko", "last_name": "priezvisko",
         "titul za": "titul_za", "titul_za": "titul_za", "title_after": "titul_za", "titul za menom": "titul_za",
-        "specialista": "specialista", "specialist": "specialista",
-        "specialista podiel": "specialista_podiel", "specialista_podiel": "specialista_podiel", "specialist_percentage": "specialista_podiel",
-        "odporucitel": "odporucitel", "recommender": "odporucitel",
-        "odporucitel podiel": "odporucitel_podiel", "odporucitel_podiel": "odporucitel_podiel", "recommender_percentage": "odporucitel_podiel",
+        "specialista": "specialista", "specialist": "specialista", "specialista_uid": "specialista", "specialista uid": "specialista", "l: specialista uid": "specialista", "l: špecialista uid": "specialista",
+        "specialista podiel": "specialista_podiel", "specialista_podiel": "specialista_podiel", "specialist_percentage": "specialista_podiel", "specialista_%": "specialista_podiel", "specialista_pct": "specialista_podiel", "m: specialista %": "specialista_podiel", "m: špecialista %": "specialista_podiel",
+        "odporucitel": "odporucitel", "odporucatel": "odporucitel", "recommender": "odporucitel", "odporucitel1_uid": "odporucitel", "odporucitel1 uid": "odporucitel", "odporucatel 1 uid": "odporucitel", "odporucatel_1_uid": "odporucitel", "n: odporucitel 1 uid": "odporucitel", "n: odporúčateľ 1 uid": "odporucitel",
+        "odporucitel podiel": "odporucitel_podiel", "odporucitel_podiel": "odporucitel_podiel", "recommender_percentage": "odporucitel_podiel", "odporucitel1_%": "odporucitel_podiel", "odporucitel1_pct": "odporucitel_podiel", "o: odporucitel 1 %": "odporucitel_podiel", "o: odporúčateľ 1 %": "odporucitel_podiel", "odporucatel 1 %": "odporucitel_podiel", "odporucatel_1_%": "odporucitel_podiel",
+        "odporucitel2_uid": "odporucitel2", "odporucitel2 uid": "odporucitel2", "odporucatel 2 uid": "odporucitel2", "odporucatel_2_uid": "odporucitel2", "p: odporucitel 2 uid": "odporucitel2", "p: odporúčateľ 2 uid": "odporucitel2",
+        "odporucitel2_%": "odporucitel2_podiel", "odporucitel2_pct": "odporucitel2_podiel", "odporucitel2_podiel": "odporucitel2_podiel", "q: odporucitel 2 %": "odporucitel2_podiel", "q: odporúčateľ 2 %": "odporucitel2_podiel", "odporucatel 2 %": "odporucitel2_podiel", "odporucatel_2_%": "odporucitel2_podiel",
       };
 
       function removeDiacritics(str: string): string {
@@ -5439,10 +5441,14 @@ export async function registerRoutes(
         if (HEADER_ALIASES[noDiac]) return HEADER_ALIASES[noDiac];
         const underscored = noDiac.replace(/\s+/g, "_");
         if (HEADER_ALIASES[underscored]) return HEADER_ALIASES[underscored];
+        const noPrefix = noDiac.replace(/^[a-z]:\s*/, "");
+        if (HEADER_ALIASES[noPrefix]) return HEADER_ALIASES[noPrefix];
+        const noPrefixUnder = noPrefix.replace(/\s+/g, "_");
+        if (HEADER_ALIASES[noPrefixUnder]) return HEADER_ALIASES[noPrefixUnder];
         return underscored;
       }
 
-      const KNOWN_IMPORT_HEADERS = new Set([...POSITIONAL_COLUMNS, ...Object.values(HEADER_ALIASES), "specialista", "specialista_podiel", "odporucitel", "odporucitel_podiel"]);
+      const KNOWN_IMPORT_HEADERS = new Set([...POSITIONAL_COLUMNS, ...Object.values(HEADER_ALIASES), "specialista", "specialista_podiel", "odporucitel", "odporucitel_podiel", "odporucitel2", "odporucitel2_podiel"]);
 
       if (isCSV) {
         const csvContent = fs.readFileSync(file.path, "utf-8");
@@ -5469,9 +5475,9 @@ export async function registerRoutes(
         if (!sheet) return res.status(400).json({ message: "Excel neobsahuje žiadny hárok" });
 
         const headerRow = sheet.getRow(1);
-        const colCount = headerRow.cellCount || sheet.columnCount || 11;
+        const colCount = headerRow.cellCount || sheet.columnCount || 17;
         const rawHeaderValues: string[] = [];
-        for (let ci = 1; ci <= Math.max(colCount, 11); ci++) {
+        for (let ci = 1; ci <= Math.max(colCount, 17); ci++) {
           const cell = headerRow.getCell(ci);
           const val = String(cell.value ?? "").trim();
           if (val) {
@@ -5622,10 +5628,12 @@ export async function registerRoutes(
           const cisloNavrhu = rowData["cislo_navrhu"] || rowData["proposal_number"] || null;
           const cisloZmluvy = rowData["cislo_zmluvy"] || rowData["contract_number"] || null;
 
-          const specialistaUid = rowData["specialista"] || rowData["specialist"] || null;
-          const specialistaPodiel = rowData["specialista_podiel"] || rowData["specialist_percentage"] || null;
-          const odporucitelUid = rowData["odporucitel"] || rowData["recommender"] || null;
-          const odporucitelPodiel = rowData["odporucitel_podiel"] || rowData["recommender_percentage"] || null;
+          const specialistaUid = rowData["specialista"] || rowData["specialist"] || rowData["specialista_uid"] || null;
+          const specialistaPodiel = rowData["specialista_podiel"] || rowData["specialist_percentage"] || rowData["specialista_pct"] || rowData["specialista_%"] || null;
+          const odporucitelUid = rowData["odporucitel"] || rowData["recommender"] || rowData["odporucitel1_uid"] || null;
+          const odporucitelPodiel = rowData["odporucitel_podiel"] || rowData["recommender_percentage"] || rowData["odporucitel1_pct"] || rowData["odporucitel1_%"] || null;
+          const odporucitel2Uid = rowData["odporucitel2"] || rowData["odporucitel2_uid"] || null;
+          const odporucitel2Podiel = rowData["odporucitel2_podiel"] || rowData["odporucitel2_pct"] || rowData["odporucitel2_%"] || null;
 
           let rc: string | null = null;
           let ico: string | null = null;
@@ -5744,6 +5752,15 @@ export async function registerRoutes(
                 sortOrder: specialistaUid ? 1 : 0,
               });
             }
+            if (odporucitel2Uid) {
+              distributions.push({
+                contractId: created.id,
+                type: "recommender",
+                uid: odporucitel2Uid.trim(),
+                percentage: odporucitel2Podiel ? String(parseFloat(odporucitel2Podiel) || 0) : "0",
+                sortOrder: distributions.length,
+              });
+            }
             try {
               await storage.saveContractRewardDistributions(created.id, distributions);
             } catch (rewardErr: any) {
@@ -5756,11 +5773,12 @@ export async function registerRoutes(
             module: "zmluvy",
             entityId: created.id,
             entityName: `Import riadok ${rowNum}: kontrakt #${created.id}`,
-            newData: { row: rowNum, contractId: created.id, partnerId: resolvedPartnerId, productId: resolvedProductId, subjectId: resolvedSubjectId, specialistaUid, odporucitelUid },
+            newData: { row: rowNum, contractId: created.id, partnerId: resolvedPartnerId, productId: resolvedProductId, subjectId: resolvedSubjectId, specialistaUid, odporucitelUid, odporucitel2Uid },
           });
 
           if (isIncomplete) incompleteCount++;
 
+          const hasDistributions = !!(specialistaUid || odporucitelUid);
           results.push({
             row: rowNum,
             status: isIncomplete ? "incomplete" : "ok",
@@ -5768,6 +5786,7 @@ export async function registerRoutes(
             contractId: created.id,
             subjectId: resolvedSubjectId || undefined,
             incompleteFields: isIncomplete ? missingFields : undefined,
+            hasDistributions,
           });
         } catch (rowErr: any) {
           results.push({ row: rowNum, status: "error", error: rowErr.message || "Neznáma chyba" });

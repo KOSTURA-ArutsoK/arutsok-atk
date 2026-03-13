@@ -3111,15 +3111,20 @@ export default function Contracts() {
       }
       setImportResult(data);
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
-      const createdIds = (data.details || []).filter((d: any) => d.contractId && (d.status === "ok" || d.status === "incomplete")).map((d: any) => d.contractId as number);
+      const createdDetails = (data.details || []).filter((d: any) => d.contractId && (d.status === "ok" || d.status === "incomplete"));
+      const createdIds = createdDetails.map((d: any) => d.contractId as number);
       setImportCreatedIds(createdIds);
-      if (createdIds.length > 0) {
+      const allHaveDistributions = createdDetails.length > 0 && createdDetails.every((d: any) => d.hasDistributions);
+      if (createdIds.length > 0 && !allHaveDistributions) {
         setImportStep(2);
         setImportFile(null);
       } else {
         setImportDialogOpen(false);
         setImportFile(null);
         setImportSummaryOpen(true);
+        if (allHaveDistributions) {
+          toast({ title: "Úspech", description: `Import dokončený. Získatelia boli priradení z Excelu pre ${createdIds.length} zmlúv.` });
+        }
       }
     } catch (err: any) {
       toast({ title: "Chyba", description: err.message || "Neznama chyba", variant: "destructive" });
