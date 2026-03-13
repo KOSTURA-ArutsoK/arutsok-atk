@@ -4560,21 +4560,13 @@ export class DatabaseStorage implements IStorage {
 
     if (!isSubstring || similarity < 70) return null;
 
-    const existing = await db.select().from(parameterSynonyms)
-      .where(and(
-        eq(parameterSynonyms.parameterId, parameterId),
-        eq(parameterSynonyms.synonym, extractedValue.trim())
-      ));
+    const normalizedSynonym = extractedValue.trim().toLowerCase();
+    const allForParam = await db.select().from(parameterSynonyms)
+      .where(eq(parameterSynonyms.parameterId, parameterId));
+    const existing = allForParam.find(s => (s.synonym || "").trim().toLowerCase() === normalizedSynonym);
 
-    if (existing.length > 0) {
-      const current = existing[0];
-      const newCount = (current.confirmationCount || 0) + 1;
-      const newStatus = newCount >= 5 ? "confirmed" : "learning";
-      const [updated] = await db.update(parameterSynonyms)
-        .set({ confirmationCount: newCount, status: newStatus })
-        .where(eq(parameterSynonyms.id, current.id))
-        .returning();
-      return updated;
+    if (existing) {
+      return existing;
     }
 
     const [created] = await db.insert(parameterSynonyms).values({
