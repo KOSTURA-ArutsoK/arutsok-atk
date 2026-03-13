@@ -11,7 +11,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation, useSearch } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
-import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building2, ArrowLeftRight, Info, Download, Shield } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building2, ArrowLeftRight, Info, Download } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { cn } from "@/lib/utils";
@@ -4322,8 +4322,8 @@ export default function Contracts() {
                               <span title={row.error}><XCircle className="w-4 h-4 text-destructive" /></span>
                             ) : hasRcError ? (
                               <span className="flex items-center gap-1" title={row.rcValidationError || row.incompleteFields?.join(", ")}>
-                                <Shield className="w-4 h-4 text-red-500" />
-                                <span className="text-[9px] text-red-500 font-semibold whitespace-nowrap">RČ</span>
+                                <AlertTriangle className="w-4 h-4 text-red-500" />
+                                <span className="text-[9px] text-red-500 font-semibold whitespace-nowrap">Kritická chyba RČ</span>
                               </span>
                             ) : isInc ? (
                               <span title={row.incompleteFields?.join(", ")}><AlertTriangle className="w-4 h-4 text-red-500" /></span>
