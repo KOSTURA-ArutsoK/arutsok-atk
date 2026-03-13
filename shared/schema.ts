@@ -2399,6 +2399,32 @@ export const insertStatusEvidenceSchema = createInsertSchema(statusEvidence).omi
 export type StatusEvidence = typeof statusEvidence.$inferSelect;
 export type InsertStatusEvidence = z.infer<typeof insertStatusEvidenceSchema>;
 
+// === REGISTRY SNAPSHOTS (External registry data snapshots for AI audit) ===
+export const registrySnapshots = pgTable("registry_snapshots", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  source: text("source").notNull().$type<"ORSR" | "ZRSR" | "ARES">(),
+  ico: text("ico").notNull(),
+  fetchedAt: timestamp("fetched_at").defaultNow(),
+  rawData: jsonb("raw_data").$type<Record<string, any>>(),
+  parsedFields: jsonb("parsed_fields").$type<{
+    name?: string;
+    street?: string;
+    streetNumber?: string;
+    zip?: string;
+    city?: string;
+    legalForm?: string;
+    dic?: string;
+    directors?: string[];
+  }>(),
+  fetchedByUserId: integer("fetched_by_user_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRegistrySnapshotSchema = createInsertSchema(registrySnapshots).omit({ id: true, createdAt: true, fetchedAt: true });
+export type RegistrySnapshot = typeof registrySnapshots.$inferSelect;
+export type InsertRegistrySnapshot = z.infer<typeof insertRegistrySnapshotSchema>;
+
 // === SYSTEM NOTIFICATIONS (Email queue for lifecycle events) ===
 export const systemNotifications = pgTable("system_notifications", {
   id: serial("id").primaryKey(),

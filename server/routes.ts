@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, isAuthenticated } from "./auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots } from "@shared/schema";
 import type { DocEntry } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
@@ -7129,13 +7129,112 @@ export async function registerRoutes(
     try {
       const { ico } = req.params;
       const type = (req.query.type as string) || undefined;
+      const subjectIdParam = req.query.subjectId ? Number(req.query.subjectId) : null;
       const { lookupByIco } = await import("./sk-registry-lookup");
       const result = await lookupByIco(ico, type);
       if (!result.valid) {
         return res.status(400).json({ valid: false, error: result.message });
       }
+      if (result.found && result.source && subjectIdParam) {
+        try {
+          const [snapSubject] = await db.select().from(subjects).where(eq(subjects.id, subjectIdParam));
+          const snapAppUser = (req as any).appUser;
+          if (snapSubject && (isAdmin(snapAppUser) || await isSubjectAccessible(snapAppUser, snapSubject))) {
+            await db.insert(registrySnapshots).values({
+              subjectId: subjectIdParam,
+              source: result.source,
+              ico: result.normalized || ico,
+              rawData: result as any,
+              parsedFields: {
+                name: result.name,
+                street: result.street,
+                streetNumber: result.streetNumber,
+                zip: result.zip,
+                city: result.city,
+                legalForm: result.legalForm,
+                dic: result.dic,
+                directors: result.directors,
+              },
+              fetchedByUserId: snapAppUser?.id || null,
+            });
+          }
+        } catch (snapErr) {
+          console.error("[REGISTRY SNAPSHOT] Auto-save error:", snapErr);
+        }
+      }
       res.json(result);
     } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/subjects/:id/registry-snapshots", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (!subjectId) return res.status(400).json({ message: "Neplatné ID subjektu" });
+      const [subject] = await db.select().from(subjects).where(eq(subjects.id, subjectId));
+      if (!subject) return res.status(404).json({ message: "Subjekt nenájdený" });
+      const appUser = (req as any).appUser;
+      if (!isAdmin(appUser) && !(await isSubjectAccessible(appUser, subject))) {
+        return res.status(403).json({ message: "Nemáte oprávnenie" });
+      }
+      const snapshots = await db.select()
+        .from(registrySnapshots)
+        .where(eq(registrySnapshots.subjectId, subjectId))
+        .orderBy(desc(registrySnapshots.fetchedAt));
+      res.json(snapshots);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/subjects/:id/registry-snapshots/refresh", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (!subjectId) return res.status(400).json({ message: "Neplatné ID subjektu" });
+      const [subject] = await db.select().from(subjects).where(eq(subjects.id, subjectId));
+      if (!subject) return res.status(404).json({ message: "Subjekt nenájdený" });
+      const appUser = (req as any).appUser;
+      if (!isAdmin(appUser) && !(await isSubjectAccessible(appUser, subject))) {
+        return res.status(403).json({ message: "Nemáte oprávnenie" });
+      }
+      const details = (subject.details as any) || {};
+      const dyn = details.dynamicFields || details;
+      const ico = dyn.ico || dyn.p_ico || null;
+      if (!ico) return res.status(400).json({ message: "Subjekt nemá IČO" });
+      const subjectType = subject.type === "szco" ? "szco" : (subject.type === "company" || subject.type === "po") ? "company" : undefined;
+      const { lookupByIco } = await import("./sk-registry-lookup");
+      const result = await lookupByIco(ico, subjectType);
+      if (!result.found || !result.source) {
+        return res.json({ success: false, message: result.message || "Subjekt nenájdený v registroch" });
+      }
+      const [snapshot] = await db.insert(registrySnapshots).values({
+        subjectId,
+        source: result.source,
+        ico: result.normalized || ico,
+        rawData: result as any,
+        parsedFields: {
+          name: result.name,
+          street: result.street,
+          streetNumber: result.streetNumber,
+          zip: result.zip,
+          city: result.city,
+          legalForm: result.legalForm,
+          dic: result.dic,
+          directors: result.directors,
+        },
+        fetchedByUserId: (req as any).appUser?.id || null,
+      }).returning();
+      await logAudit(req, {
+        action: "CREATE",
+        module: "registry_snapshots",
+        entityId: subjectId,
+        entityName: `Snapshot z ${result.source}`,
+        newData: { source: result.source, ico, snapshotId: snapshot.id },
+      });
+      res.json({ success: true, snapshot });
+    } catch (err) {
+      console.error("[REGISTRY SNAPSHOT REFRESH ERROR]", err);
       res.status(500).json({ message: "Internal error" });
     }
   });

@@ -10,7 +10,7 @@ import { validateSlovakRC } from "@shared/rc-validator";
 import { validateSlovakICO } from "@shared/ico-validator";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, type ValidityResult } from "@/lib/document-validity";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark, ChevronRight, ChevronDown, FolderOpen, Tag, Hash, Package, FileText as FileTextIcon, SquareIcon, TrendingDown, Shield, Save } from "lucide-react";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark, ChevronRight, ChevronDown, FolderOpen, Tag, Hash, Package, FileText as FileTextIcon, SquareIcon, TrendingDown, Shield, Save, Database, RefreshCw } from "lucide-react";
 import { SubjectPhotoThumbnail } from "@/components/subject-profile-photo";
 import { SubjectTagBadges, CgnIndicator } from "@/components/subject-profile-module-c";
 import { ActivityTimeline } from "@/components/activity-timeline";
@@ -1363,6 +1363,169 @@ function EntityLinksTab({ subject }: { subject: Subject }) {
   );
 }
 
+function RegistrySnapshotsTab({ subject }: { subject: Subject }) {
+  const { toast } = useToast();
+  const details = (subject as any).details || {};
+  const dyn = details.dynamicFields || details;
+  const ico = dyn.ico || dyn.p_ico || null;
+
+  const { data: snapshots = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/subjects", subject.id, "registry-snapshots"],
+    queryFn: async () => {
+      const res = await fetch(`/api/subjects/${subject.id}/registry-snapshots`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/subjects/${subject.id}/registry-snapshots/refresh`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      if (data?.success) {
+        toast({ title: "Snapshot uložený", description: `Dáta z ${data.snapshot?.source || "registra"} boli uložené` });
+        queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id, "registry-snapshots"] });
+      } else {
+        toast({ title: "Nepodarilo sa načítať", description: data?.message || "Register nedostupný", variant: "destructive" });
+      }
+    },
+    onError: () => {
+      toast({ title: "Chyba pri načítavaní z registra", variant: "destructive" });
+    },
+  });
+
+  const SOURCE_CONFIG: Record<string, { label: string; color: string; border: string; bg: string }> = {
+    ORSR: { label: "Obchodný register SR", color: "text-blue-400", border: "border-blue-500/40", bg: "bg-blue-500/10" },
+    ZRSR: { label: "Živnostenský register SR", color: "text-emerald-400", border: "border-emerald-500/40", bg: "bg-emerald-500/10" },
+    ARES: { label: "ARES (Český register)", color: "text-violet-400", border: "border-violet-500/40", bg: "bg-violet-500/10" },
+  };
+
+  if (!ico) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-12 text-muted-foreground" data-testid="registry-no-ico">
+        <Database className="w-8 h-8 opacity-40" />
+        <p className="text-sm">Tento subjekt nemá IČO — registrové záznamy nie sú dostupné</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4" data-testid="registry-snapshots-tab">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <Database className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-semibold">Registrové záznamy</span>
+          <Badge variant="secondary" className="text-[10px]">{snapshots.length}</Badge>
+          <span className="text-xs text-muted-foreground font-mono">IČO: {ico}</span>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={() => refreshMutation.mutate()}
+          disabled={refreshMutation.isPending}
+          data-testid="button-refresh-registry"
+        >
+          {refreshMutation.isPending ? (
+            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+          ) : (
+            <RefreshCw className="w-3 h-3 mr-1" />
+          )}
+          Aktualizovať z registra
+        </Button>
+      </div>
+
+      <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 px-1">
+        <Shield className="w-3 h-3" />
+        <span>Vzorová pravda: Každý záznam je nemenný snapshot pre AI audit a učenie synoným</span>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center gap-2 justify-center py-8">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-xs text-muted-foreground">Načítavam registrové záznamy...</span>
+        </div>
+      ) : snapshots.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 py-8 text-muted-foreground" data-testid="registry-no-snapshots">
+          <Database className="w-6 h-6 opacity-40" />
+          <p className="text-sm">Žiadne registrové záznamy</p>
+          <p className="text-xs">Kliknite „Aktualizovať z registra" pre načítanie dát</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {snapshots.map((snap: any) => {
+            const cfg = SOURCE_CONFIG[snap.source] || SOURCE_CONFIG.ORSR;
+            const parsed = snap.parsedFields || {};
+            const fetchedDate = snap.fetchedAt ? formatDateTimeSlovak(snap.fetchedAt) : "-";
+
+            return (
+              <Card key={snap.id} className={`border ${cfg.border}`} data-testid={`registry-snapshot-${snap.id}`}>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={`text-[10px] ${cfg.color} ${cfg.border} ${cfg.bg}`}>
+                        {snap.source}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">{cfg.label}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Clock className="w-3 h-3" />
+                      <span>{fetchedDate}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2">
+                    {parsed.name && (
+                      <div>
+                        <span className="text-[10px] text-muted-foreground block">Obchodné meno</span>
+                        <span className="text-xs font-medium" data-testid={`snap-name-${snap.id}`}>{parsed.name}</span>
+                      </div>
+                    )}
+                    {parsed.legalForm && (
+                      <div>
+                        <span className="text-[10px] text-muted-foreground block">Právna forma</span>
+                        <span className="text-xs font-medium">{parsed.legalForm}</span>
+                      </div>
+                    )}
+                    {parsed.dic && (
+                      <div>
+                        <span className="text-[10px] text-muted-foreground block">DIČ</span>
+                        <span className="text-xs font-medium font-mono">{parsed.dic}</span>
+                      </div>
+                    )}
+                    {(parsed.street || parsed.city) && (
+                      <div>
+                        <span className="text-[10px] text-muted-foreground block">Sídlo</span>
+                        <span className="text-xs font-medium">
+                          {[parsed.street, parsed.streetNumber].filter(Boolean).join(" ")}
+                          {parsed.city ? `, ${parsed.zip ? parsed.zip + " " : ""}${parsed.city}` : ""}
+                        </span>
+                      </div>
+                    )}
+                    {parsed.directors && parsed.directors.length > 0 && (
+                      <div className="sm:col-span-2">
+                        <span className="text-[10px] text-muted-foreground block">Konatelia</span>
+                        <span className="text-xs font-medium">{parsed.directors.join(", ")}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
+                    <span>Nemenný záznam • IČO: {snap.ico}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: () => void }) {
   const { toast } = useToast();
   const { data: appUser } = useAppUser();
@@ -1372,6 +1535,7 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
     if (t === "objekty") return "objekty";
     if (t === "historia") return "historia";
     if (t === "vztahy") return "vztahy";
+    if (t === "registre") return "registre";
     return "profil_subjektu";
   });
   const isSuperAdmin = useMemo(() => {
@@ -1487,6 +1651,18 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
                 <Link2 className="w-3.5 h-3.5 mr-1" />
                 Vzťahy
               </Button>
+              {(subject.type === "szco" || subject.type === "company" || subject.type === "po") && (
+                <Button
+                  variant={activeTab === "registre" ? "default" : "ghost"}
+                  size="sm"
+                  className="h-7 text-xs px-2.5"
+                  onClick={() => setActiveTab("registre")}
+                  data-testid="tab-subject-registre"
+                >
+                  <Database className="w-3.5 h-3.5 mr-1" />
+                  Registre
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -1586,6 +1762,10 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
 
         {activeTab === "vztahy" && (
           <EntityLinksTab subject={subject} />
+        )}
+
+        {activeTab === "registre" && (
+          <RegistrySnapshotsTab subject={subject} />
         )}
       </div>
     </div>
