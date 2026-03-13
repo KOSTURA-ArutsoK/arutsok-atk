@@ -1798,6 +1798,12 @@ function InitialRegistrationModal({
             {icoError && (
               <p className="text-xs text-red-500 mt-1" data-testid="text-ico-error">{icoError}</p>
             )}
+            {aresLoading && (
+              <div className="flex items-center gap-2 mt-1" data-testid="text-registry-loading">
+                <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
+                <span className="text-xs text-blue-400">Preberám údaje z registra...</span>
+              </div>
+            )}
             {aresLookup?.found && (
               <div className="mt-2 bg-blue-500/10 border border-blue-500/30 rounded-md p-3 space-y-1" data-testid="ares-lookup-result">
                 <div className="flex items-center gap-2 justify-between">
@@ -2619,7 +2625,12 @@ function FullPageEditor({
                     data-testid="input-szco-ico"
                   />
                   {szcoIcoError && <p className="text-[10px] text-red-500 leading-tight" data-testid="text-szco-ico-error">{szcoIcoError}</p>}
-                  {szcoAresLoading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground mt-1" />}
+                  {szcoAresLoading && (
+                    <div className="flex items-center gap-2 mt-1" data-testid="text-szco-registry-loading">
+                      <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
+                      <span className="text-xs text-blue-400">Preberám údaje z registra...</span>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1 w-[160px] min-w-[120px]">
                   <Label className="text-xs text-muted-foreground">DIČ</Label>

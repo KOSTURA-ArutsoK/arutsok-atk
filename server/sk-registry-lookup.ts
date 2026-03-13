@@ -52,6 +52,16 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
     $search('a').each((_, el) => {
       const href = $search(el).attr("href") || "";
       if (href.includes("vypis.asp") && href.includes("P=0")) {
+        const parentTr = $search(el).closest("tr");
+        const rowStyle = parentTr.attr("style") || "";
+        const rowClass = parentTr.attr("class") || "";
+        if (rowStyle.includes("red") || rowClass.includes("deleted") || rowClass.includes("vymazany")) {
+          return;
+        }
+        const rowText = parentTr.text();
+        if (rowText.includes("vymazaná") || rowText.includes("Vymazaná") || rowText.includes("vymazaný")) {
+          return;
+        }
         if (!detailPath) detailPath = href;
       }
     });
@@ -127,7 +137,6 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
 
     const legalFormVals = sections["Právna forma"] || [];
     const legalForm = legalFormVals[0] || "";
-    const dic = "";
 
     if (!name) {
       return { found: false, message: "Dáta nenájdené na stránke ORSR" };
@@ -142,7 +151,6 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
       zip,
       city,
       legalForm,
-      dic: dic || undefined,
     };
   } catch (err: any) {
     if (err.name === "AbortError") {
@@ -232,7 +240,7 @@ export async function lookupZrsrByIco(ico: string): Promise<RegistryLookupResult
         Cookie: cookieStr,
       },
       body: body.toString(),
-    }, 10000);
+    }, 8000);
 
     if (!postResp.ok) {
       return { found: false, message: `ZRSR vrátil chybu (${postResp.status})` };
