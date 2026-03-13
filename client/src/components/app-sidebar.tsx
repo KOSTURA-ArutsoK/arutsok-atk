@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useHelp } from "@/contexts/help-context";
@@ -64,6 +64,7 @@ import {
   User,
   FolderOpen,
   Plus,
+  FileSignature,
 } from "lucide-react";
 import {
   Sidebar,
@@ -87,6 +88,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 
 const topItems = [
   { href: "/", icon: LayoutDashboard, label: "Prehlad" },
@@ -135,6 +137,12 @@ const zmluvnaDokumentaciaChildren = [
   { href: "/zmluvna-dokumentacia/pridat", icon: Plus, label: "Pridať dokumenty" },
 ];
 
+const zmluvySubItems = [
+  { href: "/contracts?view=moje", icon: Users, label: "Moje zmluvy", tooltip: "Zmluvy, kde ste poistencom alebo vlastníkom", roles: ["user", "agent", "admin", "superadmin", "prezident", "architekt"] },
+  { href: "/contracts?view=portfolio", icon: Briefcase, label: "Klientske portfólio", tooltip: "Zoznam klientov a zmlúv, ktoré spravujete", roles: ["agent", "admin", "superadmin", "prezident", "architekt"] },
+  { href: "/contracts?view=dokumentacia", icon: FileSignature, label: "Zmluvná dokumentácia", tooltip: "Zmluvy a dokumenty podpísané so spoločnosťou", roles: ["agent", "admin", "superadmin", "prezident", "architekt"] },
+];
+
 const spracovanieZmluvChildren = [
   { href: "/evidencia-zmluv", icon: ClipboardList, label: "Papierové zmluvy" },
   { href: "/datova-linka", icon: DataLinkaIcon, label: "Dátová linka" },
@@ -159,6 +167,7 @@ const importItems = [
 
 const allZmluvyHrefs = [
   "/contracts",
+  ...zmluvySubItems.map(i => i.href),
   ...spracovanieZmluvChildren.map(i => i.href),
   ...zmluvnaDokumentaciaChildren.map(i => i.href),
   ...nastaveniaSablonChildren.map(i => i.href),
@@ -396,7 +405,7 @@ export function AppSidebar() {
     { id: "nastavenie-systemu", items: nastavenieSystemuItems },
     { id: "partneri", items: partneriProduktyItems },
     { id: "klienti", items: klientiItems },
-    { id: "zmluvy", items: [{ href: "/contracts", icon: FileText, label: "Zoznam zmlúv" }, ...zoznamZmluvChildren, ...zmluvnaDokumentaciaChildren, ...protokolyChildren, ...importItems, ...nastaveniaSablonChildren] },
+    { id: "zmluvy", items: [...zmluvySubItems, ...zmluvnaDokumentaciaChildren, ...spracovanieZmluvChildren, ...protokolyChildren, ...importItems, ...nastaveniaSablonChildren] },
     { id: "financie", items: financieItems },
     { id: "reporty", items: reportyItems },
     { id: "informacie", items: informacieItems },
@@ -415,15 +424,23 @@ export function AppSidebar() {
     : nastavenieSystemuItems.some(i => i.href === location) ? "nastavenie-systemu" : null;
   const [nastavenieSubId, setNastavenieSubId] = useState<string | null>(nastavenieInitialSub);
 
-  const isZmluvyActive = allZmluvyHrefs.includes(location);
+  const isZmluvyActive = allZmluvyHrefs.some(h => {
+    const hPath = h.split("?")[0];
+    return hPath === location || h === location;
+  });
   const isZmluvyOpen = openMenuId === "zmluvy";
   const zmluvyInitialSub = spracovanieZmluvChildren.some(i => i.href === location) ? "spracovanie"
     : (location === "/contracts") ? "zoznam"
     : zmluvnaDokumentaciaChildren.some(i => i.href === location) ? "dokumentacia"
     : protokolyChildren.some(i => i.href === location) ? "protokoly"
     : importItems.some(i => i.href === location) ? "import"
-    : nastaveniaSablonChildren.some(i => i.href === location) ? "sablony" : null;
+    : nastaveniaSablonChildren.some(i => i.href === location) ? "sablony"
+    : location === "/contracts" ? "zoznam-zmluv" : null;
   const [zmluvySubId, setZmluvySubId] = useState<string | null>(zmluvyInitialSub);
+
+  const userRole = appUser?.role || "user";
+  const visibleZmluvySubItems = zmluvySubItems.filter(item => item.roles.includes(userRole));
+  const showZmluvyCascade = visibleZmluvySubItems.length > 1;
 
   return (
     <Sidebar>
@@ -843,25 +860,57 @@ export function AppSidebar() {
                         </Collapsible>
                       </SidebarMenuSubItem>
 
-                      <SidebarMenuSubItem>
-                        <Collapsible
-                          open={zmluvySubId === "zoznam"}
-                          onOpenChange={(val) => setZmluvySubId(val ? "zoznam" : null)}
-                        >
-                          <CollapsibleTrigger asChild>
-                            <SidebarMenuSubButton
-                              data-testid="nav-submenu-zoznam-zmluv"
-                              className={`cursor-pointer ${location === "/contracts" ? "text-sidebar-accent-foreground font-medium" : ""}`}
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                              <span className="flex-1">Zoznam zmlúv</span>
-                              <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${zmluvySubId === "zoznam" ? "rotate-90" : ""}`} />
-                            </SidebarMenuSubButton>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
-                              {zoznamZmluvChildren.map(item => (
-                                <SidebarMenuSubItem key={item.href}>
+                      {showZmluvyCascade ? (
+                        <SidebarMenuSubItem>
+                          <Collapsible
+                            open={zmluvySubId === "zoznam-zmluv"}
+                            onOpenChange={(val) => setZmluvySubId(val ? "zoznam-zmluv" : null)}
+                          >
+                            <CollapsibleTrigger asChild>
+                              <SidebarMenuSubButton
+                                data-testid="nav-submenu-zoznam-zmluv"
+                                className={`cursor-pointer ${location === "/contracts" ? "text-sidebar-accent-foreground font-medium" : ""}`}
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                <span className="flex-1">Zoznam zmlúv</span>
+                                <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${zmluvySubId === "zoznam-zmluv" ? "rotate-90" : ""}`} />
+                              </SidebarMenuSubButton>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <div className="ml-2 border-l border-border pl-1.5 mt-1 space-y-0.5">
+                                {visibleZmluvySubItems.map(item => (
+                                  <SidebarMenuSubItem key={item.href}>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <SidebarMenuSubButton
+                                            asChild
+                                            isActive={locationWithSearch === item.href}
+                                            data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                                          >
+                                            <Link href={item.href}>
+                                              <item.icon className="w-3.5 h-3.5" />
+                                              <span>{item.label}</span>
+                                            </Link>
+                                          </SidebarMenuSubButton>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="right">
+                                          <p>{item.tooltip}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </SidebarMenuSubItem>
+                                ))}
+                              </div>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        </SidebarMenuSubItem>
+                      ) : (
+                        visibleZmluvySubItems.map(item => (
+                          <SidebarMenuSubItem key={item.href}>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
                                   <SidebarMenuSubButton
                                     asChild
                                     isActive={locationWithSearch === item.href}
@@ -872,12 +921,15 @@ export function AppSidebar() {
                                       <span>{item.label}</span>
                                     </Link>
                                   </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              ))}
-                            </div>
-                          </CollapsibleContent>
-                        </Collapsible>
-                      </SidebarMenuSubItem>
+                                </TooltipTrigger>
+                                <TooltipContent side="right">
+                                  <p>{item.tooltip}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </SidebarMenuSubItem>
+                        ))
+                      )}
 
                       <SidebarMenuSubItem>
                         <Collapsible

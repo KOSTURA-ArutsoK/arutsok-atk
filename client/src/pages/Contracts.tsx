@@ -2187,7 +2187,7 @@ export default function Contracts() {
   const [filterNeedsManualVerification, setFilterNeedsManualVerification] = useState(false);
 
   useEffect(() => {
-    const search = window.location.search;
+    const search = searchString;
     if (!search) {
       setFilterStatusIds([]);
       setFilterNeedsManualVerification(false);
@@ -2208,7 +2208,7 @@ export default function Contracts() {
     } else {
       setFilterStatusIds([]);
     }
-  }, [location]);
+  }, [searchString, location]);
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [sprievodkaDialogOpen, setSprievodkaDialogOpen] = useState(false);
