@@ -1582,8 +1582,17 @@ function SynonymManager({ parameterId, parameterLabel }: { parameterId: number; 
       ) : synonyms.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {synonyms.map((syn: any) => (
-            <Badge key={syn.id} variant="secondary" className="text-xs gap-1 pr-1">
+            <Badge key={syn.id} variant="secondary" className={`text-xs gap-1 pr-1 ${syn.origin === "registry" ? "border-orange-500/40" : ""}`}>
               {syn.synonym}
+              {syn.origin === "registry" && (
+                <span className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-semibold bg-orange-500/20 text-orange-400 border border-orange-500/30 ml-0.5" data-testid={`badge-registry-origin-${syn.id}`}>Z registra</span>
+              )}
+              {syn.status === "learning" && (
+                <span className="text-[9px] text-muted-foreground ml-0.5" data-testid={`text-learning-${syn.id}`}>({syn.confirmationCount || 0}/5)</span>
+              )}
+              {syn.status === "confirmed" && (
+                <CheckCircle2 className="w-3 h-3 text-green-500 ml-0.5" />
+              )}
               <button
                 onClick={() => deleteMutation.mutate(syn.id)}
                 className="ml-0.5 hover:text-destructive"

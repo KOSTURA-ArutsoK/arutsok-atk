@@ -13786,6 +13786,79 @@ export async function registerRoutes(
         }
       }
 
+      const registryConflicts: { field: string; contractValue: string; registryValue: string; source: string }[] = [];
+      try {
+        const REGISTRY_FIELD_MAP: Record<string, string> = {
+          obchodne_meno: "name",
+          company_name: "name",
+          nazov_firmy: "name",
+          sidlo: "city",
+          adresa: "street",
+          mesto: "city",
+          psc: "zip",
+          ulica: "street",
+          dic: "dic",
+          pravna_forma: "legalForm",
+        };
+
+        const icoField = results.find((r: any) => r.fieldKey && (r.fieldKey.toLowerCase() === "ico" || r.fieldKey.toLowerCase().includes("ico")) && r.matchedValue);
+        const companyNameField = results.find((r: any) => r.fieldKey && ["obchodne_meno", "company_name", "nazov_firmy"].includes(r.fieldKey.toLowerCase()) && r.matchedValue);
+
+        let matchedSnapshot: any = null;
+        if (icoField?.matchedValue) {
+          const snapshots = await db.select().from(registrySnapshots)
+            .where(eq(registrySnapshots.ico, icoField.matchedValue.trim()))
+            .orderBy(desc(registrySnapshots.fetchedAt))
+            .limit(1);
+          if (snapshots.length > 0) matchedSnapshot = snapshots[0];
+        }
+
+        if (!matchedSnapshot && companyNameField?.matchedValue) {
+          const allSnapshots = await db.select().from(registrySnapshots)
+            .orderBy(desc(registrySnapshots.fetchedAt))
+            .limit(100);
+          const extractedName = companyNameField.matchedValue.trim().toLowerCase();
+          matchedSnapshot = allSnapshots.find((s: any) => {
+            const regName = (s.parsedFields as any)?.name?.toLowerCase();
+            return regName && (regName === extractedName || regName.includes(extractedName) || extractedName.includes(regName));
+          });
+        }
+
+        if (matchedSnapshot) {
+          const parsed = matchedSnapshot.parsedFields as Record<string, any>;
+          const snapshotSource = matchedSnapshot.source || "ORSR";
+
+          for (const r of results) {
+            if (!r.matchedValue || !r.fieldKey) continue;
+            const registryKey = REGISTRY_FIELD_MAP[r.fieldKey.toLowerCase()];
+            if (!registryKey || !parsed[registryKey]) continue;
+
+            const contractVal = r.matchedValue.trim();
+            const registryVal = String(parsed[registryKey]).trim();
+            if (contractVal.toLowerCase() !== registryVal.toLowerCase()) {
+              registryConflicts.push({
+                field: r.fieldKey,
+                contractValue: contractVal,
+                registryValue: registryVal,
+                source: snapshotSource,
+              });
+              r.registryConflict = {
+                registryValue: registryVal,
+                source: snapshotSource,
+              };
+
+              try {
+                await storage.proposeRegistrySynonym(r.parameterId, contractVal, registryVal);
+              } catch (synErr) {
+                console.error("[REGISTRY SYNONYM PROPOSAL ERROR]", synErr);
+              }
+            }
+          }
+        }
+      } catch (regErr) {
+        console.error("[REGISTRY AUDIT ERROR]", regErr);
+      }
+
       await db.update(ocrProcessingJobs).set({
         status: "completed",
         extractedText: ocrResult.text,
@@ -13799,6 +13872,7 @@ export async function registerRoutes(
         fieldsExtracted: results.length,
         keyValuePairs: ocrResult.keyValuePairs.length,
         duplicatesOverLimit: flaggedDuplicates.length,
+        registryConflicts: registryConflicts.length,
       });
 
       res.json({
@@ -13807,6 +13881,7 @@ export async function registerRoutes(
         pageCount: ocrResult.pages,
         extractedFields: results,
         duplicateWarnings: flaggedDuplicates.length > 0 ? flaggedDuplicates : undefined,
+        registryConflicts: registryConflicts.length > 0 ? registryConflicts : undefined,
         keyValuePairs: ocrResult.keyValuePairs,
         tables: ocrResult.tables,
         confirmedCount: results.filter((r: any) => !r.needsConfirmation).length,

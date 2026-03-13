@@ -54,6 +54,10 @@ interface ExtractedField {
   synonymConfirmationCount?: number;
   isProposal?: boolean;
   duplicateWarning?: boolean;
+  registryConflict?: {
+    registryValue: string;
+    source: string;
+  };
 }
 
 function getStatusIcon(status: string) {
@@ -487,6 +491,25 @@ function JobDetailView({ job, onConfirm, confirmPending }: { job: OcrJob; onConf
                         </Button>
                       )}
                     </div>
+                    {field.registryConflict && (
+                      <div className="mt-1.5 p-2 rounded border border-orange-500/40 bg-orange-500/10" data-testid={`registry-conflict-${field.fieldKey}`}>
+                        <div className="flex items-center gap-1.5 text-orange-400 text-[11px] font-semibold mb-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Rozpor s registrom
+                          <Badge variant="outline" className="text-[9px] border-orange-500/40 text-orange-400 ml-auto">{field.registryConflict.source}</Badge>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-[10px]">
+                          <div>
+                            <span className="text-muted-foreground">Na zmluve:</span>
+                            <div className="font-medium text-foreground">{field.matchedValue}</div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">V registri:</span>
+                            <div className="font-medium text-orange-300">{field.registryConflict.registryValue}</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div className="mt-1 text-[10px] text-muted-foreground flex items-center gap-1.5">
                       <span>Typ zhody: {field.matchType} {field.synonymId ? `• Synonymum ${field.synonymId}` : ""}</span>
                       {field.duplicateWarning && (

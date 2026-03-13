@@ -664,6 +664,7 @@ export interface IStorage {
   matchParameterBySynonym(text: string): Promise<{ parameterId: number; synonym: string; confidence: number }[]>;
   confirmSynonym(id: number): Promise<ParameterSynonym>;
   getSynonymById(id: number): Promise<ParameterSynonym | null>;
+  proposeRegistrySynonym(parameterId: number, extractedValue: string, registryValue: string): Promise<ParameterSynonym | null>;
   createSynonymConfirmationLog(data: InsertSynonymConfirmationLog): Promise<SynonymConfirmationLog>;
   getSynonymConfirmationLogs(synonymId: number): Promise<SynonymConfirmationLog[]>;
 
@@ -4525,6 +4526,72 @@ export class DatabaseStorage implements IStorage {
       .where(eq(parameterSynonyms.id, id))
       .returning();
     return updated;
+  }
+
+  async proposeRegistrySynonym(parameterId: number, extractedValue: string, registryValue: string): Promise<ParameterSynonym | null> {
+    const normalizedExtracted = extractedValue.trim().toLowerCase();
+    const normalizedRegistry = registryValue.trim().toLowerCase();
+    if (normalizedExtracted === normalizedRegistry) return null;
+
+    const shorter = normalizedExtracted.length <= normalizedRegistry.length ? normalizedExtracted : normalizedRegistry;
+    const longer = normalizedExtracted.length <= normalizedRegistry.length ? normalizedRegistry : normalizedExtracted;
+    const isSubstring = longer.includes(shorter);
+
+    function levenshtein(a: string, b: string): number {
+      const m = a.length, n = b.length;
+      const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+      for (let i = 0; i <= m; i++) dp[i][0] = i;
+      for (let j = 0; j <= n; j++) dp[0][j] = j;
+      for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+          dp[i][j] = Math.min(
+            dp[i - 1][j] + 1,
+            dp[i][j - 1] + 1,
+            dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+          );
+        }
+      }
+      return dp[m][n];
+    }
+
+    const dist = levenshtein(normalizedExtracted, normalizedRegistry);
+    const maxLen = Math.max(normalizedExtracted.length, normalizedRegistry.length);
+    const similarity = maxLen > 0 ? ((maxLen - dist) / maxLen) * 100 : 0;
+
+    if (!isSubstring && similarity < 70) return null;
+
+    const existing = await db.select().from(parameterSynonyms)
+      .where(and(
+        eq(parameterSynonyms.parameterId, parameterId),
+        eq(parameterSynonyms.synonym, extractedValue.trim())
+      ));
+
+    if (existing.length > 0) {
+      const syn = existing[0];
+      if (syn.status !== "confirmed") {
+        const newCount = (syn.confirmationCount || 0) + 1;
+        const newStatus = newCount >= 5 ? "confirmed" : "learning";
+        const [updated] = await db.update(parameterSynonyms)
+          .set({ confirmationCount: newCount, status: newStatus })
+          .where(eq(parameterSynonyms.id, syn.id))
+          .returning();
+        return updated;
+      }
+      return syn;
+    }
+
+    const [created] = await db.insert(parameterSynonyms).values({
+      parameterId,
+      synonym: extractedValue.trim(),
+      language: "sk",
+      source: "registry_audit",
+      confidence: Math.round(similarity),
+      confirmationCount: 1,
+      status: "learning",
+      origin: "registry",
+    }).returning();
+
+    return created;
   }
 
   async createSynonymConfirmationLog(data: InsertSynonymConfirmationLog): Promise<SynonymConfirmationLog> {

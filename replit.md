@@ -31,7 +31,8 @@ The system utilizes a modern full-stack architecture built for data integrity, s
 - **Sensitive Field Audit**: Logs all access to sensitive fields like birth number, ID card number, IBAN, email, and phone.
 - **Global Field Versioning**: Automatically tracks and records all field changes for subjects and contracts.
 - **Dynamic Parameter System (EAV Architecture)**: A 6-level hierarchy enabling dynamic configuration of contract fields and form generation, supported by AI synonym mapping.
-- **AI Synonym Mapping**: Requires multiple confirmations for synonyms to become active.
+- **AI Synonym Mapping**: Requires multiple confirmations for synonyms to become active. Synonyms have an `origin` field (`manual` or `registry`) to track provenance.
+- **OCR Registry Audit**: During OCR processing, extracted company fields (name, address, DIČ) are compared against stored registry snapshots. Mismatches generate inline warnings ("Rozpor s registrom") and auto-propose synonym entries with `origin: 'registry'` when Levenshtein similarity ≥ 70% or substring match detected.
 - **Commission Brain & Calculation Engine**: Manages commission rates with temporal validity and various calculation types with logging.
 - **Settlement Sheets Module**: Handles settlement sheets and contracts, including locking and status workflows.
 - **Client Management**: Features multi-step registration, granular ownership, a Bonita Point System, risk linking, and an AML module.

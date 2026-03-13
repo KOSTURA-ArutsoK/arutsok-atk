@@ -1810,6 +1810,7 @@ export const parameterSynonyms = pgTable("parameter_synonyms", {
   confidence: integer("confidence").default(100),
   confirmationCount: integer("confirmation_count").default(0).notNull(),
   status: varchar("status", { length: 20 }).default("learning").notNull(),
+  origin: varchar("origin", { length: 30 }).default("manual"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
