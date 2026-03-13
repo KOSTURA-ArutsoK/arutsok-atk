@@ -1780,7 +1780,7 @@ function InitialRegistrationModal({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onProceed: (data: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: { name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string } }) => void;
+  onProceed: (data: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: { name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string } }) => void;
   onViewSubject: (id: number) => void;
 }) {
   const { data: appUser } = useAppUser();
@@ -1909,7 +1909,7 @@ function InitialRegistrationModal({
       clientTypeCode: selectedType,
       stateId: appUser?.activeStateId || 0,
       baseValue: baseValue.trim(),
-      aresData: aresLookup?.found ? { name: aresLookup.name, street: aresLookup.street, streetNumber: aresLookup.streetNumber, zip: aresLookup.zip, city: aresLookup.city, legalForm: aresLookup.legalForm, dic: aresLookup.dic } : undefined,
+      aresData: aresLookup?.found ? { name: aresLookup.name, street: aresLookup.street, streetNumber: aresLookup.streetNumber, zip: aresLookup.zip, city: aresLookup.city, legalForm: aresLookup.legalForm, dic: aresLookup.dic, source: aresLookup.source } : undefined,
     });
     setSelectedType("");
     setBaseValue("");
@@ -2438,7 +2438,7 @@ function FullPageEditor({
   initialData,
   onCancel,
 }: {
-  initialData: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: { name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string } };
+  initialData: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: { name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string } };
   onCancel: () => void;
 }) {
   const { mutate, isPending } = useCreateSubject();
@@ -2694,18 +2694,22 @@ function FullPageEditor({
     }
     mutate(submitData, {
       onSuccess: async (createdSubject: any) => {
-        if (createdSubject?.id && initialData.aresData && !isPerson) {
-          try {
-            const icoVal = isSzcoType ? szcoData.ico : (dynamicValues.ico || initialData.baseValue);
-            if (icoVal) {
-              await apiRequest("POST", `/api/subjects/${createdSubject.id}/registry-snapshots`, {
-                source: "ORSR",
-                ico: icoVal,
-                parsedFields: initialData.aresData,
-                rawData: initialData.aresData,
-              });
-            }
-          } catch {}
+        if (createdSubject?.id && !isPerson) {
+          const snapshotData = initialData.aresData || (szcoAresLookup?.found ? szcoAresLookup : null);
+          const snapshotSource = initialData.aresData?.source || szcoAresLookup?.source || "ORSR";
+          if (snapshotData) {
+            try {
+              const icoVal = isSzcoType ? szcoData.ico : (dynamicValues.ico || initialData.baseValue);
+              if (icoVal) {
+                await apiRequest("POST", `/api/subjects/${createdSubject.id}/registry-snapshots`, {
+                  source: snapshotSource,
+                  ico: icoVal,
+                  parsedFields: { name: snapshotData.name, street: snapshotData.street, streetNumber: snapshotData.streetNumber, zip: snapshotData.zip, city: snapshotData.city, legalForm: snapshotData.legalForm, dic: snapshotData.dic },
+                  rawData: snapshotData,
+                });
+              }
+            } catch {}
+          }
         }
         onCancel();
       },
