@@ -861,7 +861,7 @@ export function AppSidebar() {
                                 <SidebarMenuSubButton
                                   asChild
                                   isActive={location === "/contracts" && !currentView}
-                                  data-testid="nav-všetky-zmluvy"
+                                  data-testid="nav-vsetky-zmluvy"
                                 >
                                   <Link href="/contracts">
                                     <FileText className="w-3.5 h-3.5" />
