@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Shield, Lock, AlertTriangle, Mail, Eye, EyeOff, Phone, CheckCircle, Users, ArrowRight } from "lucide-react";
+import { formatUid } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -202,7 +203,7 @@ export default function AuthPage() {
                     {s.companyName && (
                       <p className="text-sm text-muted-foreground">{s.companyName}</p>
                     )}
-                    <p className="text-xs text-muted-foreground font-mono">{s.uid}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{formatUid(s.uid)}</p>
                   </div>
                   <ArrowRight className="w-4 h-4 text-muted-foreground" />
                 </button>

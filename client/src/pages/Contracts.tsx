@@ -3397,13 +3397,13 @@ export default function Contracts() {
                       </TableCell>
                       <TableCell className="text-xs py-1">{titulZa || <span className="text-muted-foreground/40">—</span>}</TableCell>
                       <TableCell className="text-xs font-mono py-1 whitespace-nowrap">
-                        {raw.specialista ? <span className="text-muted-foreground">{raw.specialista}{raw.specialista_podiel != null && raw.specialista_podiel !== "" ? <span className="text-primary font-semibold"> ({raw.specialista_podiel}%)</span> : ""}</span> : <span className="text-muted-foreground/30">—</span>}
+                        {raw.specialista ? <span className="text-muted-foreground">{formatUid(raw.specialista)}{raw.specialista_podiel != null && raw.specialista_podiel !== "" ? <span className="text-primary font-semibold"> ({raw.specialista_podiel}%)</span> : ""}</span> : <span className="text-muted-foreground/30">—</span>}
                       </TableCell>
                       <TableCell className="text-xs font-mono py-1 whitespace-nowrap">
-                        {raw.odporucitel ? <span className="text-muted-foreground">{raw.odporucitel}{raw.odporucitel_podiel != null && raw.odporucitel_podiel !== "" ? <span className="text-primary font-semibold"> ({raw.odporucitel_podiel}%)</span> : ""}</span> : <span className="text-muted-foreground/30">—</span>}
+                        {raw.odporucitel ? <span className="text-muted-foreground">{formatUid(raw.odporucitel)}{raw.odporucitel_podiel != null && raw.odporucitel_podiel !== "" ? <span className="text-primary font-semibold"> ({raw.odporucitel_podiel}%)</span> : ""}</span> : <span className="text-muted-foreground/30">—</span>}
                       </TableCell>
                       <TableCell className="text-xs font-mono py-1 whitespace-nowrap">
-                        {raw.odporucitel2 ? <span className="text-muted-foreground">{raw.odporucitel2}{raw.odporucitel2_podiel != null && raw.odporucitel2_podiel !== "" ? <span className="text-primary font-semibold"> ({raw.odporucitel2_podiel}%)</span> : ""}</span> : <span className="text-muted-foreground/30">—</span>}
+                        {raw.odporucitel2 ? <span className="text-muted-foreground">{formatUid(raw.odporucitel2)}{raw.odporucitel2_podiel != null && raw.odporucitel2_podiel !== "" ? <span className="text-primary font-semibold"> ({raw.odporucitel2_podiel}%)</span> : ""}</span> : <span className="text-muted-foreground/30">—</span>}
                       </TableCell>
                     </>
                   );
@@ -4299,11 +4299,11 @@ export default function Contracts() {
                           <TableCell className="text-xs">{rd.meno || <span className="text-muted-foreground/30">—</span>}</TableCell>
                           <TableCell className="text-xs">{rd.priezvisko || <span className="text-muted-foreground/30">—</span>}</TableCell>
                           <TableCell className="text-xs">{rd.titul_za || <span className="text-muted-foreground/30">—</span>}</TableCell>
-                          <TableCell className="text-xs font-mono text-muted-foreground">{rd.specialista || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs font-mono text-muted-foreground whitespace-nowrap">{rd.specialista ? formatUid(rd.specialista) : <span className="text-muted-foreground/30">—</span>}</TableCell>
                           <TableCell className="text-xs text-right">{rd.specialista_podiel != null ? `${rd.specialista_podiel}%` : <span className="text-muted-foreground/30">—</span>}</TableCell>
-                          <TableCell className="text-xs font-mono text-muted-foreground">{rd.odporucitel || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs font-mono text-muted-foreground whitespace-nowrap">{rd.odporucitel ? formatUid(rd.odporucitel) : <span className="text-muted-foreground/30">—</span>}</TableCell>
                           <TableCell className="text-xs text-right">{rd.odporucitel_podiel != null ? `${rd.odporucitel_podiel}%` : <span className="text-muted-foreground/30">—</span>}</TableCell>
-                          <TableCell className="text-xs font-mono text-muted-foreground">{rd.odporucitel2 || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs font-mono text-muted-foreground whitespace-nowrap">{rd.odporucitel2 ? formatUid(rd.odporucitel2) : <span className="text-muted-foreground/30">—</span>}</TableCell>
                           <TableCell className="text-xs text-right">{rd.odporucitel2_podiel != null ? `${rd.odporucitel2_podiel}%` : <span className="text-muted-foreground/30">—</span>}</TableCell>
                         </TableRow>
                       );

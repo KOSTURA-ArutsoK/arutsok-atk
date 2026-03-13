@@ -2,8 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAppUser } from "@/hooks/use-app-user";
-import { isAdmin as checkIsAdmin } from "@/lib/utils";
-import { formatDateTimeSlovak } from "@/lib/utils";
+import { isAdmin as checkIsAdmin, formatDateTimeSlovak, formatUid } from "@/lib/utils";
 import { Loader2, ArrowRightLeft, Check, X, Download, Plus, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -148,7 +147,7 @@ function NewTransferDialog({ subjects }: { subjects: SubjectInfo[] }) {
               <SelectTrigger data-testid="select-subject"><SelectValue placeholder="Vybrať subjekt" /></SelectTrigger>
               <SelectContent>
                 {subjects.map(s => (
-                  <SelectItem key={s.id} value={String(s.id)}>{getSubjectName(s)} ({s.uid})</SelectItem>
+                  <SelectItem key={s.id} value={String(s.id)}>{getSubjectName(s)} ({formatUid(s.uid)})</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -159,7 +158,7 @@ function NewTransferDialog({ subjects }: { subjects: SubjectInfo[] }) {
               <SelectTrigger data-testid="select-current-guarantor"><SelectValue placeholder="Vybrať garanta" /></SelectTrigger>
               <SelectContent>
                 {subjects.map(s => (
-                  <SelectItem key={s.id} value={String(s.id)}>{getSubjectName(s)} ({s.uid})</SelectItem>
+                  <SelectItem key={s.id} value={String(s.id)}>{getSubjectName(s)} ({formatUid(s.uid)})</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -170,7 +169,7 @@ function NewTransferDialog({ subjects }: { subjects: SubjectInfo[] }) {
               <SelectTrigger data-testid="select-requested-guarantor"><SelectValue placeholder="Vybrať garanta" /></SelectTrigger>
               <SelectContent>
                 {subjects.map(s => (
-                  <SelectItem key={s.id} value={String(s.id)}>{getSubjectName(s)} ({s.uid})</SelectItem>
+                  <SelectItem key={s.id} value={String(s.id)}>{getSubjectName(s)} ({formatUid(s.uid)})</SelectItem>
                 ))}
               </SelectContent>
             </Select>
