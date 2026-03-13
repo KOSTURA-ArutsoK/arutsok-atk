@@ -260,12 +260,13 @@ function CollapsibleMenu({
                   asChild
                   isActive={matchesHref(item.href)}
                   data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                  className="py-1.5"
                 >
                   <Link href={item.href}>
-                    <item.icon className="w-3.5 h-3.5" />
-                    <span>{item.label}</span>
+                    <item.icon className="w-4 h-4" />
+                    <span className="text-[13px]">{item.label}</span>
                     {item.badge && (
-                      <span className="ml-auto text-[9px] text-blue-400/80 font-medium">{item.badge}</span>
+                      <span className="ml-auto text-[10px] text-blue-400/80 font-medium">{item.badge}</span>
                     )}
                   </Link>
                 </SidebarMenuSubButton>
