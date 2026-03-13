@@ -1600,7 +1600,7 @@ function InitialRegistrationModal({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onProceed: (data: { clientTypeCode: string; stateId: number; baseValue: string }) => void;
+  onProceed: (data: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: { name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string } }) => void;
   onViewSubject: (id: number) => void;
 }) {
   const { data: appUser } = useAppUser();
@@ -1728,11 +1728,13 @@ function InitialRegistrationModal({
       clientTypeCode: selectedType,
       stateId: appUser?.activeStateId || 0,
       baseValue: baseValue.trim(),
+      aresData: aresLookup?.found ? { name: aresLookup.name, street: aresLookup.street, streetNumber: aresLookup.streetNumber, zip: aresLookup.zip, city: aresLookup.city, legalForm: aresLookup.legalForm, dic: aresLookup.dic } : undefined,
     });
     setSelectedType("");
     setBaseValue("");
     setDuplicateInfo(null);
     setDuplicateChecked(false);
+    setAresLookup(null);
   }
 
   const canProceed = selectedType && appUser?.activeStateId && baseValue.trim() && duplicateChecked && !duplicateInfo && !rcError && !icoError;
@@ -1797,9 +1799,22 @@ function InitialRegistrationModal({
             )}
             {aresLookup?.found && (
               <div className="mt-2 bg-blue-500/10 border border-blue-500/30 rounded-md p-3 space-y-1" data-testid="ares-lookup-result">
-                <div className="flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
-                  <span className="text-xs font-semibold text-blue-400">ARES Register</span>
+                <div className="flex items-center gap-2 justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
+                    <span className="text-xs font-semibold text-blue-400">ARES Register</span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[10px] px-2 border-blue-500/40 text-blue-400 hover:bg-blue-500/20"
+                    onClick={handleProceed}
+                    disabled={!canProceed || checking}
+                    data-testid="button-use-ares-data"
+                  >
+                    Použiť údaje
+                  </Button>
                 </div>
                 {aresLookup.name && <p className="text-sm font-medium">{aresLookup.name}</p>}
                 {(aresLookup.street || aresLookup.city) && (
@@ -2236,7 +2251,7 @@ function FullPageEditor({
   initialData,
   onCancel,
 }: {
-  initialData: { clientTypeCode: string; stateId: number; baseValue: string };
+  initialData: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: { name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string } };
   onCancel: () => void;
 }) {
   const { mutate, isPending } = useCreateSubject();
@@ -2252,7 +2267,15 @@ function FullPageEditor({
   const state = allStates?.find(s => s.id === initialData.stateId);
 
   const isSzcoType = clientType?.code === 'SZCO';
-  const [szcoData, setSzcoData] = useState({ obchodne_meno: "", ico: initialData.baseValue || "", dic: "", ic_dph: "", miesto_podnikania: "", register: "", szco_uid: "" });
+  const [szcoData, setSzcoData] = useState({
+    obchodne_meno: initialData.aresData?.name || "",
+    ico: initialData.baseValue || "",
+    dic: initialData.aresData?.dic || "",
+    ic_dph: "",
+    miesto_podnikania: initialData.aresData ? [initialData.aresData.street, initialData.aresData.streetNumber].filter(Boolean).join(" ") + (initialData.aresData.street || initialData.aresData.streetNumber ? ", " : "") + [initialData.aresData.zip, initialData.aresData.city].filter(Boolean).join(" ") : "",
+    register: "",
+    szco_uid: "",
+  });
   const [szcoFoData, setSzcoFoData] = useState({ firstName: "", lastName: "", birthNumber: "", fo_uid: "" });
   const [szcoFoLinkedId, setSzcoFoLinkedId] = useState<number | null>(null);
   const [szcoFoLoading, setSzcoFoLoading] = useState(false);
@@ -2261,7 +2284,17 @@ function FullPageEditor({
   const [szcoAresLookup, setSzcoAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; found: boolean; message?: string } | null>(null);
   const [szcoAresLoading, setSzcoAresLoading] = useState(false);
 
-  const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>({ korespond_rovnaka: "true", kontaktna_rovnaka: "true", tp_stat: DEFAULT_COUNTRY, ka_stat: DEFAULT_COUNTRY, koa_stat: DEFAULT_COUNTRY, sidlo_stat: DEFAULT_COUNTRY, vykon_stat: DEFAULT_COUNTRY });
+  const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>(() => {
+    const base: Record<string, string> = { korespond_rovnaka: "true", kontaktna_rovnaka: "true", tp_stat: DEFAULT_COUNTRY, ka_stat: DEFAULT_COUNTRY, koa_stat: DEFAULT_COUNTRY, sidlo_stat: DEFAULT_COUNTRY, vykon_stat: DEFAULT_COUNTRY };
+    if (initialData.aresData && !isSzcoType) {
+      if (initialData.aresData.name) base.obchodne_meno = initialData.aresData.name;
+      if (initialData.aresData.dic) base.dic = initialData.aresData.dic;
+      if (initialData.aresData.street) base.sidlo_ulica = initialData.aresData.street + (initialData.aresData.streetNumber ? " " + initialData.aresData.streetNumber : "");
+      if (initialData.aresData.zip) base.sidlo_psc = initialData.aresData.zip;
+      if (initialData.aresData.city) base.sidlo_mesto = initialData.aresData.city;
+    }
+    return base;
+  });
   const [documents, setDocuments] = useState<DocumentEntry[]>([]);
   const [contacts, setContacts] = useState<ContactEntry[]>([{ id: crypto.randomUUID(), type: "phone", value: "", label: "Primárny", isPrimary: true }]);
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
@@ -4252,7 +4285,7 @@ const SUBJECTS_FILTER_COLUMNS: SmartColumnDef[] = [
 export default function Subjects() {
   const [search, setSearch] = useState("");
   const [isInitModalOpen, setIsInitModalOpen] = useState(false);
-  const [editData, setEditData] = useState<{ clientTypeCode: string; stateId: number; baseValue: string } | null>(null);
+  const [editData, setEditData] = useState<{ clientTypeCode: string; stateId: number; baseValue: string; aresData?: { name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string } } | null>(null);
   const [pendingAddNew] = useState<{ clientType: string; baseValue: string } | null>(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("addNew") === "true") {
