@@ -18586,6 +18586,41 @@ export async function registerRoutes(
           }
         }
 
+        try {
+          const REGISTRY_FIELD_MAP_WORKER: Record<string, string> = {
+            obchodne_meno: "name", company_name: "name", nazov_firmy: "name",
+            address: "street", adresa: "street", ulica: "street",
+            sidlo: "city", mesto: "city", psc: "zip", dic: "dic", pravna_forma: "legalForm",
+          };
+          const icoFieldW = results.find((r: any) => r.fieldKey && (r.fieldKey.toLowerCase() === "ico" || r.fieldKey.toLowerCase().includes("ico")) && r.matchedValue);
+          let workerSnapshot: any = null;
+          if (nextJob.subjectId) {
+            const snaps = await db.select().from(registrySnapshots).where(eq(registrySnapshots.subjectId, nextJob.subjectId)).orderBy(desc(registrySnapshots.fetchedAt)).limit(1);
+            if (snaps.length > 0) workerSnapshot = snaps[0];
+          }
+          if (!workerSnapshot && icoFieldW?.matchedValue) {
+            const snaps = await db.select().from(registrySnapshots).where(eq(registrySnapshots.ico, icoFieldW.matchedValue.trim())).orderBy(desc(registrySnapshots.fetchedAt)).limit(1);
+            if (snaps.length > 0) workerSnapshot = snaps[0];
+          }
+          if (workerSnapshot) {
+            const parsedW = workerSnapshot.parsedFields as Record<string, any>;
+            const srcW = workerSnapshot.source || "ORSR";
+            for (const r of results) {
+              if (!r.matchedValue || !r.fieldKey) continue;
+              const regKey = REGISTRY_FIELD_MAP_WORKER[r.fieldKey.toLowerCase()];
+              if (!regKey || !parsedW[regKey]) continue;
+              const cVal = r.matchedValue.trim();
+              const rVal = String(parsedW[regKey]).trim();
+              if (cVal.toLowerCase() !== rVal.toLowerCase()) {
+                r.registryConflict = { registryValue: rVal, source: srcW };
+                try { await storage.proposeRegistrySynonym(r.parameterId, cVal, rVal); } catch {}
+              }
+            }
+          }
+        } catch (regErrW: any) {
+          console.error("[OCR WORKER] Registry audit error:", regErrW.message);
+        }
+
         await db.update(ocrProcessingJobs).set({
           status: "completed", extractedText: ocrResult.text, extractedFields: JSON.stringify(results),
           pageCount: ocrResult.pages, completedAt: new Date(),
