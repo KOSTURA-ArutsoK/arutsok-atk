@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileSpreadsheet, ArrowRight, ArrowLeft, Check, AlertTriangle, XCircle, Loader2, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { Upload, FileSpreadsheet, ArrowRight, ArrowLeft, Check, AlertTriangle, XCircle, Loader2, ChevronDown, ChevronUp, Info, Download } from "lucide-react";
 
 type Step = "upload" | "mapping" | "validation" | "complete";
 
@@ -210,6 +210,21 @@ export default function BulkImport() {
                       data-testid="input-file-upload"
                     />
                     <p className="text-xs text-muted-foreground">Podporované formáty: .xlsx, .xls</p>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="mt-2 text-xs"
+                      onClick={() => {
+                        const a = document.createElement("a");
+                        a.href = "/api/bulk-import/template";
+                        a.download = "sablona_import_zmluv.xlsx";
+                        a.click();
+                      }}
+                      data-testid="button-download-template"
+                    >
+                      <Download className="w-3.5 h-3.5 mr-1" />
+                      Stiahnuť Excel šablónu
+                    </Button>
                   </div>
                 )}
               </div>

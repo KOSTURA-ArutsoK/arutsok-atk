@@ -9061,6 +9061,35 @@ export async function registerRoutes(
   });
 
   // === BULK IMPORT (Hromadný import) ===
+
+  app.get("/api/bulk-import/template", isAuthenticated, async (req: any, res) => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Import zmlúv");
+      sheet.columns = [
+        { header: "Číslo zmluvy", key: "contractNumber", width: 20 },
+        { header: "Stav zmluvy", key: "status", width: 20 },
+        { header: "Sprostredkovateľ", key: "agent", width: 25 },
+        { header: "Suma provízie", key: "commission", width: 18 },
+        { header: "Poznámka", key: "note", width: 30 },
+      ];
+      const headerRow = sheet.getRow(1);
+      headerRow.font = { bold: true };
+      headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2D3748" } };
+      headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+
+      sheet.addRow({ contractNumber: "1001", status: "Aktívna", agent: "Ján Novák", commission: 150.50, note: "Príklad" });
+      sheet.addRow({ contractNumber: "1002", status: "Čaká na schválenie", agent: "Peter Horváth", commission: 200, note: "" });
+
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", "attachment; filename=sablona_import_zmluv.xlsx");
+      await workbook.xlsx.write(res);
+      res.end();
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri generovaní šablóny" });
+    }
+  });
+
   app.post("/api/bulk-import/parse", isAuthenticated, upload.single("file"), async (req: any, res) => {
     try {
       const file = req.file;
