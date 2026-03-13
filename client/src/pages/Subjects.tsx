@@ -1807,7 +1807,58 @@ function InitialRegistrationModal({
   );
 }
 
-const INVALID_TITLE_VALUES = ["pán", "pan", "pani", "páni", "pán.", "pan.", "pani.", "mr", "mr.", "mrs", "mrs.", "ms", "ms.", "slecna", "slečna", "sir"];
+const TITLE_NORMALIZE_MAP: Record<string, string> = {
+  "bc": "Bc.", "bc.": "Bc.",
+  "ing": "Ing.", "ing.": "Ing.",
+  "ing. arch.": "Ing. arch.", "ing.arch.": "Ing. arch.", "ing. arch": "Ing. arch.", "ingarch": "Ing. arch.",
+  "mgr": "Mgr.", "mgr.": "Mgr.",
+  "mgr. art.": "Mgr. art.", "mgr.art.": "Mgr. art.", "mgr. art": "Mgr. art.",
+  "mudr": "MUDr.", "mudr.": "MUDr.",
+  "mvdr": "MVDr.", "mvdr.": "MVDr.",
+  "mddr": "MDDr.", "mddr.": "MDDr.",
+  "phdr": "PhDr.", "phdr.": "PhDr.",
+  "rndr": "RNDr.", "rndr.": "RNDr.",
+  "judr": "JUDr.", "judr.": "JUDr.",
+  "paeddr": "PaedDr.", "paeddr.": "PaedDr.", "paed. dr.": "PaedDr.", "paed.dr.": "PaedDr.",
+  "thdr": "ThDr.", "thdr.": "ThDr.",
+  "thlic": "ThLic.", "thlic.": "ThLic.",
+  "dr": "Dr.", "dr.": "Dr.",
+  "phmr": "PhMr.", "phmr.": "PhMr.",
+  "pharmdr": "PharmDr.", "pharmdr.": "PharmDr.",
+  "doc": "Doc.", "doc.": "Doc.", "docent": "Doc.",
+  "prof": "Prof.", "prof.": "Prof.", "profesor": "Prof.",
+  "dipl": "Dipl.", "dipl.": "Dipl.",
+  "phd": "PhD.", "phd.": "PhD.",
+  "csc": "CSc.", "csc.": "CSc.",
+  "drsc": "DrSc.", "drsc.": "DrSc.",
+  "mba": "MBA",
+  "mpa": "MPA",
+  "msc": "MSc.", "msc.": "MSc.",
+  "bsc": "BSc.", "bsc.": "BSc.",
+  "dis": "DiS.", "dis.": "DiS.",
+  "dis.art": "DiS.art.", "dis.art.": "DiS.art.",
+  "mph": "MPH",
+  "ll.m": "LL.M.", "ll.m.": "LL.M.", "llm": "LL.M.",
+  "mha": "MHA",
+  "artd": "ArtD.", "artd.": "ArtD.",
+};
+
+function normalizeTitle(raw: string): string | null {
+  if (!raw || !raw.trim()) return "";
+  const parts = raw.trim().split(/\s+/);
+  const canonical: string[] = [];
+  for (const part of parts) {
+    const key = part.toLowerCase();
+    if (TITLE_NORMALIZE_MAP[key]) {
+      canonical.push(TITLE_NORMALIZE_MAP[key]);
+    } else {
+      const wholeKey = raw.trim().toLowerCase();
+      if (TITLE_NORMALIZE_MAP[wholeKey]) return TITLE_NORMALIZE_MAP[wholeKey];
+      return null;
+    }
+  }
+  return canonical.join(" ");
+}
 
 function capitalizeFirst(val: string): string {
   if (!val) return val;
@@ -1823,25 +1874,16 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
   subjectId?: number;
 }) {
   const [nameWarning, setNameWarning] = useState<string | null>(null);
+  const [titleWarning, setTitleWarning] = useState<string | null>(null);
 
   const isNameField = field.fieldKey === "meno" || field.fieldKey === "priezvisko";
   const isTitleField = field.fieldKey === "titul_pred" || field.fieldKey === "titul_za";
-
-  const titleError = useMemo(() => {
-    if (!isTitleField) return null;
-    const val = (dynamicValues[field.fieldKey] || "").trim().toLowerCase();
-    if (!val) return null;
-    if (INVALID_TITLE_VALUES.includes(val)) {
-      return `"${dynamicValues[field.fieldKey]}" nie je platny akademicky titul`;
-    }
-    return null;
-  }, [isTitleField, dynamicValues[field.fieldKey], field.fieldKey]);
 
   const numberFieldValidity = useMemo(() => {
     return isNumberFieldWithExpiredPair(field.fieldKey, dynamicValues);
   }, [field.fieldKey, dynamicValues]);
   const isExpiredNumber = numberFieldValidity?.status === "expired";
-  const errorBorder = hasError ? "border-red-500 ring-1 ring-red-500" : isExpiredNumber ? "border-red-500/60 bg-red-500/10 ring-1 ring-red-500/30" : titleError ? "border-red-500 ring-1 ring-red-500" : "";
+  const errorBorder = hasError ? "border-red-500 ring-1 ring-red-500" : isExpiredNumber ? "border-red-500/60 bg-red-500/10 ring-1 ring-red-500/30" : titleWarning ? "border-amber-500 ring-1 ring-amber-500/60" : "";
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-1">
@@ -1978,6 +2020,29 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           className={`font-mono ${errorBorder}`}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
+      ) : isTitleField ? (
+        <Input
+          value={dynamicValues[field.fieldKey] || ""}
+          onChange={e => {
+            setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }));
+            if (!e.target.value.trim()) setTitleWarning(null);
+          }}
+          onBlur={() => {
+            const raw = dynamicValues[field.fieldKey] || "";
+            if (!raw.trim()) { setTitleWarning(null); return; }
+            const result = normalizeTitle(raw);
+            if (result === null) {
+              setTitleWarning(`"${raw}" — titul sa nenachádza v zozname povolených titulov`);
+            } else if (result !== raw) {
+              setDynamicValues(prev => ({ ...prev, [field.fieldKey]: result }));
+              setTitleWarning(null);
+            } else {
+              setTitleWarning(null);
+            }
+          }}
+          className={errorBorder}
+          data-testid={`input-dynamic-${field.fieldKey}`}
+        />
       ) : isNameField ? (
         <Input
           value={dynamicValues[field.fieldKey] || ""}
@@ -2014,10 +2079,10 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
         />
       )}
       {nameWarning && isNameField && (
-        <p className="text-[10px] text-red-500 leading-tight">{nameWarning}</p>
+        <p className="text-[10px] text-amber-500 leading-tight">{nameWarning}</p>
       )}
-      {titleError && isTitleField && (
-        <p className="text-[10px] text-red-500 leading-tight">{titleError}</p>
+      {titleWarning && isTitleField && (
+        <p className="text-[10px] text-amber-500 leading-tight">{titleWarning}</p>
       )}
     </div>
   );

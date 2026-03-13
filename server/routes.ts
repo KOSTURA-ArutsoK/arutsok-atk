@@ -149,6 +149,58 @@ function capitalizeName(name: string | null | undefined): string | null {
   return name.trim().replace(/\S+/g, word => word.charAt(0).toUpperCase() + word.slice(1));
 }
 
+const TITLE_NORMALIZE_MAP_BE: Record<string, string> = {
+  "bc": "Bc.", "bc.": "Bc.",
+  "ing": "Ing.", "ing.": "Ing.",
+  "ing. arch.": "Ing. arch.", "ing.arch.": "Ing. arch.", "ing. arch": "Ing. arch.", "ingarch": "Ing. arch.",
+  "mgr": "Mgr.", "mgr.": "Mgr.",
+  "mgr. art.": "Mgr. art.", "mgr.art.": "Mgr. art.", "mgr. art": "Mgr. art.",
+  "mudr": "MUDr.", "mudr.": "MUDr.",
+  "mvdr": "MVDr.", "mvdr.": "MVDr.",
+  "mddr": "MDDr.", "mddr.": "MDDr.",
+  "phdr": "PhDr.", "phdr.": "PhDr.",
+  "rndr": "RNDr.", "rndr.": "RNDr.",
+  "judr": "JUDr.", "judr.": "JUDr.",
+  "paeddr": "PaedDr.", "paeddr.": "PaedDr.", "paed. dr.": "PaedDr.", "paed.dr.": "PaedDr.",
+  "thdr": "ThDr.", "thdr.": "ThDr.",
+  "thlic": "ThLic.", "thlic.": "ThLic.",
+  "dr": "Dr.", "dr.": "Dr.",
+  "phmr": "PhMr.", "phmr.": "PhMr.",
+  "pharmdr": "PharmDr.", "pharmdr.": "PharmDr.",
+  "doc": "Doc.", "doc.": "Doc.", "docent": "Doc.",
+  "prof": "Prof.", "prof.": "Prof.", "profesor": "Prof.",
+  "dipl": "Dipl.", "dipl.": "Dipl.",
+  "phd": "PhD.", "phd.": "PhD.",
+  "csc": "CSc.", "csc.": "CSc.",
+  "drsc": "DrSc.", "drsc.": "DrSc.",
+  "mba": "MBA", "mpa": "MPA",
+  "msc": "MSc.", "msc.": "MSc.",
+  "bsc": "BSc.", "bsc.": "BSc.",
+  "dis": "DiS.", "dis.": "DiS.",
+  "dis.art": "DiS.art.", "dis.art.": "DiS.art.",
+  "mph": "MPH",
+  "ll.m": "LL.M.", "ll.m.": "LL.M.", "llm": "LL.M.",
+  "mha": "MHA",
+  "artd": "ArtD.", "artd.": "ArtD.",
+};
+
+function normalizeTitleBe(raw: string | null | undefined): string | null {
+  if (!raw || !raw.trim()) return raw ?? null;
+  const parts = raw.trim().split(/\s+/);
+  const canonical: string[] = [];
+  for (const part of parts) {
+    const key = part.toLowerCase();
+    if (TITLE_NORMALIZE_MAP_BE[key]) {
+      canonical.push(TITLE_NORMALIZE_MAP_BE[key]);
+    } else {
+      const wholeKey = raw.trim().toLowerCase();
+      if (TITLE_NORMALIZE_MAP_BE[wholeKey]) return TITLE_NORMALIZE_MAP_BE[wholeKey];
+      return raw.trim();
+    }
+  }
+  return canonical.join(" ");
+}
+
 function isArchitekt(appUser: any): boolean {
   return appUser?.role === 'architekt';
 }
@@ -5628,8 +5680,8 @@ export async function registerRoutes(
           const firstName = capitalizeName(rowData["meno"] || rowData["first_name"] || null);
           const lastName = capitalizeName(rowData["priezvisko"] || rowData["last_name"] || null);
           const companyName = rowData["nazov_firmy"] || rowData["company_name"] || null;
-          const titleBefore = rowData["titul_pred"] || rowData["title_before"] || null;
-          const titleAfter = rowData["titul_za"] || rowData["title_after"] || null;
+          const titleBefore = normalizeTitleBe(rowData["titul_pred"] || rowData["title_before"] || null);
+          const titleAfter = normalizeTitleBe(rowData["titul_za"] || rowData["title_after"] || null);
           const email = rowData["email"] || null;
           const phone = rowData["telefon"] || rowData["phone"] || null;
           const spz = rowData["spz"] || rowData["ecv"] || rowData["licence_plate"] || null;
