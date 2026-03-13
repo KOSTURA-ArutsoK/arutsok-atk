@@ -3262,12 +3262,9 @@ export default function Contracts() {
                 <TableHead className="whitespace-nowrap text-xs">I: Meno</TableHead>
                 <TableHead className="whitespace-nowrap text-xs">J: Priezvisko</TableHead>
                 <TableHead className="whitespace-nowrap text-xs">K: Titul za</TableHead>
-                <TableHead className="whitespace-nowrap text-xs">L: Špecialist UID</TableHead>
-                <TableHead className="whitespace-nowrap text-xs">M: Špecialist %</TableHead>
-                <TableHead className="whitespace-nowrap text-xs">N: Odporúčateľ 1 UID</TableHead>
-                <TableHead className="whitespace-nowrap text-xs">O: Odporúčateľ 1 %</TableHead>
-                <TableHead className="whitespace-nowrap text-xs">P: Odporúčateľ 2 UID</TableHead>
-                <TableHead className="whitespace-nowrap text-xs">Q: Odporúčateľ 2 %</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">L+M: Špecialist (UID %)</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">N+O: Odporúčateľ 1 (UID %)</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">P+Q: Odporúčateľ 2 (UID %)</TableHead>
               </>
             ) : (
               <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Subjekt</TableHead>
@@ -3399,12 +3396,15 @@ export default function Contracts() {
                         </span>
                       </TableCell>
                       <TableCell className="text-xs py-1">{titulZa || <span className="text-muted-foreground/40">—</span>}</TableCell>
-                      <TableCell className="text-xs font-mono py-1 text-muted-foreground whitespace-nowrap">{raw.specialista || <span className="text-muted-foreground/30">—</span>}</TableCell>
-                      <TableCell className="text-xs py-1 text-right">{raw.specialista_podiel != null && raw.specialista_podiel !== "" ? `${raw.specialista_podiel}%` : <span className="text-muted-foreground/30">—</span>}</TableCell>
-                      <TableCell className="text-xs font-mono py-1 text-muted-foreground whitespace-nowrap">{raw.odporucitel || <span className="text-muted-foreground/30">—</span>}</TableCell>
-                      <TableCell className="text-xs py-1 text-right">{raw.odporucitel_podiel != null && raw.odporucitel_podiel !== "" ? `${raw.odporucitel_podiel}%` : <span className="text-muted-foreground/30">—</span>}</TableCell>
-                      <TableCell className="text-xs font-mono py-1 text-muted-foreground whitespace-nowrap">{raw.odporucitel2 || <span className="text-muted-foreground/30">—</span>}</TableCell>
-                      <TableCell className="text-xs py-1 text-right">{raw.odporucitel2_podiel != null && raw.odporucitel2_podiel !== "" ? `${raw.odporucitel2_podiel}%` : <span className="text-muted-foreground/30">—</span>}</TableCell>
+                      <TableCell className="text-xs font-mono py-1 whitespace-nowrap">
+                        {raw.specialista ? <span className="text-muted-foreground">{raw.specialista}{raw.specialista_podiel != null && raw.specialista_podiel !== "" ? <span className="text-primary font-semibold"> ({raw.specialista_podiel}%)</span> : ""}</span> : <span className="text-muted-foreground/30">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs font-mono py-1 whitespace-nowrap">
+                        {raw.odporucitel ? <span className="text-muted-foreground">{raw.odporucitel}{raw.odporucitel_podiel != null && raw.odporucitel_podiel !== "" ? <span className="text-primary font-semibold"> ({raw.odporucitel_podiel}%)</span> : ""}</span> : <span className="text-muted-foreground/30">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs font-mono py-1 whitespace-nowrap">
+                        {raw.odporucitel2 ? <span className="text-muted-foreground">{raw.odporucitel2}{raw.odporucitel2_podiel != null && raw.odporucitel2_podiel !== "" ? <span className="text-primary font-semibold"> ({raw.odporucitel2_podiel}%)</span> : ""}</span> : <span className="text-muted-foreground/30">—</span>}
+                      </TableCell>
                     </>
                   );
                 })() : (
