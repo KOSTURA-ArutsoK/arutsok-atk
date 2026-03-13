@@ -5098,6 +5098,18 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/contracts/check-number-duplicates", isAuthenticated, async (req: any, res) => {
+    try {
+      const contractNumber = (req.query.contractNumber as string) || undefined;
+      const proposalNumber = (req.query.proposalNumber as string) || undefined;
+      if (!contractNumber?.trim() && !proposalNumber?.trim()) return res.json([]);
+      const duplicates = await storage.findContractsByNumbers({ contractNumber, proposalNumber });
+      res.json(duplicates);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   // ArutsoK 47 - Get accepted contracts (folder 3)
   app.get("/api/contracts/accepted", isAuthenticated, async (req: any, res) => {
     try {

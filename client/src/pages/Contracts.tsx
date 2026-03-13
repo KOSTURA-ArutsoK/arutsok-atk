@@ -2235,6 +2235,8 @@ export default function Contracts() {
   const [preSelectNumberType, setPreSelectNumberType] = useState<"proposal" | "contract" | "both">("proposal");
   const [preSelectNumberValue2, setPreSelectNumberValue2] = useState("");
   const [preSelectNumberValue, setPreSelectNumberValue] = useState("");
+  const [preSelectNumberDuplicates, setPreSelectNumberDuplicates] = useState<Array<{ id: number; contractNumber: string | null; proposalNumber: string | null; subjectName: string; lifecyclePhase: number | null }>>([]);
+  const [preSelectCheckingDuplicates, setPreSelectCheckingDuplicates] = useState(false);
   const [preSelectTitleBefore, setPreSelectTitleBefore] = useState("");
   const [preSelectFirstName, setPreSelectFirstName] = useState("");
   const [preSelectLastName, setPreSelectLastName] = useState("");
@@ -4336,7 +4338,26 @@ export default function Contracts() {
     return products.filter(p => !p.isDeleted && p.partnerId === parseInt(preSelectPartnerId));
   })();
 
-  const handlePreSelectStep1Next = () => {
+  const handlePreSelectStep1Next = async () => {
+    const cnVal = preSelectNumberType === "contract" ? preSelectNumberValue.trim() : preSelectNumberType === "both" ? preSelectNumberValue2.trim() : "";
+    const pnVal = preSelectNumberType === "proposal" || preSelectNumberType === "both" ? preSelectNumberValue.trim() : "";
+    if (cnVal || pnVal) {
+      setPreSelectCheckingDuplicates(true);
+      try {
+        const params = new URLSearchParams();
+        if (cnVal) params.set("contractNumber", cnVal);
+        if (pnVal) params.set("proposalNumber", pnVal);
+        const res = await fetch(`/api/contracts/check-number-duplicates?${params.toString()}`, { credentials: "include" });
+        const dupes = await res.json();
+        if (Array.isArray(dupes) && dupes.length > 0) {
+          setPreSelectNumberDuplicates(dupes);
+          setPreSelectCheckingDuplicates(false);
+          return;
+        }
+      } catch {}
+      setPreSelectCheckingDuplicates(false);
+    }
+    setPreSelectNumberDuplicates([]);
     setPreSelectStep(2);
     setPreSelectSubjectSearch("");
     setPreSelectSubjectId("");
@@ -4380,6 +4401,8 @@ export default function Contracts() {
     setPreSelectNumberType("proposal");
     setPreSelectNumberValue("");
     setPreSelectNumberValue2("");
+    setPreSelectNumberDuplicates([]);
+    setPreSelectCheckingDuplicates(false);
     setPreSelectTitleBefore("");
     setPreSelectFirstName("");
     setPreSelectLastName("");
@@ -4788,7 +4811,7 @@ export default function Contracts() {
                   <Input
                     ref={refNumberInput}
                     value={preSelectNumberValue}
-                    onChange={(e) => setPreSelectNumberValue(e.target.value)}
+                    onChange={(e) => { setPreSelectNumberValue(e.target.value); setPreSelectNumberDuplicates([]); }}
                     placeholder="Zadajte číslo návrhu..."
                     className={isFieldMissing("number") ? "border-red-500 ring-red-500/30" : ""}
                     onKeyDown={(e) => {
@@ -4801,7 +4824,7 @@ export default function Contracts() {
                   <label className="text-xs font-medium">Číslo zmluvy</label>
                   <Input
                     value={preSelectNumberValue2}
-                    onChange={(e) => setPreSelectNumberValue2(e.target.value)}
+                    onChange={(e) => { setPreSelectNumberValue2(e.target.value); setPreSelectNumberDuplicates([]); }}
                     placeholder="Zadajte číslo zmluvy..."
                     className={isFieldMissing("number2") ? "border-red-500 ring-red-500/30" : ""}
                     onKeyDown={(e) => {
@@ -4817,7 +4840,7 @@ export default function Contracts() {
                 <Input
                   ref={refNumberInput}
                   value={preSelectNumberValue}
-                  onChange={(e) => setPreSelectNumberValue(e.target.value)}
+                  onChange={(e) => { setPreSelectNumberValue(e.target.value); setPreSelectNumberDuplicates([]); }}
                   placeholder={preSelectNumberType === "proposal" ? "Zadajte číslo návrhu..." : "Zadajte číslo zmluvy..."}
                   className={isFieldMissing("number") ? "border-red-500 ring-red-500/30" : ""}
                   onKeyDown={(e) => {
@@ -4828,8 +4851,36 @@ export default function Contracts() {
               </div>
             )}
 
+            {preSelectNumberDuplicates.length > 0 && (
+              <div className="rounded-md border border-red-500/40 bg-red-500/5 dark:bg-red-900/10 p-3 space-y-2" data-testid="panel-number-duplicates">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                  <span className="text-xs font-semibold text-red-600 dark:text-red-400">
+                    Toto číslo už existuje v systéme — zmluvu nie je možné pridať
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {preSelectNumberDuplicates.map(d => (
+                    <div key={d.id} className="flex items-center gap-2 py-0.5 px-1 text-xs rounded bg-red-500/5" data-testid={`row-duplicate-${d.id}`}>
+                      <span className="font-mono text-red-700 dark:text-red-300 shrink-0">
+                        {d.contractNumber || d.proposalNumber || "—"}
+                      </span>
+                      <span className="text-muted-foreground">—</span>
+                      <span className="font-medium truncate">{d.subjectName}</span>
+                      {d.lifecyclePhase !== null && (
+                        <span className="ml-auto shrink-0 text-[10px] text-muted-foreground border border-border rounded px-1 py-0">
+                          {({ 1: "Nahratie", 2: "Odoslané", 3: "Výhrady", 4: "Archív", 5: "Prijaté CK", 6: "V spracovaní", 7: "Intervencia", 8: "Pripravené", 9: "Odoslané OP", 10: "Prijaté OP" } as Record<number, string>)[d.lifecyclePhase] || `Fáza ${d.lifecyclePhase}`}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-end gap-2">
-              <Button ref={refStep1Next} onClick={handlePreSelectStep1Next} disabled={!preSelectPartnerId} data-testid="button-preselect-next">
+              <Button ref={refStep1Next} onClick={handlePreSelectStep1Next} disabled={!preSelectPartnerId || preSelectCheckingDuplicates || preSelectNumberDuplicates.length > 0} data-testid="button-preselect-next">
+                {preSelectCheckingDuplicates && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />}
                 Dalej
               </Button>
             </div>

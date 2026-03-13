@@ -409,6 +409,8 @@ export interface IStorage {
   getContractsByAcquirer(userId: number): Promise<Contract[]>;
   getSubjectIdsWhereUserIsAcquirer(userId: number): Promise<number[]>;
   checkContractDuplicate(contractNumber: string): Promise<{ exists: boolean; contract?: Contract; subjectName?: string }>;
+  findContractsByNumbers(params: { contractNumber?: string; proposalNumber?: string }): Promise<Array<{ id: number; contractNumber: string | null; proposalNumber: string | null; subjectName: string; lifecyclePhase: number | null; partnerId: number | null; }>>;
+
   getSystemContractStatusByName(name: string): Promise<ContractStatus | undefined>;
   getAcceptedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
   getArchivedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
@@ -2814,6 +2816,30 @@ export class DatabaseStorage implements IStorage {
       }
     }
     return { exists: true, contract: found, subjectName };
+  }
+
+  async findContractsByNumbers(params: { contractNumber?: string; proposalNumber?: string }): Promise<Array<{ id: number; contractNumber: string | null; proposalNumber: string | null; subjectName: string; lifecyclePhase: number | null; partnerId: number | null; }>> {
+    const { contractNumber, proposalNumber } = params;
+    if (!contractNumber?.trim() && !proposalNumber?.trim()) return [];
+    const conditions: any[] = [eq(contracts.isDeleted, false)];
+    const orConditions: any[] = [];
+    if (contractNumber?.trim()) orConditions.push(eq(contracts.contractNumber, contractNumber.trim()));
+    if (proposalNumber?.trim()) orConditions.push(eq(contracts.proposalNumber, proposalNumber.trim()));
+    if (orConditions.length === 1) conditions.push(orConditions[0]);
+    else conditions.push(or(...orConditions));
+    const found = await db.select().from(contracts).where(and(...conditions));
+    const result: Array<{ id: number; contractNumber: string | null; proposalNumber: string | null; subjectName: string; lifecyclePhase: number | null; partnerId: number | null; }> = [];
+    for (const c of found) {
+      let subjectName = "—";
+      if (c.subjectId) {
+        const [subj] = await db.select().from(subjects).where(eq(subjects.id, c.subjectId)).limit(1);
+        if (subj) {
+          subjectName = subj.type === "person" ? `${subj.firstName || ""} ${subj.lastName || ""}`.trim() : (subj.companyName || "—");
+        }
+      }
+      result.push({ id: c.id, contractNumber: c.contractNumber, proposalNumber: c.proposalNumber, subjectName, lifecyclePhase: c.lifecyclePhase, partnerId: c.partnerId });
+    }
+    return result;
   }
 
   async getSystemContractStatusByName(name: string): Promise<ContractStatus | undefined> {
