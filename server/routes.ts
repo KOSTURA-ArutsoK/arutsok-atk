@@ -5849,9 +5849,28 @@ export async function registerRoutes(
             subjectId: resolvedSubjectId || undefined,
             incompleteFields: isIncomplete ? missingFields : undefined,
             hasDistributions,
+            rawData: {
+              partner: partnerName,
+              produkt: productName,
+              cislo_navrhu: cisloNavrhu,
+              cislo_zmluvy: cisloZmluvy,
+              typ_subjektu: typSubjektu,
+              rc_ico: rcIcoRaw,
+              nazov_firmy: companyName,
+              titul_pred: titleBefore,
+              meno: firstName,
+              priezvisko: lastName,
+              titul_za: titleAfter,
+              specialista: specialistaUid,
+              specialista_podiel: specialistaPodiel,
+              odporucitel: odporucitelUid,
+              odporucitel_podiel: odporucitelPodiel,
+              odporucitel2: odporucitel2Uid,
+              odporucitel2_podiel: odporucitel2Podiel,
+            },
           });
         } catch (rowErr: any) {
-          results.push({ row: rowNum, status: "error", error: rowErr.message || "Neznáma chyba" });
+          results.push({ row: rowNum, status: "error", error: rowErr.message || "Neznáma chyba", rawData: rowData });
         }
       }
 

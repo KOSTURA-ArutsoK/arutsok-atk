@@ -4137,16 +4137,16 @@ export default function Contracts() {
       setImportSummaryOpen(open);
       if (!open) setImportResult(null);
     }}>
-      <DialogContent size="sm">
+      <DialogContent size="xl" className="max-w-[98vw] w-full">
         <DialogHeader>
           <DialogTitle data-testid="text-import-summary-title">Výsledok importu</DialogTitle>
         </DialogHeader>
         {importResult && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-4 justify-center flex-wrap">
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 justify-center flex-wrap">
               <div className="text-center px-4 py-2 rounded border border-green-500/30 bg-green-500/5">
                 <p className="text-2xl font-bold text-green-500" data-testid="text-summary-ok">{(importResult.success || 0) - (importResult.incomplete || 0)}</p>
-                <p className="text-[11px] text-muted-foreground">Úspešne importovaných</p>
+                <p className="text-[11px] text-muted-foreground">Úspešne</p>
               </div>
               {(importResult.incomplete || 0) > 0 && (
                 <div className="text-center px-4 py-2 rounded border border-red-500/30 bg-red-500/5">
@@ -4166,25 +4166,95 @@ export default function Contracts() {
                   <p className="text-[11px] text-muted-foreground">Sporné mená</p>
                 </div>
               )}
+              <div className="text-center px-4 py-2 rounded border border-border bg-muted/20">
+                <p className="text-2xl font-bold">{importResult.total}</p>
+                <p className="text-[11px] text-muted-foreground">Celkom</p>
+              </div>
             </div>
 
             {(importResult.errors || 0) > 0 && (
-              <div className="border border-red-500/30 rounded p-3 bg-red-500/5 text-justify">
-                <p className="text-xs text-red-400 flex items-center gap-1 mb-1">
+              <div className="border border-red-500/30 rounded p-2 bg-red-500/5">
+                <p className="text-xs text-red-400 flex items-center gap-1">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                  <span className="font-semibold">Odmietnuté riadky — chýbajú povinné údaje</span>
+                  <span className="font-semibold">Odmietnuté riadky — chýbajú povinné údaje. Opravte Excel a importujte znova.</span>
                 </p>
-                <p className="text-[11px] text-muted-foreground">Tieto riadky neboli importované. Opravte Excel a importujte znova.</p>
               </div>
             )}
 
             {(importResult.nameConfirmationNeeded || 0) > 0 && (
-              <div className="border border-orange-500/30 rounded p-3 bg-orange-500/5 text-justify">
-                <p className="text-xs text-orange-400 flex items-center gap-1 mb-1">
+              <div className="border border-orange-500/30 rounded p-2 bg-orange-500/5">
+                <p className="text-xs text-orange-400 flex items-center gap-1">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                  <span className="font-semibold">Sporné mená vyžadujú potvrdenie</span>
+                  <span className="font-semibold">Sporné mená — meno a priezvisko mohli byť zamenené. Kliknite na riadok pre potvrdenie.</span>
                 </p>
-                <p className="text-[11px] text-muted-foreground">Riadky s oranžovým príznakom boli importované, ale meno a priezvisko mohli byť zamenené. Kliknite na riadok v zozname pre potvrdenie alebo prehodenie.</p>
+              </div>
+            )}
+
+            {importResult.details && importResult.details.length > 0 && (
+              <div className="overflow-auto max-h-[55vh] border border-border rounded">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-card z-10">
+                    <TableRow>
+                      <TableHead className="text-xs w-8 sticky left-0 bg-card z-20">#</TableHead>
+                      <TableHead className="text-xs w-8 sticky left-8 bg-card z-20">!</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">A: Partner</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">B: Produkt</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">C: Č. návrhu</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">D: Č. zmluvy</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">E: Typ subjektu</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">F: RČ / IČO</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">G: Názov firmy</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">H: Titul pred</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">I: Meno</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">J: Priezvisko</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">K: Titul za</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">L: Špecialist UID</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">M: Špecialist %</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">N: Odporúčateľ 1 UID</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">O: Odporúčateľ 1 %</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">P: Odporúčateľ 2 UID</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">Q: Odporúčateľ 2 %</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {importResult.details.map((row: any, i: number) => {
+                      const rd = row.rawData || {};
+                      const isErr = row.status === "error";
+                      const isInc = row.status === "incomplete";
+                      return (
+                        <TableRow key={i} className={isErr ? "bg-destructive/5" : isInc ? "bg-red-500/5" : ""} data-testid={`row-import-result-${i}`}>
+                          <TableCell className="text-xs text-muted-foreground sticky left-0 bg-inherit">{row.row ?? i + 2}</TableCell>
+                          <TableCell className="sticky left-8 bg-inherit">
+                            {isErr ? (
+                              <span title={row.error}><XCircle className="w-4 h-4 text-destructive" /></span>
+                            ) : isInc ? (
+                              <span title={row.incompleteFields?.join(", ")}><AlertTriangle className="w-4 h-4 text-red-500" /></span>
+                            ) : (
+                              <Check className="w-4 h-4 text-green-500" />
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs">{rd.partner || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs">{rd.produkt || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs font-mono">{rd.cislo_navrhu || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs font-mono">{rd.cislo_zmluvy || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs">{rd.typ_subjektu || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs font-mono">{rd.rc_ico || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs max-w-[120px] truncate" title={rd.nazov_firmy || ""}>{rd.nazov_firmy || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs">{rd.titul_pred || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs">{rd.meno || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs">{rd.priezvisko || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs">{rd.titul_za || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs font-mono text-muted-foreground">{rd.specialista || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs text-right">{rd.specialista_podiel != null ? `${rd.specialista_podiel}%` : <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs font-mono text-muted-foreground">{rd.odporucitel || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs text-right">{rd.odporucitel_podiel != null ? `${rd.odporucitel_podiel}%` : <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs font-mono text-muted-foreground">{rd.odporucitel2 || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs text-right">{rd.odporucitel2_podiel != null ? `${rd.odporucitel2_podiel}%` : <span className="text-muted-foreground/30">—</span>}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             )}
 
