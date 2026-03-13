@@ -378,7 +378,7 @@ export function AppSidebar() {
     { id: "nastavenie-systemu", items: nastavenieSystemuItems },
     { id: "partneri", items: partneriProduktyItems },
     { id: "klienti", items: klientiItems },
-    { id: "zmluvy", items: [...zmluvyFlatItems, ...nastaveniaSablonChildren, ...protokolyChildren, ...importItems] },
+    { id: "zmluvy", items: [...zmluvyFlatItems, ...protokolyChildren, ...importItems, ...nastaveniaSablonChildren] },
     { id: "financie", items: financieItems },
     { id: "reporty", items: reportyItems },
     { id: "informacie", items: informacieItems },
@@ -396,9 +396,9 @@ export function AppSidebar() {
   const isZmluvyActive = allZmluvyHrefs.includes(location);
   const isZmluvyOpen = openMenuId === "zmluvy";
   const zmluvyInitialSub = spracovanieZmluvChildren.some(i => i.href === location) ? "spracovanie"
-    : nastaveniaSablonChildren.some(i => i.href === location) ? "sablony"
     : protokolyChildren.some(i => i.href === location) ? "protokoly"
-    : importItems.some(i => i.href === location) ? "import" : null;
+    : importItems.some(i => i.href === location) ? "import"
+    : nastaveniaSablonChildren.some(i => i.href === location) ? "sablony" : null;
   const [zmluvySubId, setZmluvySubId] = useState<string | null>(zmluvyInitialSub);
 
   return (
