@@ -3286,7 +3286,7 @@ export default function Contracts() {
             const needsNameConfirm = !!(contract as any).needsManualVerification;
             const incompleteFields = isIncomplete ? (incompleteReason.replace(/^Chýba:\s*/, "").split(",").map((f: string) => f.trim().toLowerCase())) : [];
             const fieldMissing = (field: string) => incompleteFields.some((f: string) => f.includes(field));
-            const isRowSelected = selectedIds.includes(contract.id);
+            const isRowSelected = selectedIds.includes(contract.id) || rerouteSelectedIds.includes(contract.id);
             const phaseSelectedClass = isRowSelected ? (({
               1: "[&>td]:bg-blue-500/25 hover:[&>td]:bg-blue-500/30 border-l-2 border-l-blue-500",
               2: "[&>td]:bg-blue-500/25 hover:[&>td]:bg-blue-500/30 border-l-2 border-l-blue-500",
