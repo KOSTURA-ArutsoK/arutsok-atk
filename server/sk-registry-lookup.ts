@@ -4,6 +4,7 @@ import { createHash } from "crypto";
 
 export interface RegistryLookupResult {
   found: boolean;
+  reachable?: boolean;
   source?: "ORSR" | "ZRSR" | "ARES";
   name?: string;
   street?: string;
@@ -255,16 +256,25 @@ export async function lookupZrsrByIco(ico: string): Promise<RegistryLookupResult
     const resultHtml = await postResp.text();
     const $ = cheerio.load(resultHtml);
 
+    const bodyText = $("body").text();
+    if (
+      bodyText.includes("nie ste robot") ||
+      bodyText.includes("Overenie, ") ||
+      bodyText.includes("not a robot") ||
+      (resultHtml.includes("Overenie") && !bodyText.includes("Vyhľadávanie"))
+    ) {
+      return { found: false, reachable: false, message: "ZRSR: anti-bot ochrana aktívna" };
+    }
+
     const resultTable = $("table.govuk-table");
     if (!resultTable.length) {
-      const noResult = $("body").text();
-      if (noResult.includes("správne vyplnený")) {
-        return { found: false, message: "ZRSR: nepodarilo sa overiť formulár" };
+      if (bodyText.includes("správne vyplnený")) {
+        return { found: false, reachable: false, message: "ZRSR: nepodarilo sa overiť formulár" };
       }
-      if (noResult.includes("0 výsledkov") || noResult.includes("neboli nájdené") || !noResult.includes("Vyhľadávanie") || resultHtml.length < 5000) {
-        return { found: false, message: "Živnostník nenájdený v ZRSR" };
+      if (bodyText.includes("0 výsledkov") || bodyText.includes("neboli nájdené") || !bodyText.includes("Vyhľadávanie") || resultHtml.length < 5000) {
+        return { found: false, reachable: true, message: "Živnostník nenájdený v ZRSR" };
       }
-      return { found: false, message: "Živnostník nenájdený v ZRSR" };
+      return { found: false, reachable: true, message: "Živnostník nenájdený v ZRSR" };
     }
 
     let name = "";
@@ -463,7 +473,9 @@ export async function lookupByIco(
   }
 
   let lastErrorMessage = "";
-  let anyProviderSucceeded = false;
+  let anyReachable = false;
+  let allUnreachable = true;
+  let zrsrUnreachable = false;
 
   for (const lookup of lookups) {
     try {
@@ -471,19 +483,44 @@ export async function lookupByIco(
       if (result.found) {
         return { valid: true, normalized, ...result };
       }
-      anyProviderSucceeded = true;
+      const reachable = result.reachable !== false;
+      if (reachable) {
+        anyReachable = true;
+        allUnreachable = false;
+      }
+      if (result.message === "ZRSR: anti-bot ochrana aktívna" || result.message === "ZRSR: nepodarilo sa overiť formulár") {
+        zrsrUnreachable = true;
+      }
       if (result.message) lastErrorMessage = result.message;
     } catch {
       continue;
     }
   }
 
+  if (type === "szco" && zrsrUnreachable) {
+    return {
+      valid: true,
+      normalized,
+      found: false,
+      registersUnavailable: true,
+      message: "Živnostenský register SR (ZRSR) je dočasne nedostupný z technických dôvodov. Vyplňte údaje živnosti manuálne.",
+    } as any;
+  }
+
+  if (allUnreachable) {
+    return {
+      valid: true,
+      normalized,
+      found: false,
+      registersUnavailable: true,
+      message: "Štátne registre sú dočasne nedostupné. Skúste neskôr alebo vyplňte údaje manuálne.",
+    } as any;
+  }
+
   return {
     valid: true,
     normalized,
     found: false,
-    message: anyProviderSucceeded
-      ? "Subjekt nenájdený v štátnych registroch, prosím vyplňte údaje manuálne."
-      : (lastErrorMessage || "Štátne registre sú nedostupné, skúste neskôr."),
+    message: "Subjekt nenájdený v štátnych registroch, prosím vyplňte údaje manuálne.",
   };
 }
