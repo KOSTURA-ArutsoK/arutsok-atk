@@ -4553,6 +4553,9 @@ export default function Contracts() {
     setPreSelectIcoLookup(null);
     setPreSelectIcoLookupLoading(false);
     setPreSelectIcoError(null);
+    setPreSelectIcoConfirmed(false);
+    setPreSelectSignatoryName("");
+    setPreSelectSignatoryManual(false);
   };
 
   const triggerIcoLookup = () => {
