@@ -5440,11 +5440,11 @@ export default function Contracts() {
                 <label className="text-xs font-medium text-muted-foreground">Typ subjektu</label>
                 {(() => {
                   const subOpts: Array<{val: "person"|"szco"|"company"|"organization"|"state", label: string, icon: typeof User}> = [
-                    {val:"person", label:"FO", icon: User},
-                    {val:"szco", label:"SZČO", icon: Briefcase},
-                    {val:"company", label:"PO", icon: Building2},
-                    {val:"organization", label:"Neziskovky", icon: Building},
-                    {val:"state", label:"Štát", icon: Landmark},
+                    {val:"person", label:"Fyzické osoby (FO)", icon: User},
+                    {val:"szco", label:"Živnostníci (SZČO)", icon: Briefcase},
+                    {val:"company", label:"Súkromný sektor (PO)", icon: Building2},
+                    {val:"organization", label:"Tretí sektor (Neziskovky)", icon: Building},
+                    {val:"state", label:"Verejný sektor (Štát)", icon: Landmark},
                   ];
                   const activeSubIdx = subOpts.findIndex(o => o.val === preSelectSubjectType);
                   const n = subOpts.length;
