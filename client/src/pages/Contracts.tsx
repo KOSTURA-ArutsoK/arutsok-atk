@@ -2364,6 +2364,11 @@ export default function Contracts() {
   const refSignedTimeInput = useRef<HTMLInputElement>(null);
   const refPreSelectSpecialistUid = useRef<HTMLInputElement>(null);
   const refPreSelectSpecialistPct = useRef<HTMLInputElement>(null);
+  const refStep2Back = useRef<HTMLButtonElement>(null);
+  const refStep3Back = useRef<HTMLButtonElement>(null);
+  const refStep3Confirm = useRef<HTMLButtonElement>(null);
+  const refStep4Skip = useRef<HTMLButtonElement>(null);
+  const refStep4Upload = useRef<HTMLButtonElement>(null);
   const refImportSpecialistUid = useRef<HTMLInputElement>(null);
   const refImportSpecialistPct = useRef<HTMLInputElement>(null);
 
@@ -6386,10 +6391,10 @@ export default function Contracts() {
             )}
 
             <div className="flex justify-between gap-2">
-              <Button variant="outline" tabIndex={2} onClick={handlePreSelectStep2Back} data-testid="button-preselect-back">
+              <Button ref={refStep2Back} variant="outline" tabIndex={-1} onClick={handlePreSelectStep2Back} onKeyDown={e => { if (e.key === "Tab") { e.preventDefault(); refStep2Confirm.current?.focus(); } }} data-testid="button-preselect-back">
                 Spat
               </Button>
-              <Button ref={refStep2Confirm} tabIndex={0} onClick={() => { if (preSelectIsValid) setPreSelectStep(3); }} disabled={!preSelectIsValid} data-testid="button-preselect-step2-next">
+              <Button ref={refStep2Confirm} tabIndex={0} onClick={() => { if (preSelectIsValid) setPreSelectStep(3); }} disabled={!preSelectIsValid} onKeyDown={e => { if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); refStep2Back.current?.focus(); } }} data-testid="button-preselect-step2-next">
                 Dalej
               </Button>
             </div>
@@ -6515,7 +6520,7 @@ export default function Contracts() {
                             if (e.key === 'Enter') {
                               e.preventDefault();
                               if (parseFloat(preSelectSpecialistPercentage) >= 100) {
-                                (document.querySelector('[data-testid="button-preselect-confirm-rewards"]') as HTMLButtonElement)?.focus();
+                                refStep3Confirm.current?.focus();
                               } else {
                                 (document.querySelector('[data-testid="button-preselect-add-recommender"]') as HTMLButtonElement)?.focus();
                               }
@@ -6645,7 +6650,7 @@ export default function Contracts() {
                                 btn?.click();
                                 setTimeout(() => {
                                   if (newTotal >= 100) {
-                                    (document.querySelector('[data-testid="button-preselect-confirm-rewards"]') as HTMLButtonElement)?.focus();
+                                    refStep3Confirm.current?.focus();
                                   } else {
                                     (document.querySelector('[data-testid="button-preselect-add-recommender"]') as HTMLButtonElement)?.focus();
                                   }
@@ -6712,6 +6717,17 @@ export default function Contracts() {
                                 const val = e.target.value;
                                 setPreSelectRecommenders(prev => prev.map((r, i) => i === idx ? { ...r, percentage: val } : r));
                               }}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  if (idx === preSelectRecommenders.length - 1) {
+                                    refStep3Confirm.current?.focus();
+                                  } else {
+                                    const nextEl = document.querySelector(`[data-testid="input-preselect-recommender-percentage-${idx + 1}"]`) as HTMLInputElement;
+                                    nextEl?.focus();
+                                  }
+                                }
+                              }}
                               className="w-16 h-6 text-[11px] font-mono text-right"
                               data-testid={`input-preselect-recommender-percentage-${idx}`}
                             />
@@ -6750,10 +6766,10 @@ export default function Contracts() {
             </div>
 
             <div className="flex justify-between gap-2">
-              <Button variant="outline" onClick={() => setPreSelectStep(2)} data-testid="button-preselect-step3-back">
+              <Button ref={refStep3Back} variant="outline" tabIndex={-1} onClick={() => setPreSelectStep(2)} onKeyDown={e => { if (e.key === "Tab") { e.preventDefault(); refStep3Confirm.current?.focus(); } }} data-testid="button-preselect-step3-back">
                 Spat
               </Button>
-              <Button onClick={handlePreSelectConfirm} disabled={preSelectSaving || preSelectRewardTotal !== 100 || !preSelectSpecialistUid || !lookupSubjectByUid(preSelectSpecialistUid).found || preSelectRecommenders.some(r => !lookupSubjectByUid(r.uid).found)} data-testid="button-preselect-confirm-rewards">
+              <Button ref={refStep3Confirm} onClick={handlePreSelectConfirm} disabled={preSelectSaving || preSelectRewardTotal !== 100 || !preSelectSpecialistUid || !lookupSubjectByUid(preSelectSpecialistUid).found || preSelectRecommenders.some(r => !lookupSubjectByUid(r.uid).found)} onKeyDown={e => { if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); refStep3Back.current?.focus(); } }} data-testid="button-preselect-confirm-rewards">
                 {preSelectSaving ? "Zapisujem..." : preSelectEditingContractId ? "Uložiť zmeny" : "Zapísať zmluvu"}
               </Button>
             </div>
@@ -6855,12 +6871,14 @@ export default function Contracts() {
             )}
 
             <div className="flex justify-between gap-2">
-              <Button variant="outline" onClick={handlePreSelectSkipUpload} data-testid="button-preselect-skip-upload">
+              <Button ref={refStep4Skip} variant="outline" tabIndex={-1} onClick={handlePreSelectSkipUpload} onKeyDown={e => { if (e.key === "Tab") { e.preventDefault(); refStep4Upload.current?.focus(); } }} data-testid="button-preselect-skip-upload">
                 Preskočiť
               </Button>
               <Button
+                ref={refStep4Upload}
                 onClick={handlePreSelectUploadAndFinish}
                 disabled={preSelectFiles.length === 0 || preSelectUploading || preSelectFiles.reduce((s, f) => s + f.size, 0) > MAX_BATCH_SIZE || preSelectFiles.length > MAX_BATCH_FILES || preSelectFiles.filter(f => VIDEO_EXTENSIONS.has(getFileExt(f.name))).length > MAX_VIDEOS_PER_CONTRACT || preSelectFiles.length > MAX_DOCS_PER_CONTRACT}
+                onKeyDown={e => { if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); refStep4Skip.current?.focus(); } }}
                 data-testid="button-preselect-upload-confirm"
               >
                 {preSelectUploading ? "Nahrávam..." : `Nahrať ${preSelectFiles.length} dokument(ov)`}
