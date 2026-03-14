@@ -4996,6 +4996,36 @@ export default function Contracts() {
     });
   })();
 
+  const rcBirthInfo = useMemo(() => {
+    const rc = (preSelectBirthNumber || "").replace(/\//g, "").trim();
+    if (!rc || rc.length < 9) return null;
+    const rr = parseInt(rc.substring(0, 2), 10);
+    let mm = parseInt(rc.substring(2, 4), 10);
+    const dd = parseInt(rc.substring(4, 6), 10);
+    if (isNaN(rr) || isNaN(mm) || isNaN(dd)) return null;
+    let gender: string;
+    if (mm > 70) { gender = "Žena"; mm -= 70; }
+    else if (mm > 50) { gender = "Žena"; mm -= 50; }
+    else if (mm > 20) { gender = "Muž"; mm -= 20; }
+    else { gender = "Muž"; }
+    if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+    const currentYear = new Date().getFullYear();
+    let year: number;
+    if (rc.length === 9) {
+      year = 1900 + rr;
+    } else {
+      year = rr >= 54 ? 1900 + rr : 2000 + rr;
+      if (year > currentYear) year -= 100;
+    }
+    const dob = new Date(year, mm - 1, dd);
+    if (isNaN(dob.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    if (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) age--;
+    const formattedDate = `${String(dd).padStart(2, "0")}.${String(mm).padStart(2, "0")}.${year}`;
+    return { dob: formattedDate, age, gender };
+  }, [preSelectBirthNumber]);
+
   const preSelectDialog = (
     <Dialog open={preSelectOpen} onOpenChange={(open) => { if (!open) resetPreSelectDialog(); else setPreSelectOpen(true); }}>
       <DialogContent size="xl" onCloseAutoFocus={(e) => e.preventDefault()} data-testid="dialog-pre-select-contract">
@@ -5717,77 +5747,86 @@ export default function Contracts() {
 
 
             {(preSelectShowNameFields || (preSelectSubjectType === "person" && !preSelectSubjectId)) && (
-              <div className="grid grid-cols-4 gap-2">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Titul pred menom</label>
-                  <Input
-                    ref={refTitleBeforeInput}
-                    value={preSelectTitleBefore}
-                    onChange={(e) => setPreSelectTitleBefore(e.target.value)}
-                    placeholder="napr. Ing."
-                    readOnly={!!preSelectSubjectId}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        focusNextEmptyRequired("title-before");
-                      }
-                    }}
-                    data-testid="input-preselect-title-before"
-                  />
+              <div className="space-y-2">
+                {/* Riadok 1: tituly + meno + priezvisko */}
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium">Titul pred</label>
+                    <Input
+                      ref={refTitleBeforeInput}
+                      value={preSelectTitleBefore}
+                      onChange={(e) => setPreSelectTitleBefore(e.target.value)}
+                      placeholder="napr. Ing."
+                      readOnly={!!preSelectSubjectId}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNextEmptyRequired("title-before"); } }}
+                      data-testid="input-preselect-title-before"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium">Meno {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && <span className="text-red-400">*</span>}</label>
+                    <Input
+                      ref={refFirstNameInput}
+                      value={preSelectFirstName}
+                      onChange={(e) => setPreSelectFirstName(e.target.value)}
+                      placeholder="Meno"
+                      readOnly={!!preSelectSubjectId}
+                      className={isFieldMissing("first-name") ? "border-red-500 ring-red-500/30" : ""}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNextEmptyRequired("first-name"); } }}
+                      data-testid="input-preselect-first-name"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium">Priezvisko {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && <span className="text-red-400">*</span>}</label>
+                    <Input
+                      ref={refLastNameInput}
+                      value={preSelectLastName}
+                      onChange={(e) => setPreSelectLastName(e.target.value)}
+                      placeholder="Priezvisko"
+                      readOnly={!!preSelectSubjectId}
+                      className={isFieldMissing("last-name") ? "border-red-500 ring-red-500/30" : ""}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNextEmptyRequired("last-name"); } }}
+                      data-testid="input-preselect-last-name"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium">Titul za</label>
+                    <Input
+                      ref={refTitleAfterInput}
+                      value={preSelectTitleAfter}
+                      onChange={(e) => setPreSelectTitleAfter(e.target.value)}
+                      placeholder="napr. PhD."
+                      readOnly={!!preSelectSubjectId}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNextEmptyRequired("title-after"); } }}
+                      data-testid="input-preselect-title-after"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Meno {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && "*"}</label>
-                  <Input
-                    ref={refFirstNameInput}
-                    value={preSelectFirstName}
-                    onChange={(e) => setPreSelectFirstName(e.target.value)}
-                    placeholder="Meno"
-                    readOnly={!!preSelectSubjectId}
-                    className={isFieldMissing("first-name") ? "border-red-500 ring-red-500/30" : ""}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        focusNextEmptyRequired("first-name");
-                      }
-                    }}
-                    data-testid="input-preselect-first-name"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Priezvisko {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && "*"}</label>
-                  <Input
-                    ref={refLastNameInput}
-                    value={preSelectLastName}
-                    onChange={(e) => setPreSelectLastName(e.target.value)}
-                    placeholder="Priezvisko"
-                    readOnly={!!preSelectSubjectId}
-                    className={isFieldMissing("last-name") ? "border-red-500 ring-red-500/30" : ""}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        focusNextEmptyRequired("last-name");
-                      }
-                    }}
-                    data-testid="input-preselect-last-name"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">Titul za menom</label>
-                  <Input
-                    ref={refTitleAfterInput}
-                    value={preSelectTitleAfter}
-                    onChange={(e) => setPreSelectTitleAfter(e.target.value)}
-                    placeholder="napr. PhD."
-                    readOnly={!!preSelectSubjectId}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        focusNextEmptyRequired("title-after");
-                      }
-                    }}
-                    data-testid="input-preselect-title-after"
-                  />
-                </div>
+                {/* Riadok 2: auto-údaje z RČ — len pre FO */}
+                {preSelectSubjectType === "person" && rcBirthInfo && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">Dátum narodenia</label>
+                      <div className="flex items-center gap-1.5 h-9 px-3 rounded-md border border-border/50 bg-muted/30 text-sm font-mono text-muted-foreground" data-testid="text-preselect-dob">
+                        {rcBirthInfo.dob}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">Vek</label>
+                      <div className="flex items-center gap-1.5 h-9 px-3 rounded-md border border-border/50 bg-muted/30 text-sm text-muted-foreground" data-testid="text-preselect-age">
+                        {rcBirthInfo.age} rokov
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">Pohlavie</label>
+                      <div className={`flex items-center gap-1.5 h-9 px-3 rounded-md border border-border/50 bg-muted/30 text-sm text-muted-foreground`} data-testid="text-preselect-gender">
+                        {rcBirthInfo.gender === "Žena" ? <span className="text-pink-400 font-medium">♀ Žena</span> : <span className="text-blue-400 font-medium">♂ Muž</span>}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {preSelectSubjectType === "person" && !rcBirthInfo && preSelectBirthNumber.trim().length >= 9 && (
+                  <p className="text-[10px] text-amber-500" data-testid="text-preselect-rc-invalid">Nepodarilo sa extrahovať údaje z rodného čísla</p>
+                )}
               </div>
             )}
 
