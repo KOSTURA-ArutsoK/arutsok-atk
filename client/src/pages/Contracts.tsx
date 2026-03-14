@@ -2369,6 +2369,10 @@ export default function Contracts() {
   const refStep3Confirm = useRef<HTMLButtonElement>(null);
   const refStep4Skip = useRef<HTMLButtonElement>(null);
   const refStep4Upload = useRef<HTMLButtonElement>(null);
+  const refAddRecommenderBtn = useRef<HTMLButtonElement>(null);
+  const refNewRecommenderUid = useRef<HTMLInputElement>(null);
+  const refNewRecommenderPct = useRef<HTMLInputElement>(null);
+  const refConfirmRecommenderBtn = useRef<HTMLButtonElement>(null);
   const refImportSpecialistUid = useRef<HTMLInputElement>(null);
   const refImportSpecialistPct = useRef<HTMLInputElement>(null);
 
@@ -6519,10 +6523,10 @@ export default function Contracts() {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              if (parseFloat(preSelectSpecialistPercentage) >= 100) {
+                              if (parseFloat(preSelectSpecialistPercentage) >= 100 || preSelectRecommenders.length === 0) {
                                 refStep3Confirm.current?.focus();
                               } else {
-                                (document.querySelector('[data-testid="button-preselect-add-recommender"]') as HTMLButtonElement)?.focus();
+                                refAddRecommenderBtn.current?.focus();
                               }
                             }
                           }}
@@ -6546,6 +6550,7 @@ export default function Contracts() {
                       <Badge variant="outline" className="text-[10px]">{preSelectRecommenders.length}</Badge>
                     </div>
                     <Button
+                      ref={refAddRecommenderBtn}
                       size="sm"
                       variant="outline"
                       className="h-7 text-[11px] px-2"
@@ -6555,7 +6560,7 @@ export default function Contracts() {
                         setPreSelectNewRecommenderPercentage("");
                         setPreSelectRewardSearchRecommender("");
                         setTimeout(() => {
-                          (document.querySelector('[data-testid="input-preselect-new-recommender-uid"]') as HTMLInputElement)?.focus();
+                          refNewRecommenderUid.current?.focus();
                         }, 50);
                       }}
                       data-testid="button-preselect-add-recommender"
@@ -6570,6 +6575,7 @@ export default function Contracts() {
                         <label className="text-xs text-muted-foreground">UID odporucitela</label>
                         <div className="relative">
                           <Input
+                            ref={refNewRecommenderUid}
                             placeholder="UID alebo meno..."
                             value={preSelectNewRecommenderUid}
                             onChange={e => {
@@ -6590,8 +6596,7 @@ export default function Contracts() {
                                   setPreSelectNewRecommenderUid(expandUid(val));
                                 }
                                 setPreSelectRewardSearchRecommender("");
-                                const pctEl = document.querySelector('[data-testid="input-preselect-new-recommender-percentage"]') as HTMLInputElement;
-                                pctEl?.focus();
+                                refNewRecommenderPct.current?.focus();
                               }
                             }}
                             className="font-mono text-sm"
@@ -6634,6 +6639,7 @@ export default function Contracts() {
                         <label className="text-xs text-muted-foreground">Podiel (%)</label>
                         <div className="relative">
                           <Input
+                            ref={refNewRecommenderPct}
                             type="number"
                             min="0"
                             max="100"
@@ -6646,13 +6652,12 @@ export default function Contracts() {
                                 e.preventDefault();
                                 const newPct = parseFloat(preSelectNewRecommenderPercentage) || 0;
                                 const newTotal = preSelectRewardTotal + newPct;
-                                const btn = document.querySelector('[data-testid="button-preselect-confirm-recommender"]') as HTMLButtonElement;
-                                btn?.click();
+                                refConfirmRecommenderBtn.current?.click();
                                 setTimeout(() => {
                                   if (newTotal >= 100) {
                                     refStep3Confirm.current?.focus();
                                   } else {
-                                    (document.querySelector('[data-testid="button-preselect-add-recommender"]') as HTMLButtonElement)?.focus();
+                                    refAddRecommenderBtn.current?.focus();
                                   }
                                 }, 80);
                               }
@@ -6674,6 +6679,7 @@ export default function Contracts() {
                         Zrusit
                       </Button>
                       <Button
+                        ref={refConfirmRecommenderBtn}
                         size="sm"
                         onClick={() => {
                           if (!preSelectNewRecommenderUid.trim()) {
