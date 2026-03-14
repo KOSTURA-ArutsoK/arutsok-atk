@@ -5273,7 +5273,7 @@ export default function Contracts() {
               <label className="text-xs font-medium">Typ čísla</label>
               {(() => {
                 const numOpts: Array<{val: "proposal"|"contract"|"both", label: string, icon: typeof FileText}> = [
-                  {val:"proposal", label:NAVRH_LABEL_SHORT, icon: FileText},
+                  {val:"proposal", label:NAVRH_LABEL_FULL, icon: FileText},
                   {val:"contract", label:"Číslo zmluvy", icon: FileCheck},
                   {val:"both", label:"Návrh + Zmluva", icon: Files},
                 ];
