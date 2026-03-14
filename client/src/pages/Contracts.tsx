@@ -647,6 +647,14 @@ function ContractFormDialog({
     }
   }, [existingRewardDistributions, editingContract]);
 
+  useEffect(() => {
+    if (preSelectOpen && preSelectStep === 2) {
+      setTimeout(() => {
+        refSearchInput.current?.focus();
+      }, 100);
+    }
+  }, [preSelectOpen, preSelectStep]);
+
   const handleOpenChange = useCallback((isOpen: boolean) => {
     onOpenChange(isOpen);
   }, [onOpenChange]);
