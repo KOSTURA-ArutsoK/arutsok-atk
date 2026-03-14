@@ -14102,6 +14102,10 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/internet-contracts/count", isAuthenticated, async (_req, res) => {
+    res.json({ count: 0 });
+  });
+
   // AI Field Extraction - maps document text to parameters via synonyms + regex hints
   app.post("/api/ai/extract-fields", isAuthenticated, async (req, res) => {
     try {
