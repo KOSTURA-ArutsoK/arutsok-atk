@@ -5021,7 +5021,7 @@ export default function Contracts() {
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <label className="text-xs font-medium">Typ zmluvy *</label>
-                <Select value={preSelectContractType} onValueChange={(v) => { setPreSelectContractType(v); setTimeout(() => refSignedDay.current?.focus(), 50); }} open={preSelectContractTypeOpen} onOpenChange={setPreSelectContractTypeOpen}>
+                <Select value={preSelectContractType} onValueChange={setPreSelectContractType} open={preSelectContractTypeOpen} onOpenChange={(open) => { setPreSelectContractTypeOpen(open); if (!open) setTimeout(() => refSignedDay.current?.focus(), 80); }}>
                   <SelectTrigger ref={refContractTypeTrigger} data-testid="select-preselect-contract-type" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); setPreSelectContractTypeOpen(prev => !prev); } }}>
                     <SelectValue placeholder="Vyberte typ zmluvy" />
                   </SelectTrigger>
