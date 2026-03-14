@@ -150,8 +150,6 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
       "Konateľ": "Konateľ",
       "Prokurista": "Prokurista",
       "Prokúra": "Prokurista",
-      "Dozorná rada": "Člen dozornej rady",
-      "Predstavenstvo": "Člen predstavenstva",
     };
     const statutarKeys = Object.keys(roleMapping);
     for (const key of statutarKeys) {
@@ -255,10 +253,6 @@ export async function lookupAresByIco(ico: string): Promise<RegistryLookupResult
     const statOrgArray = data.statutarniOrgan || data.seznamStatutarnichOrganu || [];
     if (Array.isArray(statOrgArray)) {
       for (const organ of statOrgArray) {
-        const organName = organ.nazev || organ.nazevOrganu || "";
-        const role = organName.toLowerCase().includes("dozor") ? "Člen dozornej rady"
-          : organName.toLowerCase().includes("predstav") ? "Člen predstavenstva"
-          : "Štatutár";
         const clenove = organ.clenove || organ.seznamClenu || [];
         if (Array.isArray(clenove)) {
           for (const clen of clenove) {
@@ -267,7 +261,7 @@ export async function lookupAresByIco(ico: string): Promise<RegistryLookupResult
             const prijmeni = osoba.prijmeni || "";
             const fullName = [jmeno, prijmeni].filter(Boolean).join(" ").trim();
             if (fullName && fullName.length >= 3 && !directors.some(d => d.name === fullName)) {
-              directors.push({ name: fullName, role });
+              directors.push({ name: fullName, role: "Štatutár" });
             }
           }
         }

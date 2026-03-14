@@ -5914,16 +5914,16 @@ export default function Contracts() {
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
-                          const firstEl = document.querySelector(`[data-testid="row-signatory-0"]`) as HTMLElement;
-                          if (firstEl) firstEl.focus();
-                          else {
-                            setPreSelectSignatoryManual(true);
-                            setPreSelectSignatoryName("");
-                            setPreSelectSignatoryTitleBefore("");
-                            setPreSelectSignatoryFirstName("");
-                            setPreSelectSignatoryLastName("");
-                            setPreSelectSignatoryTitleAfter("");
-                          }
+                          setPreSelectSignatoryManual(true);
+                          setPreSelectSignatoryName("");
+                          setPreSelectSignatoryTitleBefore("");
+                          setPreSelectSignatoryFirstName("");
+                          setPreSelectSignatoryLastName("");
+                          setPreSelectSignatoryTitleAfter("");
+                          setTimeout(() => {
+                            const el = document.querySelector('[data-testid="input-signatory-manual-first-name"]') as HTMLElement;
+                            if (el) el.focus();
+                          }, 50);
                         } else if (e.key === "Backspace") {
                           e.preventDefault();
                           if (preSelectSignatoryManual) {
