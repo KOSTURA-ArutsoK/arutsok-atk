@@ -892,11 +892,13 @@ function ContractFormDialog({
             </div>
 
             {(specialistUid || recommenders.length > 0) && (
-              <div className={`rounded-md p-2 ${rewardTotalPercentage === 100 ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-destructive/10 border border-destructive/30'}`}>
-                <p className={`text-xs font-medium ${rewardTotalPercentage === 100 ? 'text-emerald-600' : 'text-destructive'}`} data-testid="text-reward-status">
+              <div className={`rounded-md p-2 ${rewardTotalPercentage === 100 ? 'bg-emerald-500/10 border border-emerald-500/30' : rewardTotalPercentage > 100 ? 'bg-destructive/10 border border-destructive/30' : 'bg-amber-500/10 border border-amber-500/30'}`}>
+                <p className={`text-xs font-medium ${rewardTotalPercentage === 100 ? 'text-emerald-600' : rewardTotalPercentage > 100 ? 'text-destructive' : 'text-amber-600 dark:text-amber-400'}`} data-testid="text-reward-status">
                   {rewardTotalPercentage === 100
                     ? `Celkový súčet odmien je 100,00 % - Uloženie je povolené.`
-                    : `Celkový súčet odmien nie je 100,00 % (${rewardTotalPercentage.toFixed(2).replace(".", ",")} %) - Uloženie je zablokované.`
+                    : rewardTotalPercentage > 100
+                      ? `Celkový súčet odmien presiahol 100,00 % (${rewardTotalPercentage.toFixed(2).replace(".", ",")} %) - Uloženie je zablokované.`
+                      : `Celkový súčet odmien je ${rewardTotalPercentage.toFixed(2).replace(".", ",")} % z 100 % — odporúčame doplniť zostatok.`
                   }
                 </p>
               </div>
@@ -3822,11 +3824,13 @@ export default function Contracts() {
                 </div>
               </div>
 
-              <div className={`rounded-md p-2 ${importRewardTotal === 100 ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-destructive/10 border border-destructive/30'}`}>
-                <p className={`text-xs font-medium ${importRewardTotal === 100 ? 'text-emerald-600' : 'text-destructive'}`} data-testid="text-import-reward-status">
+              <div className={`rounded-md p-2 ${importRewardTotal === 100 ? 'bg-emerald-500/10 border border-emerald-500/30' : importRewardTotal > 100 ? 'bg-destructive/10 border border-destructive/30' : 'bg-amber-500/10 border border-amber-500/30'}`}>
+                <p className={`text-xs font-medium ${importRewardTotal === 100 ? 'text-emerald-600' : importRewardTotal > 100 ? 'text-destructive' : 'text-amber-600 dark:text-amber-400'}`} data-testid="text-import-reward-status">
                   {importRewardTotal === 100
                     ? `Celkovy sucet odmien je 100,00 % - Ulozenie je povolene.`
-                    : `Celkovy sucet odmien nie je 100,00 % (${importRewardTotal.toFixed(2).replace(".", ",")} %) - Ulozenie je zablokovane.`
+                    : importRewardTotal > 100
+                      ? `Celkovy sucet odmien presiahol 100,00 % (${importRewardTotal.toFixed(2).replace(".", ",")} %) - Ulozenie je zablokovane.`
+                      : `Celkovy sucet odmien je ${importRewardTotal.toFixed(2).replace(".", ",")} % z 100 % — odporucame doplnit zostatok.`
                   }
                 </p>
               </div>
@@ -4181,7 +4185,7 @@ export default function Contracts() {
           )}
           {importStep === 2 && (
             <>
-              <Button onClick={handleImportRewardSave} disabled={importRewardSaving || importRewardTotal !== 100 || !importSpecialistUid || importRecommenders.some(r => !lookupSubjectByUid(r.uid).found) || !lookupSubjectByUid(importSpecialistUid).found} data-testid="button-import-save-rewards">
+              <Button onClick={handleImportRewardSave} disabled={importRewardSaving || importRewardTotal > 100 || !importSpecialistUid || importRecommenders.some(r => !lookupSubjectByUid(r.uid).found) || !lookupSubjectByUid(importSpecialistUid).found} data-testid="button-import-save-rewards">
                 {importRewardSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Uložiť odmeny
               </Button>
@@ -6428,11 +6432,13 @@ export default function Contracts() {
                 </div>
               </div>
 
-              <div className={`rounded-md p-2 ${preSelectRewardTotal === 100 ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-destructive/10 border border-destructive/30'}`}>
-                <p className={`text-xs font-medium ${preSelectRewardTotal === 100 ? 'text-emerald-600' : 'text-destructive'}`} data-testid="text-preselect-reward-status">
+              <div className={`rounded-md p-2 ${preSelectRewardTotal === 100 ? 'bg-emerald-500/10 border border-emerald-500/30' : preSelectRewardTotal > 100 ? 'bg-destructive/10 border border-destructive/30' : 'bg-amber-500/10 border border-amber-500/30'}`}>
+                <p className={`text-xs font-medium ${preSelectRewardTotal === 100 ? 'text-emerald-600' : preSelectRewardTotal > 100 ? 'text-destructive' : 'text-amber-600 dark:text-amber-400'}`} data-testid="text-preselect-reward-status">
                   {preSelectRewardTotal === 100
                     ? `Celkovy sucet odmien je 100,00 % - Ulozenie je povolene.`
-                    : `Celkovy sucet odmien nie je 100,00 % (${preSelectRewardTotal.toFixed(2).replace(".", ",")} %) - Ulozenie je zablokovane.`
+                    : preSelectRewardTotal > 100
+                      ? `Celkovy sucet odmien presiahol 100,00 % (${preSelectRewardTotal.toFixed(2).replace(".", ",")} %) - Ulozenie je zablokovane.`
+                      : `Celkovy sucet odmien je ${preSelectRewardTotal.toFixed(2).replace(".", ",")} % z 100 % — odporucame doplnit zostatok.`
                   }
                 </p>
               </div>
@@ -6776,7 +6782,7 @@ export default function Contracts() {
               <Button ref={refStep3Back} variant="outline" tabIndex={-1} onClick={() => setPreSelectStep(2)} onKeyDown={e => { if (e.key === "Tab") { e.preventDefault(); refStep3Confirm.current?.focus(); } }} data-testid="button-preselect-step3-back">
                 Spat
               </Button>
-              <Button ref={refStep3Confirm} onClick={handlePreSelectConfirm} disabled={preSelectSaving || preSelectRewardTotal !== 100 || !preSelectSpecialistUid || !lookupSubjectByUid(preSelectSpecialistUid).found || preSelectRecommenders.some(r => !lookupSubjectByUid(r.uid).found)} onKeyDown={e => { if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); refStep3Back.current?.focus(); } }} data-testid="button-preselect-confirm-rewards">
+              <Button ref={refStep3Confirm} onClick={handlePreSelectConfirm} disabled={preSelectSaving || preSelectRewardTotal > 100 || !preSelectSpecialistUid || !lookupSubjectByUid(preSelectSpecialistUid).found || preSelectRecommenders.some(r => !lookupSubjectByUid(r.uid).found)} onKeyDown={e => { if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); refStep3Back.current?.focus(); } }} data-testid="button-preselect-confirm-rewards">
                 {preSelectSaving ? "Zapisujem..." : preSelectEditingContractId ? "Uložiť zmeny" : "Zapísať zmluvu"}
               </Button>
             </div>
