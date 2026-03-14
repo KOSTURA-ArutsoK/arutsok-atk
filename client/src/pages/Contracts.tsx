@@ -5035,8 +5035,8 @@ export default function Contracts() {
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium">Dátum uzatvorenia</label>
-                <div className="flex items-center gap-1 flex-wrap">
-                  <Input
+                <div className="flex items-center border border-border rounded-full overflow-hidden bg-background h-9">
+                  <input
                     ref={refSignedDay}
                     value={preSelectSignedDay}
                     onChange={e => {
@@ -5053,12 +5053,12 @@ export default function Contracts() {
                       }
                     }}
                     placeholder="DD"
-                    className="w-11 text-center px-1 h-9"
+                    className="w-9 text-center text-sm bg-transparent border-0 outline-none h-full pl-2 pr-0"
                     maxLength={2}
                     data-testid="input-preselect-signed-day"
                   />
-                  <span className="text-muted-foreground text-sm font-bold select-none">.</span>
-                  <Input
+                  <span className="text-muted-foreground text-sm select-none px-0.5">.</span>
+                  <input
                     ref={refSignedMonth}
                     value={preSelectSignedMonth}
                     onChange={e => {
@@ -5075,12 +5075,12 @@ export default function Contracts() {
                       }
                     }}
                     placeholder="MM"
-                    className="w-11 text-center px-1 h-9"
+                    className="w-9 text-center text-sm bg-transparent border-0 outline-none h-full px-0"
                     maxLength={2}
                     data-testid="input-preselect-signed-month"
                   />
-                  <span className="text-muted-foreground text-sm font-bold select-none">.</span>
-                  <Input
+                  <span className="text-muted-foreground text-sm select-none px-0.5">.</span>
+                  <input
                     ref={refSignedYear}
                     value={preSelectSignedYear}
                     onChange={e => { const v = e.target.value.replace(/\D/g, "").slice(0, 4); setPreSelectSignedYear(v); }}
@@ -5093,15 +5093,16 @@ export default function Contracts() {
                       }
                     }}
                     placeholder="RRRR"
-                    className="w-[4.5rem] text-center px-1 h-9"
+                    className="w-12 text-center text-sm bg-transparent border-0 outline-none h-full px-0"
                     maxLength={4}
                     data-testid="input-preselect-signed-year"
                   />
+                  <span className="w-px self-stretch bg-border mx-1.5 shrink-0" />
                   <button
                     ref={refTimeBtnNone}
                     type="button"
                     onClick={() => setPreSelectWithTime(false)}
-                    className={`shrink-0 px-2 py-1 text-xs rounded border transition-colors h-9 ${!preSelectWithTime ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted/50"}`}
+                    className={`shrink-0 px-2.5 text-xs h-full transition-colors ${!preSelectWithTime ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/40"}`}
                     data-testid="button-preselect-no-time"
                   >Čas nie</button>
                   <button
@@ -5116,20 +5117,23 @@ export default function Contracts() {
                         setPreSelectSignedTime(`${hh}:${mm2}:${ss}`);
                       }
                     }}
-                    className={`shrink-0 px-2 py-1 text-xs rounded border transition-colors h-9 ${preSelectWithTime ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted/50"}`}
+                    className={`shrink-0 px-2.5 text-xs h-full transition-colors ${preSelectWithTime ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/40"}`}
                     data-testid="button-preselect-with-time"
                   >Čas áno</button>
+                  {preSelectWithTime && (
+                    <>
+                      <span className="w-px self-stretch bg-border mx-1.5 shrink-0" />
+                      <input
+                        type="time"
+                        step="1"
+                        value={preSelectSignedTime}
+                        onChange={e => setPreSelectSignedTime(e.target.value)}
+                        className="text-sm bg-transparent border-0 outline-none h-full pr-3 w-28"
+                        data-testid="input-preselect-signed-time"
+                      />
+                    </>
+                  )}
                 </div>
-                {preSelectWithTime && (
-                  <Input
-                    type="time"
-                    step="1"
-                    value={preSelectSignedTime}
-                    onChange={e => setPreSelectSignedTime(e.target.value)}
-                    className="mt-1 h-9 w-40"
-                    data-testid="input-preselect-signed-time"
-                  />
-                )}
                 {preSelectSignedDate && new Date(preSelectSignedDate) > new Date() && (
                   <p className="text-[10px] text-orange-400 mt-0.5">Dátum je v budúcnosti</p>
                 )}
