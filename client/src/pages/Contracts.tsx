@@ -2332,6 +2332,7 @@ export default function Contracts() {
   const refLastNameInput = useRef<HTMLInputElement>(null);
   const refTitleAfterInput = useRef<HTMLInputElement>(null);
   const refBusinessNameInput = useRef<HTMLInputElement>(null);
+  const refRegisterButton = useRef<HTMLButtonElement>(null);
   const refPreSelectSpecialistUid = useRef<HTMLInputElement>(null);
   const refPreSelectSpecialistPct = useRef<HTMLInputElement>(null);
   const refImportSpecialistUid = useRef<HTMLInputElement>(null);
@@ -5244,6 +5245,9 @@ export default function Contracts() {
                           setPreSelectIco(preSelectSubjectSearch.trim());
                         }
                         setTimeout(() => {
+                          if ((preSelectSubjectType === "szco" || preSelectSubjectType === "company") && refRegisterButton.current && !refRegisterButton.current.disabled) {
+                            refRegisterButton.current.focus(); return;
+                          }
                           if (preSelectSubjectType === "szco" || preSelectSubjectType === "company") {
                             const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
                             if (el) { el.focus(); return; }
@@ -5265,6 +5269,7 @@ export default function Contracts() {
               </div>
               {(preSelectSubjectType === "szco" || preSelectSubjectType === "company") && !preSelectSubjectId && (
                 <button
+                  ref={refRegisterButton}
                   type="button"
                   disabled={preSelectIcoLookupLoading || !preSelectSubjectSearch.trim()}
                   onClick={() => triggerIcoLookup()}
