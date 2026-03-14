@@ -13,6 +13,7 @@ export interface RegistryLookupResult {
   legalForm?: string;
   dic?: string;
   directors?: string[];
+  actingNote?: string;
   message?: string;
 }
 
@@ -142,6 +143,35 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
       return { found: false, message: "Dáta nenájdené na stránke ORSR" };
     }
 
+    const directorNames: string[] = [];
+    const statutarKeys = ["Štatutárny orgán", "Konatelia", "Konateľ"];
+    for (const key of statutarKeys) {
+      const vals = sections[key];
+      if (!vals || vals.length === 0) continue;
+      for (const v of vals) {
+        const cleaned = v.replace(/,\s*$/, "").trim();
+        if (!cleaned) continue;
+        if (/^\d/.test(cleaned)) continue;
+        if (cleaned.toLowerCase().includes("konateľ") && cleaned.length < 12) continue;
+        if (cleaned.includes("Bydlisko") || cleaned.includes("bydlisko")) continue;
+        const parts = cleaned.split(",").map(p => p.trim()).filter(Boolean);
+        const namePart = parts[0];
+        if (namePart && namePart.length >= 3 && !directorNames.includes(namePart)) {
+          directorNames.push(namePart);
+        }
+      }
+    }
+
+    let actingNote = "";
+    const actingKeys = ["Spôsob konania", "Konanie menom spoločnosti", "Spôsob konania v mene spoločnosti"];
+    for (const key of actingKeys) {
+      const vals = sections[key];
+      if (vals && vals.length > 0) {
+        actingNote = vals.join(" ").trim();
+        break;
+      }
+    }
+
     return {
       found: true,
       source: "ORSR",
@@ -151,6 +181,8 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
       zip,
       city,
       legalForm,
+      directors: directorNames.length > 0 ? directorNames : undefined,
+      actingNote: actingNote || undefined,
     };
   } catch (err: any) {
     if (err.name === "AbortError") {
@@ -209,6 +241,19 @@ export async function lookupAresByIco(ico: string): Promise<RegistryLookupResult
       return { found: false, message: "Firma nenájdená v registri ARES" };
     }
 
+    const directors: string[] = [];
+    try {
+      const czStatOrgan = data.czleskyStatutarniOrgan || data.seznamClenuStatutarnihoOrganu || [];
+      if (Array.isArray(czStatOrgan)) {
+        for (const member of czStatOrgan) {
+          const jmeno = member.jmeno || member.krestniJmeno || "";
+          const prijmeni = member.prijmeni || "";
+          const fullName = [jmeno, prijmeni].filter(Boolean).join(" ").trim();
+          if (fullName && fullName.length >= 3) directors.push(fullName);
+        }
+      }
+    } catch {}
+
     return {
       found: true,
       source: "ARES",
@@ -219,6 +264,7 @@ export async function lookupAresByIco(ico: string): Promise<RegistryLookupResult
       city,
       legalForm,
       dic: dic || undefined,
+      directors: directors.length > 0 ? directors : undefined,
     };
   } catch (err: any) {
     if (err.name === "AbortError") {

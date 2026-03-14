@@ -2269,10 +2269,12 @@ export default function Contracts() {
   const [preSelectBirthNumber, setPreSelectBirthNumber] = useState("");
   const [preSelectSearchHint, setPreSelectSearchHint] = useState<null | "szco_or_po" | "possible_rc">(null);
   const [preSelectShowNameFields, setPreSelectShowNameFields] = useState(false);
-  const [preSelectIcoLookup, setPreSelectIcoLookup] = useState<{ found: boolean; name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; message?: string } | null>(null);
+  const [preSelectIcoLookup, setPreSelectIcoLookup] = useState<{ found: boolean; name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; message?: string; directors?: string[]; actingNote?: string } | null>(null);
   const [preSelectIcoLookupLoading, setPreSelectIcoLookupLoading] = useState(false);
   const [preSelectIcoConfirmed, setPreSelectIcoConfirmed] = useState(false);
   const [preSelectIcoError, setPreSelectIcoError] = useState<string | null>(null);
+  const [preSelectSignatoryName, setPreSelectSignatoryName] = useState("");
+  const [preSelectSignatoryManual, setPreSelectSignatoryManual] = useState(false);
   const [preSelectEditingContractId, setPreSelectEditingContractId] = useState<number | null>(null);
   const [preSelectFiles, setPreSelectFiles] = useState<File[]>([]);
   const [preSelectCreatedContractId, setPreSelectCreatedContractId] = useState<number | null>(null);
@@ -4614,6 +4616,8 @@ export default function Contracts() {
     setPreSelectIcoLookupLoading(false);
     setPreSelectIcoError(null);
     setPreSelectIcoConfirmed(false);
+    setPreSelectSignatoryName("");
+    setPreSelectSignatoryManual(false);
     setPreSelectEditingContractId(null);
     setPreSelectFiles([]);
     setPreSelectCreatedContractId(null);
@@ -4774,6 +4778,7 @@ export default function Contracts() {
           : preSelectSignedDate;
         contractData.signedDate = new Date(dateStr).toISOString();
       }
+      if (preSelectSignatoryName.trim()) contractData.signatoryName = preSelectSignatoryName.trim();
       if (preSelectNumberType === "proposal" && preSelectNumberValue.trim()) {
         contractData.proposalNumber = preSelectNumberValue.trim();
       } else if (preSelectNumberType === "contract" && preSelectNumberValue.trim()) {
@@ -5750,6 +5755,63 @@ export default function Contracts() {
                       Údaje<br/>sedia
                     </span>
                   </button>
+                </div>
+              )}
+              {preSelectIcoLookup?.found && preSelectIcoConfirmed && (preSelectIcoLookup.directors?.length || 0) > 0 && (
+                <div className="border rounded-md p-3 space-y-2 bg-muted/20 border-border/60" data-testid="panel-signatory-select">
+                  <label className="text-xs font-semibold text-foreground/80">Zmluvu podpísal (Štatutár):</label>
+                  <div className="space-y-1">
+                    {preSelectIcoLookup.directors!.map((dir, idx) => (
+                      <label key={idx} className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-muted/40 transition-colors" data-testid={`radio-signatory-${idx}`}>
+                        <input
+                          type="radio"
+                          name="signatory"
+                          checked={!preSelectSignatoryManual && preSelectSignatoryName === dir}
+                          onChange={() => { setPreSelectSignatoryName(dir); setPreSelectSignatoryManual(false); }}
+                          className="accent-primary w-3.5 h-3.5"
+                        />
+                        <span className="text-xs text-foreground">{dir}</span>
+                        <span className="text-[10px] text-muted-foreground">(Konateľ)</span>
+                      </label>
+                    ))}
+                    <label className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-muted/40 transition-colors" data-testid="radio-signatory-manual">
+                      <input
+                        type="radio"
+                        name="signatory"
+                        checked={preSelectSignatoryManual}
+                        onChange={() => { setPreSelectSignatoryManual(true); setPreSelectSignatoryName(""); }}
+                        className="accent-primary w-3.5 h-3.5"
+                      />
+                      <span className="text-xs text-foreground">Iná osoba / Doplniť manuálne</span>
+                    </label>
+                    {preSelectSignatoryManual && (
+                      <Input
+                        placeholder="Meno a priezvisko podpisujúcej osoby..."
+                        value={preSelectSignatoryName}
+                        onChange={(e) => setPreSelectSignatoryName(e.target.value)}
+                        className="mt-1 text-xs"
+                        data-testid="input-signatory-manual"
+                      />
+                    )}
+                  </div>
+                  {preSelectIcoLookup.actingNote && (
+                    <div className="flex items-start gap-1.5 px-2 py-1.5 rounded bg-amber-500/5 border border-amber-500/20 text-[11px] text-amber-300/90" data-testid="text-acting-note">
+                      <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>{preSelectIcoLookup.actingNote}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {preSelectIcoLookup?.found && preSelectIcoConfirmed && (!preSelectIcoLookup.directors || preSelectIcoLookup.directors.length === 0) && (
+                <div className="border rounded-md p-3 space-y-2 bg-muted/20 border-border/60" data-testid="panel-signatory-manual-only">
+                  <label className="text-xs font-semibold text-foreground/80">Zmluvu podpísal (Štatutár):</label>
+                  <Input
+                    placeholder="Meno a priezvisko podpisujúcej osoby..."
+                    value={preSelectSignatoryName}
+                    onChange={(e) => setPreSelectSignatoryName(e.target.value)}
+                    className="text-xs"
+                    data-testid="input-signatory-no-directors"
+                  />
                 </div>
               )}
               {preSelectIcoLookup && !preSelectIcoLookup.found && (

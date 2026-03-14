@@ -7200,6 +7200,7 @@ export async function registerRoutes(
                 legalForm: result.legalForm,
                 dic: result.dic,
                 directors: result.directors,
+                actingNote: result.actingNote,
               },
               fetchedByUserId: snapAppUser?.id || null,
             });
