@@ -5793,8 +5793,10 @@ export async function registerRoutes(
           let parsedSignedDate: Date | null = null;
           if (datumUzatvoreniaRaw) {
             const normalized = datumUzatvoreniaRaw.trim();
+            const skMatchFull = normalized.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
             const skMatch = normalized.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-            if (skMatch) parsedSignedDate = new Date(+skMatch[3], +skMatch[2] - 1, +skMatch[1]);
+            if (skMatchFull) parsedSignedDate = new Date(+skMatchFull[3], +skMatchFull[2] - 1, +skMatchFull[1], +skMatchFull[4], +skMatchFull[5], +(skMatchFull[6] || 0));
+            else if (skMatch) parsedSignedDate = new Date(+skMatch[3], +skMatch[2] - 1, +skMatch[1]);
             else parsedSignedDate = new Date(normalized);
             if (isNaN(parsedSignedDate.getTime())) parsedSignedDate = null;
           }
@@ -6621,7 +6623,7 @@ export async function registerRoutes(
           product: product?.name || "",
           contractNumber: (c as any).contractNumber || (c as any).uid || "",
           premiumAmount: (c as any).premiumAmount || (c as any).amount || "",
-          signatureDate: (c as any).signedDate ? new Date((c as any).signedDate).toLocaleDateString("sk-SK") : "",
+          signatureDate: (() => { if (!(c as any).signedDate) return ""; const d = new Date((c as any).signedDate); const dd = String(d.getDate()).padStart(2,"0"), mm = String(d.getMonth()+1).padStart(2,"0"), yy = d.getFullYear(); const h = d.getHours(), mi = d.getMinutes(), s = d.getSeconds(); const base = `${dd}.${mm}.${yy}`; return (h||mi||s) ? `${base} ${String(h).padStart(2,"0")}:${String(mi).padStart(2,"0")}:${String(s).padStart(2,"0")}` : base; })(),
         });
       }
 
@@ -6662,7 +6664,7 @@ export async function registerRoutes(
           product?.name || "",
           (c as any).contractNumber || (c as any).uid || "",
           (c as any).premiumAmount || (c as any).amount || "",
-          (c as any).signedDate ? new Date((c as any).signedDate).toLocaleDateString("sk-SK") : "",
+          (() => { if (!(c as any).signedDate) return ""; const d = new Date((c as any).signedDate); const dd = String(d.getDate()).padStart(2,"0"), mm = String(d.getMonth()+1).padStart(2,"0"), yy = d.getFullYear(); const h = d.getHours(), mi = d.getMinutes(), s = d.getSeconds(); const base = `${dd}.${mm}.${yy}`; return (h||mi||s) ? `${base} ${String(h).padStart(2,"0")}:${String(mi).padStart(2,"0")}:${String(s).padStart(2,"0")}` : base; })(),
         ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",");
       });
 
@@ -9544,7 +9546,7 @@ export async function registerRoutes(
         { header: "A: Partner", key: "partner", width: 22 },
         { header: "B: Produkt", key: "produkt", width: 22 },
         { header: "C: Typ zmluvy", key: "typ_zmluvy", width: 20 },
-        { header: "D: Dátum uzatvorenia", key: "datum_uzatvorenia", width: 20 },
+        { header: "D: Dátum uzatvorenia (napr. 10.03.2026 alebo 10.03.2026 10:12:30)", key: "datum_uzatvorenia", width: 38 },
         { header: "E: Návrh zmluvy / zmluva o budúcej zmluve", key: "cislo_navrhu", width: 42 },
         { header: "F: Číslo zmluvy", key: "cislo_zmluvy", width: 18 },
         { header: "G: Typ subjektu", key: "typ_subjektu", width: 18 },
@@ -9576,7 +9578,7 @@ export async function registerRoutes(
 
       const exampleRows = [
         {
-          partner: "Allianz", produkt: "PZP Auto", datum_uzatvorenia: "10.03.2026", cislo_navrhu: "N-2024-001", cislo_zmluvy: "",
+          partner: "Allianz", produkt: "PZP Auto", datum_uzatvorenia: "10.03.2026 14:30:00", cislo_navrhu: "N-2024-001", cislo_zmluvy: "",
           typ_subjektu: "person", rc_ico: "850101/1234", nazov_firmy: "", titul_pred: "Ing.",
           meno: "Ján", priezvisko: "Novák", titul_za: "",
           specialista_uid: "421000000001", specialista_pct: "100",
