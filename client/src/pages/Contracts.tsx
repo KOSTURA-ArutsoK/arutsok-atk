@@ -2278,6 +2278,7 @@ export default function Contracts() {
   const [preSelectIcoConfirmed, setPreSelectIcoConfirmed] = useState(false);
   const [preSelectIcoError, setPreSelectIcoError] = useState<string | null>(null);
   const [preSelectIcoFormatError, setPreSelectIcoFormatError] = useState<string | null>(null);
+  const [preSelectSignedDateError, setPreSelectSignedDateError] = useState(false);
   const [preSelectSignatoryName, setPreSelectSignatoryName] = useState("");
   const [preSelectSignatoryManual, setPreSelectSignatoryManual] = useState(false);
   const [preSelectSignatoryTitleBefore, setPreSelectSignatoryTitleBefore] = useState("");
@@ -4456,6 +4457,13 @@ export default function Contracts() {
   })();
 
   const handlePreSelectStep1Next = async () => {
+    if (!preSelectSignedDate) {
+      setPreSelectSignedDateError(true);
+      toast({ title: "Chyba", description: "Dátum uzatvorenia je povinný údaj", variant: "destructive" });
+      setTimeout(() => refSignedDay.current?.focus(), 50);
+      return;
+    }
+    setPreSelectSignedDateError(false);
     const cnVal = preSelectNumberType === "contract" ? preSelectNumberValue.trim() : preSelectNumberType === "both" ? preSelectNumberValue2.trim() : "";
     const pnVal = preSelectNumberType === "proposal" || preSelectNumberType === "both" ? preSelectNumberValue.trim() : "";
     if (cnVal || pnVal) {
@@ -4497,6 +4505,7 @@ export default function Contracts() {
     if (y.length === 2 && /^\d{2}$/.test(y)) y = "20" + y;
     if (d && m && y.length === 4) {
       setPreSelectSignedDate(`${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`);
+      setPreSelectSignedDateError(false);
     } else {
       setPreSelectSignedDate("");
     }
@@ -4572,6 +4581,7 @@ export default function Contracts() {
     setPreSelectSignatoryTitleAfter("");
     setPreSelectSignatoryFocusIdx(-1);
     setPreSelectIcoFormatError(null);
+    setPreSelectSignedDateError(false);
   };
 
   const triggerIcoLookup = () => {
@@ -4643,6 +4653,7 @@ export default function Contracts() {
     setPreSelectSignatoryTitleAfter("");
     setPreSelectSignatoryFocusIdx(-1);
     setPreSelectIcoFormatError(null);
+    setPreSelectSignedDateError(false);
     setPreSelectEditingContractId(null);
     setPreSelectFiles([]);
     setPreSelectCreatedContractId(null);
@@ -5131,8 +5142,8 @@ export default function Contracts() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium">Dátum uzatvorenia</label>
-                <div className="flex items-center border border-input rounded-md bg-background h-9 overflow-hidden">
+                <label className="text-xs font-medium">Dátum uzatvorenia <span className="text-red-500">*</span></label>
+                <div className={`flex items-center border rounded-md bg-background h-9 overflow-hidden ${preSelectSignedDateError && !preSelectSignedDate ? "border-red-500 ring-1 ring-red-500/30" : "border-input"}`}>
                   <input
                     ref={refSignedDay}
                     value={preSelectSignedDay}
