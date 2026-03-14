@@ -5963,17 +5963,11 @@ export default function Contracts() {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              if (parseFloat(preSelectSpecialistPercentage) === 100) {
-                                return;
+                              if (parseFloat(preSelectSpecialistPercentage) >= 100) {
+                                (document.querySelector('[data-testid="button-preselect-confirm-rewards"]') as HTMLButtonElement)?.focus();
+                              } else {
+                                (document.querySelector('[data-testid="button-preselect-add-recommender"]') as HTMLButtonElement)?.focus();
                               }
-                              setPreSelectAddingRecommender(true);
-                              setPreSelectNewRecommenderUid("");
-                              setPreSelectNewRecommenderPercentage("");
-                              setPreSelectRewardSearchRecommender("");
-                              setTimeout(() => {
-                                const el = document.querySelector('[data-testid="input-preselect-new-recommender-uid"]') as HTMLInputElement;
-                                el?.focus();
-                              }, 100);
                             }
                           }}
                           className="pr-8 font-mono text-sm"
@@ -6004,6 +5998,9 @@ export default function Contracts() {
                         setPreSelectNewRecommenderUid("");
                         setPreSelectNewRecommenderPercentage("");
                         setPreSelectRewardSearchRecommender("");
+                        setTimeout(() => {
+                          (document.querySelector('[data-testid="input-preselect-new-recommender-uid"]') as HTMLInputElement)?.focus();
+                        }, 50);
                       }}
                       data-testid="button-preselect-add-recommender"
                     >
@@ -6091,8 +6088,17 @@ export default function Contracts() {
                             onKeyDown={e => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
+                                const newPct = parseFloat(preSelectNewRecommenderPercentage) || 0;
+                                const newTotal = preSelectRewardTotal + newPct;
                                 const btn = document.querySelector('[data-testid="button-preselect-confirm-recommender"]') as HTMLButtonElement;
                                 btn?.click();
+                                setTimeout(() => {
+                                  if (newTotal >= 100) {
+                                    (document.querySelector('[data-testid="button-preselect-confirm-rewards"]') as HTMLButtonElement)?.focus();
+                                  } else {
+                                    (document.querySelector('[data-testid="button-preselect-add-recommender"]') as HTMLButtonElement)?.focus();
+                                  }
+                                }, 80);
                               }
                             }}
                             className="pr-8 font-mono text-sm"
