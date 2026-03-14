@@ -12,7 +12,7 @@ export interface RegistryLookupResult {
   city?: string;
   legalForm?: string;
   dic?: string;
-  directors?: string[];
+  directors?: { name: string; role: string }[];
   actingNote?: string;
   message?: string;
 }
@@ -143,11 +143,21 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
       return { found: false, message: "Dáta nenájdené na stránke ORSR" };
     }
 
-    const directorNames: string[] = [];
-    const statutarKeys = ["Štatutárny orgán", "Konatelia", "Konateľ"];
+    const directorEntries: { name: string; role: string }[] = [];
+    const roleMapping: Record<string, string> = {
+      "Štatutárny orgán": "Štatutár",
+      "Konatelia": "Konateľ",
+      "Konateľ": "Konateľ",
+      "Prokurista": "Prokurista",
+      "Prokúra": "Prokurista",
+      "Dozorná rada": "Člen dozornej rady",
+      "Predstavenstvo": "Člen predstavenstva",
+    };
+    const statutarKeys = Object.keys(roleMapping);
     for (const key of statutarKeys) {
       const vals = sections[key];
       if (!vals || vals.length === 0) continue;
+      const role = roleMapping[key] || "Štatutár";
       for (const v of vals) {
         const cleaned = v.replace(/,\s*$/, "").trim();
         if (!cleaned) continue;
@@ -156,8 +166,8 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
         if (cleaned.includes("Bydlisko") || cleaned.includes("bydlisko")) continue;
         const parts = cleaned.split(",").map(p => p.trim()).filter(Boolean);
         const namePart = parts[0];
-        if (namePart && namePart.length >= 3 && !directorNames.includes(namePart)) {
-          directorNames.push(namePart);
+        if (namePart && namePart.length >= 3 && !directorEntries.some(d => d.name === namePart)) {
+          directorEntries.push({ name: namePart, role });
         }
       }
     }
@@ -181,7 +191,7 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
       zip,
       city,
       legalForm,
-      directors: directorNames.length > 0 ? directorNames : undefined,
+      directors: directorEntries.length > 0 ? directorEntries : undefined,
       actingNote: actingNote || undefined,
     };
   } catch (err: any) {
@@ -241,10 +251,14 @@ export async function lookupAresByIco(ico: string): Promise<RegistryLookupResult
       return { found: false, message: "Firma nenájdená v registri ARES" };
     }
 
-    const directors: string[] = [];
+    const directors: { name: string; role: string }[] = [];
     const statOrgArray = data.statutarniOrgan || data.seznamStatutarnichOrganu || [];
     if (Array.isArray(statOrgArray)) {
       for (const organ of statOrgArray) {
+        const organName = organ.nazev || organ.nazevOrganu || "";
+        const role = organName.toLowerCase().includes("dozor") ? "Člen dozornej rady"
+          : organName.toLowerCase().includes("predstav") ? "Člen predstavenstva"
+          : "Štatutár";
         const clenove = organ.clenove || organ.seznamClenu || [];
         if (Array.isArray(clenove)) {
           for (const clen of clenove) {
@@ -252,8 +266,8 @@ export async function lookupAresByIco(ico: string): Promise<RegistryLookupResult
             const jmeno = osoba.jmeno || osoba.krestniJmeno || "";
             const prijmeni = osoba.prijmeni || "";
             const fullName = [jmeno, prijmeni].filter(Boolean).join(" ").trim();
-            if (fullName && fullName.length >= 3 && !directors.includes(fullName)) {
-              directors.push(fullName);
+            if (fullName && fullName.length >= 3 && !directors.some(d => d.name === fullName)) {
+              directors.push({ name: fullName, role });
             }
           }
         }

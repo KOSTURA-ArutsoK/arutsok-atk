@@ -3395,6 +3395,7 @@ export async function registerRoutes(
         "partnerId", "productId", "sectorProductId", "subjectId",
         "proposalNumber", "contractNumber", "lifecyclePhase",
         "incompleteData", "incompleteDataReason", "signatoryName",
+        "signatoryTitleBefore", "signatoryFirstName", "signatoryLastName", "signatoryTitleAfter",
       ];
       const updateData: Record<string, any> = { updatedAt: new Date() };
       for (const field of allowedFields) {

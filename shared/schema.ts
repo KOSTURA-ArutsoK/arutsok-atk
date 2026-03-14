@@ -813,6 +813,10 @@ export const contracts = pgTable("contracts", {
   zakonnyZastupcaUid: text("zakonny_zastupca_uid"),
   konatelUid: text("konatel_uid"),
   signatoryName: text("signatory_name"),
+  signatoryTitleBefore: text("signatory_title_before"),
+  signatoryFirstName: text("signatory_first_name"),
+  signatoryLastName: text("signatory_last_name"),
+  signatoryTitleAfter: text("signatory_title_after"),
   szcoUid: text("szco_uid"),
   szcoRodneCislo: text("szco_rodne_cislo"),
   szcoIco: text("szco_ico"),
@@ -2417,7 +2421,7 @@ export const registrySnapshots = pgTable("registry_snapshots", {
     city?: string;
     legalForm?: string;
     dic?: string;
-    directors?: string[];
+    directors?: { name: string; role: string }[];
     actingNote?: string;
   }>(),
   fetchedByUserId: integer("fetched_by_user_id"),

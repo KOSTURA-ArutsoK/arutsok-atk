@@ -153,3 +153,80 @@ export function canDeleteRecords(appUser: any): boolean {
 export function canEditRecords(appUser: any): boolean {
   return !!appUser;
 }
+
+const TITLES_BEFORE = [
+  "Ing. arch.", "prof.", "doc.", "Ing.", "Mgr.", "Bc.", "JUDr.", "MUDr.", "PhDr.", "RNDr.",
+  "MVDr.", "ThDr.", "PharmDr.", "PaedDr.", "RSDr.", "DiS.",
+  "MgA.", "BcA.", "ThLic.", "ICDr.",
+].sort((a, b) => b.length - a.length);
+const TITLES_AFTER = [
+  "PhD.", "Ph.D.", "CSc.", "DrSc.", "MBA", "MSc.", "LL.M.", "MPH", "DBA", "ArtD.",
+  "DiS.",
+].sort((a, b) => b.length - a.length);
+
+export function parsePersonName(fullName: string): {
+  titleBefore: string;
+  firstName: string;
+  lastName: string;
+  titleAfter: string;
+} {
+  if (!fullName || !fullName.trim()) {
+    return { titleBefore: "", firstName: "", lastName: "", titleAfter: "" };
+  }
+
+  let remaining = fullName.trim();
+  const foundBefore: string[] = [];
+  const foundAfter: string[] = [];
+
+  let afterChanged = true;
+  while (afterChanged) {
+    afterChanged = false;
+    for (const t of TITLES_AFTER) {
+      const escaped = t.replace(/\./g, "\\.").replace(/\s/g, "\\s");
+      const pattern = new RegExp(`[,\\s]+${escaped}\\s*$`, "i");
+      if (pattern.test(remaining)) {
+        remaining = remaining.replace(pattern, "").trim();
+        foundAfter.unshift(t);
+        afterChanged = true;
+        break;
+      }
+    }
+  }
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const t of TITLES_BEFORE) {
+      const escaped = t.replace(/\./g, "\\.").replace(/\s/g, "\\s");
+      const pattern = new RegExp(`^${escaped}\\s+`, "i");
+      if (pattern.test(remaining)) {
+        remaining = remaining.replace(pattern, "").trim();
+        foundBefore.push(t);
+        changed = true;
+        break;
+      }
+    }
+  }
+
+  remaining = remaining.replace(/,\s*$/, "").trim();
+
+  const nameParts = remaining.split(/\s+/).filter(Boolean);
+  let firstName = "";
+  let lastName = "";
+  if (nameParts.length === 1) {
+    lastName = nameParts[0];
+  } else if (nameParts.length === 2) {
+    firstName = nameParts[0];
+    lastName = nameParts[1];
+  } else if (nameParts.length >= 3) {
+    firstName = nameParts[0];
+    lastName = nameParts.slice(1).join(" ");
+  }
+
+  return {
+    titleBefore: foundBefore.join(" "),
+    firstName,
+    lastName,
+    titleAfter: foundAfter.join(" "),
+  };
+}

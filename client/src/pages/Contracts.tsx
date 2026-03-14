@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo, type ComponentType } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak, formatUid, expandUid, getDateSemaphore, getDateSemaphoreClasses, canCreateRecords, canDeleteRecords, canEditRecords, isAdmin, NAVRH_LABEL_FULL, NAVRH_LABEL_SHORT } from "@/lib/utils";
+import { formatDateSlovak, formatUid, expandUid, getDateSemaphore, getDateSemaphoreClasses, canCreateRecords, canDeleteRecords, canEditRecords, isAdmin, NAVRH_LABEL_FULL, NAVRH_LABEL_SHORT, parsePersonName } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -2269,12 +2269,17 @@ export default function Contracts() {
   const [preSelectBirthNumber, setPreSelectBirthNumber] = useState("");
   const [preSelectSearchHint, setPreSelectSearchHint] = useState<null | "szco_or_po" | "possible_rc">(null);
   const [preSelectShowNameFields, setPreSelectShowNameFields] = useState(false);
-  const [preSelectIcoLookup, setPreSelectIcoLookup] = useState<{ found: boolean; name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; message?: string; directors?: string[]; actingNote?: string } | null>(null);
+  const [preSelectIcoLookup, setPreSelectIcoLookup] = useState<{ found: boolean; name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; message?: string; directors?: { name: string; role: string }[]; actingNote?: string } | null>(null);
   const [preSelectIcoLookupLoading, setPreSelectIcoLookupLoading] = useState(false);
   const [preSelectIcoConfirmed, setPreSelectIcoConfirmed] = useState(false);
   const [preSelectIcoError, setPreSelectIcoError] = useState<string | null>(null);
   const [preSelectSignatoryName, setPreSelectSignatoryName] = useState("");
   const [preSelectSignatoryManual, setPreSelectSignatoryManual] = useState(false);
+  const [preSelectSignatoryTitleBefore, setPreSelectSignatoryTitleBefore] = useState("");
+  const [preSelectSignatoryFirstName, setPreSelectSignatoryFirstName] = useState("");
+  const [preSelectSignatoryLastName, setPreSelectSignatoryLastName] = useState("");
+  const [preSelectSignatoryTitleAfter, setPreSelectSignatoryTitleAfter] = useState("");
+  const [preSelectSignatoryFocusIdx, setPreSelectSignatoryFocusIdx] = useState(-1);
   const [preSelectEditingContractId, setPreSelectEditingContractId] = useState<number | null>(null);
   const [preSelectFiles, setPreSelectFiles] = useState<File[]>([]);
   const [preSelectCreatedContractId, setPreSelectCreatedContractId] = useState<number | null>(null);
@@ -4556,6 +4561,11 @@ export default function Contracts() {
     setPreSelectIcoConfirmed(false);
     setPreSelectSignatoryName("");
     setPreSelectSignatoryManual(false);
+    setPreSelectSignatoryTitleBefore("");
+    setPreSelectSignatoryFirstName("");
+    setPreSelectSignatoryLastName("");
+    setPreSelectSignatoryTitleAfter("");
+    setPreSelectSignatoryFocusIdx(-1);
   };
 
   const triggerIcoLookup = () => {
@@ -4621,6 +4631,11 @@ export default function Contracts() {
     setPreSelectIcoConfirmed(false);
     setPreSelectSignatoryName("");
     setPreSelectSignatoryManual(false);
+    setPreSelectSignatoryTitleBefore("");
+    setPreSelectSignatoryFirstName("");
+    setPreSelectSignatoryLastName("");
+    setPreSelectSignatoryTitleAfter("");
+    setPreSelectSignatoryFocusIdx(-1);
     setPreSelectEditingContractId(null);
     setPreSelectFiles([]);
     setPreSelectCreatedContractId(null);
@@ -4785,7 +4800,13 @@ export default function Contracts() {
           : preSelectSignedDate;
         contractData.signedDate = new Date(dateStr).toISOString();
       }
-      if (preSelectSignatoryName.trim()) contractData.signatoryName = preSelectSignatoryName.trim();
+      if (preSelectSignatoryTitleBefore.trim()) contractData.signatoryTitleBefore = preSelectSignatoryTitleBefore.trim();
+      if (preSelectSignatoryFirstName.trim()) contractData.signatoryFirstName = preSelectSignatoryFirstName.trim();
+      if (preSelectSignatoryLastName.trim()) contractData.signatoryLastName = preSelectSignatoryLastName.trim();
+      if (preSelectSignatoryTitleAfter.trim()) contractData.signatoryTitleAfter = preSelectSignatoryTitleAfter.trim();
+      const composedSignatory = [preSelectSignatoryTitleBefore, preSelectSignatoryFirstName, preSelectSignatoryLastName, preSelectSignatoryTitleAfter].map(s => s.trim()).filter(Boolean).join(" ");
+      if (composedSignatory) contractData.signatoryName = composedSignatory;
+      else if (preSelectSignatoryName.trim()) contractData.signatoryName = preSelectSignatoryName.trim();
       if (preSelectNumberType === "proposal" && preSelectNumberValue.trim()) {
         contractData.proposalNumber = preSelectNumberValue.trim();
       } else if (preSelectNumberType === "contract" && preSelectNumberValue.trim()) {
@@ -5768,37 +5789,206 @@ export default function Contracts() {
                 <div className="border rounded-md p-3 space-y-2 bg-muted/20 border-border/60" data-testid="panel-signatory-select">
                   <label className="text-xs font-semibold text-foreground/80">Zmluvu podpísal (Štatutár):</label>
                   <div className="space-y-1">
-                    {preSelectIcoLookup.directors!.map((dir, idx) => (
-                      <label key={idx} className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-muted/40 transition-colors" data-testid={`radio-signatory-${idx}`}>
-                        <input
-                          type="radio"
-                          name="signatory"
-                          checked={!preSelectSignatoryManual && preSelectSignatoryName === dir}
-                          onChange={() => { setPreSelectSignatoryName(dir); setPreSelectSignatoryManual(false); }}
-                          className="accent-primary w-3.5 h-3.5"
-                        />
-                        <span className="text-xs text-foreground">{dir}</span>
-                        <span className="text-[10px] text-muted-foreground">(Konateľ)</span>
-                      </label>
-                    ))}
-                    <label className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-muted/40 transition-colors" data-testid="radio-signatory-manual">
-                      <input
-                        type="radio"
-                        name="signatory"
-                        checked={preSelectSignatoryManual}
-                        onChange={() => { setPreSelectSignatoryManual(true); setPreSelectSignatoryName(""); }}
-                        className="accent-primary w-3.5 h-3.5"
-                      />
+                    {preSelectIcoLookup.directors!.map((dir, idx) => {
+                      const isSelected = !preSelectSignatoryManual && preSelectSignatoryName === dir.name;
+                      return (
+                        <div key={idx}>
+                          <div
+                            tabIndex={0}
+                            className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors outline-none ${isSelected ? "border border-primary bg-primary/10" : "border border-transparent hover:bg-muted/40"} ${preSelectSignatoryFocusIdx === idx ? "ring-1 ring-primary/50" : ""}`}
+                            data-testid={`row-signatory-${idx}`}
+                            onFocus={() => setPreSelectSignatoryFocusIdx(idx)}
+                            onClick={() => {
+                              if (isSelected) {
+                                setPreSelectSignatoryName("");
+                                setPreSelectSignatoryTitleBefore("");
+                                setPreSelectSignatoryFirstName("");
+                                setPreSelectSignatoryLastName("");
+                                setPreSelectSignatoryTitleAfter("");
+                              } else {
+                                const parsed = parsePersonName(dir.name);
+                                setPreSelectSignatoryName(dir.name);
+                                setPreSelectSignatoryManual(false);
+                                setPreSelectSignatoryTitleBefore(parsed.titleBefore);
+                                setPreSelectSignatoryFirstName(parsed.firstName);
+                                setPreSelectSignatoryLastName(parsed.lastName);
+                                setPreSelectSignatoryTitleAfter(parsed.titleAfter);
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              const totalItems = (preSelectIcoLookup?.directors?.length || 0) + 1;
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const nextIdx = idx + 1;
+                                if (nextIdx < totalItems) {
+                                  const nextEl = nextIdx < (preSelectIcoLookup?.directors?.length || 0)
+                                    ? document.querySelector(`[data-testid="row-signatory-${nextIdx}"]`) as HTMLElement
+                                    : document.querySelector(`[data-testid="row-signatory-manual"]`) as HTMLElement;
+                                  if (nextEl) nextEl.focus();
+                                } else {
+                                  const firstEl = document.querySelector(`[data-testid="row-signatory-0"]`) as HTMLElement;
+                                  if (firstEl) firstEl.focus();
+                                }
+                              } else if (e.key === "Backspace") {
+                                e.preventDefault();
+                                if (isSelected) {
+                                  setPreSelectSignatoryName("");
+                                  setPreSelectSignatoryTitleBefore("");
+                                  setPreSelectSignatoryFirstName("");
+                                  setPreSelectSignatoryLastName("");
+                                  setPreSelectSignatoryTitleAfter("");
+                                } else {
+                                  const parsed = parsePersonName(dir.name);
+                                  setPreSelectSignatoryName(dir.name);
+                                  setPreSelectSignatoryManual(false);
+                                  setPreSelectSignatoryTitleBefore(parsed.titleBefore);
+                                  setPreSelectSignatoryFirstName(parsed.firstName);
+                                  setPreSelectSignatoryLastName(parsed.lastName);
+                                  setPreSelectSignatoryTitleAfter(parsed.titleAfter);
+                                }
+                              }
+                            }}
+                          >
+                            <div className={`w-3.5 h-3.5 shrink-0 rounded-full border-2 flex items-center justify-center ${isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"}`}>
+                              {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-background" />}
+                            </div>
+                            <span className="text-xs text-foreground">{dir.name}</span>
+                            <span className="text-[10px] text-muted-foreground">({dir.role})</span>
+                          </div>
+                          {isSelected && (
+                            <div className="ml-6 mt-1 mb-1 grid grid-cols-4 gap-1.5" data-testid={`fields-signatory-${idx}`}>
+                              <div>
+                                <label className="text-[10px] text-muted-foreground">Titul pred</label>
+                                <Input
+                                  value={preSelectSignatoryTitleBefore}
+                                  onChange={(e) => setPreSelectSignatoryTitleBefore(e.target.value)}
+                                  className="text-xs h-7"
+                                  data-testid={`input-signatory-title-before-${idx}`}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-muted-foreground">Meno</label>
+                                <Input
+                                  value={preSelectSignatoryFirstName}
+                                  onChange={(e) => setPreSelectSignatoryFirstName(e.target.value)}
+                                  className="text-xs h-7"
+                                  data-testid={`input-signatory-first-name-${idx}`}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-muted-foreground">Priezvisko</label>
+                                <Input
+                                  value={preSelectSignatoryLastName}
+                                  onChange={(e) => setPreSelectSignatoryLastName(e.target.value)}
+                                  className="text-xs h-7"
+                                  data-testid={`input-signatory-last-name-${idx}`}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] text-muted-foreground">Titul za</label>
+                                <Input
+                                  value={preSelectSignatoryTitleAfter}
+                                  onChange={(e) => setPreSelectSignatoryTitleAfter(e.target.value)}
+                                  className="text-xs h-7"
+                                  data-testid={`input-signatory-title-after-${idx}`}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <div
+                      tabIndex={0}
+                      className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors outline-none ${preSelectSignatoryManual ? "border border-primary bg-primary/10" : "border border-transparent hover:bg-muted/40"} ${preSelectSignatoryFocusIdx === (preSelectIcoLookup?.directors?.length || 0) ? "ring-1 ring-primary/50" : ""}`}
+                      data-testid="row-signatory-manual"
+                      onFocus={() => setPreSelectSignatoryFocusIdx(preSelectIcoLookup?.directors?.length || 0)}
+                      onClick={() => {
+                        setPreSelectSignatoryManual(true);
+                        setPreSelectSignatoryName("");
+                        setPreSelectSignatoryTitleBefore("");
+                        setPreSelectSignatoryFirstName("");
+                        setPreSelectSignatoryLastName("");
+                        setPreSelectSignatoryTitleAfter("");
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const firstEl = document.querySelector(`[data-testid="row-signatory-0"]`) as HTMLElement;
+                          if (firstEl) firstEl.focus();
+                          else {
+                            setPreSelectSignatoryManual(true);
+                            setPreSelectSignatoryName("");
+                            setPreSelectSignatoryTitleBefore("");
+                            setPreSelectSignatoryFirstName("");
+                            setPreSelectSignatoryLastName("");
+                            setPreSelectSignatoryTitleAfter("");
+                          }
+                        } else if (e.key === "Backspace") {
+                          e.preventDefault();
+                          if (preSelectSignatoryManual) {
+                            setPreSelectSignatoryManual(false);
+                            setPreSelectSignatoryName("");
+                            setPreSelectSignatoryTitleBefore("");
+                            setPreSelectSignatoryFirstName("");
+                            setPreSelectSignatoryLastName("");
+                            setPreSelectSignatoryTitleAfter("");
+                          } else {
+                            setPreSelectSignatoryManual(true);
+                            setPreSelectSignatoryName("");
+                            setPreSelectSignatoryTitleBefore("");
+                            setPreSelectSignatoryFirstName("");
+                            setPreSelectSignatoryLastName("");
+                            setPreSelectSignatoryTitleAfter("");
+                          }
+                        }
+                      }}
+                    >
+                      <div className={`w-3.5 h-3.5 shrink-0 rounded-full border-2 flex items-center justify-center ${preSelectSignatoryManual ? "border-primary bg-primary" : "border-muted-foreground/40"}`}>
+                        {preSelectSignatoryManual && <div className="w-1.5 h-1.5 rounded-full bg-background" />}
+                      </div>
                       <span className="text-xs text-foreground">Iná osoba / Doplniť manuálne</span>
-                    </label>
+                    </div>
                     {preSelectSignatoryManual && (
-                      <Input
-                        placeholder="Meno a priezvisko podpisujúcej osoby..."
-                        value={preSelectSignatoryName}
-                        onChange={(e) => setPreSelectSignatoryName(e.target.value)}
-                        className="mt-1 text-xs"
-                        data-testid="input-signatory-manual"
-                      />
+                      <div className="ml-6 mt-1 mb-1 grid grid-cols-4 gap-1.5" data-testid="fields-signatory-manual">
+                        <div>
+                          <label className="text-[10px] text-muted-foreground">Titul pred</label>
+                          <Input
+                            value={preSelectSignatoryTitleBefore}
+                            onChange={(e) => setPreSelectSignatoryTitleBefore(e.target.value)}
+                            className="text-xs h-7"
+                            data-testid="input-signatory-manual-title-before"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-muted-foreground">Meno</label>
+                          <Input
+                            value={preSelectSignatoryFirstName}
+                            onChange={(e) => setPreSelectSignatoryFirstName(e.target.value)}
+                            className="text-xs h-7"
+                            data-testid="input-signatory-manual-first-name"
+                            autoFocus
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-muted-foreground">Priezvisko</label>
+                          <Input
+                            value={preSelectSignatoryLastName}
+                            onChange={(e) => setPreSelectSignatoryLastName(e.target.value)}
+                            className="text-xs h-7"
+                            data-testid="input-signatory-manual-last-name"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-muted-foreground">Titul za</label>
+                          <Input
+                            value={preSelectSignatoryTitleAfter}
+                            onChange={(e) => setPreSelectSignatoryTitleAfter(e.target.value)}
+                            className="text-xs h-7"
+                            data-testid="input-signatory-manual-title-after"
+                          />
+                        </div>
+                      </div>
                     )}
                   </div>
                   {preSelectIcoLookup.actingNote && (
@@ -5812,13 +6002,45 @@ export default function Contracts() {
               {preSelectIcoLookup?.found && preSelectIcoConfirmed && (!preSelectIcoLookup.directors || preSelectIcoLookup.directors.length === 0) && (
                 <div className="border rounded-md p-3 space-y-2 bg-muted/20 border-border/60" data-testid="panel-signatory-manual-only">
                   <label className="text-xs font-semibold text-foreground/80">Zmluvu podpísal (Štatutár):</label>
-                  <Input
-                    placeholder="Meno a priezvisko podpisujúcej osoby..."
-                    value={preSelectSignatoryName}
-                    onChange={(e) => setPreSelectSignatoryName(e.target.value)}
-                    className="text-xs"
-                    data-testid="input-signatory-no-directors"
-                  />
+                  <div className="grid grid-cols-4 gap-1.5">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Titul pred</label>
+                      <Input
+                        value={preSelectSignatoryTitleBefore}
+                        onChange={(e) => setPreSelectSignatoryTitleBefore(e.target.value)}
+                        className="text-xs h-7"
+                        data-testid="input-signatory-no-directors-title-before"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Meno</label>
+                      <Input
+                        value={preSelectSignatoryFirstName}
+                        onChange={(e) => setPreSelectSignatoryFirstName(e.target.value)}
+                        className="text-xs h-7"
+                        data-testid="input-signatory-no-directors-first-name"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Priezvisko</label>
+                      <Input
+                        value={preSelectSignatoryLastName}
+                        onChange={(e) => setPreSelectSignatoryLastName(e.target.value)}
+                        className="text-xs h-7"
+                        data-testid="input-signatory-no-directors-last-name"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Titul za</label>
+                      <Input
+                        value={preSelectSignatoryTitleAfter}
+                        onChange={(e) => setPreSelectSignatoryTitleAfter(e.target.value)}
+                        className="text-xs h-7"
+                        data-testid="input-signatory-no-directors-title-after"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
               {preSelectIcoLookup && !preSelectIcoLookup.found && (

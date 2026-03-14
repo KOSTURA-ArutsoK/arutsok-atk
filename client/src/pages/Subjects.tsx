@@ -1507,7 +1507,7 @@ function RegistrySnapshotsTab({ subject }: { subject: Subject }) {
                     {parsed.directors && parsed.directors.length > 0 && (
                       <div className="sm:col-span-2">
                         <span className="text-[10px] text-muted-foreground block">Konatelia</span>
-                        <span className="text-xs font-medium">{parsed.directors.join(", ")}</span>
+                        <span className="text-xs font-medium">{parsed.directors.map((d: any) => typeof d === "string" ? d : `${d.name} (${d.role})`).join(", ")}</span>
                       </div>
                     )}
                   </div>
@@ -1793,7 +1793,7 @@ function InitialRegistrationModal({
   const [duplicateChecked, setDuplicateChecked] = useState(false);
   const [rcError, setRcError] = useState<string | null>(null);
   const [icoError, setIcoError] = useState<string | null>(null);
-  const [aresLookup, setAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; directors?: string[]; found: boolean; message?: string } | null>(null);
+  const [aresLookup, setAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; directors?: { name: string; role: string }[]; found: boolean; message?: string } | null>(null);
   const [aresLoading, setAresLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const baseInputRef = useRef<HTMLInputElement>(null);
@@ -2468,7 +2468,7 @@ function FullPageEditor({
   const [szcoFoLoading, setSzcoFoLoading] = useState(false);
   const [szcoFoRcError, setSzcoFoRcError] = useState<string | null>(null);
   const [szcoIcoError, setSzcoIcoError] = useState<string | null>(null);
-  const [szcoAresLookup, setSzcoAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; directors?: string[]; found: boolean; message?: string } | null>(null);
+  const [szcoAresLookup, setSzcoAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; directors?: { name: string; role: string }[]; found: boolean; message?: string } | null>(null);
   const [szcoAresLoading, setSzcoAresLoading] = useState(false);
   const [pendingRegistrySnapshot, setPendingRegistrySnapshot] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string } | null>(null);
 
