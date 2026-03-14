@@ -2273,6 +2273,7 @@ export default function Contracts() {
   const [preSelectFiles, setPreSelectFiles] = useState<File[]>([]);
   const [preSelectCreatedContractId, setPreSelectCreatedContractId] = useState<number | null>(null);
   const [preSelectUploading, setPreSelectUploading] = useState(false);
+  const [preSelectSignedDate, setPreSelectSignedDate] = useState("");
   const [preSelectUploadedCount, setPreSelectUploadedCount] = useState(0);
   const [preSelectFileError, setPreSelectFileError] = useState<string | null>(null);
   const [preSelectSpecialistUid, setPreSelectSpecialistUid] = useState("");
@@ -4558,6 +4559,7 @@ export default function Contracts() {
     setPreSelectFiles([]);
     setPreSelectCreatedContractId(null);
     setPreSelectUploading(false);
+    setPreSelectSignedDate("");
     setPreSelectFileError(null);
     setPreSelectUploadedCount(0);
     setPreSelectSpecialistUid("");
@@ -4702,6 +4704,7 @@ export default function Contracts() {
       };
       if (preSelectPartnerId) contractData.partnerId = parseInt(preSelectPartnerId);
       if (preSelectProductId) contractData.productId = parseInt(preSelectProductId);
+      if (preSelectSignedDate) contractData.signedDate = new Date(preSelectSignedDate).toISOString();
       if (preSelectNumberType === "proposal" && preSelectNumberValue.trim()) {
         contractData.proposalNumber = preSelectNumberValue.trim();
       } else if (preSelectNumberType === "contract" && preSelectNumberValue.trim()) {
@@ -4779,6 +4782,7 @@ export default function Contracts() {
     setPreSelectAddingRecommender(false);
     setPreSelectNewRecommenderUid("");
     setPreSelectNewRecommenderPercentage("");
+    setPreSelectSignedDate("");
     setPreSelectOpen(true);
   };
 
@@ -5111,6 +5115,19 @@ export default function Contracts() {
                 </div>
               </div>
             )}
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Dátum uzatvorenia</label>
+              <Input
+                type="date"
+                value={preSelectSignedDate}
+                onChange={e => setPreSelectSignedDate(e.target.value)}
+                data-testid="input-preselect-signed-date"
+              />
+              {preSelectSignedDate && new Date(preSelectSignedDate) > new Date() && (
+                <p className="text-[10px] text-orange-400 mt-0.5">Dátum uzatvorenia je v budúcnosti</p>
+              )}
+            </div>
 
             <div className="flex justify-end gap-2">
               <Button ref={refStep1Next} onClick={handlePreSelectStep1Next} disabled={!preSelectPartnerId || preSelectCheckingDuplicates} style={{ display: preSelectNumberDuplicates.length > 0 ? 'none' : undefined }} data-testid="button-preselect-next">
