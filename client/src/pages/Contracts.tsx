@@ -5035,7 +5035,7 @@ export default function Contracts() {
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium">Dátum uzatvorenia</label>
-                <div className="flex items-center border border-border rounded-full overflow-hidden bg-background h-9">
+                <div className="flex items-center border border-input rounded-md bg-background h-9 overflow-hidden">
                   <input
                     ref={refSignedDay}
                     value={preSelectSignedDay}
@@ -5097,38 +5097,65 @@ export default function Contracts() {
                     maxLength={4}
                     data-testid="input-preselect-signed-year"
                   />
-                  <span className="w-px self-stretch bg-border mx-1.5 shrink-0" />
-                  <button
-                    ref={refTimeBtnNone}
-                    type="button"
-                    onClick={() => setPreSelectWithTime(false)}
-                    className={`shrink-0 px-2.5 text-xs h-full transition-colors ${!preSelectWithTime ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/40"}`}
-                    data-testid="button-preselect-no-time"
-                  >Čas nie</button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPreSelectWithTime(true);
-                      if (!preSelectSignedTime) {
-                        const now = new Date();
-                        const hh = String(now.getHours()).padStart(2, "0");
-                        const mm2 = String(now.getMinutes()).padStart(2, "0");
-                        const ss = String(now.getSeconds()).padStart(2, "0");
-                        setPreSelectSignedTime(`${hh}:${mm2}:${ss}`);
-                      }
-                    }}
-                    className={`shrink-0 px-2.5 text-xs h-full transition-colors ${preSelectWithTime ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/40"}`}
-                    data-testid="button-preselect-with-time"
-                  >Čas áno</button>
+                  <span className="w-px self-stretch bg-border/60 mx-1.5 shrink-0" />
+                  <div className="relative flex items-center bg-muted/50 rounded-md my-1 shrink-0" role="radiogroup" aria-label="Čas" data-testid="toggle-time-type">
+                    <div className="absolute top-0 bottom-0 rounded-md bg-background shadow-sm border border-border/60 transition-all duration-200 ease-out w-1/2"
+                      style={{ left: preSelectWithTime ? "50%" : "0%" }} />
+                    <button
+                      ref={refTimeBtnNone}
+                      type="button"
+                      role="radio"
+                      aria-checked={!preSelectWithTime}
+                      tabIndex={!preSelectWithTime ? 0 : -1}
+                      onClick={() => setPreSelectWithTime(false)}
+                      onKeyDown={e => {
+                        if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                          e.preventDefault();
+                          setPreSelectWithTime(true);
+                          if (!preSelectSignedTime) {
+                            const now = new Date();
+                            setPreSelectSignedTime(`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`);
+                          }
+                          const btns = (e.currentTarget.closest('[role="radiogroup"]') as HTMLElement)?.querySelectorAll('button[role="radio"]');
+                          (btns?.[1] as HTMLElement)?.focus();
+                        }
+                      }}
+                      className={`relative z-10 px-2.5 text-xs h-full py-0.5 rounded-md transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${!preSelectWithTime ? "text-foreground font-medium" : "text-muted-foreground"}`}
+                      data-testid="button-preselect-no-time"
+                    >Čas nie</button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={preSelectWithTime}
+                      tabIndex={preSelectWithTime ? 0 : -1}
+                      onClick={() => {
+                        setPreSelectWithTime(true);
+                        if (!preSelectSignedTime) {
+                          const now = new Date();
+                          setPreSelectSignedTime(`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`);
+                        }
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                          e.preventDefault();
+                          setPreSelectWithTime(false);
+                          const btns = (e.currentTarget.closest('[role="radiogroup"]') as HTMLElement)?.querySelectorAll('button[role="radio"]');
+                          (btns?.[0] as HTMLElement)?.focus();
+                        }
+                      }}
+                      className={`relative z-10 px-2.5 text-xs h-full py-0.5 rounded-md transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${preSelectWithTime ? "text-foreground font-medium" : "text-muted-foreground"}`}
+                      data-testid="button-preselect-with-time"
+                    >Čas áno</button>
+                  </div>
                   {preSelectWithTime && (
                     <>
-                      <span className="w-px self-stretch bg-border mx-1.5 shrink-0" />
+                      <span className="w-px self-stretch bg-border/60 mx-1.5 shrink-0" />
                       <input
                         type="time"
                         step="1"
                         value={preSelectSignedTime}
                         onChange={e => setPreSelectSignedTime(e.target.value)}
-                        className="text-sm bg-transparent border-0 outline-none h-full pr-3 w-28"
+                        className="text-sm bg-transparent border-0 outline-none h-full pr-2 w-28"
                         data-testid="input-preselect-signed-time"
                       />
                     </>
