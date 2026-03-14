@@ -12,7 +12,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation, useSearch } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
 import { validateSlovakICO } from "@shared/ico-validator";
-import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building2, ArrowLeftRight, Info, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, AlertCircle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building, Building2, ArrowLeftRight, Info, Download } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { cn } from "@/lib/utils";
@@ -2263,10 +2263,11 @@ export default function Contracts() {
   const [preSelectLastName, setPreSelectLastName] = useState("");
   const [preSelectTitleAfter, setPreSelectTitleAfter] = useState("");
   const [preSelectSaving, setPreSelectSaving] = useState(false);
-  const [preSelectSubjectType, setPreSelectSubjectType] = useState<"person" | "company" | "szco">("person");
+  const [preSelectSubjectType, setPreSelectSubjectType] = useState<"person" | "company" | "szco" | "organization">("person");
   const [preSelectIco, setPreSelectIco] = useState("");
   const [preSelectBusinessName, setPreSelectBusinessName] = useState("");
   const [preSelectBirthNumber, setPreSelectBirthNumber] = useState("");
+  const [preSelectSearchHint, setPreSelectSearchHint] = useState<null | "szco_or_po" | "possible_rc">(null);
   const [preSelectShowNameFields, setPreSelectShowNameFields] = useState(false);
   const [preSelectIcoLookup, setPreSelectIcoLookup] = useState<{ found: boolean; name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; message?: string } | null>(null);
   const [preSelectIcoLookupLoading, setPreSelectIcoLookupLoading] = useState(false);
@@ -2362,7 +2363,7 @@ export default function Contracts() {
       if (!preSelectNumberValue.trim()) missing.push("number");
       if (preSelectNumberType === "both" && !preSelectNumberValue2.trim()) missing.push("number2");
     } else if (step === 2) {
-      if (preSelectSubjectType === "company" || preSelectSubjectType === "szco") {
+      if (preSelectSubjectType === "company" || preSelectSubjectType === "szco" || preSelectSubjectType === "organization") {
         if (!preSelectBusinessName.trim()) missing.push("business-name");
       }
       if (preSelectSubjectType === "person" || preSelectSubjectType === "szco") {
@@ -4535,6 +4536,7 @@ export default function Contracts() {
     setPreSelectIco("");
     setPreSelectBusinessName("");
     setPreSelectBirthNumber("");
+    setPreSelectSearchHint(null);
     setPreSelectShowNameFields(false);
     setPreSelectIcoLookup(null);
     setPreSelectIcoLookupLoading(false);
@@ -4550,7 +4552,7 @@ export default function Contracts() {
     if (result.normalized) setPreSelectIco(result.normalized);
     setPreSelectIcoLookupLoading(true);
     setPreSelectIcoLookup(null);
-    const lookupType = preSelectSubjectType === "szco" ? "szco" : "company";
+    const lookupType = preSelectSubjectType === "szco" ? "szco" : "company"; 
     fetch(`/api/lookup/ico/${encodeURIComponent(result.normalized || val)}?type=${lookupType}`, { credentials: "include" })
       .then(r => r.json())
       .then(data => {
@@ -4610,6 +4612,7 @@ export default function Contracts() {
     setPreSelectIco("");
     setPreSelectBusinessName("");
     setPreSelectBirthNumber("");
+    setPreSelectSearchHint(null);
     setPreSelectShowNameFields(false);
     setPreSelectIcoLookup(null);
     setPreSelectIcoLookupLoading(false);
@@ -4725,7 +4728,7 @@ export default function Contracts() {
     if (preSelectSubjectId) return true;
     if (preSelectSubjectType === "person") return !!(preSelectFirstName.trim() && preSelectLastName.trim());
     if (preSelectSubjectType === "szco") return !!(preSelectBusinessName.trim() && preSelectFirstName.trim() && preSelectLastName.trim());
-    if (preSelectSubjectType === "company") return !!preSelectBusinessName.trim();
+    if (preSelectSubjectType === "company" || preSelectSubjectType === "organization") return !!preSelectBusinessName.trim();
     return false;
   })();
 
@@ -4749,7 +4752,7 @@ export default function Contracts() {
         if (preSelectSubjectType === "person" && preSelectBirthNumber.trim()) {
           subjectData.birthNumber = preSelectBirthNumber.trim();
         }
-        if (preSelectSubjectType === "szco" || preSelectSubjectType === "company") {
+        if (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization") {
           subjectData.companyName = preSelectBusinessName.trim() || null;
           if (preSelectIco.trim()) {
             subjectData.details = { ico: preSelectIco.trim() };
@@ -4937,7 +4940,7 @@ export default function Contracts() {
     const sub = subjects?.find(s => s.id === contract.subjectId);
     if (sub) {
       setPreSelectSubjectId(String(sub.id));
-      setPreSelectSubjectType(sub.type as "person" | "company" | "szco");
+      setPreSelectSubjectType(sub.type as "person" | "company" | "szco" | "organization");
       setPreSelectFirstName(sub.firstName || "");
       setPreSelectLastName(sub.lastName || "");
       setPreSelectTitleBefore(sub.titleBefore || "");
@@ -5372,37 +5375,39 @@ export default function Contracts() {
             <div className="space-y-1.5">
                 <label className="text-xs font-medium">Typ subjektu</label>
                 {(() => {
-                  const subOpts: Array<{val: "person"|"szco"|"company", label: string, icon: typeof User}> = [
+                  const subOpts: Array<{val: "person"|"szco"|"organization"|"company", label: string, icon: typeof User}> = [
                     {val:"person", label:"Fyzická osoba", icon: User},
                     {val:"szco", label:"SZČO", icon: Briefcase},
+                    {val:"organization", label:"Organizácia/Nadácia", icon: Building},
                     {val:"company", label:"Právnická osoba", icon: Building2},
                   ];
                   const activeSubIdx = subOpts.findIndex(o => o.val === preSelectSubjectType);
+                  const n = subOpts.length;
                   const handleSubKey = (e: React.KeyboardEvent, idx: number) => {
                     if (e.key === "Enter") { e.preventDefault(); setTimeout(() => refSearchInput.current?.focus(), 50); return; }
                     let next = -1;
-                    if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); next = (idx+1)%3; }
-                    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); next = (idx+2)%3; }
+                    if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); next = (idx+1)%n; }
+                    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); next = (idx+n-1)%n; }
                     if (next >= 0) {
                       const val = subOpts[next].val;
                       setPreSelectSubjectType(val);
                       if (val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); }
-                      setPreSelectShowNameFields(false); setPreSelectBirthNumber("");
+                      setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); setPreSelectSearchHint(null);
                       const btns = (e.currentTarget.closest('[role="radiogroup"]') as HTMLElement)?.querySelectorAll('button[role="radio"]');
                       (btns?.[next] as HTMLElement)?.focus();
                     }
                   };
                   return (
                     <div className="relative w-full flex p-1 bg-muted/50 rounded-lg border border-border/80" role="radiogroup" aria-label="Typ subjektu" data-testid="toggle-subject-type">
-                      <div className="absolute top-1 bottom-1 rounded-md bg-background shadow-md border border-border/60 transition-all duration-200 ease-out" style={{ width: `calc((100% - 8px) / 3)`, left: `calc(4px + ${activeSubIdx} * (100% - 8px) / 3)` }} />
+                      <div className="absolute top-1 bottom-1 rounded-md bg-background shadow-md border border-border/60 transition-all duration-200 ease-out" style={{ width: `calc((100% - 8px) / ${n})`, left: `calc(4px + ${activeSubIdx >= 0 ? activeSubIdx : 0} * (100% - 8px) / ${n})` }} />
                       {subOpts.map((opt, idx) => {
                         const Icon = opt.icon;
                         const isActive = preSelectSubjectType === opt.val;
                         return (
                           <button key={opt.val} type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
-                            className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground scale-[1.02]" : "text-muted-foreground hover:text-foreground/80"}`}
-                            onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); }}
-                            onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : "po"}`}
+                            className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-semibold rounded-md transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground scale-[1.02]" : "text-muted-foreground hover:text-foreground/80"}`}
+                            onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); setPreSelectSearchHint(null); }}
+                            onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : opt.val === "organization" ? "org" : "po"}`}
                           ><Icon className="w-3.5 h-3.5" />{opt.label}</button>
                         );
                       })}
@@ -5424,6 +5429,7 @@ export default function Contracts() {
                     const val = e.target.value;
                     setPreSelectSubjectSearch(val);
                     setPreSelectSubjectId("");
+                    setPreSelectSearchHint(null);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -5431,7 +5437,7 @@ export default function Contracts() {
                       if (preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 1) {
                         const s = preSelectFilteredSubjects[0];
                         setPreSelectSubjectId(s.id.toString());
-                        setPreSelectSubjectType(s.type as "person" | "company" | "szco");
+                        setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization");
                         setPreSelectTitleBefore((s as any).titleBefore || "");
                         setPreSelectFirstName(s.firstName || "");
                         setPreSelectLastName(s.lastName || "");
@@ -5442,7 +5448,7 @@ export default function Contracts() {
                         setPreSelectShowNameFields(true);
                         setTimeout(() => {
                           const sType = s.type as string;
-                          if (sType === "szco" || sType === "company") {
+                          if (sType === "szco" || sType === "company" || sType === "organization") {
                             const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
                             if (el) { el.focus(); return; }
                           }
@@ -5454,22 +5460,36 @@ export default function Contracts() {
                         const firstRow = document.querySelector('[data-testid^="row-preselect-subject-"]') as HTMLElement;
                         if (firstRow) firstRow.focus();
                       } else if (preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 0) {
+                        const trimmed = preSelectSubjectSearch.trim();
                         setPreSelectShowNameFields(true);
-                        if ((preSelectSubjectType === "szco" || preSelectSubjectType === "company") && /^\d+$/.test(preSelectSubjectSearch.trim())) {
-                          setPreSelectIco(preSelectSubjectSearch.trim());
-                        }
-                        setTimeout(() => {
-                          if ((preSelectSubjectType === "szco" || preSelectSubjectType === "company") && refRegisterButton.current && !refRegisterButton.current.disabled) {
-                            refRegisterButton.current.focus(); return;
+                        if (/^\d{8}$/.test(trimmed)) {
+                          setPreSelectIco(trimmed);
+                          setPreSelectSearchHint("szco_or_po");
+                          setPreSelectSubjectType("szco");
+                          setTimeout(() => {
+                            const btn = document.querySelector('[data-testid="toggle-subject-type-szco"]') as HTMLElement;
+                            if (btn) btn.focus();
+                          }, 80);
+                        } else if (/^\d{9,10}$/.test(trimmed)) {
+                          setPreSelectBirthNumber(trimmed);
+                          setPreSelectSearchHint("possible_rc");
+                        } else {
+                          if ((preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization") && /^\d+$/.test(trimmed)) {
+                            setPreSelectIco(trimmed);
                           }
-                          if (preSelectSubjectType === "szco" || preSelectSubjectType === "company") {
-                            const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
+                          setTimeout(() => {
+                            if ((preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization") && refRegisterButton.current && !refRegisterButton.current.disabled) {
+                              refRegisterButton.current.focus(); return;
+                            }
+                            if (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization") {
+                              const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
+                              if (el) { el.focus(); return; }
+                            }
+                            const el = document.querySelector('[data-testid="input-preselect-title-before"]') as HTMLElement;
                             if (el) { el.focus(); return; }
-                          }
-                          const el = document.querySelector('[data-testid="input-preselect-title-before"]') as HTMLElement;
-                          if (el) { el.focus(); return; }
-                          refStep2Confirm.current?.focus();
-                        }, 80);
+                            refStep2Confirm.current?.focus();
+                          }, 80);
+                        }
                       }
                     } else if (e.key === "Tab" && preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length > 0) {
                       e.preventDefault();
@@ -5481,7 +5501,7 @@ export default function Contracts() {
                   data-testid="input-preselect-subject-search"
                 />
               </div>
-              {(preSelectSubjectType === "szco" || preSelectSubjectType === "company") && !preSelectSubjectId && (
+              {(preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization") && !preSelectSubjectId && (
                 <button
                   ref={refRegisterButton}
                   type="button"
@@ -5495,6 +5515,35 @@ export default function Contracts() {
                 </button>
               )}
               </div>
+              {preSelectSearchHint === "szco_or_po" && (
+                <div className="flex items-center gap-2 px-2 py-1.5 rounded border border-red-500/40 bg-red-500/10 text-red-400 text-xs" data-testid="hint-search-szco-or-po">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>Zadané číslo zodpovedá formátu IČO — ide pravdepodobne o <strong>SZČO</strong> alebo <strong>PO</strong></span>
+                </div>
+              )}
+              {preSelectSearchHint === "possible_rc" && (
+                <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded border border-amber-500/40 bg-amber-500/10 text-xs" data-testid="hint-search-possible-rc">
+                  <div className="flex items-center gap-2 text-amber-400">
+                    <Info className="w-3.5 h-3.5 shrink-0" />
+                    <span>Zadané číslo môže byť rodné číslo (RČ)</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded border border-green-500/50 bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors"
+                    onClick={() => {
+                      setPreSelectSubjectType("person");
+                      setPreSelectSearchHint(null);
+                      setTimeout(() => {
+                        const btn = document.querySelector('[data-testid="toggle-subject-type-fo"]') as HTMLElement;
+                        if (btn) btn.focus();
+                      }, 50);
+                    }}
+                    data-testid="button-confirm-as-rc"
+                  >
+                    <CheckCircle2 className="w-3 h-3" />Áno, je to RČ
+                  </button>
+                </div>
+              )}
             </div>
 
             <div style={{ display: preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length > 0 ? 'block' : 'none' }}>
@@ -5505,7 +5554,7 @@ export default function Contracts() {
                     : s.type === "szco"
                     ? `${s.companyName || ""} - ${s.firstName || ""} ${s.lastName || ""}`.trim()
                     : `${s.firstName || ""} ${s.lastName || ""}`.trim() || "Bez mena";
-                  const typeLabel = s.type === "person" ? "FO" : s.type === "company" ? "PO" : s.type === "szco" ? "SZČO" : s.type;
+                  const typeLabel = s.type === "person" ? "FO" : s.type === "company" ? "PO" : s.type === "szco" ? "SZČO" : s.type === "organization" ? "ORG" : s.type;
                   const identifier = s.type === "company" ? ((s as any).ico || "") : s.type === "szco" ? ((s.details as any)?.ico || s.birthNumber || "") : (s.birthNumber || "");
                   const isSelected = preSelectSubjectId === s.id.toString();
                   return (
@@ -5515,7 +5564,7 @@ export default function Contracts() {
                       className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b last:border-b-0 hover-elevate ${isSelected ? "bg-primary/10" : ""} focus:bg-primary/10 focus:outline-none`}
                       onClick={() => {
                         setPreSelectSubjectId(s.id.toString());
-                        setPreSelectSubjectType(s.type as "person" | "company" | "szco");
+                        setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization");
                         setPreSelectTitleBefore((s as any).titleBefore || "");
                         setPreSelectFirstName(s.firstName || "");
                         setPreSelectLastName(s.lastName || "");
@@ -5529,7 +5578,7 @@ export default function Contracts() {
                         if (e.key === "Backspace" || e.key === "Enter") {
                           e.preventDefault();
                           setPreSelectSubjectId(s.id.toString());
-                          setPreSelectSubjectType(s.type as "person" | "company" | "szco");
+                          setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization");
                           setPreSelectTitleBefore((s as any).titleBefore || "");
                           setPreSelectFirstName(s.firstName || "");
                           setPreSelectLastName(s.lastName || "");
@@ -5540,7 +5589,7 @@ export default function Contracts() {
                           setPreSelectShowNameFields(true);
                           setTimeout(() => {
                             const sType = s.type as string;
-                            if (sType === "szco" || sType === "company") {
+                            if (sType === "szco" || sType === "company" || sType === "organization") {
                               const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
                               if (el) { el.focus(); return; }
                             }
@@ -5587,15 +5636,15 @@ export default function Contracts() {
               <p className="text-xs text-muted-foreground mb-2" data-testid="text-no-subjects">Klient nenajdeny — vyplnte udaje noveho klienta</p>
             </div>
 
-            {(preSelectSubjectType === "szco" || preSelectSubjectType === "company") && !preSelectSubjectId && (
+            {(preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization") && !preSelectSubjectId && (
               <>
               <div className="space-y-1">
-                <label className="text-xs font-medium">{preSelectSubjectType === "szco" ? "Nazov zivnosti" : "Nazov spolocnosti"} *</label>
+                <label className="text-xs font-medium">{preSelectSubjectType === "szco" ? "Nazov zivnosti" : preSelectSubjectType === "organization" ? "Názov organizácie/nadácie" : "Nazov spolocnosti"} *</label>
                 <Input
                   ref={refBusinessNameInput}
                   value={preSelectBusinessName}
                   onChange={(e) => setPreSelectBusinessName(e.target.value)}
-                  placeholder={preSelectSubjectType === "szco" ? "Nazov zivnosti" : "Nazov spolocnosti"}
+                  placeholder={preSelectSubjectType === "szco" ? "Nazov zivnosti" : preSelectSubjectType === "organization" ? "Názov organizácie/nadácie" : "Nazov spolocnosti"}
                   readOnly={!!preSelectSubjectId}
                   className={isFieldMissing("business-name") ? "border-red-500 ring-red-500/30" : ""}
                   onKeyDown={(e) => {
@@ -5722,7 +5771,7 @@ export default function Contracts() {
             )}
 
             {preSelectSubjectId && (
-              <p className="text-xs text-muted-foreground">Vybrany existujuci klient ({preSelectSubjectType === "person" ? "FO" : preSelectSubjectType === "szco" ? "SZČO" : "PO"}) — polia su len na citanie. <button type="button" className="text-primary underline" onClick={() => { setPreSelectSubjectId(""); setPreSelectSubjectType("person"); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectBusinessName(""); setPreSelectIco(""); setPreSelectBirthNumber(""); setPreSelectShowNameFields(false); }} data-testid="button-deselect-subject">Zrusit vyber</button></p>
+              <p className="text-xs text-muted-foreground">Vybrany existujuci klient ({preSelectSubjectType === "person" ? "FO" : preSelectSubjectType === "szco" ? "SZČO" : preSelectSubjectType === "organization" ? "ORG" : "PO"}) — polia su len na citanie. <button type="button" className="text-primary underline" onClick={() => { setPreSelectSubjectId(""); setPreSelectSubjectType("person"); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectBusinessName(""); setPreSelectIco(""); setPreSelectBirthNumber(""); setPreSelectShowNameFields(false); }} data-testid="button-deselect-subject">Zrusit vyber</button></p>
             )}
 
             <div className="flex justify-between gap-2">
