@@ -65,7 +65,7 @@ import { ColumnManager } from "@/components/column-manager";
 import { TitleCombobox } from "@/components/title-combobox";
 
 const TITLES_BEFORE = ["Bc.", "Doc.", "Ing.", "Ing. arch.", "JUDr.", "MDDr.", "Mgr.", "Mgr. art.", "MUDr.", "MVDr.", "PaedDr.", "PharmDr.", "PhDr.", "PhLic.", "Prof.", "RNDr.", "ThDr.", "ThLic."];
-const TITLES_AFTER  = ["ArtD.", "BBA", "CSc.", "DBA", "dr. h. c.", "DrSc.", "LL.M.", "MA.", "MBA", "MSc.", "PhD."];
+const TITLES_AFTER  = ["ArtD.", "BBA", "CSc.", "DBA", "DiS.", "DiS.art", "dr. h. c.", "DrSc.", "FEBO", "LL.D.", "LL.M.", "MA.", "MBA", "MHA", "MPH", "MSc.", "PhD.", "RSc."];
 
 const LIFECYCLE_PHASE_NAMES: Record<number, string> = {
   1: "Čakajúce",
