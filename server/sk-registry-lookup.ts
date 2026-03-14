@@ -230,15 +230,21 @@ export async function lookupZrsrByIco(ico: string): Promise<RegistryLookupResult
       how_filtered: "ico",
       filter_ico: ico,
       __RequestVerificationToken: token,
-      altcha_h: altchaSolution,
     });
+
+    const postHeaders: Record<string, string> = {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Cookie": cookieStr,
+      "Referer": "https://www.zrsr.sk/",
+      "Origin": "https://www.zrsr.sk",
+    };
+    if (altchaSolution) {
+      postHeaders["Altcha"] = altchaSolution;
+    }
 
     const postResp = await fetchWithTimeout("https://www.zrsr.sk/", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Cookie: cookieStr,
-      },
+      headers: postHeaders,
       body: body.toString(),
     }, 8000);
 
@@ -252,9 +258,13 @@ export async function lookupZrsrByIco(ico: string): Promise<RegistryLookupResult
     const resultTable = $("table.govuk-table");
     if (!resultTable.length) {
       const noResult = $("body").text();
-      if (noResult.includes("0 výsledkov") || noResult.includes("neboli nájdené") || resultHtml.length < 5000) {
+      if (noResult.includes("správne vyplnený")) {
+        return { found: false, message: "ZRSR: nepodarilo sa overiť formulár" };
+      }
+      if (noResult.includes("0 výsledkov") || noResult.includes("neboli nájdené") || !noResult.includes("Vyhľadávanie") || resultHtml.length < 5000) {
         return { found: false, message: "Živnostník nenájdený v ZRSR" };
       }
+      return { found: false, message: "Živnostník nenájdený v ZRSR" };
     }
 
     let name = "";

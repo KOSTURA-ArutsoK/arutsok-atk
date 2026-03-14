@@ -5668,6 +5668,7 @@ export default function Contracts() {
 
             {(preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization") && !preSelectSubjectId && (
               <>
+              {!preSelectIcoLookup?.found && (
               <div className="space-y-1">
                 <label className="text-xs font-medium">{preSelectSubjectType === "szco" ? "Nazov zivnosti" : preSelectSubjectType === "organization" ? "Názov organizácie/nadácie" : "Nazov spolocnosti"} *</label>
                 <Input
@@ -5693,6 +5694,7 @@ export default function Contracts() {
                   </div>
                 )}
               </div>
+              )}
               {preSelectIcoLookup?.found && (
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-md p-3 flex items-center gap-3" data-testid="panel-preselect-ico-lookup">
                   <div className="flex-1 min-w-0 space-y-1">
