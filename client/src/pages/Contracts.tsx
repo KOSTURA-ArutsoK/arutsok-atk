@@ -5482,7 +5482,18 @@ export default function Contracts() {
                         return (
                           <button key={opt.val} type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
                             className={`relative z-10 flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs font-medium rounded transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground/80"}`}
-                            onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(opt.val === "szco"); setPreSelectBirthNumber(""); setPreSelectSearchHint(null); setPreSelectIcoLookup(null); setPreSelectIcoFormatError(null); }}
+                            onClick={() => {
+                              setPreSelectSubjectType(opt.val);
+                              if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); }
+                              setPreSelectShowNameFields(opt.val === "szco");
+                              setPreSelectBirthNumber(""); setPreSelectSearchHint(null); setPreSelectIcoLookup(null); setPreSelectIcoFormatError(null);
+                              if (opt.val === "organization" || opt.val === "state") {
+                                setTimeout(() => {
+                                  const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
+                                  if (el) el.focus();
+                                }, 60);
+                              }
+                            }}
                             onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : opt.val === "organization" ? "org" : opt.val === "state" ? "stat" : "po"}`}
                           ><Icon className="w-3 h-3" />{opt.label}</button>
                         );
@@ -5508,7 +5519,7 @@ export default function Contracts() {
                     setPreSelectSubjectSearch(val);
                     setPreSelectSubjectId("");
                     setPreSelectSearchHint(null);
-                    if (preSelectSubjectType === "company" || preSelectSubjectType === "state") {
+                    if (preSelectSubjectType === "company") {
                       const trimmed = val.trim();
                       if (!trimmed || !/^\d+$/.test(trimmed)) {
                         setPreSelectIcoFormatError(null);
@@ -5553,7 +5564,7 @@ export default function Contracts() {
                       } else if (preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 0) {
                         const trimmed = preSelectSubjectSearch.trim();
                         setPreSelectShowNameFields(true);
-                        if ((preSelectSubjectType === "company" || preSelectSubjectType === "state") && /^\d+$/.test(trimmed)) {
+                        if (preSelectSubjectType === "company" && /^\d+$/.test(trimmed)) {
                           setPreSelectIco(trimmed);
                           setTimeout(() => {
                             if (refRegisterButton.current && !refRegisterButton.current.disabled) {
@@ -5579,7 +5590,7 @@ export default function Contracts() {
                             setPreSelectIco(trimmed);
                           }
                           setTimeout(() => {
-                            if ((preSelectSubjectType === "company" || preSelectSubjectType === "state") && refRegisterButton.current && !refRegisterButton.current.disabled) {
+                            if (preSelectSubjectType === "company" && refRegisterButton.current && !refRegisterButton.current.disabled) {
                               refRegisterButton.current.focus(); return;
                             }
                             if (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") {
@@ -5602,7 +5613,7 @@ export default function Contracts() {
                   data-testid="input-preselect-subject-search"
                 />
               </div>
-              {(preSelectSubjectType === "company" || preSelectSubjectType === "state") && !preSelectSubjectId && (
+              {preSelectSubjectType === "company" && !preSelectSubjectId && (
                 <button
                   ref={refRegisterButton}
                   type="button"
@@ -5613,10 +5624,10 @@ export default function Contracts() {
                   data-testid="button-preselect-ico-lookup"
                 >
                   {preSelectIcoLookupLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                  Register
+                  Hľadať v registri
                 </button>
               )}
-              {(preSelectSubjectType === "company" || preSelectSubjectType === "state") && !preSelectSubjectId && preSelectIcoFormatError && (
+              {preSelectSubjectType === "company" && !preSelectSubjectId && preSelectIcoFormatError && (
                 <span className="shrink-0 flex items-center text-[10px] font-medium text-red-500 whitespace-nowrap" data-testid="text-ico-format-error">
                   {preSelectIcoFormatError}
                 </span>
