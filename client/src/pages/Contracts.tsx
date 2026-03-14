@@ -2247,6 +2247,8 @@ export default function Contracts() {
   const [preSelectContractType, setPreSelectContractType] = useState<string>("Nova");
   const [preSelectPartnerId, setPreSelectPartnerId] = useState<string>("");
   const [preSelectProductId, setPreSelectProductId] = useState<string>("");
+  const [preSelectProductOpen, setPreSelectProductOpen] = useState(false);
+  const [preSelectContractTypeOpen, setPreSelectContractTypeOpen] = useState(false);
   const [preSelectSubjectSearch, setPreSelectSubjectSearch] = useState("");
   const [preSelectSubjectId, setPreSelectSubjectId] = useState<string>("");
   const [preSelectClientTypeId, setPreSelectClientTypeId] = useState<string>("");
@@ -4964,8 +4966,8 @@ export default function Contracts() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium">Vyberte produkt</label>
-              <Select value={preSelectProductId} onValueChange={(v) => { setPreSelectProductId(v); setTimeout(() => refContractTypeTrigger.current?.focus(), 50); }} disabled={!preSelectPartnerId}>
-                <SelectTrigger ref={refProductTrigger} data-testid="select-preselect-product">
+              <Select value={preSelectProductId} onValueChange={(v) => { setPreSelectProductId(v); setTimeout(() => refContractTypeTrigger.current?.focus(), 50); }} open={preSelectProductOpen} onOpenChange={setPreSelectProductOpen} disabled={!preSelectPartnerId}>
+                <SelectTrigger ref={refProductTrigger} data-testid="select-preselect-product" onKeyDown={(e) => { if (e.key === "Enter" && !preSelectProductOpen) { e.preventDefault(); e.stopPropagation(); setTimeout(() => refContractTypeTrigger.current?.focus(), 50); } }}>
                   <SelectValue placeholder={preSelectPartnerId ? "Vyberte produkt (volitelne)" : "Najprv vyberte partnera"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -4981,8 +4983,8 @@ export default function Contracts() {
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <label className="text-xs font-medium">Typ zmluvy *</label>
-                <Select value={preSelectContractType} onValueChange={(v) => { setPreSelectContractType(v); setTimeout(() => refSignedDateInput.current?.focus(), 50); }}>
-                  <SelectTrigger ref={refContractTypeTrigger} data-testid="select-preselect-contract-type">
+                <Select value={preSelectContractType} onValueChange={(v) => { setPreSelectContractType(v); setTimeout(() => refSignedDateInput.current?.focus(), 50); }} open={preSelectContractTypeOpen} onOpenChange={setPreSelectContractTypeOpen}>
+                  <SelectTrigger ref={refContractTypeTrigger} data-testid="select-preselect-contract-type" onKeyDown={(e) => { if (e.key === "Enter" && !preSelectContractTypeOpen) { e.preventDefault(); e.stopPropagation(); setTimeout(() => refSignedDateInput.current?.focus(), 50); } }}>
                     <SelectValue placeholder="Vyberte typ zmluvy" />
                   </SelectTrigger>
                   <SelectContent>
