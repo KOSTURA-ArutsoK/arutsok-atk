@@ -14102,7 +14102,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/internet-contracts/count", isAuthenticated, async (_req, res) => {
+  app.get("/api/digital-contracts/count", isAuthenticated, async (_req, res) => {
     res.json({ count: 0 });
   });
 

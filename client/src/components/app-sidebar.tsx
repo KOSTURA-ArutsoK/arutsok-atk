@@ -160,7 +160,7 @@ const importItems = [
 
 const allZmluvyHrefs = [
   "/contracts",
-  "/internetove-zmluvy",
+  "/digitalne-zmluvy",
   ...zmluvySubItems.map(i => i.href),
   ...spracovanieZmluvChildren.map(i => i.href),
   ...nastaveniaSablonChildren.map(i => i.href),
@@ -391,11 +391,11 @@ export function AppSidebar() {
     },
     enabled: !!appUser?.activeCompanyId,
   });
-  const { data: internetContractsData } = useQuery<{ count: number }>({
-    queryKey: ["/api/internet-contracts/count"],
+  const { data: digitalContractsData } = useQuery<{ count: number }>({
+    queryKey: ["/api/digital-contracts/count"],
     staleTime: 1000 * 60 * 5,
   });
-  const internetContractsCount = internetContractsData?.count ?? 0;
+  const digitalContractsCount = digitalContractsData?.count ?? 0;
 
   const allMenus = [
     { id: "nastavenia", items: [...spravaPristupovItems, ...specifikacieItems, ...nastavenieSystemuItems, ...nastavenieDirectItems] },
@@ -404,7 +404,7 @@ export function AppSidebar() {
     { id: "nastavenie-systemu", items: nastavenieSystemuItems },
     { id: "partneri", items: partneriProduktyItems },
     { id: "klienti", items: klientiItems },
-    { id: "zmluvy", items: [...zmluvySubItems, ...spracovanieZmluvChildren, { href: "/internetove-zmluvy", icon: Globe, label: "Internetové zmluvy" }, ...protokolyChildren, ...importItems, ...nastaveniaSablonChildren] },
+    { id: "zmluvy", items: [...zmluvySubItems, ...spracovanieZmluvChildren, { href: "/digitalne-zmluvy", icon: Globe, label: "Digitálne zmluvy" }, ...protokolyChildren, ...importItems, ...nastaveniaSablonChildren] },
     { id: "financie", items: financieItems },
     { id: "reporty", items: reportyItems },
     { id: "informacie", items: informacieItems },
@@ -428,7 +428,7 @@ export function AppSidebar() {
     return hPath === location || h === location;
   });
   const isZmluvyOpen = openMenuId === "zmluvy";
-  const zmluvyInitialSub = (spracovanieZmluvChildren.some(i => i.href === location) || location === "/internetove-zmluvy") ? "spracovanie"
+  const zmluvyInitialSub = (spracovanieZmluvChildren.some(i => i.href === location) || location === "/digitalne-zmluvy") ? "spracovanie"
     : (location === "/contracts") ? "zoznam"
     : protokolyChildren.some(i => i.href === location) ? "protokoly"
     : importItems.some(i => i.href === location) ? "import"
@@ -830,7 +830,7 @@ export function AppSidebar() {
                           <CollapsibleTrigger asChild>
                             <SidebarMenuSubButton
                               data-testid="nav-submenu-spracovanie-zmluv"
-                              className={`cursor-pointer ${(spracovanieZmluvChildren.some(i => i.href === location) || location === "/internetove-zmluvy") ? "text-sidebar-accent-foreground font-medium" : ""}`}
+                              className={`cursor-pointer ${(spracovanieZmluvChildren.some(i => i.href === location) || location === "/digitalne-zmluvy") ? "text-sidebar-accent-foreground font-medium" : ""}`}
                             >
                               <ClipboardList className="w-3.5 h-3.5" />
                               <span className="flex-1">Spracovanie zmlúv</span>
@@ -847,12 +847,12 @@ export function AppSidebar() {
                                   </Link>
                                 </SidebarMenuSubButton>
                               </SidebarMenuSubItem>
-                              <SidebarMenuSubItem key="/internetove-zmluvy">
-                                <SidebarMenuSubButton asChild isActive={location === "/internetove-zmluvy"} data-testid="nav-internetove-zmluvy">
-                                  <Link href="/internetove-zmluvy">
+                              <SidebarMenuSubItem key="/digitalne-zmluvy">
+                                <SidebarMenuSubButton asChild isActive={location === "/digitalne-zmluvy"} data-testid="nav-digitalne-zmluvy">
+                                  <Link href="/digitalne-zmluvy">
                                     <Globe className="w-3.5 h-3.5" />
-                                    <span className="flex-1">Internetové zmluvy</span>
-                                    <span className="ml-auto text-[11px] font-bold text-blue-800 dark:text-blue-400 tabular-nums">{internetContractsCount}x API</span>
+                                    <span className="flex-1">Digitálne zmluvy</span>
+                                    <span className="ml-auto text-[11px] font-bold text-blue-800 dark:text-blue-400 tabular-nums">{digitalContractsCount}x API</span>
                                   </Link>
                                 </SidebarMenuSubButton>
                               </SidebarMenuSubItem>

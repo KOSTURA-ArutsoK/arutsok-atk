@@ -58,7 +58,7 @@ import BulkActions from "@/pages/BulkActions";
 import ProfilSubjektu from "@/pages/ProfilSubjektu";
 import Reports from "@/pages/Reports";
 import DatatovaLinka from "@/pages/DatatovaLinka";
-import InternetoveZmluvy from "@/pages/InternetoveZmluvy";
+import DigitalneZmluvy from "@/pages/DigitalneZmluvy";
 import HoldingDashboard from "@/pages/HoldingDashboard";
 import NetworkSiet from "@/pages/NetworkSiet";
 import MojeUlohy from "@/pages/MojeUlohy";
@@ -159,7 +159,7 @@ const PrivateBulkActions = () => <PrivateRoute><BulkActions /></PrivateRoute>;
 const PrivateProfilSubjektu = () => <PrivateRoute><ProfilSubjektu /></PrivateRoute>;
 const PrivateReports = () => <PrivateRoute><Reports /></PrivateRoute>;
 const PrivateDatatovaLinka = () => <PrivateRoute><DatatovaLinka /></PrivateRoute>;
-const PrivateInternetoveZmluvy = () => <PrivateRoute><InternetoveZmluvy /></PrivateRoute>;
+const PrivateDigitalneZmluvy = () => <PrivateRoute><DigitalneZmluvy /></PrivateRoute>;
 const PrivateHoldingDashboard = () => <PrivateRoute><HoldingDashboard /></PrivateRoute>;
 const PrivateNetworkSiet = () => <PrivateRoute><NetworkSiet /></PrivateRoute>;
 const PrivateMojeUlohy = () => <PrivateRoute><MojeUlohy /></PrivateRoute>;
@@ -228,7 +228,7 @@ function Router() {
       <Route path="/bulk-actions" component={PrivateBulkActions} />
       <Route path="/profil-subjektu" component={PrivateProfilSubjektu} />
       <Route path="/datova-linka" component={PrivateDatatovaLinka} />
-      <Route path="/internetove-zmluvy" component={PrivateInternetoveZmluvy} />
+      <Route path="/digitalne-zmluvy" component={PrivateDigitalneZmluvy} />
       <Route path="/siet" component={PrivateNetworkSiet} />
       <Route path="/moje-ulohy" component={PrivateMojeUlohy} />
       <Route path="/ziadosti" component={PrivateZiadosti} />
