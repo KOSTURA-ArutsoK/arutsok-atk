@@ -5447,7 +5447,9 @@ export default function Contracts() {
                           setPreSelectSearchHint("szco_or_po");
                           setPreSelectSubjectType("szco");
                           setTimeout(() => {
-                            refRegisterButton.current?.focus();
+                            const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
+                            if (el) { el.focus(); return; }
+                            refStep2Confirm.current?.focus();
                           }, 80);
                         } else if (/^\d{9,10}$/.test(trimmed)) {
                           setPreSelectBirthNumber(trimmed);
@@ -5459,7 +5461,7 @@ export default function Contracts() {
                             setPreSelectIco(trimmed);
                           }
                           setTimeout(() => {
-                            if ((preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization") && refRegisterButton.current && !refRegisterButton.current.disabled) {
+                            if (preSelectSubjectType === "company" && refRegisterButton.current && !refRegisterButton.current.disabled) {
                               refRegisterButton.current.focus(); return;
                             }
                             if (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization") {
@@ -5610,7 +5612,7 @@ export default function Contracts() {
                       e.preventDefault();
                       const selVal = subOpts[idx].val;
                       setTimeout(() => {
-                        if ((selVal === "szco" || selVal === "company" || selVal === "organization") && refRegisterButton.current && !refRegisterButton.current.disabled) {
+                        if (selVal === "company" && refRegisterButton.current && !refRegisterButton.current.disabled) {
                           refRegisterButton.current.focus();
                         } else {
                           refSearchInput.current?.focus();
