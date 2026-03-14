@@ -2315,6 +2315,8 @@ export default function Contracts() {
   const userCanUploadVideo = appUser && (isAdmin(appUser) || appUser.role === 'agent');
   const refFileInput = useRef<HTMLInputElement>(null);
   const refProductTrigger = useRef<HTMLButtonElement>(null);
+  const refContractTypeTrigger = useRef<HTMLButtonElement>(null);
+  const refSignedDateInput = useRef<HTMLInputElement>(null);
   const refStep1Next = useRef<HTMLButtonElement>(null);
   const refSearchInput = useRef<HTMLInputElement>(null);
   const refStep2Confirm = useRef<HTMLButtonElement>(null);
@@ -4962,7 +4964,7 @@ export default function Contracts() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium">Vyberte produkt</label>
-              <Select value={preSelectProductId} onValueChange={(v) => { setPreSelectProductId(v); setTimeout(() => { const ref = preSelectNumberType === "proposal" ? refNumberToggleProposal : refNumberToggleContract; ref.current?.focus(); }, 50); }} disabled={!preSelectPartnerId}>
+              <Select value={preSelectProductId} onValueChange={(v) => { setPreSelectProductId(v); setTimeout(() => refContractTypeTrigger.current?.focus(), 50); }} disabled={!preSelectPartnerId}>
                 <SelectTrigger ref={refProductTrigger} data-testid="select-preselect-product">
                   <SelectValue placeholder={preSelectPartnerId ? "Vyberte produkt (volitelne)" : "Najprv vyberte partnera"} />
                 </SelectTrigger>
@@ -4978,8 +4980,8 @@ export default function Contracts() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium">Typ zmluvy *</label>
-              <Select value={preSelectContractType} onValueChange={setPreSelectContractType}>
-                <SelectTrigger data-testid="select-preselect-contract-type">
+              <Select value={preSelectContractType} onValueChange={(v) => { setPreSelectContractType(v); setTimeout(() => refSignedDateInput.current?.focus(), 50); }}>
+                <SelectTrigger ref={refContractTypeTrigger} data-testid="select-preselect-contract-type">
                   <SelectValue placeholder="Vyberte typ zmluvy" />
                 </SelectTrigger>
                 <SelectContent>
@@ -5119,9 +5121,11 @@ export default function Contracts() {
             <div className="space-y-1">
               <label className="text-xs font-medium">Dátum uzatvorenia</label>
               <Input
+                ref={refSignedDateInput}
                 type="date"
                 value={preSelectSignedDate}
                 onChange={e => setPreSelectSignedDate(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); setTimeout(() => { const ref = preSelectNumberType === "proposal" ? refNumberToggleProposal : refNumberToggleContract; ref.current?.focus(); }, 50); } }}
                 data-testid="input-preselect-signed-date"
               />
               {preSelectSignedDate && new Date(preSelectSignedDate) > new Date() && (
