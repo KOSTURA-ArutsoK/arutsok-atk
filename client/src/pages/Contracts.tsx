@@ -12,7 +12,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation, useSearch } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
 import { validateSlovakICO } from "@shared/ico-validator";
-import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, AlertCircle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building, Building2, ArrowLeftRight, Info, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, AlertCircle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building, Building2, ArrowLeftRight, Info, Download, Landmark } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { cn } from "@/lib/utils";
@@ -2263,7 +2263,7 @@ export default function Contracts() {
   const [preSelectLastName, setPreSelectLastName] = useState("");
   const [preSelectTitleAfter, setPreSelectTitleAfter] = useState("");
   const [preSelectSaving, setPreSelectSaving] = useState(false);
-  const [preSelectSubjectType, setPreSelectSubjectType] = useState<"person" | "company" | "szco" | "organization">("person");
+  const [preSelectSubjectType, setPreSelectSubjectType] = useState<"person" | "company" | "szco" | "organization" | "state">("person");
   const [preSelectIco, setPreSelectIco] = useState("");
   const [preSelectBusinessName, setPreSelectBusinessName] = useState("");
   const [preSelectBirthNumber, setPreSelectBirthNumber] = useState("");
@@ -2372,7 +2372,7 @@ export default function Contracts() {
       if (!preSelectNumberValue.trim()) missing.push("number");
       if (preSelectNumberType === "both" && !preSelectNumberValue2.trim()) missing.push("number2");
     } else if (step === 2) {
-      if (preSelectSubjectType === "company" || preSelectSubjectType === "szco" || preSelectSubjectType === "organization") {
+      if (preSelectSubjectType === "company" || preSelectSubjectType === "szco" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") {
         if (!preSelectBusinessName.trim()) missing.push("business-name");
       }
       if (preSelectSubjectType === "person" || preSelectSubjectType === "szco") {
@@ -4578,7 +4578,7 @@ export default function Contracts() {
     setPreSelectIcoError(null);
     if (result.normalized) setPreSelectIco(result.normalized);
 
-    if (preSelectSubjectType === "szco" || preSelectSubjectType === "organization") {
+    if (preSelectSubjectType === "szco") {
       setPreSelectIcoLookup(null);
       setPreSelectShowNameFields(true);
       return;
@@ -4750,7 +4750,7 @@ export default function Contracts() {
     if (preSelectSubjectId) return true;
     if (preSelectSubjectType === "person") return !!(preSelectFirstName.trim() && preSelectLastName.trim());
     if (preSelectSubjectType === "szco") return !!(preSelectBusinessName.trim() && preSelectFirstName.trim() && preSelectLastName.trim());
-    if (preSelectSubjectType === "company" || preSelectSubjectType === "organization") return !!preSelectBusinessName.trim();
+    if (preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") return !!preSelectBusinessName.trim();
     return false;
   })();
 
@@ -4774,7 +4774,7 @@ export default function Contracts() {
         if (preSelectSubjectType === "person" && preSelectBirthNumber.trim()) {
           subjectData.birthNumber = preSelectBirthNumber.trim();
         }
-        if (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization") {
+        if (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") {
           subjectData.companyName = preSelectBusinessName.trim() || null;
           if (preSelectIco.trim()) {
             subjectData.details = { ico: preSelectIco.trim() };
@@ -4973,7 +4973,7 @@ export default function Contracts() {
     const sub = subjects?.find(s => s.id === contract.subjectId);
     if (sub) {
       setPreSelectSubjectId(String(sub.id));
-      setPreSelectSubjectType(sub.type as "person" | "company" | "szco" | "organization");
+      setPreSelectSubjectType(sub.type as "person" | "company" | "szco" | "organization" | "state");
       setPreSelectFirstName(sub.firstName || "");
       setPreSelectLastName(sub.lastName || "");
       setPreSelectTitleBefore(sub.titleBefore || "");
@@ -5003,7 +5003,7 @@ export default function Contracts() {
     const q = preSelectSubjectSearch.toLowerCase().trim();
     return subjects.filter(s => {
       if (s.deletedAt) return false;
-      const fullName = s.type === "company" || s.type === "organization"
+      const fullName = s.type === "company" || s.type === "organization" || s.type === "state"
         ? (s.companyName || "")
         : s.type === "szco"
         ? `${s.companyName || ""} ${s.firstName || ""} ${s.lastName || ""}`.trim()
@@ -5439,11 +5439,12 @@ export default function Contracts() {
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Typ subjektu</label>
                 {(() => {
-                  const subOpts: Array<{val: "person"|"szco"|"organization"|"company", label: string, icon: typeof User}> = [
+                  const subOpts: Array<{val: "person"|"szco"|"company"|"organization"|"state", label: string, icon: typeof User}> = [
                     {val:"person", label:"FO", icon: User},
                     {val:"szco", label:"SZČO", icon: Briefcase},
-                    {val:"organization", label:"Org/Nad", icon: Building},
                     {val:"company", label:"PO", icon: Building2},
+                    {val:"organization", label:"Neziskovky", icon: Building},
+                    {val:"state", label:"Štát", icon: Landmark},
                   ];
                   const activeSubIdx = subOpts.findIndex(o => o.val === preSelectSubjectType);
                   const n = subOpts.length;
@@ -5481,8 +5482,8 @@ export default function Contracts() {
                         return (
                           <button key={opt.val} type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
                             className={`relative z-10 flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs font-medium rounded transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground/80"}`}
-                            onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(opt.val === "szco" || opt.val === "organization"); setPreSelectBirthNumber(""); setPreSelectSearchHint(null); setPreSelectIcoLookup(null); setPreSelectIcoFormatError(null); }}
-                            onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : opt.val === "organization" ? "org" : "po"}`}
+                            onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(opt.val === "szco"); setPreSelectBirthNumber(""); setPreSelectSearchHint(null); setPreSelectIcoLookup(null); setPreSelectIcoFormatError(null); }}
+                            onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : opt.val === "organization" ? "org" : opt.val === "state" ? "stat" : "po"}`}
                           ><Icon className="w-3 h-3" />{opt.label}</button>
                         );
                       })}
@@ -5507,7 +5508,7 @@ export default function Contracts() {
                     setPreSelectSubjectSearch(val);
                     setPreSelectSubjectId("");
                     setPreSelectSearchHint(null);
-                    if (preSelectSubjectType === "company") {
+                    if (preSelectSubjectType === "company" || preSelectSubjectType === "state") {
                       const trimmed = val.trim();
                       if (!trimmed || !/^\d+$/.test(trimmed)) {
                         setPreSelectIcoFormatError(null);
@@ -5527,7 +5528,7 @@ export default function Contracts() {
                       if (preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 1) {
                         const s = preSelectFilteredSubjects[0];
                         setPreSelectSubjectId(s.id.toString());
-                        setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization");
+                        setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state");
                         setPreSelectTitleBefore((s as any).titleBefore || "");
                         setPreSelectFirstName(s.firstName || "");
                         setPreSelectLastName(s.lastName || "");
@@ -5552,7 +5553,7 @@ export default function Contracts() {
                       } else if (preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 0) {
                         const trimmed = preSelectSubjectSearch.trim();
                         setPreSelectShowNameFields(true);
-                        if (preSelectSubjectType === "company" && /^\d+$/.test(trimmed)) {
+                        if ((preSelectSubjectType === "company" || preSelectSubjectType === "state") && /^\d+$/.test(trimmed)) {
                           setPreSelectIco(trimmed);
                           setTimeout(() => {
                             if (refRegisterButton.current && !refRegisterButton.current.disabled) {
@@ -5578,10 +5579,10 @@ export default function Contracts() {
                             setPreSelectIco(trimmed);
                           }
                           setTimeout(() => {
-                            if (preSelectSubjectType === "company" && refRegisterButton.current && !refRegisterButton.current.disabled) {
+                            if ((preSelectSubjectType === "company" || preSelectSubjectType === "state") && refRegisterButton.current && !refRegisterButton.current.disabled) {
                               refRegisterButton.current.focus(); return;
                             }
-                            if (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization") {
+                            if (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") {
                               const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
                               if (el) { el.focus(); return; }
                             }
@@ -5601,7 +5602,7 @@ export default function Contracts() {
                   data-testid="input-preselect-subject-search"
                 />
               </div>
-              {preSelectSubjectType === "company" && !preSelectSubjectId && (
+              {(preSelectSubjectType === "company" || preSelectSubjectType === "state") && !preSelectSubjectId && (
                 <button
                   ref={refRegisterButton}
                   type="button"
@@ -5615,7 +5616,7 @@ export default function Contracts() {
                   Register
                 </button>
               )}
-              {preSelectSubjectType === "company" && !preSelectSubjectId && preSelectIcoFormatError && (
+              {(preSelectSubjectType === "company" || preSelectSubjectType === "state") && !preSelectSubjectId && preSelectIcoFormatError && (
                 <span className="shrink-0 flex items-center text-[10px] font-medium text-red-500 whitespace-nowrap" data-testid="text-ico-format-error">
                   {preSelectIcoFormatError}
                 </span>
@@ -5634,12 +5635,12 @@ export default function Contracts() {
             <div style={{ display: preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length > 0 ? 'block' : 'none' }}>
               <div className="border rounded-md max-h-[200px] overflow-y-auto" data-testid="list-preselect-subjects">
                 {preSelectFilteredSubjects.map(s => {
-                  const displayName = s.type === "company"
+                  const displayName = s.type === "company" || s.type === "organization" || s.type === "state"
                     ? (s.companyName || "Bez nazvu")
                     : s.type === "szco"
                     ? `${s.companyName || ""} - ${s.firstName || ""} ${s.lastName || ""}`.trim()
                     : `${s.firstName || ""} ${s.lastName || ""}`.trim() || "Bez mena";
-                  const typeLabel = s.type === "person" ? "FO" : s.type === "company" ? "PO" : s.type === "szco" ? "SZČO" : s.type === "organization" ? "ORG" : s.type;
+                  const typeLabel = s.type === "person" ? "FO" : s.type === "company" ? "PO" : s.type === "szco" ? "SZČO" : s.type === "organization" ? "ORG" : s.type === "state" ? "ŠTÁT" : s.type;
                   const identifier = s.type === "company" ? ((s as any).ico || "") : s.type === "szco" ? ((s.details as any)?.ico || s.birthNumber || "") : (s.birthNumber || "");
                   const isSelected = preSelectSubjectId === s.id.toString();
                   return (
@@ -5649,7 +5650,7 @@ export default function Contracts() {
                       className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b last:border-b-0 hover-elevate ${isSelected ? "bg-primary/10" : ""} focus:bg-primary/10 focus:outline-none`}
                       onClick={() => {
                         setPreSelectSubjectId(s.id.toString());
-                        setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization");
+                        setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state");
                         setPreSelectTitleBefore((s as any).titleBefore || "");
                         setPreSelectFirstName(s.firstName || "");
                         setPreSelectLastName(s.lastName || "");
@@ -5663,7 +5664,7 @@ export default function Contracts() {
                         if (e.key === "Backspace" || e.key === "Enter") {
                           e.preventDefault();
                           setPreSelectSubjectId(s.id.toString());
-                          setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization");
+                          setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state");
                           setPreSelectTitleBefore((s as any).titleBefore || "");
                           setPreSelectFirstName(s.firstName || "");
                           setPreSelectLastName(s.lastName || "");
@@ -5721,16 +5722,16 @@ export default function Contracts() {
               <p className="text-xs text-muted-foreground mb-2" data-testid="text-no-subjects">Klient nenájdený — vyplňte údaje nového klienta</p>
             </div>
 
-            {(preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization") && !preSelectSubjectId && (
+            {(preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && !preSelectSubjectId && (
               <>
               {!preSelectIcoLookup?.found && (
               <div className="space-y-1">
-                <label className="text-xs font-medium">{preSelectSubjectType === "szco" ? "Nazov zivnosti" : preSelectSubjectType === "organization" ? "Názov organizácie/nadácie" : "Nazov spolocnosti"} *</label>
+                <label className="text-xs font-medium">{preSelectSubjectType === "szco" ? "Názov živnosti" : preSelectSubjectType === "organization" ? "Názov organizácie/nadácie" : preSelectSubjectType === "state" ? "Názov inštitúcie" : "Názov spoločnosti"} *</label>
                 <Input
                   ref={refBusinessNameInput}
                   value={preSelectBusinessName}
                   onChange={(e) => setPreSelectBusinessName(e.target.value)}
-                  placeholder={preSelectSubjectType === "szco" ? "Nazov zivnosti" : preSelectSubjectType === "organization" ? "Názov organizácie/nadácie" : "Nazov spolocnosti"}
+                  placeholder={preSelectSubjectType === "szco" ? "Názov živnosti" : preSelectSubjectType === "organization" ? "Názov organizácie/nadácie" : preSelectSubjectType === "state" ? "Názov verejnej inštitúcie" : "Názov spoločnosti"}
                   readOnly={!!preSelectSubjectId}
                   className={isFieldMissing("business-name") ? "border-red-500 ring-red-500/30" : ""}
                   onKeyDown={(e) => {
@@ -6164,7 +6165,7 @@ export default function Contracts() {
             )}
 
             {preSelectSubjectId && (
-              <p className="text-xs text-muted-foreground">Vybrany existujuci klient ({preSelectSubjectType === "person" ? "FO" : preSelectSubjectType === "szco" ? "SZČO" : preSelectSubjectType === "organization" ? "ORG" : "PO"}) — polia su len na citanie. <button type="button" className="text-primary underline" onClick={() => { setPreSelectSubjectId(""); setPreSelectSubjectType("person"); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectBusinessName(""); setPreSelectIco(""); setPreSelectBirthNumber(""); setPreSelectShowNameFields(false); }} data-testid="button-deselect-subject">Zrusit vyber</button></p>
+              <p className="text-xs text-muted-foreground">Vybrany existujuci klient ({preSelectSubjectType === "person" ? "FO" : preSelectSubjectType === "szco" ? "SZČO" : preSelectSubjectType === "organization" ? "ORG" : preSelectSubjectType === "state" ? "ŠTÁT" : "PO"}) — polia su len na citanie. <button type="button" className="text-primary underline" onClick={() => { setPreSelectSubjectId(""); setPreSelectSubjectType("person"); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectBusinessName(""); setPreSelectIco(""); setPreSelectBirthNumber(""); setPreSelectShowNameFields(false); }} data-testid="button-deselect-subject">Zrusit vyber</button></p>
             )}
 
             <div className="flex justify-between gap-2">
