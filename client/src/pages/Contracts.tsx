@@ -5192,7 +5192,8 @@ export default function Contracts() {
 
             <div className="space-y-1">
               <label className="text-xs font-medium">Vyhladavanie</label>
-              <div className="relative">
+              <div className="flex gap-1.5">
+              <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   ref={refSearchInput}
@@ -5255,6 +5256,19 @@ export default function Contracts() {
                   className="pl-9"
                   data-testid="input-preselect-subject-search"
                 />
+              </div>
+              {(preSelectSubjectType === "szco" || preSelectSubjectType === "company") && !preSelectSubjectId && (
+                <button
+                  type="button"
+                  disabled={preSelectIcoLookupLoading || !preSelectSubjectSearch.trim()}
+                  onClick={() => triggerIcoLookup()}
+                  className="shrink-0 flex items-center justify-center gap-1.5 min-w-[100px] py-1.5 text-xs font-bold rounded border-2 border-green-500 bg-green-500 hover:bg-green-400 text-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  data-testid="button-preselect-ico-lookup"
+                >
+                  {preSelectIcoLookupLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                  Register
+                </button>
+              )}
               </div>
             </div>
 
@@ -5352,35 +5366,21 @@ export default function Contracts() {
               <>
               <div className="space-y-1">
                 <label className="text-xs font-medium">{preSelectSubjectType === "szco" ? "Nazov zivnosti" : "Nazov spolocnosti"} *</label>
-                <div className="flex gap-1.5">
-                  <Input
-                    ref={refBusinessNameInput}
-                    value={preSelectBusinessName}
-                    onChange={(e) => setPreSelectBusinessName(e.target.value)}
-                    placeholder={preSelectSubjectType === "szco" ? "Nazov zivnosti" : "Nazov spolocnosti"}
-                    readOnly={!!preSelectSubjectId}
-                    className={isFieldMissing("business-name") ? "border-red-500 ring-red-500/30" : ""}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        focusNextEmptyRequired("business-name");
-                      }
-                    }}
-                    data-testid="input-preselect-business-name"
-                  />
-                  {!preSelectSubjectId && (
-                    <button
-                      type="button"
-                      disabled={preSelectIcoLookupLoading || !preSelectSubjectSearch.trim()}
-                      onClick={() => triggerIcoLookup()}
-                      className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-xs rounded border border-border bg-muted hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      data-testid="button-preselect-ico-lookup"
-                    >
-                      {preSelectIcoLookupLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                      Register
-                    </button>
-                  )}
-                </div>
+                <Input
+                  ref={refBusinessNameInput}
+                  value={preSelectBusinessName}
+                  onChange={(e) => setPreSelectBusinessName(e.target.value)}
+                  placeholder={preSelectSubjectType === "szco" ? "Nazov zivnosti" : "Nazov spolocnosti"}
+                  readOnly={!!preSelectSubjectId}
+                  className={isFieldMissing("business-name") ? "border-red-500 ring-red-500/30" : ""}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      focusNextEmptyRequired("business-name");
+                    }
+                  }}
+                  data-testid="input-preselect-business-name"
+                />
                 {preSelectIcoError && <p className="text-[10px] text-red-500 leading-tight" data-testid="text-preselect-ico-error">{preSelectIcoError}</p>}
                 {preSelectIcoLookupLoading && (
                   <div className="flex items-center gap-2 mt-1" data-testid="text-preselect-ico-loading">
