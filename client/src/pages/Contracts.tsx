@@ -2373,6 +2373,7 @@ export default function Contracts() {
   const refNewRecommenderUid = useRef<HTMLInputElement>(null);
   const refNewRecommenderPct = useRef<HTMLInputElement>(null);
   const refConfirmRecommenderBtn = useRef<HTMLButtonElement>(null);
+  const refRecommenderPctInputs = useRef<Map<number, HTMLInputElement>>(new Map());
   const refImportSpecialistUid = useRef<HTMLInputElement>(null);
   const refImportSpecialistPct = useRef<HTMLInputElement>(null);
 
@@ -6719,6 +6720,7 @@ export default function Contracts() {
                               max="100"
                               step="0.01"
                               value={rec.percentage}
+                              ref={el => { if (el) refRecommenderPctInputs.current.set(idx, el); else refRecommenderPctInputs.current.delete(idx); }}
                               onChange={e => {
                                 const val = e.target.value;
                                 setPreSelectRecommenders(prev => prev.map((r, i) => i === idx ? { ...r, percentage: val } : r));
@@ -6729,8 +6731,7 @@ export default function Contracts() {
                                   if (idx === preSelectRecommenders.length - 1) {
                                     refStep3Confirm.current?.focus();
                                   } else {
-                                    const nextEl = document.querySelector(`[data-testid="input-preselect-recommender-percentage-${idx + 1}"]`) as HTMLInputElement;
-                                    nextEl?.focus();
+                                    refRecommenderPctInputs.current.get(idx + 1)?.focus();
                                   }
                                 }
                               }}
