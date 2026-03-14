@@ -4956,34 +4956,35 @@ export default function Contracts() {
         <div style={{ display: preSelectStep === 1 ? 'block' : 'none' }}>
           <div className="space-y-2">
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Vyberte partnera</label>
-              <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); setTimeout(() => refProductTrigger.current?.focus(), 50); }}>
-                <SelectTrigger className={isFieldMissing("partner") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-partner">
-                  <SelectValue placeholder="Vyberte partnera" />
-                </SelectTrigger>
-                <SelectContent>
-                  {partners?.filter(p => !p.isDeleted).map(p => (
-                    <SelectItem key={p.id} value={p.id.toString()} data-testid={`option-preselect-partner-${p.id}`}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Vyberte produkt</label>
-              <Select value={preSelectProductId} onValueChange={(v) => { setPreSelectProductId(v); setTimeout(() => refContractTypeTrigger.current?.focus(), 50); }} open={preSelectProductOpen} onOpenChange={setPreSelectProductOpen} disabled={!preSelectPartnerId}>
-                <SelectTrigger ref={refProductTrigger} data-testid="select-preselect-product" onKeyDown={(e) => { if (e.key === "Enter" && !preSelectProductOpen) { e.preventDefault(); e.stopPropagation(); setTimeout(() => refContractTypeTrigger.current?.focus(), 50); } }}>
-                  <SelectValue placeholder={preSelectPartnerId ? "Vyberte produkt (volitelne)" : "Najprv vyberte partnera"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {preSelectFilteredProducts.map(p => (
-                    <SelectItem key={p.id} value={p.id.toString()} data-testid={`option-preselect-product-${p.id}`}>
-                      {p.name} {p.code ? `(${p.code})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Vyberte partnera</label>
+                <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); setTimeout(() => refProductTrigger.current?.focus(), 50); }}>
+                  <SelectTrigger className={isFieldMissing("partner") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-partner">
+                    <SelectValue placeholder="Vyberte partnera" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {partners?.filter(p => !p.isDeleted).map(p => (
+                      <SelectItem key={p.id} value={p.id.toString()} data-testid={`option-preselect-partner-${p.id}`}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Vyberte produkt</label>
+                <Select value={preSelectProductId} onValueChange={(v) => { setPreSelectProductId(v); setTimeout(() => refContractTypeTrigger.current?.focus(), 50); }} open={preSelectProductOpen} onOpenChange={setPreSelectProductOpen} disabled={!preSelectPartnerId}>
+                  <SelectTrigger ref={refProductTrigger} data-testid="select-preselect-product" onKeyDown={(e) => { if (e.key === "Enter" && !preSelectProductOpen) { e.preventDefault(); e.stopPropagation(); setTimeout(() => refContractTypeTrigger.current?.focus(), 50); } }}>
+                    <SelectValue placeholder={preSelectPartnerId ? "Vyberte produkt (volitelne)" : "Najprv vyberte partnera"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {preSelectFilteredProducts.map(p => (
+                      <SelectItem key={p.id} value={p.id.toString()} data-testid={`option-preselect-product-${p.id}`}>
+                        {p.name} {p.code ? `(${p.code})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
