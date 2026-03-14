@@ -20,6 +20,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { DateSegmentInput } from "@/components/DateSegmentInput";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -1841,10 +1842,7 @@ export default function ContractForm() {
 
               <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
                 <CompactField label="Dátum uzatvorenia *">
-                  <Input type="date" value={signedDate} onChange={e => setSignedDate(e.target.value)} data-testid="input-signed-date" />
-                  {signedDate && new Date(signedDate) > new Date() && (
-                    <p className="text-[10px] text-orange-400 mt-0.5">Dátum uzatvorenia je v budúcnosti</p>
-                  )}
+                  <DateSegmentInput value={signedDate} onChange={setSignedDate} data-testid="input-signed-date" />
                 </CompactField>
                 <CompactField label="Ucinnost od *">
                   <Input type="date" value={effectiveDate} onChange={e => setEffectiveDate(e.target.value)} data-testid="input-effective-date" />
