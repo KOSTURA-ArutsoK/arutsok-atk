@@ -5503,7 +5503,14 @@ export default function Contracts() {
                       } else if (preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 0) {
                         const trimmed = preSelectSubjectSearch.trim();
                         setPreSelectShowNameFields(true);
-                        if (/^\d{8}$/.test(trimmed)) {
+                        if (preSelectSubjectType === "company" && /^\d+$/.test(trimmed)) {
+                          setPreSelectIco(trimmed);
+                          setTimeout(() => {
+                            if (refRegisterButton.current && !refRegisterButton.current.disabled) {
+                              refRegisterButton.current.focus();
+                            }
+                          }, 80);
+                        } else if (/^\d{8}$/.test(trimmed)) {
                           setPreSelectIco(trimmed);
                           setPreSelectSearchHint("szco_or_po");
                           setPreSelectSubjectType("szco");
@@ -5551,6 +5558,7 @@ export default function Contracts() {
                   type="button"
                   disabled={preSelectIcoLookupLoading || !preSelectSubjectSearch.trim()}
                   onClick={() => triggerIcoLookup()}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); triggerIcoLookup(); } }}
                   className="shrink-0 flex items-center justify-center gap-1.5 min-w-[100px] py-1.5 text-xs font-bold rounded border-2 border-green-500 bg-green-500 hover:bg-green-400 text-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   data-testid="button-preselect-ico-lookup"
                 >
