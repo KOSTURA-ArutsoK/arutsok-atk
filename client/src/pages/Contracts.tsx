@@ -4518,7 +4518,10 @@ export default function Contracts() {
 
   useEffect(() => {
     if (preSelectOpen && preSelectStep === 2) {
-      setTimeout(() => refSearchInput.current?.focus(), 150);
+      setTimeout(() => {
+        const activeRadio = document.querySelector('[data-testid="toggle-subject-type"] button[aria-checked="true"]') as HTMLElement;
+        if (activeRadio) activeRadio.focus();
+      }, 200);
     }
   }, [preSelectOpen, preSelectStep]);
 
