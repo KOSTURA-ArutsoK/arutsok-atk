@@ -2269,7 +2269,7 @@ export default function Contracts() {
   const [preSelectBirthNumber, setPreSelectBirthNumber] = useState("");
   const [preSelectSearchHint, setPreSelectSearchHint] = useState<null | "szco_or_po" | "possible_rc">(null);
   const [preSelectShowNameFields, setPreSelectShowNameFields] = useState(false);
-  const [preSelectIcoLookup, setPreSelectIcoLookup] = useState<{ found: boolean; registersUnavailable?: boolean; organizationRegistersNote?: boolean; name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; message?: string } | null>(null);
+  const [preSelectIcoLookup, setPreSelectIcoLookup] = useState<{ found: boolean; name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; message?: string } | null>(null);
   const [preSelectIcoLookupLoading, setPreSelectIcoLookupLoading] = useState(false);
   const [preSelectIcoConfirmed, setPreSelectIcoConfirmed] = useState(false);
   const [preSelectIcoError, setPreSelectIcoError] = useState<string | null>(null);
@@ -4591,8 +4591,8 @@ export default function Contracts() {
           }
           setPreSelectShowNameFields(true);
         } else {
-          setPreSelectIcoLookup({ found: false, registersUnavailable: !!data.registersUnavailable, organizationRegistersNote: !!data.organizationRegistersNote, message: data.message || "Subjekt nenájdený v štátnych registroch" });
-          if (data.registersUnavailable || data.organizationRegistersNote) setPreSelectShowNameFields(true);
+          setPreSelectIcoLookup({ found: false, message: data.message || "Subjekt nenájdený v štátnych registroch" });
+          setPreSelectShowNameFields(true);
         }
       })
       .catch(() => setPreSelectIcoLookup({ found: false, message: "Chyba pri vyhľadávaní v registroch" }))
@@ -5708,7 +5708,7 @@ export default function Contracts() {
                     <div className="flex items-center gap-1.5">
                       <Building2 className={`w-3.5 h-3.5 shrink-0 ${preSelectIcoConfirmed ? "text-green-400" : "text-blue-400"}`} />
                       <span className={`text-[11px] font-semibold ${preSelectIcoConfirmed ? "text-green-400" : "text-blue-400"}`}>
-                        {preSelectIcoLookup.source === "ORSR" ? "Obchodný register SR" : preSelectIcoLookup.source === "ZRSR" ? "Živnostenský register SR" : "ARES Register"}
+                        {preSelectIcoLookup.source === "ORSR" ? "Obchodný register SR" : "ARES Register"}
                       </span>
                     </div>
                     {preSelectIcoLookup.name && (
@@ -5757,64 +5757,13 @@ export default function Contracts() {
               )}
               {preSelectIcoLookup && !preSelectIcoLookup.found && (
                 <div
-                  className={`rounded text-xs leading-snug ${(preSelectIcoLookup.registersUnavailable || preSelectIcoLookup.organizationRegistersNote) ? "bg-amber-500/10 border border-amber-500/30 text-amber-400" : "bg-muted/50 border border-border text-muted-foreground"}`}
+                  className="rounded text-xs leading-snug bg-muted/50 border border-border text-muted-foreground"
                   data-testid="text-preselect-ico-not-found"
                 >
                   <div className="flex items-start gap-2 px-2.5 py-2">
-                    {(preSelectIcoLookup.registersUnavailable || preSelectIcoLookup.organizationRegistersNote)
-                      ? <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                      : <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    }
+                    <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                     <span>{preSelectIcoLookup.message}</span>
                   </div>
-                  {preSelectIcoLookup.registersUnavailable && preSelectSubjectType === "szco" && preSelectIco && (
-                    <div className="border-t border-amber-500/20 px-2.5 py-1.5 flex items-center gap-3">
-                      <span className="text-amber-400/70">Overte údaje manuálne:</span>
-                      <a
-                        href="https://www.zrsr.sk/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-amber-300 hover:text-amber-100 font-medium underline underline-offset-2"
-                        data-testid="link-zrsr-external"
-                      >
-                        Otvoriť ZRSR.sk ↗
-                      </a>
-                    </div>
-                  )}
-                  {preSelectIcoLookup.organizationRegistersNote && (
-                    <div className="border-t border-amber-500/20 px-2.5 py-1.5 space-y-1">
-                      <span className="text-amber-400/70 block">Overte IČO v príslušnom registri:</span>
-                      <div className="flex flex-wrap gap-x-3 gap-y-1">
-                        <a
-                          href="https://www.ives.sk/registre"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-amber-300 hover:text-amber-100 font-medium underline underline-offset-2"
-                          data-testid="link-ives-external"
-                        >
-                          Nadácie / OZ (MV SR) ↗
-                        </a>
-                        <a
-                          href="https://www.orsr.sk/search_ico.asp"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-amber-300 hover:text-amber-100 font-medium underline underline-offset-2"
-                          data-testid="link-orsr-org-external"
-                        >
-                          Záujmové združenia (ORSR) ↗
-                        </a>
-                        <a
-                          href="https://rpo.statistics.sk"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-amber-300 hover:text-amber-100 font-medium underline underline-offset-2"
-                          data-testid="link-rpo-external"
-                        >
-                          RPO ↗
-                        </a>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
               </>

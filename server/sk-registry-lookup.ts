@@ -1,13 +1,10 @@
 import * as cheerio from "cheerio";
 import * as iconv from "iconv-lite";
-import { createHash } from "crypto";
 
 export interface RegistryLookupResult {
   found: boolean;
   reachable?: boolean;
-  registersUnavailable?: boolean;
-  organizationRegistersNote?: boolean;
-  source?: "ORSR" | "ZRSR" | "ARES";
+  source?: "ORSR" | "ARES";
   name?: string;
   street?: string;
   streetNumber?: string;
@@ -164,221 +161,6 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
   }
 }
 
-const MAX_ALTCHA_ITERATIONS = 200000;
-
-async function solveAltchaChallenge(challengeJson: {
-  algorithm: string;
-  challenge: string;
-  salt: string;
-  signature: string;
-  maxnumber: number;
-}): Promise<string | null> {
-  const { challenge, salt } = challengeJson;
-  const cap = Math.min(challengeJson.maxnumber || 100000, MAX_ALTCHA_ITERATIONS);
-  const startTime = Date.now();
-  const TIMEOUT_MS = 3000;
-
-  for (let n = 0; n <= cap; n++) {
-    if (n % 10000 === 0 && Date.now() - startTime > TIMEOUT_MS) {
-      return null;
-    }
-    const hash = createHash("sha256").update(salt + n).digest("hex");
-    if (hash === challenge) {
-      const payload = JSON.stringify({
-        algorithm: challengeJson.algorithm,
-        challenge,
-        number: n,
-        salt,
-        signature: challengeJson.signature,
-      });
-      return Buffer.from(payload).toString("base64");
-    }
-  }
-  return null;
-}
-
-export async function lookupZrsrByIco(ico: string): Promise<RegistryLookupResult> {
-  try {
-    const getResp = await fetchWithTimeout("https://www.zrsr.sk/");
-    if (!getResp.ok) {
-      return { found: false, message: `ZRSR vrátil chybu (${getResp.status})` };
-    }
-
-    const pageHtml = await getResp.text();
-    const cookies = getResp.headers.getSetCookie?.() || [];
-    const cookieStr = cookies.map((c: string) => c.split(";")[0]).join("; ");
-
-    const tokenMatch = pageHtml.match(/name="__RequestVerificationToken".*?value="([^"]+)"/);
-    const token = tokenMatch ? tokenMatch[1] : "";
-
-    if (!token) {
-      return { found: false, message: "ZRSR: chýba CSRF token" };
-    }
-
-    let altchaSolution = "";
-    try {
-      const challengeResp = await fetchWithTimeout("https://www.zrsr.sk/?handler=AltchaChallenge", {
-        headers: { Cookie: cookieStr },
-      }, 5000);
-      if (challengeResp.ok) {
-        const challengeJson = await challengeResp.json();
-        const solution = await solveAltchaChallenge(challengeJson);
-        altchaSolution = solution || "";
-      }
-    } catch {
-      altchaSolution = "";
-    }
-
-    const body = new URLSearchParams({
-      how_filtered: "ico",
-      filter_ico: ico,
-      __RequestVerificationToken: token,
-    });
-
-    const postHeaders: Record<string, string> = {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "Cookie": cookieStr,
-      "Referer": "https://www.zrsr.sk/",
-      "Origin": "https://www.zrsr.sk",
-    };
-    if (altchaSolution) {
-      postHeaders["Altcha"] = altchaSolution;
-    }
-
-    const postResp = await fetchWithTimeout("https://www.zrsr.sk/", {
-      method: "POST",
-      headers: postHeaders,
-      body: body.toString(),
-    }, 8000);
-
-    if (!postResp.ok) {
-      return { found: false, message: `ZRSR vrátil chybu (${postResp.status})` };
-    }
-
-    const resultHtml = await postResp.text();
-    const $ = cheerio.load(resultHtml);
-
-    const bodyText = $("body").text();
-    if (
-      bodyText.includes("nie ste robot") ||
-      bodyText.includes("Overenie, ") ||
-      bodyText.includes("not a robot") ||
-      (resultHtml.includes("Overenie") && !bodyText.includes("Vyhľadávanie"))
-    ) {
-      return { found: false, reachable: false, message: "ZRSR: anti-bot ochrana aktívna" };
-    }
-
-    const resultTable = $("table.govuk-table");
-    if (!resultTable.length) {
-      if (bodyText.includes("správne vyplnený")) {
-        return { found: false, reachable: false, message: "ZRSR: nepodarilo sa overiť formulár" };
-      }
-      if (bodyText.includes("0 výsledkov") || bodyText.includes("neboli nájdené") || !bodyText.includes("Vyhľadávanie") || resultHtml.length < 5000) {
-        return { found: false, reachable: true, message: "Živnostník nenájdený v ZRSR" };
-      }
-      return { found: false, reachable: true, message: "Živnostník nenájdený v ZRSR" };
-    }
-
-    let name = "";
-    let street = "";
-    let streetNumber = "";
-    let zip = "";
-    let city = "";
-
-    $("table.govuk-table tbody tr").each((_, row) => {
-      const cells = $(row).find("td");
-      if (cells.length >= 2) {
-        const label = cleanText($(cells[0]).text());
-        const value = cleanText($(cells[1]).text());
-        if (label.includes("Obchodné meno") || label.includes("obchodné meno")) {
-          name = value;
-        }
-        if (label.includes("Miesto podnikania") || label.includes("Sídlo") || label.includes("sídlo")) {
-          const addrParts = value.split(",").map(s => s.trim());
-          if (addrParts.length >= 2) {
-            const streetPart = addrParts[0];
-            const streetMatch = streetPart.match(/^(.+?)\s+(\d+[\w/]*)$/);
-            if (streetMatch) {
-              street = streetMatch[1];
-              streetNumber = streetMatch[2];
-            } else {
-              street = streetPart;
-            }
-            const cityPart = addrParts[addrParts.length - 1];
-            const zipMatch = cityPart.match(/(\d{3}\s?\d{2})\s*(.*)/);
-            if (zipMatch) {
-              zip = zipMatch[1].replace(/\s/g, "");
-              city = zipMatch[2] || "";
-            } else {
-              city = cityPart;
-            }
-            if (addrParts.length >= 3 && !zip) {
-              const midPart = addrParts[1];
-              const midZipMatch = midPart.match(/(\d{3}\s?\d{2})/);
-              if (midZipMatch) {
-                zip = midZipMatch[1].replace(/\s/g, "");
-              }
-            }
-          }
-        }
-      }
-    });
-
-    if (!name) {
-      const bodyText = $("body").text();
-      const detailLinks = $("a[href*='detail']");
-      if (detailLinks.length > 0) {
-        const firstLink = detailLinks.first();
-        name = cleanText(firstLink.text()) || "";
-      }
-
-      if (!name) {
-        const resultRows = $(".govuk-summary-list__row");
-        resultRows.each((_, row) => {
-          const key = cleanText($(row).find(".govuk-summary-list__key").text());
-          const val = cleanText($(row).find(".govuk-summary-list__value").text());
-          if (key.includes("Obchodné meno") || key.includes("Meno")) {
-            name = val;
-          }
-          if ((key.includes("Miesto") || key.includes("Sídlo")) && val) {
-            const parts = val.split(",").map(s => s.trim());
-            if (parts.length >= 2) {
-              const sPart = parts[0];
-              const sMatch = sPart.match(/^(.+?)\s+(\d+[\w/]*)$/);
-              if (sMatch) { street = sMatch[1]; streetNumber = sMatch[2]; }
-              else { street = sPart; }
-              const cPart = parts[parts.length - 1];
-              const zMatch = cPart.match(/(\d{3}\s?\d{2})\s*(.*)/);
-              if (zMatch) { zip = zMatch[1].replace(/\s/g, ""); city = zMatch[2]; }
-              else { city = cPart; }
-            }
-          }
-        });
-      }
-    }
-
-    if (!name) {
-      return { found: false, message: "Živnostník nenájdený v ZRSR" };
-    }
-
-    return {
-      found: true,
-      source: "ZRSR",
-      name,
-      street,
-      streetNumber,
-      zip,
-      city,
-      legalForm: "Fyzická osoba - podnikateľ",
-    };
-  } catch (err: any) {
-    if (err.name === "AbortError") {
-      return { found: false, message: "ZRSR nedostupný (timeout)" };
-    }
-    console.error("[ZRSR LOOKUP ERROR]", err.message);
-    return { found: false, message: "Chyba pri komunikácii s ZRSR" };
-  }
-}
 
 export async function lookupAresByIco(ico: string): Promise<RegistryLookupResult> {
   try {
@@ -458,65 +240,13 @@ export async function lookupByIco(
   }
   const normalized = icoResult.normalized || ico;
 
-  const lookups: Array<() => Promise<RegistryLookupResult>> = [];
-
   if (type === "szco") {
-    lookups.push(() => lookupZrsrByIco(normalized));
-    lookups.push(() => lookupOrsrByIco(normalized));
-    if (!skipAres) lookups.push(() => lookupAresByIco(normalized));
-  } else if (type === "company" || type === "organization") {
-    lookups.push(() => lookupOrsrByIco(normalized));
-    lookups.push(() => lookupZrsrByIco(normalized));
-    if (!skipAres) lookups.push(() => lookupAresByIco(normalized));
-  } else {
-    lookups.push(() => lookupOrsrByIco(normalized));
-    lookups.push(() => lookupZrsrByIco(normalized));
-    if (!skipAres) lookups.push(() => lookupAresByIco(normalized));
-  }
-
-  let lastErrorMessage = "";
-  let anyReachable = false;
-  let allUnreachable = true;
-  let zrsrUnreachable = false;
-
-  for (const lookup of lookups) {
-    try {
-      const result = await lookup();
-      if (result.found) {
-        return { valid: true, normalized, ...result };
-      }
-      const reachable = result.reachable !== false;
-      if (reachable) {
-        anyReachable = true;
-        allUnreachable = false;
-      }
-      if (result.message === "ZRSR: anti-bot ochrana aktívna" || result.message === "ZRSR: nepodarilo sa overiť formulár") {
-        zrsrUnreachable = true;
-      }
-      if (result.message) lastErrorMessage = result.message;
-    } catch {
-      continue;
-    }
-  }
-
-  if (type === "szco" && zrsrUnreachable) {
     return {
       valid: true,
       normalized,
       found: false,
-      registersUnavailable: true,
-      message: "Živnostenský register SR (ZRSR) je dočasne nedostupný z technických dôvodov. Vyplňte údaje živnosti manuálne.",
-    } as any;
-  }
-
-  if (allUnreachable) {
-    return {
-      valid: true,
-      normalized,
-      found: false,
-      registersUnavailable: true,
-      message: "Štátne registre sú dočasne nedostupné. Skúste neskôr alebo vyplňte údaje manuálne.",
-    } as any;
+      message: "Pre SZČO nie je automatické vyhľadávanie v registroch dostupné. Vyplňte údaje manuálne.",
+    };
   }
 
   if (type === "organization") {
@@ -524,9 +254,37 @@ export async function lookupByIco(
       valid: true,
       normalized,
       found: false,
-      organizationRegistersNote: true,
-      message: "IČO nenájdené v Obchodnom registri SR. Neziskové organizácie, nadácie a OZ sú evidované v iných registroch — vyplňte údaje manuálne.",
-    } as any;
+      message: "Pre neziskové organizácie nie je automatické vyhľadávanie v registroch dostupné. Vyplňte údaje manuálne.",
+    };
+  }
+
+  const lookups: Array<() => Promise<RegistryLookupResult>> = [];
+  lookups.push(() => lookupOrsrByIco(normalized));
+  if (!skipAres) lookups.push(() => lookupAresByIco(normalized));
+
+  let allUnreachable = true;
+
+  for (const lookup of lookups) {
+    try {
+      const result = await lookup();
+      if (result.found) {
+        return { valid: true, normalized, ...result };
+      }
+      if (result.reachable !== false) {
+        allUnreachable = false;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  if (allUnreachable) {
+    return {
+      valid: true,
+      normalized,
+      found: false,
+      message: "Štátne registre sú dočasne nedostupné. Skúste neskôr alebo vyplňte údaje manuálne.",
+    };
   }
 
   return {
