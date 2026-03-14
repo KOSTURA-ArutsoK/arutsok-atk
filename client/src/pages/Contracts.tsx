@@ -4966,12 +4966,11 @@ export default function Contracts() {
   };
 
   const preSelectFilteredSubjects = (() => {
-    if (!subjects) return [];
-    const byType = subjects.filter(s => s.type === preSelectSubjectType);
-    if (!preSelectSubjectSearch.trim()) return byType;
+    if (!subjects || !preSelectSubjectSearch.trim()) return [];
     const q = preSelectSubjectSearch.toLowerCase().trim();
-    return byType.filter(s => {
-      const fullName = s.type === "company"
+    return subjects.filter(s => {
+      if (s.deletedAt) return false;
+      const fullName = s.type === "company" || s.type === "organization"
         ? (s.companyName || "")
         : s.type === "szco"
         ? `${s.companyName || ""} ${s.firstName || ""} ${s.lastName || ""}`.trim()
@@ -5372,69 +5371,15 @@ export default function Contracts() {
         <div style={{ display: preSelectStep === 2 ? 'block' : 'none' }}>
           <div className="space-y-2">
 
-            <div className="space-y-1.5">
-                <label className="text-xs font-medium">Typ subjektu</label>
-                {(() => {
-                  const subOpts: Array<{val: "person"|"szco"|"organization"|"company", label: string, icon: typeof User}> = [
-                    {val:"person", label:"Fyzická osoba", icon: User},
-                    {val:"szco", label:"SZČO", icon: Briefcase},
-                    {val:"organization", label:"Organizácia/Nadácia", icon: Building},
-                    {val:"company", label:"Právnická osoba", icon: Building2},
-                  ];
-                  const activeSubIdx = subOpts.findIndex(o => o.val === preSelectSubjectType);
-                  const n = subOpts.length;
-                  const handleSubKey = (e: React.KeyboardEvent, idx: number) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      const selVal = subOpts[idx].val;
-                      setTimeout(() => {
-                        if ((selVal === "szco" || selVal === "company" || selVal === "organization") && refRegisterButton.current && !refRegisterButton.current.disabled) {
-                          refRegisterButton.current.focus();
-                        } else {
-                          refSearchInput.current?.focus();
-                        }
-                      }, 50);
-                      return;
-                    }
-                    let next = -1;
-                    if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); next = (idx+1)%n; }
-                    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); next = (idx+n-1)%n; }
-                    if (next >= 0) {
-                      const val = subOpts[next].val;
-                      setPreSelectSubjectType(val);
-                      if (val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); }
-                      setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); setPreSelectSearchHint(null);
-                      const btns = (e.currentTarget.closest('[role="radiogroup"]') as HTMLElement)?.querySelectorAll('button[role="radio"]');
-                      (btns?.[next] as HTMLElement)?.focus();
-                    }
-                  };
-                  return (
-                    <div className="relative w-full flex p-1 bg-muted/50 rounded-lg border border-border/80" role="radiogroup" aria-label="Typ subjektu" data-testid="toggle-subject-type">
-                      <div className="absolute top-1 bottom-1 rounded-md bg-background shadow-md border border-border/60 transition-all duration-200 ease-out" style={{ width: `calc((100% - 8px) / ${n})`, left: `calc(4px + ${activeSubIdx >= 0 ? activeSubIdx : 0} * (100% - 8px) / ${n})` }} />
-                      {subOpts.map((opt, idx) => {
-                        const Icon = opt.icon;
-                        const isActive = preSelectSubjectType === opt.val;
-                        return (
-                          <button key={opt.val} type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
-                            className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-xs font-semibold rounded-md transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground scale-[1.02]" : "text-muted-foreground hover:text-foreground/80"}`}
-                            onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); setPreSelectSearchHint(null); }}
-                            onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : opt.val === "organization" ? "org" : "po"}`}
-                          ><Icon className="w-3.5 h-3.5" />{opt.label}</button>
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
-              </div>
-
+            {/* SEARCH FIRST */}
             <div className="space-y-1">
-              <label className="text-xs font-medium">Vyhladavanie</label>
+              <label className="text-xs font-medium">Vyhľadávanie</label>
               <div className="flex gap-1.5">
               <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   ref={refSearchInput}
-                  placeholder={preSelectSubjectType === "person" ? "Rodné číslo / Meno..." : preSelectSubjectType === "szco" ? "Rodné číslo / IČO / Meno..." : "IČO / Názov..."}
+                  placeholder="Rodné číslo, IČO alebo meno..."
                   value={preSelectSubjectSearch}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -5484,6 +5429,8 @@ export default function Contracts() {
                         } else if (/^\d{9,10}$/.test(trimmed)) {
                           setPreSelectBirthNumber(trimmed);
                           setPreSelectSearchHint("possible_rc");
+                          setPreSelectSubjectType("person");
+                          setPreSelectShowNameFields(true);
                         } else {
                           if ((preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization") && /^\d+$/.test(trimmed)) {
                             setPreSelectIco(trimmed);
@@ -5526,33 +5473,32 @@ export default function Contracts() {
                 </button>
               )}
               </div>
-              {preSelectSearchHint === "szco_or_po" && (
-                <div className="flex items-center gap-2 px-2 py-1.5 rounded border border-red-500/40 bg-red-500/10 text-red-400 text-xs" data-testid="hint-search-szco-or-po">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>Zadané číslo zodpovedá formátu IČO — ide pravdepodobne o <strong>SZČO</strong> alebo <strong>PO</strong></span>
+              {/* IČO detekcia — inline výber typu */}
+              {preSelectSearchHint === "szco_or_po" && !preSelectSubjectId && (
+                <div className="flex items-center gap-2 px-2 py-1.5 rounded border border-border/60 bg-muted/40 text-xs" data-testid="hint-search-szco-or-po">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="text-muted-foreground">IČO detegované — vyberte typ:</span>
+                  <div className="flex gap-1 ml-auto">
+                    {([{val:"szco",label:"SZČO",icon:Briefcase},{val:"company",label:"PO",icon:Building2},{val:"organization",label:"Org/Nad",icon:Building}] as const).map(opt => {
+                      const Icon = opt.icon;
+                      const isActive = preSelectSubjectType === opt.val;
+                      return (
+                        <button key={opt.val} type="button"
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold border transition-colors ${isActive ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"}`}
+                          onClick={() => { setPreSelectSubjectType(opt.val); setPreSelectShowNameFields(true); setTimeout(() => refRegisterButton.current?.focus(), 50); }}
+                          data-testid={`btn-detect-type-${opt.val}`}
+                        ><Icon className="w-3 h-3" />{opt.label}</button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
+              {/* RČ detekcia — auto-badge */}
               {preSelectSearchHint === "possible_rc" && (
-                <div className="flex items-center justify-between gap-2 px-2 py-1.5 rounded border border-amber-500/40 bg-amber-500/10 text-xs" data-testid="hint-search-possible-rc">
-                  <div className="flex items-center gap-2 text-amber-400">
-                    <Info className="w-3.5 h-3.5 shrink-0" />
-                    <span>Zadané číslo môže byť rodné číslo (RČ)</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="shrink-0 flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded border border-green-500/50 bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors"
-                    onClick={() => {
-                      setPreSelectSubjectType("person");
-                      setPreSelectSearchHint(null);
-                      setTimeout(() => {
-                        const btn = document.querySelector('[data-testid="toggle-subject-type-fo"]') as HTMLElement;
-                        if (btn) btn.focus();
-                      }, 50);
-                    }}
-                    data-testid="button-confirm-as-rc"
-                  >
-                    <CheckCircle2 className="w-3 h-3" />Áno, je to RČ
-                  </button>
+                <div className="flex items-center gap-2 px-2 py-1.5 rounded border border-blue-500/30 bg-blue-500/5 text-xs text-blue-400" data-testid="hint-search-possible-rc">
+                  <User className="w-3.5 h-3.5 shrink-0" />
+                  <span>Detegovaný formát RČ → <strong>Fyzická osoba</strong></span>
+                  <CheckCircle2 className="w-3.5 h-3.5 ml-auto" />
                 </div>
               )}
             </div>
@@ -5643,8 +5589,66 @@ export default function Contracts() {
               </div>
             </div>
 
-            <div style={{ display: preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 0 ? 'block' : 'none' }}>
-              <p className="text-xs text-muted-foreground mb-2" data-testid="text-no-subjects">Klient nenajdeny — vyplnte udaje noveho klienta</p>
+            {/* TYP SUBJEKTU — sekundárny override */}
+            {!preSelectSubjectId && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Typ subjektu</label>
+                {(() => {
+                  const subOpts: Array<{val: "person"|"szco"|"organization"|"company", label: string, icon: typeof User}> = [
+                    {val:"person", label:"FO", icon: User},
+                    {val:"szco", label:"SZČO", icon: Briefcase},
+                    {val:"organization", label:"Org/Nad", icon: Building},
+                    {val:"company", label:"PO", icon: Building2},
+                  ];
+                  const activeSubIdx = subOpts.findIndex(o => o.val === preSelectSubjectType);
+                  const n = subOpts.length;
+                  const handleSubKey = (e: React.KeyboardEvent, idx: number) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const selVal = subOpts[idx].val;
+                      setTimeout(() => {
+                        if ((selVal === "szco" || selVal === "company" || selVal === "organization") && refRegisterButton.current && !refRegisterButton.current.disabled) {
+                          refRegisterButton.current.focus();
+                        } else {
+                          refSearchInput.current?.focus();
+                        }
+                      }, 50);
+                      return;
+                    }
+                    let next = -1;
+                    if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); next = (idx+1)%n; }
+                    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); next = (idx+n-1)%n; }
+                    if (next >= 0) {
+                      const val = subOpts[next].val;
+                      setPreSelectSubjectType(val);
+                      if (val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); }
+                      setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); setPreSelectSearchHint(null);
+                      const btns = (e.currentTarget.closest('[role="radiogroup"]') as HTMLElement)?.querySelectorAll('button[role="radio"]');
+                      (btns?.[next] as HTMLElement)?.focus();
+                    }
+                  };
+                  return (
+                    <div className="relative w-full flex p-0.5 bg-muted/40 rounded border border-border/60" role="radiogroup" aria-label="Typ subjektu" data-testid="toggle-subject-type">
+                      <div className="absolute top-0.5 bottom-0.5 rounded bg-background shadow border border-border/50 transition-all duration-200 ease-out" style={{ width: `calc((100% - 4px) / ${n})`, left: `calc(2px + ${activeSubIdx >= 0 ? activeSubIdx : 0} * (100% - 4px) / ${n})` }} />
+                      {subOpts.map((opt, idx) => {
+                        const Icon = opt.icon;
+                        const isActive = preSelectSubjectType === opt.val;
+                        return (
+                          <button key={opt.val} type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
+                            className={`relative z-10 flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs font-medium rounded transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground/80"}`}
+                            onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); setPreSelectSearchHint(null); }}
+                            onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : opt.val === "organization" ? "org" : "po"}`}
+                          ><Icon className="w-3 h-3" />{opt.label}</button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            <div style={{ display: preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 0 && !preSelectSearchHint ? 'block' : 'none' }}>
+              <p className="text-xs text-muted-foreground mb-2" data-testid="text-no-subjects">Klient nenájdený — vyplňte údaje nového klienta</p>
             </div>
 
             {(preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization") && !preSelectSubjectId && (
