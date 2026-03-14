@@ -5368,7 +5368,7 @@ export default function Contracts() {
               <p className="text-xs text-muted-foreground mb-2" data-testid="text-no-subjects">Klient nenajdeny — vyplnte udaje noveho klienta</p>
             </div>
 
-            {(preSelectSubjectType === "szco" || preSelectSubjectType === "company") && (
+            {(preSelectSubjectType === "szco" || preSelectSubjectType === "company") && !preSelectSubjectId && (
               <>
               <div className="space-y-1">
                 <label className="text-xs font-medium">{preSelectSubjectType === "szco" ? "Nazov zivnosti" : "Nazov spolocnosti"} *</label>
