@@ -849,10 +849,10 @@ export function AppSidebar() {
                               </SidebarMenuSubItem>
                               <SidebarMenuSubItem key="/digitalne-zmluvy">
                                 <SidebarMenuSubButton asChild isActive={location === "/digitalne-zmluvy"} data-testid="nav-digitalne-zmluvy">
-                                  <Link href="/digitalne-zmluvy">
-                                    <Globe className="w-3.5 h-3.5" />
-                                    <span className="flex-1">Digitálne zmluvy</span>
-                                    <span className="ml-auto text-[11px] font-bold text-blue-800 dark:text-blue-400 tabular-nums">{digitalContractsCount}x API</span>
+                                  <Link href="/digitalne-zmluvy" className="flex items-center gap-2 w-full">
+                                    <Globe className="w-3.5 h-3.5 shrink-0" />
+                                    <span className="flex-1 min-w-0 truncate">Digitálne zmluvy</span>
+                                    <span className="ml-auto shrink-0 text-[11px] font-bold text-blue-800 dark:text-blue-400 tabular-nums">{digitalContractsCount}x API</span>
                                   </Link>
                                 </SidebarMenuSubButton>
                               </SidebarMenuSubItem>
