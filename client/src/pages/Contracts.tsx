@@ -4557,38 +4557,22 @@ export default function Contracts() {
     if (!result.valid) { setPreSelectIcoError(result.error || "Neplatné IČO"); setPreSelectIcoLookup(null); return; }
     setPreSelectIcoError(null);
     if (result.normalized) setPreSelectIco(result.normalized);
+
+    if (preSelectSubjectType === "szco" || preSelectSubjectType === "organization") {
+      setPreSelectIcoLookup(null);
+      setPreSelectShowNameFields(true);
+      return;
+    }
+
     setPreSelectIcoLookupLoading(true);
     setPreSelectIcoLookup(null);
-    const lookupType = preSelectSubjectType === "szco" ? "szco" : "company";
     const stateParam = activeStateId ? `&stateId=${activeStateId}` : "";
-    fetch(`/api/lookup/ico/${encodeURIComponent(result.normalized || val)}?type=${lookupType}${stateParam}`, { credentials: "include" })
+    fetch(`/api/lookup/ico/${encodeURIComponent(result.normalized || val)}?type=company${stateParam}`, { credentials: "include" })
       .then(r => r.json())
       .then(data => {
         if (data.found) {
           setPreSelectIcoLookup(data);
           if (data.name) setPreSelectBusinessName(data.name);
-          if (preSelectSubjectType === "szco" && data.name) {
-            const TITLES = ["Ing.", "Mgr.", "MUDr.", "JUDr.", "RNDr.", "PhDr.", "Bc.", "PhD.", "MVDr.", "Doc.", "Prof.", "Ing.arch.", "PaedDr.", "ThDr.", "ThMgr.", "ThLic."];
-            let raw = data.name.trim();
-            const dashIdx = raw.search(/\s[-–]\s/);
-            if (dashIdx > 0) raw = raw.slice(0, dashIdx).trim();
-            let titleBefore = "";
-            for (const t of TITLES) {
-              if (raw.toUpperCase().startsWith(t.toUpperCase())) {
-                titleBefore = t;
-                raw = raw.slice(t.length).trim();
-                break;
-              }
-            }
-            const parts = raw.split(/\s+/);
-            if (parts.length >= 2) {
-              if (titleBefore) setPreSelectTitleBefore(titleBefore);
-              setPreSelectFirstName(parts[0]);
-              setPreSelectLastName(parts.slice(1).join(" "));
-            } else if (parts.length === 1 && parts[0]) {
-              setPreSelectLastName(parts[0]);
-            }
-          }
           setPreSelectShowNameFields(true);
         } else {
           setPreSelectIcoLookup({ found: false, message: data.message || "Subjekt nenájdený v štátnych registroch" });
@@ -5498,7 +5482,7 @@ export default function Contracts() {
                   data-testid="input-preselect-subject-search"
                 />
               </div>
-              {(preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization") && !preSelectSubjectId && (
+              {preSelectSubjectType === "company" && !preSelectSubjectId && (
                 <button
                   ref={refRegisterButton}
                   type="button"
@@ -5655,7 +5639,7 @@ export default function Contracts() {
                         return (
                           <button key={opt.val} type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
                             className={`relative z-10 flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs font-medium rounded transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground/80"}`}
-                            onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); setPreSelectSearchHint(null); }}
+                            onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(opt.val === "szco" || opt.val === "organization"); setPreSelectBirthNumber(""); setPreSelectSearchHint(null); setPreSelectIcoLookup(null); }}
                             onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : opt.val === "organization" ? "org" : "po"}`}
                           ><Icon className="w-3 h-3" />{opt.label}</button>
                         );
