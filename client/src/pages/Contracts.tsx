@@ -647,14 +647,6 @@ function ContractFormDialog({
     }
   }, [existingRewardDistributions, editingContract]);
 
-  useEffect(() => {
-    if (preSelectOpen && preSelectStep === 2) {
-      setTimeout(() => {
-        refSearchInput.current?.focus();
-      }, 100);
-    }
-  }, [preSelectOpen, preSelectStep]);
-
   const handleOpenChange = useCallback((isOpen: boolean) => {
     onOpenChange(isOpen);
   }, [onOpenChange]);
@@ -4522,6 +4514,12 @@ export default function Contracts() {
     document.addEventListener("keydown", handleShiftEnter, true);
     return () => document.removeEventListener("keydown", handleShiftEnter, true);
   }, [preSelectOpen, preSelectStep, preSelectWithTime, preSelectNumberType]);
+
+  useEffect(() => {
+    if (preSelectOpen && preSelectStep === 2) {
+      setTimeout(() => refSearchInput.current?.focus(), 150);
+    }
+  }, [preSelectOpen, preSelectStep]);
 
   const handlePreSelectStep1ForceNext = () => {
     setPreSelectNumberDuplicates([]);
