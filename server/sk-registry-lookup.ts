@@ -5,6 +5,8 @@ import { createHash } from "crypto";
 export interface RegistryLookupResult {
   found: boolean;
   reachable?: boolean;
+  registersUnavailable?: boolean;
+  organizationRegistersNote?: boolean;
   source?: "ORSR" | "ZRSR" | "ARES";
   name?: string;
   street?: string;
@@ -514,6 +516,16 @@ export async function lookupByIco(
       found: false,
       registersUnavailable: true,
       message: "Štátne registre sú dočasne nedostupné. Skúste neskôr alebo vyplňte údaje manuálne.",
+    } as any;
+  }
+
+  if (type === "organization") {
+    return {
+      valid: true,
+      normalized,
+      found: false,
+      organizationRegistersNote: true,
+      message: "IČO nenájdené v Obchodnom registri SR. Neziskové organizácie, nadácie a OZ sú evidované v iných registroch — vyplňte údaje manuálne.",
     } as any;
   }
 
