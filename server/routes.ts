@@ -7170,8 +7170,14 @@ export async function registerRoutes(
       const { ico } = req.params;
       const type = (req.query.type as string) || undefined;
       const subjectIdParam = req.query.subjectId ? Number(req.query.subjectId) : null;
+      const stateIdParam = req.query.stateId ? Number(req.query.stateId) : (req as any).appUser?.activeStateId || null;
+      let skipAres = false;
+      if (stateIdParam) {
+        const [stateRow] = await db.select({ code: states.code }).from(states).where(eq(states.id, stateIdParam));
+        if (stateRow?.code === "421") skipAres = true;
+      }
       const { lookupByIco } = await import("./sk-registry-lookup");
-      const result = await lookupByIco(ico, type);
+      const result = await lookupByIco(ico, type, skipAres);
       if (!result.valid) {
         return res.status(400).json({ valid: false, error: result.message });
       }

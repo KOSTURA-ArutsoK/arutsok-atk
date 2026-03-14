@@ -436,7 +436,8 @@ export async function lookupAresByIco(ico: string): Promise<RegistryLookupResult
 
 export async function lookupByIco(
   ico: string,
-  type?: "szco" | "company" | "organization" | "person" | string
+  type?: "szco" | "company" | "organization" | "person" | string,
+  skipAres?: boolean
 ): Promise<RegistryLookupResult & { valid: boolean; normalized: string }> {
   const { validateSlovakICO } = await import("@shared/ico-validator");
   const icoResult = validateSlovakICO(ico);
@@ -450,15 +451,15 @@ export async function lookupByIco(
   if (type === "szco") {
     lookups.push(() => lookupZrsrByIco(normalized));
     lookups.push(() => lookupOrsrByIco(normalized));
-    lookups.push(() => lookupAresByIco(normalized));
+    if (!skipAres) lookups.push(() => lookupAresByIco(normalized));
   } else if (type === "company" || type === "organization") {
     lookups.push(() => lookupOrsrByIco(normalized));
     lookups.push(() => lookupZrsrByIco(normalized));
-    lookups.push(() => lookupAresByIco(normalized));
+    if (!skipAres) lookups.push(() => lookupAresByIco(normalized));
   } else {
     lookups.push(() => lookupOrsrByIco(normalized));
     lookups.push(() => lookupZrsrByIco(normalized));
-    lookups.push(() => lookupAresByIco(normalized));
+    if (!skipAres) lookups.push(() => lookupAresByIco(normalized));
   }
 
   let lastErrorMessage = "";

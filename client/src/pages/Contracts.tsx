@@ -4559,8 +4559,9 @@ export default function Contracts() {
     if (result.normalized) setPreSelectIco(result.normalized);
     setPreSelectIcoLookupLoading(true);
     setPreSelectIcoLookup(null);
-    const lookupType = preSelectSubjectType === "szco" ? "szco" : "company"; 
-    fetch(`/api/lookup/ico/${encodeURIComponent(result.normalized || val)}?type=${lookupType}`, { credentials: "include" })
+    const lookupType = preSelectSubjectType === "szco" ? "szco" : "company";
+    const stateParam = activeStateId ? `&stateId=${activeStateId}` : "";
+    fetch(`/api/lookup/ico/${encodeURIComponent(result.normalized || val)}?type=${lookupType}${stateParam}`, { credentials: "include" })
       .then(r => r.json())
       .then(data => {
         if (data.found) {
