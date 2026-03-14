@@ -5757,14 +5757,30 @@ export default function Contracts() {
               )}
               {preSelectIcoLookup && !preSelectIcoLookup.found && (
                 <div
-                  className={`flex items-start gap-2 rounded px-2.5 py-2 text-xs leading-snug ${preSelectIcoLookup.registersUnavailable ? "bg-amber-500/10 border border-amber-500/30 text-amber-400" : "bg-muted/50 border border-border text-muted-foreground"}`}
+                  className={`rounded text-xs leading-snug ${preSelectIcoLookup.registersUnavailable ? "bg-amber-500/10 border border-amber-500/30 text-amber-400" : "bg-muted/50 border border-border text-muted-foreground"}`}
                   data-testid="text-preselect-ico-not-found"
                 >
-                  {preSelectIcoLookup.registersUnavailable
-                    ? <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    : <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  }
-                  <span>{preSelectIcoLookup.message}</span>
+                  <div className="flex items-start gap-2 px-2.5 py-2">
+                    {preSelectIcoLookup.registersUnavailable
+                      ? <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      : <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    }
+                    <span>{preSelectIcoLookup.message}</span>
+                  </div>
+                  {preSelectIcoLookup.registersUnavailable && preSelectSubjectType === "szco" && preSelectIco && (
+                    <div className="border-t border-amber-500/20 px-2.5 py-1.5 flex items-center gap-3">
+                      <span className="text-amber-400/70">Overte údaje manuálne:</span>
+                      <a
+                        href="https://www.zrsr.sk/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-amber-300 hover:text-amber-100 font-medium underline underline-offset-2"
+                        data-testid="link-zrsr-external"
+                      >
+                        Otvoriť ZRSR.sk ↗
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
               </>
