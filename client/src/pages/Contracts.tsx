@@ -6159,20 +6159,13 @@ export default function Contracts() {
           </div>
         </div>
 
-        <WorkflowDiagram
-          folderDefs={folderDefs}
-          row2FolderDefs={row2FolderDefs}
-          activeFolder={activeFolder}
-          onFolderClick={(id: number) => { setActiveFolder(id); setRerouteSelectedIds([]); }}
-        />
-
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Hladat zmluvy (cislo, klient, partner, produkt...)"
+              placeholder="Hladať zmluvy (číslo, klient, partner, produkt...)"
               className="pl-9"
               data-testid="input-search-contracts"
             />
@@ -6181,6 +6174,13 @@ export default function Contracts() {
           <ColumnManager columnVisibility={evidenciaColumnVisibility} />
           <ColumnManager columnVisibility={sprievodkaColumnVisibility} />
         </div>
+
+        <WorkflowDiagram
+          folderDefs={folderDefs}
+          row2FolderDefs={row2FolderDefs}
+          activeFolder={activeFolder}
+          onFolderClick={(id: number) => { setActiveFolder(id); setRerouteSelectedIds([]); }}
+        />
 
         <div id="folder-1-wrapper" style={{ display: activeFolder === 1 ? 'block' : 'none' }}>
           <Card data-testid="folder-nahravanie">
@@ -6232,7 +6232,7 @@ export default function Contracts() {
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-cakajuce">Ziadne zmluvy cakajuce na prijatie</p>
               ) : (
                 <div className="divide-y">
-                  {dispatchedBySprievodka.map(group => {
+                  {dispatchedBySprievodka.map(group => ({ ...group, contracts: filterBySearch(group.contracts) })).filter(g => g.contracts.length > 0).map(group => {
                     const isExpanded = expandedSprievodky.has(group.inventoryId);
 
                     return (
@@ -6469,7 +6469,7 @@ export default function Contracts() {
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-prijate">Žiadne zmluvy prijaté do centrály</p>
               ) : (
                 <div className="divide-y">
-                  {acceptedBySprievodka.map(group => {
+                  {acceptedBySprievodka.map(group => ({ ...group, contracts: filterBySearch(group.contracts) })).filter(g => g.contracts.length > 0).map(group => {
                     const isExpanded = expandedSprievodky.has(group.inventoryId + 200000);
                     return (
                       <div key={group.inventoryId} data-testid={`accepted-sprievodka-group-${group.inventoryId}`}>
@@ -6515,7 +6515,7 @@ export default function Contracts() {
             10: "Doručené partnerovi. Doplní sa dátum prijatia partnerom. Kontrakt definitívne vypadáva z dashboardu.",
           };
           return [6, 7, 8, 9, 10].map(phaseId => {
-            const phaseContracts = phaseId === 6 ? phase6Contracts : phaseId === 7 ? phase7Contracts : phaseId === 8 ? phase8Contracts : phaseId === 9 ? phase9Contracts : phase10Contracts;
+            const phaseContracts = filterBySearch(phaseId === 6 ? phase6Contracts : phaseId === 7 ? phase7Contracts : phaseId === 8 ? phase8Contracts : phaseId === 9 ? phase9Contracts : phase10Contracts);
             const phaseDef = row2FolderDefs.find(f => f.id === phaseId) || folderDefs.find(f => f.id === phaseId);
             const showCheckbox = [6, 7].includes(phaseId);
             const isGroupedPhase = [8, 9, 10].includes(phaseId);
