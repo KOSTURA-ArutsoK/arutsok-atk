@@ -4978,18 +4978,34 @@ export default function Contracts() {
               </Select>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Typ zmluvy *</label>
-              <Select value={preSelectContractType} onValueChange={(v) => { setPreSelectContractType(v); setTimeout(() => refSignedDateInput.current?.focus(), 50); }}>
-                <SelectTrigger ref={refContractTypeTrigger} data-testid="select-preselect-contract-type">
-                  <SelectValue placeholder="Vyberte typ zmluvy" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Nova">🟢 Nová zmluva</SelectItem>
-                  <SelectItem value="Prestupova">🔵 Prestupová zmluva</SelectItem>
-                  <SelectItem value="Zmenova">🟡 Zmenová zmluva</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Typ zmluvy *</label>
+                <Select value={preSelectContractType} onValueChange={(v) => { setPreSelectContractType(v); setTimeout(() => refSignedDateInput.current?.focus(), 50); }}>
+                  <SelectTrigger ref={refContractTypeTrigger} data-testid="select-preselect-contract-type">
+                    <SelectValue placeholder="Vyberte typ zmluvy" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Nova">🟢 Nová zmluva</SelectItem>
+                    <SelectItem value="Prestupova">🔵 Prestupová zmluva</SelectItem>
+                    <SelectItem value="Zmenova">🟡 Zmenová zmluva</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Dátum uzatvorenia</label>
+                <Input
+                  ref={refSignedDateInput}
+                  type="date"
+                  value={preSelectSignedDate}
+                  onChange={e => setPreSelectSignedDate(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); setTimeout(() => { const ref = preSelectNumberType === "proposal" ? refNumberToggleProposal : refNumberToggleContract; ref.current?.focus(); }, 50); } }}
+                  data-testid="input-preselect-signed-date"
+                />
+                {preSelectSignedDate && new Date(preSelectSignedDate) > new Date() && (
+                  <p className="text-[10px] text-orange-400 mt-0.5">Dátum je v budúcnosti</p>
+                )}
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -5117,21 +5133,6 @@ export default function Contracts() {
                 </div>
               </div>
             )}
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Dátum uzatvorenia</label>
-              <Input
-                ref={refSignedDateInput}
-                type="date"
-                value={preSelectSignedDate}
-                onChange={e => setPreSelectSignedDate(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); setTimeout(() => { const ref = preSelectNumberType === "proposal" ? refNumberToggleProposal : refNumberToggleContract; ref.current?.focus(); }, 50); } }}
-                data-testid="input-preselect-signed-date"
-              />
-              {preSelectSignedDate && new Date(preSelectSignedDate) > new Date() && (
-                <p className="text-[10px] text-orange-400 mt-0.5">Dátum uzatvorenia je v budúcnosti</p>
-              )}
-            </div>
 
             <div className="flex justify-end gap-2">
               <Button ref={refStep1Next} onClick={handlePreSelectStep1Next} disabled={!preSelectPartnerId || preSelectCheckingDuplicates} style={{ display: preSelectNumberDuplicates.length > 0 ? 'none' : undefined }} data-testid="button-preselect-next">
