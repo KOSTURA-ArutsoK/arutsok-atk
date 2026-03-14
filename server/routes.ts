@@ -3394,7 +3394,7 @@ export async function registerRoutes(
       const allowedFields = [
         "partnerId", "productId", "sectorProductId", "subjectId",
         "proposalNumber", "contractNumber", "lifecyclePhase",
-        "incompleteData", "incompleteDataReason",
+        "incompleteData", "incompleteDataReason", "signatoryName",
       ];
       const updateData: Record<string, any> = { updatedAt: new Date() };
       for (const field of allowedFields) {
@@ -7299,6 +7299,7 @@ export async function registerRoutes(
           legalForm: result.legalForm,
           dic: result.dic,
           directors: result.directors,
+          actingNote: result.actingNote,
         },
         fetchedByUserId: (req as any).appUser?.id || null,
       });

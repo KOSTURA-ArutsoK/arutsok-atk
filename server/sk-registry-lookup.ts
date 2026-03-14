@@ -242,17 +242,23 @@ export async function lookupAresByIco(ico: string): Promise<RegistryLookupResult
     }
 
     const directors: string[] = [];
-    try {
-      const czStatOrgan = data.czleskyStatutarniOrgan || data.seznamClenuStatutarnihoOrganu || [];
-      if (Array.isArray(czStatOrgan)) {
-        for (const member of czStatOrgan) {
-          const jmeno = member.jmeno || member.krestniJmeno || "";
-          const prijmeni = member.prijmeni || "";
-          const fullName = [jmeno, prijmeni].filter(Boolean).join(" ").trim();
-          if (fullName && fullName.length >= 3) directors.push(fullName);
+    const statOrgArray = data.seznamStatutarnichOrganu || data.czleskyStatutarniOrgan || [];
+    if (Array.isArray(statOrgArray)) {
+      for (const organ of statOrgArray) {
+        const clenove = organ.clenove || organ.seznamClenu || [];
+        if (Array.isArray(clenove)) {
+          for (const clen of clenove) {
+            const osoba = clen.fospiOsoba || clen.ospiOsoba || clen;
+            const jmeno = osoba.jmeno || osoba.krestniJmeno || "";
+            const prijmeni = osoba.prijmeni || "";
+            const fullName = [jmeno, prijmeni].filter(Boolean).join(" ").trim();
+            if (fullName && fullName.length >= 3 && !directors.includes(fullName)) {
+              directors.push(fullName);
+            }
+          }
         }
       }
-    } catch {}
+    }
 
     return {
       found: true,
