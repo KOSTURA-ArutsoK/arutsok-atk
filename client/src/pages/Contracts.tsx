@@ -4763,6 +4763,10 @@ export default function Contracts() {
         const newSubject = await subjectRes.json();
         finalSubjectId = newSubject.id;
         queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+        if (preSelectIcoLookup?.found && preSelectIco.trim() && preSelectSubjectType === "company") {
+          const stateParam = activeStateId ? `&stateId=${activeStateId}` : "";
+          fetch(`/api/lookup/ico/${encodeURIComponent(preSelectIco.trim())}?type=company&subjectId=${newSubject.id}${stateParam}`, { credentials: "include" }).catch(() => {});
+        }
       }
 
       const contractData: Record<string, any> = {

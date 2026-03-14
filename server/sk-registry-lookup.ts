@@ -242,7 +242,7 @@ export async function lookupAresByIco(ico: string): Promise<RegistryLookupResult
     }
 
     const directors: string[] = [];
-    const statOrgArray = data.seznamStatutarnichOrganu || data.czleskyStatutarniOrgan || [];
+    const statOrgArray = data.statutarniOrgan || data.seznamStatutarnichOrganu || [];
     if (Array.isArray(statOrgArray)) {
       for (const organ of statOrgArray) {
         const clenove = organ.clenove || organ.seznamClenu || [];
