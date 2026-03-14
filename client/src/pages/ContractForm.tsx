@@ -175,9 +175,10 @@ const PAYMENT_FREQUENCIES = [
 ];
 
 const CONTRACT_TYPES = [
-  { value: "Nova", label: "Nova" },
-  { value: "Prestupova", label: "Prestupova" },
-  { value: "Zmenova", label: "Zmenova" },
+  { value: "Nova", label: "🟢 Nová zmluva" },
+  { value: "Prestupova", label: "🔵 Prestupová zmluva" },
+  { value: "Zmenova", label: "🟡 Zmenová zmluva" },
+  { value: "Dodatok", label: "🟠 Dodatok k zmluve" },
 ];
 
 function PasswordsModal({

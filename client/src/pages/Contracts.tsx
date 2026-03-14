@@ -3390,6 +3390,9 @@ export default function Contracts() {
                       {(contract as any).contractType === "Zmenova" && (
                         <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold bg-yellow-500/15 text-yellow-400 border border-yellow-500/30 whitespace-nowrap" data-testid={`badge-contract-type-${contract.id}`}>🟡 Z</span>
                       )}
+                      {(contract as any).contractType === "Dodatok" && (
+                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/30 whitespace-nowrap" data-testid={`badge-contract-type-${contract.id}`}>🟠 D</span>
+                      )}
                       {(contract as any).isFirstContract && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-red-500/40 text-red-400 text-[10px] font-semibold whitespace-nowrap" data-testid={`badge-first-contract-${contract.id}`}>1. ZMLUVA</span>
                       )}
@@ -4991,6 +4994,7 @@ export default function Contracts() {
                     <SelectItem value="Nova">🟢 Nová zmluva</SelectItem>
                     <SelectItem value="Prestupova">🔵 Prestupová zmluva</SelectItem>
                     <SelectItem value="Zmenova">🟡 Zmenová zmluva</SelectItem>
+                    <SelectItem value="Dodatok">🟠 Dodatok k zmluve</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

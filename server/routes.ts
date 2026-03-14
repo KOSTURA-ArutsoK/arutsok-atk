@@ -3007,7 +3007,7 @@ export async function registerRoutes(
   app.put("/api/contract-statuses/:id/contract-types", isAuthenticated, async (req: any, res) => {
     try {
       const { contractTypes } = req.body;
-      const validTypes = ["Nova", "Prestupova", "Zmenova"];
+      const validTypes = ["Nova", "Prestupova", "Zmenova", "Dodatok"];
       const filtered = (contractTypes || []).filter((t: string) => validTypes.includes(t));
       await storage.setContractStatusContractTypes(Number(req.params.id), filtered);
       await logAudit(req, { action: "UPDATE", module: "stavy_zmluv_contract_types", entityId: Number(req.params.id), newData: { contractTypes: filtered } });
@@ -5805,6 +5805,7 @@ export async function registerRoutes(
             "nova": "Nova", "nová": "Nova", "nová zmluva": "Nova", "nova zmluva": "Nova", "n": "Nova",
             "prestupova": "Prestupova", "prestupová": "Prestupova", "prestupová zmluva": "Prestupova", "prestupova zmluva": "Prestupova", "p": "Prestupova", "prestup": "Prestupova",
             "zmenova": "Zmenova", "zmenová": "Zmenova", "zmenová zmluva": "Zmenova", "zmenova zmluva": "Zmenova", "z": "Zmenova", "zmena": "Zmenova",
+            "dodatok": "Dodatok", "dodatok k zmluve": "Dodatok", "d": "Dodatok",
           };
           const rawTypZmluvy = (rowData["typ_zmluvy"] || rowData["contract_type"] || "").trim();
           const normalizedTyp = rawTypZmluvy.toLowerCase().replace(/[\u0300-\u036f]/g, "").normalize ? rawTypZmluvy.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : rawTypZmluvy.toLowerCase();
@@ -9648,10 +9649,10 @@ export async function registerRoutes(
           cell.dataValidation = {
             type: "list",
             allowBlank: true,
-            formulae: ['"Nova,Prestupova,Zmenova"'],
+            formulae: ['"Nova,Prestupova,Zmenova,Dodatok"'],
             showErrorMessage: true,
             errorTitle: "Neplatný typ zmluvy",
-            error: "Zadajte: Nova, Prestupova alebo Zmenova",
+            error: "Zadajte: Nova, Prestupova, Zmenova alebo Dodatok",
           };
         }
       });
@@ -9664,10 +9665,10 @@ export async function registerRoutes(
         row.getCell(3).dataValidation = {
           type: "list",
           allowBlank: true,
-          formulae: ['"Nova,Prestupova,Zmenova"'],
+          formulae: ['"Nova,Prestupova,Zmenova,Dodatok"'],
           showErrorMessage: true,
           errorTitle: "Neplatný typ zmluvy",
-          error: "Zadajte: Nova, Prestupova alebo Zmenova",
+          error: "Zadajte: Nova, Prestupova, Zmenova alebo Dodatok",
         };
       }
 
