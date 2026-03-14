@@ -2342,6 +2342,7 @@ export default function Contracts() {
   const refSignedMonth = useRef<HTMLInputElement>(null);
   const refSignedYear = useRef<HTMLInputElement>(null);
   const refTimeBtnNone = useRef<HTMLButtonElement>(null);
+  const refSignedTimeInput = useRef<HTMLInputElement>(null);
   const refPreSelectSpecialistUid = useRef<HTMLInputElement>(null);
   const refPreSelectSpecialistPct = useRef<HTMLInputElement>(null);
   const refImportSpecialistUid = useRef<HTMLInputElement>(null);
@@ -5118,6 +5119,10 @@ export default function Contracts() {
                           }
                           const btns = (e.currentTarget.closest('[role="radiogroup"]') as HTMLElement)?.querySelectorAll('button[role="radio"]');
                           (btns?.[1] as HTMLElement)?.focus();
+                        } else if (e.key === "Enter") {
+                          e.preventDefault();
+                          const ref = preSelectNumberType === "proposal" ? refNumberToggleProposal : refNumberToggleContract;
+                          setTimeout(() => ref.current?.focus(), 50);
                         }
                       }}
                       className={`relative z-10 px-2.5 text-xs h-full py-0.5 rounded-md transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${!preSelectWithTime ? "text-foreground font-medium" : "text-muted-foreground"}`}
@@ -5141,6 +5146,14 @@ export default function Contracts() {
                           setPreSelectWithTime(false);
                           const btns = (e.currentTarget.closest('[role="radiogroup"]') as HTMLElement)?.querySelectorAll('button[role="radio"]');
                           (btns?.[0] as HTMLElement)?.focus();
+                        } else if (e.key === "Enter") {
+                          e.preventDefault();
+                          setPreSelectWithTime(true);
+                          if (!preSelectSignedTime) {
+                            const now = new Date();
+                            setPreSelectSignedTime(`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`);
+                          }
+                          setTimeout(() => refSignedTimeInput.current?.focus(), 50);
                         }
                       }}
                       className={`relative z-10 px-2.5 text-xs h-full py-0.5 rounded-md transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${preSelectWithTime ? "text-foreground font-medium" : "text-muted-foreground"}`}
@@ -5151,10 +5164,18 @@ export default function Contracts() {
                     <>
                       <span className="w-px self-stretch bg-border/60 mx-1.5 shrink-0" />
                       <input
+                        ref={refSignedTimeInput}
                         type="time"
                         step="1"
                         value={preSelectSignedTime}
                         onChange={e => setPreSelectSignedTime(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const ref = preSelectNumberType === "proposal" ? refNumberToggleProposal : refNumberToggleContract;
+                            setTimeout(() => ref.current?.focus(), 50);
+                          }
+                        }}
                         className="text-sm bg-transparent border-0 outline-none h-full pr-2 w-28"
                         data-testid="input-preselect-signed-time"
                       />
