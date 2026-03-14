@@ -62,6 +62,10 @@ import { HelpIcon } from "@/components/help-icon";
 import { Label } from "@/components/ui/label";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
+import { TitleCombobox } from "@/components/title-combobox";
+
+const TITLES_BEFORE = ["Bc.", "Doc.", "Ing.", "Ing. arch.", "JUDr.", "MDDr.", "Mgr.", "Mgr. art.", "MUDr.", "MVDr.", "PaedDr.", "PharmDr.", "PhDr.", "PhLic.", "Prof.", "RNDr.", "ThDr.", "ThLic."];
+const TITLES_AFTER  = ["ArtD.", "BBA", "CSc.", "DBA", "dr. h. c.", "DrSc.", "LL.M.", "MA.", "MBA", "MSc.", "PhD."];
 
 const LIFECYCLE_PHASE_NAMES: Record<number, string> = {
   1: "Čakajúce",
@@ -6096,14 +6100,15 @@ export default function Contracts() {
                 {/* Riadok 1: tituly + meno + priezvisko */}
                 <div className="grid grid-cols-4 gap-2">
                   <div className="space-y-1">
-                    <label className="text-xs font-medium">Titul pred</label>
-                    <Input
+                    <label className="text-xs font-medium">Titul pred menom</label>
+                    <TitleCombobox
                       ref={refTitleBeforeInput}
                       value={preSelectTitleBefore}
-                      onChange={(e) => setPreSelectTitleBefore(e.target.value)}
+                      onChange={setPreSelectTitleBefore}
+                      options={TITLES_BEFORE}
                       placeholder="napr. Ing."
                       readOnly={!!preSelectSubjectId}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNextEmptyRequired("title-before"); } }}
+                      onFocusNext={() => focusNextEmptyRequired("title-before")}
                       data-testid="input-preselect-title-before"
                     />
                   </div>
@@ -6134,14 +6139,15 @@ export default function Contracts() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium">Titul za</label>
-                    <Input
+                    <label className="text-xs font-medium">Titul za menom</label>
+                    <TitleCombobox
                       ref={refTitleAfterInput}
                       value={preSelectTitleAfter}
-                      onChange={(e) => setPreSelectTitleAfter(e.target.value)}
+                      onChange={setPreSelectTitleAfter}
+                      options={TITLES_AFTER}
                       placeholder="napr. PhD."
                       readOnly={!!preSelectSubjectId}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNextEmptyRequired("title-after"); } }}
+                      onFocusNext={() => focusNextEmptyRequired("title-after")}
                       data-testid="input-preselect-title-after"
                     />
                   </div>
