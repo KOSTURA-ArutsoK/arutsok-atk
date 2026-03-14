@@ -4487,7 +4487,7 @@ export default function Contracts() {
   };
 
   const triggerIcoLookup = () => {
-    const val = preSelectIco.trim();
+    const val = preSelectIco.trim() || preSelectSubjectSearch.trim();
     if (!val) { setPreSelectIcoError(null); setPreSelectIcoLookup(null); return; }
     const result = validateSlovakICO(val);
     if (!result.valid) { setPreSelectIcoError(result.error || "Neplatné IČO"); setPreSelectIcoLookup(null); return; }
@@ -5350,9 +5350,9 @@ export default function Contracts() {
 
             {(preSelectSubjectType === "szco" || preSelectSubjectType === "company") && (
               <>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium">{preSelectSubjectType === "szco" ? "Nazov zivnosti" : "Nazov spolocnosti"} *</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">{preSelectSubjectType === "szco" ? "Nazov zivnosti" : "Nazov spolocnosti"} *</label>
+                <div className="flex gap-1.5">
                   <Input
                     ref={refBusinessNameInput}
                     value={preSelectBusinessName}
@@ -5368,29 +5368,10 @@ export default function Contracts() {
                     }}
                     data-testid="input-preselect-business-name"
                   />
-                </div>
-                <div className="space-y-1">
-                  <label className={`text-xs font-medium ${preSelectIcoError ? "text-red-500" : ""}`}>IČO</label>
-                  <div className="flex gap-1.5">
-                  <Input
-                    ref={refIcoInput}
-                    value={preSelectIco}
-                    onChange={(e) => { setPreSelectIco(e.target.value); setPreSelectIcoError(null); setPreSelectIcoLookup(null); }}
-                    placeholder="napr. 12345678"
-                    readOnly={!!preSelectSubjectId}
-                    className={`font-mono ${preSelectIcoError ? "border-red-500 ring-red-500/30" : ""}`}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        triggerIcoLookup();
-                      }
-                    }}
-                    data-testid="input-preselect-ico"
-                  />
                   {!preSelectSubjectId && (
                     <button
                       type="button"
-                      disabled={preSelectIcoLookupLoading || !preSelectIco.trim()}
+                      disabled={preSelectIcoLookupLoading || !preSelectSubjectSearch.trim()}
                       onClick={() => triggerIcoLookup()}
                       className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-xs rounded border border-border bg-muted hover:bg-muted/70 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       data-testid="button-preselect-ico-lookup"
@@ -5399,15 +5380,14 @@ export default function Contracts() {
                       Register
                     </button>
                   )}
-                  </div>
-                  {preSelectIcoError && <p className="text-[10px] text-red-500 leading-tight" data-testid="text-preselect-ico-error">{preSelectIcoError}</p>}
-                  {preSelectIcoLookupLoading && (
-                    <div className="flex items-center gap-2 mt-1" data-testid="text-preselect-ico-loading">
-                      <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
-                      <span className="text-xs text-blue-400">Preberám údaje z registra...</span>
-                    </div>
-                  )}
                 </div>
+                {preSelectIcoError && <p className="text-[10px] text-red-500 leading-tight" data-testid="text-preselect-ico-error">{preSelectIcoError}</p>}
+                {preSelectIcoLookupLoading && (
+                  <div className="flex items-center gap-2 mt-1" data-testid="text-preselect-ico-loading">
+                    <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
+                    <span className="text-xs text-blue-400">Preberám údaje z registra...</span>
+                  </div>
+                )}
               </div>
               {preSelectIcoLookup?.found && (
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-md p-3 space-y-2" data-testid="panel-preselect-ico-lookup">
