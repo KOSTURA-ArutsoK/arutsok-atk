@@ -2321,6 +2321,7 @@ export default function Contracts() {
   const VIDEO_EXTENSIONS = new Set([".mp4", ".mov", ".avi", ".mkv", ".webm"]);
   const userCanUploadVideo = appUser && (isAdmin(appUser) || appUser.role === 'agent');
   const refFileInput = useRef<HTMLInputElement>(null);
+  const refPartnerTrigger = useRef<HTMLButtonElement>(null);
   const refProductTrigger = useRef<HTMLButtonElement>(null);
   const refContractTypeTrigger = useRef<HTMLButtonElement>(null);
   const refSignedDateInput = useRef<HTMLInputElement>(null);
@@ -4487,6 +4488,32 @@ export default function Contracts() {
     }
   }, [preSelectSignedDay, preSelectSignedMonth, preSelectSignedYear]);
 
+  useEffect(() => {
+    if (!preSelectOpen || preSelectStep !== 1) return;
+    const handleShiftEnter = (e: KeyboardEvent) => {
+      if (!e.shiftKey || e.key !== "Enter") return;
+      e.preventDefault();
+      e.stopPropagation();
+      const fields: HTMLElement[] = [
+        refPartnerTrigger.current,
+        refProductTrigger.current,
+        refContractTypeTrigger.current,
+        refSignedDay.current,
+        refSignedMonth.current,
+        refSignedYear.current,
+        refTimeBtnNone.current,
+        ...(preSelectWithTime && refSignedTimeInput.current ? [refSignedTimeInput.current] : []),
+        (preSelectNumberType === "contract" ? refNumberToggleContract.current : refNumberToggleProposal.current),
+        refNumberInput.current,
+      ].filter(Boolean) as HTMLElement[];
+      const active = document.activeElement;
+      const idx = fields.findIndex(el => el === active || el.contains(active as Node));
+      if (idx > 0) fields[idx - 1].focus();
+    };
+    document.addEventListener("keydown", handleShiftEnter, true);
+    return () => document.removeEventListener("keydown", handleShiftEnter, true);
+  }, [preSelectOpen, preSelectStep, preSelectWithTime, preSelectNumberType]);
+
   const handlePreSelectStep1ForceNext = () => {
     setPreSelectNumberDuplicates([]);
     setPreSelectStep(2);
@@ -4992,7 +5019,7 @@ export default function Contracts() {
               <div className="space-y-1">
                 <label className="text-xs font-medium">Vyberte partnera</label>
                 <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); setTimeout(() => refProductTrigger.current?.focus(), 50); }}>
-                  <SelectTrigger className={isFieldMissing("partner") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-partner">
+                  <SelectTrigger ref={refPartnerTrigger} className={isFieldMissing("partner") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-partner">
                     <SelectValue placeholder="Vyberte partnera" />
                   </SelectTrigger>
                   <SelectContent>
