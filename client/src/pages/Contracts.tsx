@@ -2648,6 +2648,7 @@ export default function Contracts() {
     queryKey: ["/api/contract-templates"],
   });
   const { data: allStates } = useStates();
+  const { data: allRewardDist = [] } = useQuery<any[]>({ queryKey: ["/api/reward-distributions"], enabled: isEvidencia });
 
   const lookupSubjectByUid = (uid: string): { found: boolean; label: string } => {
     if (!uid.trim()) return { found: false, label: "" };
@@ -3237,6 +3238,192 @@ export default function Contracts() {
 
   function getPartnerName(contract: Contract) {
     return partners?.find(p => p.id === contract.partnerId)?.name || "-";
+  }
+
+  function getContractDistData(contractId: number) {
+    const dists = allRewardDist.filter((d: any) => d.contractId === contractId);
+    const specialist = dists.find((d: any) => d.type === "specialist");
+    const recommenders = dists.filter((d: any) => d.type === "recommender").sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    return { specialist, recommenders };
+  }
+
+  function resolveUidName(uid: string | null | undefined): string {
+    if (!uid) return "—";
+    const u = (appUsersAll || []).find(x => (x.uid || "").replace(/\s/g, "") === uid.replace(/\s/g, ""));
+    if (u) return [u.firstName, u.lastName].filter(Boolean).join(" ") || u.username || uid;
+    const s = (subjects || []).find(x => (x.uid || "").replace(/\s/g, "") === uid.replace(/\s/g, ""));
+    if (s) return [s.firstName, s.lastName].filter(Boolean).join(" ") || s.companyName || uid;
+    return uid;
+  }
+
+  function formatUidShort(uid: string | null | undefined): string {
+    if (!uid) return "—";
+    const raw = uid.replace(/\s/g, "");
+    if (raw.length >= 9) return raw.slice(-9);
+    return raw;
+  }
+
+  function renderSprievodkaFullTable(
+    contractsList: Contract[],
+    opts: {
+      showCheckbox?: boolean;
+      showOrder?: boolean;
+      showActions?: boolean;
+      logViewFn?: (c: Contract) => void;
+      testIdPrefix?: string;
+    } = {}
+  ) {
+    const { showCheckbox = false, showOrder = false, showActions = true, logViewFn, testIdPrefix = "row-spr" } = opts;
+    const contractTypeLabel: Record<string, string> = {
+      Nova: "Nová", Prestupova: "Prestupová", Zmenova: "Zmenová", Dodatok: "Dodatok"
+    };
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs border-separate border-spacing-0" style={{ minWidth: 1400 }}>
+          <thead>
+            <tr className="bg-muted/40">
+              {showCheckbox && <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b sticky left-0 bg-muted/40 z-10 w-8">
+                <Checkbox
+                  checked={contractsList.length > 0 && contractsList.every(c => selectedIds.includes(c.id))}
+                  onCheckedChange={() => {
+                    const allSel = contractsList.every(c => selectedIds.includes(c.id));
+                    if (allSel) setSelectedIds(prev => prev.filter(id => !contractsList.find(c => c.id === id)));
+                    else setSelectedIds(prev => [...new Set([...prev, ...contractsList.map(c => c.id)])]);
+                  }}
+                  data-testid="checkbox-spr-select-all"
+                />
+              </th>}
+              {showOrder && <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b w-10">#</th>}
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Partner</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Produkt</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Typ zmluvy</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Dátum uzatv.</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap" title={NAVRH_LABEL_FULL}>{NAVRH_LABEL_SHORT}</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Číslo zmluvy</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Typ subj.</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">RČ / IČO</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Názov firmy</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Tit. pred</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Meno</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Priezvisko</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Tit. za</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Špecialist UID</th>
+              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">Šp.%</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Odp.1 UID</th>
+              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">O1%</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Odp.2 UID</th>
+              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">O2%</th>
+              {showActions && <th className="px-2 py-1.5 text-right font-medium text-muted-foreground border-b whitespace-nowrap">Akcie</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {contractsList.map((contract, idx) => {
+              const sub = subjects?.find(s => s.id === contract.subjectId);
+              const typSubj = sub?.type === "person" ? "FO" : sub?.type === "szco" ? "SZČO" : sub?.type === "company" ? "PO" : sub?.type === "organization" ? "Org." : sub?.type === "state" ? "Štát" : "—";
+              const typSubjColor = typSubj === "FO" ? "border-blue-500/50 text-blue-400" : typSubj === "SZČO" ? "border-amber-500/50 text-amber-400" : typSubj === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground";
+              const rcIco = sub ? (sub.type === "person" ? sub.birthNumber : sub.type === "szco" ? (sub.birthNumber || (sub as any).ico) : (sub as any).ico) : null;
+              const { specialist, recommenders } = getContractDistData(contract.id);
+              const r1 = recommenders[0];
+              const r2 = recommenders[1];
+              const isSelected = showCheckbox && selectedIds.includes(contract.id);
+              return (
+                <tr
+                  key={contract.id}
+                  className={`border-b hover:bg-muted/20 ${isSelected ? "bg-primary/5" : ""}`}
+                  data-testid={`${testIdPrefix}-${contract.id}`}
+                  onClick={logViewFn ? () => logViewFn(contract) : undefined}
+                >
+                  {showCheckbox && (
+                    <td className="px-2 py-1.5 sticky left-0 bg-background z-10" onClick={e => e.stopPropagation()}>
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => {
+                          setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]);
+                        }}
+                        data-testid={`checkbox-spr-${contract.id}`}
+                      />
+                    </td>
+                  )}
+                  {showOrder && (
+                    <td className="px-2 py-1.5 text-center text-muted-foreground">
+                      <InlineSortOrderEdit contractId={contract.id} currentOrder={(contract as any).sortOrderInInventory} />
+                    </td>
+                  )}
+                  <td className="px-2 py-1.5 whitespace-nowrap">{getPartnerName(contract)}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap max-w-[120px] truncate" title={getProductName(contract)}>{getProductName(contract)}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    <Badge variant="outline" className="text-[10px] font-normal">{contractTypeLabel[(contract as any).contractType || "Nova"] || (contract as any).contractType || "Nová"}</Badge>
+                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">{(contract as any).signedDate ? new Date((contract as any).signedDate).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">{contract.proposalNumber || "—"}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">
+                    <span className="flex items-center gap-1">
+                      {(contract as any).isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
+                      {contract.insuranceContractNumber || "—"}
+                    </span>
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Badge variant="outline" className={`text-[10px] ${typSubjColor}`}>{typSubj}</Badge>
+                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap font-mono text-muted-foreground">{rcIco || "—"}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap max-w-[110px] truncate" title={sub?.companyName || undefined}>{sub?.companyName || "—"}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">{sub?.titleBefore || "—"}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap font-medium">{sub?.firstName || "—"}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap font-medium">{sub?.lastName || "—"}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">{sub?.titleAfter || "—"}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    {specialist ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="font-mono text-primary cursor-default">{formatUidShort(specialist.uid)}</span>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-xs">{resolveUidName(specialist.uid)} · {specialist.uid}</TooltipContent>
+                      </Tooltip>
+                    ) : "—"}
+                  </td>
+                  <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                    {specialist ? <span className="font-mono text-emerald-500">{parseFloat(specialist.percentage || "0").toFixed(0)}%</span> : "—"}
+                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    {r1 ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="font-mono text-amber-400 cursor-default">{formatUidShort(r1.uid)}</span>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-xs">{resolveUidName(r1.uid)} · {r1.uid}</TooltipContent>
+                      </Tooltip>
+                    ) : "—"}
+                  </td>
+                  <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                    {r1 ? <span className="font-mono text-amber-400">{parseFloat(r1.percentage || "0").toFixed(0)}%</span> : "—"}
+                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    {r2 ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="font-mono text-amber-300 cursor-default">{formatUidShort(r2.uid)}</span>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-xs">{resolveUidName(r2.uid)} · {r2.uid}</TooltipContent>
+                      </Tooltip>
+                    ) : "—"}
+                  </td>
+                  <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                    {r2 ? <span className="font-mono text-amber-300">{parseFloat(r2.percentage || "0").toFixed(0)}%</span> : "—"}
+                  </td>
+                  {showActions && (
+                    <td className="px-2 py-1.5 text-right" onClick={e => e.stopPropagation()}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openView(contract)} data-testid={`button-view-spr-${contract.id}`}>
+                        <Eye className="w-3.5 h-3.5" />
+                      </Button>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
   }
 
   const isDispatching = dispatchMutation.isPending;
@@ -7124,7 +7311,7 @@ export default function Contracts() {
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-nahravanie">Ziadne zmluvy na nahravanie</p>
               ) : (
                 <>
-                  {renderContractTable(sortedNahravanie, { showCheckbox: true, showOrder: true, checkboxOnly: true, earlyPhase: true, sortState: { sortKey: skNahr, sortDirection: sdNahr, requestSort: rsNahr } })}
+                  {renderSprievodkaFullTable(sortedNahravanie, { showCheckbox: true, testIdPrefix: "row-nahravanie" })}
                   {hasMoreContracts && (
                     <div className="flex items-center justify-center py-4 border-t">
                       <Button variant="outline" size="sm" onClick={loadMoreContracts} disabled={isLoadingMore} data-testid="button-load-more">
@@ -7155,7 +7342,13 @@ export default function Contracts() {
                       <div key={group.inventoryId} data-testid={`sprievodka-group-${group.inventoryId}`}>
                         <div
                           className="flex items-center gap-3 p-3 cursor-pointer hover-elevate flex-wrap"
-                          onClick={() => toggleSprievodkaExpanded(group.inventoryId)}
+                          onClick={() => {
+                            const wasExpanded = expandedSprievodky.has(group.inventoryId);
+                            toggleSprievodkaExpanded(group.inventoryId);
+                            if (!wasExpanded && group.inventoryId) {
+                              fetch(`/api/supisky/${group.inventoryId}/log-view`, { method: "POST", credentials: "include" }).catch(() => {});
+                            }
+                          }}
                           data-testid={`button-toggle-sprievodka-${group.inventoryId}`}
                         >
                           {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
@@ -7202,75 +7395,7 @@ export default function Contracts() {
                         </div>
                         <div id={`expanded-wrapper-${group.inventoryId}`} style={{ display: isExpanded ? 'block' : 'none' }}>
                           <div className="border-t">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead className="w-[40px] text-center">#</TableHead>
-                                  {sprievodkaColumnVisibility.isVisible("partnerId") && <TableHead>Partner</TableHead>}
-                                  {sprievodkaColumnVisibility.isVisible("productId") && <TableHead>Produkt</TableHead>}
-                                  {sprievodkaColumnVisibility.isVisible("proposalNumber") && <TableHead title={NAVRH_LABEL_FULL}>{NAVRH_LABEL_SHORT}</TableHead>}
-                                  {sprievodkaColumnVisibility.isVisible("contractNumber") && <TableHead>Číslo zmluvy</TableHead>}
-                                  <TableHead>Typ subjektu</TableHead>
-                                  {sprievodkaColumnVisibility.isVisible("subjectId") && <TableHead>Klient</TableHead>}
-                                  <TableHead className="text-center w-[60px]">🗂️</TableHead>
-                                  <TableHead className="text-right">Akcie</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {group.contracts.map(contract => (
-                                  <TableRow key={contract.id} data-testid={`row-cakajuce-${contract.id}`}>
-                                    <TableCell className="text-center text-xs text-muted-foreground">
-                                      <InlineSortOrderEdit contractId={contract.id} currentOrder={contract.sortOrderInInventory} />
-                                    </TableCell>
-                                    {sprievodkaColumnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>}
-                                    {sprievodkaColumnVisibility.isVisible("productId") && <TableCell className="text-sm">{getProductName(contract)}</TableCell>}
-                                    {sprievodkaColumnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono">{contract.proposalNumber || "-"}</TableCell>}
-                                    {sprievodkaColumnVisibility.isVisible("contractNumber") && <TableCell className="font-mono text-sm" data-testid={`text-dispatched-number-${contract.id}`}>
-                                      <span className="flex items-center gap-1">
-                                        <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
-                                        {contract.insuranceContractNumber || "-"}
-                                      </span>
-                                    </TableCell>}
-                                    <TableCell className="text-sm">
-                                      {(() => {
-                                        const sub2 = subjects?.find(s => s.id === contract.subjectId);
-                                        const st = sub2?.type === "person" ? "FO" : sub2?.type === "szco" ? "SZČO" : sub2?.type === "company" ? "PO" : "—";
-                                        return <Badge variant="outline" className={`text-[10px] ${st === "FO" ? "border-blue-500/50 text-blue-400" : st === "SZČO" ? "border-amber-500/50 text-amber-400" : st === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground"}`}>{st}</Badge>;
-                                      })()}
-                                    </TableCell>
-                                    {sprievodkaColumnVisibility.isVisible("subjectId") && <TableCell className="text-sm">
-                                      <span className="flex items-center gap-1 flex-wrap">
-                                        <span>{getSubjectDisplay(contract.subjectId)}</span>
-                                        {(() => {
-                                          const sub2 = subjects?.find(s => s.id === contract.subjectId);
-                                          const rcIco = sub2 ? (sub2.type === "person" ? sub2.birthNumber : sub2.type === "szco" ? ((contract as any).szcoIco || sub2.birthNumber) : (sub2 as any).ico) : null;
-                                          return rcIco ? <span className="text-[10px] font-mono text-muted-foreground">{rcIco}</span> : null;
-                                        })()}
-                                      </span>
-                                    </TableCell>}
-                                    <TableCell className="py-1 text-center">
-                                      {Array.isArray(contract.documents) && contract.documents.length > 0 ? (
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold whitespace-nowrap">
-                                              🗂️ {contract.documents.length}
-                                            </span>
-                                          </TooltipTrigger>
-                                          <TooltipContent className="text-xs">
-                                            {contract.documents.length} {contract.documents.length === 1 ? "nahraný dokument" : contract.documents.length < 5 ? "nahrané dokumenty" : "nahraných dokumentov"}
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      ) : null}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                      <Button size="icon" variant="ghost" onClick={() => openView(contract)} data-testid={`button-view-dispatched-${contract.id}`}>
-                                        <Eye className="w-4 h-4" />
-                                      </Button>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
+                            {renderSprievodkaFullTable(group.contracts, { showOrder: true, testIdPrefix: "row-cakajuce" })}
                           </div>
                         </div>
                       </div>
@@ -7391,7 +7516,13 @@ export default function Contracts() {
                       <div key={group.inventoryId} data-testid={`accepted-sprievodka-group-${group.inventoryId}`}>
                         <div
                           className="flex items-center gap-3 p-3 cursor-pointer hover-elevate flex-wrap"
-                          onClick={() => toggleSprievodkaExpanded(group.inventoryId + 200000)}
+                          onClick={() => {
+                            const wasExpanded = expandedSprievodky.has(group.inventoryId + 200000);
+                            toggleSprievodkaExpanded(group.inventoryId + 200000);
+                            if (!wasExpanded && group.inventoryId) {
+                              fetch(`/api/supisky/${group.inventoryId}/log-view`, { method: "POST", credentials: "include" }).catch(() => {});
+                            }
+                          }}
                           data-testid={`button-toggle-accepted-sprievodka-${group.inventoryId}`}
                         >
                           {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
@@ -7410,7 +7541,7 @@ export default function Contracts() {
                         </div>
                         <div style={{ display: isExpanded ? 'block' : 'none' }}>
                           <div className="border-t">
-                            {renderContractTable(group.contracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true, checkboxOnly: true })}
+                            {renderSprievodkaFullTable(group.contracts, { testIdPrefix: "row-accepted" })}
                           </div>
                         </div>
                       </div>

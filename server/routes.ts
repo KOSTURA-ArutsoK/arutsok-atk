@@ -6391,6 +6391,25 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/reward-distributions", isAuthenticated, async (req: any, res) => {
+    try {
+      const rows = await db.select().from(contractRewardDistributions);
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/supisky/:id/log-view", isAuthenticated, async (req: any, res) => {
+    try {
+      const supiskaId = Number(req.params.id);
+      await logAudit(req, { action: "VIEW", module: "supisky", entityId: supiskaId, entityName: `Sprievodka ID ${supiskaId}` });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   app.put("/api/client-types/reorder", isAuthenticated, async (req: any, res) => {
     try {
       const { items } = req.body;
