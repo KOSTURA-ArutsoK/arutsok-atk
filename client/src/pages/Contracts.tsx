@@ -2273,6 +2273,9 @@ export default function Contracts() {
   const [preSelectBirthNumber, setPreSelectBirthNumber] = useState("");
   const [preSelectSearchHint, setPreSelectSearchHint] = useState<null | "szco_or_po" | "possible_rc">(null);
   const [preSelectShowNameFields, setPreSelectShowNameFields] = useState(false);
+  const [preSelectFoSearch, setPreSelectFoSearch] = useState("");
+  const [preSelectShowFoSearch, setPreSelectShowFoSearch] = useState(false);
+  const [preSelectNoFoInfo, setPreSelectNoFoInfo] = useState(false);
   const [preSelectIcoLookup, setPreSelectIcoLookup] = useState<{ found: boolean; name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; message?: string; directors?: { name: string; role: string }[]; actingNote?: string } | null>(null);
   const [preSelectIcoLookupLoading, setPreSelectIcoLookupLoading] = useState(false);
   const [preSelectIcoConfirmed, setPreSelectIcoConfirmed] = useState(false);
@@ -4569,6 +4572,9 @@ export default function Contracts() {
     setPreSelectBirthNumber("");
     setPreSelectSearchHint(null);
     setPreSelectShowNameFields(false);
+    setPreSelectFoSearch("");
+    setPreSelectShowFoSearch(false);
+    setPreSelectNoFoInfo(false);
     setPreSelectIcoLookup(null);
     setPreSelectIcoLookupLoading(false);
     setPreSelectIcoError(null);
@@ -4641,6 +4647,9 @@ export default function Contracts() {
     setPreSelectBirthNumber("");
     setPreSelectSearchHint(null);
     setPreSelectShowNameFields(false);
+    setPreSelectFoSearch("");
+    setPreSelectShowFoSearch(false);
+    setPreSelectNoFoInfo(false);
     setPreSelectIcoLookup(null);
     setPreSelectIcoLookupLoading(false);
     setPreSelectIcoError(null);
@@ -4764,7 +4773,7 @@ export default function Contracts() {
   const preSelectIsValid = (() => {
     if (preSelectSubjectId) return true;
     if (preSelectSubjectType === "person") return !!(preSelectFirstName.trim() && preSelectLastName.trim());
-    if (preSelectSubjectType === "szco") return !!(preSelectBusinessName.trim() && preSelectFirstName.trim() && preSelectLastName.trim());
+    if (preSelectSubjectType === "szco") return !!(preSelectBusinessName.trim() && (preSelectNoFoInfo || (preSelectFirstName.trim() && preSelectLastName.trim())));
     if (preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") return !!preSelectBusinessName.trim();
     return false;
   })();
@@ -4893,6 +4902,9 @@ export default function Contracts() {
     setPreSelectBusinessName("");
     setPreSelectBirthNumber("");
     setPreSelectShowNameFields(false);
+    setPreSelectFoSearch("");
+    setPreSelectShowFoSearch(false);
+    setPreSelectNoFoInfo(false);
     setPreSelectEditingContractId(null);
     setPreSelectSpecialistUid("");
     setPreSelectSpecialistPercentage("");
@@ -4965,6 +4977,9 @@ export default function Contracts() {
     setPreSelectStep(startStep);
     setPreSelectSaving(false);
     setPreSelectShowNameFields(false);
+    setPreSelectFoSearch("");
+    setPreSelectShowFoSearch(false);
+    setPreSelectNoFoInfo(false);
 
     setPreSelectPartnerId(contract.partnerId ? String(contract.partnerId) : "");
     setPreSelectProductId(contract.productId ? String(contract.productId) : "");
@@ -5034,6 +5049,20 @@ export default function Contracts() {
         || icoFromTop.includes(q)
         || email.toLowerCase().includes(q)
         || phone.includes(q)
+        || (s.uid || "").replace(/\s/g, "").includes(q.replace(/\s/g, ""));
+    });
+  })();
+
+  const preSelectFoFilteredSubjects = (() => {
+    if (!subjects || !preSelectFoSearch.trim()) return [];
+    const q = preSelectFoSearch.toLowerCase().trim();
+    return subjects.filter(s => {
+      if (s.deletedAt) return false;
+      if (s.type !== "person") return false;
+      const fullName = `${s.firstName || ""} ${s.lastName || ""}`.trim();
+      const birthNum = s.birthNumber || "";
+      return fullName.toLowerCase().includes(q)
+        || birthNum.includes(q)
         || (s.uid || "").replace(/\s/g, "").includes(q.replace(/\s/g, ""));
     });
   })();
@@ -5483,7 +5512,7 @@ export default function Contracts() {
                       const val = subOpts[next].val;
                       setPreSelectSubjectType(val);
                       if (val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); }
-                      setPreSelectShowNameFields(false); setPreSelectBirthNumber(""); setPreSelectSearchHint(null);
+                      setPreSelectShowNameFields(false); setPreSelectFoSearch(""); setPreSelectShowFoSearch(false); setPreSelectNoFoInfo(false); setPreSelectBirthNumber(""); setPreSelectSearchHint(null);
                       const btns = (e.currentTarget.closest('[role="radiogroup"]') as HTMLElement)?.querySelectorAll('button[role="radio"]');
                       (btns?.[next] as HTMLElement)?.focus();
                     }
@@ -5500,7 +5529,8 @@ export default function Contracts() {
                             onClick={() => {
                               setPreSelectSubjectType(opt.val);
                               if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); }
-                              setPreSelectShowNameFields(opt.val === "szco");
+                              setPreSelectShowNameFields(false);
+                              setPreSelectFoSearch(""); setPreSelectShowFoSearch(false); setPreSelectNoFoInfo(false);
                               setPreSelectBirthNumber(""); setPreSelectSearchHint(null); setPreSelectIcoLookup(null); setPreSelectIcoFormatError(null);
                               if (opt.val === "organization" || opt.val === "state") {
                                 setTimeout(() => {
@@ -5578,7 +5608,7 @@ export default function Contracts() {
                         if (firstRow) firstRow.focus();
                       } else if (preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 0) {
                         const trimmed = preSelectSubjectSearch.trim();
-                        setPreSelectShowNameFields(true);
+                        if (preSelectSubjectType === "person") setPreSelectShowNameFields(true);
                         if (preSelectSubjectType === "company" && /^\d+$/.test(trimmed)) {
                           setPreSelectIco(trimmed);
                           setTimeout(() => {
@@ -5756,14 +5786,35 @@ export default function Contracts() {
                 <Input
                   ref={refBusinessNameInput}
                   value={preSelectBusinessName}
-                  onChange={(e) => setPreSelectBusinessName(e.target.value)}
+                  onChange={(e) => {
+                    setPreSelectBusinessName(e.target.value);
+                    setPreSelectShowFoSearch(false);
+                    setPreSelectNoFoInfo(false);
+                    setPreSelectFoSearch("");
+                    setPreSelectShowNameFields(false);
+                    setPreSelectFirstName("");
+                    setPreSelectLastName("");
+                    setPreSelectTitleBefore("");
+                    setPreSelectTitleAfter("");
+                    setPreSelectBirthNumber("");
+                  }}
                   placeholder={preSelectSubjectType === "szco" ? "Názov živnosti" : preSelectSubjectType === "organization" ? "Názov organizácie/nadácie" : preSelectSubjectType === "state" ? "Názov verejnej inštitúcie" : "Názov spoločnosti"}
                   readOnly={!!preSelectSubjectId}
                   className={isFieldMissing("business-name") ? "border-red-500 ring-red-500/30" : ""}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      focusNextEmptyRequired("business-name");
+                      if (preSelectBusinessName.trim()) {
+                        setPreSelectShowFoSearch(true);
+                        setPreSelectNoFoInfo(false);
+                        setPreSelectFoSearch("");
+                        setTimeout(() => {
+                          const el = document.querySelector('[data-testid="input-preselect-fo-search"]') as HTMLElement;
+                          if (el) el.focus();
+                        }, 60);
+                      } else {
+                        focusNextEmptyRequired("business-name");
+                      }
                     }
                   }}
                   data-testid="input-preselect-business-name"
@@ -5777,6 +5828,134 @@ export default function Contracts() {
                 )}
               </div>
               )}
+
+              {/* FO search — po zadaní názvu živnosti/org/inštitúcie */}
+              {preSelectShowFoSearch && (preSelectSubjectType === "szco" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && (
+                <div className="space-y-1.5">
+                  {/* Mini type indicator — len FO */}
+                  <div className="relative w-full flex p-0.5 bg-muted/40 rounded border border-border/60">
+                    <div className="relative z-10 w-full flex items-center justify-center gap-1.5 px-2 py-1 text-xs font-medium text-foreground rounded bg-background shadow border border-border/50">
+                      <User className="w-3 h-3" />
+                      Fyzická osoba (FO)
+                    </div>
+                  </div>
+                  {/* FO search input */}
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Vyhľadať FO (meno, priezvisko, RČ)..."
+                      value={preSelectFoSearch}
+                      onChange={(e) => {
+                        setPreSelectFoSearch(e.target.value);
+                        setPreSelectNoFoInfo(false);
+                        setPreSelectShowNameFields(false);
+                        setPreSelectFirstName("");
+                        setPreSelectLastName("");
+                        setPreSelectTitleBefore("");
+                        setPreSelectTitleAfter("");
+                        setPreSelectBirthNumber("");
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (!preSelectFoSearch.trim()) {
+                            setPreSelectNoFoInfo(true);
+                            setPreSelectShowNameFields(false);
+                            setPreSelectFirstName("");
+                            setPreSelectLastName("");
+                            setPreSelectTitleBefore("");
+                            setPreSelectTitleAfter("");
+                            setPreSelectBirthNumber("");
+                            setTimeout(() => refStep2Confirm.current?.focus(), 50);
+                          } else if (preSelectFoFilteredSubjects.length === 1) {
+                            const s = preSelectFoFilteredSubjects[0];
+                            setPreSelectTitleBefore((s as any).titleBefore || "");
+                            setPreSelectFirstName(s.firstName || "");
+                            setPreSelectLastName(s.lastName || "");
+                            setPreSelectTitleAfter((s as any).titleAfter || "");
+                            setPreSelectBirthNumber(s.birthNumber || "");
+                            setPreSelectShowNameFields(true);
+                            setPreSelectNoFoInfo(false);
+                            setTimeout(() => refStep2Confirm.current?.focus(), 50);
+                          } else if (preSelectFoFilteredSubjects.length > 1) {
+                            const firstRow = document.querySelector('[data-testid^="row-fo-subject-"]') as HTMLElement;
+                            if (firstRow) firstRow.focus();
+                          } else {
+                            setPreSelectShowNameFields(true);
+                            setPreSelectNoFoInfo(false);
+                          }
+                        }
+                      }}
+                      className="pl-9"
+                      data-testid="input-preselect-fo-search"
+                    />
+                  </div>
+                  {/* FO výsledky */}
+                  {preSelectFoSearch.trim() && preSelectFoFilteredSubjects.length > 0 && (
+                    <div className="border rounded-md max-h-[150px] overflow-y-auto">
+                      {preSelectFoFilteredSubjects.map(s => {
+                        const foName = `${s.firstName || ""} ${s.lastName || ""}`.trim() || "Bez mena";
+                        const foSelected = !!(preSelectFirstName && preSelectFirstName === s.firstName && preSelectLastName === s.lastName);
+                        return (
+                          <div
+                            key={s.id}
+                            tabIndex={0}
+                            className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b last:border-b-0 hover-elevate ${foSelected ? "bg-primary/10" : ""} focus:bg-primary/10 focus:outline-none`}
+                            onClick={() => {
+                              setPreSelectTitleBefore((s as any).titleBefore || "");
+                              setPreSelectFirstName(s.firstName || "");
+                              setPreSelectLastName(s.lastName || "");
+                              setPreSelectTitleAfter((s as any).titleAfter || "");
+                              setPreSelectBirthNumber(s.birthNumber || "");
+                              setPreSelectShowNameFields(true);
+                              setPreSelectNoFoInfo(false);
+                              setTimeout(() => refStep2Confirm.current?.focus(), 50);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === "Backspace") {
+                                e.preventDefault();
+                                setPreSelectTitleBefore((s as any).titleBefore || "");
+                                setPreSelectFirstName(s.firstName || "");
+                                setPreSelectLastName(s.lastName || "");
+                                setPreSelectTitleAfter((s as any).titleAfter || "");
+                                setPreSelectBirthNumber(s.birthNumber || "");
+                                setPreSelectShowNameFields(true);
+                                setPreSelectNoFoInfo(false);
+                                setTimeout(() => refStep2Confirm.current?.focus(), 50);
+                              } else if (e.key === "ArrowDown") {
+                                e.preventDefault();
+                                (e.currentTarget.nextElementSibling as HTMLElement)?.focus();
+                              } else if (e.key === "ArrowUp") {
+                                e.preventDefault();
+                                const prev = e.currentTarget.previousElementSibling as HTMLElement;
+                                if (prev) prev.focus();
+                                else (document.querySelector('[data-testid="input-preselect-fo-search"]') as HTMLElement)?.focus();
+                              } else if (e.key === "Escape") {
+                                (document.querySelector('[data-testid="input-preselect-fo-search"]') as HTMLElement)?.focus();
+                              }
+                            }}
+                            data-testid={`row-fo-subject-${s.id}`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm truncate" data-testid={`text-fo-subject-name-${s.id}`}>{foName}</span>
+                                <Badge variant="outline" className="text-[10px] px-1.5 flex-shrink-0">FO</Badge>
+                              </div>
+                              <div className="text-xs text-muted-foreground font-mono">
+                                {formatUid(s.uid)}{s.birthNumber ? ` · RČ: ${s.birthNumber}` : ""}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {preSelectFoSearch.trim() && preSelectFoFilteredSubjects.length === 0 && !preSelectNoFoInfo && (
+                    <p className="text-xs text-muted-foreground" data-testid="text-no-fo-subjects">FO nenájdená — vyplňte údaje nového klienta nižšie</p>
+                  )}
+                </div>
+              )}
+
               {preSelectIcoLookup?.found && (
                 <div
                   className={`border rounded-md p-3 flex items-stretch gap-3 transition-colors duration-300 ${preSelectIcoConfirmed ? "bg-green-500/10 border-green-500/40" : "bg-blue-500/10 border-blue-500/30"}`}
@@ -6106,7 +6285,17 @@ export default function Contracts() {
             )}
 
 
-            {(preSelectShowNameFields || (preSelectSubjectType === "person" && !preSelectSubjectId)) && (
+            {/* Riadok "Nemáme informácie o FO" — namiesto mena/RČ */}
+            {preSelectNoFoInfo && !preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 rounded border border-border/40 bg-muted/20">
+                <span className="text-xs text-muted-foreground">Rodné číslo</span>
+                <span className="text-xs text-amber-400 font-medium" data-testid="text-no-fo-info">
+                  Nemáme informácie o FO, ktorá vlastní {preSelectSubjectType === "szco" ? "SZČO" : preSelectSubjectType === "company" ? "PO" : preSelectSubjectType === "organization" ? "neziskovku" : "inštitúciu"}
+                </span>
+              </div>
+            )}
+
+            {!preSelectNoFoInfo && (preSelectShowNameFields || (preSelectSubjectType === "person" && !preSelectSubjectId)) && (
               <div className="space-y-2">
                 {/* Riadok 1: tituly + meno + priezvisko */}
                 <div className="grid grid-cols-4 gap-2">
@@ -6193,7 +6382,7 @@ export default function Contracts() {
             )}
 
             {preSelectSubjectId && (
-              <p className="text-xs text-muted-foreground">Vybrany existujuci klient ({preSelectSubjectType === "person" ? "FO" : preSelectSubjectType === "szco" ? "SZČO" : preSelectSubjectType === "organization" ? "ORG" : preSelectSubjectType === "state" ? "ŠTÁT" : "PO"}) — polia su len na citanie. <button type="button" className="text-primary underline" onClick={() => { setPreSelectSubjectId(""); setPreSelectSubjectType("person"); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectBusinessName(""); setPreSelectIco(""); setPreSelectBirthNumber(""); setPreSelectShowNameFields(false); }} data-testid="button-deselect-subject">Zrusit vyber</button></p>
+              <p className="text-xs text-muted-foreground">Vybrany existujuci klient ({preSelectSubjectType === "person" ? "FO" : preSelectSubjectType === "szco" ? "SZČO" : preSelectSubjectType === "organization" ? "ORG" : preSelectSubjectType === "state" ? "ŠTÁT" : "PO"}) — polia su len na citanie. <button type="button" className="text-primary underline" onClick={() => { setPreSelectSubjectId(""); setPreSelectSubjectType("person"); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectBusinessName(""); setPreSelectIco(""); setPreSelectBirthNumber(""); setPreSelectShowNameFields(false); setPreSelectFoSearch(""); setPreSelectShowFoSearch(false); setPreSelectNoFoInfo(false); }} data-testid="button-deselect-subject">Zrusit vyber</button></p>
             )}
 
             <div className="flex justify-between gap-2">
