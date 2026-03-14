@@ -5049,14 +5049,14 @@ export default function Contracts() {
             </div>
 
             {preSelectNumberType === "both" ? (
-              <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium">{NAVRH_LABEL_FULL}</label>
                   <Input
                     ref={refNumberInput}
                     value={preSelectNumberValue}
                     onChange={(e) => { setPreSelectNumberValue(e.target.value); setPreSelectNumberDuplicates([]); }}
-                    placeholder="Zadajte číslo návrhu..."
+                    placeholder="Číslo návrhu..."
                     className={isFieldMissing("number") ? "border-red-500 ring-red-500/30" : ""}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") { e.preventDefault(); focusNextEmptyRequired("number"); }
@@ -5069,7 +5069,7 @@ export default function Contracts() {
                   <Input
                     value={preSelectNumberValue2}
                     onChange={(e) => { setPreSelectNumberValue2(e.target.value); setPreSelectNumberDuplicates([]); }}
-                    placeholder="Zadajte číslo zmluvy..."
+                    placeholder="Číslo zmluvy..."
                     className={isFieldMissing("number2") ? "border-red-500 ring-red-500/30" : ""}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") { e.preventDefault(); focusNextEmptyRequired("number2"); }
