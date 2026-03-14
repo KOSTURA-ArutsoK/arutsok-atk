@@ -2273,6 +2273,7 @@ export default function Contracts() {
   const [preSelectIcoLookupLoading, setPreSelectIcoLookupLoading] = useState(false);
   const [preSelectIcoConfirmed, setPreSelectIcoConfirmed] = useState(false);
   const [preSelectIcoError, setPreSelectIcoError] = useState<string | null>(null);
+  const [preSelectIcoFormatError, setPreSelectIcoFormatError] = useState<string | null>(null);
   const [preSelectSignatoryName, setPreSelectSignatoryName] = useState("");
   const [preSelectSignatoryManual, setPreSelectSignatoryManual] = useState(false);
   const [preSelectSignatoryTitleBefore, setPreSelectSignatoryTitleBefore] = useState("");
@@ -4566,6 +4567,7 @@ export default function Contracts() {
     setPreSelectSignatoryLastName("");
     setPreSelectSignatoryTitleAfter("");
     setPreSelectSignatoryFocusIdx(-1);
+    setPreSelectIcoFormatError(null);
   };
 
   const triggerIcoLookup = () => {
@@ -4636,6 +4638,7 @@ export default function Contracts() {
     setPreSelectSignatoryLastName("");
     setPreSelectSignatoryTitleAfter("");
     setPreSelectSignatoryFocusIdx(-1);
+    setPreSelectIcoFormatError(null);
     setPreSelectEditingContractId(null);
     setPreSelectFiles([]);
     setPreSelectCreatedContractId(null);
@@ -5478,7 +5481,7 @@ export default function Contracts() {
                         return (
                           <button key={opt.val} type="button" role="radio" aria-checked={isActive} tabIndex={isActive?0:-1}
                             className={`relative z-10 flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs font-medium rounded transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground/80"}`}
-                            onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(opt.val === "szco" || opt.val === "organization"); setPreSelectBirthNumber(""); setPreSelectSearchHint(null); setPreSelectIcoLookup(null); }}
+                            onClick={() => { setPreSelectSubjectType(opt.val); if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); } setPreSelectShowNameFields(opt.val === "szco" || opt.val === "organization"); setPreSelectBirthNumber(""); setPreSelectSearchHint(null); setPreSelectIcoLookup(null); setPreSelectIcoFormatError(null); }}
                             onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : opt.val === "organization" ? "org" : "po"}`}
                           ><Icon className="w-3 h-3" />{opt.label}</button>
                         );
@@ -5504,6 +5507,19 @@ export default function Contracts() {
                     setPreSelectSubjectSearch(val);
                     setPreSelectSubjectId("");
                     setPreSelectSearchHint(null);
+                    if (preSelectSubjectType === "company") {
+                      const trimmed = val.trim();
+                      if (!trimmed || !/^\d+$/.test(trimmed)) {
+                        setPreSelectIcoFormatError(null);
+                      } else if (trimmed.length > 3) {
+                        const res = validateSlovakICO(trimmed);
+                        setPreSelectIcoFormatError(res.valid ? null : "Neplatný formát IČO.");
+                      } else {
+                        setPreSelectIcoFormatError(null);
+                      }
+                    } else {
+                      setPreSelectIcoFormatError(null);
+                    }
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -5581,7 +5597,7 @@ export default function Contracts() {
                       if (firstRow) firstRow.focus();
                     }
                   }}
-                  className="pl-9"
+                  className={`pl-9 transition-colors ${preSelectIcoFormatError ? "border-red-500 focus-visible:ring-red-500/30" : ""}`}
                   data-testid="input-preselect-subject-search"
                 />
               </div>
@@ -5589,7 +5605,7 @@ export default function Contracts() {
                 <button
                   ref={refRegisterButton}
                   type="button"
-                  disabled={preSelectIcoLookupLoading || !preSelectSubjectSearch.trim()}
+                  disabled={preSelectIcoLookupLoading || !preSelectSubjectSearch.trim() || !!preSelectIcoFormatError}
                   onClick={() => triggerIcoLookup()}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); triggerIcoLookup(); } }}
                   className="shrink-0 flex items-center justify-center gap-1.5 min-w-[100px] py-1.5 text-xs font-bold rounded border-2 border-green-500 bg-green-500 hover:bg-green-400 text-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -5598,6 +5614,11 @@ export default function Contracts() {
                   {preSelectIcoLookupLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
                   Register
                 </button>
+              )}
+              {preSelectSubjectType === "company" && !preSelectSubjectId && preSelectIcoFormatError && (
+                <span className="shrink-0 flex items-center text-[10px] font-medium text-red-500 whitespace-nowrap" data-testid="text-ico-format-error">
+                  {preSelectIcoFormatError}
+                </span>
               )}
               </div>
               {/* RČ detekcia — auto-badge */}
