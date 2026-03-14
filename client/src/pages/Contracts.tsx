@@ -2276,6 +2276,11 @@ export default function Contracts() {
   const [preSelectCreatedContractId, setPreSelectCreatedContractId] = useState<number | null>(null);
   const [preSelectUploading, setPreSelectUploading] = useState(false);
   const [preSelectSignedDate, setPreSelectSignedDate] = useState("");
+  const [preSelectSignedDay, setPreSelectSignedDay] = useState("");
+  const [preSelectSignedMonth, setPreSelectSignedMonth] = useState("");
+  const [preSelectSignedYear, setPreSelectSignedYear] = useState("");
+  const [preSelectWithTime, setPreSelectWithTime] = useState(false);
+  const [preSelectSignedTime, setPreSelectSignedTime] = useState("");
   const [preSelectUploadedCount, setPreSelectUploadedCount] = useState(0);
   const [preSelectFileError, setPreSelectFileError] = useState<string | null>(null);
   const [preSelectSpecialistUid, setPreSelectSpecialistUid] = useState("");
@@ -2333,6 +2338,10 @@ export default function Contracts() {
   const refTitleAfterInput = useRef<HTMLInputElement>(null);
   const refBusinessNameInput = useRef<HTMLInputElement>(null);
   const refRegisterButton = useRef<HTMLButtonElement>(null);
+  const refSignedDay = useRef<HTMLInputElement>(null);
+  const refSignedMonth = useRef<HTMLInputElement>(null);
+  const refSignedYear = useRef<HTMLInputElement>(null);
+  const refTimeBtnNone = useRef<HTMLButtonElement>(null);
   const refPreSelectSpecialistUid = useRef<HTMLInputElement>(null);
   const refPreSelectSpecialistPct = useRef<HTMLInputElement>(null);
   const refImportSpecialistUid = useRef<HTMLInputElement>(null);
@@ -4465,6 +4474,18 @@ export default function Contracts() {
     }
   }, [preSelectStep]);
 
+  useEffect(() => {
+    const d = preSelectSignedDay;
+    const m = preSelectSignedMonth;
+    let y = preSelectSignedYear;
+    if (y.length === 2 && /^\d{2}$/.test(y)) y = "20" + y;
+    if (d && m && y.length === 4) {
+      setPreSelectSignedDate(`${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`);
+    } else {
+      setPreSelectSignedDate("");
+    }
+  }, [preSelectSignedDay, preSelectSignedMonth, preSelectSignedYear]);
+
   const handlePreSelectStep1ForceNext = () => {
     setPreSelectNumberDuplicates([]);
     setPreSelectStep(2);
@@ -4570,6 +4591,11 @@ export default function Contracts() {
     setPreSelectCreatedContractId(null);
     setPreSelectUploading(false);
     setPreSelectSignedDate("");
+    setPreSelectSignedDay("");
+    setPreSelectSignedMonth("");
+    setPreSelectSignedYear("");
+    setPreSelectWithTime(false);
+    setPreSelectSignedTime("");
     setPreSelectFileError(null);
     setPreSelectUploadedCount(0);
     setPreSelectSpecialistUid("");
@@ -4714,7 +4740,12 @@ export default function Contracts() {
       };
       if (preSelectPartnerId) contractData.partnerId = parseInt(preSelectPartnerId);
       if (preSelectProductId) contractData.productId = parseInt(preSelectProductId);
-      if (preSelectSignedDate) contractData.signedDate = new Date(preSelectSignedDate).toISOString();
+      if (preSelectSignedDate) {
+        const dateStr = preSelectWithTime && preSelectSignedTime
+          ? `${preSelectSignedDate}T${preSelectSignedTime}`
+          : preSelectSignedDate;
+        contractData.signedDate = new Date(dateStr).toISOString();
+      }
       if (preSelectNumberType === "proposal" && preSelectNumberValue.trim()) {
         contractData.proposalNumber = preSelectNumberValue.trim();
       } else if (preSelectNumberType === "contract" && preSelectNumberValue.trim()) {
@@ -4990,7 +5021,7 @@ export default function Contracts() {
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <label className="text-xs font-medium">Typ zmluvy *</label>
-                <Select value={preSelectContractType} onValueChange={(v) => { setPreSelectContractType(v); setTimeout(() => refSignedDateInput.current?.focus(), 50); }} open={preSelectContractTypeOpen} onOpenChange={setPreSelectContractTypeOpen}>
+                <Select value={preSelectContractType} onValueChange={(v) => { setPreSelectContractType(v); setTimeout(() => refSignedDay.current?.focus(), 50); }} open={preSelectContractTypeOpen} onOpenChange={setPreSelectContractTypeOpen}>
                   <SelectTrigger ref={refContractTypeTrigger} data-testid="select-preselect-contract-type" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); setPreSelectContractTypeOpen(prev => !prev); } }}>
                     <SelectValue placeholder="Vyberte typ zmluvy" />
                   </SelectTrigger>
@@ -5004,14 +5035,101 @@ export default function Contracts() {
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium">Dátum uzatvorenia</label>
-                <Input
-                  ref={refSignedDateInput}
-                  type="date"
-                  value={preSelectSignedDate}
-                  onChange={e => setPreSelectSignedDate(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); setTimeout(() => { const ref = preSelectNumberType === "proposal" ? refNumberToggleProposal : refNumberToggleContract; ref.current?.focus(); }, 50); } }}
-                  data-testid="input-preselect-signed-date"
-                />
+                <div className="flex items-center gap-1 flex-wrap">
+                  <Input
+                    ref={refSignedDay}
+                    value={preSelectSignedDay}
+                    onChange={e => {
+                      const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+                      setPreSelectSignedDay(v);
+                      if (v.length === 2) setTimeout(() => refSignedMonth.current?.focus(), 0);
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const n = parseInt(preSelectSignedDay);
+                        if (preSelectSignedDay.length === 1 && n >= 1 && n <= 9) setPreSelectSignedDay(preSelectSignedDay.padStart(2, "0"));
+                        setTimeout(() => refSignedMonth.current?.focus(), 30);
+                      }
+                    }}
+                    placeholder="DD"
+                    className="w-11 text-center px-1 h-9"
+                    maxLength={2}
+                    data-testid="input-preselect-signed-day"
+                  />
+                  <span className="text-muted-foreground text-sm font-bold select-none">.</span>
+                  <Input
+                    ref={refSignedMonth}
+                    value={preSelectSignedMonth}
+                    onChange={e => {
+                      const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+                      setPreSelectSignedMonth(v);
+                      if (v.length === 2) setTimeout(() => refSignedYear.current?.focus(), 0);
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const n = parseInt(preSelectSignedMonth);
+                        if (preSelectSignedMonth.length === 1 && n >= 1 && n <= 9) setPreSelectSignedMonth(preSelectSignedMonth.padStart(2, "0"));
+                        setTimeout(() => refSignedYear.current?.focus(), 30);
+                      }
+                    }}
+                    placeholder="MM"
+                    className="w-11 text-center px-1 h-9"
+                    maxLength={2}
+                    data-testid="input-preselect-signed-month"
+                  />
+                  <span className="text-muted-foreground text-sm font-bold select-none">.</span>
+                  <Input
+                    ref={refSignedYear}
+                    value={preSelectSignedYear}
+                    onChange={e => { const v = e.target.value.replace(/\D/g, "").slice(0, 4); setPreSelectSignedYear(v); }}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        let y = preSelectSignedYear.trim();
+                        if (/^\d{2}$/.test(y)) { y = "20" + y; setPreSelectSignedYear(y); }
+                        setTimeout(() => refTimeBtnNone.current?.focus(), 50);
+                      }
+                    }}
+                    placeholder="RRRR"
+                    className="w-[4.5rem] text-center px-1 h-9"
+                    maxLength={4}
+                    data-testid="input-preselect-signed-year"
+                  />
+                  <button
+                    ref={refTimeBtnNone}
+                    type="button"
+                    onClick={() => setPreSelectWithTime(false)}
+                    className={`shrink-0 px-2 py-1 text-xs rounded border transition-colors h-9 ${!preSelectWithTime ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted/50"}`}
+                    data-testid="button-preselect-no-time"
+                  >Čas nie</button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreSelectWithTime(true);
+                      if (!preSelectSignedTime) {
+                        const now = new Date();
+                        const hh = String(now.getHours()).padStart(2, "0");
+                        const mm2 = String(now.getMinutes()).padStart(2, "0");
+                        const ss = String(now.getSeconds()).padStart(2, "0");
+                        setPreSelectSignedTime(`${hh}:${mm2}:${ss}`);
+                      }
+                    }}
+                    className={`shrink-0 px-2 py-1 text-xs rounded border transition-colors h-9 ${preSelectWithTime ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted/50"}`}
+                    data-testid="button-preselect-with-time"
+                  >Čas áno</button>
+                </div>
+                {preSelectWithTime && (
+                  <Input
+                    type="time"
+                    step="1"
+                    value={preSelectSignedTime}
+                    onChange={e => setPreSelectSignedTime(e.target.value)}
+                    className="mt-1 h-9 w-40"
+                    data-testid="input-preselect-signed-time"
+                  />
+                )}
                 {preSelectSignedDate && new Date(preSelectSignedDate) > new Date() && (
                   <p className="text-[10px] text-orange-400 mt-0.5">Dátum je v budúcnosti</p>
                 )}
