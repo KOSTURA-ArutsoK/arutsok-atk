@@ -4973,7 +4973,7 @@ export default function Contracts() {
               <div className="space-y-1">
                 <label className="text-xs font-medium">Vyberte produkt</label>
                 <Select value={preSelectProductId} onValueChange={(v) => { setPreSelectProductId(v); setTimeout(() => refContractTypeTrigger.current?.focus(), 50); }} open={preSelectProductOpen} onOpenChange={setPreSelectProductOpen} disabled={!preSelectPartnerId}>
-                  <SelectTrigger ref={refProductTrigger} data-testid="select-preselect-product" onKeyDown={(e) => { if (e.key === "Enter" && !preSelectProductOpen) { e.preventDefault(); e.stopPropagation(); setTimeout(() => refContractTypeTrigger.current?.focus(), 50); } }}>
+                  <SelectTrigger ref={refProductTrigger} data-testid="select-preselect-product" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); setPreSelectProductOpen(prev => !prev); } }}>
                     <SelectValue placeholder={preSelectPartnerId ? "Vyberte produkt (volitelne)" : "Najprv vyberte partnera"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -4991,7 +4991,7 @@ export default function Contracts() {
               <div className="space-y-1">
                 <label className="text-xs font-medium">Typ zmluvy *</label>
                 <Select value={preSelectContractType} onValueChange={(v) => { setPreSelectContractType(v); setTimeout(() => refSignedDateInput.current?.focus(), 50); }} open={preSelectContractTypeOpen} onOpenChange={setPreSelectContractTypeOpen}>
-                  <SelectTrigger ref={refContractTypeTrigger} data-testid="select-preselect-contract-type" onKeyDown={(e) => { if (e.key === "Enter" && !preSelectContractTypeOpen) { e.preventDefault(); e.stopPropagation(); setTimeout(() => refSignedDateInput.current?.focus(), 50); } }}>
+                  <SelectTrigger ref={refContractTypeTrigger} data-testid="select-preselect-contract-type" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); setPreSelectContractTypeOpen(prev => !prev); } }}>
                     <SelectValue placeholder="Vyberte typ zmluvy" />
                   </SelectTrigger>
                   <SelectContent>
@@ -5145,7 +5145,7 @@ export default function Contracts() {
             )}
 
             <div className="flex justify-end gap-2">
-              <Button ref={refStep1Next} onClick={handlePreSelectStep1Next} disabled={!preSelectPartnerId || preSelectCheckingDuplicates} style={{ display: preSelectNumberDuplicates.length > 0 ? 'none' : undefined }} data-testid="button-preselect-next">
+              <Button ref={refStep1Next} onClick={handlePreSelectStep1Next} disabled={!preSelectPartnerId || !preSelectContractType || preSelectCheckingDuplicates} style={{ display: preSelectNumberDuplicates.length > 0 ? 'none' : undefined }} data-testid="button-preselect-next">
                 {preSelectCheckingDuplicates && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />}
                 Dalej
               </Button>
