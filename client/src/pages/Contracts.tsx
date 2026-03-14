@@ -5051,6 +5051,10 @@ export default function Contracts() {
                         const n = parseInt(preSelectSignedDay);
                         if (preSelectSignedDay.length === 1 && n >= 1 && n <= 9) setPreSelectSignedDay(preSelectSignedDay.padStart(2, "0"));
                         setTimeout(() => refSignedMonth.current?.focus(), 30);
+                      } else if (e.key === "ArrowRight" && (e.currentTarget.selectionStart ?? 0) >= preSelectSignedDay.length) {
+                        e.preventDefault();
+                        refSignedMonth.current?.focus();
+                        setTimeout(() => refSignedMonth.current?.setSelectionRange(0, 0), 0);
                       }
                     }}
                     placeholder="DD"
@@ -5073,6 +5077,14 @@ export default function Contracts() {
                         const n = parseInt(preSelectSignedMonth);
                         if (preSelectSignedMonth.length === 1 && n >= 1 && n <= 9) setPreSelectSignedMonth(preSelectSignedMonth.padStart(2, "0"));
                         setTimeout(() => refSignedYear.current?.focus(), 30);
+                      } else if (e.key === "ArrowLeft" && (e.currentTarget.selectionStart ?? 0) === 0) {
+                        e.preventDefault();
+                        refSignedDay.current?.focus();
+                        setTimeout(() => refSignedDay.current?.setSelectionRange(preSelectSignedDay.length, preSelectSignedDay.length), 0);
+                      } else if (e.key === "ArrowRight" && (e.currentTarget.selectionStart ?? 0) >= preSelectSignedMonth.length) {
+                        e.preventDefault();
+                        refSignedYear.current?.focus();
+                        setTimeout(() => refSignedYear.current?.setSelectionRange(0, 0), 0);
                       }
                     }}
                     placeholder="MM"
@@ -5091,6 +5103,10 @@ export default function Contracts() {
                         let y = preSelectSignedYear.trim();
                         if (/^\d{2}$/.test(y)) { y = "20" + y; setPreSelectSignedYear(y); }
                         setTimeout(() => refTimeBtnNone.current?.focus(), 50);
+                      } else if (e.key === "ArrowLeft" && (e.currentTarget.selectionStart ?? 0) === 0) {
+                        e.preventDefault();
+                        refSignedMonth.current?.focus();
+                        setTimeout(() => refSignedMonth.current?.setSelectionRange(preSelectSignedMonth.length, preSelectSignedMonth.length), 0);
                       }
                     }}
                     placeholder="RRRR"
