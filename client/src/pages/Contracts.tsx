@@ -5384,7 +5384,18 @@ export default function Contracts() {
                   const activeSubIdx = subOpts.findIndex(o => o.val === preSelectSubjectType);
                   const n = subOpts.length;
                   const handleSubKey = (e: React.KeyboardEvent, idx: number) => {
-                    if (e.key === "Enter") { e.preventDefault(); setTimeout(() => refSearchInput.current?.focus(), 50); return; }
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const selVal = subOpts[idx].val;
+                      setTimeout(() => {
+                        if ((selVal === "szco" || selVal === "company" || selVal === "organization") && refRegisterButton.current && !refRegisterButton.current.disabled) {
+                          refRegisterButton.current.focus();
+                        } else {
+                          refSearchInput.current?.focus();
+                        }
+                      }, 50);
+                      return;
+                    }
                     let next = -1;
                     if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); next = (idx+1)%n; }
                     else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); next = (idx+n-1)%n; }
