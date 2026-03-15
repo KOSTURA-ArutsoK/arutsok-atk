@@ -3440,6 +3440,13 @@ export async function registerRoutes(
         }
       }
 
+      if (updateData.subjectId) {
+        const [systemCheck] = await db.select({ type: subjects.type }).from(subjects).where(eq(subjects.id, updateData.subjectId)).limit(1);
+        if (systemCheck?.type === 'system') {
+          return res.status(400).json({ message: "Na systémový subjekt ATK nie je možné viazať zmluvy." });
+        }
+      }
+
       const mergedPartnerId = updateData.partnerId !== undefined ? updateData.partnerId : contract.partnerId;
       const mergedProductId = updateData.productId !== undefined ? updateData.productId : contract.productId;
       const mergedProposalNumber = updateData.proposalNumber !== undefined ? updateData.proposalNumber : contract.proposalNumber;
@@ -5392,12 +5399,16 @@ export async function registerRoutes(
       const appUser = req.appUser;
 
       if (input.subjectId) {
+        const subjectForCheck = await storage.getSubject(input.subjectId);
+        if (subjectForCheck?.type === 'system') {
+          return res.status(400).json({ message: "Na systémový subjekt ATK nie je možné viazať zmluvy." });
+        }
+
         const isCierny = await storage.isSubjectInGroup(input.subjectId, "group_cierny_zoznam");
         if (isCierny) {
           return res.status(403).json({ message: "Subjekt je na Globálnom čiernom zozname — operácia zakázaná" });
         }
 
-        const subjectForCheck = await storage.getSubject(input.subjectId);
         if (subjectForCheck?.listStatus === "cerveny") {
           if (!isAdmin(appUser)) {
             return res.status(403).json({ message: "Subjekt na červenom zozname — zmluva vyžaduje schválenie administrátorom" });
@@ -5988,6 +5999,14 @@ export async function registerRoutes(
                   console.error(`[IMPORT] Chyba pri vytváraní subjektu pre riadok ${rowNum}:`, subjectErr.message);
                 }
               }
+            }
+          }
+
+          if (resolvedSubjectId) {
+            const [sysCheck] = await db.select({ type: subjects.type }).from(subjects).where(eq(subjects.id, resolvedSubjectId)).limit(1);
+            if (sysCheck?.type === 'system') {
+              results.push({ row: rowNum, status: "error", error: "Na systémový subjekt ATK nie je možné viazať zmluvy." });
+              continue;
             }
           }
 

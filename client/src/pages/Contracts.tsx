@@ -846,7 +846,7 @@ function ContractFormDialog({
                   <SelectValue placeholder="Vyberte klienta" />
                 </SelectTrigger>
                 <SelectContent>
-                  {subjects?.filter(s => s.isActive).map(s => (
+                  {subjects?.filter(s => s.isActive && s.type !== 'system').map(s => (
                     <SelectItem key={s.id} value={s.id.toString()}>
                       {s.type === "person" ? `${s.firstName} ${s.lastName}` : s.companyName} ({formatUid(s.uid)})
                     </SelectItem>
@@ -7554,6 +7554,7 @@ export default function Contracts() {
   const quickFixMissingFields = (quickFixContract?.incompleteDataReason || "").replace(/^Chýba:\s*/, "").split(",").map((f: string) => f.trim().toLowerCase());
   const qfMissing = (field: string) => quickFixMissingFields.some((f: string) => f.includes(field));
   const quickFixFilteredSubjects = !subjects ? [] : subjects.filter(s => {
+    if (s.type === 'system') return false;
     const q = quickFixSubjectSearch.toLowerCase().trim();
     if (!q) return true;
     const fullName = s.type === "company" ? (s.companyName || "") : `${s.firstName || ""} ${s.lastName || ""}`.trim();
