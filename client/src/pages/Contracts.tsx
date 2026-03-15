@@ -3528,7 +3528,6 @@ export default function Contracts() {
                       {r2 ? <span className="font-mono text-amber-300">{r2Pct.toFixed(0)}%</span> : "—"}
                     </span>
                   </td>
-                  </td>
                   {showActions && (
                     <td className="px-2 py-1.5 text-right" onClick={e => e.stopPropagation()}>
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => (alwaysIncompleteEdit || isIncomplete) ? openIncompleteEdit(contract) : openEdit(contract)} data-testid={`button-edit-spr-${contract.id}`}>
