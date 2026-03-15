@@ -3284,11 +3284,12 @@ export default function Contracts() {
             <tr className="bg-muted/40">
               {showCheckbox && <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b sticky left-0 bg-muted/40 z-10 w-8">
                 <Checkbox
-                  checked={contractsList.length > 0 && contractsList.every(c => selectedIds.includes(c.id))}
+                  checked={contractsList.filter(c => !(c as any).incompleteData).length > 0 && contractsList.filter(c => !(c as any).incompleteData).every(c => selectedIds.includes(c.id))}
                   onCheckedChange={() => {
-                    const allSel = contractsList.every(c => selectedIds.includes(c.id));
-                    if (allSel) setSelectedIds(prev => prev.filter(id => !contractsList.find(c => c.id === id)));
-                    else setSelectedIds(prev => [...new Set([...prev, ...contractsList.map(c => c.id)])]);
+                    const selectable = contractsList.filter(c => !(c as any).incompleteData);
+                    const allSel = selectable.every(c => selectedIds.includes(c.id));
+                    if (allSel) setSelectedIds(prev => prev.filter(id => !selectable.find(c => c.id === id)));
+                    else setSelectedIds(prev => [...new Set([...prev, ...selectable.map(c => c.id)])]);
                   }}
                   data-testid="checkbox-spr-select-all"
                 />
@@ -3326,19 +3327,34 @@ export default function Contracts() {
               const r1 = recommenders[0];
               const r2 = recommenders[1];
               const isSelected = showCheckbox && selectedIds.includes(contract.id);
+              const isIncomplete = !!(contract as any).incompleteData;
+              const rowBg = isSelected
+                ? "bg-primary/10 border-l-2 border-l-primary"
+                : isIncomplete
+                ? "bg-red-500/10 border-l-2 border-l-red-500"
+                : "";
+              const handleRowClick = logViewFn
+                ? () => logViewFn(contract)
+                : showCheckbox
+                ? () => {
+                    if (isIncomplete) { openIncompleteEdit(contract); }
+                    else { setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]); }
+                  }
+                : undefined;
               return (
                 <tr
                   key={contract.id}
-                  className={`border-b hover:bg-muted/20 ${isSelected ? "bg-primary/5" : ""}`}
+                  className={`border-b hover:bg-muted/20 cursor-pointer ${rowBg}`}
                   data-testid={`${testIdPrefix}-${contract.id}`}
-                  onClick={logViewFn ? () => logViewFn(contract) : undefined}
+                  onClick={handleRowClick}
                 >
                   {showCheckbox && (
-                    <td className="px-2 py-1.5 sticky left-0 bg-background z-10" onClick={e => e.stopPropagation()}>
+                    <td className={`px-2 py-1.5 sticky left-0 z-10 ${isSelected ? "bg-primary/10" : isIncomplete ? "bg-red-500/10" : "bg-background"}`} onClick={e => e.stopPropagation()}>
                       <Checkbox
                         checked={isSelected}
+                        disabled={isIncomplete}
                         onCheckedChange={() => {
-                          setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]);
+                          if (!isIncomplete) setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]);
                         }}
                         data-testid={`checkbox-spr-${contract.id}`}
                       />
