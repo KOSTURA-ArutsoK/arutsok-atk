@@ -2401,6 +2401,9 @@ export default function Contracts() {
         if (!preSelectFirstName.trim()) missing.push("first-name");
         if (!preSelectLastName.trim()) missing.push("last-name");
       }
+    } else if (step === 3) {
+      if (!preSelectSpecialistUid.trim()) missing.push("specialist-uid");
+      if (preSelectSpecialistUid.trim() && !(parseFloat(preSelectSpecialistPercentage) > 0)) missing.push("specialist-pct");
     }
     return missing;
   };
@@ -5726,7 +5729,7 @@ export default function Contracts() {
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium">Dátum uzatvorenia <span className="text-red-500">*</span></label>
-                <div className={`flex items-center border rounded-md bg-background h-9 overflow-hidden ${preSelectSignedDateError && !preSelectSignedDate ? "border-red-500 ring-1 ring-red-500/30" : "border-input"}`}>
+                <div className={`flex items-center border rounded-md bg-background h-9 overflow-hidden ${(preSelectSignedDateError && !preSelectSignedDate) || isFieldMissing("signed-date") ? "border-red-500 ring-1 ring-red-500/30" : "border-input"}`}>
                   <input
                     ref={refSignedDay}
                     value={preSelectSignedDay}
@@ -7019,7 +7022,7 @@ export default function Contracts() {
                               refPreSelectSpecialistPct.current?.focus();
                             }
                           }}
-                          className="font-mono text-sm"
+                          className={`font-mono text-sm ${isFieldMissing("specialist-uid") ? "border-red-500 ring-1 ring-red-500/30" : ""}`}
                           data-testid="input-preselect-specialist-uid"
                         />
                         {(() => {
@@ -7077,7 +7080,7 @@ export default function Contracts() {
                               }
                             }
                           }}
-                          className="pr-8 font-mono text-sm"
+                          className={`pr-8 font-mono text-sm ${isFieldMissing("specialist-pct") ? "border-red-500 ring-1 ring-red-500/30" : ""}`}
                           data-testid="input-preselect-specialist-percentage"
                         />
                         <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
