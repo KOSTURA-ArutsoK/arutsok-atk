@@ -3285,11 +3285,11 @@ export default function Contracts() {
       Nova: "Nová", Prestupova: "Prestupová", Zmenova: "Zmenová", Dodatok: "Dodatok"
     };
     return (
-      <div className="overflow-x-auto">
+      <div className="overflow-auto max-h-[65vh]">
         <table className="w-full text-xs border-separate border-spacing-0" style={{ minWidth: 1400 }}>
-          <thead>
-            <tr className="bg-muted/40">
-              {showCheckbox && <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b sticky left-0 bg-muted/40 z-10 w-8">
+          <thead className="sticky top-0 z-20 bg-card border-b border-border">
+            <tr className="bg-muted/50">
+              {showCheckbox && <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b sticky left-0 bg-card z-30 w-8">
                 <Checkbox
                   checked={contractsList.filter(c => !(c as any).incompleteData).length > 0 && contractsList.filter(c => !(c as any).incompleteData).every(c => selectedIds.includes(c.id))}
                   onCheckedChange={() => {
