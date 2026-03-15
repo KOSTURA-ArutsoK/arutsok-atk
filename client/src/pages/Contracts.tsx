@@ -5332,39 +5332,46 @@ export default function Contracts() {
     const typSubjLabel = sub?.type === "person" ? "FO – Fyzická osoba" : sub?.type === "szco" ? "SZČO – Živnostník" : sub?.type === "company" ? "PO – Právnická osoba" : sub?.type === "organization" ? "Organizácia" : sub?.type === "state" ? "Štát" : "—";
     const rcIco = sub ? (sub.type === "person" ? sub.birthNumber : (sub as any).ico || sub.birthNumber) : null;
 
-    // Dátum narodenia, vek, pohlavie — z dynamicFields alebo z RČ
-    const dynFields = (sub?.details as any)?.dynamicFields || {};
-    let datumNarodenia: string | null = dynFields["datum_narodenia"] || null;
-    let vek: string | null = dynFields["vek"] ? String(dynFields["vek"]) : null;
-    let pohlavie: string | null = dynFields["pohlavie"] || null;
-    // Ak subjekt je person/szco a má RČ, dopočítaj z neho ak chýba v dynFields
-    if (!datumNarodenia && !vek && !pohlavie && (sub?.type === "person" || sub?.type === "szco") && sub?.birthNumber) {
-      const rc = sub.birthNumber.replace(/[^0-9]/g, "");
-      if (rc.length >= 9) {
-        let rr = parseInt(rc.substring(0, 2));
-        let mm = parseInt(rc.substring(2, 4));
-        let dd = parseInt(rc.substring(4, 6));
-        let genderParsed: string;
-        if (mm > 70) { genderParsed = "Žena"; mm -= 70; }
-        else if (mm > 50) { genderParsed = "Žena"; mm -= 50; }
-        else if (mm > 20) { genderParsed = "Muž"; mm -= 20; }
-        else { genderParsed = "Muž"; }
-        if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
-          const curYear = new Date().getFullYear();
-          let year = rc.length === 9 ? 1900 + rr : (rr >= 54 ? 1900 + rr : 2000 + rr);
-          if (year > curYear) year -= 100;
-          const dob = new Date(year, mm - 1, dd);
-          if (!isNaN(dob.getTime())) {
-            datumNarodenia = `${String(dd).padStart(2,"0")}.${String(mm).padStart(2,"0")}.${year}`;
-            pohlavie = genderParsed;
-            const today = new Date();
-            let age = today.getFullYear() - dob.getFullYear();
-            if (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) age--;
-            vek = String(age);
-          }
-        }
-      }
+    // Automaticky odvodené údaje z RČ (dátum narodenia, vek, pohlavie)
+    function parseRcInfo(rcRaw: string | null | undefined): { datumNarodenia: string; vek: string; pohlavie: string } | null {
+      if (!rcRaw) return null;
+      const rc = rcRaw.replace(/[^0-9]/g, "");
+      if (rc.length < 9) return null;
+      let rr = parseInt(rc.substring(0, 2));
+      let mm = parseInt(rc.substring(2, 4));
+      let dd = parseInt(rc.substring(4, 6));
+      let pohlavieP: string;
+      if (mm > 70) { pohlavieP = "Žena"; mm -= 70; }
+      else if (mm > 50) { pohlavieP = "Žena"; mm -= 50; }
+      else if (mm > 20) { pohlavieP = "Muž"; mm -= 20; }
+      else { pohlavieP = "Muž"; }
+      if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+      const curYear = new Date().getFullYear();
+      let year = rc.length === 9 ? 1900 + rr : (rr >= 54 ? 1900 + rr : 2000 + rr);
+      if (year > curYear) year -= 100;
+      const dob = new Date(year, mm - 1, dd);
+      if (isNaN(dob.getTime())) return null;
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      if (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) age--;
+      return {
+        datumNarodenia: `${String(dd).padStart(2,"0")}.${String(mm).padStart(2,"0")}.${year}`,
+        vek: String(age),
+        pohlavie: pohlavieP,
+      };
     }
+    const isPersonType = sub?.type === "person" || sub?.type === "szco";
+    const importRaw = (c as any).importedRawData || {};
+    // Zisti RČ — z profilu subjektu alebo z importedRawData
+    const rcSource = (isPersonType ? sub?.birthNumber : null) || importRaw["rc_ico"] || importRaw["birthNumber"] || null;
+    const subjectTypeForDerived = sub?.type || importRaw["typ_subjektu"] || importRaw["subjectType"] || null;
+    const isPersonLike = subjectTypeForDerived === "person" || subjectTypeForDerived === "szco";
+    const rcParsed = isPersonLike ? parseRcInfo(rcSource) : null;
+    // Preferuj hodnoty z dynamicFields subjektu, doplň z RC parsingu
+    const dynFields = (sub?.details as any)?.dynamicFields || {};
+    const datumNarodenia: string | null = dynFields["datum_narodenia"] || rcParsed?.datumNarodenia || null;
+    const vek: string | null = (dynFields["vek"] ? String(dynFields["vek"]) : null) || rcParsed?.vek || null;
+    const pohlavie: string | null = dynFields["pohlavie"] || rcParsed?.pohlavie || null;
 
     const dists = allRewardDist.filter((d: any) => d.contractId === c.id);
     const spec = dists.find((d: any) => d.type === "specialist");
@@ -5424,11 +5431,11 @@ export default function Contracts() {
                     )}
                     {rcIco && <Row label={sub?.type === "person" ? "Rodné číslo" : "IČO"} value={<span className="font-mono">{rcIco}</span>} />}
                   </div>
-                  {/* Stĺpce 3–4: odvodené z RČ (read-only, mimo zadávania) */}
-                  {sub && (sub.type === "person" || sub.type === "szco") && (datumNarodenia || vek || pohlavie) && (
-                    <div className="w-64 shrink-0 px-4 py-3 bg-muted/20 grid grid-cols-[110px_1fr] gap-x-2 content-start">
-                      <div className="col-span-2 flex items-center gap-1.5 mb-1.5">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">z rodného čísla</span>
+                  {/* Stĺpce 3–4: automaticky odvodené údaje (read-only) */}
+                  {isPersonLike && (datumNarodenia || vek || pohlavie) && (
+                    <div className="w-60 shrink-0 px-4 py-3 bg-muted/20 grid grid-cols-[108px_1fr] gap-x-2 content-start">
+                      <div className="col-span-2 mb-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Automaticky odvodené</span>
                       </div>
                       {datumNarodenia && (
                         <>
