@@ -3396,12 +3396,40 @@ export async function registerRoutes(
         "proposalNumber", "contractNumber", "lifecyclePhase",
         "incompleteData", "incompleteDataReason", "signatoryName",
         "signatoryTitleBefore", "signatoryFirstName", "signatoryLastName", "signatoryTitleAfter",
-        "signedDate", "contractType",
+        "signedDate", "effectiveDate", "expiryDate", "contractType",
+        "clientGroupId", "identifierType", "identifierValue",
+        "statusId", "templateId", "inventoryId", "stateId", "companyId",
+        "premiumAmount", "annualPremium", "commissionAmount", "currency",
+        "notes", "dynamicPanelValues",
       ];
       const updateData: Record<string, any> = { updatedAt: new Date() };
       for (const field of allowedFields) {
         if (req.body[field] !== undefined) {
           updateData[field] = req.body[field];
+        }
+      }
+
+      if (req.body._migrationDates) {
+        const md = req.body._migrationDates;
+        const MIG_DATE_FIELDS: Array<[string, string]> = [
+          ["receivedByCentralAt", "receivedByCentralAt"],
+          ["sentToPartnerAt", "sentToPartnerAt"],
+          ["receivedByPartnerAt", "receivedByPartnerAt"],
+          ["objectionEnteredAt", "objectionEnteredAt"],
+          ["dispatchedAt", "dispatchedAt"],
+        ];
+        for (const [key, col] of MIG_DATE_FIELDS) {
+          if (md[key] !== undefined) {
+            if (!md[key]) {
+              updateData[col] = null;
+            } else {
+              const d = new Date(md[key]);
+              updateData[col] = isNaN(d.getTime()) ? null : d;
+            }
+          }
+        }
+        if (md.lifecyclePhase !== undefined) {
+          updateData.lifecyclePhase = md.lifecyclePhase;
         }
       }
 

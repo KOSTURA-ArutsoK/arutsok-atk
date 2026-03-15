@@ -516,7 +516,7 @@ function ContractFormDialog({
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("PUT", `/api/contracts/${editingContract?.id}`, data),
+    mutationFn: (data: any) => apiRequest("PATCH", `/api/contracts/${editingContract?.id}`, data),
     onSuccess: async () => {
       if (editingContract?.id) {
         await syncAcquirersForContract(editingContract.id);
