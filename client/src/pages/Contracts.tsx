@@ -5302,6 +5302,24 @@ export default function Contracts() {
 
     setPreSelectSubjectSearch("");
     setPreSelectClientTypeId("");
+
+    // Preload existujúce odmeny zo allRewardDist
+    const existingDists = allRewardDist.filter((d: any) => d.contractId === contract.id);
+    const existingSpec = existingDists.find((d: any) => d.type === "specialist");
+    const existingRecs = existingDists
+      .filter((d: any) => d.type === "recommender")
+      .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    if (existingSpec) {
+      setPreSelectSpecialistUid(existingSpec.uid || "");
+      setPreSelectSpecialistPercentage(String(existingSpec.percentage ?? ""));
+    } else {
+      setPreSelectSpecialistUid("");
+      setPreSelectSpecialistPercentage("");
+    }
+    setPreSelectRecommenders(
+      existingRecs.map((r: any) => ({ uid: r.uid || "", percentage: String(r.percentage ?? "0") }))
+    );
+
     setPreSelectOpen(true);
   };
 
