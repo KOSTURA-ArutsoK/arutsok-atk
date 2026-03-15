@@ -922,7 +922,12 @@ function ContractFormDialog({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">UID specialistu</label>
+                    <div className="flex items-center justify-between gap-1">
+                      <label className="text-xs text-muted-foreground">UID specialistu</label>
+                      <button type="button" className="text-[10px] font-mono text-primary/60 hover:text-primary transition-colors" onClick={() => { setSpecialistUid(expandUid("421000000000000")); setRewardSearchSpecialist(""); }} title="Hlava systému SK" data-testid="btn-root-uid-specialist">
+                        Hlava: {formatUid("421000000000000")}
+                      </button>
+                    </div>
                     <div className="relative">
                       <Input
                         placeholder="UID alebo meno..."
@@ -1016,7 +1021,12 @@ function ContractFormDialog({
                 <div className="border rounded-md p-2 space-y-2" style={{ display: addingRecommender ? 'block' : 'none' }} data-testid="panel-add-recommender">
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground">UID odporucitela</label>
+                      <div className="flex items-center justify-between gap-1">
+                        <label className="text-xs text-muted-foreground">UID odporucitela</label>
+                        <button type="button" className="text-[10px] font-mono text-primary/60 hover:text-primary transition-colors" onClick={() => { setNewRecommenderUid(expandUid("421000000000000")); setRewardSearchRecommender(""); }} title="Hlava systému SK" data-testid="btn-root-uid-recommender">
+                          Hlava: {formatUid("421000000000000")}
+                        </button>
+                      </div>
                       <div className="relative">
                         <Input
                           placeholder="UID alebo meno..."

@@ -3747,9 +3747,12 @@ export async function registerRoutes(
         if (contract.subjectId) {
           const subj = await db.select().from(subjects).where(eq(subjects.id, contract.subjectId)).limit(1);
           if (subj[0] && !subj[0].uid) {
-            const maxUid = await db.select({ max: sql<string>`MAX(uid)` }).from(subjects).where(sql`uid LIKE '421%'`);
-            const lastNum = maxUid[0]?.max ? parseInt(maxUid[0].max) : 421000000000000;
-            const nextUid = String(lastNum + 1);
+            const activeState = contract.stateId ? await storage.getState(contract.stateId) : null;
+            const prefix = (activeState?.code && /^\d{2,3}$/.test(activeState.code)) ? activeState.code : '421';
+            const ROOT_UID = BigInt(`${prefix}${'0'.repeat(12)}`);
+            const maxUid = await db.select({ max: sql<string>`MAX(uid)` }).from(subjects).where(sql`uid LIKE ${prefix + '%'}`);
+            const lastNum = maxUid[0]?.max ? BigInt(maxUid[0].max) : ROOT_UID;
+            const nextUid = String(lastNum + BigInt(1));
             await db.update(subjects).set({ uid: nextUid }).where(eq(subjects.id, contract.subjectId));
           }
         }
@@ -3934,9 +3937,12 @@ export async function registerRoutes(
         if (contract.subjectId) {
           const subj = await db.select().from(subjects).where(eq(subjects.id, contract.subjectId)).limit(1);
           if (subj[0] && !subj[0].uid) {
-            const maxUid = await db.select({ max: sql<string>`MAX(uid)` }).from(subjects).where(sql`uid LIKE '421%'`);
-            const lastNum = maxUid[0]?.max ? parseInt(maxUid[0].max) : 421000000000000;
-            const nextUid = String(lastNum + 1);
+            const activeState = contract.stateId ? await storage.getState(contract.stateId) : null;
+            const prefix = (activeState?.code && /^\d{2,3}$/.test(activeState.code)) ? activeState.code : '421';
+            const ROOT_UID = BigInt(`${prefix}${'0'.repeat(12)}`);
+            const maxUid = await db.select({ max: sql<string>`MAX(uid)` }).from(subjects).where(sql`uid LIKE ${prefix + '%'}`);
+            const lastNum = maxUid[0]?.max ? BigInt(maxUid[0].max) : ROOT_UID;
+            const nextUid = String(lastNum + BigInt(1));
             await db.update(subjects).set({ uid: nextUid }).where(eq(subjects.id, contract.subjectId));
           }
         }
@@ -17816,7 +17822,7 @@ export async function registerRoutes(
   app.get("/api/network/tree", isAuthenticated, async (req: any, res) => {
     try {
       const rootId = req.query.rootId ? parseInt(req.query.rootId as string) : null;
-      const SK_ROOT_UID = "421 000 000 000 000";
+      const SK_ROOT_UID = "421000000000000";
 
       let rootSubject: any = null;
       if (rootId) {
