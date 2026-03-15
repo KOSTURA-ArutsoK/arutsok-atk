@@ -5407,26 +5407,48 @@ export default function Contracts() {
                   <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">2</div>
                   <span className="text-sm font-semibold">Klient (subjekt)</span>
                 </div>
-                <div className="px-4 py-3 grid grid-cols-[180px_1fr] gap-x-4">
-                  <Row label="Typ subjektu" value={sub ? typSubjLabel : <span className="italic text-muted-foreground">Nepriradený</span>} />
-                  {sub && (sub.type === "person" || sub.type === "szco") && (
-                    <>
-                      <Row label="Titul pred" value={sub.titleBefore} />
-                      <Row label="Meno" value={<span className="font-medium">{sub.firstName}</span>} />
-                      <Row label="Priezvisko" value={<span className="font-medium">{sub.lastName}</span>} />
-                      <Row label="Titul za" value={sub.titleAfter} />
-                    </>
-                  )}
-                  {sub && (sub.type === "company" || sub.type === "organization" || sub.type === "szco") && (
-                    <Row label="Názov firmy" value={<span className="font-medium">{sub.companyName}</span>} />
-                  )}
-                  {rcIco && <Row label={sub?.type === "person" ? "Rodné číslo" : "IČO"} value={<span className="font-mono">{rcIco}</span>} />}
-                  {sub && (sub.type === "person" || sub.type === "szco") && (
-                    <>
-                      {datumNarodenia && <Row label="Dátum narodenia" value={<span className="font-mono">{datumNarodenia}</span>} />}
-                      {vek && <Row label="Vek" value={<span>{vek} rokov</span>} />}
-                      {pohlavie && <Row label="Pohlavie" value={pohlavie} />}
-                    </>
+                <div className="flex divide-x">
+                  {/* Stĺpce 1–2: zadané údaje */}
+                  <div className="flex-1 px-4 py-3 grid grid-cols-[160px_1fr] gap-x-3">
+                    <Row label="Typ subjektu" value={sub ? typSubjLabel : <span className="italic text-muted-foreground">Nepriradený</span>} />
+                    {sub && (sub.type === "person" || sub.type === "szco") && (
+                      <>
+                        <Row label="Titul pred" value={sub.titleBefore} />
+                        <Row label="Meno" value={<span className="font-medium">{sub.firstName}</span>} />
+                        <Row label="Priezvisko" value={<span className="font-medium">{sub.lastName}</span>} />
+                        <Row label="Titul za" value={sub.titleAfter} />
+                      </>
+                    )}
+                    {sub && (sub.type === "company" || sub.type === "organization" || sub.type === "szco") && (
+                      <Row label="Názov firmy" value={<span className="font-medium">{sub.companyName}</span>} />
+                    )}
+                    {rcIco && <Row label={sub?.type === "person" ? "Rodné číslo" : "IČO"} value={<span className="font-mono">{rcIco}</span>} />}
+                  </div>
+                  {/* Stĺpce 3–4: odvodené z RČ (read-only, mimo zadávania) */}
+                  {sub && (sub.type === "person" || sub.type === "szco") && (datumNarodenia || vek || pohlavie) && (
+                    <div className="w-64 shrink-0 px-4 py-3 bg-muted/20 grid grid-cols-[110px_1fr] gap-x-2 content-start">
+                      <div className="col-span-2 flex items-center gap-1.5 mb-1.5">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">z rodného čísla</span>
+                      </div>
+                      {datumNarodenia && (
+                        <>
+                          <span className="text-xs text-muted-foreground self-center py-0.5">Dátum narodenia</span>
+                          <span className="text-sm font-mono py-0.5">{datumNarodenia}</span>
+                        </>
+                      )}
+                      {vek && (
+                        <>
+                          <span className="text-xs text-muted-foreground self-center py-0.5">Vek</span>
+                          <span className="text-sm py-0.5">{vek} rokov</span>
+                        </>
+                      )}
+                      {pohlavie && (
+                        <>
+                          <span className="text-xs text-muted-foreground self-center py-0.5">Pohlavie</span>
+                          <span className="text-sm py-0.5">{pohlavie}</span>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
