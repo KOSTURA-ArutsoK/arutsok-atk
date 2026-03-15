@@ -12472,6 +12472,58 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/clear-folder1", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !isAdmin(appUser)) return res.status(403).json({ message: "Len pre admina" });
+
+      const folder1 = await db
+        .select({ id: contracts.id, subjectId: contracts.subjectId })
+        .from(contracts)
+        .where(
+          and(
+            eq(contracts.isDeleted, false),
+            or(eq(contracts.lifecyclePhase, 0), eq(contracts.lifecyclePhase, 1), isNull(contracts.lifecyclePhase))
+          )
+        );
+
+      if (folder1.length === 0) {
+        return res.json({ message: "Priečinok 1 je prázdny – žiadne zmluvy na vymazanie.", contracts: 0, subjects: 0 });
+      }
+
+      const contractIds = folder1.map(c => c.id);
+      const now = new Date();
+
+      await db
+        .update(contracts)
+        .set({ isDeleted: true, deletedAt: now, deletedBy: String(appUser.id) })
+        .where(inArray(contracts.id, contractIds));
+
+      const subjectIds = [...new Set(folder1.map(c => c.subjectId).filter((id): id is number => id != null))];
+      let deletedSubjects = 0;
+
+      for (const subjectId of subjectIds) {
+        const remaining = await db
+          .select({ id: contracts.id })
+          .from(contracts)
+          .where(and(eq(contracts.subjectId, subjectId), eq(contracts.isDeleted, false)));
+        if (remaining.length === 0) {
+          await db.update(subjects).set({ deletedAt: now }).where(and(eq(subjects.id, subjectId), isNull(subjects.deletedAt)));
+          deletedSubjects++;
+        }
+      }
+
+      res.json({
+        message: `Vymazaných ${contractIds.length} zmlúv a ${deletedSubjects} subjektov z Priečinka 1.`,
+        contracts: contractIds.length,
+        subjects: deletedSubjects,
+      });
+    } catch (err: any) {
+      console.error("[CLEAR FOLDER1]", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   await seedDatabase();
 
   {

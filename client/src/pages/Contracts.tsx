@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo, type ComponentType } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak, formatUid, expandUid, getDateSemaphore, getDateSemaphoreClasses, canCreateRecords, canDeleteRecords, canEditRecords, isAdmin, NAVRH_LABEL_FULL, NAVRH_LABEL_SHORT, parsePersonName } from "@/lib/utils";
+import { formatDateSlovak, formatUid, expandUid, getDateSemaphore, getDateSemaphoreClasses, canCreateRecords, canDeleteRecords, canEditRecords, isAdmin, isRecommender, rcToBirthDateStr, NAVRH_LABEL_FULL, NAVRH_LABEL_SHORT, parsePersonName } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -2178,6 +2178,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
 export default function Contracts() {
   const { data: appUser } = useAppUser();
   const activeStateId = appUser?.activeStateId ?? null;
+  const isUserRecommender = isRecommender(appUser);
   const [location, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -3284,6 +3285,40 @@ export default function Contracts() {
     return raw;
   }
 
+  function isContractEffectivelyIncomplete(contract: Contract): boolean {
+    const isIncomplete = !!(contract as any).incompleteData;
+    const partnerName = getPartnerName(contract);
+    const productName = getProductName(contract);
+    const hasPartner = partnerName && partnerName !== "—";
+    const hasProduct = productName && productName !== "—";
+    const hasNumber = !!(contract.proposalNumber || contract.insuranceContractNumber || (contract as any).contractNumber);
+    const { specialist, recommenders } = getContractDistData(contract.id);
+    const r1 = recommenders[0];
+    const r2 = recommenders[1];
+    const specPct = parseFloat(specialist?.percentage || "0") || 0;
+    const r1Pct = parseFloat(r1?.percentage || "0") || 0;
+    const r2Pct = parseFloat(r2?.percentage || "0") || 0;
+    const sub2 = subjects?.find(s => s.id === contract.subjectId);
+    const importRaw2 = (contract as any).importedRawData || {};
+    const resolvedSubjType2 = sub2?.type || importRaw2["subjectType"] || importRaw2["typ_subjektu"] || null;
+    const isFO2 = resolvedSubjType2 === "person" || resolvedSubjType2 === "szco";
+    const isPO2 = resolvedSubjType2 === "company" || resolvedSubjType2 === "organization";
+    const rcIco2 = sub2 ? (sub2.type === "person" ? sub2.birthNumber : sub2.type === "szco" ? (sub2.birthNumber || (sub2 as any).ico) : (sub2 as any).ico) : null;
+    const warnPartner = !hasPartner;
+    const warnProduct = !hasProduct;
+    const warnContractType = !(contract as any).contractType;
+    const warnSignedDate = !(contract as any).signedDate;
+    const warnNumber = !hasNumber;
+    const warnSpecialist = !specialist;
+    const warnSumNot100 = !!specialist && (specPct + r1Pct + r2Pct) !== 100;
+    const warnRcIco2 = isFO2 && !rcIco2;
+    const warnMeno2 = isFO2 && !sub2?.firstName;
+    const warnPriezvisko2 = isFO2 && !sub2?.lastName;
+    const warnNazov2 = isPO2 && !(sub2 as any)?.companyName;
+    const warnNegProposal = !!(contract.proposalNumber && contract.proposalNumber.trim().startsWith('-'));
+    return isIncomplete || warnPartner || warnProduct || warnContractType || warnSignedDate || warnNumber || warnSpecialist || warnSumNot100 || warnRcIco2 || warnMeno2 || warnPriezvisko2 || warnNazov2 || warnNegProposal;
+  }
+
   function renderSprievodkaFullTable(
     contractsList: Contract[],
     opts: {
@@ -3299,28 +3334,6 @@ export default function Contracts() {
     const { showCheckbox = false, showOrder = false, showActions = true, logViewFn, testIdPrefix = "row-spr", alwaysIncompleteEdit = false, nahratieView = false } = opts;
     const contractTypeLabel: Record<string, string> = {
       Nova: "Nová", Prestupova: "Prestupová", Zmenova: "Zmenová", Dodatok: "Dodatok"
-    };
-    const isContractEffectivelyIncomplete = (contract: Contract) => {
-      const isIncomplete = !!(contract as any).incompleteData;
-      const partnerName = getPartnerName(contract);
-      const productName = getProductName(contract);
-      const hasPartner = partnerName && partnerName !== "—";
-      const hasProduct = productName && productName !== "—";
-      const hasNumber = !!(contract.proposalNumber || contract.insuranceContractNumber || (contract as any).contractNumber);
-      const { specialist, recommenders } = getContractDistData(contract.id);
-      const r1 = recommenders[0];
-      const r2 = recommenders[1];
-      const specPct = parseFloat(specialist?.percentage || "0") || 0;
-      const r1Pct = parseFloat(r1?.percentage || "0") || 0;
-      const r2Pct = parseFloat(r2?.percentage || "0") || 0;
-      const warnPartner = !hasPartner;
-      const warnProduct = !hasProduct;
-      const warnContractType = !(contract as any).contractType;
-      const warnSignedDate = !(contract as any).signedDate;
-      const warnNumber = !hasNumber;
-      const warnSpecialist = !specialist;
-      const warnSumNot100 = !!specialist && (specPct + r1Pct + r2Pct) !== 100;
-      return isIncomplete || warnPartner || warnProduct || warnContractType || warnSignedDate || warnNumber || warnSpecialist || warnSumNot100;
     };
     return (
       <div className="overflow-auto max-h-[65vh]">
@@ -3405,7 +3418,8 @@ export default function Contracts() {
               const r2Pct = parseFloat(r2?.percentage || "0") || 0;
               const warnSpecialist = !specialist;
               const warnSumNot100 = !!specialist && (specPct + r1Pct + r2Pct) !== 100;
-              const effectivelyIncomplete = isIncomplete || warnPartner || warnProduct || warnContractType || warnSignedDate || warnNumber || warnSpecialist || warnSumNot100;
+              const warnNegativeProposal = !!(contract.proposalNumber && contract.proposalNumber.trim().startsWith('-'));
+              const effectivelyIncomplete = isIncomplete || warnPartner || warnProduct || warnContractType || warnSignedDate || warnNumber || warnSpecialist || warnSumNot100 || warnRcIco || warnMeno || warnPriezvisko || warnNazov || warnNegativeProposal;
               const rowBg = effectivelyIncomplete
                 ? "bg-red-500/10 border-l-2 border-l-red-500"
                 : isSelected
@@ -3470,6 +3484,7 @@ export default function Contracts() {
                   <td className="px-2 py-1.5 whitespace-nowrap font-mono">
                     <span className="flex items-center gap-1">
                       {warnNumber && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba číslo návrhu</TooltipContent></Tooltip>}
+                      {warnNegativeProposal && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Záporné číslo návrhu nie je povolené</TooltipContent></Tooltip>}
                       {contract.proposalNumber || "—"}
                     </span>
                   </td>
@@ -3485,7 +3500,9 @@ export default function Contracts() {
                   <td className="px-2 py-1.5 whitespace-nowrap font-mono text-muted-foreground">
                     <span className="flex items-center gap-1">
                       {warnRcIco && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba RČ / IČO</TooltipContent></Tooltip>}
-                      {rcIco || "—"}
+                      {isUserRecommender && isFO
+                        ? (rcIco ? <span className="text-muted-foreground/70 italic text-[10px]">nar. {rcToBirthDateStr(rcIco)}</span> : "—")
+                        : (rcIco || "—")}
                     </span>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap" title={sub?.companyName || undefined}>
@@ -3627,6 +3644,16 @@ export default function Contracts() {
     { id: 8, label: "Manuálna kontrola kontraktov", icon: ListChecks, color: "text-emerald-500", bgColor: "bg-emerald-500/15", count: phase8Contracts.length, tooltip: "Zmluvy kompletne spracované a pripravené na odoslanie späť obchodnému partnerovi." },
     { id: 9, label: "Odoslať obchodnému partnerovi", icon: Send, color: "text-indigo-500", bgColor: "bg-indigo-500/15", count: phase9Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0), tooltip: "Sprievodky pripravené na odoslanie obchodnému partnerovi." },
   ];
+
+  const SPECIALIST_MAX_FOLDER = 6;
+  const visibleFolderDefs = (isUserRecommender || isAdmin(appUser))
+    ? folderDefs
+    : folderDefs.filter(f => f.id <= SPECIALIST_MAX_FOLDER);
+  const visibleRow2FolderDefs = (isUserRecommender || isAdmin(appUser))
+    ? row2FolderDefs
+    : row2FolderDefs.filter(f => f.id <= SPECIALIST_MAX_FOLDER);
+
+  const anyRedInFolder1 = (activeContracts || []).some(c => isContractEffectivelyIncomplete(c));
 
   function filterBySearch(list: Contract[]) {
     if (!searchQuery.trim()) return list;
@@ -5627,7 +5654,11 @@ export default function Contracts() {
                     {sub && (sub.type === "company" || sub.type === "organization" || sub.type === "szco") && (
                       <Row label="Názov firmy" value={<span className="font-medium">{sub.companyName}</span>} />
                     )}
-                    {rcIco && <Row label={sub?.type === "person" ? "Rodné číslo" : "IČO"} value={<span className="font-mono">{rcIco}</span>} />}
+                    {rcIco && (
+                      isUserRecommender && (sub?.type === "person" || sub?.type === "szco") && sub?.birthNumber
+                        ? <Row label="Dátum narodenia" value={<span className="font-mono italic text-muted-foreground">{rcToBirthDateStr(sub.birthNumber)}</span>} />
+                        : <Row label={sub?.type === "person" ? "Rodné číslo" : "IČO"} value={<span className="font-mono">{rcIco}</span>} />
+                    )}
                   </div>
                   {/* Stĺpce 3–4: automaticky odvodené údaje (read-only) */}
                   {isPersonLike && (datumNarodeniaFmt || vek || pohlavie) && (
@@ -7683,8 +7714,8 @@ export default function Contracts() {
         </div>
 
         <WorkflowDiagram
-          folderDefs={folderDefs}
-          row2FolderDefs={row2FolderDefs}
+          folderDefs={visibleFolderDefs}
+          row2FolderDefs={visibleRow2FolderDefs}
           activeFolder={activeFolder}
           onFolderClick={(id: number) => { setActiveFolder(id); setRerouteSelectedIds([]); }}
         />
@@ -7701,7 +7732,13 @@ export default function Contracts() {
               <span id="selected-dispatch-wrapper" style={{ display: selectedIds.length > 0 ? 'inline' : 'none' }}>
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="text-sm text-muted-foreground">Vybranych: <span className="font-semibold text-foreground">{selectedIds.length}</span></span>
-                  <Button size="sm" onClick={() => setSprievodkaDialogOpen(true)} data-testid="button-dispatch">
+                  {anyRedInFolder1 && (
+                    <span className="text-xs text-red-400 flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      Zoznam obsahuje chybné riadky
+                    </span>
+                  )}
+                  <Button size="sm" onClick={() => setSprievodkaDialogOpen(true)} disabled={anyRedInFolder1} data-testid="button-dispatch">
                     <Send className="w-3.5 h-3.5 mr-1.5" />
                     Vytvoriť sprievodku
                   </Button>

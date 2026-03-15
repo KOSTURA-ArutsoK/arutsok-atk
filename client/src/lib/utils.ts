@@ -133,6 +133,29 @@ export function isAdmin(appUser: any): boolean {
   return ['admin', 'superadmin', 'prezident', 'architekt'].includes(appUser.role);
 }
 
+export function isRecommender(appUser: any): boolean {
+  if (!appUser) return false;
+  const pgName = (appUser as any)?.permissionGroup?.name?.toLowerCase() || "";
+  return pgName.includes("odporucitel") || pgName.includes("odporúčateľ") || pgName.includes("recommender");
+}
+
+export function rcToBirthDateStr(rc: string | null | undefined): string {
+  if (!rc) return "—";
+  const cleaned = rc.replace(/[\s\/-]/g, "");
+  if (!/^\d{9,10}$/.test(cleaned)) return "—";
+  const yy = parseInt(cleaned.substring(0, 2), 10);
+  let mm = parseInt(cleaned.substring(2, 4), 10);
+  const dd = parseInt(cleaned.substring(4, 6), 10);
+  let year: number;
+  if (cleaned.length === 9) year = 1900 + yy;
+  else year = yy >= 54 ? 1900 + yy : 2000 + yy;
+  if (mm > 70) mm -= 70;
+  else if (mm > 50) mm -= 50;
+  else if (mm > 20) mm -= 20;
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return "—";
+  return `${String(dd).padStart(2, '0')}.${String(mm).padStart(2, '0')}.${year}`;
+}
+
 export function isArchitekt(appUser: any): boolean {
   if (!appUser) return false;
   return appUser.role === 'architekt' || appUser.role === 'superadmin' || appUser.role === 'prezident';

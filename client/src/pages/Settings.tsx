@@ -186,6 +186,8 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mergePending, setMergePending] = useState(false);
   const [mergeResults, setMergeResults] = useState<{ totalGroups: number; totalMerged: number; mergeLog: any[] } | null>(null);
+  const [clearFolder1Pending, setClearFolder1Pending] = useState(false);
+  const [clearFolder1Result, setClearFolder1Result] = useState<{ message: string; contracts: number; subjects: number } | null>(null);
 
   const handleBigReset = async () => {
     if (resetCode !== "RESET-ARUTSOK-2025") {
@@ -204,6 +206,24 @@ export default function Settings() {
       toast({ title: "Chyba pri resete", description: err.message, variant: "destructive" });
     } finally {
       setResetPending(false);
+    }
+  };
+
+  const handleClearFolder1 = async () => {
+    if (!confirm("Vymazať všetky zmluvy v Priečinku 1 (Nahratie a vytvorenie sprievodky) + ich osirelé subjekty? Táto akcia je nevratná. Pokračovať?")) return;
+    setClearFolder1Pending(true);
+    setClearFolder1Result(null);
+    try {
+      const res = await apiRequest("POST", "/api/admin/clear-folder1", {});
+      const data = await res.json();
+      setClearFolder1Result(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+      toast({ title: data.message });
+    } catch (err: any) {
+      toast({ title: "Chyba pri čistení", description: err.message, variant: "destructive" });
+    } finally {
+      setClearFolder1Pending(false);
     }
   };
 
@@ -705,6 +725,37 @@ export default function Settings() {
                   {mergeResults.mergeLog.length > 10 && (
                     <div className="text-[11px] text-muted-foreground">... a {mergeResults.mergeLog.length - 10} ďalších</div>
                   )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-amber-800/50" data-testid="card-clear-folder1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-lg">Vyčistiť Priečinok 1</CardTitle>
+              <Trash2 className="h-5 w-5 text-amber-400" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Vymaže všetky zmluvy v stave „Nahratie a vytvorenie sprievodky" (Priečinok 1) a ich osirelé subjekty (subjekty bez iných zmlúv). Použite pred záťažovým testom na vyprázdnenie Priečinka 1.
+              </p>
+              <Button
+                variant="outline"
+                className="w-full border-amber-700/50 text-amber-400 hover:bg-amber-900/20"
+                onClick={handleClearFolder1}
+                disabled={clearFolder1Pending}
+                data-testid="btn-clear-folder1"
+              >
+                {clearFolder1Pending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Trash2 className="w-4 h-4 mr-1" />}
+                Vyčistiť Priečinok 1
+              </Button>
+              {clearFolder1Result && (
+                <div className="text-xs text-muted-foreground border border-amber-800/30 rounded p-2" data-testid="clear-folder1-result">
+                  <p className="text-amber-400 font-medium">{clearFolder1Result.message}</p>
+                  <div className="flex gap-2 mt-1">
+                    <Badge variant="outline" className="border-amber-700 text-amber-400">{clearFolder1Result.contracts} zmlúv</Badge>
+                    <Badge variant="outline" className="border-orange-700 text-orange-400">{clearFolder1Result.subjects} subjektov</Badge>
+                  </div>
                 </div>
               )}
             </CardContent>
