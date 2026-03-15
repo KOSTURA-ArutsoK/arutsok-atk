@@ -5559,6 +5559,9 @@ export async function registerRoutes(
         "typ zmluvy": "typ_zmluvy", "typ_zmluvy": "typ_zmluvy", "type_of_contract": "typ_zmluvy", "contract_type": "typ_zmluvy", "c: typ zmluvy": "typ_zmluvy",
         "datum uzatvorenia": "datum_uzatvorenia", "datum_uzatvorenia": "datum_uzatvorenia", "dátum uzatvorenia": "datum_uzatvorenia", "d: dátum uzatvorenia": "datum_uzatvorenia", "d: datum uzatvorenia": "datum_uzatvorenia",
         "datum podpisu": "datum_uzatvorenia", "datum_podpisu": "datum_uzatvorenia", "dátum podpisu": "datum_uzatvorenia", "signed_date": "datum_uzatvorenia", "signing_date": "datum_uzatvorenia",
+        "d: datum uzatvorenia (napr. 10.03.2026 alebo 10.03.2026 10:12:30)": "datum_uzatvorenia",
+        "datum uzatvorenia (napr. 10.03.2026 alebo 10.03.2026 10:12:30)": "datum_uzatvorenia",
+        "datum uzatvorenia napr. 10.03.2026 alebo 10.03.2026 10:12:30": "datum_uzatvorenia",
       };
 
       function removeDiacritics(str: string): string {
@@ -5566,9 +5569,12 @@ export async function registerRoutes(
       }
 
       function normalizeHeader(raw: string): string {
-        const trimmed = raw.trim().toLowerCase();
-        if (HEADER_ALIASES[trimmed]) return HEADER_ALIASES[trimmed];
-        const noDiac = removeDiacritics(trimmed);
+        // Strip decoration chars: *, —, -, (, ), newlines, extra spaces
+        const stripped = raw.trim().toLowerCase()
+          .replace(/[*—\-\(\)\n\r]+/g, " ")
+          .replace(/\s+/g, " ").trim();
+        if (HEADER_ALIASES[stripped]) return HEADER_ALIASES[stripped];
+        const noDiac = removeDiacritics(stripped);
         if (HEADER_ALIASES[noDiac]) return HEADER_ALIASES[noDiac];
         const underscored = noDiac.replace(/\s+/g, "_");
         if (HEADER_ALIASES[underscored]) return HEADER_ALIASES[underscored];
@@ -5576,6 +5582,14 @@ export async function registerRoutes(
         if (HEADER_ALIASES[noPrefix]) return HEADER_ALIASES[noPrefix];
         const noPrefixUnder = noPrefix.replace(/\s+/g, "_");
         if (HEADER_ALIASES[noPrefixUnder]) return HEADER_ALIASES[noPrefixUnder];
+        // Also try original trimmed (before stripping) path
+        const origTrimmed = raw.trim().toLowerCase();
+        if (HEADER_ALIASES[origTrimmed]) return HEADER_ALIASES[origTrimmed];
+        const origNoDiac = removeDiacritics(origTrimmed);
+        const origNoPrefix = origNoDiac.replace(/^[a-z]:\s*/, "").replace(/[*—\-]+$/, "").trim();
+        if (HEADER_ALIASES[origNoPrefix]) return HEADER_ALIASES[origNoPrefix];
+        const origNoPrefixUnder = origNoPrefix.replace(/\s+/g, "_");
+        if (HEADER_ALIASES[origNoPrefixUnder]) return HEADER_ALIASES[origNoPrefixUnder];
         return underscored;
       }
 
@@ -9571,35 +9585,50 @@ export async function registerRoutes(
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet("Import zmlúv");
       sheet.columns = [
-        { header: "A: Partner", key: "partner", width: 22 },
-        { header: "B: Produkt", key: "produkt", width: 22 },
-        { header: "C: Typ zmluvy", key: "typ_zmluvy", width: 20 },
-        { header: "D: Dátum uzatvorenia (napr. 10.03.2026 alebo 10.03.2026 10:12:30)", key: "datum_uzatvorenia", width: 38 },
-        { header: "E: Návrh zmluvy / zmluva o budúcej zmluve", key: "cislo_navrhu", width: 42 },
-        { header: "F: Číslo zmluvy", key: "cislo_zmluvy", width: 18 },
-        { header: "G: Typ subjektu", key: "typ_subjektu", width: 18 },
-        { header: "H: RČ / IČO", key: "rc_ico", width: 18 },
-        { header: "I: Názov firmy", key: "nazov_firmy", width: 24 },
-        { header: "J: Titul pred", key: "titul_pred", width: 14 },
-        { header: "K: Meno", key: "meno", width: 18 },
-        { header: "L: Priezvisko", key: "priezvisko", width: 18 },
-        { header: "M: Titul za", key: "titul_za", width: 14 },
-        { header: "N: Špecialista UID", key: "specialista_uid", width: 22 },
-        { header: "O: Špecialista %", key: "specialista_pct", width: 16 },
-        { header: "P: Odporúčateľ 1 UID", key: "odporucitel1_uid", width: 22 },
-        { header: "Q: Odporúčateľ 1 %", key: "odporucitel1_pct", width: 18 },
-        { header: "R: Odporúčateľ 2 UID", key: "odporucitel2_uid", width: 22 },
-        { header: "S: Odporúčateľ 2 %", key: "odporucitel2_pct", width: 18 },
+        { header: "A: Partner *", key: "partner", width: 22 },
+        { header: "B: Produkt *", key: "produkt", width: 22 },
+        { header: "C: Typ zmluvy —", key: "typ_zmluvy", width: 20 },
+        { header: "D: Dátum uzatvorenia — (napr. 10.03.2026 alebo 10.03.2026 10:12:30)", key: "datum_uzatvorenia", width: 44 },
+        { header: "E: Číslo návrhu ***", key: "cislo_navrhu", width: 22 },
+        { header: "F: Číslo zmluvy ***", key: "cislo_zmluvy", width: 22 },
+        { header: "G: Typ subjektu *", key: "typ_subjektu", width: 18 },
+        { header: "H: RČ / IČO **", key: "rc_ico", width: 18 },
+        { header: "I: Názov firmy **", key: "nazov_firmy", width: 24 },
+        { header: "J: Titul pred —", key: "titul_pred", width: 14 },
+        { header: "K: Meno **", key: "meno", width: 18 },
+        { header: "L: Priezvisko **", key: "priezvisko", width: 18 },
+        { header: "M: Titul za —", key: "titul_za", width: 14 },
+        { header: "N: Špecialista UID *", key: "specialista_uid", width: 22 },
+        { header: "O: Špecialista % *", key: "specialista_pct", width: 16 },
+        { header: "P: Odporúčateľ 1 UID —", key: "odporucitel1_uid", width: 24 },
+        { header: "Q: Odporúčateľ 1 % —", key: "odporucitel1_pct", width: 20 },
+        { header: "R: Odporúčateľ 2 UID —", key: "odporucitel2_uid", width: 24 },
+        { header: "S: Odporúčateľ 2 % —", key: "odporucitel2_pct", width: 20 },
       ];
 
       const headerRow = sheet.getRow(1);
       headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2D3748" } };
       headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
 
+      // Color coding: * = red (required), ** = orange (conditionally required), *** = amber (at least one)
+      const colColors: Record<number, string> = {
+        1: "FF991B1B", // A: partner *
+        2: "FF991B1B", // B: produkt *
+        // C (3) and D (4) are optional — keep default dark
+        5: "FF92400E", // E: cislo_navrhu *** (at least one of E/F)
+        6: "FF92400E", // F: cislo_zmluvy ***
+        7: "FF991B1B", // G: typ_subjektu *
+        8: "FFB45309", // H: rc_ico **
+        9: "FFB45309", // I: nazov_firmy **
+        11: "FFB45309", // K: meno **
+        12: "FFB45309", // L: priezvisko **
+        14: "FF991B1B", // N: specialista_uid *
+        15: "FF991B1B", // O: specialista_% *
+      };
       for (let i = 1; i <= 19; i++) {
         const cell = headerRow.getCell(i);
-        if ([1, 2, 3, 4, 7, 14, 15].includes(i)) {
-          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF991B1B" } };
+        if (colColors[i]) {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: colColors[i] } };
           cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
         }
       }
