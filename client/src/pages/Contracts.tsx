@@ -2204,6 +2204,7 @@ export default function Contracts() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingContract, setDeletingContract] = useState<Contract | null>(null);
   const [viewingContract, setViewingContract] = useState<Contract | null>(null);
+  const [nahratieViewContract, setNahratieViewContract] = useState<Contract | null>(null);
 
   const [filterStatusId, setFilterStatusId] = useState<string>("all");
   const [filterStatusIds, setFilterStatusIds] = useState<number[]>([]);
@@ -3271,9 +3272,11 @@ export default function Contracts() {
       showActions?: boolean;
       logViewFn?: (c: Contract) => void;
       testIdPrefix?: string;
+      alwaysIncompleteEdit?: boolean;
+      nahratieView?: boolean;
     } = {}
   ) {
-    const { showCheckbox = false, showOrder = false, showActions = true, logViewFn, testIdPrefix = "row-spr" } = opts;
+    const { showCheckbox = false, showOrder = false, showActions = true, logViewFn, testIdPrefix = "row-spr", alwaysIncompleteEdit = false, nahratieView = false } = opts;
     const contractTypeLabel: Record<string, string> = {
       Nova: "Nová", Prestupova: "Prestupová", Zmenova: "Zmenová", Dodatok: "Dodatok"
     };
@@ -3428,10 +3431,10 @@ export default function Contracts() {
                   </td>
                   {showActions && (
                     <td className="px-2 py-1.5 text-right" onClick={e => e.stopPropagation()}>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => isIncomplete ? openIncompleteEdit(contract) : openEdit(contract)} data-testid={`button-edit-spr-${contract.id}`}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => (alwaysIncompleteEdit || isIncomplete) ? openIncompleteEdit(contract) : openEdit(contract)} data-testid={`button-edit-spr-${contract.id}`}>
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openView(contract)} data-testid={`button-view-spr-${contract.id}`}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => nahratieView ? setNahratieViewContract(contract) : openView(contract)} data-testid={`button-view-spr-${contract.id}`}>
                         <Eye className="w-3.5 h-3.5" />
                       </Button>
                     </td>
@@ -5316,6 +5319,112 @@ export default function Contracts() {
     const formattedDate = `${String(dd).padStart(2, "0")}.${String(mm).padStart(2, "0")}.${year}`;
     return { dob: formattedDate, age, gender };
   }, [preSelectBirthNumber]);
+
+  const nahratieViewDialog = (() => {
+    const c = nahratieViewContract;
+    if (!c) return null;
+    const partnerName = partners?.find(p => p.id === c.partnerId)?.name || "—";
+    const spMatch = allSectorProducts?.find(p => p.id === c.sectorProductId);
+    const prodName = spMatch ? `${spMatch.name}${spMatch.abbreviation ? ` (${spMatch.abbreviation})` : ''}` : (products?.find(p => p.id === c.productId)?.name || "—");
+    const contractTypeMap: Record<string, string> = { Nova: "Nová zmluva", Prestupova: "Prestupová zmluva", Zmenova: "Zmenová zmluva", Dodatok: "Dodatok k zmluve" };
+    const signedDateFmt = (c as any).signedDate ? new Date((c as any).signedDate).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
+    const sub = subjects?.find(s => s.id === c.subjectId);
+    const typSubjLabel = sub?.type === "person" ? "FO – Fyzická osoba" : sub?.type === "szco" ? "SZČO – Živnostník" : sub?.type === "company" ? "PO – Právnická osoba" : sub?.type === "organization" ? "Organizácia" : sub?.type === "state" ? "Štát" : "—";
+    const rcIco = sub ? (sub.type === "person" ? sub.birthNumber : (sub as any).ico || sub.birthNumber) : null;
+    const dists = allRewardDist.filter((d: any) => d.contractId === c.id);
+    const spec = dists.find((d: any) => d.type === "specialist");
+    const recs = dists.filter((d: any) => d.type === "recommender").sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const r1 = recs[0]; const r2 = recs[1];
+    const docs = Array.isArray(c.documents) ? c.documents as any[] : [];
+    const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
+      <>
+        <span className="text-xs text-muted-foreground self-center py-0.5">{label}</span>
+        <span className="text-sm py-0.5">{value || "—"}</span>
+      </>
+    );
+    return (
+      <Dialog open={!!nahratieViewContract} onOpenChange={(o) => { if (!o) setNahratieViewContract(null); }}>
+        <DialogContent size="lg">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle data-testid="text-nahratieview-title">
+              Detail záznamu — {c.proposalNumber || c.contractNumber || c.insuranceContractNumber || `ID ${c.id}`}
+            </DialogTitle>
+          </DialogHeader>
+          <DialogScrollContent>
+            <div className="space-y-4 pb-4">
+              <div className="border rounded-md overflow-hidden">
+                <div className="bg-muted/50 px-4 py-2 border-b flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">1</div>
+                  <span className="text-sm font-semibold">Partner a produkt</span>
+                </div>
+                <div className="px-4 py-3 grid grid-cols-[180px_1fr] gap-x-4">
+                  <Row label="Partner" value={partnerName} />
+                  <Row label="Produkt" value={prodName} />
+                  <Row label="Typ zmluvy" value={contractTypeMap[(c as any).contractType] || (c as any).contractType} />
+                  <Row label="Dátum uzatvorenia" value={<span className="font-mono">{signedDateFmt}</span>} />
+                  <Row label="Číslo návrhu" value={<span className="font-mono">{c.proposalNumber || "—"}</span>} />
+                  <Row label="Číslo zmluvy" value={<span className="font-mono">{c.contractNumber || "—"}</span>} />
+                  <Row label="Číslo poistnej zmluvy" value={<span className="font-mono">{c.insuranceContractNumber || "—"}</span>} />
+                </div>
+              </div>
+              <div className="border rounded-md overflow-hidden">
+                <div className="bg-muted/50 px-4 py-2 border-b flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">2</div>
+                  <span className="text-sm font-semibold">Klient (subjekt)</span>
+                </div>
+                <div className="px-4 py-3 grid grid-cols-[180px_1fr] gap-x-4">
+                  <Row label="Typ subjektu" value={sub ? typSubjLabel : <span className="italic text-muted-foreground">Nepriradený</span>} />
+                  {sub && (sub.type === "person" || sub.type === "szco") && (
+                    <>
+                      <Row label="Titul pred" value={sub.titleBefore} />
+                      <Row label="Meno" value={<span className="font-medium">{sub.firstName}</span>} />
+                      <Row label="Priezvisko" value={<span className="font-medium">{sub.lastName}</span>} />
+                      <Row label="Titul za" value={sub.titleAfter} />
+                    </>
+                  )}
+                  {sub && (sub.type === "company" || sub.type === "organization" || sub.type === "szco") && (
+                    <Row label="Názov firmy" value={<span className="font-medium">{sub.companyName}</span>} />
+                  )}
+                  {rcIco && <Row label={sub?.type === "person" ? "Rodné číslo" : "IČO"} value={<span className="font-mono">{rcIco}</span>} />}
+                </div>
+              </div>
+              <div className="border rounded-md overflow-hidden">
+                <div className="bg-muted/50 px-4 py-2 border-b flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">3</div>
+                  <span className="text-sm font-semibold">Získatelia a odmeny</span>
+                </div>
+                <div className="px-4 py-3 grid grid-cols-[180px_1fr] gap-x-4">
+                  <Row label="Špecialist" value={spec ? <span className="font-mono">{spec.uid} · <span className="text-emerald-500">{parseFloat(spec.percentage || "0").toFixed(0)}%</span></span> : undefined} />
+                  <Row label="Odporúčateľ 1" value={r1 ? <span className="font-mono">{r1.uid} · <span className="text-amber-400">{parseFloat(r1.percentage || "0").toFixed(0)}%</span></span> : undefined} />
+                  <Row label="Odporúčateľ 2" value={r2 ? <span className="font-mono">{r2.uid} · <span className="text-amber-300">{parseFloat(r2.percentage || "0").toFixed(0)}%</span></span> : undefined} />
+                </div>
+              </div>
+              <div className="border rounded-md overflow-hidden">
+                <div className="bg-muted/50 px-4 py-2 border-b flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">4</div>
+                  <span className="text-sm font-semibold">Dokumenty</span>
+                </div>
+                <div className="px-4 py-3">
+                  {docs.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">Žiadne dokumenty</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {docs.map((doc: any, i: number) => (
+                        <a key={i} href={doc.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs text-primary hover:underline" data-testid={`link-nahratiedoc-${i}`}>
+                          <FileText className="w-3.5 h-3.5 shrink-0" />
+                          {doc.name || doc.url}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </DialogScrollContent>
+        </DialogContent>
+      </Dialog>
+    );
+  })();
 
   const preSelectDialog = (
     <Dialog open={preSelectOpen} onOpenChange={(open) => { if (!open) resetPreSelectDialog(); else setPreSelectOpen(true); }}>
@@ -7330,7 +7439,7 @@ export default function Contracts() {
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-nahravanie">Ziadne zmluvy na nahravanie</p>
               ) : (
                 <>
-                  {renderSprievodkaFullTable(sortedNahravanie, { showCheckbox: true, testIdPrefix: "row-nahravanie" })}
+                  {renderSprievodkaFullTable(sortedNahravanie, { showCheckbox: true, testIdPrefix: "row-nahravanie", alwaysIncompleteEdit: true, nahratieView: true })}
                   {hasMoreContracts && (
                     <div className="flex items-center justify-center py-4 border-t">
                       <Button variant="outline" size="sm" onClick={loadMoreContracts} disabled={isLoadingMore} data-testid="button-load-more">
@@ -8118,6 +8227,7 @@ export default function Contracts() {
           companies={companies || []}
           states={allStates || []}
         />
+        {nahratieViewDialog}
         {importDialog}
       </div>
     );
@@ -8384,6 +8494,7 @@ export default function Contracts() {
         companies={companies || []}
         states={allStates || []}
       />
+      {nahratieViewDialog}
       {importDialog}
 
       <Dialog open={bulkDateDialogOpen} onOpenChange={setBulkDateDialogOpen}>
