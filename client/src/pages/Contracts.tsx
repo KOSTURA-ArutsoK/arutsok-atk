@@ -3819,7 +3819,7 @@ export default function Contracts() {
                           {isIncomplete && (fieldMissing("rodné") || fieldMissing("ičo")) && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba RČ / IČO</TooltipContent></Tooltip>}
                         </span>
                       </TableCell>
-                      <TableCell className="text-xs py-1 max-w-[120px] truncate" title={nazovFirmy || ""}>{nazovFirmy || <span className="text-muted-foreground/40">—</span>}</TableCell>
+                      <TableCell className="text-xs py-1 whitespace-nowrap" title={nazovFirmy || ""}>{nazovFirmy || <span className="text-muted-foreground/40">—</span>}</TableCell>
                       <TableCell className="text-xs py-1">{titulPred || <span className="text-muted-foreground/40">—</span>}</TableCell>
                       <TableCell className="text-xs py-1" data-testid={`text-subject-firstname-${contract.id}`}>
                         <span className="flex items-center gap-1">
@@ -4127,7 +4127,7 @@ export default function Contracts() {
               <Upload className="w-3.5 h-3.5 mr-1" />
               Vybrať súbor
             </Button>
-            <span className="text-xs text-muted-foreground truncate max-w-[250px]" data-testid="text-selected-file">
+            <span className="text-xs text-muted-foreground" data-testid="text-selected-file">
               {importFile ? importFile.name : "Žiadny súbor"}
             </span>
           </div>
@@ -4435,7 +4435,7 @@ export default function Contracts() {
                         <div key={`${rec.uid}-${idx}`} className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/30 text-xs" data-testid={`row-import-recommender-${idx}`}>
                           <Users className="w-3 h-3 text-primary flex-shrink-0" />
                           <span className="font-mono text-[10px] text-muted-foreground flex-shrink-0">{formatUid(rec.uid)}</span>
-                          <span className={`font-medium truncate ${lookup.found ? 'text-emerald-500' : 'text-destructive'}`}>{lookup.label}</span>
+                          <span className={`font-medium ${lookup.found ? 'text-emerald-500' : 'text-destructive'}`}>{lookup.label}</span>
                           <div className="flex items-center gap-1 ml-auto flex-shrink-0">
                             <Input
                               type="number"
@@ -4467,7 +4467,7 @@ export default function Contracts() {
                     <div style={{ display: importRecommenders.length === 0 && importSpecialistUid ? 'block' : 'none' }}>
                       <div className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/20 border-dashed text-xs" data-testid="row-import-autofill-recommender">
                         <Users className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                        <span className="text-muted-foreground italic truncate">
+                        <span className="text-muted-foreground italic">
                           {(() => {
                             const user = (appUsersAll || []).find(u => u.uid === importSpecialistUid);
                             return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : importSpecialistUid;
@@ -4763,8 +4763,8 @@ export default function Contracts() {
                           <TableCell className="text-xs font-mono">{rd.cislo_zmluvy || <span className="text-muted-foreground/30">—</span>}</TableCell>
                           <TableCell className="text-xs">{rd.typ_subjektu || <span className="text-muted-foreground/30">—</span>}</TableCell>
                           <TableCell className="text-xs font-mono">{rd.rc_ico || <span className="text-muted-foreground/30">—</span>}</TableCell>
-                          <TableCell className="text-xs max-w-[120px] truncate" title={rd.nazov_firmy || ""}>{rd.nazov_firmy || <span className="text-muted-foreground/30">—</span>}</TableCell>
-                          <TableCell className="text-xs whitespace-nowrap max-w-[200px] truncate" title={[rd.titul_pred, rd.meno, rd.priezvisko, rd.titul_za ? `, ${rd.titul_za}` : ""].filter(Boolean).join(" ") || "—"}>
+                          <TableCell className="text-xs whitespace-nowrap" title={rd.nazov_firmy || ""}>{rd.nazov_firmy || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs whitespace-nowrap" title={[rd.titul_pred, rd.meno, rd.priezvisko, rd.titul_za ? `, ${rd.titul_za}` : ""].filter(Boolean).join(" ") || "—"}>
                             {(rd.meno || rd.priezvisko) ? (
                               <span>{[rd.titul_pred, rd.meno, rd.priezvisko].filter(Boolean).join(" ")}{rd.titul_za ? <span className="text-muted-foreground">, {rd.titul_za}</span> : null}</span>
                             ) : <span className="text-muted-foreground/30">—</span>}
@@ -6024,7 +6024,7 @@ export default function Contracts() {
                         {d.contractNumber || d.proposalNumber || "—"}
                       </span>
                       <span className="text-muted-foreground">·</span>
-                      <span className="font-medium truncate">{d.subjectName}</span>
+                      <span className="font-medium">{d.subjectName}</span>
                       {d.sameState && (
                         <span className="ml-1 shrink-0 text-[10px] text-orange-600 dark:text-orange-400 font-semibold border border-orange-400/40 rounded px-1 py-0">
                           tento štát
@@ -6344,7 +6344,7 @@ export default function Contracts() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm truncate" data-testid={`text-preselect-subject-name-${s.id}`}>{displayName}</span>
+                          <span className="font-medium text-sm" data-testid={`text-preselect-subject-name-${s.id}`}>{displayName}</span>
                           <Badge variant="outline" className="text-[10px] px-1.5 flex-shrink-0" data-testid={`badge-preselect-subject-type-${s.id}`}>{typeLabel}</Badge>
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -6522,7 +6522,7 @@ export default function Contracts() {
                           >
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm truncate" data-testid={`text-fo-subject-name-${s.id}`}>{foName}</span>
+                                <span className="font-medium text-sm" data-testid={`text-fo-subject-name-${s.id}`}>{foName}</span>
                                 <Badge variant="outline" className="text-[10px] px-1.5 flex-shrink-0">FO</Badge>
                               </div>
                               <div className="text-xs text-muted-foreground font-mono">
@@ -7295,7 +7295,7 @@ export default function Contracts() {
                         <div key={`${rec.uid}-${idx}`} className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/30 text-xs" data-testid={`row-preselect-recommender-${idx}`}>
                           <Users className="w-3 h-3 text-primary flex-shrink-0" />
                           <span className="font-mono text-[10px] text-muted-foreground flex-shrink-0">{formatUid(rec.uid)}</span>
-                          <span className={`font-medium truncate ${lookup.found ? 'text-emerald-500' : 'text-destructive'}`}>{lookup.label}</span>
+                          <span className={`font-medium ${lookup.found ? 'text-emerald-500' : 'text-destructive'}`}>{lookup.label}</span>
                           <div className="flex items-center gap-1 ml-auto flex-shrink-0">
                             <Input
                               type="number"
@@ -7338,7 +7338,7 @@ export default function Contracts() {
                     <div style={{ display: preSelectRecommenders.length === 0 && preSelectSpecialistUid ? 'block' : 'none' }}>
                       <div className="flex items-center gap-2 px-2 py-1 border rounded-md bg-muted/20 border-dashed text-xs" data-testid="row-preselect-autofill-recommender">
                         <Users className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                        <span className="text-muted-foreground italic truncate">
+                        <span className="text-muted-foreground italic">
                           {(() => {
                             const user = (appUsersAll || []).find(u => u.uid === preSelectSpecialistUid);
                             return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username : preSelectSpecialistUid;
@@ -7437,7 +7437,7 @@ export default function Contracts() {
                 <div className="max-h-32 overflow-y-auto space-y-1">
                   {preSelectFiles.map((f, idx) => (
                     <div key={idx} className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1">
-                      <span className="truncate flex-1 mr-2">{f.name}</span>
+                      <span className="flex-1 mr-2">{f.name}</span>
                       <span className="text-muted-foreground whitespace-nowrap mr-2">{(f.size / 1024).toFixed(0)} KB</span>
                       <button
                         type="button"
@@ -8784,12 +8784,15 @@ export default function Contracts() {
                 disabled={!bulkLogisticDate || bulkDateMutation.isPending}
                 onClick={() => {
                   if (bulkDateTarget) {
-                    bulkDateMutation.mutate({
-                      type: bulkDateTarget.type,
-                      id: bulkDateTarget.id,
-                      logisticOperationDate: new Date(bulkLogisticDate).toISOString(),
-                      onlyMissing: bulkOnlyMissing,
-                    });
+                    const ld = new Date(bulkLogisticDate);
+                    if (!isNaN(ld.getTime())) {
+                      bulkDateMutation.mutate({
+                        type: bulkDateTarget.type,
+                        id: bulkDateTarget.id,
+                        logisticOperationDate: ld.toISOString(),
+                        onlyMissing: bulkOnlyMissing,
+                      });
+                    }
                   }
                 }}
                 data-testid="button-bulk-apply"

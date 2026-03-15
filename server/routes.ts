@@ -3451,6 +3451,14 @@ export async function registerRoutes(
         });
       }
 
+      const DATE_FIELDS = ["signedDate", "effectiveDate", "expiryDate"];
+      for (const f of DATE_FIELDS) {
+        if (updateData[f] && typeof updateData[f] === "string") {
+          const d = new Date(updateData[f]);
+          updateData[f] = isNaN(d.getTime()) ? null : d;
+        }
+      }
+
       await db.update(contracts).set(updateData).where(eq(contracts.id, contractId));
       const [updated] = await db.select().from(contracts).where(eq(contracts.id, contractId));
       res.json(updated);
