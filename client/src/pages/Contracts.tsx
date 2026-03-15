@@ -3347,9 +3347,8 @@ export default function Contracts() {
               const hasMeno = !!(sub?.firstName);
               const hasPriezvisko = !!(sub?.lastName);
               const hasNazovFirmy = !!(sub?.companyName);
-              // RČ/IČO — z priradeného subjektu alebo z importedRawData
-              const rcIcoResolved = rcIco || importRaw["rc_ico"] || importRaw["birthNumber"] || importRaw["ico"] || null;
-              const hasRcIco = !!rcIcoResolved;
+              // hasRcIco — iba z priradeného subjektu (čo sa zobrazuje v bunke)
+              const hasRcIco = !!rcIco;
               const warnPartner = isIncomplete && !hasPartner;
               const warnProduct = isIncomplete && !hasProduct;
               const warnContractType = isIncomplete && !(contract as any).contractType;
