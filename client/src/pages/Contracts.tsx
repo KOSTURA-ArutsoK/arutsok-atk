@@ -5372,6 +5372,17 @@ export default function Contracts() {
     const datumNarodenia: string | null = dynFields["datum_narodenia"] || rcParsed?.datumNarodenia || null;
     const vek: string | null = (dynFields["vek"] ? String(dynFields["vek"]) : null) || rcParsed?.vek || null;
     const pohlavie: string | null = dynFields["pohlavie"] || rcParsed?.pohlavie || null;
+    // Normalizácia formátu dátumu → dd.mm.rrrr
+    function normalizeDateDdMmYyyy(raw: string | null): string | null {
+      if (!raw) return null;
+      // Už v správnom formáte dd.mm.rrrr
+      if (/^\d{2}\.\d{2}\.\d{4}$/.test(raw)) return raw;
+      // ISO formát rrrr-mm-dd alebo rrrr-mm-ddThh:mm:ss
+      const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) return `${isoMatch[3]}.${isoMatch[2]}.${isoMatch[1]}`;
+      return raw;
+    }
+    const datumNarodeniaFmt = normalizeDateDdMmYyyy(datumNarodenia);
 
     const dists = allRewardDist.filter((d: any) => d.contractId === c.id);
     const spec = dists.find((d: any) => d.type === "specialist");
@@ -5432,15 +5443,15 @@ export default function Contracts() {
                     {rcIco && <Row label={sub?.type === "person" ? "Rodné číslo" : "IČO"} value={<span className="font-mono">{rcIco}</span>} />}
                   </div>
                   {/* Stĺpce 3–4: automaticky odvodené údaje (read-only) */}
-                  {isPersonLike && (datumNarodenia || vek || pohlavie) && (
+                  {isPersonLike && (datumNarodeniaFmt || vek || pohlavie) && (
                     <div className="w-60 shrink-0 px-4 py-3 bg-muted/20 grid grid-cols-[108px_1fr] gap-x-2 content-start">
                       <div className="col-span-2 mb-2">
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Automaticky odvodené</span>
                       </div>
-                      {datumNarodenia && (
+                      {datumNarodeniaFmt && (
                         <>
                           <span className="text-xs text-muted-foreground self-center py-0.5">Dátum narodenia</span>
-                          <span className="text-sm font-mono py-0.5">{datumNarodenia}</span>
+                          <span className="text-sm font-mono py-0.5">{datumNarodeniaFmt}</span>
                         </>
                       )}
                       {vek && (
