@@ -2404,7 +2404,15 @@ export default function Contracts() {
       }
     } else if (step === 3) {
       if (!preSelectSpecialistUid.trim()) missing.push("specialist-uid");
-      if (preSelectSpecialistUid.trim() && !(parseFloat(preSelectSpecialistPercentage) > 0)) missing.push("specialist-pct");
+      if (preSelectSpecialistUid.trim() && preSelectRecommenders.length === 0) missing.push("recommender1-uid");
+      if (preSelectSpecialistUid.trim() && preSelectRecommenders.length > 0) {
+        const total = (parseFloat(preSelectSpecialistPercentage) || 0) + preSelectRecommenders.reduce((s, r) => s + (parseFloat(r.percentage) || 0), 0);
+        if (total !== 100) missing.push("sum-not-100");
+      }
+      if (preSelectSpecialistUid.trim() && preSelectRecommenders.length === 0) {
+        const specOnly = parseFloat(preSelectSpecialistPercentage) || 0;
+        if (specOnly !== 100) missing.push("sum-not-100");
+      }
     }
     return missing;
   };
@@ -3289,10 +3297,34 @@ export default function Contracts() {
     };
     return (
       <div className="overflow-auto max-h-[65vh]">
-        <table className="w-full text-xs border-separate border-spacing-0" style={{ minWidth: 1400 }}>
+        <table className="w-full text-xs border-separate border-spacing-0 table-fixed" style={{ minWidth: 1400 }}>
+          <colgroup>
+            {showCheckbox && <col style={{ width: 36 }} />}
+            {showOrder && <col style={{ width: 40 }} />}
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '6%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '4%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '4%' }} />
+            <col style={{ width: '6%' }} />
+            <col style={{ width: '6%' }} />
+            <col style={{ width: '4%' }} />
+            <col style={{ width: '6%' }} />
+            <col style={{ width: '3.5%' }} />
+            <col style={{ width: '6%' }} />
+            <col style={{ width: '3.5%' }} />
+            <col style={{ width: '6%' }} />
+            <col style={{ width: '3.5%' }} />
+            {showActions && <col style={{ width: 80 }} />}
+          </colgroup>
           <thead className="sticky top-0 z-20 bg-card border-b border-border">
             <tr className="bg-muted/50">
-              {showCheckbox && <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b sticky left-0 bg-card z-30 w-8">
+              {showCheckbox && <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b sticky left-0 bg-card z-30">
                 <Checkbox
                   checked={contractsList.filter(c => !(c as any).incompleteData).length > 0 && contractsList.filter(c => !(c as any).incompleteData).every(c => selectedIds.includes(c.id))}
                   onCheckedChange={() => {
@@ -3304,27 +3336,27 @@ export default function Contracts() {
                   data-testid="checkbox-spr-select-all"
                 />
               </th>}
-              {showOrder && <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b w-10">#</th>}
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Partner</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Produkt</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Typ zmluvy</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Dátum uzatv.</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap" title={NAVRH_LABEL_FULL}>{NAVRH_LABEL_SHORT}</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Číslo zmluvy</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Typ subj.</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">RČ / IČO</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Názov firmy</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Tit. pred</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Meno</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Priezvisko</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Tit. za</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Špecialist UID</th>
-              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">Šp.%</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Odp.1 UID</th>
-              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">O1%</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Odp.2 UID</th>
-              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">O2%</th>
-              {showActions && <th className="px-2 py-1.5 text-right font-medium text-muted-foreground border-b whitespace-nowrap">Akcie</th>}
+              {showOrder && <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b">#</th>}
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Partner</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Produkt</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Typ zml.</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Dát. uzatv.</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate" title={NAVRH_LABEL_FULL}>{NAVRH_LABEL_SHORT}</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Č. zmluvy</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Typ</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">RČ/IČO</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Firma</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Tit.</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Meno</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Priezvisko</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Tit.</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Šp. UID</th>
+              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b">Šp%</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">O1 UID</th>
+              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b">O1%</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">O2 UID</th>
+              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b">O2%</th>
+              {showActions && <th className="px-2 py-1.5 text-right font-medium text-muted-foreground border-b">Akcie</th>}
             </tr>
           </thead>
           <tbody>
@@ -3365,26 +3397,22 @@ export default function Contracts() {
               const warnMeno = isFO && !hasMeno;
               const warnPriezvisko = isFO && !hasPriezvisko;
               const warnNazov = isPO && !hasNazovFirmy;
-              // Kaskádová logika odmien
               const specPct = parseFloat(specialist?.percentage || "0") || 0;
               const r1Pct = parseFloat(r1?.percentage || "0") || 0;
               const r2Pct = parseFloat(r2?.percentage || "0") || 0;
               const warnSpecialist = !specialist;
-              const warnSpecPct = !!specialist && specPct === 0;
-              const warnR1 = !!specialist && specPct < 100 && !r1;
-              const warnR1Pct = !!r1 && r1Pct === 0;
-              const warnR2 = !!specialist && (specPct + r1Pct) < 100 && !r2;
-              const warnR2Pct = !!r2 && r2Pct === 0;
-              const rowBg = isSelected
-                ? "bg-primary/10 border-l-2 border-l-primary"
-                : isIncomplete
+              const warnSumNot100 = !!specialist && (specPct + r1Pct + r2Pct) !== 100;
+              const effectivelyIncomplete = isIncomplete || warnPartner || warnProduct || warnContractType || warnSignedDate || warnNumber || warnSpecialist || warnSumNot100;
+              const rowBg = effectivelyIncomplete
                 ? "bg-red-500/10 border-l-2 border-l-red-500"
+                : isSelected
+                ? "bg-primary/10 border-l-2 border-l-primary"
                 : "";
               const handleRowClick = logViewFn
                 ? () => logViewFn(contract)
                 : showCheckbox
                 ? () => {
-                    if (isIncomplete) { openIncompleteEdit(contract); }
+                    if (effectivelyIncomplete) { openIncompleteEdit(contract); }
                     else { setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]); }
                   }
                 : undefined;
@@ -3396,12 +3424,12 @@ export default function Contracts() {
                   onClick={handleRowClick}
                 >
                   {showCheckbox && (
-                    <td className={`px-2 py-1.5 sticky left-0 z-10 bg-card ${isSelected ? "border-l-2 border-l-primary" : isIncomplete ? "border-l-2 border-l-red-500" : ""}`} onClick={e => e.stopPropagation()}>
+                    <td className={`px-2 py-1.5 sticky left-0 z-10 bg-card ${isSelected ? "border-l-2 border-l-primary" : effectivelyIncomplete ? "border-l-2 border-l-red-500" : ""}`} onClick={e => e.stopPropagation()}>
                       <Checkbox
                         checked={isSelected}
-                        disabled={isIncomplete}
+                        disabled={effectivelyIncomplete}
                         onCheckedChange={() => {
-                          if (!isIncomplete) setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]);
+                          if (!effectivelyIncomplete) setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]);
                         }}
                         data-testid={`checkbox-spr-${contract.id}`}
                       />
@@ -3412,125 +3440,123 @@ export default function Contracts() {
                       <InlineSortOrderEdit contractId={contract.id} currentOrder={(contract as any).sortOrderInInventory} />
                     </td>
                   )}
-                  <td className="px-2 py-1.5 whitespace-nowrap">
+                  <td className="px-2 py-1.5 overflow-hidden" title={partnerName}>
                     <span className="flex items-center gap-1">
                       {warnPartner && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Partner</TooltipContent></Tooltip>}
-                      {partnerName}
+                      <span className="truncate">{partnerName}</span>
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap max-w-[120px]" title={productName}>
+                  <td className="px-2 py-1.5 overflow-hidden" title={productName}>
                     <span className="flex items-center gap-1">
                       {warnProduct && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Produkt</TooltipContent></Tooltip>}
                       <span className="truncate">{productName}</span>
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">
+                  <td className="px-2 py-1.5 overflow-hidden">
                     <span className="flex items-center gap-1">
                       {warnContractType && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba typ zmluvy</TooltipContent></Tooltip>}
                       <Badge variant="outline" className="text-[10px] font-normal">{contractTypeLabel[(contract as any).contractType || "Nova"] || (contract as any).contractType || "Nová"}</Badge>
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">
+                  <td className="px-2 py-1.5 overflow-hidden font-mono">
                     <span className="flex items-center gap-1">
                       {warnSignedDate && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba dátum uzatvorenia</TooltipContent></Tooltip>}
                       {(contract as any).signedDate ? new Date((contract as any).signedDate).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">
+                  <td className="px-2 py-1.5 overflow-hidden font-mono">
                     <span className="flex items-center gap-1">
                       {warnNumber && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba číslo návrhu</TooltipContent></Tooltip>}
-                      {contract.proposalNumber || "—"}
+                      <span className="truncate">{contract.proposalNumber || "—"}</span>
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">
+                  <td className="px-2 py-1.5 overflow-hidden font-mono">
                     <span className="flex items-center gap-1">
                       {(contract as any).isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
-                      {contract.insuranceContractNumber || "—"}
+                      <span className="truncate">{contract.insuranceContractNumber || "—"}</span>
                     </span>
                   </td>
                   <td className="px-2 py-1.5">
                     <Badge variant="outline" className={`text-[10px] ${typSubjColor}`}>{typSubj}</Badge>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-mono text-muted-foreground">
+                  <td className="px-2 py-1.5 overflow-hidden font-mono text-muted-foreground">
                     <span className="flex items-center gap-1">
                       {warnRcIco && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba RČ / IČO</TooltipContent></Tooltip>}
-                      {rcIco || "—"}
+                      <span className="truncate">{rcIco || "—"}</span>
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap max-w-[110px] truncate" title={sub?.companyName || undefined}>
+                  <td className="px-2 py-1.5 overflow-hidden" title={sub?.companyName || undefined}>
                     <span className="flex items-center gap-1">
                       {warnNazov && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba názov firmy</TooltipContent></Tooltip>}
                       <span className="truncate">{sub?.companyName || "—"}</span>
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">{sub?.titleBefore || "—"}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-medium">
+                  <td className="px-2 py-1.5 overflow-hidden truncate">{sub?.titleBefore || "—"}</td>
+                  <td className="px-2 py-1.5 overflow-hidden font-medium">
                     <span className="flex items-center gap-1">
                       {warnMeno && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba meno</TooltipContent></Tooltip>}
-                      {sub?.firstName || "—"}
+                      <span className="truncate">{sub?.firstName || "—"}</span>
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-medium">
+                  <td className="px-2 py-1.5 overflow-hidden font-medium">
                     <span className="flex items-center gap-1">
                       {warnPriezvisko && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba priezvisko</TooltipContent></Tooltip>}
-                      {sub?.lastName || "—"}
+                      <span className="truncate">{sub?.lastName || "—"}</span>
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">{sub?.titleAfter || "—"}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">
+                  <td className="px-2 py-1.5 overflow-hidden truncate">{sub?.titleAfter || "—"}</td>
+                  <td className="px-2 py-1.5 overflow-hidden">
                     <span className="flex items-center gap-1">
                       {warnSpecialist && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba špecialist</TooltipContent></Tooltip>}
                       {specialist ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="font-mono text-primary cursor-default">{formatUidShort(specialist.uid)}</span>
+                            <span className="font-mono text-primary cursor-default truncate">{formatUidShort(specialist.uid)}</span>
                           </TooltipTrigger>
                           <TooltipContent className="text-xs">{resolveUidName(specialist.uid)} · {specialist.uid}</TooltipContent>
                         </Tooltip>
                       ) : "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                  <td className="px-2 py-1.5 text-center overflow-hidden">
                     <span className="flex items-center justify-center gap-1">
-                      {warnSpecPct && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Špecialist má 0%</TooltipContent></Tooltip>}
+                      {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {(specPct + r1Pct + r2Pct).toFixed(0)}%)</TooltipContent></Tooltip>}
                       {specialist ? <span className="font-mono text-emerald-500">{specPct.toFixed(0)}%</span> : "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">
+                  <td className="px-2 py-1.5 overflow-hidden">
                     <span className="flex items-center gap-1">
-                      {warnR1 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba odporúčateľ 1 (súčet &lt; 100%)</TooltipContent></Tooltip>}
                       {r1 ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="font-mono text-amber-400 cursor-default">{formatUidShort(r1.uid)}</span>
+                            <span className="font-mono text-amber-400 cursor-default truncate">{formatUidShort(r1.uid)}</span>
                           </TooltipTrigger>
                           <TooltipContent className="text-xs">{resolveUidName(r1.uid)} · {r1.uid}</TooltipContent>
                         </Tooltip>
                       ) : "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                  <td className="px-2 py-1.5 text-center overflow-hidden">
                     <span className="flex items-center justify-center gap-1">
-                      {warnR1Pct && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Odporúčateľ 1 má 0%</TooltipContent></Tooltip>}
+                      {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {(specPct + r1Pct + r2Pct).toFixed(0)}%)</TooltipContent></Tooltip>}
                       {r1 ? <span className="font-mono text-amber-400">{r1Pct.toFixed(0)}%</span> : "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">
+                  <td className="px-2 py-1.5 overflow-hidden">
                     <span className="flex items-center gap-1">
-                      {warnR2 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba odporúčateľ 2 (súčet &lt; 100%)</TooltipContent></Tooltip>}
                       {r2 ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="font-mono text-amber-300 cursor-default">{formatUidShort(r2.uid)}</span>
+                            <span className="font-mono text-amber-300 cursor-default truncate">{formatUidShort(r2.uid)}</span>
                           </TooltipTrigger>
                           <TooltipContent className="text-xs">{resolveUidName(r2.uid)} · {r2.uid}</TooltipContent>
                         </Tooltip>
                       ) : "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                  <td className="px-2 py-1.5 text-center overflow-hidden">
                     <span className="flex items-center justify-center gap-1">
-                      {warnR2Pct && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Odporúčateľ 2 má 0%</TooltipContent></Tooltip>}
+                      {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {(specPct + r1Pct + r2Pct).toFixed(0)}%)</TooltipContent></Tooltip>}
                       {r2 ? <span className="font-mono text-amber-300">{r2Pct.toFixed(0)}%</span> : "—"}
                     </span>
                   </td>
@@ -7074,7 +7100,7 @@ export default function Contracts() {
                       })()}
                     </div>
                     <div className="w-[100px] space-y-1">
-                      <label className="text-xs text-muted-foreground flex items-center gap-1">Podiel (%) {isFieldMissing("specialist-pct") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
+                      <label className="text-xs text-muted-foreground flex items-center gap-1">Podiel (%) {isFieldMissing("sum-not-100") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                       <div className="relative">
                         <Input
                           ref={refPreSelectSpecialistPct}
@@ -7095,7 +7121,7 @@ export default function Contracts() {
                               }
                             }
                           }}
-                          className={`pr-8 font-mono text-sm ${isFieldMissing("specialist-pct") ? "border-red-500 ring-1 ring-red-500/30" : ""}`}
+                          className={`pr-8 font-mono text-sm ${isFieldMissing("sum-not-100") ? "border-red-500 ring-1 ring-red-500/30" : ""}`}
                           data-testid="input-preselect-specialist-percentage"
                         />
                         <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -7107,12 +7133,13 @@ export default function Contracts() {
                   </p>
                 </div>
 
-                <div className="border rounded-md p-3 space-y-2" data-testid="panel-preselect-recommenders">
+                <div className={`border rounded-md p-3 space-y-2 ${isFieldMissing("recommender1-uid") ? "border-red-500 ring-1 ring-red-500/30" : ""}`} data-testid="panel-preselect-recommenders">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
                       <Users className="w-3.5 h-3.5 text-primary" />
                       <span className="text-xs font-semibold uppercase tracking-wide">Odporucitelia</span>
                       <Badge variant="outline" className="text-[10px]">{preSelectRecommenders.length}</Badge>
+                      {isFieldMissing("recommender1-uid") && <AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
                     </div>
                     <Button
                       ref={refAddRecommenderBtn}
@@ -7340,7 +7367,7 @@ export default function Contracts() {
               <Button ref={refStep3Back} variant="outline" tabIndex={-1} onClick={() => setPreSelectStep(2)} onKeyDown={e => { if (e.key === "Tab") { e.preventDefault(); refStep3Confirm.current?.focus(); } }} data-testid="button-preselect-step3-back">
                 Spat
               </Button>
-              <Button ref={refStep3Confirm} onClick={handlePreSelectConfirm} disabled={preSelectSaving || preSelectRewardTotal > 100 || !preSelectSpecialistUid || !lookupSubjectByUid(preSelectSpecialistUid).found || preSelectRecommenders.some(r => !lookupSubjectByUid(r.uid).found)} onKeyDown={e => { if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); refStep3Back.current?.focus(); } }} data-testid="button-preselect-confirm-rewards">
+              <Button ref={refStep3Confirm} onClick={handlePreSelectConfirm} disabled={preSelectSaving || preSelectRewardTotal !== 100 || !preSelectSpecialistUid || !lookupSubjectByUid(preSelectSpecialistUid).found || preSelectRecommenders.length === 0 || preSelectRecommenders.some(r => !lookupSubjectByUid(r.uid).found)} onKeyDown={e => { if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); refStep3Back.current?.focus(); } }} data-testid="button-preselect-confirm-rewards">
                 {preSelectSaving ? "Zapisujem..." : preSelectEditingContractId ? "Uložiť zmeny" : "Zapísať zmluvu"}
               </Button>
             </div>

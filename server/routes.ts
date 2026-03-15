@@ -3419,6 +3419,14 @@ export async function registerRoutes(
       if (!mergedSubjectId) patchMissing.push("Klient");
       if (!mergedSignedDate) patchMissing.push("Dátum uzatvorenia");
 
+      const distRows = await db.select().from(contractRewardDistributions).where(eq(contractRewardDistributions.contractId, contractId));
+      const hasSpecialist = distRows.some(d => d.type === "specialist");
+      if (!hasSpecialist) patchMissing.push("Špecialist");
+      if (hasSpecialist) {
+        const totalPct = distRows.reduce((sum, d) => sum + (parseFloat(d.percentage) || 0), 0);
+        if (totalPct !== 100) patchMissing.push("Súčet percent ≠ 100%");
+      }
+
       if (patchMissing.length > 0) {
         updateData.incompleteData = true;
         updateData.incompleteDataReason = `Chýba: ${patchMissing.join(", ")}`;
