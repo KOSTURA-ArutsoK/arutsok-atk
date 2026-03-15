@@ -3453,9 +3453,13 @@ export async function registerRoutes(
 
       const DATE_FIELDS = ["signedDate", "effectiveDate", "expiryDate"];
       for (const f of DATE_FIELDS) {
-        if (updateData[f] && typeof updateData[f] === "string") {
-          const d = new Date(updateData[f]);
-          updateData[f] = isNaN(d.getTime()) ? null : d;
+        if (typeof updateData[f] === "string") {
+          if (updateData[f] === "") {
+            updateData[f] = null;
+          } else {
+            const d = new Date(updateData[f]);
+            updateData[f] = isNaN(d.getTime()) ? null : d;
+          }
         }
       }
 
