@@ -248,7 +248,7 @@ export const contacts = pgTable("contacts", {
 // === SUBJECTS (CORE INTEGRITY) ===
 export const subjects = pgTable("subjects", {
   id: serial("id").primaryKey(),
-  uid: text("uid").notNull().unique(),
+  uid: text("uid").unique(),
   type: text("type").notNull(),
   linkedFoId: integer("linked_fo_id"),
   firstName: text("first_name"),

@@ -215,6 +215,7 @@ export interface IStorage {
   getSubjectByUid(uid: string): Promise<Subject | undefined>;
   getDynamicUIDPrefix(): Promise<string>;
   createSubject(subject: InsertSubject): Promise<Subject>;
+  createSubjectNoUID(data: { type: string; firstName?: string | null; lastName?: string | null; companyName?: string | null; birthNumber?: string | null; titleBefore?: string | null; titleAfter?: string | null; email?: string | null; phone?: string | null; details?: any; registeredByUserId?: number | null }): Promise<Subject>;
   updateSubject(id: number, updates: UpdateSubjectRequest): Promise<Subject>;
   archiveSubject(id: number, reason: string): Promise<void>;
 
@@ -1209,6 +1210,27 @@ export class DatabaseStorage implements IStorage {
     const uid = await this.generateUID(state.code, continent.code);
     
     const [subject] = await db.insert(subjects).values({ ...insertSubject, uid }).returning();
+    return subject;
+  }
+
+  async createSubjectNoUID(data: { type: string; firstName?: string | null; lastName?: string | null; companyName?: string | null; birthNumber?: string | null; titleBefore?: string | null; titleAfter?: string | null; email?: string | null; phone?: string | null; details?: any; registeredByUserId?: number | null }): Promise<Subject> {
+    const { encryptField } = await import("./crypto");
+    let detailsObj: any = data.details || {};
+    if (data.titleBefore) detailsObj = { ...detailsObj, titleBefore: data.titleBefore };
+    if (data.titleAfter) detailsObj = { ...detailsObj, titleAfter: data.titleAfter };
+    const vals: any = {
+      type: data.type,
+      firstName: data.firstName || null,
+      lastName: data.lastName || null,
+      companyName: data.companyName || null,
+      birthNumber: data.birthNumber ? encryptField(data.birthNumber) : null,
+      email: data.email ? encryptField(data.email) : null,
+      phone: data.phone ? encryptField(data.phone) : null,
+      details: detailsObj,
+      isActive: true,
+      registeredByUserId: data.registeredByUserId || null,
+    };
+    const [subject] = await db.insert(subjects).values(vals).returning();
     return subject;
   }
 

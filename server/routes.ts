@@ -5950,6 +5950,31 @@ export async function registerRoutes(
             });
             if (dupCheck) {
               resolvedSubjectId = dupCheck.id;
+            } else {
+              // Subject not found — create WITHOUT UID. UID is assigned only at central receipt (Folder 2/3).
+              const canCreatePerson = (subjectType === "person" || subjectType === "szco") && firstName && lastName && rc;
+              const canCreateCompany = (subjectType === "company" || subjectType === "organization") && companyName && ico;
+              const canCreateSzco = subjectType === "szco" && firstName && lastName && ico;
+              if (canCreatePerson || canCreateCompany || canCreateSzco) {
+                try {
+                  const newSubj = await storage.createSubjectNoUID({
+                    type: subjectType === "company" ? "company" : subjectType === "szco" ? "szco" : subjectType === "organization" ? "organization" : "person",
+                    firstName: firstName || null,
+                    lastName: lastName || null,
+                    companyName: companyName || null,
+                    birthNumber: rc || null,
+                    titleBefore: titleBefore || null,
+                    titleAfter: titleAfter || null,
+                    email: email || null,
+                    phone: phone || null,
+                    details: ico ? { ico } : {},
+                    registeredByUserId: appUser?.id || null,
+                  });
+                  resolvedSubjectId = newSubj.id;
+                } catch (subjectErr: any) {
+                  console.error(`[IMPORT] Chyba pri vytváraní subjektu pre riadok ${rowNum}:`, subjectErr.message);
+                }
+              }
             }
           }
 
@@ -12349,6 +12374,100 @@ export async function registerRoutes(
       res.json(result);
     } catch (err: any) {
       console.error("[BONITA MIGRATION] Error:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === ADMIN: Merge duplicate subjects by RČ/IČO ===
+  app.post("/api/admin/merge-duplicate-subjects", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !isAdmin(appUser)) return res.status(403).json({ message: "Len pre admina" });
+
+      const { decryptField } = await import("./crypto");
+
+      // Fetch all non-deleted subjects
+      const allSubjects = await db.select().from(subjects).where(isNull(subjects.deletedAt));
+
+      // Group by decrypted birthNumber (RC)
+      const byRc: Map<string, typeof allSubjects> = new Map();
+      const byIco: Map<string, typeof allSubjects> = new Map();
+
+      for (const s of allSubjects) {
+        if (s.birthNumber) {
+          const raw = decryptField(s.birthNumber) || s.birthNumber;
+          const norm = raw.replace(/[\s\/\-]/g, "");
+          if (norm) {
+            if (!byRc.has(norm)) byRc.set(norm, []);
+            byRc.get(norm)!.push(s);
+          }
+        }
+        const ico = (s.details as any)?.ico;
+        if (ico) {
+          const norm = String(ico).replace(/\s/g, "");
+          if (norm) {
+            if (!byIco.has(norm)) byIco.set(norm, []);
+            byIco.get(norm)!.push(s);
+          }
+        }
+      }
+
+      let totalMerged = 0;
+      let totalGroups = 0;
+      const mergeLog: any[] = [];
+
+      const mergeGroup = async (group: typeof allSubjects) => {
+        if (group.length < 2) return;
+        // Sort: prefer subjects WITH uid first, then by id ascending (oldest = canonical)
+        group.sort((a, b) => {
+          if (a.uid && !b.uid) return -1;
+          if (!a.uid && b.uid) return 1;
+          return a.id - b.id;
+        });
+        const canonical = group[0];
+        const duplicates = group.slice(1);
+        totalGroups++;
+
+        for (const dup of duplicates) {
+          // Reassign all contracts pointing to dup → canonical
+          const updated = await db.update(contracts)
+            .set({ subjectId: canonical.id })
+            .where(eq(contracts.subjectId, dup.id))
+            .returning({ id: contracts.id });
+          // Soft-delete the duplicate subject
+          await db.update(subjects)
+            .set({ deletedAt: new Date() } as any)
+            .where(eq(subjects.id, dup.id));
+          mergeLog.push({
+            canonical: { id: canonical.id, uid: canonical.uid, name: canonical.firstName ? `${canonical.firstName} ${canonical.lastName}` : canonical.companyName },
+            removed: { id: dup.id, uid: dup.uid },
+            contractsReassigned: updated.length,
+          });
+          totalMerged++;
+        }
+      };
+
+      for (const group of byRc.values()) {
+        await mergeGroup(group);
+      }
+      // For IČO groups: only merge if not already merged via RC
+      for (const group of byIco.values()) {
+        const activeGroup = group.filter(s => !mergeLog.some(l => l.removed.id === s.id));
+        await mergeGroup(activeGroup);
+      }
+
+      await logAudit(req, {
+        action: "ADMIN",
+        module: "subjects",
+        entityId: 0,
+        entityName: "Zlúčenie duplicitných subjektov",
+        oldData: {},
+        newData: { totalGroups, totalMerged, mergeLog },
+      });
+
+      res.json({ success: true, totalGroups, totalMerged, mergeLog });
+    } catch (err: any) {
+      console.error("[MERGE DUPLICATES]", err);
       res.status(500).json({ message: err.message });
     }
   });

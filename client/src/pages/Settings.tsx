@@ -184,6 +184,8 @@ export default function Settings() {
   const [importPending, setImportPending] = useState(false);
   const [importResults, setImportResults] = useState<any[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mergePending, setMergePending] = useState(false);
+  const [mergeResults, setMergeResults] = useState<{ totalGroups: number; totalMerged: number; mergeLog: any[] } | null>(null);
 
   const handleBigReset = async () => {
     if (resetCode !== "RESET-ARUTSOK-2025") {
@@ -202,6 +204,23 @@ export default function Settings() {
       toast({ title: "Chyba pri resete", description: err.message, variant: "destructive" });
     } finally {
       setResetPending(false);
+    }
+  };
+
+  const handleMergeDuplicates = async () => {
+    if (!confirm("Spustiť zlúčenie duplicitných subjektov? Táto akcia presmeruje zmluvy na kanonický subjekt a soft-deletuje duplikáty. Pokračovať?")) return;
+    setMergePending(true);
+    setMergeResults(null);
+    try {
+      const res = await apiRequest("POST", "/api/admin/merge-duplicate-subjects", {});
+      const data = await res.json();
+      setMergeResults(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+      toast({ title: `Zlúčenie dokončené: ${data.totalMerged} duplikátov odstránených`, description: `${data.totalGroups} skupín spracovaných` });
+    } catch (err: any) {
+      toast({ title: "Chyba pri zlúčení", description: err.message, variant: "destructive" });
+    } finally {
+      setMergePending(false);
     }
   };
 
@@ -646,6 +665,46 @@ export default function Settings() {
                   {importResults.filter(r => r.status === "error").map((r, i) => (
                     <div key={i} className="text-[11px] text-red-400">Riadok {r.row}: {r.error}</div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-orange-800/50" data-testid="card-merge-duplicates">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-lg">Zlúčiť duplicitné subjekty</CardTitle>
+              <Database className="h-5 w-5 text-orange-400" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Nájde všetkých subjektov s rovnakým RČ alebo IČO a zlúči ich pod jedno ID (kanonický subjekt). Všetky zmluvy sa presmerujú na kanonický subjekt, duplikáty budú soft-deletované.
+              </p>
+              <Button
+                variant="outline"
+                className="w-full border-orange-700/50 text-orange-400 hover:bg-orange-900/20"
+                onClick={handleMergeDuplicates}
+                disabled={mergePending}
+                data-testid="btn-merge-duplicates"
+              >
+                {mergePending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Database className="w-4 h-4 mr-1" />}
+                Spustiť zlúčenie
+              </Button>
+              {mergeResults && (
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-orange-800/30 rounded p-2" data-testid="merge-results">
+                  <div className="flex gap-2 text-xs">
+                    <Badge variant="outline" className="border-orange-700 text-orange-400">{mergeResults.totalGroups} skupín</Badge>
+                    <Badge variant="outline" className="border-red-700 text-red-400">{mergeResults.totalMerged} odstránených</Badge>
+                  </div>
+                  {mergeResults.mergeLog.slice(0, 10).map((entry, i) => (
+                    <div key={i} className="text-[11px] text-muted-foreground border-b border-border/30 pb-1">
+                      <span className="text-green-400">✓ {entry.canonical.name || `ID ${entry.canonical.id}`}</span>
+                      {" ← "}zlúčil ID {entry.removed.id}
+                      {entry.contractsReassigned > 0 && <span className="text-amber-400"> ({entry.contractsReassigned} zmlúv)</span>}
+                    </div>
+                  ))}
+                  {mergeResults.mergeLog.length > 10 && (
+                    <div className="text-[11px] text-muted-foreground">... a {mergeResults.mergeLog.length - 10} ďalších</div>
+                  )}
                 </div>
               )}
             </CardContent>
