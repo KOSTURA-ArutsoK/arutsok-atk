@@ -10271,18 +10271,47 @@ export async function registerRoutes(
       const ws = wb.worksheets[0];
       if (!ws) return res.status(400).json({ message: "Excel neobsahuje hárok" });
 
+      function extractCellText(val: any): string {
+        if (val === null || val === undefined) return "";
+        if (typeof val === "string") return val.trim();
+        if (typeof val === "number") return String(val);
+        if (typeof val === "boolean") return String(val);
+        if (val instanceof Date) {
+          const d = val as Date;
+          const dd = String(d.getDate()).padStart(2, "0");
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const yyyy = d.getFullYear();
+          return `${dd}.${mm}.${yyyy}`;
+        }
+        if (val && typeof val === "object") {
+          if ("result" in val) return extractCellText(val.result);
+          if ("richText" in val && Array.isArray(val.richText)) {
+            return val.richText.map((r: any) => r.text || "").join("").trim();
+          }
+          if ("text" in val) return String(val.text).trim();
+          if ("error" in val) return "";
+        }
+        return String(val).trim();
+      }
+
       const headers: string[] = [];
       const allRows: Record<string, any>[] = [];
       ws.eachRow((row, rowNum) => {
         if (rowNum === 1) {
-          row.eachCell((cell) => headers.push(String(cell.value ?? "").trim()));
-        } else {
-          const rowData: Record<string, any> = {};
           row.eachCell({ includeEmpty: true }, (cell, colNum) => {
-            const h = headers[colNum - 1] || `Col${colNum}`;
-            rowData[h] = cell.value ?? null;
+            headers[colNum - 1] = extractCellText(cell.value) || `Stĺpec${colNum}`;
           });
-          allRows.push(rowData);
+        } else {
+          const isEmpty = row.actualCellCount === 0;
+          if (isEmpty) return;
+          const rowData: Record<string, string> = {};
+          row.eachCell({ includeEmpty: true }, (cell, colNum) => {
+            const h = headers[colNum - 1] || `Stĺpec${colNum}`;
+            rowData[h] = extractCellText(cell.value);
+          });
+          if (headers.some(h => rowData[h] !== undefined && rowData[h] !== "")) {
+            allRows.push(rowData);
+          }
         }
       });
       res.json({
@@ -10317,7 +10346,7 @@ export async function registerRoutes(
         insuranceContractNumber: contracts.insuranceContractNumber,
       }).from(contracts).where(isNull(contracts.deletedAt));
 
-      const allStatuses = await db.select().from(contractStatuses);
+      const allStatuses = await db.select().from(contractStatuses).where(isNull(contractStatuses.deletedAt));
       await db.delete(bulkStatusImportRows).where(eq(bulkStatusImportRows.sessionId, sessionId));
 
       let successRows = 0, errorRows = 0, notFoundRows = 0, skippedRows = 0;
