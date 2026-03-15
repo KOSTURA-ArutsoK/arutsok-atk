@@ -23,6 +23,8 @@ import { validateSlovakRC } from "@shared/rc-validator";
 import { validateSlovakICO } from "@shared/ico-validator";
 import { scanUploadedFile, scanMultipleFiles, sanitizeExcelWorkbook, checkClamAvStatus } from "./services/file-security";
 
+const ROOT_SYSTEM_UID = "421000000000000";
+
 function stripBallast(str: string): string {
   return str.replace(/[\s\-\+\(\)\/\.]/g, "");
 }
@@ -497,6 +499,11 @@ export async function registerRoutes(
         await db.update(states).set({ isActive: false }).where(eq(states.id, czState.id));
         console.log(`[SEED] Deactivated CZ state (code 420), id=${czState.id}`);
       }
+      const [rootSubj] = await db.select().from(subjects).where(and(eq(subjects.uid, ROOT_SYSTEM_UID), isNull(subjects.deletedAt))).limit(1);
+      if (rootSubj && rootSubj.type !== 'system') {
+        await db.update(subjects).set({ type: 'system' }).where(eq(subjects.id, rootSubj.id));
+        console.log(`[SEED] Root subject (UID ${ROOT_SYSTEM_UID}) type changed from '${rootSubj.type}' to 'system'`);
+      }
     } catch (err) {
       console.error("[SEED] Master Root / CZ deactivation error:", err);
     }
@@ -641,7 +648,7 @@ export async function registerRoutes(
   app.get("/api/subjects/count", isAuthenticated, async (req: any, res: any) => {
     try {
       const user = req.appUser;
-      const conditions: any[] = [eq(subjects.isActive, true)];
+      const conditions: any[] = [eq(subjects.isActive, true), sql`${subjects.type} != 'system'`];
       if (user?.activeCompanyId) conditions.push(eq(subjects.myCompanyId, user.activeCompanyId));
       const [result] = await db.select({ count: sql<number>`count(*)::int` }).from(subjects).where(and(...conditions));
       res.json({ count: result?.count || 0 });
@@ -13037,6 +13044,7 @@ export async function registerRoutes(
       }).from(subjects).where(and(
         eq(subjects.isActive, true),
         isNull(subjects.deletedAt),
+        sql`${subjects.type} != 'system'`,
         subjectCompanyFilter
       ));
 
@@ -13776,7 +13784,7 @@ export async function registerRoutes(
 
       const subjectCount = await db.execute(sql`
         SELECT COUNT(*) as count FROM subjects
-        WHERE deleted_at IS NULL AND type = ${subjectType}
+        WHERE deleted_at IS NULL AND type = ${subjectType} AND type != 'system'
       `);
       const activeSubjects = Number(subjectCount.rows[0]?.count || 0);
 
@@ -17822,7 +17830,7 @@ export async function registerRoutes(
   app.get("/api/network/tree", isAuthenticated, async (req: any, res) => {
     try {
       const rootId = req.query.rootId ? parseInt(req.query.rootId as string) : null;
-      const SK_ROOT_UID = "421000000000000";
+      const SK_ROOT_UID = ROOT_SYSTEM_UID;
 
       let rootSubject: any = null;
       if (rootId) {

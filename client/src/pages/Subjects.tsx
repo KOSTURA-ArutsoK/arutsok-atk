@@ -527,17 +527,19 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
   const { data: companies } = useMyCompanies();
   const managingCompany = companies?.find(c => c.id === subject.myCompanyId);
 
+  const isSystem = subject.type === 'system';
   const isPerson = subject.type === 'person';
   const isSzco = subject.type === 'szco';
 
   const clientType = clientTypes?.find(ct => {
+    if (isSystem) return false;
     if (subject.type === 'szco' && ct.code === 'SZCO') return true;
     if (subject.type === 'company' && ct.code === 'PO') return true;
     if (isPerson && ct.code === 'FO') return true;
     return false;
   });
 
-  const clientTypeId = isSzco ? 3 : isPerson ? 1 : 4;
+  const clientTypeId = isSystem ? 4 : isSzco ? 3 : isPerson ? 1 : 4;
   const typeFields = getFieldsForClientTypeId(clientTypeId);
   const foTypeFields = getFieldsForClientTypeId(1);
   const typeSections = getSectionsForClientTypeId(clientTypeId);
@@ -588,7 +590,7 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
       <div className="flex flex-wrap gap-2">
         <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
           <span className="text-xs text-muted-foreground whitespace-nowrap">Typ:</span>
-          <span className="text-sm font-medium">{isPerson ? 'FO' : isSzco ? 'SZCO' : 'PO'} - {clientType?.name || subject.type}</span>
+          <span className="text-sm font-medium">{isSystem ? 'Systém' : isPerson ? 'FO' : isSzco ? 'SZCO' : 'PO'} - {isSystem ? 'Koreňový subjekt' : clientType?.name || subject.type}</span>
         </div>
         <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
           <span className="text-xs text-muted-foreground whitespace-nowrap">Firma:</span>
@@ -907,6 +909,7 @@ type EnrichedEntityLink = {
 
 function getSubjectLabel(s: { type: string; firstName: string | null; lastName: string | null; companyName: string | null } | null) {
   if (!s) return "Neznamy subjekt";
+  if (s.type === 'system') return s.companyName || 'ArutsoK - ATK';
   if (s.type === 'person' || s.type === 'szco') return `${s.lastName || ''}, ${s.firstName || ''}`.trim().replace(/^,\s*/, '').replace(/,\s*$/, '') || 'Bez mena';
   return s.companyName || 'Bez nazvu';
 }
@@ -3957,6 +3960,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject; onClose: () 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const timerRef = useRef<number>(performance.now());
 
+  const isSystemType = subject.type === 'system';
   const isPerson = subject.type === 'person';
   const isSzco = subject.type === 'szco';
   const linkedFo = (subject as any).linkedFo;
@@ -3966,13 +3970,14 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject; onClose: () 
   const dynamicFields = details.dynamicFields || {};
 
   const clientType = clientTypes?.find(ct => {
+    if (isSystemType) return false;
     if (isSzco && ct.code === 'SZCO') return true;
     if (subject.type === 'company' && ct.code === 'PO') return true;
     if (isPerson && ct.code === 'FO') return true;
     return false;
   });
 
-  const modalClientTypeId = isSzco ? 3 : subject.type === 'company' ? 4 : 1;
+  const modalClientTypeId = isSystemType ? 4 : isSzco ? 3 : subject.type === 'company' ? 4 : 1;
   const typeFields = getFieldsForClientTypeId(modalClientTypeId);
   const typeSections = getSectionsForClientTypeId(modalClientTypeId);
 
@@ -4737,6 +4742,7 @@ export default function Subjects() {
                       return dynFields.sidlo_ulica || details.sidlo_ulica || '';
                     })() || '-';
                     const subjectTypeCode = (() => {
+                      if (subject.type === 'system') return 'SYS';
                       if (subject.type === 'person') return 'FO';
                       if (subject.type === 'szco') return 'SZCO';
                       if (subject.type === 'company') return 'PO';
@@ -4744,6 +4750,7 @@ export default function Subjects() {
                     })();
                     const clientTypeMatch = clientTypes?.find(ct => ct.code === subjectTypeCode);
                     const fullName = (() => {
+                      if (subject.type === 'system') return subject.companyName || 'ArutsoK - ATK';
                       if (subject.type === 'person') {
                         const parts = [titulPred, subject.firstName, subject.lastName, titulZa].filter(Boolean);
                         return parts.join(' ') || '-';

@@ -62,6 +62,7 @@ type TransferRequest = {
 
 function getSubjectName(s: NetworkSubject | undefined): string {
   if (!s) return "—";
+  if (s.type === "system") return s.companyName || "ArutsoK - ATK";
   if (s.type === "company") return s.companyName || "—";
   return `${s.firstName || ""} ${s.lastName || ""}`.trim() || "—";
 }

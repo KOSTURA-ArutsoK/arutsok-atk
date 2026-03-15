@@ -1138,6 +1138,7 @@ export class DatabaseStorage implements IStorage {
     if (params?.myCompanyId) conditions.push(eq(subjects.myCompanyId, params.myCompanyId));
     if (params?.stateId) conditions.push(eq(subjects.stateId, params.stateId));
     conditions.push(isNull(subjects.deletedAt));
+    conditions.push(sql`${subjects.type} != 'system'`);
 
     const query = db.select({
       subject: subjects,

@@ -1113,9 +1113,10 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
     return pepVal === "true" || pepVal === "áno" || pepVal === "ano";
   }, [subject]);
 
+  const isSystem = subject.type === "system";
   const isPerson = subject.type === "person";
   const isSzco = subject.type === "szco";
-  const clientTypeId = isSzco ? 3 : isPerson ? 1 : 4;
+  const clientTypeId = isSystem ? 4 : isSzco ? 3 : isPerson ? 1 : 4;
 
   const { fields: dynamicSchemaFields, fieldHints: dynamicFieldHints, fieldToCategory: dynamicFieldToCategory, collectionCategories, isLoading: schemaLoading } = useSubjectSchema(clientTypeId);
 
@@ -2116,7 +2117,7 @@ function RelationshipSection({
           </div>
           <div className="flex items-center gap-2 mt-0.5">
             <Badge variant="outline" className="text-[9px] px-1 py-0">
-              {s.type === "company" ? "PO" : s.type === "szco" ? "SZČO" : "FO"}
+              {s.type === "system" ? "SYS" : s.type === "company" ? "PO" : s.type === "szco" ? "SZČO" : "FO"}
             </Badge>
             <span className="text-[10px] text-muted-foreground font-mono">{formatUid(s.uid)}</span>
           </div>
@@ -4134,7 +4135,7 @@ function AddressGroupSection({ subjectId }: { subjectId: number }) {
                         <span>{m.name}</span>
                         <Badge variant="outline" className="text-[8px]">{formatUid(m.uid)}</Badge>
                         {m.type && (
-                          <Badge variant="outline" className="text-[8px]">{m.type === "company" ? "PO" : m.type === "szco" ? "SZČO" : "FO"}</Badge>
+                          <Badge variant="outline" className="text-[8px]">{m.type === "system" ? "SYS" : m.type === "company" ? "PO" : m.type === "szco" ? "SZČO" : "FO"}</Badge>
                         )}
                         {m.role && <Badge variant="outline" className="text-[8px]">{m.role}</Badge>}
                         {m.subjectId !== subjectId && (
