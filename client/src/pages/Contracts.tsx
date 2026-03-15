@@ -5138,9 +5138,12 @@ export default function Contracts() {
 
       const contractData: Record<string, any> = {
         subjectId: finalSubjectId,
-        lifecyclePhase: 1,
         contractType: preSelectContractType || "Nova",
       };
+      // Pri editovaní NEPREPÍSAŤ lifecyclePhase — zachovať existujúcu fázu zmluvy
+      if (!preSelectEditingContractId) {
+        contractData.lifecyclePhase = 1;
+      }
       if (preSelectPartnerId) contractData.partnerId = parseInt(preSelectPartnerId);
       if (preSelectProductId) contractData.productId = parseInt(preSelectProductId);
       if (preSelectSignedDate) {
@@ -5359,6 +5362,9 @@ export default function Contracts() {
     setPreSelectRecommenders(
       existingRecs.map((r: any) => ({ uid: r.uid || "", percentage: String(r.percentage ?? "0") }))
     );
+
+    // --- Preload contractType ---
+    setPreSelectContractType((contract as any).contractType || "Nova");
 
     // --- Preload signedDate ---
     const existingSignedDate = (contract as any).signedDate;
