@@ -977,7 +977,7 @@ function ContractFormDialog({
                   </div>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  Ak nie su zadani odporucitelia, specialista bude automaticky pridany ako odporucitel s 0%.
+                  Ak nie je zadaný žiadny odporúčateľ, špecialist bude automaticky doplnený ako odporúčateľ s 0%.
                 </p>
               </div>
 
@@ -2404,7 +2404,6 @@ export default function Contracts() {
       }
     } else if (step === 3) {
       if (!preSelectSpecialistUid.trim()) missing.push("specialist-uid");
-      if (preSelectSpecialistUid.trim() && (!preSelectRecommenders[0] || !preSelectRecommenders[0].uid.trim())) missing.push("recommender1-uid");
       if (preSelectSpecialistUid.trim()) {
         const total = (parseFloat(preSelectSpecialistPercentage) || 0) + preSelectRecommenders.reduce((s, r) => s + (parseFloat(r.percentage) || 0), 0);
         if (total !== 100) missing.push("sum-not-100");
@@ -4124,7 +4123,7 @@ export default function Contracts() {
           <div className="bg-amber-500/10 border border-amber-500/30 rounded px-3 py-2 space-y-2">
             <div className="flex items-start gap-2">
               <span className="text-red-500 font-bold text-xs mt-px">1.</span>
-              <p className="text-[11px] text-red-500 leading-snug">Ak nie su zadani odporucitelia, specialista bude automaticky pridany ako odporucitel s 0%.</p>
+              <p className="text-[11px] text-red-500 leading-snug">Ak nie je zadaný žiadny odporúčateľ, špecialist bude automaticky doplnený ako odporúčateľ s 0%.</p>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-red-500 font-bold text-xs mt-px">2.</span>
@@ -4301,7 +4300,7 @@ export default function Contracts() {
                     </div>
                   </div>
                   <p className="text-[10px] text-muted-foreground">
-                    Ak nie su zadani odporucitelia, specialista bude automaticky pridany ako odporucitel s 0%.
+                    Ak nie je zadaný žiadny odporúčateľ, špecialist bude automaticky doplnený ako odporúčateľ s 0%.
                   </p>
                 </div>
 
@@ -7147,17 +7146,16 @@ export default function Contracts() {
                     </div>
                   </div>
                   <p className="text-[10px] text-muted-foreground">
-                    Ak nie su zadani odporucitelia, specialista bude automaticky pridany ako odporucitel s 0%.
+                    Ak nie je zadaný žiadny odporúčateľ, špecialist bude automaticky doplnený ako odporúčateľ s 0%.
                   </p>
                 </div>
 
-                <div className={`border rounded-md p-3 space-y-2 ${isFieldMissing("recommender1-uid") ? "border-red-500 ring-1 ring-red-500/30" : ""}`} data-testid="panel-preselect-recommenders">
+                <div className="border rounded-md p-3 space-y-2" data-testid="panel-preselect-recommenders">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
                       <Users className="w-3.5 h-3.5 text-primary" />
                       <span className="text-xs font-semibold uppercase tracking-wide">Odporucitelia</span>
                       <Badge variant="outline" className="text-[10px]">{preSelectRecommenders.length}</Badge>
-                      {isFieldMissing("recommender1-uid") && <AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
                     </div>
                     <Button
                       ref={refAddRecommenderBtn}
@@ -7385,7 +7383,7 @@ export default function Contracts() {
               <Button ref={refStep3Back} variant="outline" tabIndex={-1} onClick={() => setPreSelectStep(2)} onKeyDown={e => { if (e.key === "Tab") { e.preventDefault(); refStep3Confirm.current?.focus(); } }} data-testid="button-preselect-step3-back">
                 Spat
               </Button>
-              <Button ref={refStep3Confirm} onClick={handlePreSelectConfirm} disabled={preSelectSaving || preSelectRewardTotal !== 100 || !preSelectSpecialistUid || !lookupSubjectByUid(preSelectSpecialistUid).found || !preSelectRecommenders[0]?.uid?.trim() || preSelectRecommenders.some(r => !lookupSubjectByUid(r.uid).found)} onKeyDown={e => { if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); refStep3Back.current?.focus(); } }} data-testid="button-preselect-confirm-rewards">
+              <Button ref={refStep3Confirm} onClick={handlePreSelectConfirm} disabled={preSelectSaving || preSelectRewardTotal !== 100 || !preSelectSpecialistUid || !lookupSubjectByUid(preSelectSpecialistUid).found || preSelectRecommenders.some(r => !lookupSubjectByUid(r.uid).found)} onKeyDown={e => { if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); refStep3Back.current?.focus(); } }} data-testid="button-preselect-confirm-rewards">
                 {preSelectSaving ? "Zapisujem..." : preSelectEditingContractId ? "Uložiť zmeny" : "Zapísať zmluvu"}
               </Button>
             </div>
