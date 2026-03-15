@@ -153,7 +153,7 @@ const protokolyChildren = [
 ];
 
 const importItems = [
-  { href: "/bulk-import", icon: FileSpreadsheet, label: "Hromadný import" },
+  { href: "/hromadne-stavy", icon: FileSpreadsheet, label: "Hromadný import" },
   { href: "/import-archive", icon: Archive, label: "Archív importov" },
   { href: "/bulk-actions", icon: Zap, label: "Hromadné akcie" },
 ];
@@ -396,6 +396,11 @@ export function AppSidebar() {
     staleTime: 1000 * 60 * 5,
   });
   const digitalContractsCount = digitalContractsData?.count ?? 0;
+
+  const { data: bulkImportTypes = [] } = useQuery<any[]>({
+    queryKey: ["/api/bulk-status-import-types"],
+    staleTime: 1000 * 60 * 5,
+  });
 
   const allMenus = [
     { id: "nastavenia", items: [...spravaPristupovItems, ...specifikacieItems, ...nastavenieSystemuItems, ...nastavenieDirectItems] },
@@ -1010,6 +1015,39 @@ export function AppSidebar() {
                                   </SidebarMenuSubButton>
                                 </SidebarMenuSubItem>
                               ))}
+                              {bulkImportTypes.length > 0 && (
+                                <>
+                                  <div className="px-2 pt-2 pb-0.5">
+                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Typy importov</span>
+                                  </div>
+                                  {bulkImportTypes.map((t: any) => (
+                                    <SidebarMenuSubItem key={`bst-${t.id}`}>
+                                      <SidebarMenuSubButton
+                                        asChild
+                                        isActive={location === `/hromadne-stavy`}
+                                        data-testid={`nav-bulk-type-${t.id}`}
+                                      >
+                                        <Link href="/hromadne-stavy">
+                                          <FileSpreadsheet className="w-3.5 h-3.5 text-muted-foreground" />
+                                          <span className="truncate">{t.name}</span>
+                                        </Link>
+                                      </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                  ))}
+                                </>
+                              )}
+                              <SidebarMenuSubItem>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  className="text-primary hover:text-primary border border-dashed border-primary/30 hover:border-primary/60 mt-1"
+                                  data-testid="nav-vytvorit-hromadny-import"
+                                >
+                                  <Link href="/hromadne-stavy">
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>Vytvoriť hromadný import</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
                             </div>
                           </CollapsibleContent>
                         </Collapsible>

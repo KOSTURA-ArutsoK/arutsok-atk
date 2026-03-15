@@ -2598,6 +2598,71 @@ export const insertNbsPartnerReportSchema = createInsertSchema(nbsPartnerReports
 export type NbsPartnerReport = typeof nbsPartnerReports.$inferSelect;
 export type InsertNbsPartnerReport = z.infer<typeof insertNbsPartnerReportSchema>;
 
+// === BULK STATUS IMPORT TYPES (configurable import definitions) ===
+export const bulkStatusImportTypes = pgTable("bulk_status_import_types", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  companyId: integer("company_id").references(() => myCompanies.id),
+  identifierType: text("identifier_type").notNull().default("proposalNumber"),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdBy: integer("created_by").references(() => appUsers.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBulkStatusImportTypeSchema = createInsertSchema(bulkStatusImportTypes).omit({ id: true, createdAt: true, updatedAt: true });
+export type BulkStatusImportType = typeof bulkStatusImportTypes.$inferSelect;
+export type InsertBulkStatusImportType = z.infer<typeof insertBulkStatusImportTypeSchema>;
+
+// === BULK STATUS IMPORT SESSIONS ===
+export const bulkStatusImportSessions = pgTable("bulk_status_import_sessions", {
+  id: serial("id").primaryKey(),
+  typeId: integer("type_id").references(() => bulkStatusImportTypes.id),
+  name: text("name").notNull(),
+  fileName: text("file_name"),
+  status: text("status").notNull().default("pending"),
+  totalRows: integer("total_rows").default(0),
+  successRows: integer("success_rows").default(0),
+  errorRows: integer("error_rows").default(0),
+  notFoundRows: integer("not_found_rows").default(0),
+  skippedRows: integer("skipped_rows").default(0),
+  columnMapping: jsonb("column_mapping").default({}),
+  companyId: integer("company_id").references(() => myCompanies.id),
+  createdBy: integer("created_by").references(() => appUsers.id),
+  processedAt: timestamp("processed_at"),
+  archivedAt: timestamp("archived_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBulkStatusImportSessionSchema = createInsertSchema(bulkStatusImportSessions).omit({ id: true, createdAt: true, updatedAt: true });
+export type BulkStatusImportSession = typeof bulkStatusImportSessions.$inferSelect;
+export type InsertBulkStatusImportSession = z.infer<typeof insertBulkStatusImportSessionSchema>;
+
+// === BULK STATUS IMPORT ROWS ===
+export const bulkStatusImportRows = pgTable("bulk_status_import_rows", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => bulkStatusImportSessions.id, { onDelete: "cascade" }),
+  rowNumber: integer("row_number").notNull(),
+  identifierValue: text("identifier_value"),
+  identifierType: text("identifier_type"),
+  statusName: text("status_name"),
+  resolvedStatusId: integer("resolved_status_id").references(() => contractStatuses.id),
+  contractId: integer("contract_id").references(() => contracts.id),
+  oldStatusId: integer("old_status_id").references(() => contractStatuses.id),
+  result: text("result").notNull().default("pending"),
+  errorMessage: text("error_message"),
+  rawData: jsonb("raw_data").default({}),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBulkStatusImportRowSchema = createInsertSchema(bulkStatusImportRows).omit({ id: true, createdAt: true });
+export type BulkStatusImportRow = typeof bulkStatusImportRows.$inferSelect;
+export type InsertBulkStatusImportRow = z.infer<typeof insertBulkStatusImportRowSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

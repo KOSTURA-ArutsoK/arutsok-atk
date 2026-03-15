@@ -55,6 +55,7 @@ import Body from "@/pages/Body";
 import BulkImport from "@/pages/BulkImport";
 import ImportArchive from "@/pages/ImportArchive";
 import BulkActions from "@/pages/BulkActions";
+import HromadneStavy from "@/pages/HromadneStavy";
 import ProfilSubjektu from "@/pages/ProfilSubjektu";
 import Reports from "@/pages/Reports";
 import DatatovaLinka from "@/pages/DatatovaLinka";
@@ -156,6 +157,7 @@ const PrivateSettingsDivisions = () => <PrivateRoute><SettingsDivisions /></Priv
 const PrivateBulkImport = () => <PrivateRoute><BulkImport /></PrivateRoute>;
 const PrivateImportArchive = () => <PrivateRoute><ImportArchive /></PrivateRoute>;
 const PrivateBulkActions = () => <PrivateRoute><BulkActions /></PrivateRoute>;
+const PrivateHromadneStavy = () => <PrivateRoute><HromadneStavy /></PrivateRoute>;
 const PrivateProfilSubjektu = () => <PrivateRoute><ProfilSubjektu /></PrivateRoute>;
 const PrivateReports = () => <PrivateRoute><Reports /></PrivateRoute>;
 const PrivateDatatovaLinka = () => <PrivateRoute><DatatovaLinka /></PrivateRoute>;
@@ -226,6 +228,7 @@ function Router() {
       <Route path="/bulk-import" component={PrivateBulkImport} />
       <Route path="/import-archive" component={PrivateImportArchive} />
       <Route path="/bulk-actions" component={PrivateBulkActions} />
+      <Route path="/hromadne-stavy" component={PrivateHromadneStavy} />
       <Route path="/profil-subjektu" component={PrivateProfilSubjektu} />
       <Route path="/datova-linka" component={PrivateDatatovaLinka} />
       <Route path="/digitalne-zmluvy" component={PrivateDigitalneZmluvy} />

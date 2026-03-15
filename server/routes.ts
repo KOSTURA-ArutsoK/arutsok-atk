@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, isAuthenticated } from "./auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows } from "@shared/schema";
 import type { DocEntry } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
@@ -10130,6 +10130,254 @@ export async function registerRoutes(
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
+  });
+
+  // === BULK STATUS IMPORT TYPES ===
+  app.get("/api/bulk-status-import-types", isAuthenticated, async (req: any, res) => {
+    try {
+      const companyId = req.user?.myCompanyId;
+      const rows = await db.select().from(bulkStatusImportTypes)
+        .where(companyId ? eq(bulkStatusImportTypes.companyId, companyId) : undefined)
+        .orderBy(bulkStatusImportTypes.sortOrder, bulkStatusImportTypes.name);
+      res.json(rows);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/bulk-status-import-types", isAuthenticated, async (req: any, res) => {
+    try {
+      const companyId = req.user?.myCompanyId;
+      const { name, description, identifierType, sortOrder } = req.body;
+      if (!name?.trim()) return res.status(400).json({ message: "Názov je povinný" });
+      const [row] = await db.insert(bulkStatusImportTypes).values({
+        name: name.trim(), description: description || null,
+        identifierType: identifierType || "proposalNumber",
+        sortOrder: sortOrder ?? 0, companyId, createdBy: req.user?.id,
+      }).returning();
+      res.json(row);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.patch("/api/bulk-status-import-types/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { name, description, identifierType, sortOrder, isActive } = req.body;
+      const updates: any = { updatedAt: new Date() };
+      if (name !== undefined) updates.name = name.trim();
+      if (description !== undefined) updates.description = description;
+      if (identifierType !== undefined) updates.identifierType = identifierType;
+      if (sortOrder !== undefined) updates.sortOrder = sortOrder;
+      if (isActive !== undefined) updates.isActive = isActive;
+      const [row] = await db.update(bulkStatusImportTypes).set(updates).where(eq(bulkStatusImportTypes.id, id)).returning();
+      res.json(row);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.delete("/api/bulk-status-import-types/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(bulkStatusImportTypes).where(eq(bulkStatusImportTypes.id, id));
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // === BULK STATUS IMPORT SESSIONS ===
+  app.get("/api/bulk-status-import-sessions", isAuthenticated, async (req: any, res) => {
+    try {
+      const companyId = req.user?.myCompanyId;
+      const archived = req.query.archived === "true";
+      let query = db.select().from(bulkStatusImportSessions)
+        .orderBy(desc(bulkStatusImportSessions.createdAt));
+      const conditions = [
+        companyId ? eq(bulkStatusImportSessions.companyId, companyId) : undefined,
+        archived ? isNotNull(bulkStatusImportSessions.archivedAt) : isNull(bulkStatusImportSessions.archivedAt),
+      ].filter(Boolean);
+      if (conditions.length) {
+        const rows = await db.select().from(bulkStatusImportSessions)
+          .where(and(...conditions as any[]))
+          .orderBy(desc(bulkStatusImportSessions.createdAt));
+        const types = await db.select().from(bulkStatusImportTypes);
+        return res.json(rows.map(r => ({ ...r, typeName: types.find(t => t.id === r.typeId)?.name || null })));
+      }
+      const rows = await query;
+      const types = await db.select().from(bulkStatusImportTypes);
+      res.json(rows.map(r => ({ ...r, typeName: types.find(t => t.id === r.typeId)?.name || null })));
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/bulk-status-import-sessions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [session] = await db.select().from(bulkStatusImportSessions).where(eq(bulkStatusImportSessions.id, id));
+      if (!session) return res.status(404).json({ message: "Session nenájdená" });
+      const rows = await db.select().from(bulkStatusImportRows).where(eq(bulkStatusImportRows.sessionId, id)).orderBy(bulkStatusImportRows.rowNumber);
+      const types = await db.select().from(bulkStatusImportTypes);
+      const statuses = await db.select().from(contractStatuses);
+      const rowsWithNames = rows.map(r => ({
+        ...r,
+        resolvedStatusName: statuses.find(s => s.id === r.resolvedStatusId)?.name || null,
+        oldStatusName: statuses.find(s => s.id === r.oldStatusId)?.name || null,
+      }));
+      res.json({ ...session, typeName: types.find(t => t.id === session.typeId)?.name || null, rows: rowsWithNames });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/bulk-status-import-sessions", isAuthenticated, async (req: any, res) => {
+    try {
+      const companyId = req.user?.myCompanyId;
+      const { name, typeId } = req.body;
+      if (!name?.trim()) return res.status(400).json({ message: "Názov je povinný" });
+      const [session] = await db.insert(bulkStatusImportSessions).values({
+        name: name.trim(), typeId: typeId || null, status: "pending",
+        companyId, createdBy: req.user?.id,
+      }).returning();
+      res.json(session);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/bulk-status-import-sessions/:id/archive", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [row] = await db.update(bulkStatusImportSessions).set({ archivedAt: new Date(), updatedAt: new Date() })
+        .where(eq(bulkStatusImportSessions.id, id)).returning();
+      res.json(row);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.post("/api/bulk-status-import-sessions/:id/unarchive", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [row] = await db.update(bulkStatusImportSessions).set({ archivedAt: null, updatedAt: new Date() })
+        .where(eq(bulkStatusImportSessions.id, id)).returning();
+      res.json(row);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.delete("/api/bulk-status-import-sessions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(bulkStatusImportRows).where(eq(bulkStatusImportRows.sessionId, id));
+      await db.delete(bulkStatusImportSessions).where(eq(bulkStatusImportSessions.id, id));
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // PARSE Excel for bulk status import
+  app.post("/api/bulk-status-import/parse", isAuthenticated, upload.single("file"), async (req: any, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ message: "Súbor je povinný" });
+      const ExcelJS = await import("exceljs");
+      const wb = new ExcelJS.default.Workbook();
+      await wb.xlsx.load(req.file.buffer);
+      const ws = wb.worksheets[0];
+      if (!ws) return res.status(400).json({ message: "Excel neobsahuje hárok" });
+
+      const headers: string[] = [];
+      const allRows: Record<string, any>[] = [];
+      ws.eachRow((row, rowNum) => {
+        if (rowNum === 1) {
+          row.eachCell((cell) => headers.push(String(cell.value ?? "").trim()));
+        } else {
+          const rowData: Record<string, any> = {};
+          row.eachCell({ includeEmpty: true }, (cell, colNum) => {
+            const h = headers[colNum - 1] || `Col${colNum}`;
+            rowData[h] = cell.value ?? null;
+          });
+          allRows.push(rowData);
+        }
+      });
+      res.json({
+        headers,
+        sampleRows: allRows.slice(0, 5),
+        allRows,
+        totalRows: allRows.length,
+        fileName: req.file.originalname,
+      });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  // EXECUTE bulk status import
+  app.post("/api/bulk-status-import-sessions/:id/execute", isAuthenticated, async (req: any, res) => {
+    try {
+      const sessionId = parseInt(req.params.id);
+      const { rows: inputRows, identifierCol, statusCol, fileName, columnMapping } = req.body;
+      if (!inputRows?.length) return res.status(400).json({ message: "Žiadne riadky" });
+      if (!identifierCol || !statusCol) return res.status(400).json({ message: "Identifikátor a stav sú povinné" });
+
+      await db.update(bulkStatusImportSessions).set({ status: "processing", fileName: fileName || null, columnMapping: columnMapping || {}, updatedAt: new Date() })
+        .where(eq(bulkStatusImportSessions.id, sessionId));
+
+      const [session] = await db.select().from(bulkStatusImportSessions).where(eq(bulkStatusImportSessions.id, sessionId));
+      const identifierType = session?.typeId
+        ? (await db.select().from(bulkStatusImportTypes).where(eq(bulkStatusImportTypes.id, session.typeId)))[0]?.identifierType || "proposalNumber"
+        : "proposalNumber";
+
+      const allContracts = await db.select({
+        id: contracts.id, statusId: contracts.statusId,
+        proposalNumber: contracts.proposalNumber, contractNumber: contracts.contractNumber,
+        insuranceContractNumber: contracts.insuranceContractNumber,
+      }).from(contracts).where(isNull(contracts.deletedAt));
+
+      const allStatuses = await db.select().from(contractStatuses);
+      await db.delete(bulkStatusImportRows).where(eq(bulkStatusImportRows.sessionId, sessionId));
+
+      let successRows = 0, errorRows = 0, notFoundRows = 0, skippedRows = 0;
+      const dbRows = [];
+
+      for (let i = 0; i < inputRows.length; i++) {
+        const row = inputRows[i];
+        const identVal = String(row[identifierCol] ?? "").trim();
+        const statusVal = String(row[statusCol] ?? "").trim();
+
+        if (!identVal && !statusVal) { skippedRows++; continue; }
+        if (!identVal) { errorRows++; dbRows.push({ sessionId, rowNumber: i + 2, identifierValue: "", identifierType, statusName: statusVal, result: "error", errorMessage: "Chýba identifikátor", rawData: row }); continue; }
+        if (!statusVal) { errorRows++; dbRows.push({ sessionId, rowNumber: i + 2, identifierValue: identVal, identifierType, statusName: "", result: "error", errorMessage: "Chýba stav", rawData: row }); continue; }
+
+        const contract = allContracts.find(c => {
+          if (identifierType === "contractNumber") return c.contractNumber === identVal;
+          if (identifierType === "insuranceContractNumber") return c.insuranceContractNumber === identVal;
+          return c.proposalNumber === identVal;
+        });
+
+        if (!contract) {
+          notFoundRows++;
+          dbRows.push({ sessionId, rowNumber: i + 2, identifierValue: identVal, identifierType, statusName: statusVal, result: "not_found", errorMessage: "Zmluva nenájdená", rawData: row });
+          continue;
+        }
+
+        const matchedStatus = allStatuses.find(s =>
+          s.name.toLowerCase() === statusVal.toLowerCase() ||
+          String(s.id) === statusVal
+        );
+        if (!matchedStatus) {
+          errorRows++;
+          dbRows.push({ sessionId, rowNumber: i + 2, identifierValue: identVal, identifierType, statusName: statusVal, contractId: contract.id, oldStatusId: contract.statusId, result: "error", errorMessage: `Stav "${statusVal}" nenájdený`, rawData: row });
+          continue;
+        }
+
+        await db.update(contracts).set({ statusId: matchedStatus.id, updatedAt: new Date() }).where(eq(contracts.id, contract.id));
+        if (contract.statusId !== matchedStatus.id) {
+          await db.insert(contractStatusChangeLogs).values({
+            contractId: contract.id, oldStatusId: contract.statusId || null,
+            newStatusId: matchedStatus.id, changedByUserId: req.user?.id || null,
+          }).catch(() => {});
+        }
+        successRows++;
+        dbRows.push({ sessionId, rowNumber: i + 2, identifierValue: identVal, identifierType, statusName: statusVal, resolvedStatusId: matchedStatus.id, contractId: contract.id, oldStatusId: contract.statusId, result: "success", processedAt: new Date(), rawData: row });
+      }
+
+      if (dbRows.length > 0) {
+        for (let i = 0; i < dbRows.length; i += 100) {
+          await db.insert(bulkStatusImportRows).values(dbRows.slice(i, i + 100) as any[]);
+        }
+      }
+
+      await db.update(bulkStatusImportSessions).set({
+        status: "done", totalRows: inputRows.length, successRows, errorRows, notFoundRows, skippedRows,
+        processedAt: new Date(), updatedAt: new Date(),
+      }).where(eq(bulkStatusImportSessions.id, sessionId));
+
+      res.json({ ok: true, successRows, errorRows, notFoundRows, skippedRows, totalRows: inputRows.length });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
   // === CLIENT DATA TABS & CATEGORIES ===
