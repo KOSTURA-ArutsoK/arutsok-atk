@@ -3359,7 +3359,16 @@ export default function Contracts() {
               const warnMeno = isFO && !hasMeno;
               const warnPriezvisko = isFO && !hasPriezvisko;
               const warnNazov = isPO && !hasNazovFirmy;
+              // Kaskádová logika odmien
+              const specPct = parseFloat(specialist?.percentage || "0") || 0;
+              const r1Pct = parseFloat(r1?.percentage || "0") || 0;
+              const r2Pct = parseFloat(r2?.percentage || "0") || 0;
               const warnSpecialist = !specialist;
+              const warnSpecPct = !!specialist && specPct === 0;
+              const warnR1 = !!specialist && specPct < 100 && !r1;
+              const warnR1Pct = !!r1 && r1Pct === 0;
+              const warnR2 = !!specialist && (specPct + r1Pct) < 100 && !r2;
+              const warnR2Pct = !!r2 && r2Pct === 0;
               const rowBg = isSelected
                 ? "bg-primary/10 border-l-2 border-l-primary"
                 : isIncomplete
@@ -3476,33 +3485,49 @@ export default function Contracts() {
                     </span>
                   </td>
                   <td className="px-2 py-1.5 text-center whitespace-nowrap">
-                    {specialist ? <span className="font-mono text-emerald-500">{parseFloat(specialist.percentage || "0").toFixed(0)}%</span> : "—"}
+                    <span className="flex items-center justify-center gap-1">
+                      {warnSpecPct && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Špecialist má 0%</TooltipContent></Tooltip>}
+                      {specialist ? <span className="font-mono text-emerald-500">{specPct.toFixed(0)}%</span> : "—"}
+                    </span>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">
-                    {r1 ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="font-mono text-amber-400 cursor-default">{formatUidShort(r1.uid)}</span>
-                        </TooltipTrigger>
-                        <TooltipContent className="text-xs">{resolveUidName(r1.uid)} · {r1.uid}</TooltipContent>
-                      </Tooltip>
-                    ) : "—"}
+                    <span className="flex items-center gap-1">
+                      {warnR1 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba odporúčateľ 1 (súčet &lt; 100%)</TooltipContent></Tooltip>}
+                      {r1 ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="font-mono text-amber-400 cursor-default">{formatUidShort(r1.uid)}</span>
+                          </TooltipTrigger>
+                          <TooltipContent className="text-xs">{resolveUidName(r1.uid)} · {r1.uid}</TooltipContent>
+                        </Tooltip>
+                      ) : "—"}
+                    </span>
                   </td>
                   <td className="px-2 py-1.5 text-center whitespace-nowrap">
-                    {r1 ? <span className="font-mono text-amber-400">{parseFloat(r1.percentage || "0").toFixed(0)}%</span> : "—"}
+                    <span className="flex items-center justify-center gap-1">
+                      {warnR1Pct && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Odporúčateľ 1 má 0%</TooltipContent></Tooltip>}
+                      {r1 ? <span className="font-mono text-amber-400">{r1Pct.toFixed(0)}%</span> : "—"}
+                    </span>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">
-                    {r2 ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="font-mono text-amber-300 cursor-default">{formatUidShort(r2.uid)}</span>
-                        </TooltipTrigger>
-                        <TooltipContent className="text-xs">{resolveUidName(r2.uid)} · {r2.uid}</TooltipContent>
-                      </Tooltip>
-                    ) : "—"}
+                    <span className="flex items-center gap-1">
+                      {warnR2 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba odporúčateľ 2 (súčet &lt; 100%)</TooltipContent></Tooltip>}
+                      {r2 ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="font-mono text-amber-300 cursor-default">{formatUidShort(r2.uid)}</span>
+                          </TooltipTrigger>
+                          <TooltipContent className="text-xs">{resolveUidName(r2.uid)} · {r2.uid}</TooltipContent>
+                        </Tooltip>
+                      ) : "—"}
+                    </span>
                   </td>
                   <td className="px-2 py-1.5 text-center whitespace-nowrap">
-                    {r2 ? <span className="font-mono text-amber-300">{parseFloat(r2.percentage || "0").toFixed(0)}%</span> : "—"}
+                    <span className="flex items-center justify-center gap-1">
+                      {warnR2Pct && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Odporúčateľ 2 má 0%</TooltipContent></Tooltip>}
+                      {r2 ? <span className="font-mono text-amber-300">{r2Pct.toFixed(0)}%</span> : "—"}
+                    </span>
+                  </td>
                   </td>
                   {showActions && (
                     <td className="px-2 py-1.5 text-right" onClick={e => e.stopPropagation()}>
