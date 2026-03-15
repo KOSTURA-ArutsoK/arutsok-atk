@@ -3314,34 +3314,10 @@ export default function Contracts() {
     };
     return (
       <div className="overflow-auto max-h-[65vh]">
-        <table className="w-full text-xs border-separate border-spacing-0 table-fixed" style={{ minWidth: 1400 }}>
-          <colgroup>
-            {showCheckbox && <col style={{ width: 36 }} />}
-            {showOrder && <col style={{ width: 40 }} />}
-            <col style={{ width: '8%' }} />
-            <col style={{ width: '8%' }} />
-            <col style={{ width: '6%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '4%' }} />
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '8%' }} />
-            <col style={{ width: '4%' }} />
-            <col style={{ width: '6%' }} />
-            <col style={{ width: '6%' }} />
-            <col style={{ width: '4%' }} />
-            <col style={{ width: '6%' }} />
-            <col style={{ width: '3.5%' }} />
-            <col style={{ width: '6%' }} />
-            <col style={{ width: '3.5%' }} />
-            <col style={{ width: '6%' }} />
-            <col style={{ width: '3.5%' }} />
-            {showActions && <col style={{ width: 80 }} />}
-          </colgroup>
+        <table className="w-full text-xs border-separate border-spacing-0" style={{ minWidth: 1400 }}>
           <thead className="sticky top-0 z-20 bg-card border-b border-border">
             <tr className="bg-muted/50">
-              {showCheckbox && <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b sticky left-0 bg-card z-30">
+              {showCheckbox && <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b sticky left-0 bg-card z-30 w-8">
                 <Checkbox
                   checked={contractsList.filter(c => !isContractEffectivelyIncomplete(c)).length > 0 && contractsList.filter(c => !isContractEffectivelyIncomplete(c)).every(c => selectedIds.includes(c.id))}
                   onCheckedChange={() => {
@@ -3353,27 +3329,27 @@ export default function Contracts() {
                   data-testid="checkbox-spr-select-all"
                 />
               </th>}
-              {showOrder && <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b">#</th>}
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Partner</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Produkt</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Typ zml.</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Dát. uzatv.</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate" title={NAVRH_LABEL_FULL}>{NAVRH_LABEL_SHORT}</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Č. zmluvy</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Typ</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">RČ/IČO</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Firma</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Tit.</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Meno</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Priezvisko</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Tit.</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">Šp. UID</th>
-              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b">Šp%</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">O1 UID</th>
-              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b">O1%</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b truncate">O2 UID</th>
-              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b">O2%</th>
-              {showActions && <th className="px-2 py-1.5 text-right font-medium text-muted-foreground border-b">Akcie</th>}
+              {showOrder && <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b w-10">#</th>}
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Partner</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Produkt</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Typ zml.</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Dát. uzatv.</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap" title={NAVRH_LABEL_FULL}>{NAVRH_LABEL_SHORT}</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Č. zmluvy</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Typ</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">RČ/IČO</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Firma</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Tit.</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Meno</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Priezvisko</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Tit.</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Šp. UID</th>
+              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">Šp%</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">O1 UID</th>
+              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">O1%</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">O2 UID</th>
+              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">O2%</th>
+              {showActions && <th className="px-2 py-1.5 text-right font-medium text-muted-foreground border-b whitespace-nowrap">Akcie</th>}
             </tr>
           </thead>
           <tbody>
@@ -3457,121 +3433,121 @@ export default function Contracts() {
                       <InlineSortOrderEdit contractId={contract.id} currentOrder={(contract as any).sortOrderInInventory} />
                     </td>
                   )}
-                  <td className="px-2 py-1.5 overflow-hidden" title={partnerName}>
+                  <td className="px-2 py-1.5 whitespace-nowrap" title={partnerName}>
                     <span className="flex items-center gap-1">
                       {warnPartner && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Partner</TooltipContent></Tooltip>}
-                      <span className="truncate">{partnerName}</span>
+                      {partnerName}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 overflow-hidden" title={productName}>
+                  <td className="px-2 py-1.5 whitespace-nowrap" title={productName}>
                     <span className="flex items-center gap-1">
                       {warnProduct && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Produkt</TooltipContent></Tooltip>}
-                      <span className="truncate">{productName}</span>
+                      {productName}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 overflow-hidden">
+                  <td className="px-2 py-1.5 whitespace-nowrap">
                     <span className="flex items-center gap-1">
                       {warnContractType && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba typ zmluvy</TooltipContent></Tooltip>}
                       <Badge variant="outline" className="text-[10px] font-normal">{contractTypeLabel[(contract as any).contractType || "Nova"] || (contract as any).contractType || "Nová"}</Badge>
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 overflow-hidden font-mono">
+                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">
                     <span className="flex items-center gap-1">
                       {warnSignedDate && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba dátum uzatvorenia</TooltipContent></Tooltip>}
                       {(contract as any).signedDate ? new Date((contract as any).signedDate).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 overflow-hidden font-mono">
+                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">
                     <span className="flex items-center gap-1">
                       {warnNumber && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba číslo návrhu</TooltipContent></Tooltip>}
-                      <span className="truncate">{contract.proposalNumber || "—"}</span>
+                      {contract.proposalNumber || "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 overflow-hidden font-mono">
+                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">
                     <span className="flex items-center gap-1">
                       {(contract as any).isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
-                      <span className="truncate">{contract.insuranceContractNumber || "—"}</span>
+                      {contract.insuranceContractNumber || "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5">
+                  <td className="px-2 py-1.5 whitespace-nowrap">
                     <Badge variant="outline" className={`text-[10px] ${typSubjColor}`}>{typSubj}</Badge>
                   </td>
-                  <td className="px-2 py-1.5 overflow-hidden font-mono text-muted-foreground">
+                  <td className="px-2 py-1.5 whitespace-nowrap font-mono text-muted-foreground">
                     <span className="flex items-center gap-1">
                       {warnRcIco && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba RČ / IČO</TooltipContent></Tooltip>}
-                      <span className="truncate">{rcIco || "—"}</span>
+                      {rcIco || "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 overflow-hidden" title={sub?.companyName || undefined}>
+                  <td className="px-2 py-1.5 whitespace-nowrap" title={sub?.companyName || undefined}>
                     <span className="flex items-center gap-1">
                       {warnNazov && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba názov firmy</TooltipContent></Tooltip>}
-                      <span className="truncate">{sub?.companyName || "—"}</span>
+                      {sub?.companyName || "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 overflow-hidden truncate">{sub?.titleBefore || "—"}</td>
-                  <td className="px-2 py-1.5 overflow-hidden font-medium">
+                  <td className="px-2 py-1.5 whitespace-nowrap">{sub?.titleBefore || "—"}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap font-medium">
                     <span className="flex items-center gap-1">
                       {warnMeno && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba meno</TooltipContent></Tooltip>}
-                      <span className="truncate">{sub?.firstName || "—"}</span>
+                      {sub?.firstName || "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 overflow-hidden font-medium">
+                  <td className="px-2 py-1.5 whitespace-nowrap font-medium">
                     <span className="flex items-center gap-1">
                       {warnPriezvisko && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba priezvisko</TooltipContent></Tooltip>}
-                      <span className="truncate">{sub?.lastName || "—"}</span>
+                      {sub?.lastName || "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 overflow-hidden truncate">{sub?.titleAfter || "—"}</td>
-                  <td className="px-2 py-1.5 overflow-hidden">
+                  <td className="px-2 py-1.5 whitespace-nowrap">{sub?.titleAfter || "—"}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
                     <span className="flex items-center gap-1">
                       {warnSpecialist && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba špecialist</TooltipContent></Tooltip>}
                       {specialist ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="font-mono text-primary cursor-default truncate">{formatUidShort(specialist.uid)}</span>
+                            <span className="font-mono text-primary cursor-default">{formatUidShort(specialist.uid)}</span>
                           </TooltipTrigger>
                           <TooltipContent className="text-xs">{resolveUidName(specialist.uid)} · {specialist.uid}</TooltipContent>
                         </Tooltip>
                       ) : "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 text-center overflow-hidden">
+                  <td className="px-2 py-1.5 text-center whitespace-nowrap">
                     <span className="flex items-center justify-center gap-1">
                       {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {(specPct + r1Pct + r2Pct).toFixed(0)}%)</TooltipContent></Tooltip>}
                       {specialist ? <span className="font-mono text-emerald-500">{specPct.toFixed(0)}%</span> : "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 overflow-hidden">
+                  <td className="px-2 py-1.5 whitespace-nowrap">
                     <span className="flex items-center gap-1">
                       {r1 ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="font-mono text-amber-400 cursor-default truncate">{formatUidShort(r1.uid)}</span>
+                            <span className="font-mono text-amber-400 cursor-default">{formatUidShort(r1.uid)}</span>
                           </TooltipTrigger>
                           <TooltipContent className="text-xs">{resolveUidName(r1.uid)} · {r1.uid}</TooltipContent>
                         </Tooltip>
                       ) : "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 text-center overflow-hidden">
+                  <td className="px-2 py-1.5 text-center whitespace-nowrap">
                     <span className="flex items-center justify-center gap-1">
                       {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {(specPct + r1Pct + r2Pct).toFixed(0)}%)</TooltipContent></Tooltip>}
                       {r1 ? <span className="font-mono text-amber-400">{r1Pct.toFixed(0)}%</span> : "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 overflow-hidden">
+                  <td className="px-2 py-1.5 whitespace-nowrap">
                     <span className="flex items-center gap-1">
                       {r2 ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="font-mono text-amber-300 cursor-default truncate">{formatUidShort(r2.uid)}</span>
+                            <span className="font-mono text-amber-300 cursor-default">{formatUidShort(r2.uid)}</span>
                           </TooltipTrigger>
                           <TooltipContent className="text-xs">{resolveUidName(r2.uid)} · {r2.uid}</TooltipContent>
                         </Tooltip>
                       ) : "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 text-center overflow-hidden">
+                  <td className="px-2 py-1.5 text-center whitespace-nowrap">
                     <span className="flex items-center justify-center gap-1">
                       {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {(specPct + r1Pct + r2Pct).toFixed(0)}%)</TooltipContent></Tooltip>}
                       {r2 ? <span className="font-mono text-amber-300">{r2Pct.toFixed(0)}%</span> : "—"}
