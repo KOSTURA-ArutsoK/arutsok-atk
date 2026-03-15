@@ -3393,7 +3393,7 @@ export default function Contracts() {
                   onClick={handleRowClick}
                 >
                   {showCheckbox && (
-                    <td className={`px-2 py-1.5 sticky left-0 z-10 ${isSelected ? "bg-primary/10" : isIncomplete ? "bg-red-500/10" : "bg-background"}`} onClick={e => e.stopPropagation()}>
+                    <td className={`px-2 py-1.5 sticky left-0 z-10 bg-card ${isSelected ? "border-l-2 border-l-primary" : isIncomplete ? "border-l-2 border-l-red-500" : ""}`} onClick={e => e.stopPropagation()}>
                       <Checkbox
                         checked={isSelected}
                         disabled={isIncomplete}
