@@ -670,6 +670,13 @@ function ContractFormDialog({
       toast({ title: "Chyba", description: "Cislo zmluvy je povinne", variant: "destructive" });
       return;
     }
+    if (subjectId) {
+      const selectedSubject = subjects?.find(s => s.id === parseInt(subjectId));
+      if (selectedSubject?.type === 'system') {
+        toast({ title: "Chyba", description: "Na systémový subjekt ATK nie je možné viazať zmluvy.", variant: "destructive" });
+        return;
+      }
+    }
     if (rewardTotalPercentage > 100) {
       toast({ title: "Chyba", description: "Sucet odmien presiahol 100%. Upravte hodnoty pred ulozenim.", variant: "destructive" });
       return;
@@ -5349,6 +5356,13 @@ export default function Contracts() {
   };
 
   const handleQuickFixSave = async () => {
+    if (quickFixSubjectId) {
+      const qfSubj = subjects?.find(s => s.id === parseInt(quickFixSubjectId));
+      if (qfSubj?.type === 'system') {
+        toast({ title: "Chyba", description: "Na systémový subjekt ATK nie je možné viazať zmluvy.", variant: "destructive" });
+        return;
+      }
+    }
     setQuickFixSaving(true);
     try {
       const contractData: Record<string, any> = {};
