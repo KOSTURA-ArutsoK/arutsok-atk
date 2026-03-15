@@ -3350,6 +3350,7 @@ export default function Contracts() {
               const warnMeno = isIncomplete && isFO && !hasMeno;
               const warnPriezvisko = isIncomplete && isFO && !hasPriezvisko;
               const warnNazov = isIncomplete && isPO && !hasNazovFirmy;
+              const warnSpecialist = isIncomplete && !specialist;
               const rowBg = isSelected
                 ? "bg-primary/10 border-l-2 border-l-primary"
                 : isIncomplete
@@ -3445,14 +3446,17 @@ export default function Contracts() {
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{sub?.titleAfter || "—"}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap">
-                    {specialist ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="font-mono text-primary cursor-default">{formatUidShort(specialist.uid)}</span>
-                        </TooltipTrigger>
-                        <TooltipContent className="text-xs">{resolveUidName(specialist.uid)} · {specialist.uid}</TooltipContent>
-                      </Tooltip>
-                    ) : "—"}
+                    <span className="flex items-center gap-1">
+                      {warnSpecialist && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba špecialist</TooltipContent></Tooltip>}
+                      {specialist ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="font-mono text-primary cursor-default">{formatUidShort(specialist.uid)}</span>
+                          </TooltipTrigger>
+                          <TooltipContent className="text-xs">{resolveUidName(specialist.uid)} · {specialist.uid}</TooltipContent>
+                        </Tooltip>
+                      ) : "—"}
+                    </span>
                   </td>
                   <td className="px-2 py-1.5 text-center whitespace-nowrap">
                     {specialist ? <span className="font-mono text-emerald-500">{parseFloat(specialist.percentage || "0").toFixed(0)}%</span> : "—"}
@@ -5247,20 +5251,15 @@ export default function Contracts() {
 
   const openIncompleteEdit = (contract: Contract, forceStep?: 1 | 2 | 3 | 4) => {
     setPreSelectEditingContractId(contract.id);
-
-    const step1Ok = !!(contract.partnerId) && !!(contract.productId) && !!(((contract.proposalNumber || "").trim()) || ((contract.contractNumber || "").trim()));
-    const step2Ok = !!(contract.subjectId);
-    const startStep: 1 | 2 | 3 | 4 = forceStep ?? (!step1Ok ? 1 : !step2Ok ? 2 : 3);
-    setPreSelectStep(startStep);
     setPreSelectSaving(false);
     setPreSelectShowNameFields(false);
     setPreSelectFoSearch("");
     setPreSelectShowFoSearch(false);
     setPreSelectNoFoInfo(false);
 
+    // --- Krok 1: partner, produkt, číslo ---
     setPreSelectPartnerId(contract.partnerId ? String(contract.partnerId) : "");
     setPreSelectProductId(contract.productId ? String(contract.productId) : "");
-
     const hasProposal = !!(contract.proposalNumber || "").trim();
     const hasContract = !!(contract.contractNumber || "").trim();
     if (hasProposal && hasContract) {
@@ -5277,6 +5276,7 @@ export default function Contracts() {
       setPreSelectNumberValue2("");
     }
 
+    // --- Krok 2: subjekt ---
     const sub = subjects?.find(s => s.id === contract.subjectId);
     if (sub) {
       setPreSelectSubjectId(String(sub.id));
@@ -5299,11 +5299,10 @@ export default function Contracts() {
       setPreSelectBusinessName("");
       setPreSelectIco("");
     }
-
     setPreSelectSubjectSearch("");
     setPreSelectClientTypeId("");
 
-    // Preload existujúce odmeny zo allRewardDist
+    // --- Krok 3: odmeny (špecialist + odporúčatelia) ---
     const existingDists = allRewardDist.filter((d: any) => d.contractId === contract.id);
     const existingSpec = existingDists.find((d: any) => d.type === "specialist");
     const existingRecs = existingDists
@@ -5319,6 +5318,15 @@ export default function Contracts() {
     setPreSelectRecommenders(
       existingRecs.map((r: any) => ({ uid: r.uid || "", percentage: String(r.percentage ?? "0") }))
     );
+
+    // --- Určenie prvého chybného kroku (1→2→3→4) ---
+    const step1Ok = !!(contract.partnerId) && !!(contract.productId) &&
+      !!((contract.proposalNumber || "").trim() || (contract.contractNumber || "").trim());
+    const step2Ok = !!(contract.subjectId);
+    const step3Ok = !!(existingSpec?.uid);
+    // Krok 4 (dokumenty) je voliteľný — neotvára sa ako chybový krok automaticky
+    const startStep: 1 | 2 | 3 | 4 = forceStep ?? (!step1Ok ? 1 : !step2Ok ? 2 : !step3Ok ? 3 : 1);
+    setPreSelectStep(startStep);
 
     setPreSelectOpen(true);
   };
