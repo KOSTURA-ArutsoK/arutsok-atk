@@ -3373,13 +3373,22 @@ export default function Contracts() {
                   )}
                   <td className="px-2 py-1.5 whitespace-nowrap">
                     <span className="flex items-center gap-1">
-                      {isIncomplete && fieldMissing("partner") && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Partner</TooltipContent></Tooltip>}
+                      {isIncomplete && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 cursor-default" />
+                          </TooltipTrigger>
+                          <TooltipContent className="text-xs max-w-[220px]">
+                            <span className="font-semibold text-red-400">Neúplný záznam</span>
+                            {incompleteReason && <p className="mt-0.5 text-muted-foreground">{incompleteReason}</p>}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                       {getPartnerName(contract)}
                     </span>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap max-w-[120px] truncate" title={getProductName(contract)}>
                     <span className="flex items-center gap-1">
-                      {isIncomplete && fieldMissing("produkt") && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Produkt</TooltipContent></Tooltip>}
                       <span className="truncate">{getProductName(contract)}</span>
                     </span>
                   </td>
@@ -3387,12 +3396,7 @@ export default function Contracts() {
                     <Badge variant="outline" className="text-[10px] font-normal">{contractTypeLabel[(contract as any).contractType || "Nova"] || (contract as any).contractType || "Nová"}</Badge>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap font-mono">{(contract as any).signedDate ? new Date((contract as any).signedDate).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">
-                    <span className="flex items-center gap-1">
-                      {isIncomplete && fieldMissing("číslo") && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba číslo návrhu</TooltipContent></Tooltip>}
-                      {contract.proposalNumber || "—"}
-                    </span>
-                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">{contract.proposalNumber || "—"}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap font-mono">
                     <span className="flex items-center gap-1">
                       {(contract as any).isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
@@ -3402,26 +3406,11 @@ export default function Contracts() {
                   <td className="px-2 py-1.5">
                     <Badge variant="outline" className={`text-[10px] ${typSubjColor}`}>{typSubj}</Badge>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-mono text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      {isIncomplete && (fieldMissing("rodné") || fieldMissing("ičo")) && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba RČ / IČO</TooltipContent></Tooltip>}
-                      {rcIco || "—"}
-                    </span>
-                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap font-mono text-muted-foreground">{rcIco || "—"}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap max-w-[110px] truncate" title={sub?.companyName || undefined}>{sub?.companyName || "—"}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{sub?.titleBefore || "—"}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-medium">
-                    <span className="flex items-center gap-1">
-                      {isIncomplete && fieldMissing("meno") && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Meno</TooltipContent></Tooltip>}
-                      {sub?.firstName || "—"}
-                    </span>
-                  </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-medium">
-                    <span className="flex items-center gap-1">
-                      {isIncomplete && fieldMissing("priezvisko") && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Priezvisko</TooltipContent></Tooltip>}
-                      {sub?.lastName || "—"}
-                    </span>
-                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap font-medium">{sub?.firstName || "—"}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap font-medium">{sub?.lastName || "—"}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{sub?.titleAfter || "—"}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap">
                     {specialist ? (
