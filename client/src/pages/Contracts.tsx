@@ -5331,6 +5331,41 @@ export default function Contracts() {
     const sub = subjects?.find(s => s.id === c.subjectId);
     const typSubjLabel = sub?.type === "person" ? "FO – Fyzická osoba" : sub?.type === "szco" ? "SZČO – Živnostník" : sub?.type === "company" ? "PO – Právnická osoba" : sub?.type === "organization" ? "Organizácia" : sub?.type === "state" ? "Štát" : "—";
     const rcIco = sub ? (sub.type === "person" ? sub.birthNumber : (sub as any).ico || sub.birthNumber) : null;
+
+    // Dátum narodenia, vek, pohlavie — z dynamicFields alebo z RČ
+    const dynFields = (sub?.details as any)?.dynamicFields || {};
+    let datumNarodenia: string | null = dynFields["datum_narodenia"] || null;
+    let vek: string | null = dynFields["vek"] ? String(dynFields["vek"]) : null;
+    let pohlavie: string | null = dynFields["pohlavie"] || null;
+    // Ak subjekt je person/szco a má RČ, dopočítaj z neho ak chýba v dynFields
+    if (!datumNarodenia && !vek && !pohlavie && (sub?.type === "person" || sub?.type === "szco") && sub?.birthNumber) {
+      const rc = sub.birthNumber.replace(/[^0-9]/g, "");
+      if (rc.length >= 9) {
+        let rr = parseInt(rc.substring(0, 2));
+        let mm = parseInt(rc.substring(2, 4));
+        let dd = parseInt(rc.substring(4, 6));
+        let genderParsed: string;
+        if (mm > 70) { genderParsed = "Žena"; mm -= 70; }
+        else if (mm > 50) { genderParsed = "Žena"; mm -= 50; }
+        else if (mm > 20) { genderParsed = "Muž"; mm -= 20; }
+        else { genderParsed = "Muž"; }
+        if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
+          const curYear = new Date().getFullYear();
+          let year = rc.length === 9 ? 1900 + rr : (rr >= 54 ? 1900 + rr : 2000 + rr);
+          if (year > curYear) year -= 100;
+          const dob = new Date(year, mm - 1, dd);
+          if (!isNaN(dob.getTime())) {
+            datumNarodenia = `${String(dd).padStart(2,"0")}.${String(mm).padStart(2,"0")}.${year}`;
+            pohlavie = genderParsed;
+            const today = new Date();
+            let age = today.getFullYear() - dob.getFullYear();
+            if (today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) age--;
+            vek = String(age);
+          }
+        }
+      }
+    }
+
     const dists = allRewardDist.filter((d: any) => d.contractId === c.id);
     const spec = dists.find((d: any) => d.type === "specialist");
     const recs = dists.filter((d: any) => d.type === "recommender").sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
@@ -5386,6 +5421,13 @@ export default function Contracts() {
                     <Row label="Názov firmy" value={<span className="font-medium">{sub.companyName}</span>} />
                   )}
                   {rcIco && <Row label={sub?.type === "person" ? "Rodné číslo" : "IČO"} value={<span className="font-mono">{rcIco}</span>} />}
+                  {sub && (sub.type === "person" || sub.type === "szco") && (
+                    <>
+                      {datumNarodenia && <Row label="Dátum narodenia" value={<span className="font-mono">{datumNarodenia}</span>} />}
+                      {vek && <Row label="Vek" value={<span>{vek} rokov</span>} />}
+                      {pohlavie && <Row label="Pohlavie" value={pohlavie} />}
+                    </>
+                  )}
                 </div>
               </div>
               <div className="border rounded-md overflow-hidden">
