@@ -3338,12 +3338,18 @@ export default function Contracts() {
               const hasPartner = partnerName && partnerName !== "—";
               const hasProduct = productName && productName !== "—";
               const hasNumber = !!(contract.proposalNumber || contract.insuranceContractNumber || (contract as any).contractNumber);
-              const hasRcIco = !!rcIco;
-              const isFO = sub?.type === "person" || sub?.type === "szco";
-              const isPO = sub?.type === "company" || sub?.type === "organization";
+              // Typ subjektu — z priradeného subjektu alebo z importedRawData (keď subjekt nie je ešte priradený)
+              const importRaw = (contract as any).importedRawData || {};
+              const resolvedSubjType = sub?.type || importRaw["subjectType"] || importRaw["typ_subjektu"] || null;
+              const isFO = resolvedSubjType === "person" || resolvedSubjType === "szco";
+              const isPO = resolvedSubjType === "company" || resolvedSubjType === "organization";
+              // Hodnoty z priradeného subjektu (čo sa zobrazuje v bunkách)
               const hasMeno = !!(sub?.firstName);
               const hasPriezvisko = !!(sub?.lastName);
               const hasNazovFirmy = !!(sub?.companyName);
+              // RČ/IČO — z priradeného subjektu alebo z importedRawData
+              const rcIcoResolved = rcIco || importRaw["rc_ico"] || importRaw["birthNumber"] || importRaw["ico"] || null;
+              const hasRcIco = !!rcIcoResolved;
               const warnPartner = isIncomplete && !hasPartner;
               const warnProduct = isIncomplete && !hasProduct;
               const warnContractType = isIncomplete && !(contract as any).contractType;
