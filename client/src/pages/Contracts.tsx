@@ -2404,14 +2404,10 @@ export default function Contracts() {
       }
     } else if (step === 3) {
       if (!preSelectSpecialistUid.trim()) missing.push("specialist-uid");
-      if (preSelectSpecialistUid.trim() && preSelectRecommenders.length === 0) missing.push("recommender1-uid");
-      if (preSelectSpecialistUid.trim() && preSelectRecommenders.length > 0) {
+      if (preSelectSpecialistUid.trim() && (!preSelectRecommenders[0] || !preSelectRecommenders[0].uid.trim())) missing.push("recommender1-uid");
+      if (preSelectSpecialistUid.trim()) {
         const total = (parseFloat(preSelectSpecialistPercentage) || 0) + preSelectRecommenders.reduce((s, r) => s + (parseFloat(r.percentage) || 0), 0);
         if (total !== 100) missing.push("sum-not-100");
-      }
-      if (preSelectSpecialistUid.trim() && preSelectRecommenders.length === 0) {
-        const specOnly = parseFloat(preSelectSpecialistPercentage) || 0;
-        if (specOnly !== 100) missing.push("sum-not-100");
       }
     }
     return missing;
@@ -3295,6 +3291,28 @@ export default function Contracts() {
     const contractTypeLabel: Record<string, string> = {
       Nova: "Nová", Prestupova: "Prestupová", Zmenova: "Zmenová", Dodatok: "Dodatok"
     };
+    const isContractEffectivelyIncomplete = (contract: Contract) => {
+      const isIncomplete = !!(contract as any).incompleteData;
+      const partnerName = getPartnerName(contract);
+      const productName = getProductName(contract);
+      const hasPartner = partnerName && partnerName !== "—";
+      const hasProduct = productName && productName !== "—";
+      const hasNumber = !!(contract.proposalNumber || contract.insuranceContractNumber || (contract as any).contractNumber);
+      const { specialist, recommenders } = getContractDistData(contract.id);
+      const r1 = recommenders[0];
+      const r2 = recommenders[1];
+      const specPct = parseFloat(specialist?.percentage || "0") || 0;
+      const r1Pct = parseFloat(r1?.percentage || "0") || 0;
+      const r2Pct = parseFloat(r2?.percentage || "0") || 0;
+      const warnPartner = !hasPartner;
+      const warnProduct = !hasProduct;
+      const warnContractType = !(contract as any).contractType;
+      const warnSignedDate = !(contract as any).signedDate;
+      const warnNumber = !hasNumber;
+      const warnSpecialist = !specialist;
+      const warnSumNot100 = !!specialist && (specPct + r1Pct + r2Pct) !== 100;
+      return isIncomplete || warnPartner || warnProduct || warnContractType || warnSignedDate || warnNumber || warnSpecialist || warnSumNot100;
+    };
     return (
       <div className="overflow-auto max-h-[65vh]">
         <table className="w-full text-xs border-separate border-spacing-0 table-fixed" style={{ minWidth: 1400 }}>
@@ -3326,9 +3344,9 @@ export default function Contracts() {
             <tr className="bg-muted/50">
               {showCheckbox && <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b sticky left-0 bg-card z-30">
                 <Checkbox
-                  checked={contractsList.filter(c => !(c as any).incompleteData).length > 0 && contractsList.filter(c => !(c as any).incompleteData).every(c => selectedIds.includes(c.id))}
+                  checked={contractsList.filter(c => !isContractEffectivelyIncomplete(c)).length > 0 && contractsList.filter(c => !isContractEffectivelyIncomplete(c)).every(c => selectedIds.includes(c.id))}
                   onCheckedChange={() => {
-                    const selectable = contractsList.filter(c => !(c as any).incompleteData);
+                    const selectable = contractsList.filter(c => !isContractEffectivelyIncomplete(c));
                     const allSel = selectable.every(c => selectedIds.includes(c.id));
                     if (allSel) setSelectedIds(prev => prev.filter(id => !selectable.find(c => c.id === id)));
                     else setSelectedIds(prev => [...new Set([...prev, ...selectable.map(c => c.id)])]);
@@ -7367,7 +7385,7 @@ export default function Contracts() {
               <Button ref={refStep3Back} variant="outline" tabIndex={-1} onClick={() => setPreSelectStep(2)} onKeyDown={e => { if (e.key === "Tab") { e.preventDefault(); refStep3Confirm.current?.focus(); } }} data-testid="button-preselect-step3-back">
                 Spat
               </Button>
-              <Button ref={refStep3Confirm} onClick={handlePreSelectConfirm} disabled={preSelectSaving || preSelectRewardTotal !== 100 || !preSelectSpecialistUid || !lookupSubjectByUid(preSelectSpecialistUid).found || preSelectRecommenders.length === 0 || preSelectRecommenders.some(r => !lookupSubjectByUid(r.uid).found)} onKeyDown={e => { if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); refStep3Back.current?.focus(); } }} data-testid="button-preselect-confirm-rewards">
+              <Button ref={refStep3Confirm} onClick={handlePreSelectConfirm} disabled={preSelectSaving || preSelectRewardTotal !== 100 || !preSelectSpecialistUid || !lookupSubjectByUid(preSelectSpecialistUid).found || !preSelectRecommenders[0]?.uid?.trim() || preSelectRecommenders.some(r => !lookupSubjectByUid(r.uid).found)} onKeyDown={e => { if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); refStep3Back.current?.focus(); } }} data-testid="button-preselect-confirm-rewards">
                 {preSelectSaving ? "Zapisujem..." : preSelectEditingContractId ? "Uložiť zmeny" : "Zapísať zmluvu"}
               </Button>
             </div>
