@@ -493,9 +493,9 @@ function ContractFormDialog({
     recommenders.forEach((r, i) => {
       distributions.push({ type: "recommender", uid: r.uid, percentage: r.percentage || "0", sortOrder: i + 1 });
     });
-    try {
-      await apiRequest("POST", `/api/contracts/${contractId}/reward-distributions`, { distributions });
-    } catch {}
+    await apiRequest("POST", `/api/contracts/${contractId}/reward-distributions`, { distributions });
+    queryClient.invalidateQueries({ queryKey: ["/api/reward-distributions"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId, "reward-distributions"] });
   };
 
   const createMutation = useMutation({
@@ -506,13 +506,18 @@ function ContractFormDialog({
         await saveAcquirersForContract(created.id);
       }
       if (created?.id) {
-        await saveRewardDistributions(created.id);
+        try {
+          await saveRewardDistributions(created.id);
+        } catch (e: any) {
+          toast({ title: "Upozornenie", description: `Zmluva vytvorená, ale odmeny sa nepodarilo uložiť: ${e?.message || "neznáma chyba"}`, variant: "destructive" });
+        }
       }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
-      toast({ title: "Uspech", description: "Zmluva vytvorena" });
+      queryClient.invalidateQueries({ queryKey: ["/api/reward-distributions"] });
+      toast({ title: "Úspech", description: "Zmluva vytvorená" });
       onOpenChange(false);
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvorit zmluvu", variant: "destructive" }),
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť zmluvu", variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
@@ -520,13 +525,18 @@ function ContractFormDialog({
     onSuccess: async () => {
       if (editingContract?.id) {
         await syncAcquirersForContract(editingContract.id);
-        await saveRewardDistributions(editingContract.id);
+        try {
+          await saveRewardDistributions(editingContract.id);
+        } catch (e: any) {
+          toast({ title: "Upozornenie", description: `Zmluva uložená, ale odmeny sa nepodarilo uložiť: ${e?.message || "neznáma chyba"}`, variant: "destructive" });
+        }
       }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
-      toast({ title: "Uspech", description: "Zmluva aktualizovana" });
+      queryClient.invalidateQueries({ queryKey: ["/api/reward-distributions"] });
+      toast({ title: "Úspech", description: "Zmluva aktualizovaná" });
       onOpenChange(false);
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat zmluvu", variant: "destructive" }),
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať zmluvu", variant: "destructive" }),
   });
 
   useEffect(() => {
@@ -5219,7 +5229,11 @@ export default function Contracts() {
         });
         try {
           await apiRequest("POST", `/api/contracts/${savedContractId}/reward-distributions`, { distributions });
+          queryClient.invalidateQueries({ queryKey: ["/api/reward-distributions"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/contracts", savedContractId, "reward-distributions"] });
         } catch {}
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/reward-distributions"] });
       }
 
       setPreSelectCreatedContractId(savedContractId);
