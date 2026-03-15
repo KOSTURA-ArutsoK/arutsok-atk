@@ -3349,16 +3349,17 @@ export default function Contracts() {
               const hasNazovFirmy = !!(sub?.companyName);
               // hasRcIco — iba z priradeného subjektu (čo sa zobrazuje v bunke)
               const hasRcIco = !!rcIco;
-              const warnPartner = isIncomplete && !hasPartner;
-              const warnProduct = isIncomplete && !hasProduct;
-              const warnContractType = isIncomplete && !(contract as any).contractType;
-              const warnSignedDate = isIncomplete && !(contract as any).signedDate;
-              const warnNumber = isIncomplete && !hasNumber;
-              const warnRcIco = isIncomplete && !hasRcIco;
-              const warnMeno = isIncomplete && isFO && !hasMeno;
-              const warnPriezvisko = isIncomplete && isFO && !hasPriezvisko;
-              const warnNazov = isIncomplete && isPO && !hasNazovFirmy;
-              const warnSpecialist = isIncomplete && !specialist;
+              // Trojuholník = povinné pole je prázdne (bez ohľadu na isIncomplete flag)
+              const warnPartner = !hasPartner;
+              const warnProduct = !hasProduct;
+              const warnContractType = !(contract as any).contractType;
+              const warnSignedDate = !(contract as any).signedDate;
+              const warnNumber = !hasNumber;
+              const warnRcIco = isFO && !hasRcIco;
+              const warnMeno = isFO && !hasMeno;
+              const warnPriezvisko = isFO && !hasPriezvisko;
+              const warnNazov = isPO && !hasNazovFirmy;
+              const warnSpecialist = !specialist;
               const rowBg = isSelected
                 ? "bg-primary/10 border-l-2 border-l-primary"
                 : isIncomplete
