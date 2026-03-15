@@ -2390,6 +2390,7 @@ export default function Contracts() {
     const missing: string[] = [];
     if (step === 1) {
       if (!preSelectPartnerId) missing.push("partner");
+      if (!preSelectSignedDate) missing.push("signed-date");
       if (!preSelectNumberValue.trim()) missing.push("number");
       if (preSelectNumberType === "both" && !preSelectNumberValue2.trim()) missing.push("number2");
     } else if (step === 2) {
@@ -3345,6 +3346,8 @@ export default function Contracts() {
               const hasNazovFirmy = !!(sub?.companyName);
               const warnPartner = isIncomplete && !hasPartner;
               const warnProduct = isIncomplete && !hasProduct;
+              const warnContractType = isIncomplete && !(contract as any).contractType;
+              const warnSignedDate = isIncomplete && !(contract as any).signedDate;
               const warnNumber = isIncomplete && !hasNumber;
               const warnRcIco = isIncomplete && !hasRcIco;
               const warnMeno = isIncomplete && isFO && !hasMeno;
@@ -3401,9 +3404,17 @@ export default function Contracts() {
                     </span>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">
-                    <Badge variant="outline" className="text-[10px] font-normal">{contractTypeLabel[(contract as any).contractType || "Nova"] || (contract as any).contractType || "Nová"}</Badge>
+                    <span className="flex items-center gap-1">
+                      {warnContractType && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba typ zmluvy</TooltipContent></Tooltip>}
+                      <Badge variant="outline" className="text-[10px] font-normal">{contractTypeLabel[(contract as any).contractType || "Nova"] || (contract as any).contractType || "Nová"}</Badge>
+                    </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">{(contract as any).signedDate ? new Date((contract as any).signedDate).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">
+                    <span className="flex items-center gap-1">
+                      {warnSignedDate && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba dátum uzatvorenia</TooltipContent></Tooltip>}
+                      {(contract as any).signedDate ? new Date((contract as any).signedDate).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}
+                    </span>
+                  </td>
                   <td className="px-2 py-1.5 whitespace-nowrap font-mono">
                     <span className="flex items-center gap-1">
                       {warnNumber && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba číslo návrhu</TooltipContent></Tooltip>}
@@ -5319,9 +5330,25 @@ export default function Contracts() {
       existingRecs.map((r: any) => ({ uid: r.uid || "", percentage: String(r.percentage ?? "0") }))
     );
 
+    // --- Preload signedDate ---
+    const existingSignedDate = (contract as any).signedDate;
+    if (existingSignedDate) {
+      const d = new Date(existingSignedDate);
+      setPreSelectSignedDate(existingSignedDate);
+      setPreSelectSignedDay(String(d.getDate()).padStart(2, "0"));
+      setPreSelectSignedMonth(String(d.getMonth() + 1).padStart(2, "0"));
+      setPreSelectSignedYear(String(d.getFullYear()));
+    } else {
+      setPreSelectSignedDate("");
+      setPreSelectSignedDay("");
+      setPreSelectSignedMonth("");
+      setPreSelectSignedYear("");
+    }
+
     // --- Určenie prvého chybného kroku (1→2→3→4) ---
     const step1Ok = !!(contract.partnerId) && !!(contract.productId) &&
-      !!((contract.proposalNumber || "").trim() || (contract.contractNumber || "").trim());
+      !!((contract.proposalNumber || "").trim() || (contract.contractNumber || "").trim()) &&
+      !!existingSignedDate;
     const step2Ok = !!(contract.subjectId);
     const step3Ok = !!(existingSpec?.uid);
     // Krok 4 (dokumenty) je voliteľný — neotvára sa ako chybový krok automaticky
