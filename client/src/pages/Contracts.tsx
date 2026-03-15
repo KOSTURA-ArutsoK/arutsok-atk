@@ -2390,6 +2390,7 @@ export default function Contracts() {
     const missing: string[] = [];
     if (step === 1) {
       if (!preSelectPartnerId) missing.push("partner");
+      if (!preSelectContractType) missing.push("contract-type");
       if (!preSelectSignedDate) missing.push("signed-date");
       if (!preSelectNumberValue.trim()) missing.push("number");
       if (preSelectNumberType === "both" && !preSelectNumberValue2.trim()) missing.push("number2");
@@ -2421,6 +2422,8 @@ export default function Contracts() {
     const nextField = emptyFields[nextIdx >= emptyFields.length ? 0 : nextIdx];
     const refMap: Record<string, React.RefObject<any> | string> = {
       "partner": "select-preselect-partner",
+      "contract-type": "select-preselect-contract-type",
+      "signed-date": refSignedDay,
       "number": refNumberInput,
       "number2": "input-preselect-contract-number",
       "business-name": refBusinessNameInput,
@@ -5201,8 +5204,13 @@ export default function Contracts() {
       }
 
       setPreSelectCreatedContractId(savedContractId);
-      setPreSelectStep(4);
-      setPreSelectSaving(false);
+      if (preSelectEditingContractId) {
+        setPreSelectSaving(false);
+        setPreSelectOpen(false);
+      } else {
+        setPreSelectStep(4);
+        setPreSelectSaving(false);
+      }
     } catch (err: any) {
       toast({ title: "Chyba", description: err.message || "Nepodarilo sa zapisat zmluvu", variant: "destructive" });
     } finally {
@@ -5683,7 +5691,7 @@ export default function Contracts() {
 
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <label className="text-xs font-medium">Vyberte partnera</label>
+                <label className="text-xs font-medium flex items-center gap-1">Vyberte partnera {isFieldMissing("partner") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                 <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); setTimeout(() => refProductTrigger.current?.focus(), 50); }}>
                   <SelectTrigger ref={refPartnerTrigger} className={isFieldMissing("partner") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-partner">
                     <SelectValue placeholder="Vyberte partnera" />
@@ -5714,9 +5722,9 @@ export default function Contracts() {
 
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <label className="text-xs font-medium">Typ zmluvy *</label>
+                <label className="text-xs font-medium flex items-center gap-1">Typ zmluvy * {isFieldMissing("contract-type") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                 <Select value={preSelectContractType} onValueChange={setPreSelectContractType} open={preSelectContractTypeOpen} onOpenChange={(open) => { setPreSelectContractTypeOpen(open); if (!open) setTimeout(() => refSignedDay.current?.focus(), 80); }}>
-                  <SelectTrigger ref={refContractTypeTrigger} data-testid="select-preselect-contract-type" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); setPreSelectContractTypeOpen(prev => !prev); } }}>
+                  <SelectTrigger ref={refContractTypeTrigger} className={isFieldMissing("contract-type") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-contract-type" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); setPreSelectContractTypeOpen(prev => !prev); } }}>
                     <SelectValue placeholder="Vyberte typ zmluvy" />
                   </SelectTrigger>
                   <SelectContent>
@@ -5728,7 +5736,7 @@ export default function Contracts() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium">Dátum uzatvorenia <span className="text-red-500">*</span></label>
+                <label className="text-xs font-medium flex items-center gap-1">Dátum uzatvorenia <span className="text-red-500">*</span> {isFieldMissing("signed-date") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                 <div className={`flex items-center border rounded-md bg-background h-9 overflow-hidden ${(preSelectSignedDateError && !preSelectSignedDate) || isFieldMissing("signed-date") ? "border-red-500 ring-1 ring-red-500/30" : "border-input"}`}>
                   <input
                     ref={refSignedDay}
@@ -5938,7 +5946,7 @@ export default function Contracts() {
             {preSelectNumberType === "both" ? (
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">{NAVRH_LABEL_FULL}</label>
+                  <label className="text-xs font-medium flex items-center gap-1">{NAVRH_LABEL_FULL} {isFieldMissing("number") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                   <Input
                     ref={refNumberInput}
                     value={preSelectNumberValue}
@@ -5952,7 +5960,7 @@ export default function Contracts() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium">Číslo zmluvy</label>
+                  <label className="text-xs font-medium flex items-center gap-1">Číslo zmluvy {isFieldMissing("number2") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                   <Input
                     value={preSelectNumberValue2}
                     onChange={(e) => { setPreSelectNumberValue2(e.target.value); setPreSelectNumberDuplicates([]); }}
@@ -5967,7 +5975,7 @@ export default function Contracts() {
               </div>
             ) : (
               <div className="space-y-1">
-                <label className="text-xs font-medium">{preSelectNumberType === "proposal" ? NAVRH_LABEL_FULL : "Číslo zmluvy"}</label>
+                <label className="text-xs font-medium flex items-center gap-1">{preSelectNumberType === "proposal" ? NAVRH_LABEL_FULL : "Číslo zmluvy"} {isFieldMissing("number") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                 <Input
                   ref={refNumberInput}
                   value={preSelectNumberValue}
@@ -6339,7 +6347,7 @@ export default function Contracts() {
               <>
               {!preSelectIcoLookup?.found && (
               <div className="space-y-1">
-                <label className="text-xs font-medium">{preSelectSubjectType === "szco" ? "Názov živnosti" : preSelectSubjectType === "organization" ? "Názov organizácie/nadácie" : preSelectSubjectType === "state" ? "Názov inštitúcie" : "Názov spoločnosti"} *</label>
+                <label className="text-xs font-medium flex items-center gap-1">{preSelectSubjectType === "szco" ? "Názov živnosti" : preSelectSubjectType === "organization" ? "Názov organizácie/nadácie" : preSelectSubjectType === "state" ? "Názov inštitúcie" : "Názov spoločnosti"} * {isFieldMissing("business-name") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                 <Input
                   ref={refBusinessNameInput}
                   value={preSelectBusinessName}
@@ -6870,7 +6878,7 @@ export default function Contracts() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium">Meno {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && <span className="text-red-400">*</span>}</label>
+                    <label className="text-xs font-medium flex items-center gap-1">Meno {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && <span className="text-red-400">*</span>} {isFieldMissing("first-name") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                     <Input
                       ref={refFirstNameInput}
                       value={preSelectFirstName}
@@ -6883,7 +6891,7 @@ export default function Contracts() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium">Priezvisko {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && <span className="text-red-400">*</span>}</label>
+                    <label className="text-xs font-medium flex items-center gap-1">Priezvisko {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && <span className="text-red-400">*</span>} {isFieldMissing("last-name") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                     <Input
                       ref={refLastNameInput}
                       value={preSelectLastName}
@@ -6935,6 +6943,13 @@ export default function Contracts() {
                 {preSelectSubjectType === "person" && !rcBirthInfo && preSelectBirthNumber.trim().length >= 9 && (
                   <p className="text-[10px] text-amber-500" data-testid="text-preselect-rc-invalid">Nepodarilo sa extrahovať údaje z rodného čísla</p>
                 )}
+              </div>
+            )}
+
+            {preSelectSubjectId && preSelectSubjectType === "person" && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded border border-border/40 bg-muted/20">
+                <span className="text-xs text-muted-foreground">Rodné číslo:</span>
+                <span className="text-sm font-mono" data-testid="text-preselect-rc-readonly">{preSelectBirthNumber || "—"}</span>
               </div>
             )}
 
@@ -6995,7 +7010,7 @@ export default function Contracts() {
                   <p className="text-[10px] text-muted-foreground">Osoba zodpovedna za spravnost zmluvy</p>
                   <div className="flex items-start gap-2">
                     <div className="flex-1 space-y-1">
-                      <label className="text-xs text-muted-foreground">UID specialistu</label>
+                      <label className="text-xs text-muted-foreground flex items-center gap-1">UID specialistu {isFieldMissing("specialist-uid") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                       <div className="relative">
                         <Input
                           ref={refPreSelectSpecialistUid}
@@ -7059,7 +7074,7 @@ export default function Contracts() {
                       })()}
                     </div>
                     <div className="w-[100px] space-y-1">
-                      <label className="text-xs text-muted-foreground">Podiel (%)</label>
+                      <label className="text-xs text-muted-foreground flex items-center gap-1">Podiel (%) {isFieldMissing("specialist-pct") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                       <div className="relative">
                         <Input
                           ref={refPreSelectSpecialistPct}

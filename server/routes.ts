@@ -3396,6 +3396,7 @@ export async function registerRoutes(
         "proposalNumber", "contractNumber", "lifecyclePhase",
         "incompleteData", "incompleteDataReason", "signatoryName",
         "signatoryTitleBefore", "signatoryFirstName", "signatoryLastName", "signatoryTitleAfter",
+        "signedDate", "contractType",
       ];
       const updateData: Record<string, any> = { updatedAt: new Date() };
       for (const field of allowedFields) {
@@ -3409,12 +3410,14 @@ export async function registerRoutes(
       const mergedProposalNumber = updateData.proposalNumber !== undefined ? updateData.proposalNumber : contract.proposalNumber;
       const mergedContractNumber = updateData.contractNumber !== undefined ? updateData.contractNumber : contract.contractNumber;
       const mergedSubjectId = updateData.subjectId !== undefined ? updateData.subjectId : contract.subjectId;
+      const mergedSignedDate = updateData.signedDate !== undefined ? updateData.signedDate : contract.signedDate;
 
       const patchMissing: string[] = [];
       if (!mergedPartnerId) patchMissing.push("Partner");
       if (!mergedProductId) patchMissing.push("Produkt");
       if (!mergedProposalNumber && !mergedContractNumber) patchMissing.push("Číslo návrhu alebo číslo zmluvy");
       if (!mergedSubjectId) patchMissing.push("Klient");
+      if (!mergedSignedDate) patchMissing.push("Dátum uzatvorenia");
 
       if (patchMissing.length > 0) {
         updateData.incompleteData = true;
