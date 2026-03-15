@@ -7605,7 +7605,7 @@ export default function Contracts() {
                         </div>
                         <div id={`expanded-wrapper-${group.inventoryId}`} style={{ display: isExpanded ? 'block' : 'none' }}>
                           <div className="border-t">
-                            {renderSprievodkaFullTable(group.contracts, { showOrder: true, testIdPrefix: "row-cakajuce" })}
+                            {renderSprievodkaFullTable(group.contracts, { showOrder: true, testIdPrefix: "row-cakajuce", nahratieView: true })}
                           </div>
                         </div>
                       </div>
@@ -7751,7 +7751,7 @@ export default function Contracts() {
                         </div>
                         <div style={{ display: isExpanded ? 'block' : 'none' }}>
                           <div className="border-t">
-                            {renderSprievodkaFullTable(group.contracts, { testIdPrefix: "row-accepted" })}
+                            {renderSprievodkaFullTable(group.contracts, { testIdPrefix: "row-accepted", nahratieView: true })}
                           </div>
                         </div>
                       </div>
