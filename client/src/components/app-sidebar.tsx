@@ -335,7 +335,7 @@ function SidebarGroupCollapsible({ groupName, links }: { groupName: string; link
     <div>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 w-full px-2 pt-2 pb-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
+        className="flex items-center gap-1 w-full px-2 pt-2 pb-1 text-[10px] font-semibold text-sidebar-foreground/70 uppercase tracking-wider hover:text-sidebar-foreground transition-colors"
         data-testid={`nav-group-${groupName}`}
       >
         <ChevronRight className={`w-3 h-3 transition-transform ${open ? "rotate-90" : ""}`} />
@@ -344,9 +344,9 @@ function SidebarGroupCollapsible({ groupName, links }: { groupName: string; link
       {open && links.map(link => (
         <SidebarMenuSubItem key={link.id}>
           <SidebarMenuSubButton asChild data-testid={`nav-link-${link.id}`}>
-            <a href={link.url} target="_blank" rel="noopener noreferrer">
-              <span>{link.name}</span>
-              <ExternalLink className="ml-auto w-3 h-3 text-muted-foreground" />
+            <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-sidebar-foreground">
+              <span className="text-sidebar-foreground">{link.name}</span>
+              <ExternalLink className="ml-auto w-3 h-3 text-sidebar-foreground/50" />
             </a>
           </SidebarMenuSubButton>
         </SidebarMenuSubItem>
@@ -364,6 +364,17 @@ export function AppSidebar() {
     staleTime: 1000 * 60 * 5,
   });
   const divisionId = appUser?.activeDivisionId;
+  const { data: activeDivisionData } = useQuery<any>({
+    queryKey: ["/api/divisions", divisionId],
+    queryFn: async () => {
+      const res = await fetch(`/api/divisions/${divisionId}`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!divisionId,
+    staleTime: 1000 * 60 * 5,
+  });
+  const isDivisionEnded = activeDivisionData ? activeDivisionData.isActive === false : false;
   const { data: sidebarSections } = useQuery<SidebarLinkSection[]>({
     queryKey: ["/api/sidebar-link-sections", divisionId],
     queryFn: async () => {
@@ -662,22 +673,34 @@ export function AppSidebar() {
                     <Collapsible open={openMenuId === menuKey} onOpenChange={(open) => setOpenMenuId(open ? menuKey : null)}>
                       <SidebarMenuItem>
                         <CollapsibleTrigger asChild>
-                          <SidebarMenuButton data-testid="nav-section-odkazy">
-                            <Link2 className="w-4 h-4" />
-                            <span>{sectionName}</span>
+                          <SidebarMenuButton data-testid="nav-section-odkazy" className="text-sidebar-foreground">
+                            <Link2 className="w-4 h-4 text-sidebar-foreground" />
+                            <span className="text-sidebar-foreground">{sectionName}</span>
+                            {isDivisionEnded && (
+                              <span className="ml-1 text-[9px] font-semibold text-amber-400 uppercase tracking-wider">ukončená</span>
+                            )}
                             <ChevronRight className={`ml-auto h-4 w-4 transition-transform ${openMenuId === menuKey ? "rotate-90" : ""}`} />
                           </SidebarMenuButton>
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                           <SidebarMenuSub>
-                            <SidebarMenuSubItem>
-                              <SidebarMenuSubButton asChild data-testid="nav-link-kostura">
-                                <a href="https://kostura.sk" target="_blank" rel="noopener noreferrer">
-                                  <span>kostura.sk</span>
-                                  <ExternalLink className="ml-auto w-3 h-3 text-muted-foreground" />
-                                </a>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
+                            {isDivisionEnded && (
+                              <SidebarMenuSubItem>
+                                <div className="px-2 py-1.5 text-[10px] text-amber-400/80 italic">
+                                  Divízia ukončená – linky nie sú dostupné
+                                </div>
+                              </SidebarMenuSubItem>
+                            )}
+                            {!isDivisionEnded && (
+                              <SidebarMenuSubItem>
+                                <SidebarMenuSubButton asChild data-testid="nav-link-kostura">
+                                  <a href="https://kostura.sk" target="_blank" rel="noopener noreferrer" className="text-sidebar-foreground">
+                                    <span className="text-sidebar-foreground">kostura.sk</span>
+                                    <ExternalLink className="ml-auto w-3 h-3 text-sidebar-foreground/50" />
+                                  </a>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            )}
                           </SidebarMenuSub>
                         </CollapsibleContent>
                       </SidebarMenuItem>
@@ -693,9 +716,9 @@ export function AppSidebar() {
                   <Collapsible open={openMenuId === menuKey} onOpenChange={(open) => setOpenMenuId(open ? menuKey : null)}>
                     <SidebarMenuItem>
                       <CollapsibleTrigger asChild>
-                        <SidebarMenuButton data-testid="nav-section-odkazy">
-                          <Link2 className="w-4 h-4" />
-                          <span>{sectionName}</span>
+                        <SidebarMenuButton data-testid="nav-section-odkazy" className="text-sidebar-foreground">
+                          <Link2 className="w-4 h-4 text-sidebar-foreground" />
+                          <span className="text-sidebar-foreground">{sectionName}</span>
                           <ChevronRight className={`ml-auto h-4 w-4 transition-transform ${openMenuId === menuKey ? "rotate-90" : ""}`} />
                         </SidebarMenuButton>
                       </CollapsibleTrigger>
