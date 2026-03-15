@@ -3428,6 +3428,9 @@ export default function Contracts() {
                   </td>
                   {showActions && (
                     <td className="px-2 py-1.5 text-right" onClick={e => e.stopPropagation()}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => isIncomplete ? openIncompleteEdit(contract) : openEdit(contract)} data-testid={`button-edit-spr-${contract.id}`}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openView(contract)} data-testid={`button-view-spr-${contract.id}`}>
                         <Eye className="w-3.5 h-3.5" />
                       </Button>
