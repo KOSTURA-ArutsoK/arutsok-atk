@@ -1303,7 +1303,7 @@ function CompanyFormDialog({
                         </div>
                         {!addingBranchEmployee && (
                           <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => { setAddingBranchEmployee(true); setNewEmployee({ status: "active" }); }} data-testid="button-add-employee">
-                            <UserPlus className="w-3 h-3 mr-1" />Pridať zamestnanca
+                            <UserPlus className="w-3 h-3 mr-1" />Pridať pracovníka
                           </Button>
                         )}
                       </div>
@@ -1370,7 +1370,7 @@ function CompanyFormDialog({
                           <Textarea placeholder="Iný kontakt (poznámka)" value={newEmployee.otherContact || ""} onChange={e => setNewEmployee(p => ({ ...p, otherContact: e.target.value }))} className="text-sm h-16 resize-none" data-testid="input-emp-other-contact" />
 
                           <div className="space-y-2">
-                            <label className="text-xs text-muted-foreground">Stav zamestnanca</label>
+                            <label className="text-xs text-muted-foreground">Stav pracovníka</label>
                             <div className="flex gap-2 flex-wrap">
                               {([["active", "Aktívny", "border-green-600 text-green-600"], ["temporarily_inactive", "Dočasne neaktívny", "border-amber-500 text-amber-500"], ["inactive", "Neaktívny", "border-destructive text-destructive"]] as const).map(([val, label, cls]) => (
                                 <button key={val} type="button"
@@ -1390,7 +1390,7 @@ function CompanyFormDialog({
 
                           <div className="flex gap-2 justify-end pt-1">
                             <Button type="button" variant="ghost" size="sm" onClick={() => { setAddingBranchEmployee(false); setNewEmployee({ status: "active" }); setEmpPhones([]); setEmpEmails([]); }} data-testid="button-employee-cancel">Zrušiť</Button>
-                            <Button type="button" size="sm" onClick={saveEmployee} data-testid="button-employee-save">Uložiť zamestnanca</Button>
+                            <Button type="button" size="sm" onClick={saveEmployee} data-testid="button-employee-save">Uložiť pracovníka</Button>
                           </div>
                         </div>
                       )}
@@ -1425,7 +1425,7 @@ function CompanyFormDialog({
                         </div>
                       )}
                       {branchEmployees.length === 0 && !addingBranchEmployee && (
-                        <p className="text-xs text-muted-foreground text-center py-3">Žiadni pracovníci. Kliknite "Pridať zamestnanca".</p>
+                        <p className="text-xs text-muted-foreground text-center py-3">Žiadni pracovníci. Kliknite "Pridať pracovníka".</p>
                       )}
                     </div>
 
