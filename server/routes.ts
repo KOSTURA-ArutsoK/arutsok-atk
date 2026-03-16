@@ -12688,7 +12688,7 @@ export async function registerRoutes(
   }
 
   {
-    // Partner skupiny + UID backfill — auto-sync pri štarte (idempotentné)
+    // UID backfill pre partnerov pri štarte (idempotentné)
     const allPartners = await storage.getPartners(false);
     let uidBackfilled = 0;
 
