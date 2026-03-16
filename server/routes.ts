@@ -2146,6 +2146,7 @@ export async function registerRoutes(
       if (input.firstName) input.firstName = capitalizeName(input.firstName) ?? input.firstName;
       if (input.lastName) input.lastName = capitalizeName(input.lastName) ?? input.lastName;
 
+      // UID pre manuálnu registráciu — okamžité pridelenie (import používa createSubjectNoUID bez UID)
       {
         let stateCode = '421';
         if (req.appUser?.activeStateId) {
