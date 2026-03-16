@@ -3,7 +3,7 @@ import DOMPurify from "dompurify";
 import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyCompany } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
-import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image } from "lucide-react";
+import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
@@ -115,6 +115,139 @@ function formatProcessingTime(seconds: number): string {
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function LogoUploadSection({ companyId, company }: { companyId: number | null; company: MyCompany | null }) {
+  const [uploading, setUploading] = useState(false);
+  const [settingPrimary, setSettingPrimary] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const qc = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: history } = useQuery<CompanyLogoHistory[]>({
+    queryKey: ["/api/my-companies", companyId, "logo-history"],
+    queryFn: async () => {
+      const res = await fetch(`/api/my-companies/${companyId}/logo-history`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!companyId,
+  });
+
+  const primaryLogo = (company?.logos as any[])?.find((l: any) => l.isPrimary) || null;
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !companyId) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/my-companies/${companyId}/files/logos`, { method: "POST", body: fd, credentials: "include" });
+      if (!res.ok) throw new Error("Upload failed");
+      qc.invalidateQueries({ queryKey: ["/api/my-companies"] });
+      qc.invalidateQueries({ queryKey: ["/api/my-companies", companyId, "logo-history"] });
+      toast({ title: "Logo nahrané", description: `${file.name} je teraz aktívne logo.` });
+    } catch {
+      toast({ title: "Chyba", description: "Nepodarilo sa nahrať logo.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleSetPrimary(logoUrl: string) {
+    if (!companyId) return;
+    setSettingPrimary(logoUrl);
+    try {
+      const res = await fetch(`/api/my-companies/${companyId}/logos/set-primary`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logoUrl }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed");
+      qc.invalidateQueries({ queryKey: ["/api/my-companies"] });
+      qc.invalidateQueries({ queryKey: ["/api/my-companies", companyId, "logo-history"] });
+      toast({ title: "Logo nastavené", description: "Vybrané logo je teraz primárne." });
+    } catch {
+      toast({ title: "Chyba", description: "Nepodarilo sa nastaviť logo.", variant: "destructive" });
+    } finally {
+      setSettingPrimary(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h4 className="text-sm font-medium">Logo spoločnosti</h4>
+          <p className="text-xs text-muted-foreground">Každé nahrané logo sa uchová v histórii</p>
+        </div>
+        {companyId ? (
+          <>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} data-testid="input-logo-upload" />
+            <Button type="button" size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading} data-testid="button-upload-logo">
+              {uploading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Upload className="w-3.5 h-3.5 mr-1.5" />}
+              Nahrať logo
+            </Button>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground italic">Najprv uložte spoločnosť</p>
+        )}
+      </div>
+
+      {primaryLogo && (
+        <div className="flex items-center gap-3 p-3 border border-border rounded-md bg-primary/5">
+          <div className="w-14 h-14 rounded-md border border-border overflow-hidden flex-shrink-0 bg-background flex items-center justify-center">
+            <img src={primaryLogo.url} alt="Logo" className="w-full h-full object-contain" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">{primaryLogo.name || "Aktívne logo"}</p>
+            <p className="text-xs text-muted-foreground">Primárne logo</p>
+          </div>
+          <Button type="button" size="icon" variant="ghost" onClick={() => window.open(primaryLogo.url, "_blank")} data-testid="button-view-primary-logo">
+            <Eye className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
+      {!primaryLogo && companyId && (
+        <div className="p-6 border border-dashed border-border rounded-md text-center text-sm text-muted-foreground" data-testid="text-no-logo">
+          Žiadne aktívne logo
+        </div>
+      )}
+
+      {history && history.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">História lôg</p>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {history.map((entry) => (
+              <div key={entry.id} className="flex items-center gap-3 p-2.5 border border-border rounded-md" data-testid={`logo-history-row-${entry.id}`}>
+                <div className="w-10 h-10 rounded-md border border-border overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
+                  {entry.logoUrl ? (
+                    <img src={entry.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                  ) : (
+                    <Image className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs truncate">{entry.originalName || "Logo"}</p>
+                  <p className="text-xs text-muted-foreground">Nahradené: {formatDateTimeSlovak(entry.replacedAt)}</p>
+                </div>
+                <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => window.open(entry.logoUrl, "_blank")} data-testid={`button-view-old-logo-${entry.id}`}>
+                  <Eye className="w-3.5 h-3.5" />
+                </Button>
+                <Button type="button" size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => handleSetPrimary(entry.logoUrl)} disabled={!!settingPrimary} data-testid={`button-restore-logo-${entry.id}`}>
+                  {settingPrimary === entry.logoUrl ? <Loader2 className="w-3 h-3 animate-spin" /> : "Obnoviť"}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function FileUploadSection({
@@ -541,20 +674,25 @@ function CompanyFormDialog({
               </TabsContent>
 
               <TabsContent value="docs" className="mt-4 space-y-6">
+                <LogoUploadSection
+                  companyId={editingCompany?.id || null}
+                  company={editingCompany}
+                />
+                <Separator />
                 <FileUploadSection
                   companyId={editingCompany?.id || null}
                   section="official"
                   docs={officialDocs}
-                  label="Sekcia A: Oficialne dokumenty"
-                  sublabel="Zakladatelska listina, Vypis z OR, Zivnostensky list"
+                  label="Sekcia A: Oficiálne dokumenty"
+                  sublabel="Zakladateľská listina, Výpis z OR, Živnostenský list"
                 />
                 <Separator />
                 <FileUploadSection
                   companyId={editingCompany?.id || null}
                   section="work"
                   docs={workDocs}
-                  label="Sekcia B: Pracovne dokumenty"
-                  sublabel="Priebezna dokumentacia, prilohy k poznamkam"
+                  label="Sekcia B: Pracovné dokumenty"
+                  sublabel="Priebežná dokumentácia, prílohy k poznámkam"
                 />
               </TabsContent>
 
