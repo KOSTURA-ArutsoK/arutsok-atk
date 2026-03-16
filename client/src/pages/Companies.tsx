@@ -860,12 +860,12 @@ function CompanyFormDialog({
                       <FormItem>
                         <FormLabel>IČO *</FormLabel>
                         <FormControl>
-                          <div className="relative">
+                          <div className={`relative rounded-md transition-all duration-200 ${registryResult && !registryError ? "ring-2 ring-green-600 ring-offset-0" : ""}`}>
                             <Input
                               {...field}
                               value={field.value || ""}
                               data-testid="input-ico"
-                              className={watchedSubjectType === "po" ? "pr-32" : ""}
+                              className={`${watchedSubjectType === "po" ? "pr-32" : ""} ${registryResult && !registryError ? "border-green-600 bg-green-950/20 focus-visible:ring-green-600" : ""}`}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" && watchedSubjectType === "po") {
                                   e.preventDefault();
@@ -880,13 +880,19 @@ function CompanyFormDialog({
                                 disabled={registryLoading}
                                 onClick={handleRegistryLookup}
                                 data-testid="button-registry-lookup"
-                                className="absolute right-0 top-0 bottom-0 flex items-center gap-1.5 px-3 text-xs font-medium text-muted-foreground hover:text-foreground border-l border-border rounded-r-md hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                className={`absolute right-0 top-0 bottom-0 flex items-center gap-1.5 px-3 text-xs font-medium border-l rounded-r-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                                  ${registryResult && !registryError
+                                    ? "border-green-600 text-green-500 bg-green-950/30 hover:bg-green-900/40"
+                                    : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                  }`}
                               >
                                 {registryLoading
                                   ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  : <Search className="w-3.5 h-3.5" />
+                                  : registryResult && !registryError
+                                    ? <CheckCircle2 className="w-3.5 h-3.5" />
+                                    : <Search className="w-3.5 h-3.5" />
                                 }
-                                {registryLoading ? "Hľadám..." : "Hľadať"}
+                                {registryLoading ? "Hľadám..." : registryResult && !registryError ? "Nájdené" : "Hľadať"}
                               </button>
                             )}
                           </div>
@@ -896,28 +902,12 @@ function CompanyFormDialog({
                     )} />
                     {watchedSubjectType === "po" && (
                       <>
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          {registryResult?.source && (
-                            <Badge variant="outline" className="text-xs shrink-0" data-testid="badge-registry-source">
-                              <CheckCircle2 className="w-3 h-3 mr-1 text-green-500" />
-                              {registryResult.source}
-                            </Badge>
-                          )}
-                          {registryError && (
-                            <span className="text-xs text-destructive flex items-center gap-1 truncate" data-testid="text-registry-error">
-                              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                              <span className="truncate">{registryError}</span>
-                            </span>
-                          )}
-                          {registryResult && !registryError && (
-                            <span className="text-xs text-muted-foreground truncate" data-testid="text-registry-inline-summary">
-                              {registryResult.name && <span className="font-medium text-foreground mr-1">{registryResult.name}</span>}
-                              {registryResult.normalized && <span className="mr-1">IČO: {registryResult.normalized}</span>}
-                              {registryResult.dic && <span className="mr-1">DIČ: {registryResult.dic}</span>}
-                              {(registryResult.city) && <span>— {[registryResult.street, registryResult.streetNumber, registryResult.zip, registryResult.city].filter(Boolean).join(", ")}</span>}
-                            </span>
-                          )}
-                        </div>
+                        {registryError && (
+                          <div className="flex items-center gap-1 text-xs text-destructive" data-testid="text-registry-error">
+                            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span className="truncate">{registryError}</span>
+                          </div>
+                        )}
                         {(registryResult || registryError) && (
                           <div className="space-y-1.5">
                             {registryResult?.shareholders && registryResult.shareholders.length > 0 && (
