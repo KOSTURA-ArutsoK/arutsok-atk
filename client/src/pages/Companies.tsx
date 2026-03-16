@@ -639,35 +639,33 @@ function CompanyFormDialog({
                     <FormMessage />
                   </FormItem>
                 )} />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="code" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Kód firmy</FormLabel>
-                      <FormControl><Input {...field} maxLength={25} className="font-mono uppercase" data-testid="input-company-code" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="subjectType" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Typ subjektu</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-subject-type">
-                            <SelectValue placeholder="Vyberte typ subjektu" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="fo">FO — Fyzická osoba</SelectItem>
-                          <SelectItem value="szco">SZČO — Samostatne zárobkovo činná osoba</SelectItem>
-                          <SelectItem value="po">PO — Súkromný sektor</SelectItem>
-                          <SelectItem value="ns">NS — Tretí sektor (neziskovky)</SelectItem>
-                          <SelectItem value="vs">VS — Verejný sektor (štát)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
+                <FormField control={form.control} name="code" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Kód firmy</FormLabel>
+                    <FormControl><Input {...field} maxLength={25} className="font-mono uppercase" data-testid="input-company-code" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="subjectType" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Typ subjektu</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-subject-type">
+                          <SelectValue placeholder="Vyberte typ subjektu" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="fo">FO — Fyzická osoba</SelectItem>
+                        <SelectItem value="szco">SZČO — Samostatne zárobkovo činná osoba</SelectItem>
+                        <SelectItem value="po">PO — Súkromný sektor</SelectItem>
+                        <SelectItem value="ns">NS — Tretí sektor (neziskovky)</SelectItem>
+                        <SelectItem value="vs">VS — Verejný sektor (štát)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="ico" render={({ field }) => (
                     <FormItem>
