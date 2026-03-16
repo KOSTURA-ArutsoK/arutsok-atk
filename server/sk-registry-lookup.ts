@@ -23,6 +23,10 @@ export interface RegistryLookupResult {
   city?: string;
   legalForm?: string;
   dic?: string;
+  icDph?: string;
+  vatParagraph?: string;
+  vatRegisteredAt?: string;
+  foundedDate?: string;
   directors?: { name: string; role: string }[];
   actingNote?: string;
   message?: string;
@@ -32,7 +36,14 @@ export interface RegistryLookupResult {
   otherFacts?: string[];
 }
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
+const BROWSER_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "sk-SK,sk;q=0.9,en;q=0.8",
+  "Cache-Control": "no-cache",
+};
+
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 10000): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -51,10 +62,115 @@ function cleanText(text: string): string {
   return text.replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 }
 
+const SK_MONTHS: Record<string, number> = {
+  januára: 1, januáru: 1, január: 1,
+  februára: 2, februáru: 2, február: 2,
+  marca: 3, marcu: 3, marec: 3,
+  apríla: 4, aprílu: 4, apríl: 4,
+  mája: 5, máju: 5, máj: 5,
+  júna: 6, júnu: 6, jún: 6,
+  júla: 7, júlu: 7, júl: 7,
+  augusta: 8, augustu: 8, august: 8,
+  septembra: 9, septembru: 9, september: 9,
+  októbra: 10, októbru: 10, október: 10,
+  novembra: 11, novembru: 11, november: 11,
+  decembra: 12, decembru: 12, december: 12,
+};
+
+function parseSlovakDate(text: string): string | undefined {
+  const cleaned = text.trim().toLowerCase();
+  const dotMatch = cleaned.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if (dotMatch) {
+    const [, d, m, y] = dotMatch;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  const match = cleaned.match(/(\d{1,2})\.\s*(\S+)\s+(\d{4})/);
+  if (!match) return undefined;
+  const [, day, monthWord, year] = match;
+  const month = SK_MONTHS[monthWord];
+  if (!month) return undefined;
+  return `${year}-${String(month).padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+export async function lookupFinstatByIco(ico: string): Promise<Partial<RegistryLookupResult>> {
+  try {
+    const url = `https://finstat.sk/${encodeURIComponent(ico)}`;
+    const resp = await fetchWithTimeout(url, {
+      headers: {
+        ...BROWSER_HEADERS,
+        "Referer": "https://finstat.sk/",
+      },
+    }, 10000);
+
+    if (!resp.ok) {
+      return {};
+    }
+
+    const html = await resp.text();
+    const $ = cheerio.load(html);
+
+    let dic: string | undefined;
+    let icDph: string | undefined;
+    let vatParagraph: string | undefined;
+    let vatRegisteredAt: string | undefined;
+    let foundedDate: string | undefined;
+
+    $("li").each((_, el) => {
+      const strong = $(el).find("strong").first().text().trim();
+      const span = $(el).find("span").first();
+
+      if (strong === "DIČ") {
+        dic = span.text().trim() || undefined;
+      }
+
+      if (strong === "IČ DPH") {
+        const rawText = span.text().trim();
+        const icDphMatch = rawText.match(/^([A-Z]{2}\d+)/);
+        if (icDphMatch) {
+          icDph = icDphMatch[1];
+        } else if (rawText) {
+          icDph = rawText.split(",")[0].trim() || undefined;
+        }
+
+        const paragraphMatch = rawText.match(/podľa\s+(§[^\s,<]+)/i);
+        if (paragraphMatch) {
+          vatParagraph = paragraphMatch[1];
+        }
+
+        const registrationMatch = rawText.match(/registrácia\s+od\s+([\d]{1,2}\.\d{1,2}\.\d{4})/i);
+        if (registrationMatch) {
+          vatRegisteredAt = parseSlovakDate(registrationMatch[1]);
+        } else {
+          const innerSpan = span.find("span").text().trim();
+          const regMatch2 = innerSpan.match(/registrácia\s+od\s+([\d]{1,2}\.[\d]{1,2}\.[\d]{4})/i);
+          if (regMatch2) {
+            vatRegisteredAt = parseSlovakDate(regMatch2[1]);
+          }
+        }
+      }
+
+      if (strong === "Deň zápisu do ORSR") {
+        const dateText = span.text().trim();
+        foundedDate = parseSlovakDate(dateText);
+      }
+
+      if (!foundedDate && strong === "Deň vzniku v ŠÚ SR") {
+        const dateText = span.text().trim();
+        foundedDate = parseSlovakDate(dateText);
+      }
+    });
+
+    return { dic, icDph, vatParagraph, vatRegisteredAt, foundedDate };
+  } catch (err: any) {
+    console.error("[FINSTAT LOOKUP ERROR]", err.message);
+    return {};
+  }
+}
+
 export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult> {
   try {
     const searchUrl = `https://www.orsr.sk/hladaj_ico.asp?ico=${encodeURIComponent(ico)}&sid=0`;
-    const searchResp = await fetchWithTimeout(searchUrl);
+    const searchResp = await fetchWithTimeout(searchUrl, { headers: BROWSER_HEADERS });
     if (!searchResp.ok) {
       return { found: false, message: `ORSR vrátil chybu (${searchResp.status})` };
     }
@@ -90,7 +206,7 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
       ? detailPath
       : `https://www.orsr.sk/${detailPath.replace(/^\//, "")}`;
 
-    const detailResp = await fetchWithTimeout(detailUrl);
+    const detailResp = await fetchWithTimeout(detailUrl, { headers: BROWSER_HEADERS });
     if (!detailResp.ok) {
       return { found: false, message: `ORSR detail vrátil chybu (${detailResp.status})` };
     }
@@ -283,6 +399,16 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
       }
     }
 
+    let foundedDate: string | undefined;
+    const foundedKeys = ["Dátum vzniku", "Dátum zápisu", "Vznik"];
+    for (const key of foundedKeys) {
+      const vals = sections[key];
+      if (vals && vals.length > 0) {
+        foundedDate = parseSlovakDate(vals[0]) || undefined;
+        if (foundedDate) break;
+      }
+    }
+
     return {
       found: true,
       source: "ORSR",
@@ -292,6 +418,7 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
       zip,
       city,
       legalForm,
+      foundedDate,
       directors: directorEntries.length > 0 ? directorEntries : undefined,
       actingNote: actingNote || undefined,
       businessActivities: businessActivities.length > 0 ? businessActivities : undefined,
@@ -435,7 +562,18 @@ export async function lookupByIco(
     try {
       const result = await lookup();
       if (result.found) {
-        return { valid: true, normalized, ...result };
+        const finstatData = await lookupFinstatByIco(normalized).catch(() => ({}));
+        const merged: RegistryLookupResult & { valid: boolean; normalized: string } = {
+          valid: true,
+          normalized,
+          ...result,
+          dic: result.dic || finstatData.dic,
+          icDph: finstatData.icDph,
+          vatParagraph: finstatData.vatParagraph,
+          vatRegisteredAt: finstatData.vatRegisteredAt,
+          foundedDate: result.foundedDate || finstatData.foundedDate,
+        };
+        return merged;
       }
       if (result.reachable !== false) {
         allUnreachable = false;

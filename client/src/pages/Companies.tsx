@@ -37,6 +37,10 @@ interface RegistryLookupResponse {
   city?: string;
   legalForm?: string;
   dic?: string;
+  icDph?: string;
+  vatParagraph?: string;
+  vatRegisteredAt?: string;
+  foundedDate?: string;
   normalized?: string;
   businessActivities?: BusinessActivity[];
   shareCapital?: string;
@@ -568,11 +572,24 @@ function CompanyFormDialog({
       if (data.streetNumber) form.setValue("streetNumber", data.streetNumber);
       if (data.zip) form.setValue("postalCode", data.zip);
       if (data.city) form.setValue("city", data.city);
+      if (data.legalForm) form.setValue("description", data.legalForm);
       const currentDic = form.getValues("dic");
       if (data.dic && (!currentDic || !currentDic.trim())) {
         form.setValue("dic", data.dic);
       }
-      if (data.legalForm) form.setValue("description", data.legalForm);
+      if (data.foundedDate) {
+        form.setValue("foundedDate", data.foundedDate);
+      }
+      if (data.icDph) {
+        form.setValue("icDph", data.icDph);
+        setPlatcaDph(true);
+      }
+      if (data.vatParagraph) {
+        form.setValue("vatParagraph", data.vatParagraph);
+      }
+      if (data.vatRegisteredAt) {
+        form.setValue("vatRegisteredAt", data.vatRegisteredAt);
+      }
     } catch {
       setRegistryError("Chyba pri komunikácii s registrom");
     } finally {
@@ -847,6 +864,15 @@ function CompanyFormDialog({
                       )}
                       {registryResult.dic && (
                         <><span className="text-muted-foreground">DIČ:</span><span className="font-mono">{registryResult.dic}</span></>
+                      )}
+                      {registryResult.icDph && (
+                        <><span className="text-muted-foreground">IČ DPH:</span><span className="font-mono">{registryResult.icDph}{registryResult.vatParagraph ? ` (${registryResult.vatParagraph})` : ""}</span></>
+                      )}
+                      {registryResult.vatRegisteredAt && (
+                        <><span className="text-muted-foreground">Registrácia DPH:</span><span>{registryResult.vatRegisteredAt}</span></>
+                      )}
+                      {registryResult.foundedDate && (
+                        <><span className="text-muted-foreground">Dátum vzniku:</span><span>{registryResult.foundedDate}</span></>
                       )}
                       {registryResult.legalForm && (
                         <><span className="text-muted-foreground">Právna forma:</span><span>{registryResult.legalForm}</span></>
