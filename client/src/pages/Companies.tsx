@@ -3,7 +3,7 @@ import DOMPurify from "dompurify";
 import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyCompany } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
-import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Phone, Mail, GitBranch } from "lucide-react";
+import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Phone, Mail, GitBranch, Info, UserCheck } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
@@ -673,7 +673,7 @@ function CompanyFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent size="md">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle data-testid="text-dialog-title">
             {editingCompany ? "Upraviť spoločnosť" : "Pridať novú spoločnosť"}
@@ -687,6 +687,7 @@ function CompanyFormDialog({
                 <TabsTrigger value="address" data-testid="tab-address">Adresa</TabsTrigger>
                 <TabsTrigger value="branches" data-testid="tab-branches">Pobočky</TabsTrigger>
                 <TabsTrigger value="divisions" data-testid="tab-divisions">Divízie</TabsTrigger>
+                <TabsTrigger value="officers" data-testid="tab-officers">Štatutári</TabsTrigger>
                 <TabsTrigger value="docs" data-testid="tab-docs">Dokumenty</TabsTrigger>
                 <TabsTrigger value="notes" data-testid="tab-notes">Poznámky</TabsTrigger>
               </TabsList>
@@ -1177,6 +1178,44 @@ function CompanyFormDialog({
                 })()}
               </TabsContent>
 
+              <TabsContent value="officers" className="mt-4 space-y-4">
+                <div className="rounded-md border border-border bg-muted/30 p-3 space-y-1.5" data-testid="section-officers-info">
+                  <p className="text-sm font-medium flex items-center gap-2"><Info className="w-4 h-4 text-primary" />Čo sú Štatutári?</p>
+                  <p className="text-sm text-muted-foreground">
+                    Štatutári sú fyzické alebo právnické osoby oprávnené konať v mene spoločnosti navonok.
+                    Patrí sem <span className="text-foreground font-medium">konateľ</span>, <span className="text-foreground font-medium">člen predstavenstva</span>,
+                    {" "}<span className="text-foreground font-medium">prokurista</span>, správca, likvidátor a iné osoby zapísané v Obchodnom registri SR.
+                    Štatutári sú verejne dostupní v Obchodnom registri SR (ORSR).
+                  </p>
+                </div>
+                {registryResult?.directors && registryResult.directors.length > 0 && (
+                  <div className="space-y-2" data-testid="section-orsr-directors">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1.5 mb-2">
+                      <Search className="w-3 h-3" />Z Obchodného registra (posledné vyhľadávanie):
+                    </p>
+                    {registryResult.directors.map((dir, idx) => (
+                      <div key={idx} className="flex items-start gap-3 p-2.5 border border-border rounded-md text-sm" data-testid={`officer-orsr-${idx}`}>
+                        <UserCheck className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <span className="font-medium">{dir.name}</span>
+                          {dir.role && <span className="ml-2 text-xs text-muted-foreground">({dir.role})</span>}
+                          {dir.since && <span className="ml-2 text-xs font-mono text-muted-foreground">od: {dir.since}</span>}
+                        </div>
+                      </div>
+                    ))}
+                    {registryResult.actingNote && (
+                      <p className="text-xs text-muted-foreground italic" data-testid="text-officers-acting-note">{registryResult.actingNote}</p>
+                    )}
+                  </div>
+                )}
+                {!registryResult?.directors && (
+                  <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-officers-hint">
+                    Vykonajte vyhľadávanie podľa IČO v záložke „Základné údaje" pre načítanie štatutárov z Obchodného registra.
+                  </p>
+                )}
+                <CompanyOfficersSection companyId={editingCompany?.id ?? null} />
+              </TabsContent>
+
               <TabsContent value="docs" className="mt-4 space-y-6">
                 <LogoUploadSection
                   companyId={editingCompany?.id || null}
@@ -1281,6 +1320,7 @@ function CompanyDetailDialog({
             <TabsTrigger value="basic" data-testid="detail-tab-basic">Základné údaje</TabsTrigger>
             <TabsTrigger value="address" data-testid="detail-tab-address">Adresa</TabsTrigger>
             <TabsTrigger value="branches" data-testid="detail-tab-branches">Pobočky</TabsTrigger>
+            <TabsTrigger value="officers" data-testid="detail-tab-officers">Štatutári</TabsTrigger>
             <TabsTrigger value="docs" data-testid="detail-tab-docs">Dokumenty</TabsTrigger>
             <TabsTrigger value="notes" data-testid="detail-tab-notes">Poznámky</TabsTrigger>
           </TabsList>
@@ -1409,6 +1449,18 @@ function CompanyDetailDialog({
                 </div>
               );
             })()}
+          </TabsContent>
+
+          <TabsContent value="officers" className="mt-4 space-y-4">
+            <div className="rounded-md border border-border bg-muted/30 p-3 space-y-1.5" data-testid="detail-section-officers-info">
+              <p className="text-sm font-medium flex items-center gap-2"><Info className="w-4 h-4 text-primary" />Čo sú Štatutári?</p>
+              <p className="text-sm text-muted-foreground">
+                Štatutári sú fyzické alebo právnické osoby oprávnené konať v mene spoločnosti navonok.
+                Patrí sem <span className="text-foreground font-medium">konateľ</span>, <span className="text-foreground font-medium">člen predstavenstva</span>,
+                {" "}<span className="text-foreground font-medium">prokurista</span>, správca, likvidátor a iné osoby zapísané v Obchodnom registri SR.
+              </p>
+            </div>
+            <CompanyOfficersSection companyId={company.id} />
           </TabsContent>
 
           <TabsContent value="docs" className="mt-4 space-y-6">
@@ -1776,6 +1828,42 @@ function CompanyDivisionsTab({ companyId }: { companyId: number | null }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function CompanyOfficersSection({ companyId }: { companyId: number | null }) {
+  const { data: officers = [], isLoading } = useQuery<any[]>({
+    queryKey: [`/api/my-companies/${companyId}/officers`],
+    enabled: !!companyId,
+  });
+
+  if (!companyId) return null;
+  if (isLoading) return (
+    <div className="text-sm text-muted-foreground flex items-center gap-2">
+      <Loader2 className="w-3 h-3 animate-spin" />Načítavam uložených štatutárov...
+    </div>
+  );
+  if (officers.length === 0) return null;
+
+  return (
+    <div className="space-y-2" data-testid="section-db-officers">
+      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+        <UserCheck className="w-3 h-3" />Uložení štatutári:
+      </p>
+      {officers.map((off: any) => (
+        <div key={off.id} className="flex items-start gap-3 p-2.5 border border-border rounded-md text-sm" data-testid={`officer-db-${off.id}`}>
+          <UserCheck className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <div className="min-w-0">
+            <span className="font-medium">
+              {[off.titleBefore, off.firstName, off.lastName, off.titleAfter].filter(Boolean).join(" ")}
+              {off.ownerCompanyName && <span> {off.ownerCompanyName}</span>}
+            </span>
+            {off.type && <span className="ml-2 text-xs text-muted-foreground">({off.type})</span>}
+            {off.city && <span className="ml-2 text-xs text-muted-foreground">{off.city}</span>}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
