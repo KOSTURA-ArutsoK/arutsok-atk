@@ -3,7 +3,7 @@ import DOMPurify from "dompurify";
 import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyCompany } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
-import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Phone, Mail, GitBranch } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
@@ -25,6 +25,16 @@ interface RegistryDirector {
   name: string;
   role: string;
   since?: string;
+}
+
+interface BranchEntry {
+  name?: string;
+  street?: string;
+  streetNumber?: string;
+  postalCode?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
 }
 
 interface RegistryLookupResponse {
@@ -139,6 +149,10 @@ const formSchema = insertMyCompanySchema.extend({
   orientNumber: z.string().min(1, "Orientačné číslo je povinné"),
   postalCode: z.string().min(1, "PSČ je povinné"),
   city: z.string().min(1, "Mesto je povinné"),
+  corrStreet: z.string().optional().nullable(),
+  corrStreetNumber: z.string().optional().nullable(),
+  corrPostalCode: z.string().optional().nullable(),
+  corrCity: z.string().optional().nullable(),
   stateId: z.number().optional(),
   description: z.string().min(1, "Charakteristika je povinná"),
   subjectType: z.string().optional(),
@@ -460,6 +474,10 @@ function CompanyFormDialog({
   const [registryError, setRegistryError] = useState<string | null>(null);
   const [showActivities, setShowActivities] = useState(true);
   const [selectedActivityIndices, setSelectedActivityIndices] = useState<Set<number>>(new Set());
+  const [corrSameAsHQ, setCorrSameAsHQ] = useState(false);
+  const [branches, setBranches] = useState<BranchEntry[]>([]);
+  const [addingBranch, setAddingBranch] = useState(false);
+  const [newBranch, setNewBranch] = useState<BranchEntry>({});
 
   const editingCompany = editingCompanyId
     ? allCompanies?.find(c => c.id === editingCompanyId) || null
@@ -479,6 +497,10 @@ function CompanyFormDialog({
       orientNumber: "",
       postalCode: "",
       city: "",
+      corrStreet: "",
+      corrStreetNumber: "",
+      corrPostalCode: "",
+      corrCity: "",
       stateId: undefined,
       description: "",
       notes: "",
@@ -496,6 +518,9 @@ function CompanyFormDialog({
       if (editingCompany) {
         const hasIcDph = !!(editingCompany.icDph && editingCompany.icDph.trim());
         setPlatcaDph(hasIcDph);
+        const hasCorrAddr = !!(editingCompany.corrStreet || editingCompany.corrCity);
+        setCorrSameAsHQ(!hasCorrAddr);
+        setBranches((editingCompany.branches as BranchEntry[]) || []);
         form.reset({
           name: editingCompany.name,
           subjectType: (editingCompany as any).subjectType || "",
@@ -508,6 +533,10 @@ function CompanyFormDialog({
           orientNumber: editingCompany.orientNumber || "",
           postalCode: editingCompany.postalCode || "",
           city: editingCompany.city || "",
+          corrStreet: editingCompany.corrStreet || "",
+          corrStreetNumber: editingCompany.corrStreetNumber || "",
+          corrPostalCode: editingCompany.corrPostalCode || "",
+          corrCity: editingCompany.corrCity || "",
           stateId: editingCompany.stateId || appUser?.activeStateId || undefined,
           description: editingCompany.description || "",
           notes: editingCompany.notes || "",
@@ -518,6 +547,8 @@ function CompanyFormDialog({
         setNotesHtml(editingCompany.notes || "");
       } else {
         setPlatcaDph(false);
+        setCorrSameAsHQ(true);
+        setBranches([]);
         form.reset({
           name: "",
           code: "",
@@ -529,6 +560,10 @@ function CompanyFormDialog({
           orientNumber: "",
           postalCode: "",
           city: "",
+          corrStreet: "",
+          corrStreetNumber: "",
+          corrPostalCode: "",
+          corrCity: "",
           stateId: appUser?.activeStateId || undefined,
           description: "",
           notes: "",
@@ -610,6 +645,11 @@ function CompanyFormDialog({
       businessActivities: biz,
       foundedDate: data.foundedDate ? new Date(data.foundedDate).toISOString() : null,
       vatRegisteredAt: data.vatRegisteredAt ? new Date(data.vatRegisteredAt).toISOString() : null,
+      corrStreet: corrSameAsHQ ? null : (data.corrStreet || null),
+      corrStreetNumber: corrSameAsHQ ? null : (data.corrStreetNumber || null),
+      corrPostalCode: corrSameAsHQ ? null : (data.corrPostalCode || null),
+      corrCity: corrSameAsHQ ? null : (data.corrCity || null),
+      branches,
     };
 
     if (editingCompany) {
@@ -773,48 +813,6 @@ function CompanyFormDialog({
                   </div>
                 )}
 
-                {(() => {
-                  const activitiesSource: BusinessActivity[] = registryResult?.businessActivities ?? (editingCompany?.businessActivities as BusinessActivity[]) ?? [];
-                  const isFromLookup = !!registryResult?.businessActivities;
-                  return activitiesSource.length > 0 ? (
-                    <div className="border border-border rounded-md" data-testid="section-business-activities">
-                      <button
-                        type="button"
-                        className="flex items-center justify-between w-full p-3 text-sm font-medium hover:bg-muted/50 transition-colors"
-                        onClick={() => setShowActivities(!showActivities)}
-                        data-testid="button-toggle-activities"
-                      >
-                        <span>Predmety podnikania ({isFromLookup ? `${selectedActivityIndices.size}/${activitiesSource.length}` : activitiesSource.length})</span>
-                        {showActivities ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-                      {showActivities && (
-                        <div className="border-t border-border p-3 space-y-1.5 max-h-48 overflow-y-auto">
-                          {activitiesSource.map((act, idx) => (
-                            <div key={idx} className="flex items-start gap-2 text-sm" data-testid={`activity-row-${idx}`}>
-                              {isFromLookup && (
-                                <Checkbox
-                                  checked={selectedActivityIndices.has(idx)}
-                                  onCheckedChange={(checked) => {
-                                    const next = new Set(selectedActivityIndices);
-                                    if (checked) next.add(idx); else next.delete(idx);
-                                    setSelectedActivityIndices(next);
-                                  }}
-                                  data-testid={`checkbox-activity-${idx}`}
-                                  className="mt-0.5"
-                                />
-                              )}
-                              <span className="text-muted-foreground flex-1">{act.text}</span>
-                              {act.since && (
-                                <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">(od: {act.since})</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : null;
-                })()}
-
                 {registryResult?.shareholders && registryResult.shareholders.length > 0 && (
                   <div className="border border-border rounded-md p-3 space-y-1.5" data-testid="section-shareholders">
                     <p className="text-sm font-medium">Spoločníci</p>
@@ -900,50 +898,234 @@ function CompanyFormDialog({
                 )} />
               </TabsContent>
 
-              <TabsContent value="address" className="space-y-4 mt-4">
-                <FormField control={form.control} name="street" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ulica *</FormLabel>
-                    <FormControl><Input {...field} value={field.value || ""} data-testid="input-street" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="streetNumber" render={({ field }) => (
+              <TabsContent value="address" className="space-y-6 mt-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                    <h4 className="text-sm font-medium">Adresa sídla</h4>
+                  </div>
+                  <FormField control={form.control} name="street" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Popisné číslo *</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-street-number" /></FormControl>
+                      <FormLabel>Ulica *</FormLabel>
+                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-street" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="orientNumber" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Orientačné číslo *</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-orient-number" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="streetNumber" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Popisné číslo *</FormLabel>
+                        <FormControl><Input {...field} value={field.value || ""} data-testid="input-street-number" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="orientNumber" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Orientačné číslo *</FormLabel>
+                        <FormControl><Input {...field} value={field.value || ""} data-testid="input-orient-number" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="postalCode" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>PSČ *</FormLabel>
+                        <FormControl><Input {...field} value={field.value || ""} data-testid="input-postal-code" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="city" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mesto / Obec *</FormLabel>
+                        <FormControl><Input {...field} value={field.value || ""} data-testid="input-city" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="postalCode" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>PSČ *</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-postal-code" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="city" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Mesto / Obec *</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-city" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-muted-foreground" />
+                      <h4 className="text-sm font-medium">Korespondenčná adresa</h4>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="corr-same"
+                        checked={corrSameAsHQ}
+                        onCheckedChange={(checked) => {
+                          setCorrSameAsHQ(!!checked);
+                          if (checked) {
+                            form.setValue("corrStreet", "");
+                            form.setValue("corrStreetNumber", "");
+                            form.setValue("corrPostalCode", "");
+                            form.setValue("corrCity", "");
+                          }
+                        }}
+                        data-testid="checkbox-corr-same"
+                      />
+                      <label htmlFor="corr-same" className="text-sm text-muted-foreground cursor-pointer">Rovnaká ako sídlo</label>
+                    </div>
+                  </div>
+                  {!corrSameAsHQ && (
+                    <>
+                      <FormField control={form.control} name="corrStreet" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Ulica</FormLabel>
+                          <FormControl><Input {...field} value={field.value || ""} data-testid="input-corr-street" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField control={form.control} name="corrStreetNumber" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Číslo</FormLabel>
+                            <FormControl><Input {...field} value={field.value || ""} data-testid="input-corr-street-number" /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name="corrPostalCode" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>PSČ</FormLabel>
+                            <FormControl><Input {...field} value={field.value || ""} data-testid="input-corr-postal-code" /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                      </div>
+                      <FormField control={form.control} name="corrCity" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mesto / Obec</FormLabel>
+                          <FormControl><Input {...field} value={field.value || ""} data-testid="input-corr-city" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <GitBranch className="w-4 h-4 text-muted-foreground" />
+                      <h4 className="text-sm font-medium">Pobočky</h4>
+                      <Badge variant="secondary" className="text-xs">{branches.length}</Badge>
+                    </div>
+                    {!addingBranch && (
+                      <Button type="button" variant="outline" size="sm" onClick={() => { setAddingBranch(true); setNewBranch({}); }} data-testid="button-add-branch">
+                        <Plus className="w-3 h-3 mr-1" /> Pridať pobočku
+                      </Button>
+                    )}
+                  </div>
+
+                  {addingBranch && (
+                    <div className="border border-border rounded-md p-3 space-y-3 bg-muted/30" data-testid="form-new-branch">
+                      <Input placeholder="Názov pobočky" value={newBranch.name || ""} onChange={e => setNewBranch(p => ({ ...p, name: e.target.value }))} data-testid="input-branch-name" />
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input placeholder="Ulica + číslo" value={newBranch.street || ""} onChange={e => setNewBranch(p => ({ ...p, street: e.target.value }))} data-testid="input-branch-street" />
+                        <Input placeholder="PSČ" value={newBranch.postalCode || ""} onChange={e => setNewBranch(p => ({ ...p, postalCode: e.target.value }))} data-testid="input-branch-postal" />
+                      </div>
+                      <Input placeholder="Mesto" value={newBranch.city || ""} onChange={e => setNewBranch(p => ({ ...p, city: e.target.value }))} data-testid="input-branch-city" />
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input placeholder="Telefón" value={newBranch.phone || ""} onChange={e => setNewBranch(p => ({ ...p, phone: e.target.value }))} data-testid="input-branch-phone" />
+                        <Input placeholder="E-mail" value={newBranch.email || ""} onChange={e => setNewBranch(p => ({ ...p, email: e.target.value }))} data-testid="input-branch-email" />
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setAddingBranch(false)} data-testid="button-branch-cancel">Zrušiť</Button>
+                        <Button type="button" size="sm" onClick={() => {
+                          if (newBranch.name || newBranch.street || newBranch.city) {
+                            setBranches(prev => [...prev, { ...newBranch }]);
+                            setNewBranch({});
+                            setAddingBranch(false);
+                          }
+                        }} data-testid="button-branch-save">Uložiť</Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {branches.length > 0 && (
+                    <div className="space-y-2">
+                      {branches.map((br, idx) => (
+                        <div key={idx} className="flex items-start gap-3 p-3 border border-border rounded-md" data-testid={`branch-row-${idx}`}>
+                          <GitBranch className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 text-sm space-y-0.5">
+                            {br.name && <p className="font-medium">{br.name}</p>}
+                            <p className="text-muted-foreground">{[br.street, br.postalCode, br.city].filter(Boolean).join(", ") || "Bez adresy"}</p>
+                            {(br.phone || br.email) && (
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                {br.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{br.phone}</span>}
+                                {br.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{br.email}</span>}
+                              </div>
+                            )}
+                          </div>
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setBranches(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-delete-branch-${idx}`}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
-              <TabsContent value="divisions" className="mt-4">
+              <TabsContent value="divisions" className="mt-4 space-y-6">
                 <CompanyDivisionsTab companyId={editingCompany?.id || null} />
+
+                <Separator />
+
+                {(() => {
+                  const activitiesSource: BusinessActivity[] = registryResult?.businessActivities ?? (editingCompany?.businessActivities as BusinessActivity[]) ?? [];
+                  const isFromLookup = !!registryResult?.businessActivities;
+                  return (
+                    <div data-testid="section-business-activities">
+                      <div className="border border-border rounded-md">
+                        <button
+                          type="button"
+                          className="flex items-center justify-between w-full p-3 text-sm font-medium hover:bg-muted/50 transition-colors"
+                          onClick={() => setShowActivities(!showActivities)}
+                          data-testid="button-toggle-activities"
+                        >
+                          <span>Predmety podnikania ({isFromLookup ? `${selectedActivityIndices.size}/${activitiesSource.length}` : activitiesSource.length})</span>
+                          {showActivities ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+                        {showActivities && activitiesSource.length > 0 && (
+                          <div className="border-t border-border p-3 space-y-1.5 max-h-48 overflow-y-auto">
+                            {activitiesSource.map((act, idx) => (
+                              <div key={idx} className="flex items-start gap-2 text-sm" data-testid={`activity-row-${idx}`}>
+                                {isFromLookup && (
+                                  <Checkbox
+                                    checked={selectedActivityIndices.has(idx)}
+                                    onCheckedChange={(checked) => {
+                                      const next = new Set(selectedActivityIndices);
+                                      if (checked) next.add(idx); else next.delete(idx);
+                                      setSelectedActivityIndices(next);
+                                    }}
+                                    data-testid={`checkbox-activity-${idx}`}
+                                    className="mt-0.5"
+                                  />
+                                )}
+                                <span className="text-muted-foreground flex-1">{act.text}</span>
+                                {act.since && (
+                                  <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">(od: {act.since})</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {showActivities && activitiesSource.length === 0 && (
+                          <div className="border-t border-border p-3 text-sm text-muted-foreground">
+                            Žiadne predmety podnikania. Vyhľadajte firmu cez IČO v záložke Základné údaje.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </TabsContent>
 
               <TabsContent value="docs" className="mt-4 space-y-6">
@@ -1106,17 +1288,63 @@ function CompanyDetailDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="address" className="mt-4">
+          <TabsContent value="address" className="mt-4 space-y-5">
             <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div className="flex items-center gap-2 mb-2">
+                <MapPin className="w-4 h-4 text-muted-foreground" />
+                <h4 className="text-sm font-medium">Adresa sídla</h4>
+              </div>
+              <div className="flex items-start gap-3 pl-1">
                 <div className="text-sm space-y-1">
-                  <p data-testid="text-detail-address">{addressParts || "Nezadana adresa"}</p>
+                  <p data-testid="text-detail-address">{addressParts || "Nezadaná adresa"}</p>
                   <p className="text-muted-foreground" data-testid="text-detail-city">{cityLine || "-"}</p>
                   <p data-testid="text-detail-state">{getStateName(company.stateId)}</p>
                 </div>
               </div>
             </div>
+
+            {(company.corrStreet || company.corrCity) && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Mail className="w-4 h-4 text-muted-foreground" />
+                    <h4 className="text-sm font-medium">Korespondenčná adresa</h4>
+                  </div>
+                  <div className="text-sm space-y-1 pl-1">
+                    <p data-testid="text-detail-corr-address">{[company.corrStreet, company.corrStreetNumber].filter(Boolean).join(" ") || "-"}</p>
+                    <p className="text-muted-foreground" data-testid="text-detail-corr-city">{[company.corrPostalCode, company.corrCity].filter(Boolean).join(" ") || "-"}</p>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {((company.branches as BranchEntry[]) || []).length > 0 && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <GitBranch className="w-4 h-4 text-muted-foreground" />
+                    <h4 className="text-sm font-medium">Pobočky</h4>
+                    <Badge variant="secondary" className="text-xs">{((company.branches as BranchEntry[]) || []).length}</Badge>
+                  </div>
+                  <div className="space-y-2 pl-1">
+                    {((company.branches as BranchEntry[]) || []).map((br, idx) => (
+                      <div key={idx} className="text-sm border border-border rounded-md p-2.5 space-y-0.5" data-testid={`detail-branch-${idx}`}>
+                        {br.name && <p className="font-medium">{br.name}</p>}
+                        <p className="text-muted-foreground">{[br.street, br.postalCode, br.city].filter(Boolean).join(", ") || "Bez adresy"}</p>
+                        {(br.phone || br.email) && (
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            {br.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{br.phone}</span>}
+                            {br.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{br.email}</span>}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="docs" className="mt-4 space-y-6">
