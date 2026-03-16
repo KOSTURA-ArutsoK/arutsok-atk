@@ -1390,28 +1390,14 @@ export async function registerRoutes(
     res.json(await storage.getPartners(includeDeleted, stateId || undefined));
   });
 
-  // COUNT unique partners with at least one contract in the current division
-  app.get("/api/partners/active-count", isAuthenticated, async (req: any, res) => {
+  // COUNT total active partners (for PARTNERI synthetic row in ClientGroups)
+  app.get("/api/partners/active-count", isAuthenticated, async (_req, res) => {
     try {
-      const appUser = req.appUser;
-      const divisionId: number | null = appUser?.activeDivisionId ?? null;
-      const result = await db.execute(sql`
-        SELECT COUNT(DISTINCT ${contracts.partnerId})::int AS count
-        FROM contracts
-        WHERE ${contracts.isDeleted} = false
-          AND ${contracts.partnerId} IS NOT NULL
-          ${divisionId
-            ? sql`AND ${contracts.sectorProductId} IN (
-                SELECT sp.id FROM sector_products sp
-                JOIN sections sec ON sp.section_id = sec.id
-                JOIN sectors s ON sec.sector_id = s.id
-                WHERE s.division_id = ${divisionId}
-              )`
-            : sql``
-          }
-      `);
-      const rows = result.rows as { count: number }[];
-      res.json({ count: rows[0]?.count ?? 0, divisionId });
+      const [row] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(partners)
+        .where(eq(partners.isDeleted, false));
+      res.json({ count: row?.count ?? 0 });
     } catch (err) {
       console.error("[partners/active-count]", err);
       res.status(500).json({ count: 0 });

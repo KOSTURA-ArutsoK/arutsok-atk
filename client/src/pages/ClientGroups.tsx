@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatUid } from "@/lib/utils";
@@ -641,7 +642,9 @@ export default function ClientGroups() {
   // Filter out individual partner groups — displayed as single "PARTNERI" synthetic row
   const groups = groupsRaw?.filter(g => !g.isPartnerGroup);
 
-  const { data: partnerCountData } = useQuery<{ count: number; divisionId: number | null }>({
+  const [, navigate] = useLocation();
+
+  const { data: partnerCountData } = useQuery<{ count: number }>({
     queryKey: ["/api/partners/active-count"],
   });
 
@@ -721,8 +724,12 @@ export default function ClientGroups() {
                 onReorder={(items) => reorderMutation.mutate(items.map(i => ({ id: Number(i.id), sortOrder: i.sortOrder })))}
               >
                 <TableBody>
-                  {/* Synthetic PARTNERI row — počet unikátnych partnerov s aspoň 1 zmluvou v divízii */}
-                  <TableRow data-testid="row-partneri-synthetic" className="bg-red-500/5 border-l-2 border-l-red-500">
+                  {/* Synthetic PARTNERI row — naviguje na Zoznam partnerov */}
+                  <TableRow
+                    data-testid="row-partneri-synthetic"
+                    className="bg-red-500/5 border-l-2 border-l-red-500 cursor-pointer hover:bg-red-500/10 transition-colors"
+                    onClick={() => navigate("/partners")}
+                  >
                     <TableCell></TableCell>
                     {columnVisibility.isVisible("name") && (
                       <TableCell className="font-medium">
@@ -743,7 +750,9 @@ export default function ClientGroups() {
                         </span>
                       </TableCell>
                     )}
-                    <TableCell></TableCell>
+                    <TableCell>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto" />
+                    </TableCell>
                   </TableRow>
                   {groupFilter.filteredData.map((group) => (
                     <SortableTableRow
