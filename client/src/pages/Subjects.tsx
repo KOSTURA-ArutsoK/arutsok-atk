@@ -2477,6 +2477,8 @@ function FullPageEditor({
 
   const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>(() => {
     const base: Record<string, string> = { korespond_rovnaka: "true", kontaktna_rovnaka: "true", tp_stat: DEFAULT_COUNTRY, ka_stat: DEFAULT_COUNTRY, koa_stat: DEFAULT_COUNTRY, sidlo_stat: DEFAULT_COUNTRY, vykon_stat: DEFAULT_COUNTRY };
+    if (initialData.clientTypeCode === 'NS') base.typ_organizacie = "Nezisková organizácia";
+    if (initialData.clientTypeCode === 'VS') base.typ_organizacie = "Štátna inštitúcia";
     if (initialData.aresData && !isSzcoType) {
       if (initialData.aresData.name) base.obchodne_meno = initialData.aresData.name;
       if (initialData.aresData.dic) base.dic = initialData.aresData.dic;
@@ -2554,7 +2556,7 @@ function FullPageEditor({
     }
   }, [isPerson, dynamicValues["rodne_cislo"], initialData.baseValue]);
 
-  const editorClientTypeId = clientType?.code === 'SZCO' ? 3 : clientType?.code === 'PO' ? 4 : 1;
+  const editorClientTypeId = clientType?.code === 'SZCO' ? 3 : (clientType?.code === 'PO' || clientType?.code === 'NS' || clientType?.code === 'VS') ? 4 : 1;
   const typeFields = getFieldsForClientTypeId(editorClientTypeId);
   const typeSections = getSectionsForClientTypeId(editorClientTypeId);
 
