@@ -743,7 +743,7 @@ function CompanyFormDialog({
                     )} />
                     {watchedSubjectType === "po" && (
                       <>
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 overflow-hidden">
                           <Button ref={registryLookupBtnRef} type="button" variant="outline" size="sm" disabled={registryLoading} onClick={handleRegistryLookup} className="shrink-0" data-testid="button-registry-lookup">
                             {registryLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Search className="w-4 h-4 mr-1" />}
                             {registryLoading ? "Hľadám..." : "Hľadať v registri"}
@@ -755,64 +755,69 @@ function CompanyFormDialog({
                             </Badge>
                           )}
                           {registryError && (
-                            <span className="text-xs text-destructive flex items-center gap-1" data-testid="text-registry-error">
+                            <span className="text-xs text-destructive flex items-center gap-1 truncate" data-testid="text-registry-error">
                               <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                              {registryError}
+                              <span className="truncate">{registryError}</span>
                             </span>
                           )}
                           {registryResult && !registryError && (
-                            <span className="text-xs text-muted-foreground" data-testid="text-registry-inline-summary">
+                            <span className="text-xs text-muted-foreground truncate" data-testid="text-registry-inline-summary">
                               {registryResult.name && <span className="font-medium text-foreground mr-1">{registryResult.name}</span>}
+                              {registryResult.normalized && <span className="mr-1">IČO: {registryResult.normalized}</span>}
                               {registryResult.dic && <span className="mr-1">DIČ: {registryResult.dic}</span>}
                               {(registryResult.city) && <span>— {[registryResult.street, registryResult.streetNumber, registryResult.zip, registryResult.city].filter(Boolean).join(", ")}</span>}
                             </span>
                           )}
                         </div>
-                        {registryResult?.shareholders && registryResult.shareholders.length > 0 && (
-                          <div className="border border-border rounded-md p-2.5 space-y-1" data-testid="section-shareholders">
-                            <p className="text-xs font-medium">Spoločníci</p>
-                            {registryResult.shareholders.map((sh, idx) => (
-                              <div key={idx} className="text-xs text-muted-foreground" data-testid={`shareholder-row-${idx}`}>
-                                <span className="font-medium text-foreground">{sh.name}</span>
-                                {sh.contribution && <span className="ml-1">— {sh.contribution}</span>}
-                                {sh.address && <span className="ml-1 text-[10px]">({sh.address})</span>}
+                        {(registryResult || registryError) && (
+                          <div className="space-y-1.5">
+                            {registryResult?.shareholders && registryResult.shareholders.length > 0 && (
+                              <div className="border border-border rounded-md p-2.5 space-y-1" data-testid="section-shareholders">
+                                <p className="text-xs font-medium">Spoločníci</p>
+                                {registryResult.shareholders.map((sh, idx) => (
+                                  <div key={idx} className="text-xs text-muted-foreground" data-testid={`shareholder-row-${idx}`}>
+                                    <span className="font-medium text-foreground">{sh.name}</span>
+                                    {sh.contribution && <span className="ml-1">— {sh.contribution}</span>}
+                                    {sh.address && <span className="ml-1 text-[10px]">({sh.address})</span>}
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
-                        )}
-                        {registryResult?.shareCapital && (
-                          <div className="flex items-center gap-2 p-2.5 rounded-md border border-border text-xs" data-testid="text-share-capital">
-                            <span className="font-medium">Základné imanie:</span>
-                            <span className="text-muted-foreground">{registryResult.shareCapital}</span>
-                          </div>
-                        )}
-                        {registryResult?.directors && registryResult.directors.length > 0 && (
-                          <div className="border border-border rounded-md p-2.5 space-y-1" data-testid="section-directors">
-                            <p className="text-xs font-medium">Štatutári</p>
-                            {registryResult.directors.map((dir, idx) => (
-                              <div key={idx} className="text-xs text-muted-foreground" data-testid={`director-row-${idx}`}>
-                                <span className="font-medium text-foreground">{dir.name}</span>
-                                {dir.since && <span className="ml-1 text-[10px] font-mono">(od: {dir.since})</span>}
-                              </div>
-                            ))}
-                            {registryResult.actingNote && (
-                              <p className="text-[10px] text-muted-foreground mt-1 italic" data-testid="text-acting-note">{registryResult.actingNote}</p>
                             )}
-                          </div>
-                        )}
-                        {registryResult && !registryError && (
-                          <div className="border border-border rounded-md p-2.5 space-y-1" data-testid="section-registry-summary">
-                            <p className="text-xs font-medium">Údaje z registra</p>
-                            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
-                              {registryResult.name && (<><span className="text-muted-foreground">Názov:</span><span className="font-medium">{registryResult.name}</span></>)}
-                              {registryResult.normalized && (<><span className="text-muted-foreground">IČO:</span><span className="font-mono">{registryResult.normalized}</span></>)}
-                              {registryResult.dic && (<><span className="text-muted-foreground">DIČ:</span><span className="font-mono">{registryResult.dic}</span></>)}
-                              {registryResult.icDph && (<><span className="text-muted-foreground">IČ DPH:</span><span className="font-mono">{registryResult.icDph}{registryResult.vatParagraph ? ` (${registryResult.vatParagraph})` : ""}</span></>)}
-                              {registryResult.vatRegisteredAt && (<><span className="text-muted-foreground">Reg. DPH:</span><span>{registryResult.vatRegisteredAt}</span></>)}
-                              {registryResult.foundedDate && (<><span className="text-muted-foreground">Vznik:</span><span>{registryResult.foundedDate}</span></>)}
-                              {registryResult.legalForm && (<><span className="text-muted-foreground">Právna forma:</span><span>{registryResult.legalForm}</span></>)}
-                              {(registryResult.street || registryResult.city) && (<><span className="text-muted-foreground">Sídlo:</span><span>{[registryResult.street, registryResult.streetNumber, registryResult.zip, registryResult.city].filter(Boolean).join(", ")}</span></>)}
-                            </div>
+                            {registryResult?.shareCapital && (
+                              <div className="flex items-center gap-2 p-2.5 rounded-md border border-border text-xs" data-testid="text-share-capital">
+                                <span className="font-medium">Základné imanie:</span>
+                                <span className="text-muted-foreground">{registryResult.shareCapital}</span>
+                              </div>
+                            )}
+                            {registryResult?.directors && registryResult.directors.length > 0 && (
+                              <div className="border border-border rounded-md p-2.5 space-y-1" data-testid="section-directors">
+                                <p className="text-xs font-medium">Štatutári</p>
+                                {registryResult.directors.map((dir, idx) => (
+                                  <div key={idx} className="text-xs text-muted-foreground" data-testid={`director-row-${idx}`}>
+                                    <span className="font-medium text-foreground">{dir.name}</span>
+                                    {dir.since && <span className="ml-1 text-[10px] font-mono">(od: {dir.since})</span>}
+                                  </div>
+                                ))}
+                                {registryResult.actingNote && (
+                                  <p className="text-[10px] text-muted-foreground mt-1 italic" data-testid="text-acting-note">{registryResult.actingNote}</p>
+                                )}
+                              </div>
+                            )}
+                            {registryResult && !registryError && (
+                              <div className="border border-border rounded-md p-2.5 space-y-1" data-testid="section-registry-summary">
+                                <p className="text-xs font-medium">Údaje z registra</p>
+                                <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
+                                  {registryResult.name && (<><span className="text-muted-foreground">Názov:</span><span className="font-medium">{registryResult.name}</span></>)}
+                                  {registryResult.normalized && (<><span className="text-muted-foreground">IČO:</span><span className="font-mono">{registryResult.normalized}</span></>)}
+                                  {registryResult.dic && (<><span className="text-muted-foreground">DIČ:</span><span className="font-mono">{registryResult.dic}</span></>)}
+                                  {registryResult.icDph && (<><span className="text-muted-foreground">IČ DPH:</span><span className="font-mono">{registryResult.icDph}{registryResult.vatParagraph ? ` (${registryResult.vatParagraph})` : ""}</span></>)}
+                                  {registryResult.vatRegisteredAt && (<><span className="text-muted-foreground">Reg. DPH:</span><span>{registryResult.vatRegisteredAt}</span></>)}
+                                  {registryResult.foundedDate && (<><span className="text-muted-foreground">Vznik:</span><span>{registryResult.foundedDate}</span></>)}
+                                  {registryResult.legalForm && (<><span className="text-muted-foreground">Právna forma:</span><span>{registryResult.legalForm}</span></>)}
+                                  {(registryResult.street || registryResult.city) && (<><span className="text-muted-foreground">Sídlo:</span><span>{[registryResult.street, registryResult.streetNumber, registryResult.zip, registryResult.city].filter(Boolean).join(", ")}</span></>)}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </>
