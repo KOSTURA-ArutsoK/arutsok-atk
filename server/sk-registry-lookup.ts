@@ -15,7 +15,7 @@ export interface Shareholder {
 export interface RegistryLookupResult {
   found: boolean;
   reachable?: boolean;
-  source?: "ORSR" | "ARES";
+  source?: "ORSR" | "ARES" | "Finstat";
   name?: string;
   street?: string;
   streetNumber?: string;
@@ -43,7 +43,7 @@ const BROWSER_HEADERS = {
   "Cache-Control": "no-cache",
 };
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 10000): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 6000): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -94,15 +94,17 @@ function parseSlovakDate(text: string): string | undefined {
 
 export async function lookupFinstatByIco(ico: string): Promise<Partial<RegistryLookupResult>> {
   try {
+    console.log(`[LOOKUP] Finstat start ICO=${ico}`);
     const url = `https://finstat.sk/${encodeURIComponent(ico)}`;
     const resp = await fetchWithTimeout(url, {
       headers: {
         ...BROWSER_HEADERS,
         "Referer": "https://finstat.sk/",
       },
-    }, 10000);
+    }, 6000);
 
     if (!resp.ok) {
+      console.log(`[LOOKUP] Finstat done ICO=${ico} — HTTP ${resp.status}`);
       return {};
     }
 
@@ -128,8 +130,14 @@ export async function lookupFinstatByIco(ico: string): Promise<Partial<RegistryL
         const icDphMatch = rawText.match(/^([A-Z]{2}\d+)/);
         if (icDphMatch) {
           icDph = icDphMatch[1];
-        } else if (rawText) {
-          icDph = rawText.split(",")[0].trim() || undefined;
+        } else {
+          const stripped = rawText.replace(/\s+/g, "");
+          const fallbackMatch = stripped.match(/^([A-Z]{2}\d+)/);
+          if (fallbackMatch) {
+            icDph = fallbackMatch[1];
+          } else if (rawText) {
+            icDph = rawText.split(",")[0].trim() || undefined;
+          }
         }
 
         const paragraphMatch = rawText.match(/podľa\s+(§[^\s,<]+)/i);
@@ -160,15 +168,43 @@ export async function lookupFinstatByIco(ico: string): Promise<Partial<RegistryL
       }
     });
 
-    return { dic, icDph, vatParagraph, vatRegisteredAt, foundedDate };
+    let finstatName: string | undefined;
+    const nameEl = $("h1, .company-name, [itemprop='name']").first().text().trim();
+    if (nameEl && nameEl.length > 2) {
+      finstatName = nameEl;
+    }
+
+    let finstatStreet: string | undefined;
+    let finstatCity: string | undefined;
+    let finstatZip: string | undefined;
+    $("li").each((_, el) => {
+      const strong = $(el).find("strong").first().text().trim();
+      const span = $(el).find("span").first();
+      if (strong === "Sídlo" || strong === "Adresa") {
+        const addr = span.text().trim();
+        if (addr) {
+          const zipMatch = addr.match(/(\d{3}\s?\d{2})/);
+          if (zipMatch) finstatZip = zipMatch[1].replace(/\s/g, "");
+          const parts = addr.split(",").map(p => p.trim());
+          if (parts.length >= 2) {
+            finstatStreet = parts[0];
+            finstatCity = parts[parts.length - 1].replace(/\d{3}\s?\d{2}\s*/, "").trim() || undefined;
+          }
+        }
+      }
+    });
+
+    console.log(`[LOOKUP] Finstat done ICO=${ico} — dic=${dic || "N/A"}, icDph=${icDph || "N/A"}, name=${finstatName || "N/A"}`);
+    return { dic, icDph, vatParagraph, vatRegisteredAt, foundedDate, name: finstatName, street: finstatStreet, city: finstatCity, zip: finstatZip };
   } catch (err: any) {
-    console.error("[FINSTAT LOOKUP ERROR]", err.message);
+    console.error("[LOOKUP] Finstat error ICO=" + ico, err.message);
     return {};
   }
 }
 
 export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult> {
   try {
+    console.log(`[LOOKUP] ORSR start ICO=${ico}`);
     const searchUrl = `https://www.orsr.sk/hladaj_ico.asp?ico=${encodeURIComponent(ico)}&sid=0`;
     const searchResp = await fetchWithTimeout(searchUrl, { headers: BROWSER_HEADERS });
     if (!searchResp.ok) {
@@ -199,6 +235,7 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
     });
 
     if (!detailPath) {
+      console.log(`[LOOKUP] ORSR done ICO=${ico} — not found`);
       return { found: false, message: "Firma nenájdená v ORSR" };
     }
 
@@ -409,6 +446,7 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
       }
     }
 
+    console.log(`[LOOKUP] ORSR done ICO=${ico} — found: ${name.trim()}`);
     return {
       found: true,
       source: "ORSR",
@@ -428,9 +466,10 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
     };
   } catch (err: any) {
     if (err.name === "AbortError") {
+      console.log(`[LOOKUP] ORSR timeout ICO=${ico}`);
       return { found: false, message: "ORSR nedostupný (timeout)" };
     }
-    console.error("[ORSR LOOKUP ERROR]", err.message);
+    console.error("[LOOKUP] ORSR error ICO=" + ico, err.message);
     return { found: false, message: "Chyba pri komunikácii s ORSR" };
   }
 }
@@ -438,6 +477,7 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
 
 export async function lookupAresByIco(ico: string): Promise<RegistryLookupResult> {
   try {
+    console.log(`[LOOKUP] ARES start ICO=${ico}`);
     const resp = await fetchWithTimeout(
       `https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/${encodeURIComponent(ico)}`,
       { headers: { Accept: "application/json" } },
@@ -502,6 +542,7 @@ export async function lookupAresByIco(ico: string): Promise<RegistryLookupResult
       }
     }
 
+    console.log(`[LOOKUP] ARES done ICO=${ico} — found: ${name}`);
     return {
       found: true,
       source: "ARES",
@@ -516,8 +557,10 @@ export async function lookupAresByIco(ico: string): Promise<RegistryLookupResult
     };
   } catch (err: any) {
     if (err.name === "AbortError") {
+      console.log(`[LOOKUP] ARES timeout ICO=${ico}`);
       return { found: false, message: "ARES nedostupný (timeout)" };
     }
+    console.error("[LOOKUP] ARES error ICO=" + ico, err.message);
     return { found: false, message: "Chyba pri komunikácii s ARES" };
   }
 }
@@ -552,36 +595,74 @@ export async function lookupByIco(
     };
   }
 
-  const lookups: Array<() => Promise<RegistryLookupResult>> = [];
-  lookups.push(() => lookupOrsrByIco(normalized));
-  if (!skipAres) lookups.push(() => lookupAresByIco(normalized));
+  console.log(`[LOOKUP] Starting parallel lookup for ICO: ${normalized}`);
+  const startTime = Date.now();
 
+  const registryPromises: Promise<RegistryLookupResult>[] = [
+    lookupOrsrByIco(normalized),
+  ];
+  if (!skipAres) {
+    registryPromises.push(lookupAresByIco(normalized));
+  }
+  const finstatPromise = lookupFinstatByIco(normalized).catch(() => ({} as Partial<RegistryLookupResult>));
+
+  const [registryResults, finstatData] = await Promise.all([
+    Promise.allSettled(registryPromises),
+    finstatPromise,
+  ]);
+
+  const elapsed = Date.now() - startTime;
+
+  let primaryResult: RegistryLookupResult | null = null;
   let allUnreachable = true;
 
-  for (const lookup of lookups) {
-    try {
-      const result = await lookup();
-      if (result.found) {
-        const finstatData = await lookupFinstatByIco(normalized).catch(() => ({}));
-        const merged: RegistryLookupResult & { valid: boolean; normalized: string } = {
-          valid: true,
-          normalized,
-          ...result,
-          dic: result.dic || finstatData.dic,
-          icDph: finstatData.icDph,
-          vatParagraph: finstatData.vatParagraph,
-          vatRegisteredAt: finstatData.vatRegisteredAt,
-          foundedDate: result.foundedDate || finstatData.foundedDate,
-        };
-        return merged;
+  for (const settled of registryResults) {
+    if (settled.status === "fulfilled") {
+      const result = settled.value;
+      if (result.found && !primaryResult) {
+        primaryResult = result;
       }
       if (result.reachable !== false) {
         allUnreachable = false;
       }
-    } catch {
-      continue;
     }
   }
+
+  if (primaryResult) {
+    const merged: RegistryLookupResult & { valid: boolean; normalized: string } = {
+      valid: true,
+      normalized,
+      ...primaryResult,
+      dic: primaryResult.dic || finstatData.dic,
+      icDph: finstatData.icDph,
+      vatParagraph: finstatData.vatParagraph,
+      vatRegisteredAt: finstatData.vatRegisteredAt,
+      foundedDate: primaryResult.foundedDate || finstatData.foundedDate,
+    };
+    console.log(`[LOOKUP] Final result ICO=${normalized} — source=${primaryResult.source}, name=${primaryResult.name}, elapsed=${elapsed}ms`);
+    return merged;
+  }
+
+  if (finstatData.name || finstatData.dic || finstatData.icDph) {
+    console.log(`[LOOKUP] Final result ICO=${normalized} — Finstat fallback, name=${finstatData.name || "N/A"}, elapsed=${elapsed}ms`);
+    return {
+      valid: true,
+      normalized,
+      found: true,
+      source: "Finstat",
+      name: finstatData.name,
+      street: finstatData.street,
+      city: finstatData.city,
+      zip: finstatData.zip,
+      dic: finstatData.dic,
+      icDph: finstatData.icDph,
+      vatParagraph: finstatData.vatParagraph,
+      vatRegisteredAt: finstatData.vatRegisteredAt,
+      foundedDate: finstatData.foundedDate,
+    };
+  }
+
+  console.log(`[LOOKUP] Final result ICO=${normalized} — not found in any registry, elapsed=${elapsed}ms`);
 
   if (allUnreachable) {
     return {
