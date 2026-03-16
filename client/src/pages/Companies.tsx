@@ -100,7 +100,7 @@ const formSchema = insertMyCompanySchema.extend({
   stateId: z.number({ required_error: "Stat je povinny" }),
   description: z.string().min(1, "Charakteristika je povinna"),
   specialization: z.string().min(1, "Zameranie je povinne"),
-  code: z.string().min(1, "Kod je povinny").max(4, "Max 4 znaky"),
+  code: z.string().min(1, "Kod je povinny").max(25, "Max 25 znakov"),
   foundedDate: z.string().nullable().optional(),
 });
 
@@ -425,7 +425,7 @@ function CompanyFormDialog({
                   <FormField control={form.control} name="code" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Kod firmy</FormLabel>
-                      <FormControl><Input {...field} maxLength={4} className="font-mono uppercase" data-testid="input-company-code" /></FormControl>
+                      <FormControl><Input {...field} maxLength={25} className="font-mono uppercase" data-testid="input-company-code" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
