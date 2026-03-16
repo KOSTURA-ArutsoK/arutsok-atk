@@ -731,7 +731,7 @@ function CompanyFormDialog({
                   </FormItem>
                 )} />
                 <div className="flex items-start gap-3">
-                  <div className="flex-1 space-y-2">
+                  <div className={`flex-1 space-y-2 ${watchedSubjectType === "po" ? "border border-border rounded-md p-3 bg-muted/30" : ""}`} data-testid="ico-bubble-container">
                     <FormField control={form.control} name="ico" render={({ field }) => (
                       <FormItem>
                         <FormLabel>IČO *</FormLabel>
@@ -810,7 +810,7 @@ function CompanyFormDialog({
                     )}
                   </div>
                   <FormField control={form.control} name="dic" render={({ field }) => (
-                    <FormItem className="w-[45%] flex-shrink-0">
+                    <FormItem className={`w-[45%] flex-shrink-0 ${watchedSubjectType === "po" ? "pt-3" : ""}`}>
                       <FormLabel>DIČ *</FormLabel>
                       <FormControl>
                         <div className="relative">
