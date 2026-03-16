@@ -1373,6 +1373,169 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/company-officers/:id/register-subject", isAuthenticated, async (req: any, res) => {
+    try {
+      const officerId = Number(req.params.id);
+      if (isNaN(officerId)) return res.status(400).json({ message: "Neplatné ID štatutára" });
+
+      const allOfficers = await db.select().from(companyOfficers).where(eq(companyOfficers.id, officerId));
+      const officer = allOfficers[0];
+      if (!officer) return res.status(404).json({ message: "Štatutár nebol nájdený" });
+
+      const userCompanies = await storage.getMyCompanies(req.appUser?.activeStateId);
+      const companyIds = userCompanies.map((c: any) => c.id);
+      if (!companyIds.includes(officer.companyId)) {
+        return res.status(403).json({ message: "Nemáte oprávnenie na túto spoločnosť" });
+      }
+
+      if (officer.subjectId) {
+        const existing = await storage.getSubject(officer.subjectId);
+        if (existing) return res.status(200).json({ alreadyRegistered: true, subject: existing });
+      }
+
+      let stateCode = '421';
+      if (req.appUser?.activeStateId) {
+        const st = await storage.getState(req.appUser.activeStateId);
+        if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
+      }
+
+      const uid = await storage.generateNextGlobalUid(stateCode);
+      const firstName = officer.firstName || '';
+      const lastName = officer.lastName || '';
+
+      const subjectData: any = {
+        uid,
+        type: 'person',
+        firstName,
+        lastName,
+        stateId: req.appUser?.activeStateId || officer.stateId || null,
+        myCompanyId: req.appUser?.activeCompanyId || null,
+        registeredByUserId: req.appUser?.id || null,
+        registrationStatus: 'tiper',
+        details: { source: 'statutory_registration', officerId: officer.id, officerType: officer.type },
+      };
+
+      const created = await storage.createSubject(subjectData);
+      await storage.updateCompanyOfficer(officerId, { subjectId: created.id } as any);
+
+      await logAudit(req, {
+        action: "CREATE",
+        module: "subjekty",
+        entityId: created.id,
+        entityName: `${created.firstName} ${created.lastName} (Štatutár – UID ${uid})`,
+        newData: { uid, officerId, type: officer.type },
+      });
+
+      res.status(201).json(created);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri registrácii štatutára" });
+    }
+  });
+
+  app.post("/api/company-officers/register-from-registry", isAuthenticated, async (req: any, res) => {
+    try {
+      const { companyId, name, role, since } = req.body;
+      if (!companyId || !name) return res.status(400).json({ message: "Chýba companyId alebo meno" });
+      if (typeof companyId !== 'number' || isNaN(companyId)) return res.status(400).json({ message: "Neplatné companyId" });
+      if (typeof name !== 'string' || name.trim().length < 2) return res.status(400).json({ message: "Neplatné meno" });
+
+      const userCompanies = await storage.getMyCompanies(req.appUser?.activeStateId);
+      const companyIds = userCompanies.map((c: any) => c.id);
+      if (!companyIds.includes(companyId)) {
+        return res.status(403).json({ message: "Nemáte oprávnenie na túto spoločnosť" });
+      }
+
+      const nameParts = name.trim().split(/\s+/);
+      let titleBefore = '';
+      let firstName = '';
+      let lastName = '';
+      let titleAfter = '';
+
+      const titles = ['Ing.', 'Mgr.', 'JUDr.', 'MUDr.', 'RNDr.', 'PhDr.', 'PaedDr.', 'doc.', 'prof.', 'Bc.', 'MBA', 'PhD.', 'CSc.', 'DrSc.', 'RSDr.', 'MVDr.', 'ThDr.', 'ICDr.', 'Dr.'];
+      const afterTitles = ['PhD.', 'CSc.', 'DrSc.', 'MBA', 'MSc.', 'LL.M.'];
+
+      const beforeParts: string[] = [];
+      const afterParts: string[] = [];
+      const mainParts: string[] = [];
+
+      let collectingBefore = true;
+      for (const part of nameParts) {
+        const cleanPart = part.replace(/,/g, '');
+        if (collectingBefore && titles.some(t => cleanPart.toLowerCase() === t.toLowerCase())) {
+          beforeParts.push(cleanPart);
+        } else if (afterTitles.some(t => cleanPart.toLowerCase() === t.toLowerCase())) {
+          afterParts.push(cleanPart);
+        } else {
+          collectingBefore = false;
+          mainParts.push(cleanPart);
+        }
+      }
+
+      titleBefore = beforeParts.join(' ');
+      titleAfter = afterParts.join(' ');
+      firstName = mainParts[0] || '';
+      lastName = mainParts.slice(1).join(' ') || '';
+
+      const [existing] = await db.select().from(companyOfficers)
+        .where(and(
+          eq(companyOfficers.companyId, companyId),
+          sql`LOWER(${companyOfficers.firstName}) = LOWER(${firstName})`,
+          sql`LOWER(${companyOfficers.lastName}) = LOWER(${lastName})`,
+          eq(companyOfficers.isActive, true)
+        )).limit(1);
+
+      if (existing) {
+        return res.status(200).json({ alreadyExists: true, officer: existing });
+      }
+
+      const officerData: any = {
+        companyId,
+        type: role || 'Štatutár',
+        titleBefore: titleBefore || null,
+        firstName,
+        lastName,
+        titleAfter: titleAfter || null,
+        validFrom: since ? new Date(since.split('.').reverse().join('-')) : new Date(),
+      };
+
+      const created = await storage.createCompanyOfficer(officerData);
+
+      let stateCode = '421';
+      if (req.appUser?.activeStateId) {
+        const st = await storage.getState(req.appUser.activeStateId);
+        if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
+      }
+
+      const uid = await storage.generateNextGlobalUid(stateCode);
+      const subjectData: any = {
+        uid,
+        type: 'person',
+        firstName,
+        lastName,
+        stateId: req.appUser?.activeStateId || null,
+        myCompanyId: req.appUser?.activeCompanyId || null,
+        registeredByUserId: req.appUser?.id || null,
+        registrationStatus: 'tiper',
+        details: { source: 'registry_statutory', officerId: created.id, officerType: role },
+      };
+
+      const subject = await storage.createSubject(subjectData);
+      await storage.updateCompanyOfficer(created.id, { subjectId: subject.id } as any);
+
+      await logAudit(req, {
+        action: "CREATE",
+        module: "subjekty",
+        entityId: subject.id,
+        entityName: `${firstName} ${lastName} (Štatutár z registra – UID ${uid})`,
+        newData: { uid, officerId: created.id, role },
+      });
+
+      res.status(201).json({ officer: { ...created, subjectId: subject.id }, subject });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri registrácii z registra" });
+    }
+  });
+
   // === PARTNERS ===
   app.get(api.partners.list.path, isAuthenticated, async (req: any, res) => {
     const includeDeleted = req.query.includeDeleted === 'true';

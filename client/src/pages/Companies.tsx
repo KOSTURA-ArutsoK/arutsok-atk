@@ -6,7 +6,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Phone, Mail, GitBranch, Info, UserCheck } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
+import { formatDateSlovak, formatDateTimeSlovak, formatUid } from "@/lib/utils";
 import { useToast as useToastCompanyDiv } from "@/hooks/use-toast";
 import type { CompanyLogoHistory, Division } from "@shared/schema";
 
@@ -1259,35 +1259,17 @@ function CompanyFormDialog({
                     Štatutári sú fyzické alebo právnické osoby oprávnené konať v mene spoločnosti navonok.
                     Patrí sem <span className="text-foreground font-medium">konateľ</span>, <span className="text-foreground font-medium">člen predstavenstva</span>,
                     {" "}<span className="text-foreground font-medium">prokurista</span>, správca, likvidátor a iné osoby zapísané v Obchodnom registri SR.
-                    Štatutári sú verejne dostupní v Obchodnom registri SR (ORSR).
+                    Každý štatutár musí byť zapísaný v systéme pod vlastným UID.
                   </p>
                 </div>
-                {registryResult?.directors && registryResult.directors.length > 0 && (
-                  <div className="space-y-2" data-testid="section-orsr-directors">
-                    <p className="text-xs text-muted-foreground flex items-center gap-1.5 mb-2">
-                      <Search className="w-3 h-3" />Z Obchodného registra (posledné vyhľadávanie):
-                    </p>
-                    {registryResult.directors.map((dir, idx) => (
-                      <div key={idx} className="flex items-start gap-3 p-2.5 border border-border rounded-md text-sm" data-testid={`officer-orsr-${idx}`}>
-                        <UserCheck className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                        <div className="min-w-0">
-                          <span className="font-medium">{dir.name}</span>
-                          {dir.role && <span className="ml-2 text-xs text-muted-foreground">({dir.role})</span>}
-                          {dir.since && <span className="ml-2 text-xs font-mono text-muted-foreground">od: {dir.since}</span>}
-                        </div>
-                      </div>
-                    ))}
-                    {registryResult.actingNote && (
-                      <p className="text-xs text-muted-foreground italic" data-testid="text-officers-acting-note">{registryResult.actingNote}</p>
-                    )}
-                  </div>
+                {registryResult?.actingNote && (
+                  <p className="text-xs text-muted-foreground italic" data-testid="text-officers-acting-note">{registryResult.actingNote}</p>
                 )}
-                {!registryResult?.directors && (
-                  <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-officers-hint">
-                    Vykonajte vyhľadávanie podľa IČO v záložke „Základné údaje" pre načítanie štatutárov z Obchodného registra.
-                  </p>
-                )}
-                <CompanyOfficersSection companyId={editingCompany?.id ?? null} />
+                <CompanyOfficersSection
+                  companyId={editingCompany?.id ?? null}
+                  registryDirectors={registryResult?.directors}
+                  companyUid={editingCompany?.uid}
+                />
               </TabsContent>
 
               <TabsContent value="docs" className="mt-4 space-y-6">
@@ -1530,11 +1512,10 @@ function CompanyDetailDialog({
               <p className="text-sm font-medium flex items-center gap-2"><Info className="w-4 h-4 text-primary" />Čo sú Štatutári?</p>
               <p className="text-sm text-muted-foreground">
                 Štatutári sú fyzické alebo právnické osoby oprávnené konať v mene spoločnosti navonok.
-                Patrí sem <span className="text-foreground font-medium">konateľ</span>, <span className="text-foreground font-medium">člen predstavenstva</span>,
-                {" "}<span className="text-foreground font-medium">prokurista</span>, správca, likvidátor a iné osoby zapísané v Obchodnom registri SR.
+                Každý štatutár musí byť zapísaný v systéme pod vlastným UID.
               </p>
             </div>
-            <CompanyOfficersSection companyId={company.id} />
+            <CompanyOfficersSection companyId={company.id} companyUid={company.uid} />
           </TabsContent>
 
           <TabsContent value="docs" className="mt-4 space-y-6">
@@ -1906,38 +1887,164 @@ function CompanyDivisionsTab({ companyId }: { companyId: number | null }) {
   );
 }
 
-function CompanyOfficersSection({ companyId }: { companyId: number | null }) {
+function CompanyOfficersSection({ companyId, registryDirectors, companyUid }: { companyId: number | null; registryDirectors?: RegistryDirector[]; companyUid?: string | null }) {
+  const { toast } = useToastCompanyDiv();
   const { data: officers = [], isLoading } = useQuery<any[]>({
-    queryKey: [`/api/my-companies/${companyId}/officers`],
+    queryKey: ['/api/my-companies', companyId, 'officers'],
+    queryFn: () => fetch(`/api/my-companies/${companyId}/officers`).then(r => r.json()),
     enabled: !!companyId,
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: async (officerId: number) => {
+      const resp = await apiRequest("POST", `/api/company-officers/${officerId}/register-subject`);
+      return resp.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/my-companies', companyId, 'officers'] });
+      if (data.alreadyRegistered) {
+        toast({ title: "Štatutár je už zapísaný", description: `UID: ${formatUid(data.subject?.uid)}` });
+      } else {
+        toast({ title: "Štatutár zapísaný do systému", description: `UID: ${formatUid(data.uid)}` });
+      }
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa zapísať štatutára", variant: "destructive" });
+    },
+  });
+
+  const registerFromRegistryMutation = useMutation({
+    mutationFn: async (dir: RegistryDirector) => {
+      const resp = await apiRequest("POST", "/api/company-officers/register-from-registry", {
+        companyId,
+        name: dir.name,
+        role: dir.role || 'Štatutár',
+        since: dir.since,
+      });
+      return resp.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/my-companies', companyId, 'officers'] });
+      if (data.alreadyExists) {
+        toast({ title: "Štatutár už existuje v záznamoch" });
+      } else {
+        toast({ title: "Štatutár zapísaný", description: `UID: ${formatUid(data.subject?.uid)}` });
+      }
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa zapísať štatutára z registra", variant: "destructive" });
+    },
+  });
+
+  const registeredNames = new Set(
+    officers.map((off: any) =>
+      `${(off.firstName || '').toLowerCase().trim()} ${(off.lastName || '').toLowerCase().trim()}`
+    )
+  );
+
+  const unregisteredDirectors = (registryDirectors || []).filter(dir => {
+    const parts = dir.name.trim().split(/\s+/);
+    const titles = ['Ing.', 'Mgr.', 'JUDr.', 'MUDr.', 'RNDr.', 'PhDr.', 'PaedDr.', 'doc.', 'prof.', 'Bc.', 'MBA', 'PhD.', 'CSc.', 'DrSc.', 'RSDr.', 'MVDr.', 'Dr.'];
+    const mainParts = parts.filter(p => !titles.some(t => p.replace(/,/g, '').toLowerCase() === t.toLowerCase()));
+    const simpleName = mainParts.join(' ').toLowerCase().trim();
+    return !registeredNames.has(simpleName);
   });
 
   if (!companyId) return null;
   if (isLoading) return (
     <div className="text-sm text-muted-foreground flex items-center gap-2">
-      <Loader2 className="w-3 h-3 animate-spin" />Načítavam uložených štatutárov...
+      <Loader2 className="w-3 h-3 animate-spin" />Načítavam štatutárov...
     </div>
   );
-  if (officers.length === 0) return null;
 
   return (
-    <div className="space-y-2" data-testid="section-db-officers">
-      <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-        <UserCheck className="w-3 h-3" />Uložení štatutári:
-      </p>
-      {officers.map((off: any) => (
-        <div key={off.id} className="flex items-start gap-3 p-2.5 border border-border rounded-md text-sm" data-testid={`officer-db-${off.id}`}>
-          <UserCheck className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-          <div className="min-w-0">
-            <span className="font-medium">
-              {[off.titleBefore, off.firstName, off.lastName, off.titleAfter].filter(Boolean).join(" ")}
-              {off.ownerCompanyName && <span> {off.ownerCompanyName}</span>}
-            </span>
-            {off.type && <span className="ml-2 text-xs text-muted-foreground">({off.type})</span>}
-            {off.city && <span className="ml-2 text-xs text-muted-foreground">{off.city}</span>}
-          </div>
+    <div className="space-y-4" data-testid="section-db-officers">
+      {officers.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
+            <UserCheck className="w-3 h-3" />Zapísaní štatutári ({officers.length})
+          </p>
+          {officers.map((off: any) => (
+            <div key={off.id} className="flex items-center gap-3 p-3 border border-border rounded-md text-sm" data-testid={`officer-db-${off.id}`}>
+              <UserCheck className="w-4 h-4 text-green-500 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium">
+                    {[off.titleBefore, off.firstName, off.lastName, off.titleAfter].filter(Boolean).join(" ")}
+                    {off.ownerCompanyName && <span> {off.ownerCompanyName}</span>}
+                  </span>
+                  {off.type && <Badge variant="outline" className="text-[10px]">{off.type}</Badge>}
+                </div>
+                {off.city && <span className="text-xs text-muted-foreground">{off.city}</span>}
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {off.subjectUid ? (
+                  <Badge variant="secondary" className="font-mono text-[10px]" data-testid={`badge-uid-${off.id}`}>
+                    {formatUid(off.subjectUid)}
+                  </Badge>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-7"
+                    onClick={() => registerMutation.mutate(off.id)}
+                    disabled={registerMutation.isPending}
+                    data-testid={`button-register-officer-${off.id}`}
+                  >
+                    {registerMutation.isPending ? (
+                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                    ) : (
+                      <Plus className="w-3 h-3 mr-1" />
+                    )}
+                    Zapísať do systému
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
+
+      {unregisteredDirectors.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
+            <Search className="w-3 h-3" />Nájdení v registri – nezapísaní ({unregisteredDirectors.length})
+          </p>
+          {unregisteredDirectors.map((dir, idx) => (
+            <div key={idx} className="flex items-center gap-3 p-3 border border-dashed border-amber-500/50 rounded-md text-sm bg-amber-500/5" data-testid={`officer-registry-unregistered-${idx}`}>
+              <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium">{dir.name}</span>
+                  {dir.role && <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-600">{dir.role}</Badge>}
+                </div>
+                {dir.since && <span className="text-xs text-muted-foreground">od: {dir.since}</span>}
+              </div>
+              <Button
+                size="sm"
+                variant="default"
+                className="text-xs h-7"
+                onClick={() => registerFromRegistryMutation.mutate(dir)}
+                disabled={registerFromRegistryMutation.isPending}
+                data-testid={`button-register-registry-${idx}`}
+              >
+                {registerFromRegistryMutation.isPending ? (
+                  <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                ) : (
+                  <Plus className="w-3 h-3 mr-1" />
+                )}
+                Zapísať
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {officers.length === 0 && unregisteredDirectors.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-officers">
+          Žiadni štatutári. Vyhľadajte firmu cez IČO v záložke „Základné údaje" pre načítanie štatutárov z Obchodného registra.
+        </p>
+      )}
     </div>
   );
 }

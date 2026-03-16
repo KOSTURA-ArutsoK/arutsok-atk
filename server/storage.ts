@@ -894,10 +894,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCompanyOfficers(companyId: number, includeInactive?: boolean) {
-    if (includeInactive) {
-      return await db.select().from(companyOfficers).where(eq(companyOfficers.companyId, companyId));
-    }
-    return await db.select().from(companyOfficers).where(and(eq(companyOfficers.companyId, companyId), eq(companyOfficers.isActive, true)));
+    const condition = includeInactive
+      ? eq(companyOfficers.companyId, companyId)
+      : and(eq(companyOfficers.companyId, companyId), eq(companyOfficers.isActive, true));
+
+    const rows = await db.select({
+      officer: companyOfficers,
+      subjectUid: subjects.uid,
+      subjectFirstName: subjects.firstName,
+      subjectLastName: subjects.lastName,
+    })
+      .from(companyOfficers)
+      .leftJoin(subjects, eq(companyOfficers.subjectId, subjects.id))
+      .where(condition);
+
+    return rows.map(r => ({
+      ...r.officer,
+      subjectUid: r.subjectUid || null,
+      subjectFirstName: r.subjectFirstName || null,
+      subjectLastName: r.subjectLastName || null,
+    }));
   }
 
   async createCompanyOfficer(data: InsertCompanyOfficer) {
