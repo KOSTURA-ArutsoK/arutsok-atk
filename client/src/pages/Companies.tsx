@@ -706,10 +706,10 @@ function CompanyFormDialog({
             <Tabs defaultValue="basic" className="w-full">
               <TabsList className="flex flex-wrap h-auto gap-1 justify-between w-full">
                 <TabsTrigger value="basic" data-testid="tab-basic">Základné údaje</TabsTrigger>
+                <TabsTrigger value="officers" data-testid="tab-officers">Štatutári</TabsTrigger>
                 <TabsTrigger value="address" data-testid="tab-address">Adresa</TabsTrigger>
                 <TabsTrigger value="branches" data-testid="tab-branches">Pobočky</TabsTrigger>
                 <TabsTrigger value="divisions" data-testid="tab-divisions">Divízie</TabsTrigger>
-                <TabsTrigger value="officers" data-testid="tab-officers">Štatutári</TabsTrigger>
                 <TabsTrigger value="docs" data-testid="tab-docs">Dokumenty</TabsTrigger>
                 <TabsTrigger value="notes" data-testid="tab-notes">Poznámky</TabsTrigger>
               </TabsList>
@@ -1392,9 +1392,9 @@ function CompanyDetailDialog({
         <Tabs defaultValue="basic" className="w-full mt-2">
           <TabsList className="flex flex-wrap h-auto gap-1 justify-between w-full">
             <TabsTrigger value="basic" data-testid="detail-tab-basic">Základné údaje</TabsTrigger>
+            <TabsTrigger value="officers" data-testid="detail-tab-officers">Štatutári</TabsTrigger>
             <TabsTrigger value="address" data-testid="detail-tab-address">Adresa</TabsTrigger>
             <TabsTrigger value="branches" data-testid="detail-tab-branches">Pobočky</TabsTrigger>
-            <TabsTrigger value="officers" data-testid="detail-tab-officers">Štatutári</TabsTrigger>
             <TabsTrigger value="docs" data-testid="detail-tab-docs">Dokumenty</TabsTrigger>
             <TabsTrigger value="notes" data-testid="detail-tab-notes">Poznámky</TabsTrigger>
           </TabsList>
