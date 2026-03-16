@@ -693,20 +693,22 @@ function CompanyFormDialog({
               </TabsList>
 
               <TabsContent value="basic" className="space-y-4 mt-4">
-                <FormField control={form.control} name="name" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Názov spoločnosti</FormLabel>
-                    <FormControl><Input {...field} data-testid="input-company-name" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="code" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Kód firmy</FormLabel>
-                    <FormControl><Input {...field} maxLength={25} className="font-mono uppercase" data-testid="input-company-code" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                <div className="flex gap-3">
+                  <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem className="flex-[7]">
+                      <FormLabel>Názov spoločnosti</FormLabel>
+                      <FormControl><Input {...field} data-testid="input-company-name" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="code" render={({ field }) => (
+                    <FormItem className="flex-[3]">
+                      <FormLabel>Kód firmy</FormLabel>
+                      <FormControl><Input {...field} maxLength={25} className="font-mono uppercase" data-testid="input-company-code" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
                 <FormField control={form.control} name="subjectType" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Typ subjektu</FormLabel>
