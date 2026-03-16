@@ -2097,6 +2097,22 @@ export async function registerRoutes(
           if (isBlacklisted) {
             return res.status(403).json({ message: "Registráciu nie je možné dokončiť. Kontaktujte správcu." });
           }
+          const existing = await storage.getSubject(dupCheck.id);
+          return res.status(200).json({ existingSubject: { id: dupCheck.id, uid: dupCheck.uid, name: dupCheck.name, type: dupCheck.type, matchedField: dupCheck.matchedField, firstName: existing?.firstName, lastName: existing?.lastName, companyName: existing?.companyName } });
+        }
+      }
+
+      if (input.companyName && (input.type === "company" || input.type === "organization")) {
+        const [companyDup] = await db.select({ id: subjects.id, uid: subjects.uid, companyName: subjects.companyName, type: subjects.type })
+          .from(subjects)
+          .where(and(isNull(subjects.deletedAt), sql`LOWER(${subjects.companyName}) = LOWER(${input.companyName.trim()})`))
+          .limit(1);
+        if (companyDup) {
+          const isBlacklisted = await storage.isSubjectInGroup(companyDup.id, "group_cierny_zoznam");
+          if (isBlacklisted) {
+            return res.status(403).json({ message: "Registráciu nie je možné dokončiť. Kontaktujte správcu." });
+          }
+          return res.status(200).json({ existingSubject: { id: companyDup.id, uid: companyDup.uid || "", name: companyDup.companyName || "", type: companyDup.type, matchedField: "Názov spoločnosti" } });
         }
       }
 
@@ -2125,6 +2141,15 @@ export async function registerRoutes(
 
       if (input.firstName) input.firstName = capitalizeName(input.firstName) ?? input.firstName;
       if (input.lastName) input.lastName = capitalizeName(input.lastName) ?? input.lastName;
+
+      {
+        let stateCode = '421';
+        if (req.appUser?.activeStateId) {
+          const st = await storage.getState(req.appUser.activeStateId);
+          if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
+        }
+        (input as any).uid = await storage.generateNextGlobalUid(stateCode);
+      }
 
       if (input.type === 'szco') {
         if (input.birthNumber) {

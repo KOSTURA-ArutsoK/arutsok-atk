@@ -52,9 +52,10 @@ export function useCreateSubject() {
       const res = await apiRequest("POST", "/api/subjects", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
-      toast({ title: "Subjekt vytvoreny", description: "Novy subjekt bol zaregistrovany." });
+      if (data?.existingSubject) return;
+      toast({ title: "Subjekt vytvorený", description: "Nový subjekt bol zaregistrovaný." });
     },
     onError: (error: Error) => {
       toast({ title: "Chyba", description: error.message, variant: "destructive" });

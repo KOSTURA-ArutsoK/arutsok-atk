@@ -1309,7 +1309,7 @@ export class DatabaseStorage implements IStorage {
       insertSubject.continentId = continent.id;
     }
 
-    const uid = await this.generateUID(state.code, continent.code);
+    const uid = insertSubject.uid || await this.generateUID(state.code, continent.code);
     
     const [subject] = await db.insert(subjects).values({ ...insertSubject, uid }).returning();
     return subject;

@@ -2489,6 +2489,7 @@ function FullPageEditor({
   const [documents, setDocuments] = useState<DocumentEntry[]>([]);
   const [contacts, setContacts] = useState<ContactEntry[]>([{ id: crypto.randomUUID(), type: "phone", value: "", label: "Primárny", isPrimary: true }]);
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
+  const [existingSubjectBanner, setExistingSubjectBanner] = useState<{ id: number; uid: string; name: string; matchedField: string } | null>(null);
   const setDynamicValues: typeof setDynamicValuesRaw = (updater) => {
     setDynamicValuesRaw((prev) => {
       const next = typeof updater === "function" ? updater(prev) : updater;
@@ -2698,6 +2699,10 @@ function FullPageEditor({
     }
     mutate(submitData, {
       onSuccess: async (createdSubject: any) => {
+        if (createdSubject?.existingSubject) {
+          setExistingSubjectBanner(createdSubject.existingSubject);
+          return;
+        }
         if (createdSubject?.id && !isPerson) {
           const snapshotData = initialData.aresData || pendingRegistrySnapshot || (szcoAresLookup?.found ? szcoAresLookup : null);
           const snapshotSource = snapshotData?.source || "ORSR";
@@ -2735,6 +2740,31 @@ function FullPageEditor({
           </p>
         </div>
       </div>
+
+      {existingSubjectBanner && (
+        <div className="border border-yellow-500 bg-yellow-500/10 rounded p-3 flex items-start gap-3" data-testid="banner-existing-subject">
+          <AlertTriangle className="w-5 h-5 text-yellow-500 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-yellow-400">Subjekt už existuje v systéme</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Zhoda podľa: <span className="font-medium text-foreground">{existingSubjectBanner.matchedField}</span>
+              {" — "}
+              <span className="font-medium text-foreground">{existingSubjectBanner.name}</span>
+              {existingSubjectBanner.uid && <span className="ml-1 text-xs text-muted-foreground">(UID: {existingSubjectBanner.uid})</span>}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Nový záznam nebol vytvorený. Môžete otvoriť existujúci subjekt alebo upraviť zadané údaje.</p>
+          </div>
+          <a href={`/subjects/${existingSubjectBanner.id}`} target="_blank" rel="noopener noreferrer">
+            <Button type="button" variant="outline" size="sm" className="text-xs shrink-0" data-testid="button-open-existing-subject">
+              <ExternalLink className="w-3 h-3 mr-1" />
+              Otvoriť
+            </Button>
+          </a>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setExistingSubjectBanner(null)} className="shrink-0 p-1 h-auto" data-testid="button-dismiss-existing-banner">
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
 
       {isSzcoType && (
         <div className="space-y-4">
