@@ -593,6 +593,8 @@ export const clientGroups = pgTable("client_groups", {
   permissionLevel: integer("permission_level").notNull().default(1),
   permissionGroupId: integer("permission_group_id").references(() => permissionGroups.id),
   isSystem: boolean("is_system").default(false),
+  isHoldingGroup: boolean("is_holding_group").default(false),
+  linkedCompanyId: integer("linked_company_id").references(() => myCompanies.id),
   customFields: jsonb("custom_fields").$type<Array<{ name: string; type: string }>>().default([]),
   sortOrder: integer("sort_order").default(0),
   stateId: integer("state_id").references(() => states.id),

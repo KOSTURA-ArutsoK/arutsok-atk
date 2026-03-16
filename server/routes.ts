@@ -1288,6 +1288,17 @@ export async function registerRoutes(
       const input = api.myCompanies.create.input.parse(req.body);
       const created = await storage.createMyCompany(input);
       await logAudit(req, { action: "CREATE", module: "spolocnosti", entityId: created.id, entityName: created.name, newData: input });
+
+      const linkedCg = await storage.createClientGroup({
+        name: created.name,
+        isSystem: true,
+        isHoldingGroup: true,
+        linkedCompanyId: created.id,
+        groupCode: `holding_company_${created.id}`,
+        permissionLevel: 1,
+      } as any);
+      await logAudit(req, { action: "CREATE", module: "skupiny_klientov", entityId: linkedCg.id, entityName: linkedCg.name, newData: { autoLinked: true, holdingGroup: true, linkedCompanyId: created.id } });
+
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -1301,6 +1312,15 @@ export async function registerRoutes(
       const oldCompany = await storage.getMyCompany(Number(req.params.id));
       const updated = await storage.updateMyCompany(Number(req.params.id), input);
       await logAudit(req, { action: "UPDATE", module: "spolocnosti", entityId: Number(req.params.id), entityName: updated.name, oldData: oldCompany, newData: input });
+
+      if (oldCompany && oldCompany.name !== updated.name) {
+        const linkedCg = await storage.getClientGroupByLinkedCompanyId(Number(req.params.id));
+        if (linkedCg) {
+          await storage.updateClientGroup(linkedCg.id, { name: updated.name });
+          await logAudit(req, { action: "UPDATE", module: "skupiny_klientov", entityId: linkedCg.id, entityName: updated.name, newData: { nameSyncFromCompany: true } });
+        }
+      }
+
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -6824,7 +6844,9 @@ export async function registerRoutes(
     const groups = await storage.getClientGroups(getEnforcedStateId(req));
     const result = await Promise.all(groups.map(async (g) => ({
       ...g,
-      memberCount: await storage.getClientGroupMemberCount(g.id),
+      memberCount: (g as any).isHoldingGroup && (g as any).linkedCompanyId
+        ? await storage.getHoldingGroupMemberCount((g as any).linkedCompanyId)
+        : await storage.getClientGroupMemberCount(g.id),
     })));
     res.json(result);
   });
@@ -6893,6 +6915,9 @@ export async function registerRoutes(
     try {
       const existing = await storage.getClientGroup(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Skupina nenajdena" });
+      if ((existing as any).isHoldingGroup) {
+        return res.status(403).json({ message: "Holding skupinu nie je možné vymazať. Spravujte ju cez modul Spoločnosti." });
+      }
       if ((existing as any).isSystem) {
         return res.status(403).json({ message: "Systémovú skupinu nie je možné zmazať" });
       }
@@ -12592,6 +12617,35 @@ export async function registerRoutes(
         }
       }
     }
+  }
+
+  {
+    const allCompanies = await storage.getMyCompanies(false);
+    let holdingSynced = 0;
+    for (const company of allCompanies) {
+      const existingCg = await storage.getClientGroupByLinkedCompanyId(company.id);
+      if (!existingCg) {
+        await storage.createClientGroup({
+          name: company.name,
+          isSystem: true,
+          isHoldingGroup: true,
+          linkedCompanyId: company.id,
+          groupCode: `holding_company_${company.id}`,
+          permissionLevel: 1,
+        } as any);
+        holdingSynced++;
+        console.log(`[SEED] Created holding group for company: ${company.name}`);
+      } else {
+        const updates: any = {};
+        if (!existingCg.isSystem) updates.isSystem = true;
+        if (!(existingCg as any).isHoldingGroup) updates.isHoldingGroup = true;
+        if (existingCg.name !== company.name) updates.name = company.name;
+        if (Object.keys(updates).length > 0) {
+          await storage.updateClientGroup(existingCg.id, updates);
+        }
+      }
+    }
+    if (holdingSynced > 0) console.log(`[SEED] Auto-created ${holdingSynced} holding groups from companies`);
   }
 
   await storage.autoArchiveExpiredBindings();

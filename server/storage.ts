@@ -455,6 +455,8 @@ export interface IStorage {
   removeClientGroupMember(id: number): Promise<void>;
   getClientGroupMemberCount(groupId: number): Promise<number>;
   getClientSubGroupMemberCount(subGroupId: number): Promise<number>;
+  getHoldingGroupMemberCount(companyId: number): Promise<number>;
+  getClientGroupByLinkedCompanyId(companyId: number): Promise<ClientGroup | undefined>;
   isSubjectLoginAllowed(subjectId: number): Promise<boolean>;
 
   // User Client Group Memberships
@@ -3149,6 +3151,22 @@ export class DatabaseStorage implements IStorage {
       .from(clientGroupMembers)
       .where(eq(clientGroupMembers.subGroupId, subGroupId));
     return result[0]?.count || 0;
+  }
+
+  async getHoldingGroupMemberCount(companyId: number): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` })
+      .from(subjects)
+      .where(and(
+        eq(subjects.myCompanyId, companyId),
+        isNull(subjects.deletedAt),
+        ne(subjects.type, 'system')
+      ));
+    return result[0]?.count || 0;
+  }
+
+  async getClientGroupByLinkedCompanyId(companyId: number): Promise<ClientGroup | undefined> {
+    const [group] = await db.select().from(clientGroups).where(eq(clientGroups.linkedCompanyId, companyId));
+    return group;
   }
 
   async isSubjectLoginAllowed(subjectId: number): Promise<boolean> {
