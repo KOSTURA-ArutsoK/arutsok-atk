@@ -518,7 +518,7 @@ function CompanyFormDialog({
       if (editingCompany) {
         const hasIcDph = !!(editingCompany.icDph && editingCompany.icDph.trim());
         setPlatcaDph(hasIcDph);
-        const hasCorrAddr = !!(editingCompany.corrStreet || editingCompany.corrCity);
+        const hasCorrAddr = !!(editingCompany.corrStreet || editingCompany.corrStreetNumber || editingCompany.corrPostalCode || editingCompany.corrCity);
         setCorrSameAsHQ(!hasCorrAddr);
         setBranches((editingCompany.branches as BranchEntry[]) || []);
         form.reset({
