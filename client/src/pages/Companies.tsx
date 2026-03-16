@@ -482,6 +482,9 @@ function CompanyFormDialog({
   const [branches, setBranches] = useState<BranchEntry[]>([]);
   const [addingBranch, setAddingBranch] = useState(false);
   const [newBranch, setNewBranch] = useState<BranchEntry>({});
+  const [pendingLogo, setPendingLogo] = useState<File | null>(null);
+  const [pendingLogoPreview, setPendingLogoPreview] = useState<string | null>(null);
+  const logoFileRef = useRef<HTMLInputElement>(null);
 
   const editingCompany = editingCompanyId
     ? allCompanies?.find(c => c.id === editingCompanyId) || null
@@ -581,6 +584,10 @@ function CompanyFormDialog({
   }, [open, editingCompany, form]);
 
   const handleOpenChange = useCallback((isOpen: boolean) => {
+    if (!isOpen) {
+      setPendingLogo(null);
+      setPendingLogoPreview(null);
+    }
     onOpenChange(isOpen);
   }, [onOpenChange]);
 
@@ -663,7 +670,21 @@ function CompanyFormDialog({
       );
     } else {
       createMutation.mutate(payload as InsertMyCompany, {
-        onSuccess: () => handleOpenChange(false),
+        onSuccess: async (newCompany) => {
+          if (pendingLogo && newCompany?.id) {
+            try {
+              const fd = new FormData();
+              fd.append("file", pendingLogo);
+              await fetch(`/api/my-companies/${newCompany.id}/files/logos`, {
+                method: "POST",
+                body: fd,
+                credentials: "include",
+              });
+            } catch {
+            }
+          }
+          handleOpenChange(false);
+        },
       });
     }
   }
@@ -898,6 +919,62 @@ function CompanyFormDialog({
                     <FormMessage />
                   </FormItem>
                 )} />
+                {!editingCompany && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Logo spoločnosti</label>
+                    <input
+                      ref={logoFileRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      data-testid="input-logo-file"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setPendingLogo(file);
+                        if (file) {
+                          const url = URL.createObjectURL(file);
+                          setPendingLogoPreview(url);
+                        } else {
+                          setPendingLogoPreview(null);
+                        }
+                      }}
+                    />
+                    <div className="flex items-center gap-3">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => logoFileRef.current?.click()}
+                        data-testid="button-select-logo"
+                      >
+                        <Upload className="w-3.5 h-3.5 mr-1.5" />
+                        {pendingLogo ? "Zmeniť logo" : "Vybrať logo"}
+                      </Button>
+                      {pendingLogo && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => { setPendingLogo(null); setPendingLogoPreview(null); if (logoFileRef.current) logoFileRef.current.value = ""; }}
+                          data-testid="button-clear-logo"
+                        >
+                          <X className="w-3.5 h-3.5 mr-1" />
+                          Odstrániť
+                        </Button>
+                      )}
+                    </div>
+                    {pendingLogoPreview && (
+                      <div className="flex items-center gap-3 p-2.5 border border-border rounded-md w-fit">
+                        <img src={pendingLogoPreview} alt="Náhľad loga" className="h-12 w-12 object-contain rounded" data-testid="img-logo-preview" />
+                        <span className="text-xs text-muted-foreground truncate max-w-[200px]">{pendingLogo?.name}</span>
+                      </div>
+                    )}
+                    {!pendingLogo && (
+                      <p className="text-xs text-muted-foreground">Logo sa nahrá automaticky po uložení spoločnosti</p>
+                    )}
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="address" className="space-y-6 mt-4">
