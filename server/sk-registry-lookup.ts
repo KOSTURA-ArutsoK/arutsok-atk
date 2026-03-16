@@ -208,6 +208,7 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
     const searchUrl = `https://www.orsr.sk/hladaj_ico.asp?ico=${encodeURIComponent(ico)}&sid=0`;
     const searchResp = await fetchWithTimeout(searchUrl, { headers: BROWSER_HEADERS });
     if (!searchResp.ok) {
+      console.log(`[LOOKUP] ORSR done ICO=${ico} — HTTP error ${searchResp.status}`);
       return { found: false, message: `ORSR vrátil chybu (${searchResp.status})` };
     }
 
@@ -245,6 +246,7 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
 
     const detailResp = await fetchWithTimeout(detailUrl, { headers: BROWSER_HEADERS });
     if (!detailResp.ok) {
+      console.log(`[LOOKUP] ORSR done ICO=${ico} — detail HTTP error ${detailResp.status}`);
       return { found: false, message: `ORSR detail vrátil chybu (${detailResp.status})` };
     }
 
@@ -481,13 +483,15 @@ export async function lookupAresByIco(ico: string): Promise<RegistryLookupResult
     const resp = await fetchWithTimeout(
       `https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/${encodeURIComponent(ico)}`,
       { headers: { Accept: "application/json" } },
-      5000
+      6000
     );
 
     if (!resp.ok) {
       if (resp.status === 404) {
+        console.log(`[LOOKUP] ARES done ICO=${ico} — not found (404)`);
         return { found: false, message: "Firma nenájdená v registri ARES" };
       }
+      console.log(`[LOOKUP] ARES done ICO=${ico} — HTTP error ${resp.status}`);
       return { found: false, message: `ARES vrátil chybu (${resp.status})` };
     }
 
