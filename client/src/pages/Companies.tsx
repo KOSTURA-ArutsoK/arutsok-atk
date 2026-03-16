@@ -860,7 +860,36 @@ function CompanyFormDialog({
                       <FormItem>
                         <FormLabel>IČO *</FormLabel>
                         <FormControl>
-                          <Input {...field} value={field.value || ""} data-testid="input-ico" onKeyDown={(e) => { if (e.key === "Enter" && watchedSubjectType === "po") { e.preventDefault(); registryLookupBtnRef.current?.focus(); } }} />
+                          <div className="relative">
+                            <Input
+                              {...field}
+                              value={field.value || ""}
+                              data-testid="input-ico"
+                              className={watchedSubjectType === "po" ? "pr-32" : ""}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && watchedSubjectType === "po") {
+                                  e.preventDefault();
+                                  handleRegistryLookup();
+                                }
+                              }}
+                            />
+                            {watchedSubjectType === "po" && (
+                              <button
+                                ref={registryLookupBtnRef}
+                                type="button"
+                                disabled={registryLoading}
+                                onClick={handleRegistryLookup}
+                                data-testid="button-registry-lookup"
+                                className="absolute right-0 top-0 bottom-0 flex items-center gap-1.5 px-3 text-xs font-medium text-muted-foreground hover:text-foreground border-l border-border rounded-r-md hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {registryLoading
+                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  : <Search className="w-3.5 h-3.5" />
+                                }
+                                {registryLoading ? "Hľadám..." : "Hľadať"}
+                              </button>
+                            )}
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -868,10 +897,6 @@ function CompanyFormDialog({
                     {watchedSubjectType === "po" && (
                       <>
                         <div className="flex items-center gap-2 overflow-hidden">
-                          <Button ref={registryLookupBtnRef} type="button" variant="outline" size="sm" disabled={registryLoading} onClick={handleRegistryLookup} className="shrink-0" data-testid="button-registry-lookup">
-                            {registryLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Search className="w-4 h-4 mr-1" />}
-                            {registryLoading ? "Hľadám..." : "Hľadať v registri"}
-                          </Button>
                           {registryResult?.source && (
                             <Badge variant="outline" className="text-xs shrink-0" data-testid="badge-registry-source">
                               <CheckCircle2 className="w-3 h-3 mr-1 text-green-500" />
