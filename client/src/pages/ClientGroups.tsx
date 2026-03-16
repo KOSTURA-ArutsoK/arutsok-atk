@@ -689,21 +689,21 @@ export default function ClientGroups() {
         </div>
       )}
 
-      <Card className="overflow-hidden">
-        <CardContent className="p-0 overflow-x-auto">
+      <Card>
+        <CardContent className="p-0">
           {isLoading ? (
             <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin" /></div>
           ) : (
-            <Table className="w-full table-fixed">
+            <Table stickyHeader className="w-full table-fixed">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
-                  {columnVisibility.isVisible("name") && <TableHead className="min-w-[200px]">Nazov skupiny</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead>Nazov skupiny</TableHead>}
                   {columnVisibility.isVisible("permissionGroup") && <TableHead className="w-36 text-center">Skupina pravomoci</TableHead>}
-                  {columnVisibility.isVisible("allowLogin") && <TableHead className="w-32 text-center">Povolenie prihlasenia</TableHead>}
-                  {columnVisibility.isVisible("allowCalculators") && <TableHead className="w-32 text-center">Povolene kalkulacky</TableHead>}
-                  {columnVisibility.isVisible("memberCount") && <TableHead className="w-32 text-center">Pocet klientov</TableHead>}
-                  <TableHead className="w-16"></TableHead>
+                  {columnVisibility.isVisible("allowLogin") && <TableHead className="w-28 text-center">Povolenie prihlasenia</TableHead>}
+                  {columnVisibility.isVisible("allowCalculators") && <TableHead className="w-28 text-center">Povolene kalkulacky</TableHead>}
+                  {columnVisibility.isVisible("memberCount") && <TableHead className="w-28 text-center">Pocet klientov</TableHead>}
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <SortableContext_Wrapper
