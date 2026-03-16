@@ -35,6 +35,9 @@ interface BranchEntry {
   city?: string;
   phone?: string;
   email?: string;
+  isActive?: boolean;
+  activeFrom?: string;
+  cancelledAt?: string;
 }
 
 interface RegistryLookupResponse {
@@ -682,6 +685,7 @@ function CompanyFormDialog({
               <TabsList className="flex flex-wrap h-auto gap-1 justify-between w-full">
                 <TabsTrigger value="basic" data-testid="tab-basic">Základné údaje</TabsTrigger>
                 <TabsTrigger value="address" data-testid="tab-address">Adresa</TabsTrigger>
+                <TabsTrigger value="branches" data-testid="tab-branches">Pobočky</TabsTrigger>
                 <TabsTrigger value="divisions" data-testid="tab-divisions">Divízie</TabsTrigger>
                 <TabsTrigger value="docs" data-testid="tab-docs">Dokumenty</TabsTrigger>
                 <TabsTrigger value="notes" data-testid="tab-notes">Poznámky</TabsTrigger>
@@ -1007,73 +1011,115 @@ function CompanyFormDialog({
                   )}
                 </div>
 
-                <Separator />
+              </TabsContent>
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <GitBranch className="w-4 h-4 text-muted-foreground" />
-                      <h4 className="text-sm font-medium">Pobočky</h4>
-                      <Badge variant="secondary" className="text-xs">{branches.length}</Badge>
-                    </div>
-                    {!addingBranch && (
-                      <Button type="button" variant="outline" size="sm" onClick={() => { setAddingBranch(true); setNewBranch({}); }} data-testid="button-add-branch">
-                        <Plus className="w-3 h-3 mr-1" /> Pridať pobočku
-                      </Button>
-                    )}
+              <TabsContent value="branches" className="mt-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <GitBranch className="w-4 h-4 text-muted-foreground" />
+                    <h4 className="text-sm font-medium">Pobočky</h4>
+                    <Badge variant="secondary" className="text-xs">{branches.length}</Badge>
                   </div>
-
-                  {addingBranch && (
-                    <div className="border border-border rounded-md p-3 space-y-3 bg-muted/30" data-testid="form-new-branch">
-                      <Input placeholder="Názov pobočky" value={newBranch.name || ""} onChange={e => setNewBranch(p => ({ ...p, name: e.target.value }))} data-testid="input-branch-name" />
-                      <div className="grid grid-cols-3 gap-3">
-                        <Input placeholder="Ulica" value={newBranch.street || ""} onChange={e => setNewBranch(p => ({ ...p, street: e.target.value }))} className="col-span-2" data-testid="input-branch-street" />
-                        <Input placeholder="Číslo" value={newBranch.streetNumber || ""} onChange={e => setNewBranch(p => ({ ...p, streetNumber: e.target.value }))} data-testid="input-branch-street-number" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <Input placeholder="PSČ" value={newBranch.postalCode || ""} onChange={e => setNewBranch(p => ({ ...p, postalCode: e.target.value }))} data-testid="input-branch-postal" />
-                        <Input placeholder="Mesto" value={newBranch.city || ""} onChange={e => setNewBranch(p => ({ ...p, city: e.target.value }))} data-testid="input-branch-city" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <Input placeholder="Telefón" value={newBranch.phone || ""} onChange={e => setNewBranch(p => ({ ...p, phone: e.target.value }))} data-testid="input-branch-phone" />
-                        <Input placeholder="E-mail" value={newBranch.email || ""} onChange={e => setNewBranch(p => ({ ...p, email: e.target.value }))} data-testid="input-branch-email" />
-                      </div>
-                      <div className="flex gap-2 justify-end">
-                        <Button type="button" variant="ghost" size="sm" onClick={() => setAddingBranch(false)} data-testid="button-branch-cancel">Zrušiť</Button>
-                        <Button type="button" size="sm" onClick={() => {
-                          if (newBranch.name || newBranch.street || newBranch.city) {
-                            setBranches(prev => [...prev, { ...newBranch }]);
-                            setNewBranch({});
-                            setAddingBranch(false);
-                          }
-                        }} data-testid="button-branch-save">Uložiť</Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {branches.length > 0 && (
-                    <div className="space-y-2">
-                      {branches.map((br, idx) => (
-                        <div key={idx} className="flex items-start gap-3 p-3 border border-border rounded-md" data-testid={`branch-row-${idx}`}>
-                          <GitBranch className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                          <div className="flex-1 text-sm space-y-0.5">
-                            {br.name && <p className="font-medium">{br.name}</p>}
-                            <p className="text-muted-foreground">{[br.street, br.streetNumber, br.postalCode, br.city].filter(Boolean).join(", ") || "Bez adresy"}</p>
-                            {(br.phone || br.email) && (
-                              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                {br.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{br.phone}</span>}
-                                {br.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{br.email}</span>}
-                              </div>
-                            )}
-                          </div>
-                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setBranches(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-delete-branch-${idx}`}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
+                  {!addingBranch && (
+                    <Button type="button" variant="outline" size="sm" onClick={() => { setAddingBranch(true); setNewBranch({ isActive: true }); }} data-testid="button-add-branch">
+                      <Plus className="w-3 h-3 mr-1" /> Pridať pobočku
+                    </Button>
                   )}
                 </div>
+
+                {addingBranch && (
+                  <div className="border border-border rounded-md p-3 space-y-3 bg-muted/30" data-testid="form-new-branch">
+                    <Input placeholder="Názov pobočky" value={newBranch.name || ""} onChange={e => setNewBranch(p => ({ ...p, name: e.target.value }))} data-testid="input-branch-name" />
+                    <div className="grid grid-cols-3 gap-3">
+                      <Input placeholder="Ulica" value={newBranch.street || ""} onChange={e => setNewBranch(p => ({ ...p, street: e.target.value }))} className="col-span-2" data-testid="input-branch-street" />
+                      <Input placeholder="Číslo" value={newBranch.streetNumber || ""} onChange={e => setNewBranch(p => ({ ...p, streetNumber: e.target.value }))} data-testid="input-branch-street-number" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input placeholder="PSČ" value={newBranch.postalCode || ""} onChange={e => setNewBranch(p => ({ ...p, postalCode: e.target.value }))} data-testid="input-branch-postal" />
+                      <Input placeholder="Mesto" value={newBranch.city || ""} onChange={e => setNewBranch(p => ({ ...p, city: e.target.value }))} data-testid="input-branch-city" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input placeholder="Telefón" value={newBranch.phone || ""} onChange={e => setNewBranch(p => ({ ...p, phone: e.target.value }))} data-testid="input-branch-phone" />
+                      <Input placeholder="E-mail" value={newBranch.email || ""} onChange={e => setNewBranch(p => ({ ...p, email: e.target.value }))} data-testid="input-branch-email" />
+                    </div>
+                    <Separator />
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="branch-active"
+                        checked={newBranch.isActive !== false}
+                        onCheckedChange={(checked) => {
+                          setNewBranch(p => ({ ...p, isActive: !!checked, cancelledAt: checked ? undefined : p.cancelledAt }));
+                        }}
+                        data-testid="checkbox-branch-active"
+                      />
+                      <label htmlFor="branch-active" className="text-sm cursor-pointer">Aktívna pobočka</label>
+                    </div>
+                    {newBranch.isActive !== false && (
+                      <div>
+                        <label className="text-sm text-muted-foreground">Aktívna od</label>
+                        <Input type="date" value={newBranch.activeFrom || ""} onChange={e => setNewBranch(p => ({ ...p, activeFrom: e.target.value || undefined }))} data-testid="input-branch-active-from" />
+                      </div>
+                    )}
+                    {newBranch.isActive === false && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-sm text-muted-foreground">Aktívna od</label>
+                          <Input type="date" value={newBranch.activeFrom || ""} onChange={e => setNewBranch(p => ({ ...p, activeFrom: e.target.value || undefined }))} data-testid="input-branch-active-from" />
+                        </div>
+                        <div>
+                          <label className="text-sm text-muted-foreground">Dátum zrušenia</label>
+                          <Input type="date" value={newBranch.cancelledAt || ""} onChange={e => setNewBranch(p => ({ ...p, cancelledAt: e.target.value || undefined }))} data-testid="input-branch-cancelled-at" />
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex gap-2 justify-end">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setAddingBranch(false)} data-testid="button-branch-cancel">Zrušiť</Button>
+                      <Button type="button" size="sm" onClick={() => {
+                        if (newBranch.name || newBranch.street || newBranch.city) {
+                          setBranches(prev => [...prev, { ...newBranch, isActive: newBranch.isActive !== false }]);
+                          setNewBranch({ isActive: true });
+                          setAddingBranch(false);
+                        }
+                      }} data-testid="button-branch-save">Uložiť</Button>
+                    </div>
+                  </div>
+                )}
+
+                {branches.length > 0 && (
+                  <div className="space-y-2">
+                    {branches.map((br, idx) => (
+                      <div key={idx} className="flex items-start gap-3 p-3 border border-border rounded-md" data-testid={`branch-row-${idx}`}>
+                        <GitBranch className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 text-sm space-y-1">
+                          <div className="flex items-center gap-2">
+                            {br.name && <span className="font-medium">{br.name}</span>}
+                            {br.isActive !== false ? (
+                              <Badge variant="outline" className="text-xs border-green-600 text-green-600" data-testid={`badge-branch-active-${idx}`}>Aktívna</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs border-destructive text-destructive" data-testid={`badge-branch-inactive-${idx}`}>Zrušená</Badge>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground">{[br.street, br.streetNumber, br.postalCode, br.city].filter(Boolean).join(", ") || "Bez adresy"}</p>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                            {br.activeFrom && <span>Od: {br.activeFrom}</span>}
+                            {br.isActive === false && br.cancelledAt && <span className="text-destructive">Zrušená: {br.cancelledAt}</span>}
+                            {br.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{br.phone}</span>}
+                            {br.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{br.email}</span>}
+                          </div>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setBranches(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-delete-branch-${idx}`}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {branches.length === 0 && !addingBranch && (
+                  <div className="text-sm text-muted-foreground text-center py-8 border border-dashed border-border rounded-md" data-testid="text-no-branches">
+                    Žiadne pobočky. Kliknite na "Pridať pobočku" pre pridanie prvej pobočky.
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="divisions" className="mt-4 space-y-6">
@@ -1234,6 +1280,7 @@ function CompanyDetailDialog({
           <TabsList className="flex flex-wrap h-auto gap-1 justify-between w-full">
             <TabsTrigger value="basic" data-testid="detail-tab-basic">Základné údaje</TabsTrigger>
             <TabsTrigger value="address" data-testid="detail-tab-address">Adresa</TabsTrigger>
+            <TabsTrigger value="branches" data-testid="detail-tab-branches">Pobočky</TabsTrigger>
             <TabsTrigger value="docs" data-testid="detail-tab-docs">Dokumenty</TabsTrigger>
             <TabsTrigger value="notes" data-testid="detail-tab-notes">Poznámky</TabsTrigger>
           </TabsList>
@@ -1322,32 +1369,46 @@ function CompanyDetailDialog({
               </>
             )}
 
-            {((company.branches as BranchEntry[]) || []).length > 0 && (
-              <>
-                <Separator />
+          </TabsContent>
+
+          <TabsContent value="branches" className="mt-4 space-y-4">
+            {(() => {
+              const branchList = (company.branches as BranchEntry[]) || [];
+              return branchList.length > 0 ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 mb-2">
                     <GitBranch className="w-4 h-4 text-muted-foreground" />
                     <h4 className="text-sm font-medium">Pobočky</h4>
-                    <Badge variant="secondary" className="text-xs">{((company.branches as BranchEntry[]) || []).length}</Badge>
+                    <Badge variant="secondary" className="text-xs">{branchList.length}</Badge>
                   </div>
-                  <div className="space-y-2 pl-1">
-                    {((company.branches as BranchEntry[]) || []).map((br, idx) => (
-                      <div key={idx} className="text-sm border border-border rounded-md p-2.5 space-y-0.5" data-testid={`detail-branch-${idx}`}>
-                        {br.name && <p className="font-medium">{br.name}</p>}
+                  <div className="space-y-2">
+                    {branchList.map((br, idx) => (
+                      <div key={idx} className="text-sm border border-border rounded-md p-3 space-y-1" data-testid={`detail-branch-${idx}`}>
+                        <div className="flex items-center gap-2">
+                          {br.name && <span className="font-medium">{br.name}</span>}
+                          {br.isActive !== false ? (
+                            <Badge variant="outline" className="text-xs border-green-600 text-green-600">Aktívna</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs border-destructive text-destructive">Zrušená</Badge>
+                          )}
+                        </div>
                         <p className="text-muted-foreground">{[br.street, br.streetNumber, br.postalCode, br.city].filter(Boolean).join(", ") || "Bez adresy"}</p>
-                        {(br.phone || br.email) && (
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            {br.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{br.phone}</span>}
-                            {br.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{br.email}</span>}
-                          </div>
-                        )}
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                          {br.activeFrom && <span>Od: {br.activeFrom}</span>}
+                          {br.isActive === false && br.cancelledAt && <span className="text-destructive">Zrušená: {br.cancelledAt}</span>}
+                          {br.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{br.phone}</span>}
+                          {br.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{br.email}</span>}
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
-              </>
-            )}
+              ) : (
+                <div className="text-sm text-muted-foreground text-center py-8" data-testid="text-detail-no-branches">
+                  Žiadne pobočky
+                </div>
+              );
+            })()}
           </TabsContent>
 
           <TabsContent value="docs" className="mt-4 space-y-6">

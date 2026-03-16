@@ -77,7 +77,7 @@ export const myCompanies = pgTable("my_companies", {
   corrStreetNumber: text("corr_street_number"),
   corrPostalCode: text("corr_postal_code"),
   corrCity: text("corr_city"),
-  branches: jsonb("branches").$type<{ name?: string; street?: string; streetNumber?: string; postalCode?: string; city?: string; phone?: string; email?: string }[]>().default([]),
+  branches: jsonb("branches").$type<{ name?: string; street?: string; streetNumber?: string; postalCode?: string; city?: string; phone?: string; email?: string; isActive?: boolean; activeFrom?: string; cancelledAt?: string }[]>().default([]),
   stateId: integer("state_id"),
   description: text("description"),
   notes: text("notes"),
