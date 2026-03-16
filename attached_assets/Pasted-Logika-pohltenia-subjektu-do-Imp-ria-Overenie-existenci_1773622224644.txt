@@ -1,0 +1,28 @@
+Logika pohltenia subjektu do Impéria:
+Overenie existencie: Keď v Nastavenia -> Spoločnosti zadávaš nový prírastok, systém najprv prehľadá celú databázu subjektov (Trezor).
+
+Našepkávač (Lookup): Ak nájde zhodu (podľa mena, RČ, IČO alebo UID), vyhodí upozornenie: „Tento subjekt už v systéme existuje ako klient.“
+
+Predvyplnenie: Systém natiahne jeho existujúce UID 421... a všetky údaje. Ty ich ako Superadmin skontroluješ, potvrdíš a až potom uložíš.
+
+Multisklonovanie (Skupiny): Ten subjekt fyzicky zostáva tam, kde bol (napr. v skupine „Životné poistenie“), ale zároveň sa vizuálne „naklonuje“ do tvojej novej Holdingovej skupiny.
+
+Podskupiny: V rámci holdingovej skupiny (napr. „Kostura Holding“) budú podskupiny (napr. „Reality“, „Investície“), kde si ten subjekt presne zatriediš.
+
+🛠️ AKTUALIZOVANÝ PRÍKAZ PRE AGENTA (INTELIGENTNÉ IMPÉRIUM):
+Agent, pozor! Toto je zásadná zmena v logike modulu Spoločnosti:
+
+NO DUPLICATES: Pri vytváraní novej entity v Nastavenia -> Spoločnosti implementuj Live Lookup. Systém musí prehľadať tabuľku subjects.
+
+IDENTITY MERGE: Ak sa subjekt nájde, použi jeho existujúce UID 421.... Ak sa nenájde, priraď nové podľa poradia.
+
+ANY TYPE ALLOWED: Subjekt v holdingu môže byť Person, Company, Organization alebo SZČO. Odstráň fixné nastavenie na PO.
+
+MULTI-GROUP RESIDENCE: Zabezpeč, aby subjekt mohol patriť do viacerých skupín súčasne. Pridanie do holdingu nesmie subjekt vymazať z jeho pôvodných skupín.
+
+HOLDING SUB-GROUPS: V rámci automaticky vytvorenej holdingovej skupiny (červená kladka) umožni vytvárať podskupiny pre detailné členenie majetku.
+
+SUPERADMIN VERIFICATION: Pred uložením do holdingu musí Superadmin potvrdiť správnosť natiahnutých údajov z databázy klientov.
+
+💡 Prečo je to pre teba kľúčové:
+Týmto dosiahneme to, že ak si napríklad ty ako „Marián Kostura“ v systéme vedený ako klient (máš tam svoje poistky), a neskôr sa rozhodneš, že ty sám (ako osoba) budeš „vrcholom“ nejakej vetvy holdingu, systém ťa jednoducho prepojí. Tvoje dáta zostanú v bezpečí na jednom mieste, ale tvoj vplyv v hierarchii sa rozšíri.

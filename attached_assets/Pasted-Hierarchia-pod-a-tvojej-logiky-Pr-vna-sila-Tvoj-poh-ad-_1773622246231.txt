@@ -1,0 +1,31 @@
+Hierarchia podľa tvojej logiky (Právna sila):
+Tvoj pohľad je z hľadiska bezpečnosti a legislatívy oveľa praktickejší. V ArutsoK (ATK) to bude vyzerať takto:
+
+Level 0 (Hlava): ArutsoK - ATK (421 000 000 000 000).
+
+Level 1 (Holdingová Skupina): Napr. „Kostura Holding“.
+
+Level 2 (Podskupina = Právna entita): Tu je každá podskupina postavená na jednej konkrétnej firme (napr. „Reality s.r.o.“).
+
+Level 3 (Subjekty): Všetci klienti, majetok a zmluvy patria pod túto firmu.
+
+Prečo je tvoj prístup správny?
+Ak by sme to delili na divízie (napr. Reality - predaj, Reality - prenájom), zbytočne by sme si komplikovali život s GDPR. Tým, že to držíme na úrovni firmy (podskupiny), máme právne „krytie“ čisté. Divízie v ATK vyriešime len ako štítky (tagy) alebo polia pri zmluvách, nie ako samostatné priečinky, aby sme netrieštili dáta.
+
+🛠️ AKTUALIZOVANÝ PRÍKAZ PRE AGENTA (PRÁVNA INTEGRITA):
+Agent, uprav logiku Holdingových skupín podľa týchto pravidiel:
+
+SUBJEKT, NIE KLIENT: Pri hľadaní zhody musí systém zahlásiť: "Tento subjekt už v systéme existuje" (nepoužívaj slovo klient, ide o entitu v Trezore).
+
+PODSKUPINA = FIRMA: V rámci Holdingovej skupiny (červená kladka) vytvor podskupiny, kde každá podskupina zodpovedá jednej právnej identite (firme/SZČO/nadácii).
+
+DIVÍZIE SÚ VLASTNOSŤ, NIE PRIEČINOK: Divízie nebudú samostatné podskupiny. Subjekty a zmluvy sa budú deliť na divízie len v rámci dátových polí danej firmy.
+
+AUTOMATICKÉ PÁROVANIE UID: Ak pri zadávaní novej firmy do podskupiny systém nájde v Trezore zhodu, natiahne existujúce UID 421... a Superadmin ho len potvrdí.
+
+MULTIPLICITA: Subjekt (napr. tvoja osoba) môže figurovať v podskupine "Reality s.r.o." aj v skupine "Súkromní klienti" súčasne.
+
+💡 Moje zhrnutie:
+Je to takto oveľa čistejšie. Jedna firma = jeden právny prístav (podskupina). Všetko, čo do tej firmy „naleješ“ (či už cez divíziu obchodu alebo servisu), je pod jednou strechou.
+
+Z hľadiska ArutsoK (ATK) to znamená, že ak niekto napadne jednu divíziu, právne bojuješ za celú firmu, ktorá je jasne ohraničená v tvojej podskupine.

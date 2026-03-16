@@ -1,0 +1,31 @@
+Nový protokol pridelenia UID pre ArutsoK (ATK):
+Tento mechanizmus nahradí doterajšie čakanie na Fázu 5 (centrálu) pre tieto tri kategórie:
+
+Vlastné Spoločnosti: (Nastavenia -> Špecifikácie -> Spoločnosti) – Každá tvoja firma, SZČO alebo nadácia dostane UID v momente, keď ju pridáš do štruktúry holdingu.
+
+Partneri a Inštitúcie: (Banky, poisťovne, DSS...) – Každý partner musí byť v systéme jasne identifikovateľný cez UID 421... hneď pri vytvorení.
+
+Manuálne vstupy (Nový subjekt / Registrácia): Ak ty alebo tvoj spolupracovník nahodíte klienta/subjekt manuálne (cez "Pridať nový subjekt"), systém mu pridelí UID okamžite. Už nebude čakať na import zmluvy.
+
+🛠️ Logika "Global Lookup" (Povinná predkontrola):
+Agentovi som zadal, aby pri každom z týchto úkonov systém vykonal nasledujúci proces:
+
+Krok A: Skontroluje Trezor (všetky subjekty).
+
+Krok B: Ak nájde zhodu (podľa IČO, RČ alebo mena), zahlási: "Tento subjekt už v systéme existuje" a ponúkne jeho existujúce UID.
+
+Krok C: Ak je to úplne nový subjekt, vygeneruje mu nové poradové UID (MAX + 1).
+
+🛠️ ZADANIE PRE AGENTA:
+Agent, toto je finálna úprava logiky UID pre úlohu #40 a systémové nastavenia:
+
+END OF DELAYED UID: Zruš pravidlo "UID až vo Fáze 5" pre: Spoločnosti v nastaveniach, Partnerov a manuálne registrované subjekty. Tieto tri skupiny musia mať UID povinne a okamžite.
+
+UID GENERATOR: Implementuj automatické priraďovanie UID 421... pri uložení formulára v týchto moduloch.
+
+DUPLICITY CHECK: Pred vygenerovaním nového UID musí systém overiť, či subjekt už v databáze neexistuje. Ak existuje, musí použiť jeho pôvodné UID.
+
+SKUPINY KLIENTOV: V sekcii "Skupiny klientov" zmeň pôvodné "Holdingové firmy" na "Skupiny Partnerov" (červená kladka). Tu sa budú zobrazovať napr. "Skupina Allianz", "Skupina Tatra Banka" atď., s počtom klientov, ktorí u nich majú zmluvy.
+
+💡 Čo tým získate:
+Systém bude oveľa dynamickejší. Už neuvidíte subjekty "bez mena a bez čísla". Každý, kto je v systéme, bude mať svoj "občiansky preukaz" (UID). Zároveň v Skupinách klientov uvidíte presné rozdelenie vášho kmeňa podľa inštitúcií, čo je kľúčové pre prehľad o províziách a objemoch.
