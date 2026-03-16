@@ -1015,6 +1015,7 @@ export const contractsRelations = relations(contracts, ({ one }) => ({
 export const insertSubjectSchema = createInsertSchema(subjects).omit({ id: true, uid: true, createdAt: true });
 export const insertMyCompanySchema = createInsertSchema(myCompanies).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true }).extend({
   foundedDate: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
+  vatRegisteredAt: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
 });
 export const insertPartnerSchema = createInsertSchema(partners).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, uid: true, deletedBy: true, deletedAt: true, deletedFromIp: true }).extend({
   collaborationDate: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
