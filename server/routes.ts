@@ -1289,16 +1289,6 @@ export async function registerRoutes(
       const created = await storage.createMyCompany(input);
       await logAudit(req, { action: "CREATE", module: "spolocnosti", entityId: created.id, entityName: created.name, newData: input });
 
-      const linkedCg = await storage.createClientGroup({
-        name: created.name,
-        isSystem: true,
-        isHoldingGroup: true,
-        linkedCompanyId: created.id,
-        groupCode: `holding_company_${created.id}`,
-        permissionLevel: 1,
-      });
-      await logAudit(req, { action: "CREATE", module: "skupiny_klientov", entityId: linkedCg.id, entityName: linkedCg.name, newData: { autoLinked: true, holdingGroup: true, linkedCompanyId: created.id } });
-
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -12670,7 +12660,6 @@ export async function registerRoutes(
   {
     // Partner skupiny + UID backfill — auto-sync pri štarte (idempotentné)
     const allPartners = await storage.getPartners(false);
-    let partnerSynced = 0;
     let uidBackfilled = 0;
 
     for (const partner of allPartners) {
@@ -12692,33 +12681,8 @@ export async function registerRoutes(
         uidBackfilled++;
       }
 
-      // Partner group sync
-      const existingCg = await storage.getClientGroupByLinkedPartnerId(partner.id);
-      if (!existingCg) {
-        await db.insert(clientGroups).values({
-          name: `Skupina ${partner.name}`,
-          isSystem: true,
-          isHoldingGroup: false,
-          isPartnerGroup: true,
-          linkedPartnerId: partner.id,
-          groupCode: `partner_group_${partner.id}`,
-          permissionLevel: 1,
-        });
-        partnerSynced++;
-        console.log(`[SEED] Created partner group for: ${partner.name}`);
-      } else {
-        const updates: Record<string, unknown> = {};
-        if (!existingCg.isSystem) updates.isSystem = true;
-        if (!(existingCg as any).isPartnerGroup) updates.isPartnerGroup = true;
-        const expectedName = `Skupina ${partner.name}`;
-        if (existingCg.name !== expectedName) updates.name = expectedName;
-        if (Object.keys(updates).length > 0) {
-          await storage.updateClientGroup(existingCg.id, updates);
-        }
-      }
     }
     if (uidBackfilled > 0) console.log(`[SEED] Backfilled UID for ${uidBackfilled} partnerov`);
-    if (partnerSynced > 0) console.log(`[SEED] Auto-created ${partnerSynced} partner groups`);
   }
 
   await storage.autoArchiveExpiredBindings();
