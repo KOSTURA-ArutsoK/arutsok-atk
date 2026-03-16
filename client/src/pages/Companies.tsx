@@ -63,6 +63,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -91,7 +92,7 @@ const formSchema = insertMyCompanySchema.extend({
   name: z.string().min(1, "Nazov je povinny"),
   ico: z.string().min(1, "ICO je povinne"),
   dic: z.string().min(1, "DIC je povinne"),
-  icDph: z.string().min(1, "IC DPH je povinne"),
+  icDph: z.string().optional(),
   street: z.string().min(1, "Ulica je povinna"),
   streetNumber: z.string().min(1, "Popisne cislo je povinne"),
   orientNumber: z.string().min(1, "Orientacne cislo je povinne"),
@@ -276,6 +277,7 @@ function CompanyFormDialog({
   const { data: allCompanies } = useMyCompanies();
   const timerRef = useRef<number>(0);
   const [notesHtml, setNotesHtml] = useState("");
+  const [platcaDph, setPlatcaDph] = useState(false);
 
   const editingCompany = editingCompanyId
     ? allCompanies?.find(c => c.id === editingCompanyId) || null
@@ -306,6 +308,8 @@ function CompanyFormDialog({
     if (open) {
       timerRef.current = performance.now();
       if (editingCompany) {
+        const hasIcDph = !!(editingCompany.icDph && editingCompany.icDph.trim());
+        setPlatcaDph(hasIcDph);
         form.reset({
           name: editingCompany.name,
           specialization: editingCompany.specialization,
@@ -325,6 +329,7 @@ function CompanyFormDialog({
         });
         setNotesHtml(editingCompany.notes || "");
       } else {
+        setPlatcaDph(false);
         form.reset({
           name: "",
           specialization: "SFA",
@@ -445,13 +450,28 @@ function CompanyFormDialog({
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="icDph" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>IC DPH *</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-icdph" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 pt-1">
+                      <Switch
+                        checked={platcaDph}
+                        onCheckedChange={(checked) => {
+                          setPlatcaDph(checked);
+                          if (!checked) form.setValue("icDph", "");
+                        }}
+                        data-testid="switch-platca-dph"
+                      />
+                      <span className="text-sm font-medium">Platca DPH</span>
+                    </div>
+                    {platcaDph && (
+                      <FormField control={form.control} name="icDph" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>IC DPH *</FormLabel>
+                          <FormControl><Input {...field} value={field.value || ""} data-testid="input-icdph" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    )}
+                  </div>
                 </div>
                 <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem>
