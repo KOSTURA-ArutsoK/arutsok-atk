@@ -7,7 +7,7 @@ import { useTableSort } from "@/hooks/use-table-sort";
 import { useToast } from "@/hooks/use-toast";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useMyCompanies } from "@/hooks/use-companies";
-import type { ClientGroup, Subject, PermissionGroup } from "@shared/schema";
+import type { ClientGroup, Subject, PermissionGroup, Partner, Product } from "@shared/schema";
 import {
   Plus, Pencil, Loader2, Check, X,
   Calculator, LogIn, UserPlus, UserMinus, Search, ChevronRight, Building2, Shield, Lock, Ban,
@@ -614,6 +614,152 @@ function GroupDetailDialog({
   );
 }
 
+// ============================================================
+// PARTNER GROUP DIALOG — opens on PARTNERI row click
+// Shows: all active partners (Klienti tab) + all products (Produkty tab)
+// ============================================================
+function PartnerGroupDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const [, navigate] = useLocation();
+  const [tab, setTab] = useState("klienti");
+  const [search, setSearch] = useState("");
+
+  const { data: allPartners, isLoading: partnersLoading } = useQuery<Partner[]>({
+    queryKey: ["/api/partners"],
+    enabled: open,
+  });
+  const { data: allProducts, isLoading: productsLoading } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+    enabled: open,
+  });
+
+  const partners = (allPartners || []).filter(p => !p.isDeleted);
+  const products = (allProducts || []).filter(p => !(p as any).isDeleted);
+
+  const filteredPartners = search.length >= 2
+    ? partners.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || (p.ico || "").includes(search))
+    : partners;
+
+  const filteredProducts = search.length >= 2
+    ? products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    : products;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent size="lg" className="flex flex-col max-h-[85vh]">
+        <DialogHeader>
+          <DialogTitle>
+            <span className="inline-flex items-center gap-2">
+              <Lock className="w-4 h-4 text-red-500" />
+              PARTNERI
+              <Badge variant="outline" className="text-[10px] border-red-500/50 text-red-500">Partner</Badge>
+            </span>
+          </DialogTitle>
+        </DialogHeader>
+        <Tabs value={tab} onValueChange={setTab} className="flex-1 flex flex-col min-h-0">
+          <TabsList className="flex flex-wrap h-auto gap-1 justify-between w-full">
+            <TabsTrigger value="klienti" data-testid="tab-partneri-klienti">
+              Klienti
+              <Badge variant="secondary" className="ml-1.5 text-[9px]">{partners.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="produkty" data-testid="tab-partneri-produkty">
+              Produkty
+              <Badge variant="secondary" className="ml-1.5 text-[9px]">{products.length}</Badge>
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="mt-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder={tab === "klienti" ? "Vyhľadať partnera..." : "Vyhľadať produkt..."}
+                className="pl-9"
+                data-testid="input-search-partner-group"
+              />
+            </div>
+          </div>
+
+          <TabsContent value="klienti" className="flex-1 overflow-auto mt-3">
+            {partnersLoading ? (
+              <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Názov partnera</TableHead>
+                    <TableHead className="w-32">UID</TableHead>
+                    <TableHead className="w-32">Špecializácia</TableHead>
+                    <TableHead className="w-24 text-center">Stav</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPartners.map(p => (
+                    <TableRow
+                      key={p.id}
+                      className="cursor-pointer hover-elevate"
+                      onClick={() => { onOpenChange(false); navigate("/partners"); }}
+                      data-testid={`row-partner-group-${p.id}`}
+                    >
+                      <TableCell className="font-medium">{p.name}</TableCell>
+                      <TableCell><span className="font-mono text-xs">{formatUid(p.uid)}</span></TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{p.specialization || "—"}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="text-[9px]">{p.lifecycleStatus || "record"}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {filteredPartners.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                        {search.length >= 2 ? "Žiadny partner nevyhovuje hľadaniu" : "Žiadni partneri"}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
+          </TabsContent>
+
+          <TabsContent value="produkty" className="flex-1 overflow-auto mt-3">
+            {productsLoading ? (
+              <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Názov produktu</TableHead>
+                    <TableHead className="w-36">Typ</TableHead>
+                    <TableHead className="w-24 text-center">Stav</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredProducts.map(p => (
+                    <TableRow key={p.id} data-testid={`row-product-group-${p.id}`}>
+                      <TableCell className="font-medium">{p.name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{(p as any).productType || (p as any).type || "—"}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="text-[9px]">{(p as any).lifecycleStatus || "record"}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {filteredProducts.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                        {search.length >= 2 ? "Žiadny produkt nevyhovuje hľadaniu" : "Žiadne produkty"}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 const CLIENT_GROUPS_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Nazov skupiny" },
   { key: "permissionGroup", label: "Skupina pravomoci" },
@@ -632,6 +778,7 @@ export default function ClientGroups() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<ClientGroupWithCount | null>(null);
   const [deletingGroup, setDeletingGroup] = useState<ClientGroupWithCount | null>(null);
+  const [partnerGroupOpen, setPartnerGroupOpen] = useState(false);
 
   const { data: appUser } = useAppUser();
   const { data: companies } = useMyCompanies();
@@ -728,7 +875,7 @@ export default function ClientGroups() {
                   <TableRow
                     data-testid="row-partneri-synthetic"
                     className="bg-red-500/5 border-l-2 border-l-red-500 cursor-pointer hover:bg-red-500/10 transition-colors"
-                    onClick={() => navigate("/partners")}
+                    onClick={() => setPartnerGroupOpen(true)}
                   >
                     <TableCell></TableCell>
                     {columnVisibility.isVisible("name") && (
@@ -880,6 +1027,8 @@ export default function ClientGroups() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PartnerGroupDialog open={partnerGroupOpen} onOpenChange={setPartnerGroupOpen} />
     </div>
   );
 }
