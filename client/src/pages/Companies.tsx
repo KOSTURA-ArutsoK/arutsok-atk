@@ -813,6 +813,7 @@ function CompanyFormDialog({
                 <TabsTrigger value="branches" data-testid="tab-branches">Pobočky</TabsTrigger>
                 <TabsTrigger value="divisions" data-testid="tab-divisions">Divízie</TabsTrigger>
                 <TabsTrigger value="docs" data-testid="tab-docs">Dokumenty</TabsTrigger>
+                <TabsTrigger value="logo" data-testid="tab-logo">Logo</TabsTrigger>
                 <TabsTrigger value="notes" data-testid="tab-notes">Poznámky</TabsTrigger>
               </TabsList>
 
@@ -1021,62 +1022,6 @@ function CompanyFormDialog({
                     <FormMessage />
                   </FormItem>
                 )} />
-                {!editingCompany && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Logo spoločnosti</label>
-                    <input
-                      ref={logoFileRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      data-testid="input-logo-file"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null;
-                        setPendingLogo(file);
-                        if (file) {
-                          const url = URL.createObjectURL(file);
-                          setPendingLogoPreview(url);
-                        } else {
-                          setPendingLogoPreview(null);
-                        }
-                      }}
-                    />
-                    <div className="flex items-center gap-3">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => logoFileRef.current?.click()}
-                        data-testid="button-select-logo"
-                      >
-                        <Upload className="w-3.5 h-3.5 mr-1.5" />
-                        {pendingLogo ? "Zmeniť logo" : "Vybrať logo"}
-                      </Button>
-                      {pendingLogo && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => { setPendingLogo(null); setPendingLogoPreview(null); if (logoFileRef.current) logoFileRef.current.value = ""; }}
-                          data-testid="button-clear-logo"
-                        >
-                          <X className="w-3.5 h-3.5 mr-1" />
-                          Odstrániť
-                        </Button>
-                      )}
-                    </div>
-                    {pendingLogoPreview && (
-                      <div className="flex items-center gap-3 p-2.5 border border-border rounded-md w-fit">
-                        <img src={pendingLogoPreview} alt="Náhľad loga" className="h-12 w-12 object-contain rounded" data-testid="img-logo-preview" />
-                        <span className="text-xs text-muted-foreground truncate max-w-[200px]">{pendingLogo?.name}</span>
-                      </div>
-                    )}
-                    {!pendingLogo && (
-                      <p className="text-xs text-muted-foreground">Logo sa nahrá automaticky po uložení spoločnosti</p>
-                    )}
-                  </div>
-                )}
               </TabsContent>
 
               <TabsContent value="address" className="space-y-6 mt-4">
@@ -1559,11 +1504,6 @@ function CompanyFormDialog({
               </TabsContent>
 
               <TabsContent value="docs" className="mt-4 space-y-6">
-                <LogoUploadSection
-                  companyId={editingCompany?.id || null}
-                  company={editingCompany}
-                />
-                <Separator />
                 <FileUploadSection
                   companyId={editingCompany?.id || null}
                   section="official"
@@ -1579,6 +1519,56 @@ function CompanyFormDialog({
                   label="Sekcia B: Pracovné dokumenty"
                   sublabel="Priebežná dokumentácia, prílohy k poznámkam"
                 />
+              </TabsContent>
+
+              <TabsContent value="logo" className="mt-4">
+                {editingCompany ? (
+                  <LogoUploadSection
+                    companyId={editingCompany.id}
+                    company={editingCompany}
+                  />
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Logo spoločnosti</label>
+                      <p className="text-xs text-muted-foreground">Logo sa nahrá automaticky po prvom uložení spoločnosti</p>
+                      <input
+                        ref={logoFileRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        data-testid="input-logo-file"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setPendingLogo(file);
+                          if (file) {
+                            const url = URL.createObjectURL(file);
+                            setPendingLogoPreview(url);
+                          } else {
+                            setPendingLogoPreview(null);
+                          }
+                        }}
+                      />
+                      <div className="flex items-center gap-3">
+                        <Button type="button" size="sm" variant="outline" onClick={() => logoFileRef.current?.click()} data-testid="button-select-logo">
+                          <Upload className="w-3.5 h-3.5 mr-1.5" />
+                          {pendingLogo ? "Zmeniť logo" : "Vybrať logo"}
+                        </Button>
+                        {pendingLogo && (
+                          <Button type="button" size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => { setPendingLogo(null); setPendingLogoPreview(null); if (logoFileRef.current) logoFileRef.current.value = ""; }} data-testid="button-clear-logo">
+                            <X className="w-3.5 h-3.5 mr-1" />Odstrániť
+                          </Button>
+                        )}
+                      </div>
+                      {pendingLogoPreview && (
+                        <div className="flex items-center gap-3 p-2.5 border border-border rounded-md w-fit">
+                          <img src={pendingLogoPreview} alt="Náhľad loga" className="h-12 w-12 object-contain rounded" data-testid="img-logo-preview" />
+                          <span className="text-xs text-muted-foreground truncate max-w-[200px]">{pendingLogo?.name}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="notes" className="mt-4">
@@ -1664,6 +1654,7 @@ function CompanyDetailDialog({
             <TabsTrigger value="address" data-testid="detail-tab-address">Adresa</TabsTrigger>
             <TabsTrigger value="branches" data-testid="detail-tab-branches">Pobočky</TabsTrigger>
             <TabsTrigger value="docs" data-testid="detail-tab-docs">Dokumenty</TabsTrigger>
+            <TabsTrigger value="logo" data-testid="detail-tab-logo">Logo</TabsTrigger>
             <TabsTrigger value="notes" data-testid="detail-tab-notes">Poznámky</TabsTrigger>
           </TabsList>
 
@@ -1890,6 +1881,13 @@ function CompanyDetailDialog({
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="logo" className="mt-4">
+            <LogoUploadSection
+              companyId={company.id}
+              company={company}
+            />
           </TabsContent>
 
           <TabsContent value="notes" className="mt-4">
