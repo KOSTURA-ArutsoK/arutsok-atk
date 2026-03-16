@@ -1281,8 +1281,8 @@ export async function registerRoutes(
   app.post(api.myCompanies.create.path, isAuthenticated, async (req: any, res) => {
     try {
       const appUser = req.appUser;
-      if (!appUser || (appUser.role !== 'admin' && appUser.role !== 'superadmin')) {
-        return res.status(403).json({ message: "Only admins can create companies" });
+      if (!appUser || !isAdmin(appUser)) {
+        return res.status(403).json({ message: "Nedostatočné oprávnenia" });
       }
 
       const input = api.myCompanies.create.input.parse(req.body);
