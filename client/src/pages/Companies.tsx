@@ -524,8 +524,15 @@ function CompanyFormDialog({
       if (data.streetNumber) form.setValue("streetNumber", data.streetNumber);
       if (data.zip) form.setValue("postalCode", data.zip);
       if (data.city) form.setValue("city", data.city);
-      if (data.dic) {
-        form.setValue("dic", data.dic);
+      const currentDic = form.getValues("dic");
+      if (!currentDic || !currentDic.trim()) {
+        if (data.dic) form.setValue("dic", data.dic);
+        else if (data.icDph) form.setValue("dic", data.icDph);
+      }
+      const currentIcDph = form.getValues("icDph");
+      if (data.icDph && (!currentIcDph || !currentIcDph.trim())) {
+        form.setValue("icDph", data.icDph);
+        setPlatcaDph(true);
       }
       if (data.legalForm) form.setValue("description", data.legalForm);
     } catch {
@@ -751,6 +758,46 @@ function CompanyFormDialog({
                   <div className="flex items-center gap-2 p-3 rounded-md border border-border text-sm" data-testid="text-share-capital">
                     <span className="font-medium">Základné imanie:</span>
                     <span className="text-muted-foreground">{registryResult.shareCapital}</span>
+                  </div>
+                )}
+
+                {registryResult?.directors && registryResult.directors.length > 0 && (
+                  <div className="border border-border rounded-md p-3 space-y-1.5" data-testid="section-directors">
+                    <p className="text-sm font-medium">Štatutári</p>
+                    {registryResult.directors.map((dir: any, idx: number) => (
+                      <div key={idx} className="text-sm text-muted-foreground" data-testid={`director-row-${idx}`}>
+                        <span className="font-medium text-foreground">{typeof dir === "string" ? dir : dir.name || dir}</span>
+                        {typeof dir !== "string" && dir.since && (
+                          <span className="ml-2 text-xs font-mono">(od: {dir.since})</span>
+                        )}
+                      </div>
+                    ))}
+                    {registryResult.actingNote && (
+                      <p className="text-xs text-muted-foreground mt-1 italic" data-testid="text-acting-note">{registryResult.actingNote}</p>
+                    )}
+                  </div>
+                )}
+
+                {registryResult && !registryError && (
+                  <div className="border border-border rounded-md p-3 space-y-1" data-testid="section-registry-summary">
+                    <p className="text-sm font-medium">Údaje z registra</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                      {registryResult.name && (
+                        <><span className="text-muted-foreground">Názov:</span><span className="font-medium">{registryResult.name}</span></>
+                      )}
+                      {registryResult.normalized && (
+                        <><span className="text-muted-foreground">IČO:</span><span className="font-mono">{registryResult.normalized}</span></>
+                      )}
+                      {registryResult.dic && (
+                        <><span className="text-muted-foreground">DIČ:</span><span className="font-mono">{registryResult.dic}</span></>
+                      )}
+                      {registryResult.legalForm && (
+                        <><span className="text-muted-foreground">Právna forma:</span><span>{registryResult.legalForm}</span></>
+                      )}
+                      {(registryResult.street || registryResult.city) && (
+                        <><span className="text-muted-foreground">Sídlo:</span><span>{[registryResult.street, registryResult.streetNumber, registryResult.zip, registryResult.city].filter(Boolean).join(", ")}</span></>
+                      )}
+                    </div>
                   </div>
                 )}
 
