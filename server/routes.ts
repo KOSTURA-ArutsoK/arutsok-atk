@@ -1399,9 +1399,9 @@ export async function registerRoutes(
   app.post(api.partners.create.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.partners.create.input.parse(req.body);
-      const created = await storage.createPartner(input);
+      const { partner: created, matchedSubject } = await storage.createPartner(input);
       await logAudit(req, { action: "CREATE", module: "partneri", entityId: created.id, entityName: created.name, newData: input });
-      res.status(201).json(created);
+      res.status(201).json({ ...created, matchedSubject: matchedSubject ?? null });
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
@@ -12636,13 +12636,28 @@ export async function registerRoutes(
   }
 
   {
-    // Partner skupiny — auto-sync pri štarte (idempotentné)
+    // Partner skupiny + UID backfill — auto-sync pri štarte (idempotentné)
     const allPartners = await storage.getPartners(false);
     let partnerSynced = 0;
+    let uidBackfilled = 0;
+
     for (const partner of allPartners) {
+      // UID backfill: assign UID to existing partners that have none
+      if (!partner.uid) {
+        let stateCode = '421';
+        if (partner.stateId) {
+          const state = await storage.getState(partner.stateId);
+          if (state) stateCode = state.code;
+        }
+        const newUid = await storage.generateNextGlobalUid(stateCode);
+        await db.update(partners).set({ uid: newUid }).where(eq(partners.id, partner.id));
+        uidBackfilled++;
+      }
+
+      // Partner group sync
       const existingCg = await storage.getClientGroupByLinkedPartnerId(partner.id);
       if (!existingCg) {
-        await storage.createClientGroup({
+        await db.insert(clientGroups).values({
           name: `Skupina ${partner.name}`,
           isSystem: true,
           isHoldingGroup: false,
@@ -12650,11 +12665,11 @@ export async function registerRoutes(
           linkedPartnerId: partner.id,
           groupCode: `partner_group_${partner.id}`,
           permissionLevel: 1,
-        } as any);
+        });
         partnerSynced++;
         console.log(`[SEED] Created partner group for: ${partner.name}`);
       } else {
-        const updates: any = {};
+        const updates: Record<string, unknown> = {};
         if (!existingCg.isSystem) updates.isSystem = true;
         if (!(existingCg as any).isPartnerGroup) updates.isPartnerGroup = true;
         const expectedName = `Skupina ${partner.name}`;
@@ -12664,6 +12679,7 @@ export async function registerRoutes(
         }
       }
     }
+    if (uidBackfilled > 0) console.log(`[SEED] Backfilled UID for ${uidBackfilled} partnerov`);
     if (partnerSynced > 0) console.log(`[SEED] Auto-created ${partnerSynced} partner groups`);
   }
 

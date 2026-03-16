@@ -142,6 +142,7 @@ import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull,
 
 export interface IStorage {
   generateUID(stateCode: string, continentCode?: string): Promise<string>;
+  generateNextGlobalUid(stateCode: string): Promise<string>;
 
   getContinents(): Promise<{ id: number; name: string; code: string }[]>;
   getStates(continentId?: number): Promise<State[]>;
@@ -180,7 +181,7 @@ export interface IStorage {
   
   getPartners(includeDeleted?: boolean, stateId?: number): Promise<Partner[]>;
   getPartner(id: number): Promise<Partner | undefined>;
-  createPartner(partner: InsertPartner): Promise<Partner>;
+  createPartner(partner: InsertPartner): Promise<{ partner: Partner; matchedSubject?: { id: number; uid: string; displayName: string } }>;
   updatePartner(id: number, updates: UpdatePartnerRequest): Promise<Partner>;
   updatePartnerLifecycleStatus(id: number, status: string, startDate?: Date | null, endDate?: Date | null): Promise<Partner>;
   softDeletePartner(id: number, deletedBy: string, ip: string): Promise<void>;
@@ -702,6 +703,24 @@ export class DatabaseStorage implements IStorage {
     return `${prefix}${padded}`;
   }
 
+  async generateNextGlobalUid(stateCode: string): Promise<string> {
+    const prefix = stateCode && /^\d{2,3}$/.test(stateCode) ? stateCode : '421';
+    const result = await db.execute(sql`
+      SELECT COALESCE(MAX(CAST(uid AS BIGINT)), ${parseInt(prefix) * 1000000000000}) AS max_uid
+      FROM (
+        SELECT uid FROM subjects WHERE uid IS NOT NULL AND uid ~ '^[0-9]+$'
+        UNION ALL
+        SELECT uid FROM partners WHERE uid IS NOT NULL AND uid ~ '^[0-9]+$'
+        UNION ALL
+        SELECT uid FROM my_companies WHERE uid IS NOT NULL AND uid ~ '^[0-9]+$'
+      ) t
+    `);
+    const rows = result.rows as { max_uid: string }[];
+    const maxUid = BigInt(rows[0]?.max_uid ?? `${parseInt(prefix)}000000000000`);
+    const nextUid = maxUid + 1n;
+    return nextUid.toString();
+  }
+
   async getContinents() {
     return await db.select().from(continents);
   }
@@ -939,14 +958,57 @@ export class DatabaseStorage implements IStorage {
     return partner;
   }
 
-  async createPartner(partner: InsertPartner) {
+  async createPartner(partner: InsertPartner): Promise<{ partner: Partner; matchedSubject?: { id: number; uid: string; displayName: string } }> {
     let stateCode = '421';
     if (partner.stateId) {
       const state = await this.getState(partner.stateId);
       if (state) stateCode = state.code;
     }
-    const uid = await this.generateUID(stateCode);
-    const [newPartner] = await db.insert(partners).values({ ...partner, uid } as any).returning();
+
+    // Subject lookup: try to recycle UID from existing matching subject
+    let uid: string;
+    let matchedSubject: { id: number; uid: string; displayName: string } | undefined;
+
+    if (partner.ico) {
+      // Exact ICO match via registry_snapshots (subjects have ICO there)
+      const [icoSnap] = await db.select({ subjectId: registrySnapshots.subjectId })
+        .from(registrySnapshots)
+        .where(eq(registrySnapshots.ico, partner.ico))
+        .orderBy(desc(registrySnapshots.fetchedAt))
+        .limit(1);
+      if (icoSnap) {
+        const [icoSubject] = await db.select({ id: subjects.id, uid: subjects.uid, companyName: subjects.companyName, firstName: subjects.firstName, lastName: subjects.lastName })
+          .from(subjects)
+          .where(eq(subjects.id, icoSnap.subjectId))
+          .limit(1);
+        if (icoSubject && icoSubject.uid) {
+          uid = icoSubject.uid;
+          const displayName = icoSubject.companyName || `${icoSubject.firstName || ''} ${icoSubject.lastName || ''}`.trim();
+          matchedSubject = { id: icoSubject.id, uid: icoSubject.uid, displayName };
+        }
+      }
+    }
+
+    if (!uid!) {
+      // Name ILIKE fallback
+      const namePattern = `%${partner.name}%`;
+      const [nameMatch] = await db.select({ id: subjects.id, uid: subjects.uid, companyName: subjects.companyName, firstName: subjects.firstName, lastName: subjects.lastName })
+        .from(subjects)
+        .where(sql`(${subjects.companyName} ILIKE ${namePattern} OR (${subjects.firstName} || ' ' || ${subjects.lastName}) ILIKE ${namePattern})`)
+        .limit(1);
+      if (nameMatch && nameMatch.uid) {
+        uid = nameMatch.uid;
+        const displayName = nameMatch.companyName || `${nameMatch.firstName || ''} ${nameMatch.lastName || ''}`.trim();
+        matchedSubject = { id: nameMatch.id, uid: nameMatch.uid, displayName };
+      }
+    }
+
+    if (!uid!) {
+      uid = await this.generateNextGlobalUid(stateCode);
+    }
+
+    const [newPartner] = await db.insert(partners).values({ ...partner, uid }).returning();
+
     // Auto-create partner group
     const existingCg = await this.getClientGroupByLinkedPartnerId(newPartner.id);
     if (!existingCg) {
@@ -958,9 +1020,9 @@ export class DatabaseStorage implements IStorage {
         linkedPartnerId: newPartner.id,
         groupCode: `partner_group_${newPartner.id}`,
         permissionLevel: 1,
-      } as any).returning();
+      }).returning();
     }
-    return newPartner;
+    return { partner: newPartner, matchedSubject };
   }
 
   async updatePartner(id: number, updates: UpdatePartnerRequest) {
@@ -3194,7 +3256,7 @@ export class DatabaseStorage implements IStorage {
 
   async getClientGroupByLinkedPartnerId(partnerId: number): Promise<ClientGroup | undefined> {
     const [group] = await db.select().from(clientGroups)
-      .where(sql`${clientGroups}.linked_partner_id = ${partnerId}`)
+      .where(eq(clientGroups.linkedPartnerId, partnerId))
       .limit(1);
     return group;
   }

@@ -774,13 +774,15 @@ export default function ClientGroups() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => { setEditingGroup(group); setDialogOpen(true); }}
-                              data-testid={`menu-edit-group-${group.id}`}
-                            >
-                              <Pencil className="w-4 h-4 mr-2" />
-                              Upraviť
-                            </DropdownMenuItem>
+                            {!group.isPartnerGroup && !group.isHoldingGroup && (
+                              <DropdownMenuItem
+                                onClick={() => { setEditingGroup(group); setDialogOpen(true); }}
+                                data-testid={`menu-edit-group-${group.id}`}
+                              >
+                                <Pencil className="w-4 h-4 mr-2" />
+                                Upraviť
+                              </DropdownMenuItem>
+                            )}
                             {!group.isSystem && !group.isHoldingGroup && !group.isPartnerGroup && (
                               <DropdownMenuItem
                                 onClick={() => setDeletingGroup(group)}

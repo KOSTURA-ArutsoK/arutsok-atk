@@ -30,13 +30,17 @@ export function useCreatePartner() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async (data: InsertPartner) => {
+    mutationFn: async (data: InsertPartner): Promise<Partner & { matchedSubject: { id: number; uid: string; displayName: string } | null }> => {
       const res = await apiRequest("POST", "/api/partners", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/partners"] });
-      toast({ title: "Partner vytvoreny", description: "Partner bol uspesne pridany." });
+      if (data.matchedSubject) {
+        toast({ title: "Partner vytvorený – existujúci subjekt", description: `Tento subjekt už v systéme existuje (${data.matchedSubject.displayName}). UID bolo recyklované.`, duration: 7000 });
+      } else {
+        toast({ title: "Partner vytvoreny", description: "Partner bol uspesne pridany." });
+      }
     },
     onError: () => {
       toast({ title: "Chyba", description: "Nepodarilo sa vytvorit partnera.", variant: "destructive" });
