@@ -35,10 +35,11 @@ interface BranchEmployee {
   firstName?: string;
   lastName?: string;
   titleAfter?: string;
-  phone?: string;
-  email?: string;
+  phones?: string[];
+  emails?: string[];
   otherContact?: string;
   status?: "active" | "inactive" | "temporarily_inactive";
+  inactiveUntil?: string;
 }
 
 interface BranchEntry {
@@ -505,6 +506,8 @@ function CompanyFormDialog({
   const [branchEmployees, setBranchEmployees] = useState<BranchEmployee[]>([]);
   const [addingBranchEmployee, setAddingBranchEmployee] = useState(false);
   const [newEmployee, setNewEmployee] = useState<BranchEmployee>({ status: "active" });
+  const [empPhones, setEmpPhones] = useState<string[]>([]);
+  const [empEmails, setEmpEmails] = useState<string[]>([]);
   const employeePhotoRef = useRef<HTMLInputElement>(null);
   const [pendingLogo, setPendingLogo] = useState<File | null>(null);
   const [pendingLogoPreview, setPendingLogoPreview] = useState<string | null>(null);
@@ -674,6 +677,8 @@ function CompanyFormDialog({
     setBranchEmployees([]);
     setAddingBranchEmployee(false);
     setNewEmployee({ status: "active" });
+    setEmpPhones([]);
+    setEmpEmails([]);
     setEditingBranchIdx(null);
     setAddingBranch(true);
   }
@@ -686,6 +691,8 @@ function CompanyFormDialog({
     setBranchEmployees(br.employees ?? []);
     setAddingBranchEmployee(false);
     setNewEmployee({ status: "active" });
+    setEmpPhones([]);
+    setEmpEmails([]);
     setEditingBranchIdx(idx);
     setAddingBranch(true);
   }
@@ -726,8 +733,14 @@ function CompanyFormDialog({
 
   function saveEmployee() {
     if (newEmployee.firstName || newEmployee.lastName || newEmployee.position || newEmployee.uid) {
-      setBranchEmployees(prev => [...prev, { ...newEmployee }]);
+      setBranchEmployees(prev => [...prev, {
+        ...newEmployee,
+        phones: empPhones.filter(p => p.trim()),
+        emails: empEmails.filter(e => e.trim()),
+      }]);
       setNewEmployee({ status: "active" });
+      setEmpPhones([]);
+      setEmpEmails([]);
       setAddingBranchEmployee(false);
     }
   }
@@ -1298,7 +1311,7 @@ function CompanyFormDialog({
                       {addingBranchEmployee && (
                         <div className="border border-border rounded-md p-3 space-y-3 bg-muted/30" data-testid="form-new-employee">
                           <div className="flex items-start gap-3">
-                            <div className="flex flex-col items-center gap-1">
+                            <div className="flex flex-col items-center gap-1 shrink-0">
                               <div className="w-16 h-16 rounded-md border border-border overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80" onClick={() => employeePhotoRef.current?.click()} data-testid="employee-photo-area">
                                 {newEmployee.photo
                                   ? <img src={newEmployee.photo} className="w-full h-full object-cover" alt="foto" />
@@ -1309,37 +1322,74 @@ function CompanyFormDialog({
                               <span className="text-[10px] text-muted-foreground">Fotografia</span>
                             </div>
                             <div className="flex-1 space-y-2">
-                              <div className="grid grid-cols-3 gap-2">
-                                <Input placeholder="Titul pred" value={newEmployee.titleBefore || ""} onChange={e => setNewEmployee(p => ({ ...p, titleBefore: e.target.value }))} className="text-sm" data-testid="input-emp-title-before" />
-                                <Input placeholder="Meno" value={newEmployee.firstName || ""} onChange={e => setNewEmployee(p => ({ ...p, firstName: e.target.value }))} className="text-sm col-span-1" data-testid="input-emp-first-name" />
-                                <Input placeholder="Titul za" value={newEmployee.titleAfter || ""} onChange={e => setNewEmployee(p => ({ ...p, titleAfter: e.target.value }))} className="text-sm" data-testid="input-emp-title-after" />
-                              </div>
-                              <Input placeholder="Priezvisko" value={newEmployee.lastName || ""} onChange={e => setNewEmployee(p => ({ ...p, lastName: e.target.value }))} className="text-sm" data-testid="input-emp-last-name" />
                               <div className="grid grid-cols-2 gap-2">
                                 <Input placeholder="UID" value={newEmployee.uid || ""} onChange={e => setNewEmployee(p => ({ ...p, uid: e.target.value }))} className="text-sm font-mono" data-testid="input-emp-uid" />
-                                <Input placeholder="Pozícia" value={newEmployee.position || ""} onChange={e => setNewEmployee(p => ({ ...p, position: e.target.value }))} className="text-sm" data-testid="input-emp-position" />
+                                <Input placeholder="Pozícia / funkcia" value={newEmployee.position || ""} onChange={e => setNewEmployee(p => ({ ...p, position: e.target.value }))} className="text-sm" data-testid="input-emp-position" />
+                              </div>
+                              <div className="grid grid-cols-4 gap-2">
+                                <Input placeholder="Titul pred" value={newEmployee.titleBefore || ""} onChange={e => setNewEmployee(p => ({ ...p, titleBefore: e.target.value }))} className="text-sm" data-testid="input-emp-title-before" />
+                                <Input placeholder="Meno" value={newEmployee.firstName || ""} onChange={e => setNewEmployee(p => ({ ...p, firstName: e.target.value }))} className="text-sm" data-testid="input-emp-first-name" />
+                                <Input placeholder="Priezvisko" value={newEmployee.lastName || ""} onChange={e => setNewEmployee(p => ({ ...p, lastName: e.target.value }))} className="text-sm" data-testid="input-emp-last-name" />
+                                <Input placeholder="Titul za" value={newEmployee.titleAfter || ""} onChange={e => setNewEmployee(p => ({ ...p, titleAfter: e.target.value }))} className="text-sm" data-testid="input-emp-title-after" />
                               </div>
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <Input placeholder="Telefón" value={newEmployee.phone || ""} onChange={e => setNewEmployee(p => ({ ...p, phone: e.target.value }))} className="text-sm" data-testid="input-emp-phone" />
-                            <Input placeholder="E-mail" value={newEmployee.email || ""} onChange={e => setNewEmployee(p => ({ ...p, email: e.target.value }))} className="text-sm" data-testid="input-emp-email" />
+
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Phone className="w-3 h-3" />Telefóny</label>
+                              <Button type="button" variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setEmpPhones(prev => [...prev, ""])} data-testid="button-add-emp-phone">
+                                <Plus className="w-3 h-3 mr-0.5" />Pridať
+                              </Button>
+                            </div>
+                            {empPhones.map((ph, i) => (
+                              <div key={i} className="flex gap-2">
+                                <Input placeholder={`Telefón ${i + 1}`} value={ph} onChange={e => setEmpPhones(prev => prev.map((p, j) => j === i ? e.target.value : p))} className="text-sm" data-testid={`input-emp-phone-${i}`} />
+                                <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-destructive hover:text-destructive" onClick={() => setEmpPhones(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-emp-phone-${i}`}><X className="w-3 h-3" /></Button>
+                              </div>
+                            ))}
+                            {empPhones.length === 0 && <p className="text-xs text-muted-foreground">Žiadne telefóny</p>}
                           </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Mail className="w-3 h-3" />E-maily</label>
+                              <Button type="button" variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setEmpEmails(prev => [...prev, ""])} data-testid="button-add-emp-email">
+                                <Plus className="w-3 h-3 mr-0.5" />Pridať
+                              </Button>
+                            </div>
+                            {empEmails.map((em, i) => (
+                              <div key={i} className="flex gap-2">
+                                <Input placeholder={`E-mail ${i + 1}`} value={em} onChange={e => setEmpEmails(prev => prev.map((p, j) => j === i ? e.target.value : p))} className="text-sm" data-testid={`input-emp-email-${i}`} />
+                                <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-destructive hover:text-destructive" onClick={() => setEmpEmails(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-emp-email-${i}`}><X className="w-3 h-3" /></Button>
+                              </div>
+                            ))}
+                            {empEmails.length === 0 && <p className="text-xs text-muted-foreground">Žiadne e-maily</p>}
+                          </div>
+
                           <Textarea placeholder="Iný kontakt (poznámka)" value={newEmployee.otherContact || ""} onChange={e => setNewEmployee(p => ({ ...p, otherContact: e.target.value }))} className="text-sm h-16 resize-none" data-testid="input-emp-other-contact" />
-                          <div className="space-y-1">
+
+                          <div className="space-y-2">
                             <label className="text-xs text-muted-foreground">Stav zamestnanca</label>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap">
                               {([["active", "Aktívny", "border-green-600 text-green-600"], ["temporarily_inactive", "Dočasne neaktívny", "border-amber-500 text-amber-500"], ["inactive", "Neaktívny", "border-destructive text-destructive"]] as const).map(([val, label, cls]) => (
                                 <button key={val} type="button"
                                   className={`text-xs px-2.5 py-1 rounded border transition-colors ${newEmployee.status === val ? cls + " bg-muted/50 font-semibold" : "border-border text-muted-foreground hover:border-primary/40"}`}
-                                  onClick={() => setNewEmployee(p => ({ ...p, status: val }))}
+                                  onClick={() => setNewEmployee(p => ({ ...p, status: val, inactiveUntil: val !== "temporarily_inactive" ? undefined : p.inactiveUntil }))}
                                   data-testid={`btn-emp-status-${val}`}
                                 >{label}</button>
                               ))}
                             </div>
+                            {newEmployee.status === "temporarily_inactive" && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <label className="text-xs text-amber-500 whitespace-nowrap">Neaktívny do:</label>
+                                <Input type="date" value={newEmployee.inactiveUntil || ""} onChange={e => setNewEmployee(p => ({ ...p, inactiveUntil: e.target.value || undefined }))} className="text-sm h-8 w-40" data-testid="input-emp-inactive-until" />
+                              </div>
+                            )}
                           </div>
+
                           <div className="flex gap-2 justify-end pt-1">
-                            <Button type="button" variant="ghost" size="sm" onClick={() => { setAddingBranchEmployee(false); setNewEmployee({ status: "active" }); }} data-testid="button-employee-cancel">Zrušiť</Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => { setAddingBranchEmployee(false); setNewEmployee({ status: "active" }); setEmpPhones([]); setEmpEmails([]); }} data-testid="button-employee-cancel">Zrušiť</Button>
                             <Button type="button" size="sm" onClick={saveEmployee} data-testid="button-employee-save">Uložiť zamestnanca</Button>
                           </div>
                         </div>
@@ -1348,24 +1398,28 @@ function CompanyFormDialog({
                       {branchEmployees.length > 0 && (
                         <div className="space-y-2">
                           {branchEmployees.map((emp, i) => (
-                            <div key={i} className="flex items-center gap-3 p-2.5 border border-border rounded-md bg-muted/10" data-testid={`employee-row-${i}`}>
-                              <div className="w-10 h-10 rounded shrink-0 overflow-hidden border border-border bg-muted flex items-center justify-center">
+                            <div key={i} className="flex items-start gap-3 p-2.5 border border-border rounded-md bg-muted/10" data-testid={`employee-row-${i}`}>
+                              <div className="w-10 h-10 rounded shrink-0 overflow-hidden border border-border bg-muted flex items-center justify-center mt-0.5">
                                 {emp.photo ? <img src={emp.photo} className="w-full h-full object-cover" alt="foto" /> : <UserCog className="w-4 h-4 text-muted-foreground" />}
                               </div>
                               <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {emp.uid && <span className="text-xs font-mono text-primary">{emp.uid}</span>}
+                                  {emp.position && <span className="text-xs text-muted-foreground">{emp.position}</span>}
+                                </div>
                                 <p className="text-sm font-medium truncate">
                                   {[emp.titleBefore, emp.firstName, emp.lastName, emp.titleAfter].filter(Boolean).join(" ") || "—"}
                                 </p>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  {emp.uid && <span className="font-mono">{emp.uid}</span>}
-                                  {emp.position && <span>{emp.position}</span>}
-                                  {emp.phone && <span className="flex items-center gap-0.5"><Phone className="w-2.5 h-2.5" />{emp.phone}</span>}
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                                  {(emp.phones ?? []).map((ph, pi) => <span key={pi} className="flex items-center gap-0.5"><Phone className="w-2.5 h-2.5" />{ph}</span>)}
+                                  {(emp.emails ?? []).map((em, ei) => <span key={ei} className="flex items-center gap-0.5"><Mail className="w-2.5 h-2.5" />{em}</span>)}
+                                  {emp.inactiveUntil && <span className="text-amber-500">do {emp.inactiveUntil}</span>}
                                 </div>
                               </div>
-                              <Badge variant="outline" className={`text-[10px] shrink-0 ${emp.status === "active" ? "border-green-600 text-green-600" : emp.status === "temporarily_inactive" ? "border-amber-500 text-amber-500" : "border-destructive text-destructive"}`}>
+                              <Badge variant="outline" className={`text-[10px] shrink-0 mt-0.5 ${emp.status === "active" ? "border-green-600 text-green-600" : emp.status === "temporarily_inactive" ? "border-amber-500 text-amber-500" : "border-destructive text-destructive"}`}>
                                 {emp.status === "active" ? "Aktívny" : emp.status === "temporarily_inactive" ? "Dočasne" : "Neaktívny"}
                               </Badge>
-                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive hover:text-destructive" onClick={() => setBranchEmployees(prev => prev.filter((_, j) => j !== i))} data-testid={`button-delete-employee-${i}`}><Trash2 className="w-3 h-3" /></Button>
+                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive hover:text-destructive mt-0.5" onClick={() => setBranchEmployees(prev => prev.filter((_, j) => j !== i))} data-testid={`button-delete-employee-${i}`}><Trash2 className="w-3 h-3" /></Button>
                             </div>
                           ))}
                         </div>
@@ -1737,23 +1791,26 @@ function CompanyDetailDialog({
                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Users className="w-3 h-3" />Pracovníci na pobočke</p>
                               <div className="space-y-1.5">
                                 {empList.map((emp, ei) => (
-                                  <div key={ei} className="flex items-center gap-2.5 p-2 rounded border border-border/50 bg-muted/10" data-testid={`detail-branch-${idx}-emp-${ei}`}>
-                                    <div className="w-9 h-9 rounded shrink-0 border border-border overflow-hidden bg-muted flex items-center justify-center">
+                                  <div key={ei} className="flex items-start gap-2.5 p-2 rounded border border-border/50 bg-muted/10" data-testid={`detail-branch-${idx}-emp-${ei}`}>
+                                    <div className="w-9 h-9 rounded shrink-0 border border-border overflow-hidden bg-muted flex items-center justify-center mt-0.5">
                                       {emp.photo ? <img src={emp.photo} className="w-full h-full object-cover" alt="foto" /> : <UserCog className="w-3.5 h-3.5 text-muted-foreground" />}
                                     </div>
                                     <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        {emp.uid && <span className="text-[10px] font-mono text-primary">{emp.uid}</span>}
+                                        {emp.position && <span className="text-[10px] text-muted-foreground">{emp.position}</span>}
+                                      </div>
                                       <p className="text-xs font-medium truncate">
                                         {[emp.titleBefore, emp.firstName, emp.lastName, emp.titleAfter].filter(Boolean).join(" ") || "—"}
                                       </p>
                                       <div className="flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap">
-                                        {emp.uid && <span className="font-mono">{emp.uid}</span>}
-                                        {emp.position && <span>{emp.position}</span>}
-                                        {emp.phone && <span className="flex items-center gap-0.5"><Phone className="w-2 h-2" />{emp.phone}</span>}
-                                        {emp.email && <span className="flex items-center gap-0.5"><Mail className="w-2 h-2" />{emp.email}</span>}
+                                        {(emp.phones ?? []).map((ph, pi) => <span key={pi} className="flex items-center gap-0.5"><Phone className="w-2 h-2" />{ph}</span>)}
+                                        {(emp.emails ?? []).map((em, emi) => <span key={emi} className="flex items-center gap-0.5"><Mail className="w-2 h-2" />{em}</span>)}
+                                        {emp.inactiveUntil && <span className="text-amber-500">do {emp.inactiveUntil}</span>}
                                       </div>
                                       {emp.otherContact && <p className="text-[10px] text-muted-foreground/70 truncate">{emp.otherContact}</p>}
                                     </div>
-                                    <Badge variant="outline" className={`text-[10px] shrink-0 ${emp.status === "active" ? "border-green-600 text-green-600" : emp.status === "temporarily_inactive" ? "border-amber-500 text-amber-500" : "border-destructive text-destructive"}`}>
+                                    <Badge variant="outline" className={`text-[10px] shrink-0 mt-0.5 ${emp.status === "active" ? "border-green-600 text-green-600" : emp.status === "temporarily_inactive" ? "border-amber-500 text-amber-500" : "border-destructive text-destructive"}`}>
                                       {emp.status === "active" ? "Aktívny" : emp.status === "temporarily_inactive" ? "Dočasne" : "Neaktívny"}
                                     </Badge>
                                   </div>
