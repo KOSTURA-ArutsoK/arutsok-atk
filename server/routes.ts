@@ -6897,6 +6897,9 @@ export async function registerRoutes(
     try {
       const existing = await storage.getClientGroup(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Skupina nenajdena" });
+      if (existing.isHoldingGroup) {
+        return res.status(403).json({ message: "Holding skupinu nie je možné priamo upraviť. Spravujte ju cez modul Spoločnosti." });
+      }
       const enforcedState = getEnforcedStateId(req);
       if (enforcedState && existing.stateId !== null && existing.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
