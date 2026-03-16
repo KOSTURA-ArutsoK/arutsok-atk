@@ -1026,11 +1026,14 @@ function CompanyFormDialog({
                   {addingBranch && (
                     <div className="border border-border rounded-md p-3 space-y-3 bg-muted/30" data-testid="form-new-branch">
                       <Input placeholder="Názov pobočky" value={newBranch.name || ""} onChange={e => setNewBranch(p => ({ ...p, name: e.target.value }))} data-testid="input-branch-name" />
-                      <div className="grid grid-cols-2 gap-3">
-                        <Input placeholder="Ulica + číslo" value={newBranch.street || ""} onChange={e => setNewBranch(p => ({ ...p, street: e.target.value }))} data-testid="input-branch-street" />
-                        <Input placeholder="PSČ" value={newBranch.postalCode || ""} onChange={e => setNewBranch(p => ({ ...p, postalCode: e.target.value }))} data-testid="input-branch-postal" />
+                      <div className="grid grid-cols-3 gap-3">
+                        <Input placeholder="Ulica" value={newBranch.street || ""} onChange={e => setNewBranch(p => ({ ...p, street: e.target.value }))} className="col-span-2" data-testid="input-branch-street" />
+                        <Input placeholder="Číslo" value={newBranch.streetNumber || ""} onChange={e => setNewBranch(p => ({ ...p, streetNumber: e.target.value }))} data-testid="input-branch-street-number" />
                       </div>
-                      <Input placeholder="Mesto" value={newBranch.city || ""} onChange={e => setNewBranch(p => ({ ...p, city: e.target.value }))} data-testid="input-branch-city" />
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input placeholder="PSČ" value={newBranch.postalCode || ""} onChange={e => setNewBranch(p => ({ ...p, postalCode: e.target.value }))} data-testid="input-branch-postal" />
+                        <Input placeholder="Mesto" value={newBranch.city || ""} onChange={e => setNewBranch(p => ({ ...p, city: e.target.value }))} data-testid="input-branch-city" />
+                      </div>
                       <div className="grid grid-cols-2 gap-3">
                         <Input placeholder="Telefón" value={newBranch.phone || ""} onChange={e => setNewBranch(p => ({ ...p, phone: e.target.value }))} data-testid="input-branch-phone" />
                         <Input placeholder="E-mail" value={newBranch.email || ""} onChange={e => setNewBranch(p => ({ ...p, email: e.target.value }))} data-testid="input-branch-email" />
@@ -1055,7 +1058,7 @@ function CompanyFormDialog({
                           <GitBranch className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                           <div className="flex-1 text-sm space-y-0.5">
                             {br.name && <p className="font-medium">{br.name}</p>}
-                            <p className="text-muted-foreground">{[br.street, br.postalCode, br.city].filter(Boolean).join(", ") || "Bez adresy"}</p>
+                            <p className="text-muted-foreground">{[br.street, br.streetNumber, br.postalCode, br.city].filter(Boolean).join(", ") || "Bez adresy"}</p>
                             {(br.phone || br.email) && (
                               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                                 {br.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{br.phone}</span>}
@@ -1332,7 +1335,7 @@ function CompanyDetailDialog({
                     {((company.branches as BranchEntry[]) || []).map((br, idx) => (
                       <div key={idx} className="text-sm border border-border rounded-md p-2.5 space-y-0.5" data-testid={`detail-branch-${idx}`}>
                         {br.name && <p className="font-medium">{br.name}</p>}
-                        <p className="text-muted-foreground">{[br.street, br.postalCode, br.city].filter(Boolean).join(", ") || "Bez adresy"}</p>
+                        <p className="text-muted-foreground">{[br.street, br.streetNumber, br.postalCode, br.city].filter(Boolean).join(", ") || "Bez adresy"}</p>
                         {(br.phone || br.email) && (
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             {br.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{br.phone}</span>}
