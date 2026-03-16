@@ -56,6 +56,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -455,6 +456,7 @@ function CompanyFormDialog({
   const [registryResult, setRegistryResult] = useState<RegistryLookupResponse | null>(null);
   const [registryError, setRegistryError] = useState<string | null>(null);
   const [showActivities, setShowActivities] = useState(true);
+  const [selectedActivityIndices, setSelectedActivityIndices] = useState<Set<number>>(new Set());
 
   const editingCompany = editingCompanyId
     ? allCompanies?.find(c => c.id === editingCompanyId) || null
@@ -556,6 +558,9 @@ function CompanyFormDialog({
         return;
       }
       setRegistryResult(data);
+      if (data.businessActivities?.length) {
+        setSelectedActivityIndices(new Set(data.businessActivities.map((_: BusinessActivity, i: number) => i)));
+      }
       if (data.name) form.setValue("name", data.name);
       if (data.street) form.setValue("street", data.street);
       if (data.streetNumber) form.setValue("streetNumber", data.streetNumber);
@@ -575,7 +580,10 @@ function CompanyFormDialog({
 
   function onSubmit(data: FormData) {
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
-    const biz: BusinessActivity[] = registryResult?.businessActivities || (editingCompany?.businessActivities as BusinessActivity[]) || [];
+    const allActivities: BusinessActivity[] = registryResult?.businessActivities || (editingCompany?.businessActivities as BusinessActivity[]) || [];
+    const biz: BusinessActivity[] = registryResult?.businessActivities
+      ? allActivities.filter((_, i) => selectedActivityIndices.has(i))
+      : allActivities;
     const payload = { ...data, notes: notesHtml, processingTimeSec, businessActivities: biz, foundedDate: data.foundedDate ? new Date(data.foundedDate).toISOString() : null };
 
     if (editingCompany) {
@@ -745,6 +753,7 @@ function CompanyFormDialog({
 
                 {(() => {
                   const activitiesSource: BusinessActivity[] = registryResult?.businessActivities ?? (editingCompany?.businessActivities as BusinessActivity[]) ?? [];
+                  const isFromLookup = !!registryResult?.businessActivities;
                   return activitiesSource.length > 0 ? (
                     <div className="border border-border rounded-md" data-testid="section-business-activities">
                       <button
@@ -753,13 +762,25 @@ function CompanyFormDialog({
                         onClick={() => setShowActivities(!showActivities)}
                         data-testid="button-toggle-activities"
                       >
-                        <span>Predmety podnikania ({activitiesSource.length})</span>
+                        <span>Predmety podnikania ({isFromLookup ? `${selectedActivityIndices.size}/${activitiesSource.length}` : activitiesSource.length})</span>
                         {showActivities ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                       </button>
                       {showActivities && (
                         <div className="border-t border-border p-3 space-y-1.5 max-h-48 overflow-y-auto">
                           {activitiesSource.map((act, idx) => (
-                            <div key={idx} className="flex items-start justify-between gap-2 text-sm" data-testid={`activity-row-${idx}`}>
+                            <div key={idx} className="flex items-start gap-2 text-sm" data-testid={`activity-row-${idx}`}>
+                              {isFromLookup && (
+                                <Checkbox
+                                  checked={selectedActivityIndices.has(idx)}
+                                  onCheckedChange={(checked) => {
+                                    const next = new Set(selectedActivityIndices);
+                                    if (checked) next.add(idx); else next.delete(idx);
+                                    setSelectedActivityIndices(next);
+                                  }}
+                                  data-testid={`checkbox-activity-${idx}`}
+                                  className="mt-0.5"
+                                />
+                              )}
                               <span className="text-muted-foreground flex-1">{act.text}</span>
                               {act.since && (
                                 <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">(od: {act.since})</span>
