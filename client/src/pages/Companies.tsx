@@ -10,6 +10,43 @@ import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
 import { useToast as useToastCompanyDiv } from "@/hooks/use-toast";
 import type { CompanyLogoHistory, Division } from "@shared/schema";
 
+interface BusinessActivity {
+  text: string;
+  since?: string;
+}
+
+interface RegistryShareholder {
+  name: string;
+  contribution?: string;
+  address?: string;
+}
+
+interface RegistryDirector {
+  name: string;
+  role: string;
+  since?: string;
+}
+
+interface RegistryLookupResponse {
+  found: boolean;
+  source?: string;
+  name?: string;
+  street?: string;
+  streetNumber?: string;
+  zip?: string;
+  city?: string;
+  legalForm?: string;
+  dic?: string;
+  normalized?: string;
+  businessActivities?: BusinessActivity[];
+  shareCapital?: string;
+  shareholders?: RegistryShareholder[];
+  directors?: RegistryDirector[];
+  actingNote?: string;
+  message?: string;
+  error?: string;
+}
+
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -415,7 +452,7 @@ function CompanyFormDialog({
   const [notesHtml, setNotesHtml] = useState("");
   const [platcaDph, setPlatcaDph] = useState(false);
   const [registryLoading, setRegistryLoading] = useState(false);
-  const [registryResult, setRegistryResult] = useState<any>(null);
+  const [registryResult, setRegistryResult] = useState<RegistryLookupResponse | null>(null);
   const [registryError, setRegistryError] = useState<string | null>(null);
   const [showActivities, setShowActivities] = useState(true);
 
@@ -525,14 +562,8 @@ function CompanyFormDialog({
       if (data.zip) form.setValue("postalCode", data.zip);
       if (data.city) form.setValue("city", data.city);
       const currentDic = form.getValues("dic");
-      if (!currentDic || !currentDic.trim()) {
-        if (data.dic) form.setValue("dic", data.dic);
-        else if (data.icDph) form.setValue("dic", data.icDph);
-      }
-      const currentIcDph = form.getValues("icDph");
-      if (data.icDph && (!currentIcDph || !currentIcDph.trim())) {
-        form.setValue("icDph", data.icDph);
-        setPlatcaDph(true);
+      if (data.dic && (!currentDic || !currentDic.trim())) {
+        form.setValue("dic", data.dic);
       }
       if (data.legalForm) form.setValue("description", data.legalForm);
     } catch {
@@ -544,7 +575,7 @@ function CompanyFormDialog({
 
   function onSubmit(data: FormData) {
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
-    const biz = registryResult?.businessActivities || (editingCompany as any)?.businessActivities || [];
+    const biz: BusinessActivity[] = registryResult?.businessActivities || (editingCompany?.businessActivities as BusinessActivity[]) || [];
     const payload = { ...data, notes: notesHtml, processingTimeSec, businessActivities: biz, foundedDate: data.foundedDate ? new Date(data.foundedDate).toISOString() : null };
 
     if (editingCompany) {
@@ -713,7 +744,7 @@ function CompanyFormDialog({
                 )}
 
                 {(() => {
-                  const activitiesSource: { text: string; since?: string }[] = registryResult?.businessActivities ?? (editingCompany as any)?.businessActivities ?? [];
+                  const activitiesSource: BusinessActivity[] = registryResult?.businessActivities ?? (editingCompany?.businessActivities as BusinessActivity[]) ?? [];
                   return activitiesSource.length > 0 ? (
                     <div className="border border-border rounded-md" data-testid="section-business-activities">
                       <button
@@ -744,7 +775,7 @@ function CompanyFormDialog({
                 {registryResult?.shareholders && registryResult.shareholders.length > 0 && (
                   <div className="border border-border rounded-md p-3 space-y-1.5" data-testid="section-shareholders">
                     <p className="text-sm font-medium">Spoločníci</p>
-                    {registryResult.shareholders.map((sh: any, idx: number) => (
+                    {registryResult.shareholders.map((sh, idx) => (
                       <div key={idx} className="text-sm text-muted-foreground" data-testid={`shareholder-row-${idx}`}>
                         <span className="font-medium text-foreground">{sh.name}</span>
                         {sh.contribution && <span className="ml-2">— {sh.contribution}</span>}
@@ -764,10 +795,10 @@ function CompanyFormDialog({
                 {registryResult?.directors && registryResult.directors.length > 0 && (
                   <div className="border border-border rounded-md p-3 space-y-1.5" data-testid="section-directors">
                     <p className="text-sm font-medium">Štatutári</p>
-                    {registryResult.directors.map((dir: any, idx: number) => (
+                    {registryResult.directors.map((dir, idx) => (
                       <div key={idx} className="text-sm text-muted-foreground" data-testid={`director-row-${idx}`}>
-                        <span className="font-medium text-foreground">{typeof dir === "string" ? dir : dir.name || dir}</span>
-                        {typeof dir !== "string" && dir.since && (
+                        <span className="font-medium text-foreground">{dir.name}</span>
+                        {dir.since && (
                           <span className="ml-2 text-xs font-mono">(od: {dir.since})</span>
                         )}
                       </div>
@@ -990,13 +1021,13 @@ function CompanyDetailDialog({
                 </div>
               </>
             )}
-            {(company.businessActivities as any[])?.length > 0 && (
+            {((company.businessActivities as BusinessActivity[]) || []).length > 0 && (
               <>
                 <Separator />
                 <div data-testid="detail-section-activities">
                   <span className="text-xs text-muted-foreground">Predmety podnikania</span>
                   <div className="mt-1 space-y-1 max-h-40 overflow-y-auto">
-                    {(company.businessActivities as { text: string; since?: string }[]).map((act, idx) => (
+                    {(company.businessActivities as BusinessActivity[]).map((act, idx) => (
                       <div key={idx} className="flex items-start justify-between gap-2 text-sm">
                         <span className="text-muted-foreground flex-1">{act.text}</span>
                         {act.since && (
