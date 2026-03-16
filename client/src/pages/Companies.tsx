@@ -470,6 +470,7 @@ function CompanyFormDialog({
   const { data: allCompanies } = useMyCompanies();
   const { data: appUser } = useAppUser();
   const timerRef = useRef<number>(0);
+  const registryLookupBtnRef = useRef<HTMLButtonElement>(null);
   const [notesHtml, setNotesHtml] = useState("");
   const [platcaDph, setPlatcaDph] = useState(false);
   const [registryLoading, setRegistryLoading] = useState(false);
@@ -735,12 +736,12 @@ function CompanyFormDialog({
                       <FormField control={form.control} name="ico" render={({ field }) => (
                         <FormItem className="w-[28%]">
                           <FormLabel>IČO *</FormLabel>
-                          <FormControl><Input {...field} value={field.value || ""} data-testid="input-ico" /></FormControl>
+                          <FormControl><Input {...field} value={field.value || ""} data-testid="input-ico" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); registryLookupBtnRef.current?.focus(); } }} /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
                       <div className="flex items-center gap-2 pb-[2px]">
-                        <Button type="button" variant="outline" size="sm" disabled={registryLoading} onClick={handleRegistryLookup} data-testid="button-registry-lookup">
+                        <Button ref={registryLookupBtnRef} type="button" variant="outline" size="sm" disabled={registryLoading} onClick={handleRegistryLookup} data-testid="button-registry-lookup">
                           {registryLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Search className="w-4 h-4 mr-1" />}
                           {registryLoading ? "Hľadám..." : "Hľadať v registri"}
                         </Button>
