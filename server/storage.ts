@@ -349,6 +349,7 @@ export interface IStorage {
   deleteClientType(id: number): Promise<void>;
 
   checkDuplicateSubject(params: { birthNumber?: string; ico?: string }): Promise<{ id: number; uid: string; name: string; type: string; matchedField: string } | undefined>;
+  checkDuplicateSubjectOnly(params: { birthNumber?: string; ico?: string }): Promise<{ id: number; uid: string; name: string; type: string; matchedField: string } | undefined>;
 
   // Contract Statuses
   getContractStatuses(stateId?: number): Promise<ContractStatus[]>;
@@ -2480,6 +2481,34 @@ export class DatabaseStorage implements IStorage {
       const [foundPartner] = await db.select().from(partners)
         .where(sql`REPLACE(${partners.ico}, ' ', '') = ${normalizedIco}`);
       if (foundPartner) return makeResult(foundPartner.id, foundPartner.uid || "", foundPartner.name, "company", "IČO");
+    }
+
+    return undefined;
+  }
+
+  async checkDuplicateSubjectOnly(params: { birthNumber?: string; ico?: string }): Promise<{ id: number; uid: string; name: string; type: string; matchedField: string } | undefined> {
+    const makeResult = (id: number, uid: string, name: string, type: string, matchedField: string) => ({ id, uid, name, type, matchedField });
+    const subjectName = (s: { type: string; firstName: string | null; lastName: string | null; companyName: string | null }) =>
+      s.type === "person" ? `${s.firstName || ""} ${s.lastName || ""}`.trim() : s.companyName || "";
+
+    if (params.birthNumber) {
+      const normalizedInput = params.birthNumber.replace(/[\s\/\-]/g, "");
+      const allWithBn = await db.select().from(subjects).where(and(isNotNull(subjects.birthNumber), isNull(subjects.deletedAt)));
+      for (const s of allWithBn) {
+        if (!s.birthNumber) continue;
+        const decrypted = decryptField(s.birthNumber);
+        const stored = decrypted || s.birthNumber;
+        if (stored.replace(/[\s\/\-]/g, "") === normalizedInput) {
+          return makeResult(s.id, s.uid || "", subjectName(s), s.type, "RC");
+        }
+      }
+    }
+
+    if (params.ico) {
+      const normalizedIco = params.ico.replace(/\s/g, "");
+      const [foundSubject] = await db.select().from(subjects)
+        .where(and(isNull(subjects.deletedAt), sql`REPLACE(${subjects.details}->>'ico', ' ', '') = ${normalizedIco}`));
+      if (foundSubject) return makeResult(foundSubject.id, foundSubject.uid || "", foundSubject.companyName || `${foundSubject.firstName || ""} ${foundSubject.lastName || ""}`.trim(), foundSubject.type, "IČO");
     }
 
     return undefined;

@@ -2089,30 +2089,34 @@ export async function registerRoutes(
         }
       }
 
-      const dupIco = (input.details as any)?.ico || (input as any).szcoIco;
-      if (input.birthNumber || dupIco) {
-        const dupCheck = await storage.checkDuplicateSubject({ birthNumber: input.birthNumber || undefined, ico: dupIco || undefined });
-        if (dupCheck) {
-          const isBlacklisted = await storage.isSubjectInGroup(dupCheck.id, "group_cierny_zoznam");
-          if (isBlacklisted) {
-            return res.status(403).json({ message: "Registráciu nie je možné dokončiť. Kontaktujte správcu." });
-          }
-          const existing = await storage.getSubject(dupCheck.id);
-          return res.status(200).json({ existingSubject: { id: dupCheck.id, uid: dupCheck.uid, name: dupCheck.name, type: dupCheck.type, matchedField: dupCheck.matchedField, firstName: existing?.firstName, lastName: existing?.lastName, companyName: existing?.companyName } });
-        }
-      }
+      const forceCreate = !!(req.body as any)._forceCreate;
 
-      if (input.companyName && (input.type === "company" || input.type === "organization")) {
-        const [companyDup] = await db.select({ id: subjects.id, uid: subjects.uid, companyName: subjects.companyName, type: subjects.type })
-          .from(subjects)
-          .where(and(isNull(subjects.deletedAt), sql`LOWER(${subjects.companyName}) = LOWER(${input.companyName.trim()})`))
-          .limit(1);
-        if (companyDup) {
-          const isBlacklisted = await storage.isSubjectInGroup(companyDup.id, "group_cierny_zoznam");
-          if (isBlacklisted) {
-            return res.status(403).json({ message: "Registráciu nie je možné dokončiť. Kontaktujte správcu." });
+      if (!forceCreate) {
+        const dupIco = (input.details as any)?.ico || (input as any).szcoIco;
+        if (input.birthNumber || dupIco) {
+          const dupCheck = await storage.checkDuplicateSubjectOnly({ birthNumber: input.birthNumber || undefined, ico: dupIco || undefined });
+          if (dupCheck) {
+            const isBlacklisted = await storage.isSubjectInGroup(dupCheck.id, "group_cierny_zoznam");
+            if (isBlacklisted) {
+              return res.status(403).json({ message: "Registráciu nie je možné dokončiť. Kontaktujte správcu." });
+            }
+            const existing = await storage.getSubject(dupCheck.id);
+            return res.status(200).json({ existingSubject: { id: dupCheck.id, uid: dupCheck.uid, name: dupCheck.name, type: dupCheck.type, matchedField: dupCheck.matchedField, firstName: existing?.firstName, lastName: existing?.lastName, companyName: existing?.companyName } });
           }
-          return res.status(200).json({ existingSubject: { id: companyDup.id, uid: companyDup.uid || "", name: companyDup.companyName || "", type: companyDup.type, matchedField: "Názov spoločnosti" } });
+        }
+
+        if (input.companyName && (input.type === "company" || input.type === "organization")) {
+          const [companyDup] = await db.select({ id: subjects.id, uid: subjects.uid, companyName: subjects.companyName, type: subjects.type })
+            .from(subjects)
+            .where(and(isNull(subjects.deletedAt), sql`${subjects.companyName} ILIKE ${input.companyName.trim()}`))
+            .limit(1);
+          if (companyDup) {
+            const isBlacklisted = await storage.isSubjectInGroup(companyDup.id, "group_cierny_zoznam");
+            if (isBlacklisted) {
+              return res.status(403).json({ message: "Registráciu nie je možné dokončiť. Kontaktujte správcu." });
+            }
+            return res.status(200).json({ existingSubject: { id: companyDup.id, uid: companyDup.uid || "", name: companyDup.companyName || "", type: companyDup.type, matchedField: "Názov spoločnosti" } });
+          }
         }
       }
 

@@ -2490,6 +2490,7 @@ function FullPageEditor({
   const [contacts, setContacts] = useState<ContactEntry[]>([{ id: crypto.randomUUID(), type: "phone", value: "", label: "Primárny", isPrimary: true }]);
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
   const [existingSubjectBanner, setExistingSubjectBanner] = useState<{ id: number; uid: string; name: string; matchedField: string } | null>(null);
+  const [pendingSubmitData, setPendingSubmitData] = useState<any>(null);
   const setDynamicValues: typeof setDynamicValuesRaw = (updater) => {
     setDynamicValuesRaw((prev) => {
       const next = typeof updater === "function" ? updater(prev) : updater;
@@ -2701,6 +2702,7 @@ function FullPageEditor({
       onSuccess: async (createdSubject: any) => {
         if (createdSubject?.existingSubject) {
           setExistingSubjectBanner(createdSubject.existingSubject);
+          setPendingSubmitData(submitData);
           return;
         }
         if (createdSubject?.id && !isPerson) {
@@ -2752,14 +2754,44 @@ function FullPageEditor({
               <span className="font-medium text-foreground">{existingSubjectBanner.name}</span>
               {existingSubjectBanner.uid && <span className="ml-1 text-xs text-muted-foreground">(UID: {existingSubjectBanner.uid})</span>}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Nový záznam nebol vytvorený. Môžete otvoriť existujúci subjekt alebo upraviť zadané údaje.</p>
+            <p className="text-xs text-muted-foreground mt-1">Môžete otvoriť existujúci subjekt, registrovať aj tak, alebo upraviť zadané údaje.</p>
+            <div className="flex gap-2 mt-2 flex-wrap">
+              <a href={`/subjects/${existingSubjectBanner.id}`} target="_blank" rel="noopener noreferrer">
+                <Button type="button" variant="outline" size="sm" className="text-xs" data-testid="button-open-existing-subject">
+                  <ExternalLink className="w-3 h-3 mr-1" />
+                  Otvoriť existujúci
+                </Button>
+              </a>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-xs border-yellow-500 text-yellow-400 hover:bg-yellow-500/20"
+                data-testid="button-force-create-subject"
+                disabled={isPending}
+                onClick={() => {
+                  if (!pendingSubmitData) return;
+                  setExistingSubjectBanner(null);
+                  mutate({ ...pendingSubmitData, _forceCreate: true }, {
+                    onSuccess: async (result: any) => {
+                      if (result?.id && !isPerson) {
+                        const snapshotData = pendingRegistrySnapshot || (szcoAresLookup?.found ? szcoAresLookup : null);
+                        if (snapshotData) {
+                          try {
+                            const icoVal = (pendingSubmitData.details as any)?.ico || (pendingSubmitData.details as any)?.dynamicFields?.ico;
+                            if (icoVal) await apiRequest("POST", `/api/subjects/${result.id}/registry-snapshots`, { source: snapshotData.source || "ORSR", ico: icoVal, parsedFields: snapshotData, rawData: snapshotData });
+                          } catch {}
+                        }
+                      }
+                      onCancel();
+                    },
+                  });
+                }}
+              >
+                Registrovať aj tak
+              </Button>
+            </div>
           </div>
-          <a href={`/subjects/${existingSubjectBanner.id}`} target="_blank" rel="noopener noreferrer">
-            <Button type="button" variant="outline" size="sm" className="text-xs shrink-0" data-testid="button-open-existing-subject">
-              <ExternalLink className="w-3 h-3 mr-1" />
-              Otvoriť
-            </Button>
-          </a>
           <Button type="button" variant="ghost" size="sm" onClick={() => setExistingSubjectBanner(null)} className="shrink-0 p-1 h-auto" data-testid="button-dismiss-existing-banner">
             <X className="w-4 h-4" />
           </Button>
