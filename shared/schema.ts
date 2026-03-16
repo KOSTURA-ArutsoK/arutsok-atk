@@ -56,6 +56,7 @@ export const myCompanies = pgTable("my_companies", {
   uid: text("uid"),
   name: text("name").notNull(),
   specialization: text("specialization").notNull(),
+  subjectType: text("subject_type"),
   code: text("code").notNull(),
   ico: text("ico"),
   dic: text("dic"),

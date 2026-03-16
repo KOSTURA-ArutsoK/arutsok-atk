@@ -75,34 +75,35 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 
 
 const COMPANY_COLUMNS: ColumnDef[] = [
-  { key: "name", label: "Nazov" },
-  { key: "ico", label: "ICO" },
+  { key: "name", label: "Názov" },
+  { key: "ico", label: "IČO" },
   { key: "specialization", label: "Zameranie" },
   { key: "city", label: "Mesto" },
   { key: "state", label: "Stat" },
 ];
 
 const COMPANY_FILTER_COLUMNS: SmartColumnDef[] = [
-  { key: "name", label: "Nazov", type: "text" },
-  { key: "ico", label: "ICO", type: "text" },
+  { key: "name", label: "Názov", type: "text" },
+  { key: "ico", label: "IČO", type: "text" },
   { key: "specialization", label: "Zameranie", type: "text" },
   { key: "city", label: "Mesto", type: "text" },
 ];
 
 const formSchema = insertMyCompanySchema.extend({
-  name: z.string().min(1, "Nazov je povinny"),
-  ico: z.string().min(1, "ICO je povinne"),
-  dic: z.string().min(1, "DIC je povinne"),
+  name: z.string().min(1, "Názov je povinný"),
+  ico: z.string().min(1, "IČO je povinné"),
+  dic: z.string().min(1, "DIČ je povinné"),
   icDph: z.string().optional(),
-  street: z.string().min(1, "Ulica je povinna"),
-  streetNumber: z.string().min(1, "Popisne cislo je povinne"),
-  orientNumber: z.string().min(1, "Orientacne cislo je povinne"),
-  postalCode: z.string().min(1, "PSC je povinne"),
-  city: z.string().min(1, "Mesto je povinne"),
+  street: z.string().min(1, "Ulica je povinná"),
+  streetNumber: z.string().min(1, "Popisné číslo je povinné"),
+  orientNumber: z.string().min(1, "Orientačné číslo je povinné"),
+  postalCode: z.string().min(1, "PSČ je povinné"),
+  city: z.string().min(1, "Mesto je povinné"),
   stateId: z.number().optional(),
-  description: z.string().min(1, "Charakteristika je povinna"),
-  specialization: z.string().min(1, "Zameranie je povinne"),
-  code: z.string().min(1, "Kod je povinny").max(25, "Max 25 znakov"),
+  description: z.string().min(1, "Charakteristika je povinná"),
+  specialization: z.string().min(1, "Zameranie je povinné"),
+  subjectType: z.string().optional(),
+  code: z.string().min(1, "Kód je povinný").max(25, "Max 25 znakov"),
   foundedDate: z.string().nullable().optional(),
 });
 
@@ -423,6 +424,7 @@ function CompanyFormDialog({
     defaultValues: {
       name: "",
       specialization: "SFA",
+      subjectType: "",
       code: "",
       ico: "",
       dic: "",
@@ -448,6 +450,7 @@ function CompanyFormDialog({
         form.reset({
           name: editingCompany.name,
           specialization: editingCompany.specialization,
+          subjectType: (editingCompany as any).subjectType || "",
           code: editingCompany.code,
           ico: editingCompany.ico || "",
           dic: editingCompany.dic || "",
@@ -516,7 +519,7 @@ function CompanyFormDialog({
       <DialogContent size="md">
         <DialogHeader>
           <DialogTitle data-testid="text-dialog-title">
-            {editingCompany ? "Upravit spolocnost" : "Pridat novu spolocnost"}
+            {editingCompany ? "Upraviť spoločnosť" : "Pridať novú spoločnosť"}
           </DialogTitle>
         </DialogHeader>
         <Form {...form}>
@@ -533,7 +536,7 @@ function CompanyFormDialog({
               <TabsContent value="basic" className="space-y-4 mt-4">
                 <FormField control={form.control} name="name" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Nazov spolocnosti</FormLabel>
+                    <FormLabel>Názov spoločnosti</FormLabel>
                     <FormControl><Input {...field} data-testid="input-company-name" /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -549,14 +552,14 @@ function CompanyFormDialog({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="SFA">SFA (Financne sprostredkovanie)</SelectItem>
+                          <SelectItem value="SFA">SFA (Finančné sprostredkovanie)</SelectItem>
                           <SelectItem value="Reality">Reality</SelectItem>
-                          <SelectItem value="Prenajom">Prenajom</SelectItem>
-                          <SelectItem value="Weapons">Predaj zbrani</SelectItem>
+                          <SelectItem value="Prenajom">Prenájom</SelectItem>
+                          <SelectItem value="Weapons">Predaj zbraní</SelectItem>
                           <SelectItem value="Obchod">Obchod</SelectItem>
-                          <SelectItem value="Poistenie">Zdravotne poistenie</SelectItem>
-                          <SelectItem value="Dochodok">Dochodkove sporenie</SelectItem>
-                          <SelectItem value="Ine">Ine</SelectItem>
+                          <SelectItem value="Poistenie">Zdravotné poistenie</SelectItem>
+                          <SelectItem value="Dochodok">Dôchodkové sporenie</SelectItem>
+                          <SelectItem value="Ine">Iné</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -564,63 +567,83 @@ function CompanyFormDialog({
                   )} />
                   <FormField control={form.control} name="code" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Kod firmy</FormLabel>
+                      <FormLabel>Kód firmy</FormLabel>
                       <FormControl><Input {...field} maxLength={25} className="font-mono uppercase" data-testid="input-company-code" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                 </div>
-                <div className="grid grid-cols-3 gap-4 items-end">
+                <FormField control={form.control} name="subjectType" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Typ subjektu</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-subject-type">
+                          <SelectValue placeholder="Vyberte typ subjektu" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="fo">FO — Fyzická osoba</SelectItem>
+                        <SelectItem value="szco">SZČO — Samostatne zárobkovo činná osoba</SelectItem>
+                        <SelectItem value="po">PO — Súkromný sektor</SelectItem>
+                        <SelectItem value="ns">NS — Tretí sektor (neziskovky)</SelectItem>
+                        <SelectItem value="vs">VS — Verejný sektor (štát)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <div className="grid grid-cols-3 gap-4">
                   <FormField control={form.control} name="ico" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>ICO *</FormLabel>
+                      <FormLabel>IČO *</FormLabel>
                       <FormControl><Input {...field} value={field.value || ""} data-testid="input-ico" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="dic" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>DIC *</FormLabel>
+                      <FormLabel>DIČ *</FormLabel>
                       <FormControl><Input {...field} value={field.value || ""} data-testid="input-dic" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2 h-5">
-                      <Switch
-                        checked={platcaDph}
-                        onCheckedChange={(checked) => {
-                          setPlatcaDph(checked);
-                          if (!checked) form.setValue("icDph", "");
-                        }}
-                        data-testid="switch-platca-dph"
-                      />
-                      <span className="text-sm font-medium leading-none">
-                        {platcaDph ? "IC DPH *" : "Platca DPH"}
-                      </span>
-                    </div>
-                    {platcaDph ? (
-                      <FormField control={form.control} name="icDph" render={({ field }) => (
-                        <FormItem>
-                          <FormControl><Input {...field} value={field.value || ""} data-testid="input-icdph" /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                    ) : (
-                      <div className="h-9" />
-                    )}
-                  </div>
+                  <FormField control={form.control} name="icDph" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2">
+                        <Switch
+                          checked={platcaDph}
+                          onCheckedChange={(checked) => {
+                            setPlatcaDph(checked);
+                            if (!checked) form.setValue("icDph", "");
+                          }}
+                          data-testid="switch-platca-dph"
+                        />
+                        <span>{platcaDph ? "IČ DPH *" : "Platca DPH"}</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value || ""}
+                          disabled={!platcaDph}
+                          className={!platcaDph ? "opacity-40" : ""}
+                          data-testid="input-icdph"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                 </div>
                 <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Charakteristika (Cim sa firma zaobera) *</FormLabel>
+                    <FormLabel>Charakteristika (Čím sa firma zaoberá) *</FormLabel>
                     <FormControl><Textarea {...field} value={field.value || ""} rows={4} data-testid="input-description" /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="foundedDate" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Datum zalozenia spolocnosti</FormLabel>
+                    <FormLabel>Dátum založenia spoločnosti</FormLabel>
                     <FormControl><Input type="date" value={field.value || ""} onChange={(e) => field.onChange(e.target.value || null)} data-testid="input-founded-date" /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -638,14 +661,14 @@ function CompanyFormDialog({
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="streetNumber" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Popisne cislo *</FormLabel>
+                      <FormLabel>Popisné číslo *</FormLabel>
                       <FormControl><Input {...field} value={field.value || ""} data-testid="input-street-number" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="orientNumber" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Orientacne cislo *</FormLabel>
+                      <FormLabel>Orientačné číslo *</FormLabel>
                       <FormControl><Input {...field} value={field.value || ""} data-testid="input-orient-number" /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -654,7 +677,7 @@ function CompanyFormDialog({
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="postalCode" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>PSC *</FormLabel>
+                      <FormLabel>PSČ *</FormLabel>
                       <FormControl><Input {...field} value={field.value || ""} data-testid="input-postal-code" /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -698,11 +721,11 @@ function CompanyFormDialog({
 
               <TabsContent value="notes" className="mt-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Poznamkovy blok</label>
+                  <label className="text-sm font-medium">Poznámkový blok</label>
                   <RichTextEditor
                     content={notesHtml}
                     onChange={setNotesHtml}
-                    placeholder="Zadajte poznamky k firme..."
+                    placeholder="Zadajte poznámky k firme..."
                     data-testid="editor-notes"
                   />
                 </div>
@@ -713,15 +736,15 @@ function CompanyFormDialog({
               {editingCompany && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Clock className="w-3 h-3" />
-                  <span>Cas spracovania: {formatProcessingTime(editingCompany.processingTimeSec || 0)}</span>
+                  <span>Čas spracovania: {formatProcessingTime(editingCompany.processingTimeSec || 0)}</span>
                 </div>
               )}
               <div className="flex gap-2 ml-auto">
                 <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-cancel">
-                  Zrusit
+                  Zrušiť
                 </Button>
                 <Button type="submit" disabled={isPending} data-testid="button-save">
-                  {isPending ? "Ukladam..." : "Ulozit"}
+                  {isPending ? "Ukladám..." : "Uložiť"}
                 </Button>
               </div>
             </div>
@@ -783,12 +806,13 @@ function CompanyDetailDialog({
 
           <TabsContent value="basic" className="mt-4 space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <InfoRow label="ICO" value={company.ico} testId="text-detail-ico" />
-              <InfoRow label="DIC" value={company.dic} testId="text-detail-dic" />
-              <InfoRow label="IC DPH" value={company.icDph} testId="text-detail-icdph" />
+              <InfoRow label="IČO" value={company.ico} testId="text-detail-ico" />
+              <InfoRow label="DIČ" value={company.dic} testId="text-detail-dic" />
+              <InfoRow label="IČ DPH" value={company.icDph} testId="text-detail-icdph" />
               <InfoRow label="Zameranie" value={company.specialization} testId="text-detail-spec" />
-              <InfoRow label="Kod firmy" value={company.code} mono testId="text-detail-code" />
-              <InfoRow label="Datum zalozenia" value={(company as any).foundedDate ? formatDateSlovak((company as any).foundedDate) : "-"} testId="text-detail-founded-date" />
+              <InfoRow label="Kód firmy" value={company.code} mono testId="text-detail-code" />
+              <InfoRow label="Typ subjektu" value={(company as any).subjectType ? (company as any).subjectType.toUpperCase() : "-"} testId="text-detail-subject-type" />
+              <InfoRow label="Dátum založenia" value={(company as any).foundedDate ? formatDateSlovak((company as any).foundedDate) : "-"} testId="text-detail-founded-date" />
             </div>
             {company.description && (
               <>
@@ -802,7 +826,7 @@ function CompanyDetailDialog({
             <Separator />
             <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
               <Clock className="w-3 h-3" />
-              <span>Cas spracovania: {formatProcessingTime(company.processingTimeSec || 0)}</span>
+              <span>Čas spracovania: {formatProcessingTime(company.processingTimeSec || 0)}</span>
               <span>|</span>
               <span>Vytvorene: {formatDateSlovak(company.createdAt)}</span>
               <span>|</span>
@@ -992,15 +1016,15 @@ export default function Companies() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold" data-testid="text-companies-title">Zoznam spolocnosti</h2>
-          <p className="text-sm text-muted-foreground mt-1">Sprava vaseho portfelia firiem.</p>
+          <h2 className="text-2xl font-bold" data-testid="text-companies-title">Zoznam spoločností</h2>
+          <p className="text-sm text-muted-foreground mt-1">Správa vášho portfólia firiem.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <SmartFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
           <Button onClick={openCreate} data-testid="button-add-company">
             <Plus className="w-4 h-4 mr-2" />
-            Pridat novu spolocnost
+            Pridať novú spoločnosť
           </Button>
         </div>
       </div>
@@ -1010,8 +1034,8 @@ export default function Companies() {
           <Table>
             <TableHeader>
               <TableRow>
-                {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
-                {columnVisibility.isVisible("ico") && <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>ICO</TableHead>}
+                {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Názov</TableHead>}
+                {columnVisibility.isVisible("ico") && <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>IČO</TableHead>}
                 {columnVisibility.isVisible("specialization") && <TableHead sortKey="specialization" sortDirection={sortKey === "specialization" ? sortDirection : null} onSort={requestSort}>Zameranie</TableHead>}
                 {columnVisibility.isVisible("city") && <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>}
                 {columnVisibility.isVisible("state") && <TableHead>Stat</TableHead>}
@@ -1027,7 +1051,7 @@ export default function Companies() {
               {!isLoading && (!companies || companies.length === 0) && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-12 text-muted-foreground" data-testid="text-empty-state">
-                    Ziadne spolocnosti nenajdene. Kliknite na "Pridat novu spolocnost".
+                    Žiadne spoločnosti nenájdené. Kliknite na „Pridať novú spoločnosť".
                   </TableCell>
                 </TableRow>
               )}
@@ -1073,13 +1097,13 @@ export default function Companies() {
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Vymazat spolocnost?</AlertDialogTitle>
+            <AlertDialogTitle>Vymazať spoločnosť?</AlertDialogTitle>
             <AlertDialogDescription>
-              Spolocnost "{deleteTarget?.name}" bude presunuty do archivu. Tato akcia je vratna cez administratora.
+              Spoločnosť „{deleteTarget?.name}" bude presunutá do archívu. Táto akcia je vratná cez administrátora.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Zrusit</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete">Zrušiť</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
@@ -1147,7 +1171,7 @@ function CompanyDivisionsTab({ companyId }: { companyId: number | null }) {
   });
 
   if (!companyId) {
-    return <div className="text-sm text-muted-foreground py-4">Najprv ulozte spolocnost, potom priradite divizie.</div>;
+    return <div className="text-sm text-muted-foreground py-4">Najprv uložte spoločnosť, potom priraďte divízie.</div>;
   }
 
   return (
