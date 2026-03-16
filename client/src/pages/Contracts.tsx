@@ -2692,6 +2692,9 @@ export default function Contracts() {
   const lookupSubjectByUid = (uid: string): { found: boolean; label: string } => {
     if (!uid.trim()) return { found: false, label: "" };
     const normalizedUid = uid.replace(/\s/g, "");
+    if (normalizedUid === "421000000000000") {
+      return { found: true, label: "ArutsoK — ATK" };
+    }
     const user = (appUsersAll || []).find(u => (u.uid || "").replace(/\s/g, "") === normalizedUid);
     if (user) {
       const parts = [user.firstName, user.lastName].filter(Boolean);
