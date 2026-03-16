@@ -635,8 +635,14 @@ export default function ClientGroups() {
   const { data: appUser } = useAppUser();
   const { data: companies } = useMyCompanies();
 
-  const { data: groups, isLoading } = useQuery<ClientGroupWithCount[]>({
+  const { data: groupsRaw, isLoading } = useQuery<ClientGroupWithCount[]>({
     queryKey: ["/api/client-groups"],
+  });
+  // Filter out individual partner groups — displayed as single "PARTNERI" synthetic row
+  const groups = groupsRaw?.filter(g => !g.isPartnerGroup);
+
+  const { data: partnerCountData } = useQuery<{ count: number; divisionId: number | null }>({
+    queryKey: ["/api/partners/active-count"],
   });
 
   const { data: permGroupsData } = useQuery<PermissionGroup[]>({
@@ -715,6 +721,30 @@ export default function ClientGroups() {
                 onReorder={(items) => reorderMutation.mutate(items.map(i => ({ id: Number(i.id), sortOrder: i.sortOrder })))}
               >
                 <TableBody>
+                  {/* Synthetic PARTNERI row — počet unikátnych partnerov s aspoň 1 zmluvou v divízii */}
+                  <TableRow data-testid="row-partneri-synthetic" className="bg-red-500/5 border-l-2 border-l-red-500">
+                    <TableCell></TableCell>
+                    {columnVisibility.isVisible("name") && (
+                      <TableCell className="font-medium">
+                        <span className="inline-flex items-center gap-1.5">
+                          <Lock className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                          PARTNERI
+                          <Badge variant="outline" className="text-[9px] h-4 border-red-500/50 text-red-500">Partner</Badge>
+                        </span>
+                      </TableCell>
+                    )}
+                    {columnVisibility.isVisible("permissionGroup") && <TableCell></TableCell>}
+                    {columnVisibility.isVisible("allowLogin") && <TableCell></TableCell>}
+                    {columnVisibility.isVisible("allowCalculators") && <TableCell></TableCell>}
+                    {columnVisibility.isVisible("memberCount") && (
+                      <TableCell className="text-center">
+                        <span className="font-semibold text-red-500" data-testid="count-partneri">
+                          {partnerCountData?.count ?? "—"}
+                        </span>
+                      </TableCell>
+                    )}
+                    <TableCell></TableCell>
+                  </TableRow>
                   {groupFilter.filteredData.map((group) => (
                     <SortableTableRow
                       key={group.id}

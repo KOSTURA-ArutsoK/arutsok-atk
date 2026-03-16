@@ -1390,6 +1390,34 @@ export async function registerRoutes(
     res.json(await storage.getPartners(includeDeleted, stateId || undefined));
   });
 
+  // COUNT unique partners with at least one contract in the current division
+  app.get("/api/partners/active-count", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const divisionId: number | null = appUser?.activeDivisionId ?? null;
+      const result = await db.execute(sql`
+        SELECT COUNT(DISTINCT ${contracts.partnerId})::int AS count
+        FROM contracts
+        WHERE ${contracts.isDeleted} = false
+          AND ${contracts.partnerId} IS NOT NULL
+          ${divisionId
+            ? sql`AND ${contracts.sectorProductId} IN (
+                SELECT sp.id FROM sector_products sp
+                JOIN sections sec ON sp.section_id = sec.id
+                JOIN sectors s ON sec.sector_id = s.id
+                WHERE s.division_id = ${divisionId}
+              )`
+            : sql``
+          }
+      `);
+      const rows = result.rows as { count: number }[];
+      res.json({ count: rows[0]?.count ?? 0, divisionId });
+    } catch (err) {
+      console.error("[partners/active-count]", err);
+      res.status(500).json({ count: 0 });
+    }
+  });
+
   app.get(api.partners.get.path, isAuthenticated, async (req, res) => {
     const partner = await storage.getPartner(Number(req.params.id));
     if (!partner) return res.status(404).json({ message: "Partner not found" });
