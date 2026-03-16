@@ -729,22 +729,108 @@ function CompanyFormDialog({
                     <FormMessage />
                   </FormItem>
                 )} />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="ico" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>IČO *</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-ico" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="dic" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>DIČ *</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-dic" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
+                {watchedSubjectType === "po" ? (
+                  <>
+                    <div className="flex items-end gap-2">
+                      <FormField control={form.control} name="ico" render={({ field }) => (
+                        <FormItem className="w-[28%]">
+                          <FormLabel>IČO *</FormLabel>
+                          <FormControl><Input {...field} value={field.value || ""} data-testid="input-ico" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <div className="flex items-center gap-2 pb-[2px]">
+                        <Button type="button" variant="outline" size="sm" disabled={registryLoading} onClick={handleRegistryLookup} data-testid="button-registry-lookup">
+                          {registryLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Search className="w-4 h-4 mr-1" />}
+                          {registryLoading ? "Hľadám..." : "Hľadať v registri"}
+                        </Button>
+                        {registryResult?.source && (
+                          <Badge variant="outline" className="text-xs" data-testid="badge-registry-source">
+                            <CheckCircle2 className="w-3 h-3 mr-1 text-green-500" />
+                            {registryResult.source}
+                          </Badge>
+                        )}
+                      </div>
+                      <FormField control={form.control} name="dic" render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel>DIČ *</FormLabel>
+                          <FormControl><Input {...field} value={field.value || ""} data-testid="input-dic" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                    {registryError && (
+                      <div className="flex items-center gap-2 p-3 rounded-md border border-destructive/30 bg-destructive/5 text-sm text-destructive" data-testid="text-registry-error">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        {registryError}
+                      </div>
+                    )}
+                    {registryResult?.shareholders && registryResult.shareholders.length > 0 && (
+                      <div className="border border-border rounded-md p-3 space-y-1.5" data-testid="section-shareholders">
+                        <p className="text-sm font-medium">Spoločníci</p>
+                        {registryResult.shareholders.map((sh, idx) => (
+                          <div key={idx} className="text-sm text-muted-foreground" data-testid={`shareholder-row-${idx}`}>
+                            <span className="font-medium text-foreground">{sh.name}</span>
+                            {sh.contribution && <span className="ml-2">— {sh.contribution}</span>}
+                            {sh.address && <span className="ml-2 text-xs">({sh.address})</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {registryResult?.shareCapital && (
+                      <div className="flex items-center gap-2 p-3 rounded-md border border-border text-sm" data-testid="text-share-capital">
+                        <span className="font-medium">Základné imanie:</span>
+                        <span className="text-muted-foreground">{registryResult.shareCapital}</span>
+                      </div>
+                    )}
+                    {registryResult?.directors && registryResult.directors.length > 0 && (
+                      <div className="border border-border rounded-md p-3 space-y-1.5" data-testid="section-directors">
+                        <p className="text-sm font-medium">Štatutári</p>
+                        {registryResult.directors.map((dir, idx) => (
+                          <div key={idx} className="text-sm text-muted-foreground" data-testid={`director-row-${idx}`}>
+                            <span className="font-medium text-foreground">{dir.name}</span>
+                            {dir.since && <span className="ml-2 text-xs font-mono">(od: {dir.since})</span>}
+                          </div>
+                        ))}
+                        {registryResult.actingNote && (
+                          <p className="text-xs text-muted-foreground mt-1 italic" data-testid="text-acting-note">{registryResult.actingNote}</p>
+                        )}
+                      </div>
+                    )}
+                    {registryResult && !registryError && (
+                      <div className="border border-border rounded-md p-3 space-y-1" data-testid="section-registry-summary">
+                        <p className="text-sm font-medium">Údaje z registra</p>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                          {registryResult.name && (<><span className="text-muted-foreground">Názov:</span><span className="font-medium">{registryResult.name}</span></>)}
+                          {registryResult.normalized && (<><span className="text-muted-foreground">IČO:</span><span className="font-mono">{registryResult.normalized}</span></>)}
+                          {registryResult.dic && (<><span className="text-muted-foreground">DIČ:</span><span className="font-mono">{registryResult.dic}</span></>)}
+                          {registryResult.icDph && (<><span className="text-muted-foreground">IČ DPH:</span><span className="font-mono">{registryResult.icDph}{registryResult.vatParagraph ? ` (${registryResult.vatParagraph})` : ""}</span></>)}
+                          {registryResult.vatRegisteredAt && (<><span className="text-muted-foreground">Registrácia DPH:</span><span>{registryResult.vatRegisteredAt}</span></>)}
+                          {registryResult.foundedDate && (<><span className="text-muted-foreground">Dátum vzniku:</span><span>{registryResult.foundedDate}</span></>)}
+                          {registryResult.legalForm && (<><span className="text-muted-foreground">Právna forma:</span><span>{registryResult.legalForm}</span></>)}
+                          {(registryResult.street || registryResult.city) && (<><span className="text-muted-foreground">Sídlo:</span><span>{[registryResult.street, registryResult.streetNumber, registryResult.zip, registryResult.city].filter(Boolean).join(", ")}</span></>)}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="ico" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>IČO *</FormLabel>
+                        <FormControl><Input {...field} value={field.value || ""} data-testid="input-ico" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="dic" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>DIČ *</FormLabel>
+                        <FormControl><Input {...field} value={field.value || ""} data-testid="input-dic" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   <Switch
                     checked={platcaDph}
@@ -791,104 +877,6 @@ function CompanyFormDialog({
                     )} />
                   </div>
                 )}
-                {watchedSubjectType === "po" && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={registryLoading}
-                      onClick={handleRegistryLookup}
-                      data-testid="button-registry-lookup"
-                    >
-                      {registryLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
-                      {registryLoading ? "Hľadám..." : "Hľadať v registri"}
-                    </Button>
-                    {registryResult?.source && (
-                      <Badge variant="outline" className="text-xs" data-testid="badge-registry-source">
-                        <CheckCircle2 className="w-3 h-3 mr-1 text-green-500" />
-                        {registryResult.source}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-
-                {registryError && (
-                  <div className="flex items-center gap-2 p-3 rounded-md border border-destructive/30 bg-destructive/5 text-sm text-destructive" data-testid="text-registry-error">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    {registryError}
-                  </div>
-                )}
-
-                {registryResult?.shareholders && registryResult.shareholders.length > 0 && (
-                  <div className="border border-border rounded-md p-3 space-y-1.5" data-testid="section-shareholders">
-                    <p className="text-sm font-medium">Spoločníci</p>
-                    {registryResult.shareholders.map((sh, idx) => (
-                      <div key={idx} className="text-sm text-muted-foreground" data-testid={`shareholder-row-${idx}`}>
-                        <span className="font-medium text-foreground">{sh.name}</span>
-                        {sh.contribution && <span className="ml-2">— {sh.contribution}</span>}
-                        {sh.address && <span className="ml-2 text-xs">({sh.address})</span>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {registryResult?.shareCapital && (
-                  <div className="flex items-center gap-2 p-3 rounded-md border border-border text-sm" data-testid="text-share-capital">
-                    <span className="font-medium">Základné imanie:</span>
-                    <span className="text-muted-foreground">{registryResult.shareCapital}</span>
-                  </div>
-                )}
-
-                {registryResult?.directors && registryResult.directors.length > 0 && (
-                  <div className="border border-border rounded-md p-3 space-y-1.5" data-testid="section-directors">
-                    <p className="text-sm font-medium">Štatutári</p>
-                    {registryResult.directors.map((dir, idx) => (
-                      <div key={idx} className="text-sm text-muted-foreground" data-testid={`director-row-${idx}`}>
-                        <span className="font-medium text-foreground">{dir.name}</span>
-                        {dir.since && (
-                          <span className="ml-2 text-xs font-mono">(od: {dir.since})</span>
-                        )}
-                      </div>
-                    ))}
-                    {registryResult.actingNote && (
-                      <p className="text-xs text-muted-foreground mt-1 italic" data-testid="text-acting-note">{registryResult.actingNote}</p>
-                    )}
-                  </div>
-                )}
-
-                {registryResult && !registryError && (
-                  <div className="border border-border rounded-md p-3 space-y-1" data-testid="section-registry-summary">
-                    <p className="text-sm font-medium">Údaje z registra</p>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                      {registryResult.name && (
-                        <><span className="text-muted-foreground">Názov:</span><span className="font-medium">{registryResult.name}</span></>
-                      )}
-                      {registryResult.normalized && (
-                        <><span className="text-muted-foreground">IČO:</span><span className="font-mono">{registryResult.normalized}</span></>
-                      )}
-                      {registryResult.dic && (
-                        <><span className="text-muted-foreground">DIČ:</span><span className="font-mono">{registryResult.dic}</span></>
-                      )}
-                      {registryResult.icDph && (
-                        <><span className="text-muted-foreground">IČ DPH:</span><span className="font-mono">{registryResult.icDph}{registryResult.vatParagraph ? ` (${registryResult.vatParagraph})` : ""}</span></>
-                      )}
-                      {registryResult.vatRegisteredAt && (
-                        <><span className="text-muted-foreground">Registrácia DPH:</span><span>{registryResult.vatRegisteredAt}</span></>
-                      )}
-                      {registryResult.foundedDate && (
-                        <><span className="text-muted-foreground">Dátum vzniku:</span><span>{registryResult.foundedDate}</span></>
-                      )}
-                      {registryResult.legalForm && (
-                        <><span className="text-muted-foreground">Právna forma:</span><span>{registryResult.legalForm}</span></>
-                      )}
-                      {(registryResult.street || registryResult.city) && (
-                        <><span className="text-muted-foreground">Sídlo:</span><span>{[registryResult.street, registryResult.streetNumber, registryResult.zip, registryResult.city].filter(Boolean).join(", ")}</span></>
-                      )}
-                    </div>
-                  </div>
-                )}
-
                 <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Charakteristika (Čím sa firma zaoberá) *</FormLabel>
