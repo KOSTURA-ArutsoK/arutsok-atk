@@ -1,6 +1,17 @@
 import * as cheerio from "cheerio";
 import * as iconv from "iconv-lite";
 
+export interface BusinessActivity {
+  text: string;
+  since?: string;
+}
+
+export interface Shareholder {
+  name: string;
+  contribution?: string;
+  address?: string;
+}
+
 export interface RegistryLookupResult {
   found: boolean;
   reachable?: boolean;
@@ -15,6 +26,10 @@ export interface RegistryLookupResult {
   directors?: { name: string; role: string }[];
   actingNote?: string;
   message?: string;
+  businessActivities?: BusinessActivity[];
+  shareCapital?: string;
+  shareholders?: Shareholder[];
+  otherFacts?: string[];
 }
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
@@ -180,6 +195,94 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
       }
     }
 
+    const businessActivities: BusinessActivity[] = [];
+    $("tr").each((_, tr) => {
+      const labelTd = $(tr).find("td[width='20%']").first();
+      const valueTd = $(tr).find("td[width='67%']").first();
+      if (!labelTd.length || !valueTd.length) return;
+      const labelSpan = labelTd.find("span.tl");
+      if (!labelSpan.length) return;
+      const label = cleanText(labelSpan.text()).replace(/[:\s]+$/, "").trim();
+      if (label !== "Predmet činnosti" && label !== "Predmety podnikania" && label !== "Predmet podnikania") return;
+      const allSpans = valueTd.find("span.ra, span.ro");
+      let currentText = "";
+      allSpans.each((_, span) => {
+        const txt = cleanText($(span).text());
+        if (!txt) return;
+        const dateMatch = txt.match(/^\(od:\s*(\d{2}\.\d{2}\.\d{4})\)/);
+        if (dateMatch) {
+          if (currentText) {
+            businessActivities.push({ text: currentText, since: dateMatch[1] });
+            currentText = "";
+          }
+        } else if (!txt.startsWith("(do:") && !txt.includes("icon_")) {
+          if (currentText) {
+            businessActivities.push({ text: currentText });
+          }
+          currentText = txt;
+        }
+      });
+      if (currentText) {
+        businessActivities.push({ text: currentText });
+      }
+    });
+
+    let shareCapital = "";
+    const capitalKeys = ["Základné imanie", "Základné imania"];
+    for (const key of capitalKeys) {
+      const vals = sections[key];
+      if (vals && vals.length > 0) {
+        shareCapital = vals.join(", ").trim();
+        break;
+      }
+    }
+
+    const shareholders: Shareholder[] = [];
+    const shareholderKeys = ["Spoločníci", "Spoločník", "Akcionári", "Akcionár"];
+    for (const key of shareholderKeys) {
+      if (!sections[key] || sections[key].length === 0) continue;
+      const vals = sections[key];
+      let currentName = "";
+      let currentContrib = "";
+      let currentAddr = "";
+      for (const v of vals) {
+        const cleaned = v.replace(/,\s*$/, "").trim();
+        if (!cleaned) continue;
+        if (/^\d/.test(cleaned) && cleaned.includes("EUR")) {
+          currentContrib = cleaned;
+        } else if (/^\d{3}\s?\d{2}/.test(cleaned) || cleaned.includes("PSČ")) {
+          currentAddr = currentAddr ? `${currentAddr}, ${cleaned}` : cleaned;
+        } else if (cleaned.length >= 3 && !/^\d/.test(cleaned)) {
+          if (currentName) {
+            shareholders.push({
+              name: currentName,
+              contribution: currentContrib || undefined,
+              address: currentAddr || undefined,
+            });
+          }
+          currentName = cleaned;
+          currentContrib = "";
+          currentAddr = "";
+        }
+      }
+      if (currentName) {
+        shareholders.push({
+          name: currentName,
+          contribution: currentContrib || undefined,
+          address: currentAddr || undefined,
+        });
+      }
+    }
+
+    const otherFacts: string[] = [];
+    const otherKeys = ["Ďalšie právne skutočnosti", "Ostatné právne skutočnosti", "Iné skutočnosti"];
+    for (const key of otherKeys) {
+      const vals = sections[key];
+      if (vals && vals.length > 0) {
+        otherFacts.push(...vals);
+      }
+    }
+
     return {
       found: true,
       source: "ORSR",
@@ -191,6 +294,10 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
       legalForm,
       directors: directorEntries.length > 0 ? directorEntries : undefined,
       actingNote: actingNote || undefined,
+      businessActivities: businessActivities.length > 0 ? businessActivities : undefined,
+      shareCapital: shareCapital || undefined,
+      shareholders: shareholders.length > 0 ? shareholders : undefined,
+      otherFacts: otherFacts.length > 0 ? otherFacts : undefined,
     };
   } catch (err: any) {
     if (err.name === "AbortError") {

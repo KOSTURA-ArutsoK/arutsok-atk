@@ -7436,6 +7436,10 @@ export async function registerRoutes(
                 dic: result.dic,
                 directors: result.directors,
                 actingNote: result.actingNote,
+                businessActivities: result.businessActivities,
+                shareCapital: result.shareCapital,
+                shareholders: result.shareholders,
+                otherFacts: result.otherFacts,
               },
               fetchedByUserId: snapAppUser?.id || null,
             });

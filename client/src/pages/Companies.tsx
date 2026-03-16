@@ -3,7 +3,7 @@ import DOMPurify from "dompurify";
 import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyCompany } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
-import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2 } from "lucide-react";
+import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak } from "@/lib/utils";
@@ -414,6 +414,10 @@ function CompanyFormDialog({
   const timerRef = useRef<number>(0);
   const [notesHtml, setNotesHtml] = useState("");
   const [platcaDph, setPlatcaDph] = useState(false);
+  const [registryLoading, setRegistryLoading] = useState(false);
+  const [registryResult, setRegistryResult] = useState<any>(null);
+  const [registryError, setRegistryError] = useState<string | null>(null);
+  const [showActivities, setShowActivities] = useState(true);
 
   const editingCompany = editingCompanyId
     ? allCompanies?.find(c => c.id === editingCompanyId) || null
@@ -444,6 +448,8 @@ function CompanyFormDialog({
   useEffect(() => {
     if (open) {
       timerRef.current = performance.now();
+      setRegistryResult(null);
+      setRegistryError(null);
       if (editingCompany) {
         const hasIcDph = !!(editingCompany.icDph && editingCompany.icDph.trim());
         setPlatcaDph(hasIcDph);
@@ -494,9 +500,45 @@ function CompanyFormDialog({
     onOpenChange(isOpen);
   }, [onOpenChange]);
 
+  const watchedSubjectType = form.watch("subjectType");
+
+  async function handleRegistryLookup() {
+    const ico = form.getValues("ico");
+    if (!ico || ico.trim().length < 6) {
+      setRegistryError("Zadajte platné IČO (min. 6 znakov)");
+      return;
+    }
+    setRegistryLoading(true);
+    setRegistryResult(null);
+    setRegistryError(null);
+    try {
+      const res = await fetch(`/api/lookup/ico/${encodeURIComponent(ico.trim())}?type=company`, { credentials: "include" });
+      const data = await res.json();
+      if (!res.ok || !data.found) {
+        setRegistryError(data.message || data.error || "Firma nenájdená v registri");
+        return;
+      }
+      setRegistryResult(data);
+      if (data.name) form.setValue("name", data.name);
+      if (data.street) form.setValue("street", data.street);
+      if (data.streetNumber) form.setValue("streetNumber", data.streetNumber);
+      if (data.zip) form.setValue("postalCode", data.zip);
+      if (data.city) form.setValue("city", data.city);
+      if (data.dic) {
+        form.setValue("dic", data.dic);
+      }
+      if (data.legalForm) form.setValue("description", data.legalForm);
+    } catch {
+      setRegistryError("Chyba pri komunikácii s registrom");
+    } finally {
+      setRegistryLoading(false);
+    }
+  }
+
   function onSubmit(data: FormData) {
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
-    const payload = { ...data, notes: notesHtml, processingTimeSec, foundedDate: data.foundedDate ? new Date(data.foundedDate).toISOString() : null };
+    const biz = registryResult?.businessActivities || (editingCompany as any)?.businessActivities || [];
+    const payload = { ...data, notes: notesHtml, processingTimeSec, businessActivities: biz, foundedDate: data.foundedDate ? new Date(data.foundedDate).toISOString() : null };
 
     if (editingCompany) {
       updateMutation.mutate(
@@ -634,6 +676,84 @@ function CompanyFormDialog({
                     </FormItem>
                   )} />
                 </div>
+                {watchedSubjectType === "po" && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={registryLoading}
+                      onClick={handleRegistryLookup}
+                      data-testid="button-registry-lookup"
+                    >
+                      {registryLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
+                      {registryLoading ? "Hľadám..." : "Hľadať v registri"}
+                    </Button>
+                    {registryResult?.source && (
+                      <Badge variant="outline" className="text-xs" data-testid="badge-registry-source">
+                        <CheckCircle2 className="w-3 h-3 mr-1 text-green-500" />
+                        {registryResult.source}
+                      </Badge>
+                    )}
+                  </div>
+                )}
+
+                {registryError && (
+                  <div className="flex items-center gap-2 p-3 rounded-md border border-destructive/30 bg-destructive/5 text-sm text-destructive" data-testid="text-registry-error">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {registryError}
+                  </div>
+                )}
+
+                {(() => {
+                  const activitiesSource: { text: string; since?: string }[] = registryResult?.businessActivities ?? (editingCompany as any)?.businessActivities ?? [];
+                  return activitiesSource.length > 0 ? (
+                    <div className="border border-border rounded-md" data-testid="section-business-activities">
+                      <button
+                        type="button"
+                        className="flex items-center justify-between w-full p-3 text-sm font-medium hover:bg-muted/50 transition-colors"
+                        onClick={() => setShowActivities(!showActivities)}
+                        data-testid="button-toggle-activities"
+                      >
+                        <span>Predmety podnikania ({activitiesSource.length})</span>
+                        {showActivities ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </button>
+                      {showActivities && (
+                        <div className="border-t border-border p-3 space-y-1.5 max-h-48 overflow-y-auto">
+                          {activitiesSource.map((act, idx) => (
+                            <div key={idx} className="flex items-start justify-between gap-2 text-sm" data-testid={`activity-row-${idx}`}>
+                              <span className="text-muted-foreground flex-1">{act.text}</span>
+                              {act.since && (
+                                <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">(od: {act.since})</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : null;
+                })()}
+
+                {registryResult?.shareholders && registryResult.shareholders.length > 0 && (
+                  <div className="border border-border rounded-md p-3 space-y-1.5" data-testid="section-shareholders">
+                    <p className="text-sm font-medium">Spoločníci</p>
+                    {registryResult.shareholders.map((sh: any, idx: number) => (
+                      <div key={idx} className="text-sm text-muted-foreground" data-testid={`shareholder-row-${idx}`}>
+                        <span className="font-medium text-foreground">{sh.name}</span>
+                        {sh.contribution && <span className="ml-2">— {sh.contribution}</span>}
+                        {sh.address && <span className="ml-2 text-xs">({sh.address})</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {registryResult?.shareCapital && (
+                  <div className="flex items-center gap-2 p-3 rounded-md border border-border text-sm" data-testid="text-share-capital">
+                    <span className="font-medium">Základné imanie:</span>
+                    <span className="text-muted-foreground">{registryResult.shareCapital}</span>
+                  </div>
+                )}
+
                 <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Charakteristika (Čím sa firma zaoberá) *</FormLabel>
@@ -818,8 +938,26 @@ function CompanyDetailDialog({
               <>
                 <Separator />
                 <div>
-                  <span className="text-xs text-muted-foreground">Cim sa firma zaobera</span>
+                  <span className="text-xs text-muted-foreground">Čím sa firma zaoberá</span>
                   <p className="text-sm mt-1 whitespace-pre-wrap" data-testid="text-detail-description">{company.description}</p>
+                </div>
+              </>
+            )}
+            {(company.businessActivities as any[])?.length > 0 && (
+              <>
+                <Separator />
+                <div data-testid="detail-section-activities">
+                  <span className="text-xs text-muted-foreground">Predmety podnikania</span>
+                  <div className="mt-1 space-y-1 max-h-40 overflow-y-auto">
+                    {(company.businessActivities as { text: string; since?: string }[]).map((act, idx) => (
+                      <div key={idx} className="flex items-start justify-between gap-2 text-sm">
+                        <span className="text-muted-foreground flex-1">{act.text}</span>
+                        {act.since && (
+                          <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">(od: {act.since})</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </>
             )}

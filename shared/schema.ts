@@ -62,7 +62,7 @@ export const myCompanies = pgTable("my_companies", {
   dic: text("dic"),
   icDph: text("ic_dph"),
   logos: jsonb("logos").$type<LogoEntry[]>().default([]),
-  businessActivities: jsonb("business_activities").$type<string[]>().default([]),
+  businessActivities: jsonb("business_activities").$type<{ text: string; since?: string }[]>().default([]),
   deletedBy: text("deleted_by"),
   deletedAt: timestamp("deleted_at"),
   deletedFromIp: text("deleted_from_ip"),
