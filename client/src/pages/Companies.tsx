@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import DOMPurify from "dompurify";
 import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyCompany } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
+import { useAppUser } from "@/hooks/use-app-user";
 import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -98,7 +99,7 @@ const formSchema = insertMyCompanySchema.extend({
   orientNumber: z.string().min(1, "Orientacne cislo je povinne"),
   postalCode: z.string().min(1, "PSC je povinne"),
   city: z.string().min(1, "Mesto je povinne"),
-  stateId: z.number({ required_error: "Stat je povinny" }),
+  stateId: z.number().optional(),
   description: z.string().min(1, "Charakteristika je povinna"),
   specialization: z.string().min(1, "Zameranie je povinne"),
   code: z.string().min(1, "Kod je povinny").max(25, "Max 25 znakov"),
@@ -275,6 +276,7 @@ function CompanyFormDialog({
   const updateMutation = useUpdateMyCompany();
   const { data: allStates } = useStates();
   const { data: allCompanies } = useMyCompanies();
+  const { data: appUser } = useAppUser();
   const timerRef = useRef<number>(0);
   const [notesHtml, setNotesHtml] = useState("");
   const [platcaDph, setPlatcaDph] = useState(false);
@@ -322,7 +324,7 @@ function CompanyFormDialog({
           orientNumber: editingCompany.orientNumber || "",
           postalCode: editingCompany.postalCode || "",
           city: editingCompany.city || "",
-          stateId: editingCompany.stateId || undefined,
+          stateId: editingCompany.stateId || appUser?.activeStateId || undefined,
           description: editingCompany.description || "",
           notes: editingCompany.notes || "",
           foundedDate: (editingCompany as any).foundedDate ? new Date((editingCompany as any).foundedDate).toISOString().split("T")[0] : null,
@@ -342,7 +344,7 @@ function CompanyFormDialog({
           orientNumber: "",
           postalCode: "",
           city: "",
-          stateId: undefined,
+          stateId: appUser?.activeStateId || undefined,
           description: "",
           notes: "",
           foundedDate: null,
@@ -516,7 +518,7 @@ function CompanyFormDialog({
                     </FormItem>
                   )} />
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="postalCode" render={({ field }) => (
                     <FormItem>
                       <FormLabel>PSC *</FormLabel>
@@ -528,29 +530,6 @@ function CompanyFormDialog({
                     <FormItem>
                       <FormLabel>Mesto / Obec *</FormLabel>
                       <FormControl><Input {...field} value={field.value || ""} data-testid="input-city" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="stateId" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Stat *</FormLabel>
-                      <Select
-                        onValueChange={(val) => field.onChange(parseInt(val))}
-                        value={field.value?.toString() || ""}
-                      >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-state">
-                            <SelectValue placeholder="Vyberte stat" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {allStates?.map(s => (
-                            <SelectItem key={s.id} value={s.id.toString()}>
-                              {s.name} ({s.code})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
                       <FormMessage />
                     </FormItem>
                   )} />
