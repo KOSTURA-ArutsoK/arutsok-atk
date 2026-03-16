@@ -3,7 +3,7 @@ import DOMPurify from "dompurify";
 import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyCompany } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
-import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Phone, Mail, GitBranch, Info, UserCheck } from "lucide-react";
+import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Phone, Mail, GitBranch, Info, UserCheck, UserPlus, Users, Camera, UserCog } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak, formatUid } from "@/lib/utils";
@@ -27,6 +27,20 @@ interface RegistryDirector {
   since?: string;
 }
 
+interface BranchEmployee {
+  photo?: string;
+  uid?: string;
+  position?: string;
+  titleBefore?: string;
+  firstName?: string;
+  lastName?: string;
+  titleAfter?: string;
+  phone?: string;
+  email?: string;
+  otherContact?: string;
+  status?: "active" | "inactive" | "temporarily_inactive";
+}
+
 interface BranchEntry {
   name?: string;
   street?: string;
@@ -35,9 +49,12 @@ interface BranchEntry {
   city?: string;
   phone?: string;
   email?: string;
+  phones?: string[];
+  emails?: string[];
   isActive?: boolean;
   activeFrom?: string;
   cancelledAt?: string;
+  employees?: BranchEmployee[];
 }
 
 interface RegistryLookupResponse {
@@ -481,7 +498,14 @@ function CompanyFormDialog({
   const [corrSameAsHQ, setCorrSameAsHQ] = useState(false);
   const [branches, setBranches] = useState<BranchEntry[]>([]);
   const [addingBranch, setAddingBranch] = useState(false);
+  const [editingBranchIdx, setEditingBranchIdx] = useState<number | null>(null);
   const [newBranch, setNewBranch] = useState<BranchEntry>({});
+  const [branchPhones, setBranchPhones] = useState<string[]>([]);
+  const [branchEmails, setBranchEmails] = useState<string[]>([]);
+  const [branchEmployees, setBranchEmployees] = useState<BranchEmployee[]>([]);
+  const [addingBranchEmployee, setAddingBranchEmployee] = useState(false);
+  const [newEmployee, setNewEmployee] = useState<BranchEmployee>({ status: "active" });
+  const employeePhotoRef = useRef<HTMLInputElement>(null);
   const [pendingLogo, setPendingLogo] = useState<File | null>(null);
   const [pendingLogoPreview, setPendingLogoPreview] = useState<string | null>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
@@ -640,6 +664,71 @@ function CompanyFormDialog({
       setRegistryError("Chyba pri komunikácii s registrom");
     } finally {
       setRegistryLoading(false);
+    }
+  }
+
+  function openNewBranchForm() {
+    setNewBranch({ isActive: true });
+    setBranchPhones([]);
+    setBranchEmails([]);
+    setBranchEmployees([]);
+    setAddingBranchEmployee(false);
+    setNewEmployee({ status: "active" });
+    setEditingBranchIdx(null);
+    setAddingBranch(true);
+  }
+
+  function openEditBranchForm(idx: number) {
+    const br = branches[idx];
+    setNewBranch({ ...br });
+    setBranchPhones(br.phones ?? (br.phone ? [br.phone] : []));
+    setBranchEmails(br.emails ?? (br.email ? [br.email] : []));
+    setBranchEmployees(br.employees ?? []);
+    setAddingBranchEmployee(false);
+    setNewEmployee({ status: "active" });
+    setEditingBranchIdx(idx);
+    setAddingBranch(true);
+  }
+
+  function saveBranchForm() {
+    const branchData: BranchEntry = {
+      ...newBranch,
+      phones: branchPhones.filter(p => p.trim()),
+      emails: branchEmails.filter(e => e.trim()),
+      employees: branchEmployees,
+      phone: undefined,
+      email: undefined,
+    };
+    if (editingBranchIdx !== null) {
+      setBranches(prev => prev.map((b, i) => i === editingBranchIdx ? branchData : b));
+    } else {
+      setBranches(prev => [...prev, branchData]);
+    }
+    setAddingBranch(false);
+    setEditingBranchIdx(null);
+    setNewBranch({});
+    setBranchPhones([]);
+    setBranchEmails([]);
+    setBranchEmployees([]);
+    setAddingBranchEmployee(false);
+    setNewEmployee({ status: "active" });
+  }
+
+  function handleEmployeePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setNewEmployee(prev => ({ ...prev, photo: ev.target?.result as string }));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function saveEmployee() {
+    if (newEmployee.firstName || newEmployee.lastName || newEmployee.position || newEmployee.uid) {
+      setBranchEmployees(prev => [...prev, { ...newEmployee }]);
+      setNewEmployee({ status: "active" });
+      setAddingBranchEmployee(false);
     }
   }
 
@@ -1096,14 +1185,18 @@ function CompanyFormDialog({
                     <Badge variant="secondary" className="text-xs">{branches.length}</Badge>
                   </div>
                   {!addingBranch && (
-                    <Button type="button" variant="outline" size="sm" onClick={() => { setAddingBranch(true); setNewBranch({ isActive: true }); }} data-testid="button-add-branch">
+                    <Button type="button" variant="outline" size="sm" onClick={openNewBranchForm} data-testid="button-add-branch">
                       <Plus className="w-3 h-3 mr-1" /> Pridať pobočku
                     </Button>
                   )}
                 </div>
 
                 {addingBranch && (
-                  <div className="border border-border rounded-md p-3 space-y-3 bg-muted/30" data-testid="form-new-branch">
+                  <div className="border border-primary/40 rounded-md p-4 space-y-4 bg-muted/20" data-testid="form-new-branch">
+                    <p className="text-xs font-semibold text-primary uppercase tracking-wider">
+                      {editingBranchIdx !== null ? `Editácia pobočky #${editingBranchIdx + 1}` : "Nová pobočka"}
+                    </p>
+
                     <Input placeholder="Názov pobočky" value={newBranch.name || ""} onChange={e => setNewBranch(p => ({ ...p, name: e.target.value }))} data-testid="input-branch-name" />
                     <div className="grid grid-cols-3 gap-3">
                       <Input placeholder="Ulica" value={newBranch.street || ""} onChange={e => setNewBranch(p => ({ ...p, street: e.target.value }))} className="col-span-2" data-testid="input-branch-street" />
@@ -1113,80 +1206,219 @@ function CompanyFormDialog({
                       <Input placeholder="PSČ" value={newBranch.postalCode || ""} onChange={e => setNewBranch(p => ({ ...p, postalCode: e.target.value }))} data-testid="input-branch-postal" />
                       <Input placeholder="Mesto" value={newBranch.city || ""} onChange={e => setNewBranch(p => ({ ...p, city: e.target.value }))} data-testid="input-branch-city" />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input placeholder="Telefón" value={newBranch.phone || ""} onChange={e => setNewBranch(p => ({ ...p, phone: e.target.value }))} data-testid="input-branch-phone" />
-                      <Input placeholder="E-mail" value={newBranch.email || ""} onChange={e => setNewBranch(p => ({ ...p, email: e.target.value }))} data-testid="input-branch-email" />
-                    </div>
+
                     <Separator />
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        id="branch-active"
-                        checked={newBranch.isActive !== false}
-                        onCheckedChange={(checked) => {
-                          setNewBranch(p => ({ ...p, isActive: !!checked, cancelledAt: checked ? undefined : p.cancelledAt }));
-                        }}
-                        data-testid="checkbox-branch-active"
-                      />
-                      <label htmlFor="branch-active" className="text-sm cursor-pointer">Aktívna pobočka</label>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Phone className="w-3 h-3" />Telefóny</label>
+                        <Button type="button" variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setBranchPhones(prev => [...prev, ""])} data-testid="button-add-branch-phone">
+                          <Plus className="w-3 h-3 mr-0.5" />Pridať telefón
+                        </Button>
+                      </div>
+                      {branchPhones.map((ph, i) => (
+                        <div key={i} className="flex gap-2">
+                          <Input placeholder={`Telefón ${i + 1}`} value={ph} onChange={e => setBranchPhones(prev => prev.map((p, j) => j === i ? e.target.value : p))} data-testid={`input-branch-phone-${i}`} />
+                          <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-destructive hover:text-destructive" onClick={() => setBranchPhones(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-branch-phone-${i}`}><X className="w-3.5 h-3.5" /></Button>
+                        </div>
+                      ))}
+                      {branchPhones.length === 0 && <p className="text-xs text-muted-foreground">Žiadne telefóny</p>}
                     </div>
-                    {newBranch.isActive !== false && (
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Mail className="w-3 h-3" />E-maily</label>
+                        <Button type="button" variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setBranchEmails(prev => [...prev, ""])} data-testid="button-add-branch-email">
+                          <Plus className="w-3 h-3 mr-0.5" />Pridať e-mail
+                        </Button>
+                      </div>
+                      {branchEmails.map((em, i) => (
+                        <div key={i} className="flex gap-2">
+                          <Input placeholder={`E-mail ${i + 1}`} value={em} onChange={e => setBranchEmails(prev => prev.map((p, j) => j === i ? e.target.value : p))} data-testid={`input-branch-email-${i}`} />
+                          <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-destructive hover:text-destructive" onClick={() => setBranchEmails(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-branch-email-${i}`}><X className="w-3.5 h-3.5" /></Button>
+                        </div>
+                      ))}
+                      {branchEmails.length === 0 && <p className="text-xs text-muted-foreground">Žiadne e-maily</p>}
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Stav pobočky</label>
+                      <div className="flex gap-2">
+                        {([["active", "Aktívna", "border-green-600 text-green-600"], ["temporarily_inactive", "Dočasne neaktívna", "border-amber-500 text-amber-500"], ["inactive", "Neaktívna", "border-destructive text-destructive"]] as const).map(([val, label, cls]) => {
+                          const branchStatus = newBranch.isActive === false ? "inactive" : (newBranch as any).branchStatus || "active";
+                          const isSelected = branchStatus === val;
+                          return (
+                            <button key={val} type="button"
+                              className={`text-xs px-2.5 py-1 rounded border transition-colors ${isSelected ? cls + " bg-muted/50 font-semibold" : "border-border text-muted-foreground hover:border-primary/40"}`}
+                              onClick={() => {
+                                setNewBranch(p => ({
+                                  ...p,
+                                  isActive: val !== "inactive",
+                                  branchStatus: val,
+                                } as any));
+                              }}
+                              data-testid={`btn-branch-status-${val}`}
+                            >{label}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="text-sm text-muted-foreground">Aktívna od</label>
+                        <label className="text-xs text-muted-foreground">Aktívna od</label>
                         <Input type="date" value={newBranch.activeFrom || ""} onChange={e => setNewBranch(p => ({ ...p, activeFrom: e.target.value || undefined }))} data-testid="input-branch-active-from" />
                       </div>
-                    )}
-                    {newBranch.isActive === false && (
-                      <div className="grid grid-cols-2 gap-3">
+                      {newBranch.isActive === false && (
                         <div>
-                          <label className="text-sm text-muted-foreground">Aktívna od</label>
-                          <Input type="date" value={newBranch.activeFrom || ""} onChange={e => setNewBranch(p => ({ ...p, activeFrom: e.target.value || undefined }))} data-testid="input-branch-active-from" />
-                        </div>
-                        <div>
-                          <label className="text-sm text-muted-foreground">Dátum zrušenia</label>
+                          <label className="text-xs text-muted-foreground">Dátum zrušenia</label>
                           <Input type="date" value={newBranch.cancelledAt || ""} onChange={e => setNewBranch(p => ({ ...p, cancelledAt: e.target.value || undefined }))} data-testid="input-branch-cancelled-at" />
                         </div>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pracovníci na pobočke</span>
+                          <Badge variant="secondary" className="text-xs">{branchEmployees.length}</Badge>
+                        </div>
+                        {!addingBranchEmployee && (
+                          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => { setAddingBranchEmployee(true); setNewEmployee({ status: "active" }); }} data-testid="button-add-employee">
+                            <UserPlus className="w-3 h-3 mr-1" />Pridať zamestnanca
+                          </Button>
+                        )}
                       </div>
-                    )}
-                    <div className="flex gap-2 justify-end">
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setAddingBranch(false)} data-testid="button-branch-cancel">Zrušiť</Button>
-                      <Button type="button" size="sm" onClick={() => {
-                        if (newBranch.name || newBranch.street || newBranch.city) {
-                          setBranches(prev => [...prev, { ...newBranch, isActive: newBranch.isActive !== false }]);
-                          setNewBranch({ isActive: true });
-                          setAddingBranch(false);
-                        }
-                      }} data-testid="button-branch-save">Uložiť</Button>
+
+                      {addingBranchEmployee && (
+                        <div className="border border-border rounded-md p-3 space-y-3 bg-muted/30" data-testid="form-new-employee">
+                          <div className="flex items-start gap-3">
+                            <div className="flex flex-col items-center gap-1">
+                              <div className="w-16 h-16 rounded-md border border-border overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80" onClick={() => employeePhotoRef.current?.click()} data-testid="employee-photo-area">
+                                {newEmployee.photo
+                                  ? <img src={newEmployee.photo} className="w-full h-full object-cover" alt="foto" />
+                                  : <Camera className="w-5 h-5 text-muted-foreground" />
+                                }
+                              </div>
+                              <input ref={employeePhotoRef} type="file" accept="image/*" className="hidden" onChange={handleEmployeePhotoUpload} data-testid="input-employee-photo" />
+                              <span className="text-[10px] text-muted-foreground">Fotografia</span>
+                            </div>
+                            <div className="flex-1 space-y-2">
+                              <div className="grid grid-cols-3 gap-2">
+                                <Input placeholder="Titul pred" value={newEmployee.titleBefore || ""} onChange={e => setNewEmployee(p => ({ ...p, titleBefore: e.target.value }))} className="text-sm" data-testid="input-emp-title-before" />
+                                <Input placeholder="Meno" value={newEmployee.firstName || ""} onChange={e => setNewEmployee(p => ({ ...p, firstName: e.target.value }))} className="text-sm col-span-1" data-testid="input-emp-first-name" />
+                                <Input placeholder="Titul za" value={newEmployee.titleAfter || ""} onChange={e => setNewEmployee(p => ({ ...p, titleAfter: e.target.value }))} className="text-sm" data-testid="input-emp-title-after" />
+                              </div>
+                              <Input placeholder="Priezvisko" value={newEmployee.lastName || ""} onChange={e => setNewEmployee(p => ({ ...p, lastName: e.target.value }))} className="text-sm" data-testid="input-emp-last-name" />
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input placeholder="UID" value={newEmployee.uid || ""} onChange={e => setNewEmployee(p => ({ ...p, uid: e.target.value }))} className="text-sm font-mono" data-testid="input-emp-uid" />
+                                <Input placeholder="Pozícia" value={newEmployee.position || ""} onChange={e => setNewEmployee(p => ({ ...p, position: e.target.value }))} className="text-sm" data-testid="input-emp-position" />
+                              </div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input placeholder="Telefón" value={newEmployee.phone || ""} onChange={e => setNewEmployee(p => ({ ...p, phone: e.target.value }))} className="text-sm" data-testid="input-emp-phone" />
+                            <Input placeholder="E-mail" value={newEmployee.email || ""} onChange={e => setNewEmployee(p => ({ ...p, email: e.target.value }))} className="text-sm" data-testid="input-emp-email" />
+                          </div>
+                          <Textarea placeholder="Iný kontakt (poznámka)" value={newEmployee.otherContact || ""} onChange={e => setNewEmployee(p => ({ ...p, otherContact: e.target.value }))} className="text-sm h-16 resize-none" data-testid="input-emp-other-contact" />
+                          <div className="space-y-1">
+                            <label className="text-xs text-muted-foreground">Stav zamestnanca</label>
+                            <div className="flex gap-2">
+                              {([["active", "Aktívny", "border-green-600 text-green-600"], ["temporarily_inactive", "Dočasne neaktívny", "border-amber-500 text-amber-500"], ["inactive", "Neaktívny", "border-destructive text-destructive"]] as const).map(([val, label, cls]) => (
+                                <button key={val} type="button"
+                                  className={`text-xs px-2.5 py-1 rounded border transition-colors ${newEmployee.status === val ? cls + " bg-muted/50 font-semibold" : "border-border text-muted-foreground hover:border-primary/40"}`}
+                                  onClick={() => setNewEmployee(p => ({ ...p, status: val }))}
+                                  data-testid={`btn-emp-status-${val}`}
+                                >{label}</button>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 justify-end pt-1">
+                            <Button type="button" variant="ghost" size="sm" onClick={() => { setAddingBranchEmployee(false); setNewEmployee({ status: "active" }); }} data-testid="button-employee-cancel">Zrušiť</Button>
+                            <Button type="button" size="sm" onClick={saveEmployee} data-testid="button-employee-save">Uložiť zamestnanca</Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {branchEmployees.length > 0 && (
+                        <div className="space-y-2">
+                          {branchEmployees.map((emp, i) => (
+                            <div key={i} className="flex items-center gap-3 p-2.5 border border-border rounded-md bg-muted/10" data-testid={`employee-row-${i}`}>
+                              <div className="w-10 h-10 rounded shrink-0 overflow-hidden border border-border bg-muted flex items-center justify-center">
+                                {emp.photo ? <img src={emp.photo} className="w-full h-full object-cover" alt="foto" /> : <UserCog className="w-4 h-4 text-muted-foreground" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">
+                                  {[emp.titleBefore, emp.firstName, emp.lastName, emp.titleAfter].filter(Boolean).join(" ") || "—"}
+                                </p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  {emp.uid && <span className="font-mono">{emp.uid}</span>}
+                                  {emp.position && <span>{emp.position}</span>}
+                                  {emp.phone && <span className="flex items-center gap-0.5"><Phone className="w-2.5 h-2.5" />{emp.phone}</span>}
+                                </div>
+                              </div>
+                              <Badge variant="outline" className={`text-[10px] shrink-0 ${emp.status === "active" ? "border-green-600 text-green-600" : emp.status === "temporarily_inactive" ? "border-amber-500 text-amber-500" : "border-destructive text-destructive"}`}>
+                                {emp.status === "active" ? "Aktívny" : emp.status === "temporarily_inactive" ? "Dočasne" : "Neaktívny"}
+                              </Badge>
+                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive hover:text-destructive" onClick={() => setBranchEmployees(prev => prev.filter((_, j) => j !== i))} data-testid={`button-delete-employee-${i}`}><Trash2 className="w-3 h-3" /></Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {branchEmployees.length === 0 && !addingBranchEmployee && (
+                        <p className="text-xs text-muted-foreground text-center py-3">Žiadni pracovníci. Kliknite "Pridať zamestnanca".</p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 justify-end pt-1 border-t border-border">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => { setAddingBranch(false); setEditingBranchIdx(null); }} data-testid="button-branch-cancel">Zrušiť</Button>
+                      <Button type="button" size="sm" onClick={saveBranchForm} data-testid="button-branch-save">
+                        {editingBranchIdx !== null ? "Uložiť zmeny" : "Pridať pobočku"}
+                      </Button>
                     </div>
                   </div>
                 )}
 
-                {branches.length > 0 && (
+                {branches.length > 0 && !addingBranch && (
                   <div className="space-y-2">
-                    {branches.map((br, idx) => (
-                      <div key={idx} className="flex items-start gap-3 p-3 border border-border rounded-md" data-testid={`branch-row-${idx}`}>
-                        <GitBranch className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 text-sm space-y-1">
-                          <div className="flex items-center gap-2">
-                            {br.name && <span className="font-medium">{br.name}</span>}
-                            {br.isActive !== false ? (
-                              <Badge variant="outline" className="text-xs border-green-600 text-green-600" data-testid={`badge-branch-active-${idx}`}>Aktívna</Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs border-destructive text-destructive" data-testid={`badge-branch-inactive-${idx}`}>Zrušená</Badge>
-                            )}
-                          </div>
-                          <p className="text-muted-foreground">{[br.street, br.streetNumber, br.postalCode, br.city].filter(Boolean).join(", ") || "Bez adresy"}</p>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                            {br.activeFrom && <span>Od: {br.activeFrom}</span>}
-                            {br.isActive === false && br.cancelledAt && <span className="text-destructive">Zrušená: {br.cancelledAt}</span>}
-                            {br.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{br.phone}</span>}
-                            {br.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{br.email}</span>}
+                    {branches.map((br, idx) => {
+                      const brPhones = br.phones ?? (br.phone ? [br.phone] : []);
+                      const brEmails = br.emails ?? (br.email ? [br.email] : []);
+                      const empCount = br.employees?.length ?? 0;
+                      const status = (br as any).branchStatus || (br.isActive !== false ? "active" : "inactive");
+                      return (
+                        <div key={idx} className="border border-border rounded-md p-3 space-y-2" data-testid={`branch-row-${idx}`}>
+                          <div className="flex items-start gap-3">
+                            <GitBranch className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                            <div className="flex-1 text-sm space-y-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {br.name && <span className="font-medium">{br.name}</span>}
+                                <Badge variant="outline" className={`text-[10px] ${status === "active" ? "border-green-600 text-green-600" : status === "temporarily_inactive" ? "border-amber-500 text-amber-500" : "border-destructive text-destructive"}`} data-testid={`badge-branch-status-${idx}`}>
+                                  {status === "active" ? "Aktívna" : status === "temporarily_inactive" ? "Dočasne neaktívna" : "Neaktívna"}
+                                </Badge>
+                                {empCount > 0 && <Badge variant="secondary" className="text-[10px]"><Users className="w-2.5 h-2.5 mr-0.5" />{empCount}</Badge>}
+                              </div>
+                              <p className="text-muted-foreground text-xs">{[br.street, br.streetNumber, br.postalCode, br.city].filter(Boolean).join(", ") || "Bez adresy"}</p>
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                                {br.activeFrom && <span>Od: {br.activeFrom}</span>}
+                                {br.isActive === false && br.cancelledAt && <span className="text-destructive">Zrušená: {br.cancelledAt}</span>}
+                                {brPhones.map((p, i) => <span key={i} className="flex items-center gap-0.5"><Phone className="w-2.5 h-2.5" />{p}</span>)}
+                                {brEmails.map((e, i) => <span key={i} className="flex items-center gap-0.5"><Mail className="w-2.5 h-2.5" />{e}</span>)}
+                              </div>
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditBranchForm(idx)} data-testid={`button-edit-branch-${idx}`}><Pencil className="w-3 h-3" /></Button>
+                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setBranches(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-delete-branch-${idx}`}><Trash2 className="w-3.5 h-3.5" /></Button>
+                            </div>
                           </div>
                         </div>
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setBranches(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-delete-branch-${idx}`}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
@@ -1477,26 +1709,61 @@ function CompanyDetailDialog({
                     <h4 className="text-sm font-medium">Pobočky</h4>
                     <Badge variant="secondary" className="text-xs">{branchList.length}</Badge>
                   </div>
-                  <div className="space-y-2">
-                    {branchList.map((br, idx) => (
-                      <div key={idx} className="text-sm border border-border rounded-md p-3 space-y-1" data-testid={`detail-branch-${idx}`}>
-                        <div className="flex items-center gap-2">
-                          {br.name && <span className="font-medium">{br.name}</span>}
-                          {br.isActive !== false ? (
-                            <Badge variant="outline" className="text-xs border-green-600 text-green-600">Aktívna</Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-xs border-destructive text-destructive">Zrušená</Badge>
+                  <div className="space-y-3">
+                    {branchList.map((br, idx) => {
+                      const brPhones = br.phones ?? (br.phone ? [br.phone] : []);
+                      const brEmails = br.emails ?? (br.email ? [br.email] : []);
+                      const empList = br.employees ?? [];
+                      const status = (br as any).branchStatus || (br.isActive !== false ? "active" : "inactive");
+                      return (
+                        <div key={idx} className="border border-border rounded-md p-3 space-y-3 text-sm" data-testid={`detail-branch-${idx}`}>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {br.name && <span className="font-medium">{br.name}</span>}
+                            <Badge variant="outline" className={`text-[10px] ${status === "active" ? "border-green-600 text-green-600" : status === "temporarily_inactive" ? "border-amber-500 text-amber-500" : "border-destructive text-destructive"}`}>
+                              {status === "active" ? "Aktívna" : status === "temporarily_inactive" ? "Dočasne neaktívna" : "Neaktívna"}
+                            </Badge>
+                            {empList.length > 0 && <Badge variant="secondary" className="text-[10px]"><Users className="w-2.5 h-2.5 mr-0.5" />{empList.length} pracovníkov</Badge>}
+                          </div>
+                          <p className="text-muted-foreground text-xs">{[br.street, br.streetNumber, br.postalCode, br.city].filter(Boolean).join(", ") || "Bez adresy"}</p>
+                          {(brPhones.length > 0 || brEmails.length > 0) && (
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                              {brPhones.map((p, i) => <span key={i} className="flex items-center gap-0.5"><Phone className="w-2.5 h-2.5" />{p}</span>)}
+                              {brEmails.map((e, i) => <span key={i} className="flex items-center gap-0.5"><Mail className="w-2.5 h-2.5" />{e}</span>)}
+                            </div>
+                          )}
+                          {br.activeFrom && <p className="text-xs text-muted-foreground">Aktívna od: {br.activeFrom}{br.isActive === false && br.cancelledAt ? ` — Zrušená: ${br.cancelledAt}` : ""}</p>}
+                          {empList.length > 0 && (
+                            <div className="space-y-2 pt-1 border-t border-border">
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Users className="w-3 h-3" />Pracovníci na pobočke</p>
+                              <div className="space-y-1.5">
+                                {empList.map((emp, ei) => (
+                                  <div key={ei} className="flex items-center gap-2.5 p-2 rounded border border-border/50 bg-muted/10" data-testid={`detail-branch-${idx}-emp-${ei}`}>
+                                    <div className="w-9 h-9 rounded shrink-0 border border-border overflow-hidden bg-muted flex items-center justify-center">
+                                      {emp.photo ? <img src={emp.photo} className="w-full h-full object-cover" alt="foto" /> : <UserCog className="w-3.5 h-3.5 text-muted-foreground" />}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-medium truncate">
+                                        {[emp.titleBefore, emp.firstName, emp.lastName, emp.titleAfter].filter(Boolean).join(" ") || "—"}
+                                      </p>
+                                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap">
+                                        {emp.uid && <span className="font-mono">{emp.uid}</span>}
+                                        {emp.position && <span>{emp.position}</span>}
+                                        {emp.phone && <span className="flex items-center gap-0.5"><Phone className="w-2 h-2" />{emp.phone}</span>}
+                                        {emp.email && <span className="flex items-center gap-0.5"><Mail className="w-2 h-2" />{emp.email}</span>}
+                                      </div>
+                                      {emp.otherContact && <p className="text-[10px] text-muted-foreground/70 truncate">{emp.otherContact}</p>}
+                                    </div>
+                                    <Badge variant="outline" className={`text-[10px] shrink-0 ${emp.status === "active" ? "border-green-600 text-green-600" : emp.status === "temporarily_inactive" ? "border-amber-500 text-amber-500" : "border-destructive text-destructive"}`}>
+                                      {emp.status === "active" ? "Aktívny" : emp.status === "temporarily_inactive" ? "Dočasne" : "Neaktívny"}
+                                    </Badge>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                           )}
                         </div>
-                        <p className="text-muted-foreground">{[br.street, br.streetNumber, br.postalCode, br.city].filter(Boolean).join(", ") || "Bez adresy"}</p>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                          {br.activeFrom && <span>Od: {br.activeFrom}</span>}
-                          {br.isActive === false && br.cancelledAt && <span className="text-destructive">Zrušená: {br.cancelledAt}</span>}
-                          {br.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{br.phone}</span>}
-                          {br.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{br.email}</span>}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ) : (
