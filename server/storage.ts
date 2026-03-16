@@ -1024,19 +1024,6 @@ export class DatabaseStorage implements IStorage {
 
     const [newPartner] = await db.insert(partners).values({ ...partner, uid }).returning();
 
-    // Auto-create partner group
-    const existingCg = await this.getClientGroupByLinkedPartnerId(newPartner.id);
-    if (!existingCg) {
-      await db.insert(clientGroups).values({
-        name: `Skupina ${newPartner.name}`,
-        isSystem: true,
-        isHoldingGroup: false,
-        isPartnerGroup: true,
-        linkedPartnerId: newPartner.id,
-        groupCode: `partner_group_${newPartner.id}`,
-        permissionLevel: 1,
-      }).returning();
-    }
     return { partner: newPartner, matchedSubject };
   }
 
