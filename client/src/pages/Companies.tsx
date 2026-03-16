@@ -389,12 +389,12 @@ function CompanyFormDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <Tabs defaultValue="basic" className="w-full">
-              <TabsList className="w-full justify-between">
-                <TabsTrigger value="basic" data-testid="tab-basic">Zakladne udaje</TabsTrigger>
+              <TabsList className="flex flex-wrap h-auto gap-1 justify-between w-full">
+                <TabsTrigger value="basic" data-testid="tab-basic">Základné údaje</TabsTrigger>
                 <TabsTrigger value="address" data-testid="tab-address">Adresa</TabsTrigger>
-                <TabsTrigger value="divisions" data-testid="tab-divisions">Divizie</TabsTrigger>
+                <TabsTrigger value="divisions" data-testid="tab-divisions">Divízie</TabsTrigger>
                 <TabsTrigger value="docs" data-testid="tab-docs">Dokumenty</TabsTrigger>
-                <TabsTrigger value="notes" data-testid="tab-notes">Poznamky</TabsTrigger>
+                <TabsTrigger value="notes" data-testid="tab-notes">Poznámky</TabsTrigger>
               </TabsList>
 
               <TabsContent value="basic" className="space-y-4 mt-4">
@@ -636,11 +636,11 @@ function CompanyDetailDialog({
         </DialogHeader>
 
         <Tabs defaultValue="basic" className="w-full mt-2">
-          <TabsList className="w-full justify-between">
-            <TabsTrigger value="basic" data-testid="detail-tab-basic">Zakladne udaje</TabsTrigger>
+          <TabsList className="flex flex-wrap h-auto gap-1 justify-between w-full">
+            <TabsTrigger value="basic" data-testid="detail-tab-basic">Základné údaje</TabsTrigger>
             <TabsTrigger value="address" data-testid="detail-tab-address">Adresa</TabsTrigger>
             <TabsTrigger value="docs" data-testid="detail-tab-docs">Dokumenty</TabsTrigger>
-            <TabsTrigger value="notes" data-testid="detail-tab-notes">Poznamky</TabsTrigger>
+            <TabsTrigger value="notes" data-testid="detail-tab-notes">Poznámky</TabsTrigger>
           </TabsList>
 
           <TabsContent value="basic" className="mt-4 space-y-4">
