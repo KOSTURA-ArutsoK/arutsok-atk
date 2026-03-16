@@ -254,10 +254,10 @@ function GroupDetailDialog({
         <DialogHeader>
           <DialogTitle data-testid="text-group-dialog-title">
             <span className="inline-flex items-center gap-2">
-              {(isPartner || isHolding) ? <Lock className="w-4 h-4 text-red-500" /> : isSystem ? <Lock className="w-4 h-4 text-amber-500" /> : null}
+              {isPartner ? <Lock className="w-4 h-4 text-red-500" /> : isHolding ? <Lock className="w-4 h-4 text-blue-500" /> : isSystem ? <Lock className="w-4 h-4 text-amber-500" /> : null}
               {isEditing ? `Uprava skupiny: ${group?.name}` : "Nova skupina klientov"}
               {isPartner ? <Badge variant="outline" className="text-[10px] border-red-500/50 text-red-500">Partner</Badge>
-                : isHolding ? <Badge variant="outline" className="text-[10px] border-red-500/50 text-red-500">Holding</Badge>
+                : isHolding ? <Badge variant="outline" className="text-[10px] border-blue-500/50 text-blue-500">Holding</Badge>
                 : isSystem ? <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-500">Systemova</Badge>
                 : null}
             </span>
@@ -727,16 +727,18 @@ export default function ClientGroups() {
                         onClick={() => { setEditingGroup(group); setDialogOpen(true); }}
                       >
                         <span className="inline-flex items-center gap-1.5">
-                          {(group.isPartnerGroup || group.isHoldingGroup)
+                          {group.isPartnerGroup
                             ? <Lock className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                            : group.isSystem
-                              ? <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                              : null}
+                            : group.isHoldingGroup
+                              ? <Lock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                              : group.isSystem
+                                ? <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                : null}
                           {group.name}
                           {group.isPartnerGroup
                             ? <Badge variant="outline" className="text-[9px] h-4 border-red-500/50 text-red-500">Partner</Badge>
                             : group.isHoldingGroup
-                              ? <Badge variant="outline" className="text-[9px] h-4 border-red-500/50 text-red-500">Holding</Badge>
+                              ? <Badge variant="outline" className="text-[9px] h-4 border-blue-500/50 text-blue-500">Holding</Badge>
                               : group.isSystem
                                 ? <Badge variant="outline" className="text-[9px] h-4 border-amber-500/50 text-amber-500">Systémová</Badge>
                                 : null}

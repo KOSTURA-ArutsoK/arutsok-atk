@@ -972,21 +972,34 @@ export class DatabaseStorage implements IStorage {
     let matchedSubject: { id: number; uid: string; displayName: string } | undefined;
 
     if (partner.ico) {
-      // Exact ICO match via registry_snapshots (subjects have ICO there)
-      const [icoSnap] = await db.select({ subjectId: registrySnapshots.subjectId })
-        .from(registrySnapshots)
-        .where(eq(registrySnapshots.ico, partner.ico))
-        .orderBy(desc(registrySnapshots.fetchedAt))
+      const normalizedIco = partner.ico.replace(/\s/g, '');
+      // Primary: exact ICO match via subjects.details->>'ico'
+      const [directMatch] = await db.select({ id: subjects.id, uid: subjects.uid, companyName: subjects.companyName, firstName: subjects.firstName, lastName: subjects.lastName })
+        .from(subjects)
+        .where(sql`REPLACE(${subjects.details}->>'ico', ' ', '') = ${normalizedIco}`)
         .limit(1);
-      if (icoSnap) {
-        const [icoSubject] = await db.select({ id: subjects.id, uid: subjects.uid, companyName: subjects.companyName, firstName: subjects.firstName, lastName: subjects.lastName })
-          .from(subjects)
-          .where(eq(subjects.id, icoSnap.subjectId))
+      if (directMatch && directMatch.uid) {
+        uid = directMatch.uid;
+        const displayName = directMatch.companyName || `${directMatch.firstName || ''} ${directMatch.lastName || ''}`.trim();
+        matchedSubject = { id: directMatch.id, uid: directMatch.uid, displayName };
+      }
+      // Fallback: via registry_snapshots
+      if (!uid!) {
+        const [icoSnap] = await db.select({ subjectId: registrySnapshots.subjectId })
+          .from(registrySnapshots)
+          .where(eq(registrySnapshots.ico, normalizedIco))
+          .orderBy(desc(registrySnapshots.fetchedAt))
           .limit(1);
-        if (icoSubject && icoSubject.uid) {
-          uid = icoSubject.uid;
-          const displayName = icoSubject.companyName || `${icoSubject.firstName || ''} ${icoSubject.lastName || ''}`.trim();
-          matchedSubject = { id: icoSubject.id, uid: icoSubject.uid, displayName };
+        if (icoSnap) {
+          const [icoSubject] = await db.select({ id: subjects.id, uid: subjects.uid, companyName: subjects.companyName, firstName: subjects.firstName, lastName: subjects.lastName })
+            .from(subjects)
+            .where(eq(subjects.id, icoSnap.subjectId))
+            .limit(1);
+          if (icoSubject && icoSubject.uid) {
+            uid = icoSubject.uid;
+            const displayName = icoSubject.companyName || `${icoSubject.firstName || ''} ${icoSubject.lastName || ''}`.trim();
+            matchedSubject = { id: icoSubject.id, uid: icoSubject.uid, displayName };
+          }
         }
       }
     }
@@ -3268,7 +3281,7 @@ export class DatabaseStorage implements IStorage {
       .from(contracts)
       .where(and(
         eq(contracts.partnerId, partnerId),
-        eq(contracts.isDeleted, false)
+        isNull(contracts.deletedAt)
       ));
     return result[0]?.count || 0;
   }
