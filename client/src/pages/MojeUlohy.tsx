@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTimeSlovak } from "@/lib/utils";
-import { Loader2, Check, X, ClipboardCheck, FileText, Download, AlertTriangle, ExternalLink, XCircle, Archive, CalendarDays, FileBarChart } from "lucide-react";
+import { Loader2, Check, X, ClipboardCheck, FileText, Download, AlertTriangle, ExternalLink, XCircle, Archive, CalendarDays, FileBarChart, Building2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -87,6 +87,12 @@ interface NbsReportTask {
   daysLeft: number;
 }
 
+interface CompanyWithoutOfficers {
+  id: number;
+  name: string;
+  uid: string | null;
+}
+
 interface MyTasksResponse {
   tasks: TransferTask[];
   subjects: SubjectInfo[];
@@ -97,6 +103,7 @@ interface MyTasksResponse {
   archivedContracts: ContractItem[];
   upcomingEvents: CalendarEvent[];
   nbsReportTasks?: NbsReportTask[];
+  companiesWithoutOfficers?: CompanyWithoutOfficers[];
 }
 
 function getSubjectName(sub: SubjectInfo | undefined): string {
@@ -348,9 +355,10 @@ export default function MojeUlohy() {
   const archivedContracts = data?.archivedContracts || [];
   const upcomingEvents = data?.upcomingEvents || [];
   const nbsReportTasks = data?.nbsReportTasks || [];
+  const companiesWithoutOfficers = data?.companiesWithoutOfficers || [];
   const subjectMap = new Map((data?.subjects || []).map(s => [s.id, s]));
   const statusMap = new Map(interventionStatuses.map(s => [s.id, s.name]));
-  const nonCalendarCount = tasks.length + interventions.length + internalInterventions.length + rejectedContracts.length + archivedContracts.length + nbsReportTasks.length;
+  const nonCalendarCount = tasks.length + interventions.length + internalInterventions.length + rejectedContracts.length + archivedContracts.length + nbsReportTasks.length + companiesWithoutOfficers.length;
   const totalCount = nonCalendarCount + upcomingEvents.length;
 
   const urgentNbs = nbsReportTasks.filter(t => t.daysLeft <= 14);
@@ -385,6 +393,50 @@ export default function MojeUlohy() {
         </Card>
       ) : (
         <div className="space-y-8" data-testid="tasks-container">
+          {companiesWithoutOfficers.length > 0 && (
+            <div className="space-y-4" data-testid="companies-without-officers-section">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-red-500 animate-pulse" />
+                <h2 className="text-lg font-semibold">Firmy bez zapísaných štatutárov</h2>
+                <Badge variant="outline" className="border-red-500 text-red-400" data-testid="companies-without-officers-count">
+                  {companiesWithoutOfficers.length}
+                </Badge>
+              </div>
+              <div className="space-y-3">
+                {companiesWithoutOfficers.map(company => (
+                  <Card
+                    key={company.id}
+                    className="border-l-4 border-l-red-600 cursor-pointer hover:bg-muted/30 transition-colors"
+                    onClick={() => navigate(`/companies`)}
+                    data-testid={`company-without-officers-card-${company.id}`}
+                  >
+                    <CardContent className="py-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Building2 className="w-4 h-4 shrink-0 text-red-400" />
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm" data-testid={`company-without-officers-name-${company.id}`}>
+                              {company.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Potrebné zapísať štatutárov do systému
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="outline" className="border-red-500 text-red-400 text-[10px]">
+                            Chýba štatutár
+                          </Badge>
+                          <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
           {hasUrgentNbs && (
             <NbsReportSection
               tasks={urgentNbs}

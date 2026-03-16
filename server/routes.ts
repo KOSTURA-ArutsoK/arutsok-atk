@@ -18851,11 +18851,25 @@ export async function registerRoutes(
         nbsReportTasks.sort((a, b) => a.period.localeCompare(b.period));
       }
 
+      const allActiveCompanies = await db
+        .select({ id: myCompanies.id, name: myCompanies.name, uid: myCompanies.uid })
+        .from(myCompanies)
+        .where(eq(myCompanies.isDeleted, false));
+
+      const companiesWithOfficerUid = await db
+        .selectDistinct({ companyId: companyOfficers.companyId })
+        .from(companyOfficers)
+        .where(isNotNull(companyOfficers.subjectId));
+
+      const withOfficerSet = new Set(companiesWithOfficerUid.map(r => r.companyId));
+      const companiesWithoutOfficers = allActiveCompanies.filter(c => !withOfficerSet.has(c.id));
+
       res.json({
         tasks, subjects: relatedSubjects,
         interventions: dedupedInterventions, interventionStatuses: statusList,
         internalInterventions, rejectedContracts, archivedContracts,
         upcomingEvents, nbsReportTasks,
+        companiesWithoutOfficers,
       });
     } catch (err: any) {
       console.error("[MY-TASKS ERROR]", err);
@@ -18981,7 +18995,20 @@ export async function registerRoutes(
       const upcomingEvents = await storage.getUpcomingEvents(5);
       const upcomingEventsCount = upcomingEvents.length;
       const todayEventsCount = await storage.getTodayEventsCount();
-      const nonCalendarCount = transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount;
+      const allActiveCompaniesCount = await db
+        .select({ id: myCompanies.id })
+        .from(myCompanies)
+        .where(eq(myCompanies.isDeleted, false));
+
+      const companiesWithOfficerUidCount = await db
+        .selectDistinct({ companyId: companyOfficers.companyId })
+        .from(companyOfficers)
+        .where(isNotNull(companyOfficers.subjectId));
+
+      const withOfficerSetCount = new Set(companiesWithOfficerUidCount.map(r => r.companyId));
+      const companiesWithoutOfficersCount = allActiveCompaniesCount.filter(c => !withOfficerSetCount.has(c.id)).length;
+
+      const nonCalendarCount = transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount + companiesWithoutOfficersCount;
 
       let nbsAlert = { show: false, daysLeft: 0 };
       if (appUser.role === 'admin' || appUser.role === 'superadmin') {
