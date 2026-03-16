@@ -588,7 +588,6 @@ function CompanyFormDialog({
       : allActivities;
     const payload = {
       ...data,
-      specialization: "",
       notes: notesHtml,
       processingTimeSec,
       businessActivities: biz,
@@ -1284,7 +1283,7 @@ export default function Companies() {
                 {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Názov</TableHead>}
                 {columnVisibility.isVisible("ico") && <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>IČO</TableHead>}
                 {columnVisibility.isVisible("city") && <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>}
-                {columnVisibility.isVisible("state") && <TableHead>Stat</TableHead>}
+                {columnVisibility.isVisible("state") && <TableHead>Štát</TableHead>}
                 <TableHead className="w-[160px]">Akcie</TableHead>
               </TableRow>
             </TableHeader>
