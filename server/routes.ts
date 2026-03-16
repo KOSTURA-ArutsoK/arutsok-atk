@@ -19244,9 +19244,7 @@ export async function registerRoutes(
     }
   });
 
-  if (process.env.NODE_ENV === 'development') {
-    seedTestContracts().catch(err => console.error("[AUTO-SEED TEST CONTRACTS ERROR]", err));
-  }
+  // Auto-seed disabled — čistý štart pre UID testovanie
 
   // === DÁTOVÁ LINKA BACKGROUND WORKER ===
   let ocrWorkerRunning = false;
