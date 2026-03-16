@@ -76,8 +76,8 @@ function GroupDetailDialog({
   const startTimeRef = useRef<number>(Date.now());
 
   const isEditing = !!group;
-  const isSystem = !!(group as any)?.isSystem;
-  const isHolding = !!(group as any)?.isHoldingGroup;
+  const isSystem = !!group?.isSystem;
+  const isHolding = !!(group as ClientGroupWithCount)?.isHoldingGroup;
   const isBlacklist = (group as any)?.groupCode === "group_cierny_zoznam";
 
   useEffect(() => {
@@ -689,21 +689,21 @@ export default function ClientGroups() {
         </div>
       )}
 
-      <Card>
-        <CardContent className="p-0">
+      <Card className="overflow-hidden">
+        <CardContent className="p-0 overflow-x-auto">
           {isLoading ? (
             <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin" /></div>
           ) : (
-            <Table>
+            <Table className="w-full table-fixed">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
-                  {columnVisibility.isVisible("name") && <TableHead>Nazov skupiny</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead className="min-w-[200px]">Nazov skupiny</TableHead>}
                   {columnVisibility.isVisible("permissionGroup") && <TableHead className="w-36 text-center">Skupina pravomoci</TableHead>}
                   {columnVisibility.isVisible("allowLogin") && <TableHead className="w-32 text-center">Povolenie prihlasenia</TableHead>}
                   {columnVisibility.isVisible("allowCalculators") && <TableHead className="w-32 text-center">Povolene kalkulacky</TableHead>}
                   {columnVisibility.isVisible("memberCount") && <TableHead className="w-32 text-center">Pocet klientov</TableHead>}
-                  <TableHead className="w-24"></TableHead>
+                  <TableHead className="w-16"></TableHead>
                 </TableRow>
               </TableHeader>
               <SortableContext_Wrapper
@@ -723,15 +723,15 @@ export default function ClientGroups() {
                         onClick={() => { setEditingGroup(group); setDialogOpen(true); }}
                       >
                         <span className="inline-flex items-center gap-1.5">
-                          {(group as any).isHoldingGroup
+                          {group.isHoldingGroup
                             ? <Lock className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                            : (group as any).isSystem
+                            : group.isSystem
                               ? <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                               : null}
                           {group.name}
-                          {(group as any).isHoldingGroup
+                          {group.isHoldingGroup
                             ? <Badge variant="outline" className="text-[9px] h-4 border-red-500/50 text-red-500">Holding</Badge>
-                            : (group as any).isSystem
+                            : group.isSystem
                               ? <Badge variant="outline" className="text-[9px] h-4 border-amber-500/50 text-amber-500">Systémová</Badge>
                               : null}
                         </span>
@@ -775,7 +775,7 @@ export default function ClientGroups() {
                               <Pencil className="w-4 h-4 mr-2" />
                               Upraviť
                             </DropdownMenuItem>
-                            {!(group as any).isSystem && !(group as any).isHoldingGroup && (
+                            {!group.isSystem && !group.isHoldingGroup && (
                               <DropdownMenuItem
                                 onClick={() => setDeletingGroup(group)}
                                 disabled={group.memberCount > 0}

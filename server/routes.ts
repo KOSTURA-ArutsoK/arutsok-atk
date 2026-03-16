@@ -1296,7 +1296,7 @@ export async function registerRoutes(
         linkedCompanyId: created.id,
         groupCode: `holding_company_${created.id}`,
         permissionLevel: 1,
-      } as any);
+      });
       await logAudit(req, { action: "CREATE", module: "skupiny_klientov", entityId: linkedCg.id, entityName: linkedCg.name, newData: { autoLinked: true, holdingGroup: true, linkedCompanyId: created.id } });
 
       res.status(201).json(created);
@@ -6844,8 +6844,8 @@ export async function registerRoutes(
     const groups = await storage.getClientGroups(getEnforcedStateId(req));
     const result = await Promise.all(groups.map(async (g) => ({
       ...g,
-      memberCount: (g as any).isHoldingGroup && (g as any).linkedCompanyId
-        ? await storage.getHoldingGroupMemberCount((g as any).linkedCompanyId)
+      memberCount: g.isHoldingGroup && g.linkedCompanyId
+        ? await storage.getHoldingGroupMemberCount(g.linkedCompanyId)
         : await storage.getClientGroupMemberCount(g.id),
     })));
     res.json(result);
@@ -6915,10 +6915,10 @@ export async function registerRoutes(
     try {
       const existing = await storage.getClientGroup(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Skupina nenajdena" });
-      if ((existing as any).isHoldingGroup) {
+      if (existing.isHoldingGroup) {
         return res.status(403).json({ message: "Holding skupinu nie je možné vymazať. Spravujte ju cez modul Spoločnosti." });
       }
-      if ((existing as any).isSystem) {
+      if (existing.isSystem) {
         return res.status(403).json({ message: "Systémovú skupinu nie je možné zmazať" });
       }
       const enforcedState = getEnforcedStateId(req);
@@ -12632,13 +12632,13 @@ export async function registerRoutes(
           linkedCompanyId: company.id,
           groupCode: `holding_company_${company.id}`,
           permissionLevel: 1,
-        } as any);
+        });
         holdingSynced++;
         console.log(`[SEED] Created holding group for company: ${company.name}`);
       } else {
-        const updates: any = {};
+        const updates: Partial<{ isSystem: boolean; isHoldingGroup: boolean; name: string }> = {};
         if (!existingCg.isSystem) updates.isSystem = true;
-        if (!(existingCg as any).isHoldingGroup) updates.isHoldingGroup = true;
+        if (!existingCg.isHoldingGroup) updates.isHoldingGroup = true;
         if (existingCg.name !== company.name) updates.name = company.name;
         if (Object.keys(updates).length > 0) {
           await storage.updateClientGroup(existingCg.id, updates);
