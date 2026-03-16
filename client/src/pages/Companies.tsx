@@ -435,7 +435,7 @@ function CompanyFormDialog({
                     </FormItem>
                   )} />
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-4 items-end">
                   <FormField control={form.control} name="ico" render={({ field }) => (
                     <FormItem>
                       <FormLabel>ICO *</FormLabel>
@@ -450,8 +450,8 @@ function CompanyFormDialog({
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 pt-1">
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2 h-5">
                       <Switch
                         checked={platcaDph}
                         onCheckedChange={(checked) => {
@@ -460,16 +460,19 @@ function CompanyFormDialog({
                         }}
                         data-testid="switch-platca-dph"
                       />
-                      <span className="text-sm font-medium">Platca DPH</span>
+                      <span className="text-sm font-medium leading-none">
+                        {platcaDph ? "IC DPH *" : "Platca DPH"}
+                      </span>
                     </div>
-                    {platcaDph && (
+                    {platcaDph ? (
                       <FormField control={form.control} name="icDph" render={({ field }) => (
                         <FormItem>
-                          <FormLabel>IC DPH *</FormLabel>
                           <FormControl><Input {...field} value={field.value || ""} data-testid="input-icdph" /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )} />
+                    ) : (
+                      <div className="h-9" />
                     )}
                   </div>
                 </div>
