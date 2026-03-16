@@ -12674,13 +12674,19 @@ export async function registerRoutes(
     let uidBackfilled = 0;
 
     for (const partner of allPartners) {
-      // UID backfill: assign UID to existing partners that have none
-      if (!partner.uid) {
-        let stateCode = '421';
-        if (partner.stateId) {
-          const state = await storage.getState(partner.stateId);
-          if (state) stateCode = state.code;
-        }
+      // UID backfill: assign UID to existing partners that have none, or fix wrong prefix
+      let needsUid = !partner.uid;
+      let stateCode = '421';
+      if (partner.stateId) {
+        const state = await storage.getState(partner.stateId);
+        if (state && state.code && /^\d{2,3}$/.test(state.code)) stateCode = state.code;
+      }
+      // Fix wrong-prefix UIDs: partner has stateId but uid prefix doesn't match
+      if (!needsUid && partner.uid && partner.stateId) {
+        const rawUid = partner.uid.replace(/\s/g, '');
+        if (!rawUid.startsWith(stateCode)) needsUid = true;
+      }
+      if (needsUid) {
         const newUid = await storage.generateNextGlobalUid(stateCode);
         await db.update(partners).set({ uid: newUid }).where(eq(partners.id, partner.id));
         uidBackfilled++;

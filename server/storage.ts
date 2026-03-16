@@ -705,16 +705,15 @@ export class DatabaseStorage implements IStorage {
 
   async generateNextGlobalUid(stateCode: string): Promise<string> {
     const prefix = stateCode && /^\d{2,3}$/.test(stateCode) ? stateCode : '421';
-    const likePattern = `${prefix}%`;
     const baseline = BigInt(prefix) * 1000000000000n;
     const result = await db.execute(sql`
-      SELECT COALESCE(MAX(CAST(uid AS BIGINT)), ${baseline.toString()}) AS max_uid
+      SELECT COALESCE(MAX(CAST(REPLACE(uid, ' ', '') AS BIGINT)), ${baseline.toString()}) AS max_uid
       FROM (
-        SELECT uid FROM subjects WHERE uid IS NOT NULL AND uid ~ '^[0-9]+$' AND uid LIKE ${likePattern}
+        SELECT uid FROM subjects WHERE uid IS NOT NULL AND REPLACE(uid, ' ', '') ~ '^[0-9]+$' AND REPLACE(uid, ' ', '') LIKE ${prefix + '%'}
         UNION ALL
-        SELECT uid FROM partners WHERE uid IS NOT NULL AND uid ~ '^[0-9]+$' AND uid LIKE ${likePattern}
+        SELECT uid FROM partners WHERE uid IS NOT NULL AND REPLACE(uid, ' ', '') ~ '^[0-9]+$' AND REPLACE(uid, ' ', '') LIKE ${prefix + '%'}
         UNION ALL
-        SELECT uid FROM my_companies WHERE uid IS NOT NULL AND uid ~ '^[0-9]+$' AND uid LIKE ${likePattern}
+        SELECT uid FROM my_companies WHERE uid IS NOT NULL AND REPLACE(uid, ' ', '') ~ '^[0-9]+$' AND REPLACE(uid, ' ', '') LIKE ${prefix + '%'}
       ) t
     `);
     const rows = result.rows as { max_uid: string }[];
