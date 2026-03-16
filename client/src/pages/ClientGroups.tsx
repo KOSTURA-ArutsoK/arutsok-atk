@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -616,31 +616,81 @@ function GroupDetailDialog({
 
 // ============================================================
 // PARTNER GROUP DIALOG — opens on PARTNERI row click
-// Shows: all active partners (Klienti tab) + all products (Produkty tab)
+// Filtered by active division via sectors.partnerIds
+// Tab "Klienti" = partners of this division
+// Tab "Produkty" = products (from global catalog) linked to those partners
 // ============================================================
-function PartnerGroupDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+type SectorRaw = { id: number; divisionId: number | null; partnerIds: number[] | null };
+
+function PartnerGroupDialog({
+  open,
+  onOpenChange,
+  activeDivisionId,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  activeDivisionId: number | null | undefined;
+}) {
   const [, navigate] = useLocation();
   const [tab, setTab] = useState("klienti");
   const [search, setSearch] = useState("");
 
+  // 1. Fetch all partners (already state-filtered by server)
   const { data: allPartners, isLoading: partnersLoading } = useQuery<Partner[]>({
     queryKey: ["/api/partners"],
     enabled: open,
   });
+
+  // 2. Fetch sectors for the active division to get partnerIds
+  const { data: divSectors, isLoading: sectorsLoading } = useQuery<SectorRaw[]>({
+    queryKey: ["/api/sectors", activeDivisionId],
+    queryFn: async () => {
+      const url = activeDivisionId
+        ? `/api/sectors?divisionId=${activeDivisionId}`
+        : "/api/sectors";
+      const res = await fetch(url, { credentials: "include" });
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  // 3. Build partnerIds set from sectors of this division
+  const partnerIdSet = useMemo(() => {
+    const s = new Set<number>();
+    for (const sec of (divSectors ?? [])) {
+      for (const pid of (sec.partnerIds ?? [])) s.add(pid);
+    }
+    return s;
+  }, [divSectors]);
+
+  // 4. Filter partners — if division has sectors with partners, restrict to those
+  const partners = useMemo(() => {
+    const all = (allPartners ?? []).filter(p => !p.isDeleted);
+    if (partnerIdSet.size === 0) return all;
+    return all.filter(p => partnerIdSet.has(p.id));
+  }, [allPartners, partnerIdSet]);
+
+  // 5. Fetch products linked to partners of this division
   const { data: allProducts, isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
     enabled: open,
   });
 
-  const partners = (allPartners || []).filter(p => !p.isDeleted);
-  const products = (allProducts || []).filter(p => !(p as any).isDeleted);
+  const products = useMemo(() => {
+    const all = (allProducts ?? []).filter(p => !p.isDeleted);
+    if (partnerIdSet.size === 0) return all;
+    return all.filter(p => p.partnerId != null && partnerIdSet.has(p.partnerId));
+  }, [allProducts, partnerIdSet]);
 
+  const isLoading = partnersLoading || sectorsLoading;
+
+  const lc = (s: string) => s.toLowerCase();
   const filteredPartners = search.length >= 2
-    ? partners.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || (p.ico || "").includes(search))
+    ? partners.filter(p => lc(p.name).includes(lc(search)) || (p.ico || "").includes(search))
     : partners;
 
   const filteredProducts = search.length >= 2
-    ? products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    ? products.filter(p => lc(p.name).includes(lc(search)))
     : products;
 
   return (
@@ -681,7 +731,7 @@ function PartnerGroupDialog({ open, onOpenChange }: { open: boolean; onOpenChang
           </div>
 
           <TabsContent value="klienti" className="flex-1 overflow-auto mt-3">
-            {partnersLoading ? (
+            {isLoading ? (
               <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
             ) : (
               <Table>
@@ -712,7 +762,7 @@ function PartnerGroupDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                   {filteredPartners.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                        {search.length >= 2 ? "Žiadny partner nevyhovuje hľadaniu" : "Žiadni partneri"}
+                        {search.length >= 2 ? "Žiadny partner nevyhovuje hľadaniu" : "Žiadni partneri v tejto divízii"}
                       </TableCell>
                     </TableRow>
                   )}
@@ -729,24 +779,25 @@ function PartnerGroupDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                 <TableHeader>
                   <TableRow>
                     <TableHead>Názov produktu</TableHead>
-                    <TableHead className="w-36">Typ</TableHead>
-                    <TableHead className="w-24 text-center">Stav</TableHead>
+                    <TableHead className="w-36">Kód</TableHead>
+                    <TableHead className="w-24 text-center">Partner</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredProducts.map(p => (
-                    <TableRow key={p.id} data-testid={`row-product-group-${p.id}`}>
-                      <TableCell className="font-medium">{p.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{(p as any).productType || (p as any).type || "—"}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline" className="text-[9px]">{(p as any).lifecycleStatus || "record"}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredProducts.map(p => {
+                    const partner = (allPartners ?? []).find(pt => pt.id === p.partnerId);
+                    return (
+                      <TableRow key={p.id} data-testid={`row-product-group-${p.id}`}>
+                        <TableCell className="font-medium">{p.name}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground font-mono">{p.code || "—"}</TableCell>
+                        <TableCell className="text-center text-xs text-muted-foreground">{partner?.name || "—"}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                   {filteredProducts.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
-                        {search.length >= 2 ? "Žiadny produkt nevyhovuje hľadaniu" : "Žiadne produkty"}
+                        {search.length >= 2 ? "Žiadny produkt nevyhovuje hľadaniu" : "Žiadne produkty v tejto divízii"}
                       </TableCell>
                     </TableRow>
                   )}
@@ -791,8 +842,17 @@ export default function ClientGroups() {
 
   const [, navigate] = useLocation();
 
+  const activeDivisionId = (appUser as any)?.activeDivisionId as number | null | undefined;
+
   const { data: partnerCountData } = useQuery<{ count: number }>({
-    queryKey: ["/api/partners/active-count"],
+    queryKey: ["/api/partners/active-count", activeDivisionId],
+    queryFn: async () => {
+      const url = activeDivisionId
+        ? `/api/partners/active-count?divisionId=${activeDivisionId}`
+        : "/api/partners/active-count";
+      const res = await fetch(url, { credentials: "include" });
+      return res.json();
+    },
   });
 
   const { data: permGroupsData } = useQuery<PermissionGroup[]>({
@@ -1028,7 +1088,7 @@ export default function ClientGroups() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <PartnerGroupDialog open={partnerGroupOpen} onOpenChange={setPartnerGroupOpen} />
+      <PartnerGroupDialog open={partnerGroupOpen} onOpenChange={setPartnerGroupOpen} activeDivisionId={activeDivisionId} />
     </div>
   );
 }

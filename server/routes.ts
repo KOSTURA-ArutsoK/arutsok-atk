@@ -1390,9 +1390,27 @@ export async function registerRoutes(
     res.json(await storage.getPartners(includeDeleted, stateId || undefined));
   });
 
-  // COUNT total active partners (for PARTNERI synthetic row in ClientGroups)
-  app.get("/api/partners/active-count", isAuthenticated, async (_req, res) => {
+  // COUNT active partners — optional ?divisionId=X filters via sectors.partner_ids
+  app.get("/api/partners/active-count", isAuthenticated, async (req: any, res) => {
     try {
+      const divisionId = req.query.divisionId ? Number(req.query.divisionId) : null;
+      if (divisionId) {
+        // Collect partner IDs linked to this division via sectors.partner_ids
+        const divSectors = await db
+          .select({ partnerIds: sectors.partnerIds })
+          .from(sectors)
+          .where(eq(sectors.divisionId, divisionId));
+        const pidSet = new Set<number>();
+        for (const s of divSectors) {
+          for (const pid of (s.partnerIds ?? [])) pidSet.add(pid);
+        }
+        if (pidSet.size === 0) return res.json({ count: 0 });
+        const [row] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(partners)
+          .where(and(eq(partners.isDeleted, false), inArray(partners.id, [...pidSet])));
+        return res.json({ count: row?.count ?? 0 });
+      }
       const [row] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(partners)
