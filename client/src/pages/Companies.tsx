@@ -115,15 +115,13 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 const COMPANY_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Názov" },
   { key: "ico", label: "IČO" },
-  { key: "specialization", label: "Zameranie" },
   { key: "city", label: "Mesto" },
-  { key: "state", label: "Stat" },
+  { key: "state", label: "Štát" },
 ];
 
 const COMPANY_FILTER_COLUMNS: SmartColumnDef[] = [
   { key: "name", label: "Názov", type: "text" },
   { key: "ico", label: "IČO", type: "text" },
-  { key: "specialization", label: "Zameranie", type: "text" },
   { key: "city", label: "Mesto", type: "text" },
 ];
 
@@ -139,10 +137,11 @@ const formSchema = insertMyCompanySchema.extend({
   city: z.string().min(1, "Mesto je povinné"),
   stateId: z.number().optional(),
   description: z.string().min(1, "Charakteristika je povinná"),
-  specialization: z.string().min(1, "Zameranie je povinné"),
   subjectType: z.string().optional(),
   code: z.string().min(1, "Kód je povinný").max(25, "Max 25 znakov"),
   foundedDate: z.string().nullable().optional(),
+  vatParagraph: z.string().optional(),
+  vatRegisteredAt: z.string().nullable().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -466,7 +465,6 @@ function CompanyFormDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      specialization: "SFA",
       subjectType: "",
       code: "",
       ico: "",
@@ -481,6 +479,8 @@ function CompanyFormDialog({
       description: "",
       notes: "",
       foundedDate: null,
+      vatParagraph: "",
+      vatRegisteredAt: null,
     },
   });
 
@@ -494,7 +494,6 @@ function CompanyFormDialog({
         setPlatcaDph(hasIcDph);
         form.reset({
           name: editingCompany.name,
-          specialization: editingCompany.specialization,
           subjectType: (editingCompany as any).subjectType || "",
           code: editingCompany.code,
           ico: editingCompany.ico || "",
@@ -509,13 +508,14 @@ function CompanyFormDialog({
           description: editingCompany.description || "",
           notes: editingCompany.notes || "",
           foundedDate: (editingCompany as any).foundedDate ? new Date((editingCompany as any).foundedDate).toISOString().split("T")[0] : null,
+          vatParagraph: editingCompany.vatParagraph || "",
+          vatRegisteredAt: editingCompany.vatRegisteredAt ? new Date(editingCompany.vatRegisteredAt).toISOString().split("T")[0] : null,
         });
         setNotesHtml(editingCompany.notes || "");
       } else {
         setPlatcaDph(false);
         form.reset({
           name: "",
-          specialization: "SFA",
           code: "",
           ico: "",
           dic: "",
@@ -529,6 +529,8 @@ function CompanyFormDialog({
           description: "",
           notes: "",
           foundedDate: null,
+          vatParagraph: "",
+          vatRegisteredAt: null,
         });
         setNotesHtml("");
       }
@@ -584,7 +586,15 @@ function CompanyFormDialog({
     const biz: BusinessActivity[] = registryResult?.businessActivities
       ? allActivities.filter((_, i) => selectedActivityIndices.has(i))
       : allActivities;
-    const payload = { ...data, notes: notesHtml, processingTimeSec, businessActivities: biz, foundedDate: data.foundedDate ? new Date(data.foundedDate).toISOString() : null };
+    const payload = {
+      ...data,
+      specialization: "",
+      notes: notesHtml,
+      processingTimeSec,
+      businessActivities: biz,
+      foundedDate: data.foundedDate ? new Date(data.foundedDate).toISOString() : null,
+      vatRegisteredAt: data.vatRegisteredAt ? new Date(data.vatRegisteredAt).toISOString() : null,
+    };
 
     if (editingCompany) {
       updateMutation.mutate(
@@ -630,29 +640,6 @@ function CompanyFormDialog({
                   </FormItem>
                 )} />
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="specialization" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Zameranie</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-specialization">
-                            <SelectValue placeholder="Vyberte zameranie" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="SFA">SFA (Finančné sprostredkovanie)</SelectItem>
-                          <SelectItem value="Reality">Reality</SelectItem>
-                          <SelectItem value="Prenajom">Prenájom</SelectItem>
-                          <SelectItem value="Weapons">Predaj zbraní</SelectItem>
-                          <SelectItem value="Obchod">Obchod</SelectItem>
-                          <SelectItem value="Poistenie">Zdravotné poistenie</SelectItem>
-                          <SelectItem value="Dochodok">Dôchodkové sporenie</SelectItem>
-                          <SelectItem value="Ine">Iné</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
                   <FormField control={form.control} name="code" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Kód firmy</FormLabel>
@@ -660,28 +647,28 @@ function CompanyFormDialog({
                       <FormMessage />
                     </FormItem>
                   )} />
+                  <FormField control={form.control} name="subjectType" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Typ subjektu</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-subject-type">
+                            <SelectValue placeholder="Vyberte typ subjektu" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="fo">FO — Fyzická osoba</SelectItem>
+                          <SelectItem value="szco">SZČO — Samostatne zárobkovo činná osoba</SelectItem>
+                          <SelectItem value="po">PO — Súkromný sektor</SelectItem>
+                          <SelectItem value="ns">NS — Tretí sektor (neziskovky)</SelectItem>
+                          <SelectItem value="vs">VS — Verejný sektor (štát)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                 </div>
-                <FormField control={form.control} name="subjectType" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Typ subjektu</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ""}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-subject-type">
-                          <SelectValue placeholder="Vyberte typ subjektu" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="fo">FO — Fyzická osoba</SelectItem>
-                        <SelectItem value="szco">SZČO — Samostatne zárobkovo činná osoba</SelectItem>
-                        <SelectItem value="po">PO — Súkromný sektor</SelectItem>
-                        <SelectItem value="ns">NS — Tretí sektor (neziskovky)</SelectItem>
-                        <SelectItem value="vs">VS — Verejný sektor (štát)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="ico" render={({ field }) => (
                     <FormItem>
                       <FormLabel>IČO *</FormLabel>
@@ -696,32 +683,53 @@ function CompanyFormDialog({
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="icDph" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center gap-2">
-                        <Switch
-                          checked={platcaDph}
-                          onCheckedChange={(checked) => {
-                            setPlatcaDph(checked);
-                            if (!checked) form.setValue("icDph", "");
-                          }}
-                          data-testid="switch-platca-dph"
-                        />
-                        <span>{platcaDph ? "IČ DPH *" : "Platca DPH"}</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          value={field.value || ""}
-                          disabled={!platcaDph}
-                          className={!platcaDph ? "opacity-40" : ""}
-                          data-testid="input-icdph"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
                 </div>
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={platcaDph}
+                    onCheckedChange={(checked) => {
+                      setPlatcaDph(checked);
+                      if (!checked) {
+                        form.setValue("icDph", "");
+                        form.setValue("vatParagraph", "");
+                        form.setValue("vatRegisteredAt", null);
+                      }
+                    }}
+                    data-testid="switch-platca-dph"
+                  />
+                  <span className="text-sm font-medium">Platca DPH</span>
+                </div>
+                {platcaDph && (
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField control={form.control} name="icDph" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>IČ DPH *</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} data-testid="input-icdph" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="vatParagraph" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Podľa paragrafu</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} placeholder="§4" data-testid="input-vat-paragraph" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="vatRegisteredAt" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Dátum registrácie DPH</FormLabel>
+                        <FormControl>
+                          <Input type="date" value={field.value || ""} onChange={(e) => field.onChange(e.target.value || null)} data-testid="input-vat-registered-at" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                )}
                 {watchedSubjectType === "po" && (
                   <div className="flex items-center gap-2">
                     <Button
@@ -1008,7 +1016,6 @@ function CompanyDetailDialog({
             <div className="min-w-0">
               <DialogTitle data-testid="text-detail-company-name">{company.name}</DialogTitle>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <Badge variant="secondary">{company.specialization}</Badge>
                 <span className="text-xs font-mono text-muted-foreground">{company.code}</span>
               </div>
             </div>
@@ -1027,12 +1034,17 @@ function CompanyDetailDialog({
             <div className="grid grid-cols-2 gap-4">
               <InfoRow label="IČO" value={company.ico} testId="text-detail-ico" />
               <InfoRow label="DIČ" value={company.dic} testId="text-detail-dic" />
-              <InfoRow label="IČ DPH" value={company.icDph} testId="text-detail-icdph" />
-              <InfoRow label="Zameranie" value={company.specialization} testId="text-detail-spec" />
               <InfoRow label="Kód firmy" value={company.code} mono testId="text-detail-code" />
               <InfoRow label="Typ subjektu" value={(company as any).subjectType ? (company as any).subjectType.toUpperCase() : "-"} testId="text-detail-subject-type" />
               <InfoRow label="Dátum založenia" value={(company as any).foundedDate ? formatDateSlovak((company as any).foundedDate) : "-"} testId="text-detail-founded-date" />
             </div>
+            {company.icDph && (
+              <div className="grid grid-cols-3 gap-4">
+                <InfoRow label="IČ DPH" value={company.icDph} testId="text-detail-icdph" />
+                <InfoRow label="Podľa paragrafu" value={company.vatParagraph || "-"} testId="text-detail-vat-paragraph" />
+                <InfoRow label="Registrácia DPH" value={company.vatRegisteredAt ? formatDateSlovak(company.vatRegisteredAt) : "-"} testId="text-detail-vat-registered-at" />
+              </div>
+            )}
             {company.description && (
               <>
                 <Separator />
@@ -1273,7 +1285,6 @@ export default function Companies() {
               <TableRow>
                 {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Názov</TableHead>}
                 {columnVisibility.isVisible("ico") && <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>IČO</TableHead>}
-                {columnVisibility.isVisible("specialization") && <TableHead sortKey="specialization" sortDirection={sortKey === "specialization" ? sortDirection : null} onSort={requestSort}>Zameranie</TableHead>}
                 {columnVisibility.isVisible("city") && <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>}
                 {columnVisibility.isVisible("state") && <TableHead>Stat</TableHead>}
                 <TableHead className="w-[160px]">Akcie</TableHead>
@@ -1296,9 +1307,6 @@ export default function Companies() {
                 <TableRow key={company.id} data-testid={`row-company-${company.id}`} onRowClick={() => openEdit(company)}>
                   {columnVisibility.isVisible("name") && <TableCell className="font-medium">{company.name}</TableCell>}
                   {columnVisibility.isVisible("ico") && <TableCell className="font-mono text-xs">{company.ico || "-"}</TableCell>}
-                  {columnVisibility.isVisible("specialization") && <TableCell>
-                    <Badge variant="secondary">{company.specialization}</Badge>
-                  </TableCell>}
                   {columnVisibility.isVisible("city") && <TableCell>{company.city || "-"}</TableCell>}
                   {columnVisibility.isVisible("state") && <TableCell>{getStateName(company.stateId)}</TableCell>}
                   <TableCell>
