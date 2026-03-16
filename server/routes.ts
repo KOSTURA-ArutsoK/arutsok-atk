@@ -6841,11 +6841,13 @@ export async function registerRoutes(
 
   // === CLIENT GROUPS ===
   app.get(api.clientGroupsApi.list.path, isAuthenticated, async (req: any, res) => {
-    const groups = await storage.getClientGroups(getEnforcedStateId(req));
-    const result = await Promise.all(groups.map(async (g) => ({
+    const allGroups = await storage.getClientGroups(getEnforcedStateId(req));
+    // Holding skupiny sa spravujú výhradne cez Holdingový strom — nezobraziť v zozname
+    const groups = allGroups.filter((g: any) => !g.isHoldingGroup);
+    const result = await Promise.all(groups.map(async (g: any) => ({
       ...g,
-      memberCount: g.isHoldingGroup && g.linkedCompanyId
-        ? await storage.getHoldingGroupMemberCount(g.linkedCompanyId)
+      memberCount: g.isPartnerGroup && g.linkedPartnerId
+        ? await storage.getPartnerGroupMemberCount(g.linkedPartnerId)
         : await storage.getClientGroupMemberCount(g.id),
     })));
     res.json(result);
@@ -6897,8 +6899,11 @@ export async function registerRoutes(
     try {
       const existing = await storage.getClientGroup(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Skupina nenajdena" });
-      if (existing.isHoldingGroup) {
+      if ((existing as any).isHoldingGroup) {
         return res.status(403).json({ message: "Holding skupinu nie je možné priamo upraviť. Spravujte ju cez modul Spoločnosti." });
+      }
+      if ((existing as any).isPartnerGroup) {
+        return res.status(403).json({ message: "Partnerskú skupinu nie je možné priamo upraviť. Spravujte ju cez modul Partneri." });
       }
       const enforcedState = getEnforcedStateId(req);
       if (enforcedState && existing.stateId !== null && existing.stateId !== enforcedState) {
@@ -6918,8 +6923,11 @@ export async function registerRoutes(
     try {
       const existing = await storage.getClientGroup(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Skupina nenajdena" });
-      if (existing.isHoldingGroup) {
+      if ((existing as any).isHoldingGroup) {
         return res.status(403).json({ message: "Holding skupinu nie je možné vymazať. Spravujte ju cez modul Spoločnosti." });
+      }
+      if ((existing as any).isPartnerGroup) {
+        return res.status(403).json({ message: "Partnerskú skupinu nie je možné vymazať. Spravujte ju cez modul Partneri." });
       }
       if (existing.isSystem) {
         return res.status(403).json({ message: "Systémovú skupinu nie je možné zmazať" });
@@ -6960,6 +6968,7 @@ export async function registerRoutes(
     try {
       const group = await storage.getClientGroup(Number(req.params.groupId));
       if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
+      if ((group as any).isPartnerGroup) return res.status(403).json({ message: "Partnerskú skupinu nie je možné upraviť. Spravujte ju cez modul Partneri." });
       const enforcedState = getEnforcedStateId(req);
       if (enforcedState && group.stateId !== null && group.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
@@ -6979,6 +6988,7 @@ export async function registerRoutes(
       if (!subGroup) return res.status(404).json({ message: "Podskupina nenajdena" });
       const group = await storage.getClientGroup(subGroup.groupId);
       if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
+      if ((group as any).isPartnerGroup) return res.status(403).json({ message: "Partnerskú skupinu nie je možné upraviť. Spravujte ju cez modul Partneri." });
       const enforcedState = getEnforcedStateId(req);
       if (enforcedState && group.stateId !== null && group.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
@@ -7028,6 +7038,7 @@ export async function registerRoutes(
     try {
       const group = await storage.getClientGroup(Number(req.params.groupId));
       if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
+      if ((group as any).isPartnerGroup) return res.status(403).json({ message: "Partnerskú skupinu nie je možné upraviť. Spravujte ju cez modul Partneri." });
       const enforcedState = getEnforcedStateId(req);
       if (enforcedState && group.stateId !== null && group.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
@@ -7111,6 +7122,7 @@ export async function registerRoutes(
       if (!member) return res.status(404).json({ message: "Clen nenajdeny" });
       const group = await storage.getClientGroup(member.groupId);
       if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
+      if ((group as any).isPartnerGroup) return res.status(403).json({ message: "Partnerskú skupinu nie je možné upraviť. Spravujte ju cez modul Partneri." });
       const enforcedState = getEnforcedStateId(req);
       if (enforcedState && group.stateId !== null && group.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
@@ -7128,6 +7140,7 @@ export async function registerRoutes(
     try {
       const group = await storage.getClientGroup(Number(req.params.groupId));
       if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
+      if ((group as any).isPartnerGroup) return res.status(403).json({ message: "Partnerskú skupinu nie je možné upraviť. Spravujte ju cez modul Partneri." });
       const enforcedState = getEnforcedStateId(req);
       if (enforcedState && group.stateId !== null && group.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
@@ -12623,32 +12636,35 @@ export async function registerRoutes(
   }
 
   {
-    const allCompanies = await storage.getMyCompanies(false);
-    let holdingSynced = 0;
-    for (const company of allCompanies) {
-      const existingCg = await storage.getClientGroupByLinkedCompanyId(company.id);
+    // Partner skupiny — auto-sync pri štarte (idempotentné)
+    const allPartners = await storage.getPartners(false);
+    let partnerSynced = 0;
+    for (const partner of allPartners) {
+      const existingCg = await storage.getClientGroupByLinkedPartnerId(partner.id);
       if (!existingCg) {
         await storage.createClientGroup({
-          name: company.name,
+          name: `Skupina ${partner.name}`,
           isSystem: true,
-          isHoldingGroup: true,
-          linkedCompanyId: company.id,
-          groupCode: `holding_company_${company.id}`,
+          isHoldingGroup: false,
+          isPartnerGroup: true,
+          linkedPartnerId: partner.id,
+          groupCode: `partner_group_${partner.id}`,
           permissionLevel: 1,
-        });
-        holdingSynced++;
-        console.log(`[SEED] Created holding group for company: ${company.name}`);
+        } as any);
+        partnerSynced++;
+        console.log(`[SEED] Created partner group for: ${partner.name}`);
       } else {
-        const updates: Partial<{ isSystem: boolean; isHoldingGroup: boolean; name: string }> = {};
+        const updates: any = {};
         if (!existingCg.isSystem) updates.isSystem = true;
-        if (!existingCg.isHoldingGroup) updates.isHoldingGroup = true;
-        if (existingCg.name !== company.name) updates.name = company.name;
+        if (!(existingCg as any).isPartnerGroup) updates.isPartnerGroup = true;
+        const expectedName = `Skupina ${partner.name}`;
+        if (existingCg.name !== expectedName) updates.name = expectedName;
         if (Object.keys(updates).length > 0) {
           await storage.updateClientGroup(existingCg.id, updates);
         }
       }
     }
-    if (holdingSynced > 0) console.log(`[SEED] Auto-created ${holdingSynced} holding groups from companies`);
+    if (partnerSynced > 0) console.log(`[SEED] Auto-created ${partnerSynced} partner groups`);
   }
 
   await storage.autoArchiveExpiredBindings();

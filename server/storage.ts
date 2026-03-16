@@ -457,6 +457,8 @@ export interface IStorage {
   getClientSubGroupMemberCount(subGroupId: number): Promise<number>;
   getHoldingGroupMemberCount(companyId: number): Promise<number>;
   getClientGroupByLinkedCompanyId(companyId: number): Promise<ClientGroup | undefined>;
+  getClientGroupByLinkedPartnerId(partnerId: number): Promise<ClientGroup | undefined>;
+  getPartnerGroupMemberCount(partnerId: number): Promise<number>;
   isSubjectLoginAllowed(subjectId: number): Promise<boolean>;
 
   // User Client Group Memberships
@@ -945,6 +947,19 @@ export class DatabaseStorage implements IStorage {
     }
     const uid = await this.generateUID(stateCode);
     const [newPartner] = await db.insert(partners).values({ ...partner, uid } as any).returning();
+    // Auto-create partner group
+    const existingCg = await this.getClientGroupByLinkedPartnerId(newPartner.id);
+    if (!existingCg) {
+      await db.insert(clientGroups).values({
+        name: `Skupina ${newPartner.name}`,
+        isSystem: true,
+        isHoldingGroup: false,
+        isPartnerGroup: true,
+        linkedPartnerId: newPartner.id,
+        groupCode: `partner_group_${newPartner.id}`,
+        permissionLevel: 1,
+      } as any).returning();
+    }
     return newPartner;
   }
 
@@ -963,6 +978,14 @@ export class DatabaseStorage implements IStorage {
       .set({ ...partnerUpdates, updatedAt: new Date() } as any)
       .where(eq(partners.id, id))
       .returning();
+
+    // Sync partner group name if name changed
+    if (updates.name && updates.name !== original.name) {
+      const cg = await this.getClientGroupByLinkedPartnerId(id);
+      if (cg) {
+        await db.update(clientGroups).set({ name: `Skupina ${updates.name}` }).where(eq(clientGroups.id, cg.id));
+      }
+    }
 
     return updated;
   }
@@ -3167,6 +3190,23 @@ export class DatabaseStorage implements IStorage {
   async getClientGroupByLinkedCompanyId(companyId: number): Promise<ClientGroup | undefined> {
     const [group] = await db.select().from(clientGroups).where(eq(clientGroups.linkedCompanyId, companyId));
     return group;
+  }
+
+  async getClientGroupByLinkedPartnerId(partnerId: number): Promise<ClientGroup | undefined> {
+    const [group] = await db.select().from(clientGroups)
+      .where(sql`${clientGroups}.linked_partner_id = ${partnerId}`)
+      .limit(1);
+    return group;
+  }
+
+  async getPartnerGroupMemberCount(partnerId: number): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(distinct ${contracts.subjectId})::int` })
+      .from(contracts)
+      .where(and(
+        eq(contracts.partnerId, partnerId),
+        eq(contracts.isDeleted, false)
+      ));
+    return result[0]?.count || 0;
   }
 
   async isSubjectLoginAllowed(subjectId: number): Promise<boolean> {

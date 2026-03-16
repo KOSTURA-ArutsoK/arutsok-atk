@@ -46,7 +46,7 @@ import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibili
 import { ColumnManager } from "@/components/column-manager";
 
 
-type ClientGroupWithCount = ClientGroup & { memberCount: number; isHoldingGroup?: boolean; linkedCompanyId?: number | null };
+type ClientGroupWithCount = ClientGroup & { memberCount: number; isHoldingGroup?: boolean; linkedCompanyId?: number | null; isPartnerGroup?: boolean; linkedPartnerId?: number | null };
 type SubGroupWithCount = { id: number; groupId: number; name: string; sortOrder: number; createdAt: string | null; memberCount: number };
 type MemberWithSubject = { id: number; groupId: number; subGroupId: number | null; subjectId: number; createdAt: string | null; subject?: Subject };
 
@@ -78,6 +78,7 @@ function GroupDetailDialog({
   const isEditing = !!group;
   const isSystem = !!group?.isSystem;
   const isHolding = !!(group as ClientGroupWithCount)?.isHoldingGroup;
+  const isPartner = !!(group as ClientGroupWithCount)?.isPartnerGroup;
   const isBlacklist = (group as any)?.groupCode === "group_cierny_zoznam";
 
   useEffect(() => {
@@ -253,9 +254,12 @@ function GroupDetailDialog({
         <DialogHeader>
           <DialogTitle data-testid="text-group-dialog-title">
             <span className="inline-flex items-center gap-2">
-              {isHolding ? <Lock className="w-4 h-4 text-red-500" /> : isSystem ? <Lock className="w-4 h-4 text-amber-500" /> : null}
+              {(isPartner || isHolding) ? <Lock className="w-4 h-4 text-red-500" /> : isSystem ? <Lock className="w-4 h-4 text-amber-500" /> : null}
               {isEditing ? `Uprava skupiny: ${group?.name}` : "Nova skupina klientov"}
-              {isHolding ? <Badge variant="outline" className="text-[10px] border-red-500/50 text-red-500">Holding</Badge> : isSystem ? <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-500">Systemova</Badge> : null}
+              {isPartner ? <Badge variant="outline" className="text-[10px] border-red-500/50 text-red-500">Partner</Badge>
+                : isHolding ? <Badge variant="outline" className="text-[10px] border-red-500/50 text-red-500">Holding</Badge>
+                : isSystem ? <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-500">Systemova</Badge>
+                : null}
             </span>
           </DialogTitle>
         </DialogHeader>
@@ -723,17 +727,19 @@ export default function ClientGroups() {
                         onClick={() => { setEditingGroup(group); setDialogOpen(true); }}
                       >
                         <span className="inline-flex items-center gap-1.5">
-                          {group.isHoldingGroup
+                          {(group.isPartnerGroup || group.isHoldingGroup)
                             ? <Lock className="w-3.5 h-3.5 text-red-500 shrink-0" />
                             : group.isSystem
                               ? <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                               : null}
                           {group.name}
-                          {group.isHoldingGroup
-                            ? <Badge variant="outline" className="text-[9px] h-4 border-red-500/50 text-red-500">Holding</Badge>
-                            : group.isSystem
-                              ? <Badge variant="outline" className="text-[9px] h-4 border-amber-500/50 text-amber-500">Systémová</Badge>
-                              : null}
+                          {group.isPartnerGroup
+                            ? <Badge variant="outline" className="text-[9px] h-4 border-red-500/50 text-red-500">Partner</Badge>
+                            : group.isHoldingGroup
+                              ? <Badge variant="outline" className="text-[9px] h-4 border-red-500/50 text-red-500">Holding</Badge>
+                              : group.isSystem
+                                ? <Badge variant="outline" className="text-[9px] h-4 border-amber-500/50 text-amber-500">Systémová</Badge>
+                                : null}
                         </span>
                       </TableCell>}
                       {columnVisibility.isVisible("permissionGroup") && <TableCell className="text-center">
@@ -775,7 +781,7 @@ export default function ClientGroups() {
                               <Pencil className="w-4 h-4 mr-2" />
                               Upraviť
                             </DropdownMenuItem>
-                            {!group.isSystem && !group.isHoldingGroup && (
+                            {!group.isSystem && !group.isHoldingGroup && !group.isPartnerGroup && (
                               <DropdownMenuItem
                                 onClick={() => setDeletingGroup(group)}
                                 disabled={group.memberCount > 0}
