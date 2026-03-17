@@ -1404,21 +1404,9 @@ export async function registerRoutes(
     res.json(await storage.getCompanyOfficers(Number(req.params.companyId), includeInactive));
   });
 
-  app.post(api.companyOfficers.create.path, isAuthenticated, async (req, res) => {
+  app.post(api.companyOfficers.create.path, isAuthenticated, async (req: any, res) => {
     try {
-      const input = { ...api.companyOfficers.create.input.parse(req.body), companyId: Number(req.params.companyId) };
-      const created = await storage.createCompanyOfficer(input);
-      await logAudit(req, { action: "CREATE", module: "spolocnosti", entityName: "officer" });
-      res.status(201).json(created);
-    } catch (err) {
-      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
-      throw err;
-    }
-  });
-
-  app.post("/api/my-companies/:id/officers", isAuthenticated, async (req: any, res) => {
-    try {
-      const companyId = Number(req.params.id);
+      const companyId = Number(req.params.companyId);
       if (isNaN(companyId)) return res.status(400).json({ message: "Neplatné ID firmy" });
       const { type, titleBefore, firstName, lastName, titleAfter, city } = req.body;
       if (!type) return res.status(400).json({ message: "Typ štatutára je povinný" });
@@ -1432,8 +1420,8 @@ export async function registerRoutes(
         city: city || null,
         isActive: true,
       });
-      await logAudit(req, { action: "CREATE", module: "settings-companies", entityId: officer.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type });
-      res.json(officer);
+      await logAudit(req, { action: "CREATE", module: "spolocnosti", entityId: officer.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type });
+      res.status(201).json(officer);
     } catch (err: any) {
       console.error("[OFFICER CREATE]", err);
       res.status(500).json({ message: err?.message || "Nepodarilo sa pridať štatutára" });
