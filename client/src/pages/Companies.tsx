@@ -2759,6 +2759,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                   </Badge>
                 ) : (
                   <Button
+                    type="button"
                     size="sm"
                     variant="outline"
                     className="text-xs h-7"
@@ -2811,6 +2812,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                 {dir.since && <span className="text-xs text-muted-foreground">od: {dir.since}</span>}
               </div>
               <Button
+                type="button"
                 size="sm"
                 variant="default"
                 className="text-xs h-7"
@@ -2837,6 +2839,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
           </p>
           {companyIco ? (
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={fetchFromRegistry}
