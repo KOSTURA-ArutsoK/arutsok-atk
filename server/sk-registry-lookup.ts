@@ -375,32 +375,83 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
     }
 
     const directorEntries: { name: string; role: string; titleBefore?: string; firstName?: string; lastName?: string; titleAfter?: string }[] = [];
-    const roleMapping: Record<string, string> = {
+
+    // ORSR uses nested tables: label row has td[width='20%'] + td[width='80%'] which contains
+    // an inner <table> with rows: first row = role text, subsequent rows = person name (via <a class="lnm">) + address.
+    // We must use children() (not find()) on the label tr to avoid picking up nested tds.
+    const directorLabelMap: Record<string, string> = {
       "Štatutárny orgán": "Štatutár",
       "Konatelia": "Konateľ",
       "Konateľ": "Konateľ",
       "Prokurista": "Prokurista",
       "Prokúra": "Prokurista",
     };
-    const statutarKeys = Object.keys(roleMapping);
-    for (const key of statutarKeys) {
-      const vals = sections[key];
-      if (!vals || vals.length === 0) continue;
-      const role = roleMapping[key] || "Štatutár";
-      for (const v of vals) {
-        const cleaned = v.replace(/,\s*$/, "").trim();
-        if (!cleaned) continue;
-        if (/^\d/.test(cleaned)) continue;
-        if (cleaned.toLowerCase().includes("konateľ") && cleaned.length < 12) continue;
-        if (cleaned.includes("Bydlisko") || cleaned.includes("bydlisko")) continue;
-        const parts = cleaned.split(",").map(p => p.trim()).filter(Boolean);
-        const namePart = parts[0];
-        if (namePart && namePart.length >= 3 && !directorEntries.some(d => d.name === namePart)) {
-          const parsed = parsePersonName(namePart);
-          directorEntries.push({ name: namePart, role, ...parsed });
+    $("tr").each((_, tr) => {
+      const directLabelTd = $(tr).children("td[width='20%']");
+      if (!directLabelTd.length) return;
+      const labelSpan = directLabelTd.find("span.tl");
+      if (!labelSpan.length) return;
+      const label = cleanText(labelSpan.text()).replace(/[:\s]+$/, "").trim();
+      if (!directorLabelMap[label]) return;
+
+      const baseRole = directorLabelMap[label];
+      const outerTd = $(tr).children("td[width='80%']").first();
+      if (!outerTd.length) return;
+
+      let currentRole = baseRole;
+      outerTd.find("tr").each((_, innerTr) => {
+        const innerTd = $(innerTr).find("td[width='67%']").first();
+        if (!innerTd.length) return;
+
+        const link = innerTd.find("a.lnm");
+        if (link.length > 0) {
+          // Person row — collect title spans before the link, then first+last name spans inside the link
+          const nameParts: string[] = [];
+          innerTd.contents().each((_, node) => {
+            if (node.type !== "tag") return;
+            const el = $(node as any);
+            if (el.is("span.ra")) {
+              const txt = el.text().trim();
+              if (txt && !txt.startsWith("(")) nameParts.push(txt);
+            } else if (el.is("a.lnm")) {
+              el.find("span.ra").each((_, s) => {
+                const txt = $(s).text().trim();
+                if (txt) nameParts.push(txt);
+              });
+              return false; // stop after the name link
+            }
+          });
+          const fullName = nameParts.join(" ").trim();
+          if (fullName && fullName.length >= 3 && !directorEntries.some(d => d.name === fullName)) {
+            const parsed = parsePersonName(fullName);
+            directorEntries.push({ name: fullName, role: currentRole, ...parsed });
+          }
+        } else {
+          // Role row — update currentRole (e.g. "konateľ")
+          const roleTexts = innerTd.find("span.ra").map((_, s) => $(s).text().trim()).get().filter(t => t && !t.startsWith("("));
+          const roleText = roleTexts.join(" ").trim();
+          if (roleText) {
+            currentRole = roleText.charAt(0).toUpperCase() + roleText.slice(1);
+          }
+        }
+      });
+
+      // Fallback: if no nested rows found, try sections-based extraction
+      if (!outerTd.find("a.lnm").length) {
+        const vals = sections[label] || [];
+        for (const v of vals) {
+          const cleaned = v.replace(/,\s*$/, "").trim();
+          if (!cleaned || /^\d/.test(cleaned)) continue;
+          if (cleaned.toLowerCase() === "konateľ" || cleaned.toLowerCase() === "prokurista") continue;
+          if (cleaned.includes("Bydlisko") || cleaned.includes("bydlisko")) continue;
+          const namePart = cleaned.split(",")[0].trim();
+          if (namePart && namePart.length >= 3 && !directorEntries.some(d => d.name === namePart)) {
+            const parsed = parsePersonName(namePart);
+            directorEntries.push({ name: namePart, role: baseRole, ...parsed });
+          }
         }
       }
-    }
+    });
 
     let actingNote = "";
     const actingKeys = ["Spôsob konania", "Konanie menom spoločnosti", "Spôsob konania v mene spoločnosti"];
