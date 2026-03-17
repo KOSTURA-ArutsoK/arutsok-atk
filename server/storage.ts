@@ -851,7 +851,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMyCompany(company: InsertMyCompany) {
-    const [newCompany] = await db.insert(myCompanies).values(company as any).returning();
+    let stateCode = '421';
+    if (company.stateId) {
+      const state = await this.getState(company.stateId);
+      if (state?.code) stateCode = state.code;
+    }
+    const uid = await this.generateNextGlobalUid(stateCode);
+    const [newCompany] = await db.insert(myCompanies).values({ ...company, uid } as any).returning();
     return newCompany;
   }
 
