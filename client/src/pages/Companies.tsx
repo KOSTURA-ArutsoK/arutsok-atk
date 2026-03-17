@@ -3022,12 +3022,8 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                 <Input className="h-8 text-sm" value={editForm.street} onChange={e => setEditForm(f => f ? { ...f, street: e.target.value } : f)} data-testid="input-edit-officer-street" />
               </div>
 
-              {/* R4: PSČ + Popisné číslo + Orientačné číslo */}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">PSČ</label>
-                  <Input className="h-8 text-sm" value={editForm.postalCode} onChange={e => setEditForm(f => f ? { ...f, postalCode: e.target.value } : f)} data-testid="input-edit-officer-postal" />
-                </div>
+              {/* R4: Popisné číslo + Orientačné číslo */}
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Číslo popisné</label>
                   <Input className="h-8 text-sm" value={editForm.streetNumber} onChange={e => setEditForm(f => f ? { ...f, streetNumber: e.target.value } : f)} data-testid="input-edit-officer-streetnumber" />

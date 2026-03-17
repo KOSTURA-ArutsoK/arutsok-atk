@@ -1553,7 +1553,7 @@ export async function registerRoutes(
           for (const f of subjectSyncFields) {
             const newVal = (updated as any)[f];
             const oldVal = (currentSubject as any)[f];
-            if (newVal !== undefined && newVal !== null && String(newVal) !== String(oldVal ?? '')) {
+            if (newVal !== undefined && String(newVal ?? '') !== String(oldVal ?? '')) {
               subjectUpdates[f] = newVal;
               oldData[f] = oldVal;
               newData[f] = newVal;
@@ -2850,7 +2850,7 @@ export async function registerRoutes(
           for (const f of officerSyncFields) {
             const newVal = (updated as any)[f];
             const oldVal = (officer as any)[f];
-            if (newVal !== undefined && newVal !== null && String(newVal) !== String(oldVal ?? '')) {
+            if (newVal !== undefined && String(newVal ?? '') !== String(oldVal ?? '')) {
               officerUpdates[f] = newVal;
               oldD[f] = oldVal;
               newD[f] = newVal;
