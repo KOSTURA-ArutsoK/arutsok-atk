@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatPhone, formatUid, normalizePhone } from "@/lib/utils";
+import { formatPhone, formatUid } from "@/lib/utils";
+import { PhoneInput } from "@/components/phone-input";
 const SECURITY_LEVEL_LABELS: Record<number, string> = {
   1: "Štandardná", 2: "Rozšírená", 3: "Plná",
 };
@@ -347,10 +348,9 @@ function UserFormDialog({
               </div>
               <div className="space-y-2">
                 <Label>Telefon</Label>
-                <Input
+                <PhoneInput
                   value={form.phone}
-                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                  onBlur={e => setForm(f => ({ ...f, phone: normalizePhone(e.target.value) }))}
+                  onChange={val => setForm(f => ({ ...f, phone: val }))}
                   data-testid="input-user-phone"
                 />
               </div>
