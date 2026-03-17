@@ -561,13 +561,6 @@ export default function SupiskyPage() {
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Súpisky</h1>
         <div className="flex items-center gap-2 flex-wrap">
           <ColumnManager columnVisibility={columnVisibility} />
-          <Button
-            onClick={() => { setEditing(null); setFormOpen(true); }}
-            data-testid="button-create-supiska"
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Nová súpiska
-          </Button>
         </div>
       </div>
 
