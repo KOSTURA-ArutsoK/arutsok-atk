@@ -176,8 +176,10 @@ const formSchema = insertMyCompanySchema.extend({
   city: z.string().min(1, "Mesto je povinné"),
   corrStreet: z.string().optional().nullable(),
   corrStreetNumber: z.string().optional().nullable(),
+  corrOrientNumber: z.string().optional().nullable(),
   corrPostalCode: z.string().optional().nullable(),
   corrCity: z.string().optional().nullable(),
+  corrStateId: z.number().optional().nullable(),
   stateId: z.number().optional(),
   description: z.string().optional().nullable(),
   subjectType: z.string().optional(),
@@ -551,8 +553,10 @@ function CompanyFormDialog({
       city: "",
       corrStreet: "",
       corrStreetNumber: "",
+      corrOrientNumber: "",
       corrPostalCode: "",
       corrCity: "",
+      corrStateId: undefined,
       stateId: undefined,
       description: "",
       notes: "",
@@ -570,7 +574,7 @@ function CompanyFormDialog({
       if (editingCompany) {
         const hasIcDph = !!(editingCompany.icDph && editingCompany.icDph.trim());
         setPlatcaDph(hasIcDph);
-        const hasCorrAddr = !!(editingCompany.corrStreet || editingCompany.corrStreetNumber || editingCompany.corrPostalCode || editingCompany.corrCity);
+        const hasCorrAddr = !!(editingCompany.corrStreet || editingCompany.corrStreetNumber || (editingCompany as any).corrOrientNumber || editingCompany.corrPostalCode || editingCompany.corrCity || (editingCompany as any).corrStateId);
         setCorrSameAsHQ(!hasCorrAddr);
         setBranches((editingCompany.branches as BranchEntry[]) || []);
         form.reset({
@@ -587,8 +591,10 @@ function CompanyFormDialog({
           city: editingCompany.city || "",
           corrStreet: editingCompany.corrStreet || "",
           corrStreetNumber: editingCompany.corrStreetNumber || "",
+          corrOrientNumber: (editingCompany as any).corrOrientNumber || "",
           corrPostalCode: editingCompany.corrPostalCode || "",
           corrCity: editingCompany.corrCity || "",
+          corrStateId: (editingCompany as any).corrStateId || undefined,
           stateId: editingCompany.stateId || appUser?.activeStateId || undefined,
           description: editingCompany.description || "",
           notes: editingCompany.notes || "",
@@ -614,8 +620,10 @@ function CompanyFormDialog({
           city: "",
           corrStreet: "",
           corrStreetNumber: "",
+          corrOrientNumber: "",
           corrPostalCode: "",
           corrCity: "",
+          corrStateId: undefined,
           stateId: appUser?.activeStateId || undefined,
           description: "",
           notes: "",
@@ -795,8 +803,10 @@ function CompanyFormDialog({
       vatRegisteredAt: data.vatRegisteredAt ? new Date(data.vatRegisteredAt).toISOString() : null,
       corrStreet: corrSameAsHQ ? null : (data.corrStreet || null),
       corrStreetNumber: corrSameAsHQ ? null : (data.corrStreetNumber || null),
+      corrOrientNumber: corrSameAsHQ ? null : (data.corrOrientNumber || null),
       corrPostalCode: corrSameAsHQ ? null : (data.corrPostalCode || null),
       corrCity: corrSameAsHQ ? null : (data.corrCity || null),
+      corrStateId: corrSameAsHQ ? null : (data.corrStateId || null),
       branches,
     };
 
@@ -1062,6 +1072,22 @@ function CompanyFormDialog({
                       </FormItem>
                     )} />
                   </div>
+                  <FormField control={form.control} name="stateId" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Štát *</FormLabel>
+                      <Select onValueChange={(v) => field.onChange(Number(v))} value={field.value ? String(field.value) : ""}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-state">
+                            <SelectValue placeholder="Vybrať štát" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {allStates?.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                 </div>
 
                 <Separator />
@@ -1081,8 +1107,10 @@ function CompanyFormDialog({
                           if (checked) {
                             form.setValue("corrStreet", "");
                             form.setValue("corrStreetNumber", "");
+                            form.setValue("corrOrientNumber", "");
                             form.setValue("corrPostalCode", "");
                             form.setValue("corrCity", "");
+                            form.setValue("corrStateId", undefined);
                           }
                         }}
                         data-testid="checkbox-corr-same"
@@ -1094,7 +1122,7 @@ function CompanyFormDialog({
                     <>
                       <FormField control={form.control} name="corrStreet" render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Ulica</FormLabel>
+                          <FormLabel>Ulica *</FormLabel>
                           <FormControl><Input {...field} value={field.value || ""} data-testid="input-corr-street" /></FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1102,23 +1130,48 @@ function CompanyFormDialog({
                       <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="corrStreetNumber" render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Číslo</FormLabel>
+                            <FormLabel>Popisné číslo</FormLabel>
                             <FormControl><Input {...field} value={field.value || ""} data-testid="input-corr-street-number" /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )} />
-                        <FormField control={form.control} name="corrPostalCode" render={({ field }) => (
+                        <FormField control={form.control} name="corrOrientNumber" render={({ field }) => (
                           <FormItem>
-                            <FormLabel>PSČ</FormLabel>
-                            <FormControl><Input {...field} value={field.value || ""} data-testid="input-corr-postal-code" /></FormControl>
+                            <FormLabel>Orientačné číslo *</FormLabel>
+                            <FormControl><Input {...field} value={field.value || ""} data-testid="input-corr-orient-number" /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )} />
                       </div>
-                      <FormField control={form.control} name="corrCity" render={({ field }) => (
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField control={form.control} name="corrPostalCode" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>PSČ *</FormLabel>
+                            <FormControl><Input {...field} value={field.value || ""} data-testid="input-corr-postal-code" /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name="corrCity" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Mesto / Obec *</FormLabel>
+                            <FormControl><Input {...field} value={field.value || ""} data-testid="input-corr-city" /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                      </div>
+                      <FormField control={form.control} name="corrStateId" render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Mesto / Obec</FormLabel>
-                          <FormControl><Input {...field} value={field.value || ""} data-testid="input-corr-city" /></FormControl>
+                          <FormLabel>Štát *</FormLabel>
+                          <Select onValueChange={(v) => field.onChange(Number(v))} value={field.value ? String(field.value) : ""}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-corr-state">
+                                <SelectValue placeholder="Vybrať štát" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {allStates?.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )} />
@@ -1737,7 +1790,7 @@ function CompanyDetailDialog({
               </div>
             </div>
 
-            {(company.corrStreet || company.corrCity) && (
+            {(company.corrStreet || company.corrCity || (company as any).corrOrientNumber || (company as any).corrStateId) && (
               <>
                 <Separator />
                 <div className="space-y-3">
@@ -1746,8 +1799,9 @@ function CompanyDetailDialog({
                     <h4 className="text-sm font-medium">Korespondenčná adresa</h4>
                   </div>
                   <div className="text-sm space-y-1 pl-1">
-                    <p data-testid="text-detail-corr-address">{[company.corrStreet, company.corrStreetNumber].filter(Boolean).join(" ") || "-"}</p>
+                    <p data-testid="text-detail-corr-address">{[company.corrStreet, company.corrStreetNumber, (company as any).corrOrientNumber].filter(Boolean).join(" ") || "-"}</p>
                     <p className="text-muted-foreground" data-testid="text-detail-corr-city">{[company.corrPostalCode, company.corrCity].filter(Boolean).join(" ") || "-"}</p>
+                    {(company as any).corrStateId && <p data-testid="text-detail-corr-state">{getStateName((company as any).corrStateId)}</p>}
                   </div>
                 </div>
               </>
