@@ -336,3 +336,17 @@ body[style*="overflow:hidden"] main {
 .react-international-phone-input-container .react-international-phone-country-selector-dropdown__list-item-dial-code {
   color: hsl(var(--foreground)) !important;
 }
+
+@keyframes importedFieldFlash {
+  0% { background-color: hsl(142 70% 45% / 0.35); border-color: hsl(142 70% 45%); box-shadow: 0 0 0 2px hsl(142 70% 45% / 0.25); }
+  60% { background-color: hsl(142 70% 45% / 0.18); border-color: hsl(142 70% 45% / 0.6); }
+  100% { background-color: transparent; border-color: transparent; box-shadow: none; }
+}
+.field-imported-flash input,
+.field-imported-flash textarea,
+.field-imported-flash [data-testid^="input-dynamic-"],
+.field-imported-flash [data-testid^="select-dynamic-"] > button,
+.field-imported-flash > input {
+  animation: importedFieldFlash 1.8s ease-out forwards;
+  border-radius: calc(var(--radius) - 2px);
+}

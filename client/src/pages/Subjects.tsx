@@ -1783,7 +1783,7 @@ function InitialRegistrationModal({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onProceed: (data: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: { name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string } }) => void;
+  onProceed: (data: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: { name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; directors?: { name: string; role: string; titleBefore?: string; firstName?: string; lastName?: string; titleAfter?: string }[] } }) => void;
   onViewSubject: (id: number) => void;
 }) {
   const { data: appUser } = useAppUser();
@@ -1796,7 +1796,7 @@ function InitialRegistrationModal({
   const [duplicateChecked, setDuplicateChecked] = useState(false);
   const [rcError, setRcError] = useState<string | null>(null);
   const [icoError, setIcoError] = useState<string | null>(null);
-  const [aresLookup, setAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; directors?: { name: string; role: string }[]; found: boolean; message?: string } | null>(null);
+  const [aresLookup, setAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; directors?: { name: string; role: string; titleBefore?: string; firstName?: string; lastName?: string; titleAfter?: string }[]; found: boolean; message?: string } | null>(null);
   const [aresLoading, setAresLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const baseInputRef = useRef<HTMLInputElement>(null);
@@ -1912,7 +1912,7 @@ function InitialRegistrationModal({
       clientTypeCode: selectedType,
       stateId: appUser?.activeStateId || 0,
       baseValue: baseValue.trim(),
-      aresData: aresLookup?.found ? { name: aresLookup.name, street: aresLookup.street, streetNumber: aresLookup.streetNumber, zip: aresLookup.zip, city: aresLookup.city, legalForm: aresLookup.legalForm, dic: aresLookup.dic, source: aresLookup.source } : undefined,
+      aresData: aresLookup?.found ? { name: aresLookup.name, street: aresLookup.street, streetNumber: aresLookup.streetNumber, zip: aresLookup.zip, city: aresLookup.city, legalForm: aresLookup.legalForm, dic: aresLookup.dic, source: aresLookup.source, directors: aresLookup.directors } : undefined,
     });
     setSelectedType("");
     setBaseValue("");
@@ -2015,6 +2015,17 @@ function InitialRegistrationModal({
                   </p>
                 )}
                 {aresLookup.legalForm && <p className="text-[10px] text-muted-foreground">{aresLookup.legalForm}{aresLookup.dic ? ` | DIČ: ${aresLookup.dic}` : ""}</p>}
+                {aresLookup.directors && aresLookup.directors.length > 0 && (
+                  <div className="mt-1 pt-1 border-t border-blue-500/20">
+                    <p className="text-[10px] font-semibold text-blue-400/80 mb-0.5">Štatutári / Konatelia:</p>
+                    {aresLookup.directors.slice(0, 5).map((dir, i) => (
+                      <p key={i} className="text-[10px] text-muted-foreground">
+                        {[dir.titleBefore, dir.firstName, dir.lastName, dir.titleAfter].filter(Boolean).join(" ") || dir.name}
+                        {dir.role ? <span className="text-[9px] text-blue-400/60 ml-1">({dir.role})</span> : null}
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             {aresLookup && !aresLookup.found && !icoError && (
@@ -2441,7 +2452,7 @@ function FullPageEditor({
   initialData,
   onCancel,
 }: {
-  initialData: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: { name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string } };
+  initialData: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: { name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; directors?: { name: string; role: string; titleBefore?: string; firstName?: string; lastName?: string; titleAfter?: string }[] } };
   onCancel: () => void;
 }) {
   const { mutate, isPending } = useCreateSubject();
@@ -2475,16 +2486,27 @@ function FullPageEditor({
   const [szcoAresLoading, setSzcoAresLoading] = useState(false);
   const [pendingRegistrySnapshot, setPendingRegistrySnapshot] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string } | null>(null);
 
+  const [importedFieldKeys] = useState<Set<string>>(() => new Set<string>());
+  const [flashingFields, setFlashingFields] = useState<Set<string>>(new Set());
   const [dynamicValues, setDynamicValuesRaw] = useState<Record<string, string>>(() => {
     const base: Record<string, string> = { korespond_rovnaka: "true", kontaktna_rovnaka: "true", tp_stat: DEFAULT_COUNTRY, ka_stat: DEFAULT_COUNTRY, koa_stat: DEFAULT_COUNTRY, sidlo_stat: DEFAULT_COUNTRY, vykon_stat: DEFAULT_COUNTRY };
     if (initialData.clientTypeCode === 'NS') base.typ_organizacie = "Nezisková organizácia";
     if (initialData.clientTypeCode === 'VS') base.typ_organizacie = "Štátna inštitúcia";
     if (initialData.aresData && !isSzcoType) {
-      if (initialData.aresData.name) base.obchodne_meno = initialData.aresData.name;
-      if (initialData.aresData.dic) base.dic = initialData.aresData.dic;
-      if (initialData.aresData.street) base.sidlo_ulica = initialData.aresData.street + (initialData.aresData.streetNumber ? " " + initialData.aresData.streetNumber : "");
-      if (initialData.aresData.zip) base.sidlo_psc = initialData.aresData.zip;
-      if (initialData.aresData.city) base.sidlo_mesto = initialData.aresData.city;
+      if (initialData.aresData.name) { base.obchodne_meno = initialData.aresData.name; importedFieldKeys.add('obchodne_meno'); }
+      if (initialData.aresData.dic) { base.dic = initialData.aresData.dic; importedFieldKeys.add('dic'); }
+      if (initialData.aresData.street) { base.sidlo_ulica = initialData.aresData.street + (initialData.aresData.streetNumber ? " " + initialData.aresData.streetNumber : ""); importedFieldKeys.add('sidlo_ulica'); }
+      if (initialData.aresData.zip) { base.sidlo_psc = initialData.aresData.zip; importedFieldKeys.add('sidlo_psc'); }
+      if (initialData.aresData.city) { base.sidlo_mesto = initialData.aresData.city; importedFieldKeys.add('sidlo_mesto'); }
+      if (initialData.aresData.directors?.length) {
+        initialData.aresData.directors.slice(0, 5).forEach((dir, i) => {
+          const slot = i + 1;
+          const nameStr = [dir.titleBefore, dir.firstName, dir.lastName, dir.titleAfter].filter(Boolean).join(" ") || dir.name;
+          const fieldKey = `po_statutar_${slot}_meno`;
+          base[fieldKey] = nameStr + (dir.role ? ` (${dir.role})` : "");
+          importedFieldKeys.add(fieldKey);
+        });
+      }
     }
     return base;
   });
@@ -2524,6 +2546,14 @@ function FullPageEditor({
     if (isNaN(parsed.getTime())) return { pohlavie };
     return { pohlavie, datumNarodenia: dateStr };
   };
+
+  useEffect(() => {
+    if (importedFieldKeys.size > 0) {
+      setFlashingFields(new Set(importedFieldKeys));
+      const t = setTimeout(() => setFlashingFields(new Set()), 1800);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   useEffect(() => {
     if (isPerson && state?.name && !dynamicValues["statna_prislusnost"]) {
@@ -3811,7 +3841,7 @@ function FullPageEditor({
                               {povinneRemainder.length > 0 && (
                                 <div className="flex flex-wrap gap-4 items-end" data-testid="row-kontakt-fields-remainder">
                                   {povinneRemainder.map(field => (
-                                    <div key={field.id} className="min-w-0 flex-1 min-w-[140px]">
+                                    <div key={field.id} className={cn("min-w-0 flex-1 min-w-[140px]", flashingFields.has(field.fieldKey) && "field-imported-flash")}>
                                       <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
                                     </div>
                                   ))}
@@ -3851,7 +3881,7 @@ function FullPageEditor({
                                         else if (fk === "datum_narodenia" || fk === "platnost_dokladu") wCls = "w-[160px] min-w-[140px] shrink-0";
                                         else if (fk === "meno" || fk === "priezvisko" || fk === "rodne_priezvisko") wCls = "flex-1 min-w-[150px]";
                                         return (
-                                          <div key={field.id} className={cn("min-w-0", wCls)}>
+                                          <div key={field.id} className={cn("min-w-0", wCls, flashingFields.has(field.fieldKey) && "field-imported-flash")}>
                                             <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
                                           </div>
                                         );
@@ -3949,7 +3979,7 @@ function FullPageEditor({
                                             else if (fk === "datum_narodenia" || fk === "platnost_dokladu") wCls = "w-[160px] min-w-[140px] shrink-0";
                                             else if (fk === "meno" || fk === "priezvisko" || fk === "rodne_priezvisko") wCls = "flex-1 min-w-[150px]";
                                             return (
-                                              <div key={field.id} className={cn("min-w-0", wCls)}>
+                                              <div key={field.id} className={cn("min-w-0", wCls, flashingFields.has(field.fieldKey) && "field-imported-flash")}>
                                                 <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
                                               </div>
                                             );
