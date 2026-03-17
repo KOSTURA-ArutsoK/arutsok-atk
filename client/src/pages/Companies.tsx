@@ -2649,6 +2649,55 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazať štatutára", variant: "destructive" }),
   });
 
+  const updateOfficerMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const resp = await apiRequest("PUT", `/api/company-officers/${id}`, data);
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.message || "Chyba pri ukladaní");
+      }
+      return resp.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/my-companies', companyId, 'officers'] });
+      setEditingOfficer(null);
+      setEditForm(null);
+      toast({ title: "Štatutár aktualizovaný" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa uložiť štatutára", variant: "destructive" }),
+  });
+
+  async function openEditOfficer(off: any) {
+    setEditingOfficer(off);
+    setEditForm({
+      titleBefore: off.titleBefore || "",
+      firstName: off.firstName || "",
+      lastName: off.lastName || "",
+      titleAfter: off.titleAfter || "",
+      type: off.type || "Konateľ",
+      city: off.city || "",
+      street: off.street || "",
+      streetNumber: off.streetNumber || "",
+      orientNumber: off.orientNumber || "",
+      postalCode: off.postalCode || "",
+      share: off.share || "",
+      validFrom: off.validFrom ? off.validFrom.substring(0, 10) : "",
+      validTo: off.validTo ? off.validTo.substring(0, 10) : "",
+      rc: "",
+    });
+    if (off.subjectId) {
+      try {
+        const res = await fetch(`/api/company-officers/${off.id}/rc`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.birthNumber) {
+            setEditForm(prev => prev ? { ...prev, rc: data.birthNumber } : prev);
+          }
+        }
+      } catch { /* ignorovať */ }
+    }
+  }
+
   const registeredNames = new Set(
     officers.map((off: any) =>
       `${(off.firstName || '').toLowerCase().trim()} ${(off.lastName || '').toLowerCase().trim()}`
@@ -2811,6 +2860,16 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                   type="button"
                   size="sm"
                   variant="ghost"
+                  className="h-7 w-7 px-0"
+                  onClick={() => openEditOfficer(off)}
+                  data-testid={`button-edit-officer-${off.id}`}
+                >
+                  <Pencil className="w-3 h-3" />
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
                   className="text-xs h-7 text-destructive hover:text-destructive px-2"
                   onClick={() => deleteMutation.mutate(off.id)}
                   disabled={deleteMutation.isPending}
@@ -2887,6 +2946,120 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
           )}
         </div>
       )}
+
+      {/* Edit officer dialog */}
+      <Dialog open={!!editingOfficer} onOpenChange={(open) => { if (!open) { setEditingOfficer(null); setEditForm(null); } }}>
+        <DialogContent className="max-w-lg" data-testid="dialog-edit-officer">
+          <DialogHeader>
+            <DialogTitle>Upraviť štatutára</DialogTitle>
+            <DialogDescription>Upravte údaje štatutára. Rodné číslo sa ukladá zašifrované.</DialogDescription>
+          </DialogHeader>
+          {editForm && (
+            <div className="space-y-3 py-1 max-h-[65vh] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Titul pred</label>
+                  <Input className="h-8 text-sm" placeholder="Ing." value={editForm.titleBefore} onChange={e => setEditForm(f => f ? { ...f, titleBefore: e.target.value } : f)} data-testid="input-edit-officer-titlebefore" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Titul za</label>
+                  <Input className="h-8 text-sm" placeholder="PhD." value={editForm.titleAfter} onChange={e => setEditForm(f => f ? { ...f, titleAfter: e.target.value } : f)} data-testid="input-edit-officer-titleafter" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Meno</label>
+                  <Input className="h-8 text-sm" value={editForm.firstName} onChange={e => setEditForm(f => f ? { ...f, firstName: e.target.value } : f)} data-testid="input-edit-officer-firstname" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Priezvisko</label>
+                  <Input className="h-8 text-sm" value={editForm.lastName} onChange={e => setEditForm(f => f ? { ...f, lastName: e.target.value } : f)} data-testid="input-edit-officer-lastname" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Funkcia / typ</label>
+                <Input className="h-8 text-sm" placeholder="Konateľ" value={editForm.type} onChange={e => setEditForm(f => f ? { ...f, type: e.target.value } : f)} data-testid="input-edit-officer-type" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Rodné číslo</label>
+                <Input className="h-8 text-sm" placeholder="napr. 800101/1234" value={editForm.rc} onChange={e => setEditForm(f => f ? { ...f, rc: e.target.value } : f)} data-testid="input-edit-officer-rc" inputMode="numeric" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Platný od</label>
+                  <Input type="date" className="h-8 text-sm" value={editForm.validFrom} onChange={e => setEditForm(f => f ? { ...f, validFrom: e.target.value } : f)} data-testid="input-edit-officer-validfrom" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Platný do</label>
+                  <Input type="date" className="h-8 text-sm" value={editForm.validTo} onChange={e => setEditForm(f => f ? { ...f, validTo: e.target.value } : f)} data-testid="input-edit-officer-validto" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Obchodný podiel</label>
+                <Input className="h-8 text-sm" placeholder="napr. 50%" value={editForm.share} onChange={e => setEditForm(f => f ? { ...f, share: e.target.value } : f)} data-testid="input-edit-officer-share" />
+              </div>
+              <div className="pt-1 border-t border-border">
+                <p className="text-xs text-muted-foreground mb-2">Adresa trvalého pobytu</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Ulica</label>
+                    <Input className="h-8 text-sm" value={editForm.street} onChange={e => setEditForm(f => f ? { ...f, street: e.target.value } : f)} data-testid="input-edit-officer-street" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Číslo popisné</label>
+                    <Input className="h-8 text-sm" value={editForm.streetNumber} onChange={e => setEditForm(f => f ? { ...f, streetNumber: e.target.value } : f)} data-testid="input-edit-officer-streetnumber" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">PSČ</label>
+                    <Input className="h-8 text-sm" value={editForm.postalCode} onChange={e => setEditForm(f => f ? { ...f, postalCode: e.target.value } : f)} data-testid="input-edit-officer-postal" />
+                  </div>
+                  <div className="col-span-2 space-y-1">
+                    <label className="text-xs text-muted-foreground">Mesto</label>
+                    <Input className="h-8 text-sm" value={editForm.city} onChange={e => setEditForm(f => f ? { ...f, city: e.target.value } : f)} data-testid="input-edit-officer-city" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => { setEditingOfficer(null); setEditForm(null); }} data-testid="button-edit-officer-cancel">
+              Zrušiť
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (!editingOfficer || !editForm) return;
+                updateOfficerMutation.mutate({
+                  id: editingOfficer.id,
+                  data: {
+                    titleBefore: editForm.titleBefore || null,
+                    firstName: editForm.firstName || null,
+                    lastName: editForm.lastName || null,
+                    titleAfter: editForm.titleAfter || null,
+                    type: editForm.type || null,
+                    city: editForm.city || null,
+                    street: editForm.street || null,
+                    streetNumber: editForm.streetNumber || null,
+                    orientNumber: editForm.orientNumber || null,
+                    postalCode: editForm.postalCode || null,
+                    share: editForm.share || null,
+                    validFrom: editForm.validFrom || null,
+                    validTo: editForm.validTo || null,
+                    birthNumber: editForm.rc || undefined,
+                  },
+                });
+              }}
+              disabled={updateOfficerMutation.isPending}
+              data-testid="button-edit-officer-save"
+            >
+              {updateOfficerMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+              Uložiť
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* RC Dialog for registry director */}
       <Dialog open={!!pendingRegistryDir} onOpenChange={(open) => { if (!open) { setPendingRegistryDir(null); setRcInput(""); } }}>
