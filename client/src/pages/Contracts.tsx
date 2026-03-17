@@ -1842,6 +1842,10 @@ function DeleteContractDialog({
   );
 }
 
+function ArchiveClockIcon({ className }: { className?: string }) {
+  return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className={className} fill="currentColor"><path d="M280-720v520-520Zm170 600H280q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v172q-17-5-39.5-8.5T680-560v-160H280v520h132q6 21 16 41.5t22 38.5Zm-90-160h40q0-63 20-103.5l20-40.5v-216h-80v360Zm160-230q17-11 38.5-22t41.5-16v-92h-80v130Zm18.5 371.5Q480-197 480-280t58.5-141.5Q597-480 680-480t141.5 58.5Q880-363 880-280t-58.5 141.5Q763-80 680-80t-141.5-58.5ZM746-186l28-28-74-74v-112h-40v128l86 86Z"/></svg>;
+}
+
 type FolderDef = { id: number; label: string; icon: ComponentType<{ className?: string }>; color: string; bgColor: string; count: number; tooltip?: string };
 
 function SupiskaCountdownButton({ receivedAt, onEdit, supiskaId }: { receivedAt: string | Date; onEdit: (e: React.MouseEvent) => void; supiskaId: number }) {
@@ -3665,7 +3669,7 @@ export default function Contracts() {
   const folderDefs: FolderDef[] = [
     { id: 1, label: "Nahratie a vytvorenie sprievodky", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: contractsTotal || activeContracts.length, tooltip: "Zmluva bola nahratá do systému a čaká na zaradenie do sprievodky a odoslanie na centrálu partnera." },
     { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length, tooltip: "Zmluvy, ktoré boli vrátené s výhradami od obchodného partnera alebo centrály. Vyžadujú opravu a opätovné odoslanie." },
-    { id: 4, label: "Archív zmlúv (s výhradami)", icon: Archive, color: "text-zinc-400", bgColor: "bg-zinc-400/15", count: activeArchived.length, tooltip: "Archivované zmluvy s výhradami, ktoré neboli opravené alebo boli trvalo zamietnuté." },
+    { id: 4, label: "Archív zmlúv (s výhradami)", icon: ArchiveClockIcon, color: "text-zinc-400", bgColor: "bg-zinc-400/15", count: activeArchived.length, tooltip: "Archivované zmluvy s výhradami, ktoré neboli opravené alebo boli trvalo zamietnuté." },
     { id: 7, label: "Interné intervencie", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length, tooltip: "Zmluvy vyžadujúce interný zásah — napr. chýbajúce dokumenty, nezrovnalosti v údajoch alebo eskalácia." },
     { id: 10, label: "🏆 Potvrdiť prijatie obch. partnerom", icon: Award, color: "text-yellow-500", bgColor: "bg-yellow-500/15", count: phase10Supisky.length, tooltip: "Sprievodky odoslané obchodnému partnerovi — čakajú na potvrdenie prijatia." },
   ];
@@ -7949,7 +7953,7 @@ export default function Contracts() {
         <div id="folder-4-wrapper" style={{ display: activeFolder === 4 ? 'block' : 'none' }}>
           <Card data-testid="folder-archiv">
             <div className="flex items-center gap-3 p-3 border-b">
-              <Archive className="w-4 h-4 text-muted-foreground shrink-0" />
+              <ArchiveClockIcon className="w-4 h-4 text-muted-foreground shrink-0" />
               <p className="text-xs text-muted-foreground flex-1">Neprijaté zmluvy po uplynutí lehoty výhrady (podľa produktu).</p>
             </div>
             <CardContent className="p-0">
