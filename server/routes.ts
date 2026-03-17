@@ -3025,8 +3025,8 @@ export async function registerRoutes(
   app.post("/api/my-companies/:companyId/files/:section", isAuthenticated, upload.single("file"), async (req, res) => {
     try {
       const companyId = Number(req.params.companyId);
-      const section = req.params.section as "official" | "work" | "logos";
-      if (!["official", "work", "logos"].includes(section)) return res.status(400).json({ message: "Invalid section" });
+      const section = req.params.section as "official" | "work" | "tax" | "logos";
+      if (!["official", "work", "tax", "logos"].includes(section)) return res.status(400).json({ message: "Invalid section" });
 
       const company = await storage.getMyCompany(companyId);
       if (!company) return res.status(404).json({ message: "Company not found" });
@@ -3062,7 +3062,7 @@ export async function registerRoutes(
           uploadedAt: new Date().toISOString(),
         };
 
-        const docsField = section === "official" ? "officialDocs" : "workDocs";
+        const docsField = section === "official" ? "officialDocs" : section === "tax" ? "taxDocs" : "workDocs";
         const currentDocs = (company[docsField] as any[]) || [];
         const updatedDocs = [...currentDocs, docEntry];
 
@@ -3078,7 +3078,7 @@ export async function registerRoutes(
   app.get("/api/files/:section/:filename", isAuthenticated, (req, res) => {
     const section = req.params.section as string;
     const filename = req.params.filename as string;
-    if (!["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs", "generated-docs"].includes(section)) return res.status(400).json({ message: "Invalid section" });
+    if (!["official", "work", "tax", "logos", "amendments", "profiles", "flags", "status-change-docs", "generated-docs"].includes(section)) return res.status(400).json({ message: "Invalid section" });
     const filePath = path.join(UPLOADS_DIR, section, filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -3093,13 +3093,13 @@ export async function registerRoutes(
   app.delete("/api/my-companies/:companyId/files/:section", isAuthenticated, async (req, res) => {
     try {
       const companyId = Number(req.params.companyId);
-      const section = req.params.section as "official" | "work";
+      const section = req.params.section as "official" | "work" | "tax";
       const { fileUrl } = req.body;
 
       const company = await storage.getMyCompany(companyId);
       if (!company) return res.status(404).json({ message: "Company not found" });
 
-      const docsField = section === "official" ? "officialDocs" : "workDocs";
+      const docsField = section === "official" ? "officialDocs" : section === "tax" ? "taxDocs" : "workDocs";
       const currentDocs = (company[docsField] as any[]) || [];
       const updatedDocs = currentDocs.filter((d: any) => d.url !== fileUrl);
 

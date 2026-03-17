@@ -83,6 +83,7 @@ export const myCompanies = pgTable("my_companies", {
   notes: text("notes"),
   officialDocs: jsonb("official_docs").$type<DocEntry[]>().default([]),
   workDocs: jsonb("work_docs").$type<DocEntry[]>().default([]),
+  taxDocs: jsonb("tax_docs").$type<DocEntry[]>().default([]),
   processingTimeSec: integer("processing_time_sec").default(0),
   isDeleted: boolean("is_deleted").default(false),
   foundedDate: timestamp("founded_date"),

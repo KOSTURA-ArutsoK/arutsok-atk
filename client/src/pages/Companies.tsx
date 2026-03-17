@@ -353,7 +353,7 @@ function FileUploadSection({
   readOnly,
 }: {
   companyId: number | null;
-  section: "official" | "work";
+  section: "official" | "work" | "tax";
   docs: DocEntry[];
   label: string;
   sublabel: string;
@@ -829,6 +829,7 @@ function CompanyFormDialog({
   const isPending = createMutation.isPending || updateMutation.isPending;
   const officialDocs = (editingCompany?.officialDocs as DocEntry[]) || [];
   const workDocs = (editingCompany?.workDocs as DocEntry[]) || [];
+  const taxDocs = (editingCompany?.taxDocs as DocEntry[]) || [];
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -1519,6 +1520,14 @@ function CompanyFormDialog({
                   label="Sekcia B: Pracovné dokumenty"
                   sublabel="Priebežná dokumentácia, prílohy k poznámkam"
                 />
+                <Separator />
+                <FileUploadSection
+                  companyId={editingCompany?.id || null}
+                  section="tax"
+                  docs={taxDocs}
+                  label="Sekcia C: Daňové dokumenty"
+                  sublabel="Daňové priznania, výkazy DPH, potvrdenia správcu dane"
+                />
               </TabsContent>
 
               <TabsContent value="logo" className="mt-4">
@@ -1618,6 +1627,7 @@ function CompanyDetailDialog({
 }) {
   const officialDocs = (company.officialDocs as DocEntry[]) || [];
   const workDocs = (company.workDocs as DocEntry[]) || [];
+  const taxDocs = (company.taxDocs as DocEntry[]) || [];
 
   const addressParts = [
     company.street,
@@ -1837,11 +1847,11 @@ function CompanyDetailDialog({
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <FileCheck className="w-4 h-4 text-muted-foreground" />
-                <h4 className="text-sm font-medium">Sekcia A: Oficialne dokumenty</h4>
+                <h4 className="text-sm font-medium">Sekcia A: Oficiálne dokumenty</h4>
                 <Badge variant="secondary" className="ml-auto">{officialDocs.length}</Badge>
               </div>
               {officialDocs.length === 0 ? (
-                <p className="text-sm text-muted-foreground pl-6">Ziadne oficialne dokumenty</p>
+                <p className="text-sm text-muted-foreground pl-6">Žiadne oficiálne dokumenty</p>
               ) : (
                 <div className="space-y-1 pl-6">
                   {officialDocs.map((doc, idx) => (
@@ -1861,11 +1871,11 @@ function CompanyDetailDialog({
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-muted-foreground" />
-                <h4 className="text-sm font-medium">Sekcia B: Pracovne dokumenty</h4>
+                <h4 className="text-sm font-medium">Sekcia B: Pracovné dokumenty</h4>
                 <Badge variant="secondary" className="ml-auto">{workDocs.length}</Badge>
               </div>
               {workDocs.length === 0 ? (
-                <p className="text-sm text-muted-foreground pl-6">Ziadne pracovne dokumenty</p>
+                <p className="text-sm text-muted-foreground pl-6">Žiadne pracovné dokumenty</p>
               ) : (
                 <div className="space-y-1 pl-6">
                   {workDocs.map((doc, idx) => (
@@ -1874,6 +1884,30 @@ function CompanyDetailDialog({
                       <span className="truncate flex-1">{doc.name}</span>
                       <span className="text-xs text-muted-foreground">{formatDateSlovak(doc.uploadedAt)}</span>
                       <Button size="icon" variant="ghost" onClick={() => window.open(doc.url, "_blank")} data-testid={`button-detail-download-work-${idx}`}>
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Separator />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-muted-foreground" />
+                <h4 className="text-sm font-medium">Sekcia C: Daňové dokumenty</h4>
+                <Badge variant="secondary" className="ml-auto">{taxDocs.length}</Badge>
+              </div>
+              {taxDocs.length === 0 ? (
+                <p className="text-sm text-muted-foreground pl-6">Žiadne daňové dokumenty</p>
+              ) : (
+                <div className="space-y-1 pl-6">
+                  {taxDocs.map((doc, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-sm p-2 rounded-md border border-border" data-testid={`detail-file-tax-${idx}`}>
+                      <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <span className="truncate flex-1">{doc.name}</span>
+                      <span className="text-xs text-muted-foreground">{formatDateSlovak(doc.uploadedAt)}</span>
+                      <Button size="icon" variant="ghost" onClick={() => window.open(doc.url, "_blank")} data-testid={`button-detail-download-tax-${idx}`}>
                         <Download className="w-4 h-4" />
                       </Button>
                     </div>
