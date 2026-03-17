@@ -1616,6 +1616,25 @@ export async function registerRoutes(
     }
   });
 
+  // POST create mandate manually
+  app.post("/api/company-officers/:id/mandates", isAuthenticated, async (req, res) => {
+    try {
+      const officerId = Number(req.params.id);
+      if (isNaN(officerId)) return res.status(400).json({ message: "Neplatné ID" });
+      const { validFrom, validTo, endReason } = req.body;
+      const mandate = await storage.createOfficerMandate({
+        officerId,
+        validFrom: validFrom ? new Date(validFrom) : null,
+        validTo: validTo ? new Date(validTo) : null,
+        endReason: endReason || null,
+      });
+      await logAudit(req, { action: "CREATE", module: "company_officer_mandates", entityId: mandate.id });
+      res.json(mandate);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
   app.delete(api.companyOfficers.delete.path, isAuthenticated, async (req, res) => {
     try {
       await storage.deleteCompanyOfficer(Number(req.params.id));
@@ -2822,7 +2841,7 @@ export async function registerRoutes(
 
       // === REVERSE SYNC: if subject linked to officer, push changes back ===
       try {
-        const officerSyncFields = ['firstName', 'lastName', 'titleBefore', 'titleAfter', 'city', 'stateId'] as const;
+        const officerSyncFields = ['firstName', 'lastName', 'titleBefore', 'titleAfter', 'street', 'streetNumber', 'orientNumber', 'postalCode', 'city', 'stateId'] as const;
         const linkedOfficers = await db.select().from(companyOfficers).where(eq(companyOfficers.subjectId, subjectId));
         for (const officer of linkedOfficers) {
           const officerUpdates: Record<string, any> = {};
