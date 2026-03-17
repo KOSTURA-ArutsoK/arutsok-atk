@@ -2535,15 +2535,24 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
 
   const { data: officers = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/my-companies', companyId, 'officers'],
-    queryFn: () => fetch(`/api/my-companies/${companyId}/officers`).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`/api/my-companies/${companyId}/officers`);
+      if (!r.ok) throw new Error(`Officers fetch failed: ${r.status}`);
+      return r.json();
+    },
     enabled: !!companyId,
   });
 
-  const { data: editingOfficerMandates = [] } = useQuery<any[]>({
+  const { data: editingOfficerMandatesRaw = [] } = useQuery<any[]>({
     queryKey: ['/api/company-officers', editingOfficer?.id, 'mandates'],
-    queryFn: () => fetch(`/api/company-officers/${editingOfficer!.id}/mandates`).then(r => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`/api/company-officers/${editingOfficer!.id}/mandates`);
+      if (!r.ok) throw new Error(`Mandates fetch failed: ${r.status}`);
+      return r.json();
+    },
     enabled: !!editingOfficer?.id,
   });
+  const editingOfficerMandates = Array.isArray(editingOfficerMandatesRaw) ? editingOfficerMandatesRaw : [];
 
   async function fetchFromRegistry() {
     if (!companyIco) return;
@@ -2593,6 +2602,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
 
   const registerFromRegistryMutation = useMutation({
     mutationFn: async ({ dir, birthNumber }: { dir: RegistryDirector; birthNumber: string }) => {
+      if (!companyId) throw new Error("Firma musí byť najprv uložená");
       const resp = await apiRequest("POST", "/api/company-officers/register-from-registry", {
         companyId,
         name: dir.name,
@@ -2604,6 +2614,10 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
         titleAfter: dir.titleAfter,
         birthNumber: birthNumber || undefined,
       });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.message || "Chyba pri zápise z registra");
+      }
       return resp.json();
     },
     onSuccess: (data) => {
@@ -2618,13 +2632,14 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
         toast({ title: "Štatutár zapísaný", description: `UID: ${formatUid(data.subject?.uid)}` });
       }
     },
-    onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa zapísať štatutára z registra", variant: "destructive" });
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err?.message || "Nepodarilo sa zapísať štatutára z registra", variant: "destructive" });
     },
   });
 
   const createManualMutation = useMutation({
     mutationFn: async (data: typeof manualForm) => {
+      if (!companyId) throw new Error("Firma musí byť najprv uložená");
       const resp = await apiRequest("POST", `/api/my-companies/${companyId}/officers`, {
         type: data.type,
         titleBefore: data.titleBefore || null,
@@ -2634,6 +2649,10 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
         city: data.city || null,
         birthNumber: data.rc || null,
       });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.message || "Chyba pri pridaní štatutára");
+      }
       return resp.json();
     },
     onSuccess: (data: any) => {
@@ -2643,19 +2662,23 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
       setShowManualForm(false);
       setManualForm({ titleBefore: "", firstName: "", lastName: "", titleAfter: "", type: "Konateľ", city: "", rc: "" });
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa pridať štatutára", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa pridať štatutára", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       const resp = await apiRequest("DELETE", `/api/company-officers/${id}`);
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.message || "Chyba pri mazaní štatutára");
+      }
       return resp.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/my-companies', companyId, 'officers'] });
       toast({ title: "Štatutár vymazaný" });
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazať štatutára", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa vymazať štatutára", variant: "destructive" }),
   });
 
   const updateOfficerMutation = useMutation({
@@ -2735,7 +2758,11 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
     return !registeredNames.has(simpleName);
   });
 
-  if (!companyId) return null;
+  if (!companyId) return (
+    <div className="text-sm text-muted-foreground italic py-2">
+      Najprv uložte základné údaje firmy — potom môžete pridávať štatutárov.
+    </div>
+  );
   if (isLoading) return (
     <div className="text-sm text-muted-foreground flex items-center gap-2">
       <Loader2 className="w-3 h-3 animate-spin" />Načítavam štatutárov...

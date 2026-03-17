@@ -1833,7 +1833,17 @@ export async function registerRoutes(
         firstName,
         lastName,
         titleAfter: titleAfter || null,
-        validFrom: since ? new Date(since.split('.').reverse().join('-')) : new Date(),
+        validFrom: (() => {
+          if (!since) return new Date();
+          const parts = String(since).split('.').map((s: string) => s.trim()).filter(Boolean);
+          if (parts.length === 3) {
+            const iso = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+            const d = new Date(iso);
+            if (!isNaN(d.getTime())) return d;
+          }
+          const fallback = new Date(since);
+          return isNaN(fallback.getTime()) ? new Date() : fallback;
+        })(),
       };
 
       const created = await storage.createCompanyOfficer(officerData);

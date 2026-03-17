@@ -952,7 +952,9 @@ export class DatabaseStorage implements IStorage {
     }
     if (updateData.validTo) {
       const validToDate = updateData.validTo instanceof Date ? updateData.validTo : new Date(updateData.validTo);
-      if (validToDate <= new Date()) {
+      const endOfValidToDay = new Date(validToDate);
+      endOfValidToDay.setHours(23, 59, 59, 999);
+      if (endOfValidToDay < new Date()) {
         updateData.isActive = false;
       }
     }
