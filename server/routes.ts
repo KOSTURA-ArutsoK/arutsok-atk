@@ -1416,6 +1416,30 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/my-companies/:id/officers", isAuthenticated, async (req: any, res) => {
+    try {
+      const companyId = Number(req.params.id);
+      if (isNaN(companyId)) return res.status(400).json({ message: "Neplatné ID firmy" });
+      const { type, titleBefore, firstName, lastName, titleAfter, city } = req.body;
+      if (!type) return res.status(400).json({ message: "Typ štatutára je povinný" });
+      const officer = await storage.createCompanyOfficer({
+        companyId,
+        type,
+        titleBefore: titleBefore || null,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        titleAfter: titleAfter || null,
+        city: city || null,
+        isActive: true,
+      });
+      await logAudit(req, { action: "CREATE", module: "settings-companies", entityId: officer.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type });
+      res.json(officer);
+    } catch (err: any) {
+      console.error("[OFFICER CREATE]", err);
+      res.status(500).json({ message: err?.message || "Nepodarilo sa pridať štatutára" });
+    }
+  });
+
   app.put("/api/company-officers/:id", isAuthenticated, async (req, res) => {
     try {
       const updated = await storage.updateCompanyOfficer(Number(req.params.id), req.body);
