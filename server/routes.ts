@@ -1408,7 +1408,7 @@ export async function registerRoutes(
     try {
       const companyId = Number(req.params.companyId);
       if (isNaN(companyId)) return res.status(400).json({ message: "Neplatné ID firmy" });
-      const { type, titleBefore, firstName, lastName, titleAfter, city } = req.body;
+      const { type, titleBefore, firstName, lastName, titleAfter, city, birthNumber: bnRaw } = req.body;
       if (!type) return res.status(400).json({ message: "Typ štatutára je povinný" });
       const officer = await storage.createCompanyOfficer({
         companyId,
@@ -1421,7 +1421,33 @@ export async function registerRoutes(
         isActive: true,
       });
       await logAudit(req, { action: "CREATE", module: "spolocnosti", entityId: officer.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type });
-      res.status(201).json(officer);
+
+      let subject = null;
+      if (bnRaw && typeof bnRaw === 'string' && bnRaw.trim()) {
+        let stateCode = '421';
+        if (req.appUser?.activeStateId) {
+          const st = await storage.getState(req.appUser.activeStateId);
+          if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
+        }
+        const uid = await storage.generateNextGlobalUid(stateCode);
+        const subjectData: any = {
+          uid,
+          type: 'person',
+          firstName: firstName || null,
+          lastName: lastName || null,
+          stateId: req.appUser?.activeStateId || null,
+          myCompanyId: req.appUser?.activeCompanyId || null,
+          registeredByUserId: req.appUser?.id || null,
+          registrationStatus: 'tiper',
+          birthNumber: encryptField(bnRaw.replace(/\//g, '').replace(/\s/g, '').trim()),
+          details: { source: 'manual_statutory', officerId: officer.id, officerType: type },
+        };
+        subject = await storage.createSubject(subjectData);
+        await storage.updateCompanyOfficer(officer.id, { subjectId: subject.id } as any);
+        await logAudit(req, { action: "CREATE", module: "subjekty", entityId: subject.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { uid } });
+      }
+
+      res.status(201).json({ officer: { ...officer, subjectId: subject?.id || null }, subject });
     } catch (err: any) {
       console.error("[OFFICER CREATE]", err);
       res.status(500).json({ message: err?.message || "Nepodarilo sa pridať štatutára" });
@@ -1508,7 +1534,7 @@ export async function registerRoutes(
 
   app.post("/api/company-officers/register-from-registry", isAuthenticated, async (req: any, res) => {
     try {
-      const { companyId, name, role, since, titleBefore: tbPre, firstName: fnPre, lastName: lnPre, titleAfter: taPre } = req.body;
+      const { companyId, name, role, since, titleBefore: tbPre, firstName: fnPre, lastName: lnPre, titleAfter: taPre, birthNumber: bnRaw } = req.body;
       if (!companyId || !name) return res.status(400).json({ message: "Chýba companyId alebo meno" });
       if (typeof companyId !== 'number' || isNaN(companyId)) return res.status(400).json({ message: "Neplatné companyId" });
       if (typeof name !== 'string' || name.trim().length < 2) return res.status(400).json({ message: "Neplatné meno" });
@@ -1596,6 +1622,9 @@ export async function registerRoutes(
         registrationStatus: 'tiper',
         details: { source: 'registry_statutory', officerId: created.id, officerType: role },
       };
+      if (bnRaw && typeof bnRaw === 'string' && bnRaw.trim()) {
+        subjectData.birthNumber = encryptField(bnRaw.replace(/\//g, '').replace(/\s/g, '').trim());
+      }
 
       const subject = await storage.createSubject(subjectData);
       await storage.updateCompanyOfficer(created.id, { subjectId: subject.id } as any);

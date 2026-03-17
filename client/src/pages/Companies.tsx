@@ -107,6 +107,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -2512,7 +2513,9 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
   const [localDirectors, setLocalDirectors] = useState<RegistryDirector[] | null>(null);
   const [fetchingRegistry, setFetchingRegistry] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
-  const [manualForm, setManualForm] = useState({ titleBefore: "", firstName: "", lastName: "", titleAfter: "", type: "Konateľ", city: "" });
+  const [manualForm, setManualForm] = useState({ titleBefore: "", firstName: "", lastName: "", titleAfter: "", type: "Konateľ", city: "", rc: "" });
+  const [pendingRegistryDir, setPendingRegistryDir] = useState<RegistryDirector | null>(null);
+  const [rcInput, setRcInput] = useState("");
 
   const { data: officers = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/my-companies', companyId, 'officers'],
@@ -2561,7 +2564,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
   });
 
   const registerFromRegistryMutation = useMutation({
-    mutationFn: async (dir: RegistryDirector) => {
+    mutationFn: async ({ dir, birthNumber }: { dir: RegistryDirector; birthNumber: string }) => {
       const resp = await apiRequest("POST", "/api/company-officers/register-from-registry", {
         companyId,
         name: dir.name,
@@ -2571,11 +2574,14 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
         firstName: dir.firstName,
         lastName: dir.lastName,
         titleAfter: dir.titleAfter,
+        birthNumber: birthNumber || undefined,
       });
       return resp.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/my-companies', companyId, 'officers'] });
+      setPendingRegistryDir(null);
+      setRcInput("");
       if (data.alreadyExists) {
         toast({ title: "Štatutár už existuje v záznamoch" });
       } else {
@@ -2596,14 +2602,16 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
         lastName: data.lastName || null,
         titleAfter: data.titleAfter || null,
         city: data.city || null,
+        birthNumber: data.rc || null,
       });
       return resp.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/my-companies', companyId, 'officers'] });
-      toast({ title: "Štatutár pridaný" });
+      const desc = data?.subject?.uid ? `UID: ${formatUid(data.subject.uid)}` : undefined;
+      toast({ title: "Štatutár pridaný", description: desc });
       setShowManualForm(false);
-      setManualForm({ titleBefore: "", firstName: "", lastName: "", titleAfter: "", type: "Konateľ", city: "" });
+      setManualForm({ titleBefore: "", firstName: "", lastName: "", titleAfter: "", type: "Konateľ", city: "", rc: "" });
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa pridať štatutára", variant: "destructive" }),
   });
@@ -2714,6 +2722,14 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
               className="h-8 text-xs"
               data-testid="input-manual-city"
             />
+            <Input
+              placeholder="Rodné číslo *"
+              value={manualForm.rc}
+              onChange={e => setManualForm(f => ({ ...f, rc: e.target.value }))}
+              className="h-8 text-xs"
+              inputMode="numeric"
+              data-testid="input-manual-rc"
+            />
           </div>
           <div className="flex justify-end">
             <Button
@@ -2816,15 +2832,10 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                 size="sm"
                 variant="default"
                 className="text-xs h-7"
-                onClick={() => registerFromRegistryMutation.mutate(dir)}
-                disabled={registerFromRegistryMutation.isPending}
+                onClick={() => { setPendingRegistryDir(dir); setRcInput(""); }}
                 data-testid={`button-register-registry-${idx}`}
               >
-                {registerFromRegistryMutation.isPending ? (
-                  <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                ) : (
-                  <Plus className="w-3 h-3 mr-1" />
-                )}
+                <Plus className="w-3 h-3 mr-1" />
                 Zapísať
               </Button>
             </div>
@@ -2860,6 +2871,62 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
           )}
         </div>
       )}
+
+      {/* RC Dialog for registry director */}
+      <Dialog open={!!pendingRegistryDir} onOpenChange={(open) => { if (!open) { setPendingRegistryDir(null); setRcInput(""); } }}>
+        <DialogContent className="max-w-sm" data-testid="dialog-rc-registry">
+          <DialogHeader>
+            <DialogTitle>Zapísať štatutára</DialogTitle>
+            <DialogDescription>Zadajte rodné číslo štatutára pred zápisom do systému.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="text-sm font-medium">
+              {pendingRegistryDir?.name}
+              {pendingRegistryDir?.role && (
+                <span className="ml-2 text-xs text-muted-foreground">({pendingRegistryDir.role})</span>
+              )}
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Rodné číslo</label>
+              <Input
+                placeholder="napr. 800101/1234"
+                value={rcInput}
+                onChange={e => setRcInput(e.target.value)}
+                inputMode="numeric"
+                autoFocus
+                data-testid="input-rc-registry"
+                className="h-8 text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => { setPendingRegistryDir(null); setRcInput(""); }}
+              data-testid="button-rc-dialog-cancel"
+            >
+              Zrušiť
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (!pendingRegistryDir) return;
+                registerFromRegistryMutation.mutate({ dir: pendingRegistryDir, birthNumber: rcInput });
+              }}
+              disabled={registerFromRegistryMutation.isPending}
+              data-testid="button-rc-dialog-confirm"
+            >
+              {registerFromRegistryMutation.isPending ? (
+                <Loader2 className="w-3 h-3 animate-spin mr-1" />
+              ) : (
+                <Plus className="w-3 h-3 mr-1" />
+              )}
+              Zapísať
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
