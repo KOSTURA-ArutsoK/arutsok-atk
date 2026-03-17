@@ -939,12 +939,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCompanyOfficer(id: number, data: Partial<InsertCompanyOfficer>) {
+    const DATE_FIELDS = ['validFrom', 'validTo', 'idCardExpiry', 'activeFrom', 'activeTo', 'inactiveFrom', 'inactiveTo'];
     const updateData: Record<string, any> = {};
     for (const [key, value] of Object.entries(data)) {
-      if (value !== undefined) updateData[key] = value;
+      if (value !== undefined) {
+        if (DATE_FIELDS.includes(key)) {
+          updateData[key] = value === null ? null : (value instanceof Date ? value : new Date(value as string));
+        } else {
+          updateData[key] = value;
+        }
+      }
     }
     if (updateData.validTo) {
-      const validToDate = new Date(updateData.validTo);
+      const validToDate = updateData.validTo instanceof Date ? updateData.validTo : new Date(updateData.validTo);
       if (validToDate <= new Date()) {
         updateData.isActive = false;
       }

@@ -1499,11 +1499,19 @@ export async function registerRoutes(
       const officerId = Number(req.params.id);
       if (isNaN(officerId)) return res.status(400).json({ message: "Neplatné ID" });
 
+      // Ownership check
+      const [existingOfficer] = await db.select().from(companyOfficers).where(eq(companyOfficers.id, officerId));
+      if (!existingOfficer) return res.status(404).json({ message: "Štatutár nebol nájdený" });
+      const userCompaniesForOwnership = await storage.getMyCompanies(req.appUser?.activeStateId);
+      if (!userCompaniesForOwnership.map((c: any) => c.id).includes(existingOfficer.companyId)) {
+        return res.status(403).json({ message: "Nemáte oprávnenie na túto spoločnosť" });
+      }
+
       const { birthNumber: bnRaw, ...officerFields } = req.body;
       delete officerFields.birthNumber;
 
       // Fetch old record to detect changes for mandate creation
-      const [oldOfficer] = await db.select().from(companyOfficers).where(eq(companyOfficers.id, officerId));
+      const oldOfficer = existingOfficer;
 
       const updated = await storage.updateCompanyOfficer(officerId, officerFields);
 
@@ -1553,6 +1561,25 @@ export async function registerRoutes(
             await storage.updateCompanyOfficer(officerId, { subjectId: newSubject.id } as any);
             await linkSubjectToCompanyInNetwork(newSubject.id, req.appUser?.activeCompanyId || null);
             await logAudit(req, { action: "CREATE", module: "subjekty", entityId: newSubject.id, entityName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim(), newData: { uid } });
+            // Immediately sync shared fields to newly created subject
+            const syncFieldsNew: Record<string, any> = {};
+            const newSyncFields = ['firstName', 'lastName', 'titleBefore', 'titleAfter', 'street', 'streetNumber', 'orientNumber', 'postalCode', 'city', 'stateId'] as const;
+            for (const f of newSyncFields) {
+              const val = (updated as any)[f];
+              if (val !== undefined && val !== null) syncFieldsNew[f] = val;
+            }
+            if (Object.keys(syncFieldsNew).length > 0) {
+              await db.update(subjects).set(syncFieldsNew).where(eq(subjects.id, newSubject.id));
+              subjectSynced = true;
+              await logAudit(req, {
+                action: "OFFICER_SUBJECT_SYNC",
+                module: "company_officers",
+                entityId: officerId,
+                entityName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim(),
+                oldData: { source: 'from_officer', note: 'initial_sync_on_subject_create' },
+                newData: { source: 'from_officer', subjectId: newSubject.id, ...syncFieldsNew },
+              });
+            }
           }
         }
       }
