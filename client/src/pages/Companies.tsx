@@ -179,7 +179,7 @@ const formSchema = insertMyCompanySchema.extend({
   dic: z.string().min(1, "DIČ je povinné"),
   icDph: z.string().optional(),
   street: z.string().min(1, "Ulica je povinná"),
-  streetNumber: z.string().min(1, "Popisné číslo je povinné"),
+  streetNumber: z.string().optional().nullable(),
   orientNumber: z.string().min(1, "Orientačné číslo je povinné"),
   postalCode: z.string().min(1, "PSČ je povinné"),
   city: z.string().min(1, "Mesto je povinné"),
@@ -704,7 +704,17 @@ function CompanyFormDialog({
       }
       if (data.name) form.setValue("name", data.name);
       if (data.street) form.setValue("street", data.street);
-      if (data.streetNumber) form.setValue("streetNumber", data.streetNumber);
+      if (data.streetNumber) {
+        const raw = String(data.streetNumber).trim();
+        if (raw.includes("/")) {
+          const [popisne, orientacne] = raw.split("/").map((s: string) => s.trim());
+          form.setValue("streetNumber", popisne || "");
+          form.setValue("orientNumber", orientacne || "");
+        } else {
+          form.setValue("streetNumber", "");
+          form.setValue("orientNumber", raw);
+        }
+      }
       if (data.zip) form.setValue("postalCode", data.zip);
       if (data.city) form.setValue("city", data.city);
       if (data.legalForm) form.setValue("description", data.legalForm);
@@ -1099,7 +1109,7 @@ function CompanyFormDialog({
                   <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="streetNumber" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Popisné číslo *</FormLabel>
+                        <FormLabel>Popisné číslo</FormLabel>
                         <FormControl><Input {...field} value={field.value || ""} data-testid="input-street-number" /></FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1806,11 +1816,13 @@ function CompanyDetailDialog({
   const workDocs = (company.workDocs as DocEntry[]) || [];
   const taxDocs = (company.taxDocs as DocEntry[]) || [];
 
-  const addressParts = [
-    company.street,
-    company.streetNumber ? `${company.streetNumber}` : null,
-    company.orientNumber ? `/ ${company.orientNumber}` : null,
-  ].filter(Boolean).join(" ");
+  const streetNum = (() => {
+    if (company.streetNumber && company.orientNumber) return `${company.streetNumber}/${company.orientNumber}`;
+    if (company.orientNumber) return company.orientNumber;
+    if (company.streetNumber) return company.streetNumber;
+    return null;
+  })();
+  const addressParts = [company.street, streetNum].filter(Boolean).join(" ");
 
   const cityLine = [
     company.postalCode,
