@@ -1854,6 +1854,10 @@ function MailCheckIcon({ className }: { className?: string }) {
   return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className={className} fill="currentColor"><path d="M638-80 468-250l56-56 114 114 226-226 56 56L638-80ZM480-520l320-200H160l320 200Zm0 80L160-640v400h206l80 80H160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v174l-80 80v-174L480-440Zm0 0Zm0-80Zm0 80Z"/></svg>;
 }
 
+function ShieldCheckDoubleIcon({ className }: { className?: string }) {
+  return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className={className} fill="currentColor"><path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80ZM294-511l56-57 56 57 43-43-57-56 57-56-43-43-56 57-56-57-43 43 57 56-57 56 43 43Zm186 351q133 0 226.5-93.5T800-480q0-66-25-124t-69-102L254-254q44 44 102 69t124 25Zm82-96-96-96 42-43 54 54 100-99 42 42-142 142Z"/></svg>;
+}
+
 type FolderDef = { id: number; label: string; icon: ComponentType<{ className?: string }>; color: string; bgColor: string; count: number; tooltip?: string };
 
 function SupiskaCountdownButton({ receivedAt, onEdit, supiskaId }: { receivedAt: string | Date; onEdit: (e: React.MouseEvent) => void; supiskaId: number }) {
@@ -3684,7 +3688,7 @@ export default function Contracts() {
 
   const row2FolderDefs: FolderDef[] = [
     { id: 2, label: "Odoslať sprievodku do centrály", icon: Send, color: "text-blue-500", bgColor: "bg-blue-500/15", count: activeDispatched.length, tooltip: "Zmluvy zaradené do sprievodky a odoslané do centrály spoločnosti na spracovanie." },
-    { id: 5, label: "Odoslané sprievodky a prijatie do centrály", icon: CheckCircle2, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length, tooltip: "Zmluvy prijaté centrálou partnera. Čakajú na spracovanie a evidenciu v systéme partnera." },
+    { id: 5, label: "Odoslané sprievodky a prijatie do centrály", icon: ShieldCheckDoubleIcon, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length, tooltip: "Zmluvy prijaté centrálou partnera. Čakajú na spracovanie a evidenciu v systéme partnera." },
     { id: 6, label: "Roztriedenie kontraktov", icon: LayoutGrid, color: "text-cyan-500", bgColor: "bg-cyan-500/15", count: phase6Contracts.length, tooltip: "Zmluvy aktívne spracovávané centrálou — kontrola údajov, validácia dokumentov a evidencia." },
     { id: 8, label: "Manuálna kontrola kontraktov", icon: ListChecks, color: "text-emerald-500", bgColor: "bg-emerald-500/15", count: phase8Contracts.length, tooltip: "Zmluvy kompletne spracované a pripravené na odoslanie späť obchodnému partnerovi." },
     { id: 9, label: "Odoslať obchodnému partnerovi", icon: SendForwardIcon, color: "text-blue-500", bgColor: "bg-blue-500/15", count: phase9Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0), tooltip: "Sprievodky pripravené na odoslanie obchodnému partnerovi." },
@@ -7985,7 +7989,7 @@ export default function Contracts() {
         <div id="folder-5-wrapper" style={{ display: activeFolder === 5 ? 'block' : 'none' }}>
           <Card data-testid="folder-prijate-centrala">
             <div className="flex items-center gap-3 p-3 border-b flex-wrap">
-              <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+              <ShieldCheckDoubleIcon className="w-4 h-4 text-green-500 shrink-0" />
               <p className="text-xs text-muted-foreground flex-1">Zmluvy prijaté do centrály. Tu sa zo zmluvy stáva kontrakt.</p>
               {rerouteSelectedIds.length > 0 && activeFolder === 5 && (
                 <div className="flex items-center gap-2">
