@@ -115,7 +115,7 @@ export function StatusChangeModal({ open, onOpenChange, contractId, currentStatu
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" data-testid="dialog-status-change">
+      <DialogContent className="max-w-2xl" data-testid="dialog-status-change">
         <DialogHeader>
           <DialogTitle data-testid="title-status-change">Zmena stavu zmluvy</DialogTitle>
         </DialogHeader>

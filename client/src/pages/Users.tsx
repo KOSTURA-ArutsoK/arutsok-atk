@@ -294,7 +294,7 @@ function UserFormDialog({
             {editingUser ? "Upravit pouzivatela" : "Pridat pouzivatela"}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+        <form onSubmit={handleSubmit} className="space-y-4 pr-1">
           <div className="space-y-3">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-1" data-testid="section-basic-info">Základné údaje</h4>
             <div className="grid grid-cols-2 gap-4">

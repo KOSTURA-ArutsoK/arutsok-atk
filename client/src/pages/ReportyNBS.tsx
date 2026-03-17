@@ -448,7 +448,7 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, in
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-partner-report">
+      <DialogContent className="max-w-4xl" data-testid="dialog-partner-report">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="w-5 h-5" />

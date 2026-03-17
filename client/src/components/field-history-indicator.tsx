@@ -151,7 +151,7 @@ export function FieldHistoryIndicator({ subjectId, fieldKey, fieldLabel, inline 
       </TooltipProvider>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <span>🕰️</span>
@@ -303,7 +303,7 @@ export function FieldHistoryIndicator({ subjectId, fieldKey, fieldLabel, inline 
       </Dialog>
 
       <Dialog open={evidenceViewId !== null} onOpenChange={(open) => { if (!open) setEvidenceViewId(null); }}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" data-testid="evidence-viewer-dialog">
+        <DialogContent className="max-w-2xl" data-testid="evidence-viewer-dialog">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <Camera className="w-5 h-5 text-amber-400" />

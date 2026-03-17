@@ -3009,7 +3009,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
             <DialogDescription>Rodné číslo sa ukladá zašifrované. Zmeny sa synchronizujú so subjektom v zozname klientov.</DialogDescription>
           </DialogHeader>
           {editForm && (
-            <div className="space-y-3 py-1 max-h-[70vh] overflow-y-auto pr-1">
+            <div className="space-y-3 py-1 pr-1">
 
               {/* R1: UID + RC */}
               <div className="grid grid-cols-2 gap-3">

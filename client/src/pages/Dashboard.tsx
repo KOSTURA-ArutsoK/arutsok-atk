@@ -629,7 +629,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <Dialog open={redListDialogOpen} onOpenChange={setRedListDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-orange-400">
               <AlertTriangle className="w-5 h-5" />
