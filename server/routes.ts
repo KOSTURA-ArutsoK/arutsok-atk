@@ -1509,12 +1509,28 @@ export async function registerRoutes(
 
       // If birthNumber provided, update or create subject
       let subjectSynced = false;
+      let rcSynced = false;
       if (typeof bnRaw === 'string') {
         const cleanBn = bnRaw.replace(/\//g, '').replace(/\s/g, '').trim();
         if (cleanBn) {
           const encrypted = encryptField(cleanBn);
           if (updated.subjectId) {
-            await db.update(subjects).set({ birthNumber: encrypted }).where(eq(subjects.id, updated.subjectId));
+            const [subjectForRc] = await db.select().from(subjects).where(eq(subjects.id, updated.subjectId));
+            const oldEncrypted = subjectForRc?.birthNumber;
+            const oldDecrypted = oldEncrypted ? (decryptField(oldEncrypted) || oldEncrypted) : null;
+            if (!oldEncrypted || oldDecrypted !== cleanBn) {
+              await db.update(subjects).set({ birthNumber: encrypted }).where(eq(subjects.id, updated.subjectId));
+              rcSynced = true;
+              subjectSynced = true;
+              await logAudit(req, {
+                action: "OFFICER_SUBJECT_SYNC",
+                module: "company_officers",
+                entityId: officerId,
+                entityName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim(),
+                oldData: { source: 'from_officer', birthNumber: oldDecrypted ? '***' : null },
+                newData: { source: 'from_officer', subjectId: updated.subjectId, birthNumber: '***' },
+              });
+            }
           } else {
             let stateCode = '421';
             if (req.appUser?.activeStateId) {
@@ -1605,10 +1621,16 @@ export async function registerRoutes(
   });
 
   // GET officer mandates history
-  app.get("/api/company-officers/:id/mandates", isAuthenticated, async (req, res) => {
+  app.get("/api/company-officers/:id/mandates", isAuthenticated, async (req: any, res) => {
     try {
       const officerId = Number(req.params.id);
       if (isNaN(officerId)) return res.status(400).json({ message: "Neplatné ID" });
+      const [officer] = await db.select().from(companyOfficers).where(eq(companyOfficers.id, officerId));
+      if (!officer) return res.status(404).json({ message: "Štatutár nebol nájdený" });
+      const userCompanies = await storage.getMyCompanies(req.appUser?.activeStateId);
+      if (!userCompanies.map((c: any) => c.id).includes(officer.companyId)) {
+        return res.status(403).json({ message: "Nemáte oprávnenie na túto spoločnosť" });
+      }
       const mandates = await storage.getOfficerMandates(officerId);
       res.json(mandates);
     } catch (err: any) {
@@ -1617,10 +1639,16 @@ export async function registerRoutes(
   });
 
   // POST create mandate manually
-  app.post("/api/company-officers/:id/mandates", isAuthenticated, async (req, res) => {
+  app.post("/api/company-officers/:id/mandates", isAuthenticated, async (req: any, res) => {
     try {
       const officerId = Number(req.params.id);
       if (isNaN(officerId)) return res.status(400).json({ message: "Neplatné ID" });
+      const [officer] = await db.select().from(companyOfficers).where(eq(companyOfficers.id, officerId));
+      if (!officer) return res.status(404).json({ message: "Štatutár nebol nájdený" });
+      const userCompanies = await storage.getMyCompanies(req.appUser?.activeStateId);
+      if (!userCompanies.map((c: any) => c.id).includes(officer.companyId)) {
+        return res.status(403).json({ message: "Nemáte oprávnenie na túto spoločnosť" });
+      }
       const { validFrom, validTo, endReason } = req.body;
       const mandate = await storage.createOfficerMandate({
         officerId,
