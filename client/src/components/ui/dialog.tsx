@@ -193,7 +193,7 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "shrink-0 flex items-center justify-between sm:justify-end sm:space-x-2 px-6 pt-4 pb-6 bg-background border-t border-border/60",
+      "shrink-0 flex items-center justify-between gap-2 px-6 py-3 bg-background border-t border-border/60",
       className
     )}
     {...props}

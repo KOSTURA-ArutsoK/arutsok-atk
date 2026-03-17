@@ -1811,15 +1811,17 @@ function CompanyFormDialog({
           </form>
         </Form>
         <DialogFooter>
-          {editingCompany && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mr-auto">
-              <Clock className="w-3 h-3" />
-              <span>Čas spracovania: {formatProcessingTime(editingCompany.processingTimeSec || 0)}</span>
-            </div>
-          )}
-          <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-cancel">
-            Zrušiť
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-cancel">
+              Zrušiť
+            </Button>
+            {editingCompany && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Clock className="w-3 h-3" />
+                {formatProcessingTime(editingCompany.processingTimeSec || 0)}
+              </span>
+            )}
+          </div>
           <Button type="submit" form="company-form" disabled={isPending} data-testid="button-save">
             {isPending ? "Ukladám..." : "Uložiť"}
           </Button>
