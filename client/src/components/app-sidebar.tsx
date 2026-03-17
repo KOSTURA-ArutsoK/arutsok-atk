@@ -53,7 +53,6 @@ import {
   LayoutGrid,
   Zap,
   BarChart3,
-  ClipboardCheck,
   FileInput,
   ArrowRightLeft,
   ShieldPlus,
@@ -309,7 +308,7 @@ function MojeUlohyMenuItem({ location }: { location: string }) {
         data-testid="nav-moje-ulohy"
       >
         <Link href="/moje-ulohy" className="flex items-center w-full">
-          <ClipboardCheck className="w-4 h-4 shrink-0" />
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className="w-4 h-4 shrink-0" fill="currentColor"><path d="M160-200h640v-80H160v80Zm160-240h80v-120q0-33 23.5-56.5T480-640v-80q-66 0-113 47t-47 113v120Zm160 160Zm-200-80h400v-200q0-83-58.5-141.5T480-760q-83 0-141.5 58.5T280-560v200ZM160-120q-33 0-56.5-23.5T80-200v-80q0-33 23.5-56.5T160-360h40v-200q0-117 81.5-198.5T480-840q117 0 198.5 81.5T760-560v200h40q33 0 56.5 23.5T880-280v80q0 33-23.5 56.5T800-120H160Zm320-240Z"/></svg>
           <span className="shrink-0 ml-2">Moje úlohy</span>
           <span className="flex-1 text-center">
             {nbsAlert?.show && (
