@@ -25,6 +25,10 @@ interface RegistryDirector {
   name: string;
   role: string;
   since?: string;
+  titleBefore?: string;
+  firstName?: string;
+  lastName?: string;
+  titleAfter?: string;
 }
 
 interface BranchEmployee {
@@ -2225,6 +2229,10 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid }: { 
         name: dir.name,
         role: dir.role || 'Štatutár',
         since: dir.since,
+        titleBefore: dir.titleBefore,
+        firstName: dir.firstName,
+        lastName: dir.lastName,
+        titleAfter: dir.titleAfter,
       });
       return resp.json();
     },
@@ -2320,7 +2328,11 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid }: { 
               <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium">{dir.name}</span>
+                  <span className="font-medium">
+                    {(dir.titleBefore || dir.firstName || dir.lastName || dir.titleAfter)
+                      ? [dir.titleBefore, dir.firstName, dir.lastName, dir.titleAfter].filter(Boolean).join(" ")
+                      : dir.name}
+                  </span>
                   {dir.role && <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-600">{dir.role}</Badge>}
                 </div>
                 {dir.since && <span className="text-xs text-muted-foreground">od: {dir.since}</span>}

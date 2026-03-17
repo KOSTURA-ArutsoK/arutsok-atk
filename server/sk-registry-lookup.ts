@@ -27,7 +27,7 @@ export interface RegistryLookupResult {
   vatParagraph?: string;
   vatRegisteredAt?: string;
   foundedDate?: string;
-  directors?: { name: string; role: string }[];
+  directors?: { name: string; role: string; titleBefore?: string; firstName?: string; lastName?: string; titleAfter?: string }[];
   actingNote?: string;
   message?: string;
   businessActivities?: BusinessActivity[];
@@ -90,6 +90,36 @@ function parseSlovakDate(text: string): string | undefined {
   const month = SK_MONTHS[monthWord];
   if (!month) return undefined;
   return `${year}-${String(month).padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+const PRE_TITLES = new Set(["ing.", "mgr.", "judr.", "mudr.", "rndr.", "phdr.", "paeddr.", "doc.", "prof.", "bc.", "arch.", "thldr.", "thlic.", "mvdr.", "dr."]);
+const POST_TITLES = new Set(["phd.", "csc.", "drsc.", "mba", "dba", "ll.m.", "mph", "raddr.", "dipl."]);
+
+function parsePersonName(fullName: string): { titleBefore?: string; firstName?: string; lastName?: string; titleAfter?: string } {
+  const parts = fullName.trim().split(/\s+/);
+  const titleBefores: string[] = [];
+  const titleAfters: string[] = [];
+  const nameParts: string[] = [];
+
+  for (const part of parts) {
+    const clean = part.replace(/,+$/, "").trim();
+    if (!clean) continue;
+    const lower = clean.toLowerCase();
+    if (PRE_TITLES.has(lower)) {
+      titleBefores.push(clean);
+    } else if (POST_TITLES.has(lower)) {
+      titleAfters.push(clean);
+    } else {
+      nameParts.push(clean);
+    }
+  }
+
+  return {
+    titleBefore: titleBefores.length > 0 ? titleBefores.join(" ") : undefined,
+    firstName: nameParts.length > 0 ? nameParts[0] : undefined,
+    lastName: nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined,
+    titleAfter: titleAfters.length > 0 ? titleAfters.join(" ") : undefined,
+  };
 }
 
 export async function lookupFinstatByIco(ico: string): Promise<Partial<RegistryLookupResult>> {
@@ -344,7 +374,7 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
       return { found: false, message: "Dáta nenájdené na stránke ORSR" };
     }
 
-    const directorEntries: { name: string; role: string }[] = [];
+    const directorEntries: { name: string; role: string; titleBefore?: string; firstName?: string; lastName?: string; titleAfter?: string }[] = [];
     const roleMapping: Record<string, string> = {
       "Štatutárny orgán": "Štatutár",
       "Konatelia": "Konateľ",
@@ -366,7 +396,8 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
         const parts = cleaned.split(",").map(p => p.trim()).filter(Boolean);
         const namePart = parts[0];
         if (namePart && namePart.length >= 3 && !directorEntries.some(d => d.name === namePart)) {
-          directorEntries.push({ name: namePart, role });
+          const parsed = parsePersonName(namePart);
+          directorEntries.push({ name: namePart, role, ...parsed });
         }
       }
     }

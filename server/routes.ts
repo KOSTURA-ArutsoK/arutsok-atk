@@ -1434,7 +1434,7 @@ export async function registerRoutes(
 
   app.post("/api/company-officers/register-from-registry", isAuthenticated, async (req: any, res) => {
     try {
-      const { companyId, name, role, since } = req.body;
+      const { companyId, name, role, since, titleBefore: tbPre, firstName: fnPre, lastName: lnPre, titleAfter: taPre } = req.body;
       if (!companyId || !name) return res.status(400).json({ message: "Chýba companyId alebo meno" });
       if (typeof companyId !== 'number' || isNaN(companyId)) return res.status(400).json({ message: "Neplatné companyId" });
       if (typeof name !== 'string' || name.trim().length < 2) return res.status(400).json({ message: "Neplatné meno" });
@@ -1445,36 +1445,40 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Nemáte oprávnenie na túto spoločnosť" });
       }
 
-      const nameParts = name.trim().split(/\s+/);
       let titleBefore = '';
       let firstName = '';
       let lastName = '';
       let titleAfter = '';
 
-      const titles = ['Ing.', 'Mgr.', 'JUDr.', 'MUDr.', 'RNDr.', 'PhDr.', 'PaedDr.', 'doc.', 'prof.', 'Bc.', 'MBA', 'PhD.', 'CSc.', 'DrSc.', 'RSDr.', 'MVDr.', 'ThDr.', 'ICDr.', 'Dr.'];
-      const afterTitles = ['PhD.', 'CSc.', 'DrSc.', 'MBA', 'MSc.', 'LL.M.'];
-
-      const beforeParts: string[] = [];
-      const afterParts: string[] = [];
-      const mainParts: string[] = [];
-
-      let collectingBefore = true;
-      for (const part of nameParts) {
-        const cleanPart = part.replace(/,/g, '');
-        if (collectingBefore && titles.some(t => cleanPart.toLowerCase() === t.toLowerCase())) {
-          beforeParts.push(cleanPart);
-        } else if (afterTitles.some(t => cleanPart.toLowerCase() === t.toLowerCase())) {
-          afterParts.push(cleanPart);
-        } else {
-          collectingBefore = false;
-          mainParts.push(cleanPart);
+      if (fnPre || lnPre) {
+        titleBefore = tbPre || '';
+        firstName = fnPre || '';
+        lastName = lnPre || '';
+        titleAfter = taPre || '';
+      } else {
+        const nameParts = name.trim().split(/\s+/);
+        const titles = ['Ing.', 'Mgr.', 'JUDr.', 'MUDr.', 'RNDr.', 'PhDr.', 'PaedDr.', 'doc.', 'prof.', 'Bc.', 'MBA', 'PhD.', 'CSc.', 'DrSc.', 'RSDr.', 'MVDr.', 'ThDr.', 'ICDr.', 'Dr.'];
+        const afterTitles = ['PhD.', 'CSc.', 'DrSc.', 'MBA', 'MSc.', 'LL.M.'];
+        const beforeParts: string[] = [];
+        const afterParts: string[] = [];
+        const mainParts: string[] = [];
+        let collectingBefore = true;
+        for (const part of nameParts) {
+          const cleanPart = part.replace(/,/g, '');
+          if (collectingBefore && titles.some(t => cleanPart.toLowerCase() === t.toLowerCase())) {
+            beforeParts.push(cleanPart);
+          } else if (afterTitles.some(t => cleanPart.toLowerCase() === t.toLowerCase())) {
+            afterParts.push(cleanPart);
+          } else {
+            collectingBefore = false;
+            mainParts.push(cleanPart);
+          }
         }
+        titleBefore = beforeParts.join(' ');
+        titleAfter = afterParts.join(' ');
+        firstName = mainParts[0] || '';
+        lastName = mainParts.slice(1).join(' ') || '';
       }
-
-      titleBefore = beforeParts.join(' ');
-      titleAfter = afterParts.join(' ');
-      firstName = mainParts[0] || '';
-      lastName = mainParts.slice(1).join(' ') || '';
 
       const [existing] = await db.select().from(companyOfficers)
         .where(and(
