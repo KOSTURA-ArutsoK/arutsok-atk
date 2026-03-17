@@ -163,6 +163,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 
 const COMPANY_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Názov" },
+  { key: "uid", label: "UID" },
   { key: "ico", label: "IČO" },
   { key: "city", label: "Mesto" },
   { key: "state", label: "Štát" },
@@ -951,17 +952,13 @@ function CompanyFormDialog({
               </TabsList>
 
               <TabsContent value="basic" className="space-y-4 mt-4">
-                <div className="flex gap-3 items-end">
-                  <div className="flex-[2] space-y-2">
-                    <label className="text-sm font-medium leading-none">UID</label>
-                    <Input
-                      readOnly
-                      value={editingCompany?.uid ? formatUid(editingCompany.uid) : ""}
-                      placeholder="Vyplní sa automaticky"
-                      className="font-mono text-xs text-muted-foreground bg-muted/40 cursor-default"
-                      data-testid="input-company-uid"
-                    />
+                {editingCompany?.uid && (
+                  <div className="flex items-center gap-2 px-1 py-1.5 rounded-md bg-muted/40 border border-border/50">
+                    <span className="text-xs text-muted-foreground shrink-0">UID</span>
+                    <span className="font-mono text-sm font-medium tracking-wide whitespace-nowrap select-all" data-testid="input-company-uid">{formatUid(editingCompany.uid)}</span>
                   </div>
+                )}
+                <div className="flex gap-3 items-end">
                   <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem className="flex-[5]">
                       <FormLabel>Názov spoločnosti</FormLabel>
@@ -1891,6 +1888,12 @@ function CompanyDetailDialog({
           </TabsList>
 
           <TabsContent value="basic" className="mt-4 space-y-4">
+            {company.uid && (
+              <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/40 border border-border/50" data-testid="text-detail-company-uid-bar">
+                <span className="text-xs text-muted-foreground shrink-0">UID</span>
+                <span className="font-mono text-sm font-medium tracking-wide whitespace-nowrap select-all" data-testid="text-detail-company-uid">{formatUid(company.uid)}</span>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <InfoRow label="IČO" value={company.ico} testId="text-detail-ico" />
               <InfoRow label="DIČ" value={company.dic} testId="text-detail-dic" />
@@ -2307,6 +2310,7 @@ export default function Companies() {
             <TableHeader>
               <TableRow>
                 {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Názov</TableHead>}
+                {columnVisibility.isVisible("uid") && <TableHead className="whitespace-nowrap">UID</TableHead>}
                 {columnVisibility.isVisible("ico") && <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>IČO</TableHead>}
                 {columnVisibility.isVisible("city") && <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>}
                 {columnVisibility.isVisible("state") && <TableHead>Štát</TableHead>}
@@ -2347,6 +2351,7 @@ export default function Companies() {
                       </div>
                     </TableCell>
                   )}
+                  {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs whitespace-nowrap">{company.uid ? formatUid(company.uid) : "-"}</TableCell>}
                   {columnVisibility.isVisible("ico") && <TableCell className="font-mono text-xs">{company.ico || "-"}</TableCell>}
                   {columnVisibility.isVisible("city") && <TableCell>{company.city || "-"}</TableCell>}
                   {columnVisibility.isVisible("state") && <TableCell>{getStateName(company.stateId)}</TableCell>}
@@ -2776,7 +2781,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {off.subjectUid ? (
-                  <Badge variant="secondary" className="font-mono text-[10px]" data-testid={`badge-uid-${off.id}`}>
+                  <Badge variant="secondary" className="font-mono text-[10px] whitespace-nowrap shrink-0" data-testid={`badge-uid-${off.id}`}>
                     {formatUid(off.subjectUid)}
                   </Badge>
                 ) : (

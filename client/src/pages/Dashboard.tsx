@@ -323,7 +323,7 @@ export default function Dashboard() {
                     <p className="font-medium truncate">
                       {s.type === "person" ? `${s.lastName}, ${s.firstName}` : s.companyName}
                     </p>
-                    <p className="text-xs text-muted-foreground font-mono truncate">{formatUid(s.uid)}</p>
+                    <p className="text-xs text-muted-foreground font-mono whitespace-nowrap">{formatUid(s.uid)}</p>
                   </div>
                   <div className={`w-2 h-2 rounded-full ${s.isActive ? "bg-emerald-500" : "bg-red-500"}`} data-testid={`status-subject-${s.id}`} />
                 </div>
