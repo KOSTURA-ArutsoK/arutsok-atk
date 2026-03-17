@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
-import { Plus, Pencil, Trash2, Building, Link2, Unlink } from "lucide-react";
+import { Plus, Pencil, Trash2, Building, Link2, Unlink, Smile } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,15 +46,111 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Division, MyCompany } from "@shared/schema";
 
+const EMOJI_LIST = [
+  "🏦","💼","📊","📈","📉","💰","💵","💳","🏧","💹",
+  "🏠","🏡","🏢","🏣","🏤","🏥","🏦","🏨","🏩","🏪",
+  "🏫","🏬","🏭","🏯","🏰","🗼","🗽","🗿","🗺","🌍",
+  "🌎","🌏","🌐","🌑","🌒","🌓","🌔","🌕","🌖","🌗",
+  "⭐","🌟","💫","✨","🎯","🎪","🎨","🎭","🎬","🎤",
+  "🎧","🎼","🎵","🎶","🎸","🎹","🎺","🎻","🥁","🎷",
+  "🚀","✈️","🚂","🚢","🚗","🚕","🚙","🚌","🚎","🏎",
+  "🚑","🚒","🚓","🚐","🚚","🚛","🚜","🏍","🛵","🛺",
+  "⚽","🏀","🏈","⚾","🎾","🏐","🏉","🥏","🎱","🏓",
+  "🏸","🥊","🥋","🎿","⛷","🏂","🏋","🤸","🤺","🤼",
+  "🔑","🗝","🔐","🔒","🔓","🔏","🛡","⚔","🗡","🔫",
+  "🌲","🌳","🌴","🌵","🌾","🌿","☘","🍀","🍁","🍂",
+  "🍎","🍊","🍋","🍇","🍓","🍒","🍑","🥭","🍍","🥝",
+  "🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯",
+  "🦁","🐮","🐷","🐸","🐵","🙈","🙉","🙊","🦅","🦆",
+  "🦉","🦋","🐛","🐌","🐞","🐜","🦟","🦗","🕷","🦂",
+  "🌺","🌻","🌹","🌷","🌸","💐","🌼","🍄","🌰","🦀",
+  "💎","💍","👑","🏆","🥇","🥈","🥉","🎖","🏅","🎗",
+  "🎁","🎀","🎊","🎉","🎈","🎆","🎇","✏","📝","📌",
+  "📍","📎","🖇","📏","📐","✂","🗃","🗄","🗑","🔧",
+  "🔨","⚙","🔩","🔬","🔭","📡","💡","🔦","🕯","🪔",
+  "📱","💻","🖥","🖨","⌨","🖱","🖲","💾","💿","📀",
+  "📷","📸","📹","🎥","📽","🎞","📞","☎","📟","📠",
+  "🧲","🔋","🪫","💊","🩺","🧬","🧪","🧫","🧯","🪜",
+  "🧭","⏱","⏰","⌛","⏳","📅","📆","🗒","📋","📁",
+];
+
 const DIVISION_COLUMNS: ColumnDef[] = [
   { key: "id", label: "ID" },
-  { key: "emoji", label: "Emoji" },
-  { key: "name", label: "Nazov" },
-  { key: "code", label: "Kod" },
-  { key: "companies", label: "Spolocnost" },
+  { key: "emoji", label: "Emotikon" },
+  { key: "name", label: "Názov" },
+  { key: "code", label: "Kód" },
+  { key: "companies", label: "Spoločnosť" },
   { key: "description", label: "Popis" },
-  { key: "isActive", label: "Aktivna" },
+  { key: "isActive", label: "Aktívna" },
 ];
+
+function EmojiPickerDialog({
+  open,
+  onOpenChange,
+  selected,
+  usedEmojis,
+  onSelect,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  selected: string;
+  usedEmojis: string[];
+  onSelect: (emoji: string) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent size="lg" className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Vybrať emotikon divízie</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground -mt-2">
+          Vypnuté emotikony sú už priradené inej divízii. Každý emotikon musí byť unikátny.
+        </p>
+        <div className="grid grid-cols-10 gap-1 max-h-[420px] overflow-y-auto pr-1 mt-2">
+          {EMOJI_LIST.map((em) => {
+            const isUsed = usedEmojis.includes(em);
+            const isSelected = em === selected;
+            return (
+              <button
+                key={em}
+                disabled={isUsed}
+                onClick={() => { onSelect(em); onOpenChange(false); }}
+                title={isUsed ? "Už priradený inej divízii" : em}
+                className={[
+                  "flex items-center justify-center text-2xl rounded-md h-10 w-full transition-colors",
+                  isSelected
+                    ? "bg-primary text-primary-foreground ring-2 ring-primary"
+                    : isUsed
+                    ? "opacity-20 cursor-not-allowed"
+                    : "hover:bg-accent cursor-pointer",
+                ].join(" ")}
+                data-testid={`button-emoji-pick-${em}`}
+              >
+                {em}
+              </button>
+            );
+          })}
+        </div>
+        {selected && (
+          <div className="flex items-center justify-between pt-2 border-t border-border mt-2">
+            <span className="text-sm text-muted-foreground">Aktuálne vybraný:</span>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">{selected}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { onSelect(""); onOpenChange(false); }}
+                data-testid="button-emoji-clear"
+              >
+                Zrušiť výber
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function SettingsDivisions() {
   const { toast } = useToast();
@@ -74,10 +170,10 @@ export default function SettingsDivisions() {
     mutationFn: (id: number) => apiRequest("DELETE", `/api/divisions/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
-      toast({ title: "Uspech", description: "Divizia vymazana" });
+      toast({ title: "Úspech", description: "Divízia vymazaná" });
       setDeleteTarget(null);
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat diviziu", variant: "destructive" }),
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazať divíziu", variant: "destructive" }),
   });
 
   function openNew() {
@@ -94,13 +190,13 @@ export default function SettingsDivisions() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" data-testid="text-divisions-title">Divizie</h1>
-          <p className="text-muted-foreground text-sm">Sprava divizii holdingu</p>
+          <h1 className="text-2xl font-bold" data-testid="text-divisions-title">Divízie</h1>
+          <p className="text-muted-foreground text-sm">Správa divízií holdingu</p>
         </div>
         <div className="flex items-center gap-2">
           <ColumnManager columns={DIVISION_COLUMNS} storageKey="settings-divisions" columnVisibility={columnVisibility} />
           <Button onClick={openNew} data-testid="button-add-division">
-            <Plus className="w-4 h-4 mr-2" /> Pridat diviziu
+            <Plus className="w-4 h-4 mr-2" /> Pridať divíziu
           </Button>
         </div>
       </div>
@@ -108,20 +204,20 @@ export default function SettingsDivisions() {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="p-8 text-center text-muted-foreground">Nacitavam...</div>
+            <div className="p-8 text-center text-muted-foreground">Načítavam...</div>
           ) : !sortedData.length ? (
-            <div className="p-8 text-center text-muted-foreground">Ziadne divizie</div>
+            <div className="p-8 text-center text-muted-foreground">Žiadne divízie</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   {columnVisibility.isVisible("id") && <TableHead sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort}>ID</TableHead>}
-                  {columnVisibility.isVisible("emoji") && <TableHead className="w-12 text-center">Emoji</TableHead>}
-                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
-                  {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kod</TableHead>}
-                  {columnVisibility.isVisible("companies") && <TableHead>Spolocnost</TableHead>}
+                  {columnVisibility.isVisible("emoji") && <TableHead className="w-14 text-center">Emotikon</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Názov</TableHead>}
+                  {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kód</TableHead>}
+                  {columnVisibility.isVisible("companies") && <TableHead>Spoločnosť</TableHead>}
                   {columnVisibility.isVisible("description") && <TableHead>Popis</TableHead>}
-                  {columnVisibility.isVisible("isActive") && <TableHead>Aktivna</TableHead>}
+                  {columnVisibility.isVisible("isActive") && <TableHead>Aktívna</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
@@ -129,9 +225,13 @@ export default function SettingsDivisions() {
                 {sortedData.map((div: Division) => (
                   <TableRow key={div.id} className={!div.isActive ? "opacity-50" : ""}>
                     {columnVisibility.isVisible("id") && <TableCell data-testid={`text-division-id-${div.id}`}>{div.id}</TableCell>}
-                    {columnVisibility.isVisible("emoji") && <TableCell className="text-center text-lg" data-testid={`text-division-emoji-${div.id}`}>{(div as any).emoji || "-"}</TableCell>}
+                    {columnVisibility.isVisible("emoji") && (
+                      <TableCell className="text-center text-2xl" data-testid={`text-division-emoji-${div.id}`}>
+                        {(div as any).emoji || <span className="text-muted-foreground text-sm">–</span>}
+                      </TableCell>
+                    )}
                     {columnVisibility.isVisible("name") && <TableCell className="font-medium" data-testid={`text-division-name-${div.id}`}>{div.name}</TableCell>}
-                    {columnVisibility.isVisible("code") && <TableCell><Badge variant="secondary" className="font-mono">{div.code || "-"}</Badge></TableCell>}
+                    {columnVisibility.isVisible("code") && <TableCell><Badge variant="secondary" className="font-mono">{div.code || "–"}</Badge></TableCell>}
                     {columnVisibility.isVisible("companies") && (
                       <TableCell data-testid={`text-division-companies-${div.id}`}>
                         {(div as any).companies?.length > 0 ? (
@@ -141,12 +241,12 @@ export default function SettingsDivisions() {
                             ))}
                           </div>
                         ) : (
-                          <span className="text-muted-foreground text-xs">-</span>
+                          <span className="text-muted-foreground text-xs">–</span>
                         )}
                       </TableCell>
                     )}
-                    {columnVisibility.isVisible("description") && <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{div.description || "-"}</TableCell>}
-                    {columnVisibility.isVisible("isActive") && <TableCell><Badge variant={div.isActive ? "default" : "secondary"}>{div.isActive ? "Ano" : "Nie"}</Badge></TableCell>}
+                    {columnVisibility.isVisible("description") && <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{div.description || "–"}</TableCell>}
+                    {columnVisibility.isVisible("isActive") && <TableCell><Badge variant={div.isActive ? "default" : "secondary"}>{div.isActive ? "Áno" : "Nie"}</Badge></TableCell>}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Tooltip>
@@ -155,7 +255,7 @@ export default function SettingsDivisions() {
                               <Building className="w-4 h-4" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Priradene spolocnosti</TooltipContent>
+                          <TooltipContent>Priradené spoločnosti</TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -163,7 +263,7 @@ export default function SettingsDivisions() {
                               <Pencil className="w-4 h-4" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Upravit</TooltipContent>
+                          <TooltipContent>Upraviť</TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -171,7 +271,7 @@ export default function SettingsDivisions() {
                               <Trash2 className="w-4 h-4 text-destructive" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Vymazat</TooltipContent>
+                          <TooltipContent>Vymazať</TooltipContent>
                         </Tooltip>
                       </div>
                     </TableCell>
@@ -188,15 +288,15 @@ export default function SettingsDivisions() {
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Vymazat diviziu?</AlertDialogTitle>
+            <AlertDialogTitle>Vymazať divíziu?</AlertDialogTitle>
             <AlertDialogDescription>
-              Naozaj chcete vymazat diviziu "{deleteTarget?.name}"? Tato akcia je nevratna a odstrani aj vsetky prepojenia so spolocnostami.
+              Naozaj chcete vymazať divíziu „{deleteTarget?.name}"? Táto akcia je nevratná a odstráni aj všetky prepojenia so spoločnosťami.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete-division">Zrusit</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete-division">Zrušiť</AlertDialogCancel>
             <AlertDialogAction onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)} data-testid="button-confirm-delete-division">
-              Vymazat
+              Vymazať
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -223,33 +323,34 @@ function DivisionFormDialog({
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [foundedDate, setFoundedDate] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const { data: allDivisions } = useQuery<Division[]>({ queryKey: ["/api/divisions"] });
 
-  const emojiDuplicate = (() => {
-    if (!emoji) return false;
-    if (!allDivisions) return false;
-    return allDivisions.some((d: any) => d.id !== editingDivision?.id && d.emoji === emoji);
-  })();
+  const usedEmojis = (allDivisions || [])
+    .filter((d: any) => d.id !== editingDivision?.id && d.emoji)
+    .map((d: any) => d.emoji as string);
+
+  const emojiDuplicate = !!emoji && usedEmojis.includes(emoji);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/divisions", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
-      toast({ title: "Uspech", description: "Divizia vytvorena" });
+      toast({ title: "Úspech", description: "Divízia vytvorená" });
       onOpenChange(false);
     },
-    onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa vytvorit diviziu", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa vytvoriť divíziu", variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => apiRequest("PUT", `/api/divisions/${editingDivision?.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
-      toast({ title: "Uspech", description: "Divizia aktualizovana" });
+      toast({ title: "Úspech", description: "Divízia aktualizovaná" });
       onOpenChange(false);
     },
-    onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa aktualizovat diviziu", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa aktualizovať divíziu", variant: "destructive" }),
   });
 
   useEffect(() => {
@@ -274,11 +375,11 @@ function DivisionFormDialog({
 
   function handleSubmit() {
     if (!name) {
-      toast({ title: "Chyba", description: "Nazov je povinny", variant: "destructive" });
+      toast({ title: "Chyba", description: "Názov je povinný", variant: "destructive" });
       return;
     }
     if (emojiDuplicate) {
-      toast({ title: "Chyba", description: "Tento emoji sa už používa v inej divízii rovnakej spoločnosti", variant: "destructive" });
+      toast({ title: "Chyba", description: "Tento emotikon sa už používa v inej divízii", variant: "destructive" });
       return;
     }
     const payload = { name, code: code || null, emoji: emoji || null, description: description || null, isActive, foundedDate: foundedDate ? new Date(foundedDate).toISOString() : null };
@@ -292,52 +393,83 @@ function DivisionFormDialog({
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="md">
-        <DialogHeader>
-          <DialogTitle data-testid="text-division-dialog-title">
-            {editingDivision ? "Upravit diviziu" : "Pridat diviziu"}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Nazov <span className="text-destructive">*</span></label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="napr. Financny trh" data-testid="input-division-name" />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent size="md">
+          <DialogHeader>
+            <DialogTitle data-testid="text-division-dialog-title">
+              {editingDivision ? "Upraviť divíziu" : "Pridať divíziu"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Kod</label>
-              <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="napr. FIN" data-testid="input-division-code" />
+              <label className="text-sm font-medium">Názov <span className="text-destructive">*</span></label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="napr. Finančný trh" data-testid="input-division-name" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Kód</label>
+                <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="napr. FIN" data-testid="input-division-code" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Emotikon divízie</label>
+                <div className="flex items-center gap-2">
+                  <div className={[
+                    "flex items-center justify-center w-11 h-10 rounded-md border text-2xl flex-shrink-0",
+                    emoji ? "border-border bg-background" : "border-dashed border-muted-foreground/40 bg-muted/30"
+                  ].join(" ")} data-testid="display-division-emoji">
+                    {emoji || <span className="text-muted-foreground text-xs">–</span>}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 justify-start gap-2"
+                    onClick={() => setPickerOpen(true)}
+                    data-testid="button-open-emoji-picker"
+                  >
+                    <Smile className="w-4 h-4 text-muted-foreground" />
+                    {emoji ? "Zmeniť emotikon" : "Vybrať emotikon"}
+                  </Button>
+                </div>
+                {emojiDuplicate && (
+                  <p className="text-xs text-destructive" data-testid="text-emoji-duplicate-warning">
+                    Tento emotikon sa už používa v inej divízii
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Popis</label>
+              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Popis divízie" data-testid="input-division-description" rows={3} />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Emoji</label>
-              <Input value={emoji} onChange={(e) => setEmoji(e.target.value)} placeholder="Automaticky priradené" data-testid="input-division-emoji" className="text-lg" />
-              {emojiDuplicate && (
-                <p className="text-xs text-destructive" data-testid="text-emoji-duplicate-warning">Tento emoji sa už používa v inej divízii rovnakej spoločnosti</p>
-              )}
+              <label className="text-sm font-medium">Dátum vytvorenia divízie</label>
+              <Input type="date" value={foundedDate} onChange={(e) => setFoundedDate(e.target.value)} data-testid="input-division-founded-date" />
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch checked={isActive} onCheckedChange={setIsActive} data-testid="switch-division-active" />
+              <label className="text-sm font-medium">Aktívna divízia</label>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-division">Zrušiť</Button>
+              <Button onClick={handleSubmit} disabled={isPending} data-testid="button-save-division">
+                {isPending ? "Ukladá sa..." : "Uložiť"}
+              </Button>
             </div>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Popis</label>
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Popis divizie" data-testid="input-division-description" rows={3} />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Datum vytvorenia divizie</label>
-            <Input type="date" value={foundedDate} onChange={(e) => setFoundedDate(e.target.value)} data-testid="input-division-founded-date" />
-          </div>
-          <div className="flex items-center gap-3">
-            <Switch checked={isActive} onCheckedChange={setIsActive} data-testid="switch-division-active" />
-            <label className="text-sm font-medium">Aktivna divizia</label>
-          </div>
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-division">Zrusit</Button>
-            <Button onClick={handleSubmit} disabled={isPending} data-testid="button-save-division">
-              {isPending ? "Uklada sa..." : "Ulozit"}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <EmojiPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        selected={emoji}
+        usedEmojis={usedEmojis}
+        onSelect={setEmoji}
+      />
+    </>
   );
 }
 
@@ -368,10 +500,10 @@ function DivisionCompaniesDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/divisions", division?.id, "companies"] });
       queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
-      toast({ title: "Uspech", description: "Spolocnost priradena" });
+      toast({ title: "Úspech", description: "Spoločnosť priradená" });
       setAddCompanyId("");
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa priradit spolocnost", variant: "destructive" }),
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa priradiť spoločnosť", variant: "destructive" }),
   });
 
   const removeMutation = useMutation({
@@ -379,9 +511,9 @@ function DivisionCompaniesDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/divisions", division?.id, "companies"] });
       queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
-      toast({ title: "Uspech", description: "Prepojenie odstranene" });
+      toast({ title: "Úspech", description: "Prepojenie odstránené" });
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odstranit prepojenie", variant: "destructive" }),
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odstrániť prepojenie", variant: "destructive" }),
   });
 
   const linkedCompanyIds = (linkedCompanies || []).map((lc: any) => lc.company?.id || lc.companyId);
@@ -392,14 +524,14 @@ function DivisionCompaniesDialog({
       <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle data-testid="text-division-companies-title">
-            Spolocnosti v divizii: {division?.name}
+            Spoločnosti v divízii: {(division as any)?.emoji} {division?.name}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Select value={addCompanyId} onValueChange={setAddCompanyId}>
               <SelectTrigger className="flex-1" data-testid="select-add-company-to-division">
-                <SelectValue placeholder="Vyberte spolocnost na priradenie" />
+                <SelectValue placeholder="Vyberte spoločnosť na priradenie" />
               </SelectTrigger>
               <SelectContent>
                 {availableCompanies.map(c => (
@@ -412,30 +544,30 @@ function DivisionCompaniesDialog({
               disabled={!addCompanyId || addMutation.isPending}
               data-testid="button-add-company-to-division"
             >
-              <Link2 className="w-4 h-4 mr-2" /> Priradit
+              <Link2 className="w-4 h-4 mr-2" /> Priradiť
             </Button>
           </div>
 
           {isLoading ? (
-            <div className="text-center text-muted-foreground py-4">Nacitavam...</div>
+            <div className="text-center text-muted-foreground py-4">Načítavam...</div>
           ) : !(linkedCompanies || []).length ? (
-            <div className="text-center text-muted-foreground py-4">Ziadne priradene spolocnosti</div>
+            <div className="text-center text-muted-foreground py-4">Žiadne priradené spoločnosti</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Spolocnost</TableHead>
-                  <TableHead>Kod</TableHead>
-                  <TableHead>Specializacia</TableHead>
+                  <TableHead>Spoločnosť</TableHead>
+                  <TableHead>Kód</TableHead>
+                  <TableHead>Špecializácia</TableHead>
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(linkedCompanies || []).map((link: any) => (
                   <TableRow key={link.id}>
-                    <TableCell className="font-medium" data-testid={`text-linked-company-${link.id}`}>{link.company?.name || "-"}</TableCell>
-                    <TableCell><Badge variant="secondary">{link.company?.code || "-"}</Badge></TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{link.company?.specialization || "-"}</TableCell>
+                    <TableCell className="font-medium" data-testid={`text-linked-company-${link.id}`}>{link.company?.name || "–"}</TableCell>
+                    <TableCell><Badge variant="secondary">{link.company?.code || "–"}</Badge></TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{link.company?.specialization || "–"}</TableCell>
                     <TableCell className="text-right">
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -443,7 +575,7 @@ function DivisionCompaniesDialog({
                             <Unlink className="w-4 h-4 text-destructive" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Odstranit prepojenie</TooltipContent>
+                        <TooltipContent>Odstrániť prepojenie</TooltipContent>
                       </Tooltip>
                     </TableCell>
                   </TableRow>
