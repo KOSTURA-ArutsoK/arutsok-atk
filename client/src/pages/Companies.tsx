@@ -56,6 +56,7 @@ interface BranchEntry {
   name?: string;
   street?: string;
   streetNumber?: string;
+  orientNumber?: string;
   postalCode?: string;
   city?: string;
   stateId?: number;
@@ -1127,14 +1128,15 @@ function CompanyFormDialog({
                     <MapPin className="w-4 h-4 text-muted-foreground" />
                     <h4 className="text-sm font-medium">Adresa sídla</h4>
                   </div>
-                  <FormField control={form.control} name="street" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ulica *</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-street" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <div className="grid grid-cols-2 gap-4">
+                  {/* R1: Ulica 50% · Číslo popisné 25% · Číslo orientačné 25% */}
+                  <div className="grid grid-cols-4 gap-4">
+                    <FormField control={form.control} name="street" render={({ field }) => (
+                      <FormItem className="col-span-2">
+                        <FormLabel>Ulica *</FormLabel>
+                        <FormControl><Input {...field} value={field.value || ""} data-testid="input-street" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
                     <FormField control={form.control} name="streetNumber" render={({ field }) => (
                       <FormItem>
                         <FormLabel>Popisné číslo</FormLabel>
@@ -1144,13 +1146,14 @@ function CompanyFormDialog({
                     )} />
                     <FormField control={form.control} name="orientNumber" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Orientačné číslo *</FormLabel>
+                        <FormLabel>Orientačné číslo</FormLabel>
                         <FormControl><Input {...field} value={field.value || ""} data-testid="input-orient-number" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
+                  {/* R2: PSČ 20% · Mesto 40% · Štát 40% */}
+                  <div className="grid grid-cols-5 gap-4">
                     <FormField control={form.control} name="postalCode" render={({ field }) => (
                       <FormItem>
                         <FormLabel>PSČ *</FormLabel>
@@ -1159,14 +1162,14 @@ function CompanyFormDialog({
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="city" render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="col-span-2">
                         <FormLabel>Mesto / Obec *</FormLabel>
                         <FormControl><Input {...field} value={field.value || ""} data-testid="input-city" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="stateId" render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="col-span-2">
                         <FormLabel>Štát *</FormLabel>
                         <Select onValueChange={(v) => field.onChange(Number(v))} value={field.value ? String(field.value) : ""}>
                           <FormControl>
@@ -1214,14 +1217,15 @@ function CompanyFormDialog({
                   </div>
                   {!corrSameAsHQ && (
                     <>
-                      <FormField control={form.control} name="corrStreet" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Ulica *</FormLabel>
-                          <FormControl><Input {...field} value={field.value || ""} data-testid="input-corr-street" /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <div className="grid grid-cols-2 gap-4">
+                      {/* R1: Ulica 50% · Číslo popisné 25% · Číslo orientačné 25% */}
+                      <div className="grid grid-cols-4 gap-4">
+                        <FormField control={form.control} name="corrStreet" render={({ field }) => (
+                          <FormItem className="col-span-2">
+                            <FormLabel>Ulica *</FormLabel>
+                            <FormControl><Input {...field} value={field.value || ""} data-testid="input-corr-street" /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
                         <FormField control={form.control} name="corrStreetNumber" render={({ field }) => (
                           <FormItem>
                             <FormLabel>Popisné číslo</FormLabel>
@@ -1231,13 +1235,14 @@ function CompanyFormDialog({
                         )} />
                         <FormField control={form.control} name="corrOrientNumber" render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Orientačné číslo *</FormLabel>
+                            <FormLabel>Orientačné číslo</FormLabel>
                             <FormControl><Input {...field} value={field.value || ""} data-testid="input-corr-orient-number" /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )} />
                       </div>
-                      <div className="grid grid-cols-3 gap-4">
+                      {/* R2: PSČ 20% · Mesto 40% · Štát 40% */}
+                      <div className="grid grid-cols-5 gap-4">
                         <FormField control={form.control} name="corrPostalCode" render={({ field }) => (
                           <FormItem>
                             <FormLabel>PSČ *</FormLabel>
@@ -1246,14 +1251,14 @@ function CompanyFormDialog({
                           </FormItem>
                         )} />
                         <FormField control={form.control} name="corrCity" render={({ field }) => (
-                          <FormItem>
+                          <FormItem className="col-span-2">
                             <FormLabel>Mesto / Obec *</FormLabel>
                             <FormControl><Input {...field} value={field.value || ""} data-testid="input-corr-city" /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )} />
                         <FormField control={form.control} name="corrStateId" render={({ field }) => (
-                          <FormItem>
+                          <FormItem className="col-span-2">
                             <FormLabel>Štát *</FormLabel>
                             <Select onValueChange={(v) => field.onChange(Number(v))} value={field.value ? String(field.value) : ""}>
                               <FormControl>
@@ -1296,27 +1301,29 @@ function CompanyFormDialog({
                     </p>
 
                     <Input placeholder="Názov pobočky" value={newBranch.name || ""} onChange={e => setNewBranch(p => ({ ...p, name: e.target.value }))} data-testid="input-branch-name" />
-                    <div className="grid grid-cols-3 gap-3">
+                    {/* R1: Ulica 50% · Číslo popisné 25% · Číslo orientačné 25% */}
+                    <div className="grid grid-cols-4 gap-3">
                       <Input placeholder="Ulica" value={newBranch.street || ""} onChange={e => setNewBranch(p => ({ ...p, street: e.target.value }))} className="col-span-2" data-testid="input-branch-street" />
-                      <Input placeholder="Číslo" value={newBranch.streetNumber || ""} onChange={e => setNewBranch(p => ({ ...p, streetNumber: e.target.value }))} data-testid="input-branch-street-number" />
+                      <Input placeholder="Číslo popisné" value={newBranch.streetNumber || ""} onChange={e => setNewBranch(p => ({ ...p, streetNumber: e.target.value }))} data-testid="input-branch-street-number" />
+                      <Input placeholder="Číslo orient." value={newBranch.orientNumber || ""} onChange={e => setNewBranch(p => ({ ...p, orientNumber: e.target.value }))} data-testid="input-branch-orient-number" />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* R2: PSČ 20% · Mesto 40% · Štát 40% */}
+                    <div className="grid grid-cols-5 gap-3">
                       <Input placeholder="PSČ" value={newBranch.postalCode || ""} onChange={e => setNewBranch(p => ({ ...p, postalCode: e.target.value }))} data-testid="input-branch-postal" />
-                      <Input placeholder="Mesto" value={newBranch.city || ""} onChange={e => setNewBranch(p => ({ ...p, city: e.target.value }))} data-testid="input-branch-city" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium">Štát</label>
-                      <Select
-                        value={newBranch.stateId ? String(newBranch.stateId) : ""}
-                        onValueChange={(v) => setNewBranch(p => ({ ...p, stateId: Number(v) }))}
-                      >
-                        <SelectTrigger data-testid="select-branch-state">
-                          <SelectValue placeholder="Vybrať štát" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {allStates?.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <Input placeholder="Mesto" value={newBranch.city || ""} onChange={e => setNewBranch(p => ({ ...p, city: e.target.value }))} className="col-span-2" data-testid="input-branch-city" />
+                      <div className="col-span-2">
+                        <Select
+                          value={newBranch.stateId ? String(newBranch.stateId) : ""}
+                          onValueChange={(v) => setNewBranch(p => ({ ...p, stateId: Number(v) }))}
+                        >
+                          <SelectTrigger data-testid="select-branch-state">
+                            <SelectValue placeholder="Vybrať štát" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allStates?.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
 
                     <Separator />
