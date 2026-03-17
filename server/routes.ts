@@ -19136,8 +19136,7 @@ export async function registerRoutes(
       const withOfficerSetCount = new Set(companiesWithOfficerUidCount.map(r => r.companyId));
       const companiesWithoutOfficersCount = allActiveCompaniesCount.filter(c => !withOfficerSetCount.has(c.id)).length;
 
-      const nonCalendarCount = transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount + companiesWithoutOfficersCount;
-
+      let nbsReportCount = 0;
       let nbsAlert = { show: false, daysLeft: 0 };
       if (isAdmin(appUser)) {
         const now = new Date();
@@ -19170,6 +19169,7 @@ export async function registerRoutes(
 
             const report = allNbsReports.find(r => r.year === year && r.period === period);
             if (!report || report.status !== "sent") {
+              nbsReportCount++;
               if (daysLeft < closestDays) closestDays = daysLeft;
             }
           }
@@ -19179,6 +19179,8 @@ export async function registerRoutes(
           nbsAlert = { show: true, daysLeft: closestDays };
         }
       }
+
+      const nonCalendarCount = transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount + companiesWithoutOfficersCount + nbsReportCount;
 
       res.json({
         count: nonCalendarCount > 0 ? nonCalendarCount : todayEventsCount,
