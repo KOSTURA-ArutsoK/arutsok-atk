@@ -523,7 +523,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         }}
                         data-testid="button-company-switcher"
                       >
-                        <Building2 className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
+                        {(() => {
+                          const logos = activeCompany?.logos as any[] | undefined;
+                          const pLogo = logos?.find((l: any) => l.isPrimary && !l.isArchived);
+                          return pLogo ? (
+                            <img src={pLogo.url} alt="" className="w-4 h-4 rounded-sm object-contain flex-shrink-0" />
+                          ) : (
+                            <Building2 className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
+                          );
+                        })()}
                         <span className="text-[11px] font-medium truncate max-w-[140px] text-zinc-200">
                           {activeCompany?.name || "Firma"}
                         </span>

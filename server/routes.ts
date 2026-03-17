@@ -3139,6 +3139,33 @@ export async function registerRoutes(
     }
   });
 
+  app.put("/api/my-companies/:companyId/logos/archive", isAuthenticated, async (req, res) => {
+    try {
+      const companyId = Number(req.params.companyId);
+      const { logoUrl } = req.body;
+      if (!logoUrl || typeof logoUrl !== "string") {
+        return res.status(400).json({ message: "logoUrl is required" });
+      }
+      const company = await storage.getMyCompany(companyId);
+      if (!company) return res.status(404).json({ message: "Company not found" });
+
+      const currentLogos = (company.logos as any[]) || [];
+      const logoExists = currentLogos.some((l: any) => l.url === logoUrl);
+      if (!logoExists) return res.status(404).json({ message: "Logo not found" });
+
+      const updatedLogos = currentLogos.map((l: any) => ({
+        ...l,
+        isArchived: l.url === logoUrl ? true : l.isArchived,
+        isPrimary: l.url === logoUrl ? false : l.isPrimary,
+      }));
+
+      await storage.updateMyCompany(companyId, { logos: updatedLogos, changeReason: "Logo archived" });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to archive logo" });
+    }
+  });
+
   // === STATE ISOLATION HELPER ===
   function getEnforcedStateId(req: any): number | undefined {
     const queryStateId = req.query.stateId ? parseInt(req.query.stateId as string) : undefined;

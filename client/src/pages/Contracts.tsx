@@ -1402,9 +1402,22 @@ function ContractFormDialog({
                   <SelectValue placeholder="Vyberte spolocnost" />
                 </SelectTrigger>
                 <SelectContent>
-                  {companies?.filter(c => !c.isDeleted).map(c => (
-                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                  ))}
+                  {companies?.filter(c => !c.isDeleted).map(c => {
+                    const logos = c.logos as any[] | undefined;
+                    const pLogo = logos?.find((l: any) => l.isPrimary && !l.isArchived);
+                    return (
+                      <SelectItem key={c.id} value={c.id.toString()}>
+                        <span className="flex items-center gap-2">
+                          {pLogo ? (
+                            <img src={pLogo.url} alt="" className="w-4 h-4 rounded-sm object-contain flex-shrink-0" />
+                          ) : (
+                            <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          )}
+                          {c.name}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

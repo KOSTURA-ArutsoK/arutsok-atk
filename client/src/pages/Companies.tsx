@@ -3,7 +3,7 @@ import DOMPurify from "dompurify";
 import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyCompany } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
-import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Phone, Mail, GitBranch, Info, UserCheck, UserPlus, Users, Camera, UserCog } from "lucide-react";
+import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Phone, Mail, GitBranch, Info, UserCheck, UserPlus, Users, Camera, UserCog, Archive } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak, formatUid } from "@/lib/utils";
@@ -212,6 +212,7 @@ function formatProcessingTime(seconds: number): string {
 function LogoUploadSection({ companyId, company }: { companyId: number | null; company: MyCompany | null }) {
   const [uploading, setUploading] = useState(false);
   const [settingPrimary, setSettingPrimary] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -257,6 +258,27 @@ function LogoUploadSection({ companyId, company }: { companyId: number | null; c
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleArchive() {
+    if (!companyId || !primaryLogo) return;
+    setArchiving(true);
+    try {
+      const res = await fetch(`/api/my-companies/${companyId}/logos/archive`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logoUrl: primaryLogo.url }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed");
+      qc.invalidateQueries({ queryKey: ["/api/my-companies"] });
+      qc.invalidateQueries({ queryKey: ["/api/my-companies", companyId, "logo-history"] });
+      toast({ title: "Logo archivované", description: "Primárne logo bolo archivované." });
+    } catch {
+      toast({ title: "Chyba", description: "Nepodarilo sa archivovať logo.", variant: "destructive" });
+    } finally {
+      setArchiving(false);
     }
   }
 
@@ -313,6 +335,10 @@ function LogoUploadSection({ companyId, company }: { companyId: number | null; c
           </div>
           <Button type="button" size="icon" variant="ghost" onClick={() => window.open(primaryLogo.url, "_blank")} data-testid="button-view-primary-logo">
             <Eye className="w-4 h-4" />
+          </Button>
+          <Button type="button" size="sm" variant="outline" className="h-8 text-xs px-2.5 gap-1.5" onClick={handleArchive} disabled={archiving} data-testid="button-archive-logo">
+            {archiving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Archive className="w-3.5 h-3.5" />}
+            Archivovať
           </Button>
         </div>
       )}
