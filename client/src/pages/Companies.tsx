@@ -107,6 +107,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -905,7 +906,7 @@ function CompanyFormDialog({
           </DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
+          <form id="company-form" onSubmit={form.handleSubmit(onSubmit)}>
             <Tabs defaultValue="basic" className="w-full">
               <TabsList className="flex flex-wrap h-auto gap-1 justify-between w-full">
                 <TabsTrigger value="basic" data-testid="tab-basic">Základné údaje</TabsTrigger>
@@ -1771,24 +1772,22 @@ function CompanyFormDialog({
               </TabsContent>
             </Tabs>
 
-            <div className="flex items-center justify-between gap-2 mt-6 flex-wrap">
-              {editingCompany && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="w-3 h-3" />
-                  <span>Čas spracovania: {formatProcessingTime(editingCompany.processingTimeSec || 0)}</span>
-                </div>
-              )}
-              <div className="flex gap-2 ml-auto">
-                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-cancel">
-                  Zrušiť
-                </Button>
-                <Button type="submit" disabled={isPending} data-testid="button-save">
-                  {isPending ? "Ukladám..." : "Uložiť"}
-                </Button>
-              </div>
-            </div>
           </form>
         </Form>
+        <DialogFooter>
+          {editingCompany && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mr-auto">
+              <Clock className="w-3 h-3" />
+              <span>Čas spracovania: {formatProcessingTime(editingCompany.processingTimeSec || 0)}</span>
+            </div>
+          )}
+          <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-cancel">
+            Zrušiť
+          </Button>
+          <Button type="submit" form="company-form" disabled={isPending} data-testid="button-save">
+            {isPending ? "Ukladám..." : "Uložiť"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

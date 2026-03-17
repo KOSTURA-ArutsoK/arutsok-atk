@@ -37,9 +37,9 @@ interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof Dialo
 
 const SIZE_CLASSES: Record<DialogSize, string> = {
   sm: "max-w-[500px] w-[90%]",
-  md: "max-w-[600px] w-[90%]",
-  lg: "max-w-[800px] w-[90%]",
-  xl: "sm:max-w-[95vw] max-w-[95vw] w-[90%] max-h-[85vh]",
+  md: "max-w-[600px] w-[90%] h-[85vh]",
+  lg: "max-w-[800px] w-[90%] h-[85vh]",
+  xl: "sm:max-w-[95vw] max-w-[95vw] w-[90%] h-[85vh]",
   full: "max-w-[100vw] w-[100vw] h-[95vh] rounded-none",
   auto: "max-w-[500px] w-[90%]",
 };
