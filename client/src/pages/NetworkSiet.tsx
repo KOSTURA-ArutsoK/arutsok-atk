@@ -230,7 +230,7 @@ export default function NetworkSiet() {
     });
   }, []);
 
-  const renderTreeNode = useCallback((subjectId: number, depth: number = 0): JSX.Element | null => {
+  const renderTreeNode = useCallback((subjectId: number, depth: number = 0, link?: NetworkLink): JSX.Element | null => {
     const subject = subjectMap.get(subjectId);
     if (!subject) return null;
     const children = treeData.childrenMap?.get(subjectId) || [];
@@ -240,30 +240,29 @@ export default function NetworkSiet() {
     return (
       <div key={subjectId} className="select-none" style={{ marginLeft: depth * 24 }}>
         <div
-          className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-accent/50 cursor-pointer group"
+          className="flex items-center gap-3 py-1 px-2 rounded hover:bg-accent/50 cursor-pointer group"
           onClick={() => hasChildren && toggleNode(subjectId)}
           data-testid={`tree-node-${subjectId}`}
         >
-          {hasChildren ? (
-            isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          ) : (
-            <div className="w-4" />
-          )}
-          <div className={`w-2 h-2 rounded-full ${subject.registrationStatus === "klient" ? "bg-amber-400" : subject.registrationStatus === "tiper" ? "bg-purple-400" : "bg-muted-foreground"}`} />
-          <span className="text-sm font-medium text-foreground">{getSubjectName(subject)}</span>
-          <span className="text-xs text-muted-foreground ml-1">{formatUid(subject.uid)}</span>
-          {hasChildren && <span className="text-xs text-muted-foreground/60 ml-auto">{children.length}</span>}
-        </div>
-        {isExpanded && children.map(({ link, subject: child }) => (
-          <div key={link.id}>
-            <div className="flex items-center gap-1 ml-6 text-xs text-muted-foreground" style={{ marginLeft: (depth + 1) * 24 }}>
-              <span className="text-muted-foreground/50">└</span>
-              {linkTypeBadge(link.linkType)}
-              {phaseBadge(link.phase)}
-              {link.roleOnContract && <span className="text-muted-foreground">({link.roleOnContract})</span>}
-            </div>
-            {renderTreeNode(child.id, depth + 1)}
+          {/* expand chevron */}
+          <div className="w-4 shrink-0">
+            {hasChildren
+              ? (isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />)
+              : null}
           </div>
+          {/* status dot */}
+          <div className={`w-2 h-2 rounded-full shrink-0 ${subject.registrationStatus === "klient" ? "bg-amber-400" : subject.registrationStatus === "tiper" ? "bg-purple-400" : "bg-muted-foreground"}`} />
+          {/* name */}
+          <span className="text-sm font-medium text-foreground min-w-[180px]">{getSubjectName(subject)}</span>
+          {/* uid – fixed width mono so columns align */}
+          <span className="text-xs font-mono text-muted-foreground w-[148px] shrink-0">{formatUid(subject.uid)}</span>
+          {/* badges from parent link */}
+          {link && <div className="flex items-center gap-1.5 shrink-0">{linkTypeBadge(link.linkType)}{phaseBadge(link.phase)}</div>}
+          {/* children count */}
+          {hasChildren && <span className="text-xs text-muted-foreground/50 ml-auto">{children.length}</span>}
+        </div>
+        {isExpanded && children.map(({ link: childLink, subject: child }) => (
+          renderTreeNode(child.id, depth + 1, childLink)
         ))}
       </div>
     );
