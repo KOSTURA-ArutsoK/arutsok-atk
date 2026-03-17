@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
-import { formatPhone } from "@/lib/utils";
+import { formatPhone, normalizePhone } from "@/lib/utils";
 import { validateSlovakRC } from "@shared/rc-validator";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -221,7 +221,7 @@ export default function RegisterPage() {
                       type="tel"
                       placeholder="+421 900 000 000"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => setPhone(normalizePhone(e.target.value) || e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();

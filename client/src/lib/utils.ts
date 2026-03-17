@@ -106,23 +106,46 @@ export function isSemaphoreDateField(fieldName: string): boolean {
   return keywords.some(k => lower.includes(k));
 }
 
+const PHONE_FLAG_MAP: Array<[string, string]> = [
+  ['+421', '🇸🇰'], ['+420', '🇨🇿'], ['+380', '🇺🇦'], ['+358', '🇫🇮'],
+  ['+351', '🇵🇹'], ['+359', '🇧🇬'], ['+385', '🇭🇷'], ['+386', '🇸🇮'],
+  ['+381', '🇷🇸'], ['+353', '🇮🇪'], ['+354', '🇮🇸'], ['+371', '🇱🇻'],
+  ['+370', '🇱🇹'], ['+372', '🇪🇪'], ['+48', '🇵🇱'],  ['+49', '🇩🇪'],
+  ['+43', '🇦🇹'],  ['+36', '🇭🇺'],  ['+44', '🇬🇧'],  ['+33', '🇫🇷'],
+  ['+39', '🇮🇹'],  ['+34', '🇪🇸'],  ['+31', '🇳🇱'],  ['+32', '🇧🇪'],
+  ['+41', '🇨🇭'],  ['+45', '🇩🇰'],  ['+46', '🇸🇪'],  ['+47', '🇳🇴'],
+  ['+40', '🇷🇴'],  ['+30', '🇬🇷'],  ['+90', '🇹🇷'],  ['+7', '🇷🇺'],
+  ['+1', '🇺🇸'],
+];
+
+export const normalizePhone = (raw: string | null | undefined): string => {
+  if (!raw) return '';
+  let c = raw.replace(/[^\d+]/g, '');
+  if (c.startsWith('00')) c = '+' + c.slice(2);
+  if (/^09\d{8}$/.test(c)) c = '+421' + c.slice(1);
+  else if (/^9\d{8}$/.test(c)) c = '+421' + c;
+  return c;
+};
+
 export const formatPhone = (phone: string | null | undefined): string => {
   if (!phone) return '-';
-  let digits = phone.replace(/\s+/g, '');
-  if (digits.startsWith('00')) {
-    digits = '+' + digits.slice(2);
-  }
-  if (!digits.startsWith('+') && digits.length >= 10) {
-    digits = '+' + digits;
-  }
-  if (digits.startsWith('+') && digits.length >= 12) {
-    const cc = digits.slice(0, 4);
-    const rest = digits.slice(4);
+  const n = normalizePhone(phone);
+  if (!n) return phone;
+  if (n.startsWith('+')) {
+    for (const [prefix, flag] of PHONE_FLAG_MAP) {
+      if (n.startsWith(prefix)) {
+        const rest = n.slice(prefix.length);
+        const groups = rest.match(/.{1,3}/g) || [];
+        return `${flag} ${prefix} ${groups.join(' ')}`;
+      }
+    }
+    const cc = n.slice(0, 4);
+    const rest = n.slice(4);
     const groups = rest.match(/.{1,3}/g) || [];
-    return `${cc} ${groups.join(' ')}`;
+    return `📞 ${cc} ${groups.join(' ')}`;
   }
-  if (digits.length >= 9) {
-    const groups = digits.match(/.{1,3}/g) || [];
+  if (n.length >= 9) {
+    const groups = n.match(/.{1,3}/g) || [];
     return groups.join(' ');
   }
   return phone;

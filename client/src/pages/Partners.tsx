@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContacts, usePartnerProducts, useCreatePartnerContact, useCreatePartnerProduct, useUpdatePartnerLifecycleStatus } from "@/hooks/use-partners";
 import { useAppUser } from "@/hooks/use-app-user";
-import { formatDateSlovak, formatPhone, formatUid, canCreateRecords, canEditRecords, canDeleteRecords } from "@/lib/utils";
+import { formatDateSlovak, formatPhone, formatUid, canCreateRecords, canEditRecords, canDeleteRecords, normalizePhone } from "@/lib/utils";
 import { Plus, Briefcase, Pencil, Trash2, Clock, Users, Package, Calendar, Archive, MapPin, Circle, FastForward, Play, Pause, Upload, Square } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -642,7 +642,7 @@ function PartnerUnifiedDialog({
                     <Input placeholder="Meno" value={newContactFirst} onChange={e => setNewContactFirst(e.target.value)} data-testid="input-contact-first" />
                     <Input placeholder="Priezvisko" value={newContactLast} onChange={e => setNewContactLast(e.target.value)} data-testid="input-contact-last" />
                     <Input placeholder="Email" value={newContactEmail} onChange={e => setNewContactEmail(e.target.value)} data-testid="input-contact-email" />
-                    <Input placeholder="Telefon" value={newContactPhone} onChange={e => setNewContactPhone(e.target.value)} data-testid="input-contact-phone" />
+                    <Input placeholder="Telefon" value={newContactPhone} onChange={e => setNewContactPhone(normalizePhone(e.target.value) || e.target.value)} data-testid="input-contact-phone" />
                     <Input placeholder="Pozicia" value={newContactPosition} onChange={e => setNewContactPosition(e.target.value)} data-testid="input-contact-position" />
                     <div className="flex flex-col gap-1">
                       <label className="text-xs text-muted-foreground">Aktivny od</label>

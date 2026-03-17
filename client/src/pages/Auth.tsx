@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Shield, Lock, AlertTriangle, Mail, Eye, EyeOff, Phone, CheckCircle, Users, ArrowRight } from "lucide-react";
-import { formatUid } from "@/lib/utils";
+import { formatUid, normalizePhone } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -292,7 +292,7 @@ export default function AuthPage() {
                       type="tel"
                       placeholder="+421 9XX XXX XXX"
                       value={newPhone}
-                      onChange={(e) => setNewPhone(e.target.value)}
+                      onChange={(e) => setNewPhone(normalizePhone(e.target.value) || e.target.value)}
                       className="pl-10"
                       autoFocus
                       data-testid="input-new-phone"

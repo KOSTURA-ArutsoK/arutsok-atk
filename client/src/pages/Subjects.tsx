@@ -5,7 +5,7 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak, formatDateTimeSlovak, formatPhone, formatUid, canCreateSubjects, canEditRecords } from "@/lib/utils";
+import { formatDateSlovak, formatDateTimeSlovak, formatPhone, formatUid, canCreateSubjects, canEditRecords, normalizePhone } from "@/lib/utils";
 import { validateSlovakRC } from "@shared/rc-validator";
 import { validateSlovakICO } from "@shared/ico-validator";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, type ValidityResult } from "@/lib/document-validity";
@@ -2311,7 +2311,7 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
         <Input
           type="tel"
           value={dynamicValues[field.fieldKey] || ""}
-          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}
+          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: normalizePhone(e.target.value) || e.target.value }))}
           className={errorBorder}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
@@ -3924,7 +3924,7 @@ function FullPageEditor({
                     <FormField control={form.control} name="phone" render={({ field }) => (
                       <FormItem className="w-[200px] min-w-[160px] shrink-0">
                         <FormLabel>Telefón</FormLabel>
-                        <FormControl><Input type="tel" {...field} value={field.value || ""} data-testid="input-subject-phone" /></FormControl>
+                        <FormControl><Input type="tel" {...field} value={field.value || ""} onChange={e => field.onChange(normalizePhone(e.target.value) || e.target.value)} data-testid="input-subject-phone" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
