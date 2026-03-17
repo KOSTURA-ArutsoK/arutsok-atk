@@ -47,7 +47,6 @@ interface BranchEmployee {
   titleAfter?: string;
   phones?: string[];
   emails?: string[];
-  otherContact?: string;
   status?: "active" | "inactive" | "temporarily_inactive";
   inactiveUntil?: string;
   statusHistory?: StatusHistoryEntry[];
@@ -1456,8 +1455,6 @@ function CompanyFormDialog({
                             {empEmails.length === 0 && <p className="text-xs text-muted-foreground">Žiadne e-maily</p>}
                           </div>
 
-                          <Textarea placeholder="Iný kontakt (poznámka)" value={newEmployee.otherContact || ""} onChange={e => setNewEmployee(p => ({ ...p, otherContact: e.target.value }))} className="text-sm h-16 resize-none" data-testid="input-emp-other-contact" />
-
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
                               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">História stavu</label>
@@ -2011,7 +2008,6 @@ function CompanyDetailDialog({
                                           </div>
                                         );
                                       })()}
-                                      {emp.otherContact && <p className="text-[10px] text-muted-foreground/70 truncate">{emp.otherContact}</p>}
                                     </div>
                                   </div>
                                 ))}
