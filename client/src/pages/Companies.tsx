@@ -2884,7 +2884,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
         <div className="space-y-2">
           {officers.map((off: any) => (
             <div key={off.id} className="flex items-center gap-3 p-3 border border-border rounded-md text-sm" data-testid={`officer-db-${off.id}`}>
-              <UserCheck className="w-4 h-4 text-green-500 flex-shrink-0" />
+              <UserCheck className={`w-4 h-4 flex-shrink-0 ${off.inactiveFrom ? "text-red-500" : "text-green-500"}`} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium">
