@@ -2240,11 +2240,8 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setTransferParam(null)} data-testid="transfer-dialog-overlay">
           <Card className="w-96 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()} data-testid="transfer-dialog">
             <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold">Presunúť parameter</h3>
-                <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setTransferParam(null)}>
-                  <X className="w-4 h-4" />
-                </Button>
               </div>
               <p className="text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">{transferParam.paramLabel}</span> — vyberte cieľový panel:
@@ -2277,6 +2274,11 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                   Presúvam...
                 </div>
               )}
+              <div className="flex justify-start pt-1 border-t border-border">
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setTransferParam(null)} data-testid="button-transfer-cancel">
+                  Zrušiť
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
