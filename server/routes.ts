@@ -1454,12 +1454,73 @@ export async function registerRoutes(
     }
   });
 
-  app.put("/api/company-officers/:id", isAuthenticated, async (req, res) => {
+  app.get("/api/company-officers/:id/rc", isAuthenticated, async (req: any, res) => {
     try {
-      const updated = await storage.updateCompanyOfficer(Number(req.params.id), req.body);
-      res.json(updated);
-    } catch (err) {
-      res.status(500).json({ message: "Internal error" });
+      const officerId = Number(req.params.id);
+      const [officer] = await db.select().from(companyOfficers).where(eq(companyOfficers.id, officerId));
+      if (!officer) return res.status(404).json({ message: "Nenájdený" });
+      if (!officer.subjectId) return res.json({ birthNumber: null });
+      const subject = await storage.getSubject(officer.subjectId);
+      if (!subject) return res.json({ birthNumber: null });
+      const raw = subject.birthNumber ? decryptField(subject.birthNumber) || subject.birthNumber : null;
+      return res.json({ birthNumber: raw });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  app.put("/api/company-officers/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const officerId = Number(req.params.id);
+      if (isNaN(officerId)) return res.status(400).json({ message: "Neplatné ID" });
+
+      const { birthNumber: bnRaw, ...officerFields } = req.body;
+
+      // strip birthNumber from officer table fields (not stored there)
+      delete officerFields.birthNumber;
+
+      const updated = await storage.updateCompanyOfficer(officerId, officerFields);
+
+      // If birthNumber provided, update or create subject
+      if (typeof bnRaw === 'string') {
+        const cleanBn = bnRaw.replace(/\//g, '').replace(/\s/g, '').trim();
+        if (cleanBn) {
+          const encrypted = encryptField(cleanBn);
+          if (updated.subjectId) {
+            await db.update(subjects).set({ birthNumber: encrypted }).where(eq(subjects.id, updated.subjectId));
+          } else {
+            // create subject with RC
+            let stateCode = '421';
+            if (req.appUser?.activeStateId) {
+              const st = await storage.getState(req.appUser.activeStateId);
+              if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
+            }
+            const uid = await storage.generateNextGlobalUid(stateCode);
+            const newSubject = await storage.createSubject({
+              uid,
+              type: 'person' as any,
+              firstName: updated.firstName || null,
+              lastName: updated.lastName || null,
+              stateId: req.appUser?.activeStateId || null,
+              myCompanyId: req.appUser?.activeCompanyId || null,
+              registeredByUserId: req.appUser?.id || null,
+              registrationStatus: 'tiper',
+              birthNumber: encrypted,
+              details: { source: 'officer_edit', officerId, officerType: updated.type },
+            } as any);
+            await storage.updateCompanyOfficer(officerId, { subjectId: newSubject.id } as any);
+            await logAudit(req, { action: "CREATE", module: "subjekty", entityId: newSubject.id, entityName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim(), newData: { uid } });
+          }
+        }
+      }
+
+      await logAudit(req, { action: "UPDATE", module: "spolocnosti", entityId: officerId, entityName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim() });
+
+      const [fresh] = await db.select().from(companyOfficers).where(eq(companyOfficers.id, officerId));
+      res.json(fresh);
+    } catch (err: any) {
+      console.error("[OFFICER UPDATE]", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
     }
   });
 

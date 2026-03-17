@@ -2516,6 +2516,12 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
   const [manualForm, setManualForm] = useState({ titleBefore: "", firstName: "", lastName: "", titleAfter: "", type: "Konateľ", city: "", rc: "" });
   const [pendingRegistryDir, setPendingRegistryDir] = useState<RegistryDirector | null>(null);
   const [rcInput, setRcInput] = useState("");
+  const [editingOfficer, setEditingOfficer] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState<{
+    titleBefore: string; firstName: string; lastName: string; titleAfter: string;
+    type: string; city: string; street: string; streetNumber: string; orientNumber: string; postalCode: string;
+    share: string; validFrom: string; validTo: string; rc: string;
+  } | null>(null);
 
   const { data: officers = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/my-companies', companyId, 'officers'],
