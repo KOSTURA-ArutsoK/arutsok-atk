@@ -1300,6 +1300,52 @@ export async function registerRoutes(
         await storage.addCompanyDivision(created.id, activeDivisions[0].id);
       }
 
+      // vytvoriť subjects záznam pre sieť + napojenie na koreň 421 000 000 000 000
+      if (created.uid) {
+        // vyhnúť sa duplikátu
+        const [existingSubj] = await db.select({ id: subjects.id }).from(subjects)
+          .where(eq(subjects.myCompanyId, created.id)).limit(1);
+
+        let companySubjectId: number | null = existingSubj?.id ?? null;
+
+        if (!companySubjectId) {
+          const [newSubj] = await db.insert(subjects).values({
+            uid: created.uid,
+            type: "company",
+            companyName: created.name,
+            myCompanyId: created.id,
+            stateId: created.stateId ?? null,
+            registrationStatus: "tiper",
+            lifecycleStatus: "active",
+            isActive: true,
+          } as any).returning({ id: subjects.id });
+          companySubjectId = newSubj.id;
+        }
+
+        // nájsť koreňový subjekt 421 000 000 000 000
+        const [rootSubj] = await db.select({ id: subjects.id }).from(subjects)
+          .where(eq(subjects.uid, ROOT_SYSTEM_UID)).limit(1);
+
+        if (rootSubj && companySubjectId) {
+          // vyhnúť sa duplikátu linku
+          const [existingLink] = await db.select({ id: networkLinks.id }).from(networkLinks)
+            .where(and(
+              eq(networkLinks.subjectId, companySubjectId),
+              eq(networkLinks.guarantorSubjectId, rootSubj.id),
+              eq(networkLinks.isActive, true)
+            )).limit(1);
+
+          if (!existingLink) {
+            await db.insert(networkLinks).values({
+              subjectId: companySubjectId,
+              guarantorSubjectId: rootSubj.id,
+              linkType: "active",
+              phase: "klient",
+            });
+          }
+        }
+      }
+
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
