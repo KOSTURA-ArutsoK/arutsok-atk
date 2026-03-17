@@ -157,16 +157,47 @@ export async function lookupFinstatByIco(ico: string): Promise<Partial<RegistryL
         }
       }
 
-      if (strong === "Deň zápisu do ORSR") {
+      const foundedLabels = ["Deň zápisu do ORSR", "Deň vzniku v ŠÚ SR", "Dátum vzniku", "Vznik", "Dátum zápisu", "Založenie"];
+      if (!foundedDate && foundedLabels.includes(strong)) {
         const dateText = span.text().trim();
-        foundedDate = parseSlovakDate(dateText);
-      }
-
-      if (!foundedDate && strong === "Deň vzniku v ŠÚ SR") {
-        const dateText = span.text().trim();
-        foundedDate = parseSlovakDate(dateText);
+        const parsed = parseSlovakDate(dateText);
+        if (parsed) foundedDate = parsed;
       }
     });
+
+    const foundedDatePattern = /^(dátum\s+vzniku|deň\s+zápisu(\s+do\s+orsr)?|deň\s+vzniku(\s+v\s+šú\s+sr)?|založenie|vznik\s+spoločnosti)\s*:?$/i;
+
+    if (!foundedDate) {
+      $("tr").each((_, el) => {
+        if (foundedDate) return;
+        const label = $(el).find("td, th").first().text().trim();
+        if (foundedDatePattern.test(label)) {
+          const val = $(el).find("td").last().text().trim();
+          const parsed = parseSlovakDate(val);
+          if (parsed) foundedDate = parsed;
+        }
+      });
+    }
+
+    if (!foundedDate) {
+      $("dt").each((_, el) => {
+        if (foundedDate) return;
+        const label = $(el).text().trim();
+        if (foundedDatePattern.test(label)) {
+          const dd = $(el).next("dd").text().trim();
+          const parsed = parseSlovakDate(dd);
+          if (parsed) foundedDate = parsed;
+        }
+      });
+    }
+
+    if (!foundedDate) {
+      const bodyText = $.text();
+      const dateNearVznik = bodyText.match(/(?:dátum\s+vzniku|deň\s+zápisu|založenie)[^0-9]{0,30}(\d{1,2}\.\s*\d{1,2}\.\s*\d{4})/i);
+      if (dateNearVznik) {
+        foundedDate = parseSlovakDate(dateNearVznik[1]);
+      }
+    }
 
     let finstatName: string | undefined;
     const nameEl = $("h1, .company-name, [itemprop='name']").first().text().trim();
@@ -194,7 +225,7 @@ export async function lookupFinstatByIco(ico: string): Promise<Partial<RegistryL
       }
     });
 
-    console.log(`[LOOKUP] Finstat done ICO=${ico} — dic=${dic || "N/A"}, icDph=${icDph || "N/A"}, name=${finstatName || "N/A"}`);
+    console.log(`[LOOKUP] Finstat done ICO=${ico} — dic=${dic || "N/A"}, icDph=${icDph || "N/A"}, name=${finstatName || "N/A"}, foundedDate=${foundedDate || "N/A"}`);
     return { dic, icDph, vatParagraph, vatRegisteredAt, foundedDate, name: finstatName, street: finstatStreet, city: finstatCity, zip: finstatZip };
   } catch (err: any) {
     console.error("[LOOKUP] Finstat error ICO=" + ico, err.message);
