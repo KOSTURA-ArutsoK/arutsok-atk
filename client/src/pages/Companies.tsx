@@ -31,6 +31,12 @@ interface RegistryDirector {
   titleAfter?: string;
 }
 
+interface StatusHistoryEntry {
+  status: "active" | "inactive" | "temporarily_inactive";
+  from?: string;
+  to?: string;
+}
+
 interface BranchEmployee {
   photo?: string;
   uid?: string;
@@ -44,6 +50,7 @@ interface BranchEmployee {
   otherContact?: string;
   status?: "active" | "inactive" | "temporarily_inactive";
   inactiveUntil?: string;
+  statusHistory?: StatusHistoryEntry[];
 }
 
 interface BranchEntry {
@@ -530,6 +537,7 @@ function CompanyFormDialog({
   const [newEmployee, setNewEmployee] = useState<BranchEmployee>({ status: "active" });
   const [empPhones, setEmpPhones] = useState<string[]>([]);
   const [empEmails, setEmpEmails] = useState<string[]>([]);
+  const [empStatusHistory, setEmpStatusHistory] = useState<StatusHistoryEntry[]>([]);
   const [empUidStatus, setEmpUidStatus] = useState<"idle" | "loading" | "found" | "not-found">("idle");
   const employeePhotoRef = useRef<HTMLInputElement>(null);
 
@@ -787,12 +795,22 @@ function CompanyFormDialog({
     reader.readAsDataURL(file);
   }
 
+  function deriveCurrentStatus(history: StatusHistoryEntry[]): "active" | "inactive" | "temporarily_inactive" {
+    if (!history || history.length === 0) return "active";
+    const current = history.find(e => !e.to) || history[history.length - 1];
+    return current.status || "active";
+  }
+
   function saveEmployee() {
     if (newEmployee.firstName || newEmployee.lastName || newEmployee.position || newEmployee.uid) {
-      const saved = {
+      const currentStatus = deriveCurrentStatus(empStatusHistory);
+      const saved: BranchEmployee = {
         ...newEmployee,
         phones: empPhones.filter(p => p.trim()),
         emails: empEmails.filter(e => e.trim()),
+        statusHistory: empStatusHistory,
+        status: currentStatus,
+        inactiveUntil: undefined,
       };
       if (editingEmployeeIdx !== null) {
         setBranchEmployees(prev => prev.map((e, i) => i === editingEmployeeIdx ? saved : e));
@@ -803,6 +821,7 @@ function CompanyFormDialog({
       setNewEmployee({ status: "active" });
       setEmpPhones([]);
       setEmpEmails([]);
+      setEmpStatusHistory([]);
       setEmpUidStatus("idle");
       setAddingBranchEmployee(false);
     }
@@ -813,6 +832,13 @@ function CompanyFormDialog({
     setNewEmployee({ ...emp });
     setEmpPhones(emp.phones ?? []);
     setEmpEmails(emp.emails ?? []);
+    if (emp.statusHistory && emp.statusHistory.length > 0) {
+      setEmpStatusHistory(emp.statusHistory);
+    } else if (emp.status) {
+      setEmpStatusHistory([{ status: emp.status, from: "", to: emp.inactiveUntil || "" }]);
+    } else {
+      setEmpStatusHistory([]);
+    }
     setEmpUidStatus("idle");
     setEditingEmployeeIdx(idx);
     setAddingBranchEmployee(true);
@@ -1337,7 +1363,7 @@ function CompanyFormDialog({
                           <Badge variant="secondary" className="text-xs">{branchEmployees.length}</Badge>
                         </div>
                         {!addingBranchEmployee && (
-                          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => { setAddingBranchEmployee(true); setNewEmployee({ status: "active" }); setEmpUidStatus("idle"); }} data-testid="button-add-employee">
+                          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => { setAddingBranchEmployee(true); setNewEmployee({ status: "active" }); setEmpStatusHistory([]); setEmpUidStatus("idle"); }} data-testid="button-add-employee">
                             <UserPlus className="w-3 h-3 mr-1" />Pridať pracovníka
                           </Button>
                         )}
@@ -1433,26 +1459,45 @@ function CompanyFormDialog({
                           <Textarea placeholder="Iný kontakt (poznámka)" value={newEmployee.otherContact || ""} onChange={e => setNewEmployee(p => ({ ...p, otherContact: e.target.value }))} className="text-sm h-16 resize-none" data-testid="input-emp-other-contact" />
 
                           <div className="space-y-2">
-                            <label className="text-xs text-muted-foreground">Stav pracovníka</label>
-                            <div className="flex gap-2 flex-wrap">
-                              {([["active", "Aktívny", "border-green-600 text-green-600"], ["temporarily_inactive", "Dočasne neaktívny", "border-amber-500 text-amber-500"], ["inactive", "Neaktívny", "border-destructive text-destructive"]] as const).map(([val, label, cls]) => (
-                                <button key={val} type="button"
-                                  className={`text-xs px-2.5 py-1 rounded border transition-colors ${newEmployee.status === val ? cls + " bg-muted/50 font-semibold" : "border-border text-muted-foreground hover:border-primary/40"}`}
-                                  onClick={() => setNewEmployee(p => ({ ...p, status: val, inactiveUntil: val !== "temporarily_inactive" ? undefined : p.inactiveUntil }))}
-                                  data-testid={`btn-emp-status-${val}`}
-                                >{label}</button>
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">História stavu</label>
+                              <Button type="button" variant="ghost" size="sm" className="h-6 text-xs"
+                                onClick={() => setEmpStatusHistory(prev => [...prev, { status: "active", from: "", to: "" }])}
+                                data-testid="button-add-status-entry"
+                              ><Plus className="w-3 h-3 mr-0.5" />Pridať stav</Button>
+                            </div>
+                            {empStatusHistory.length === 0 && (
+                              <p className="text-xs text-muted-foreground">Žiadna história stavu. Kliknite „Pridať stav".</p>
+                            )}
+                            <div className="space-y-2">
+                              {empStatusHistory.map((entry, hi) => (
+                                <div key={hi} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center" data-testid={`status-history-row-${hi}`}>
+                                  <select
+                                    value={entry.status}
+                                    onChange={e => setEmpStatusHistory(prev => prev.map((h, j) => j === hi ? { ...h, status: e.target.value as StatusHistoryEntry["status"] } : h))}
+                                    className="h-8 text-xs rounded border border-border bg-background px-2 text-foreground"
+                                    data-testid={`select-status-${hi}`}
+                                  >
+                                    <option value="active">Aktívny</option>
+                                    <option value="temporarily_inactive">Dočasne neaktívny</option>
+                                    <option value="inactive">Neaktívny</option>
+                                  </select>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">od</span>
+                                    <Input type="date" value={entry.from || ""} onChange={e => setEmpStatusHistory(prev => prev.map((h, j) => j === hi ? { ...h, from: e.target.value } : h))} className="h-8 text-xs w-32" data-testid={`input-status-from-${hi}`} />
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">do</span>
+                                    <Input type="date" value={entry.to || ""} onChange={e => setEmpStatusHistory(prev => prev.map((h, j) => j === hi ? { ...h, to: e.target.value } : h))} className="h-8 text-xs w-32" placeholder="súčasnosť" data-testid={`input-status-to-${hi}`} />
+                                  </div>
+                                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setEmpStatusHistory(prev => prev.filter((_, j) => j !== hi))} data-testid={`button-delete-status-${hi}`}><X className="w-3 h-3" /></Button>
+                                </div>
                               ))}
                             </div>
-                            {newEmployee.status === "temporarily_inactive" && (
-                              <div className="flex items-center gap-2 mt-1">
-                                <label className="text-xs text-amber-500 whitespace-nowrap">Neaktívny do:</label>
-                                <Input type="date" value={newEmployee.inactiveUntil || ""} onChange={e => setNewEmployee(p => ({ ...p, inactiveUntil: e.target.value || undefined }))} className="text-sm h-8 w-40" data-testid="input-emp-inactive-until" />
-                              </div>
-                            )}
                           </div>
 
                           <div className="flex gap-2 justify-end pt-1">
-                            <Button type="button" variant="ghost" size="sm" onClick={() => { setAddingBranchEmployee(false); setEditingEmployeeIdx(null); setNewEmployee({ status: "active" }); setEmpPhones([]); setEmpEmails([]); setEmpUidStatus("idle"); }} data-testid="button-employee-cancel">Zrušiť</Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => { setAddingBranchEmployee(false); setEditingEmployeeIdx(null); setNewEmployee({ status: "active" }); setEmpPhones([]); setEmpEmails([]); setEmpStatusHistory([]); setEmpUidStatus("idle"); }} data-testid="button-employee-cancel">Zrušiť</Button>
                             <Button type="button" size="sm" onClick={saveEmployee} data-testid="button-employee-save">{editingEmployeeIdx !== null ? "Uložiť zmeny" : "Uložiť pracovníka"}</Button>
                           </div>
                         </div>
@@ -1476,12 +1521,22 @@ function CompanyFormDialog({
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                                   {(emp.phones ?? []).map((ph, pi) => <span key={pi} className="flex items-center gap-0.5"><Phone className="w-2.5 h-2.5" />{ph}</span>)}
                                   {(emp.emails ?? []).map((em, ei) => <span key={ei} className="flex items-center gap-0.5"><Mail className="w-2.5 h-2.5" />{em}</span>)}
-                                  {emp.inactiveUntil && <span className="text-amber-500">do {emp.inactiveUntil}</span>}
                                 </div>
+                                {(() => {
+                                  const hist = emp.statusHistory ?? [];
+                                  const curStatus = hist.length > 0 ? deriveCurrentStatus(hist) : (emp.status || "active");
+                                  const curEntry = hist.find(e => !e.to) || hist[hist.length - 1];
+                                  return (
+                                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                      <Badge variant="outline" className={`text-[10px] ${curStatus === "active" ? "border-green-600 text-green-600" : curStatus === "temporarily_inactive" ? "border-amber-500 text-amber-500" : "border-destructive text-destructive"}`}>
+                                        {curStatus === "active" ? "Aktívny" : curStatus === "temporarily_inactive" ? "Dočasne neaktívny" : "Neaktívny"}
+                                      </Badge>
+                                      {curEntry?.from && <span className="text-[10px] text-muted-foreground">od {curEntry.from}</span>}
+                                      {hist.length > 1 && <span className="text-[10px] text-muted-foreground">({hist.length} záznamy)</span>}
+                                    </div>
+                                  );
+                                })()}
                               </div>
-                              <Badge variant="outline" className={`text-[10px] shrink-0 mt-0.5 ${emp.status === "active" ? "border-green-600 text-green-600" : emp.status === "temporarily_inactive" ? "border-amber-500 text-amber-500" : "border-destructive text-destructive"}`}>
-                                {emp.status === "active" ? "Aktívny" : emp.status === "temporarily_inactive" ? "Dočasne" : "Neaktívny"}
-                              </Badge>
                               <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 mt-0.5" onClick={() => openEditEmployee(i)} data-testid={`button-edit-employee-${i}`}><Pencil className="w-3 h-3" /></Button>
                               <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive hover:text-destructive mt-0.5" onClick={() => setBranchEmployees(prev => prev.filter((_, j) => j !== i))} data-testid={`button-delete-employee-${i}`}><Trash2 className="w-3 h-3" /></Button>
                             </div>
@@ -1934,13 +1989,30 @@ function CompanyDetailDialog({
                                       <div className="flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap">
                                         {(emp.phones ?? []).map((ph, pi) => <span key={pi} className="flex items-center gap-0.5"><Phone className="w-2 h-2" />{ph}</span>)}
                                         {(emp.emails ?? []).map((em, emi) => <span key={emi} className="flex items-center gap-0.5"><Mail className="w-2 h-2" />{em}</span>)}
-                                        {emp.inactiveUntil && <span className="text-amber-500">do {emp.inactiveUntil}</span>}
                                       </div>
+                                      {(() => {
+                                        const hist = (emp as any).statusHistory as StatusHistoryEntry[] | undefined ?? [];
+                                        const curStatus = hist.length > 0 ? deriveCurrentStatus(hist) : (emp.status || "active");
+                                        return (
+                                          <div className="mt-0.5 space-y-0.5">
+                                            {hist.length > 0 ? hist.map((h, hi) => (
+                                              <div key={hi} className="flex items-center gap-1 text-[10px] flex-wrap">
+                                                <Badge variant="outline" className={`text-[10px] py-0 ${h.status === "active" ? "border-green-600 text-green-600" : h.status === "temporarily_inactive" ? "border-amber-500 text-amber-500" : "border-destructive text-destructive"}`}>
+                                                  {h.status === "active" ? "Aktívny" : h.status === "temporarily_inactive" ? "Dočasne neaktívny" : "Neaktívny"}
+                                                </Badge>
+                                                {h.from && <span className="text-muted-foreground">od {h.from}</span>}
+                                                {h.to ? <span className="text-muted-foreground">do {h.to}</span> : <span className="text-muted-foreground/60">– súčasnosť</span>}
+                                              </div>
+                                            )) : (
+                                              <Badge variant="outline" className={`text-[10px] ${curStatus === "active" ? "border-green-600 text-green-600" : curStatus === "temporarily_inactive" ? "border-amber-500 text-amber-500" : "border-destructive text-destructive"}`}>
+                                                {curStatus === "active" ? "Aktívny" : curStatus === "temporarily_inactive" ? "Dočasne neaktívny" : "Neaktívny"}
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
                                       {emp.otherContact && <p className="text-[10px] text-muted-foreground/70 truncate">{emp.otherContact}</p>}
                                     </div>
-                                    <Badge variant="outline" className={`text-[10px] shrink-0 mt-0.5 ${emp.status === "active" ? "border-green-600 text-green-600" : emp.status === "temporarily_inactive" ? "border-amber-500 text-amber-500" : "border-destructive text-destructive"}`}>
-                                      {emp.status === "active" ? "Aktívny" : emp.status === "temporarily_inactive" ? "Dočasne" : "Neaktívny"}
-                                    </Badge>
                                   </div>
                                 ))}
                               </div>
