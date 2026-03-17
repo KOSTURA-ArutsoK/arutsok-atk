@@ -2721,21 +2721,41 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
 
   return (
     <div className="space-y-4" data-testid="section-db-officers">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium shrink-0">
           <UserCheck className="w-3 h-3" />Štatutári{officers.length > 0 ? ` (${officers.length})` : ""}
         </p>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="text-xs h-7"
-          onClick={() => setShowManualForm(v => !v)}
-          data-testid="button-toggle-manual-officer-form"
-        >
-          {showManualForm ? <ChevronUp className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
-          {showManualForm ? "Zavrieť" : "Pridať manuálne"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {companyIco && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="text-xs h-7"
+              onClick={fetchFromRegistry}
+              disabled={fetchingRegistry}
+              data-testid="button-fetch-officers-from-registry"
+            >
+              {fetchingRegistry ? (
+                <Loader2 className="w-3 h-3 animate-spin mr-1" />
+              ) : (
+                <Search className="w-3 h-3 mr-1" />
+              )}
+              Načítať z OR
+            </Button>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="text-xs h-7"
+            onClick={() => setShowManualForm(v => !v)}
+            data-testid="button-toggle-manual-officer-form"
+          >
+            {showManualForm ? <ChevronUp className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+            {showManualForm ? "Zavrieť" : "Pridať manuálne"}
+          </Button>
+        </div>
       </div>
 
       {showManualForm && (
@@ -2919,31 +2939,13 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
       )}
 
       {officers.length === 0 && unregisteredDirectors.length === 0 && (
-        <div className="flex flex-col items-center gap-3 py-6 text-center" data-testid="text-no-officers">
+        <div className="py-4 text-center" data-testid="text-no-officers">
           <p className="text-sm text-muted-foreground">
             Žiadni zapísaní štatutári.
+            {!companyIco && (
+              <span className="block text-xs mt-1">Pre načítanie z OR zadajte IČO v záložke „Základné údaje".</span>
+            )}
           </p>
-          {companyIco ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={fetchFromRegistry}
-              disabled={fetchingRegistry || localDirectors !== null}
-              data-testid="button-fetch-officers-from-registry"
-            >
-              {fetchingRegistry ? (
-                <Loader2 className="w-3 h-3 animate-spin mr-2" />
-              ) : (
-                <Search className="w-3 h-3 mr-2" />
-              )}
-              {localDirectors !== null ? "Z registra nenájdení" : "Načítať štatutárov z Obchodného registra"}
-            </Button>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Vyhľadajte firmu cez IČO v záložke „Základné údaje" pre načítanie štatutárov z Obchodného registra.
-            </p>
-          )}
         </div>
       )}
 
