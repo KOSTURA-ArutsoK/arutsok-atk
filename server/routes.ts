@@ -1286,6 +1286,10 @@ export async function registerRoutes(
       }
 
       const input = api.myCompanies.create.input.parse(req.body);
+      if (input.ico) {
+        const duplicate = await storage.getMyCompanyByIco(input.ico);
+        if (duplicate) return res.status(409).json({ message: `Spoločnosť s IČO ${input.ico} už existuje: ${duplicate.name}` });
+      }
       const created = await storage.createMyCompany(input);
       await logAudit(req, { action: "CREATE", module: "spolocnosti", entityId: created.id, entityName: created.name, newData: input });
 
@@ -1299,12 +1303,17 @@ export async function registerRoutes(
   app.put(api.myCompanies.update.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.myCompanies.update.input.parse(req.body);
-      const oldCompany = await storage.getMyCompany(Number(req.params.id));
-      const updated = await storage.updateMyCompany(Number(req.params.id), input);
-      await logAudit(req, { action: "UPDATE", module: "spolocnosti", entityId: Number(req.params.id), entityName: updated.name, oldData: oldCompany, newData: input });
+      const companyId = Number(req.params.id);
+      if (input.ico) {
+        const duplicate = await storage.getMyCompanyByIco(input.ico, companyId);
+        if (duplicate) return res.status(409).json({ message: `Spoločnosť s IČO ${input.ico} už existuje: ${duplicate.name}` });
+      }
+      const oldCompany = await storage.getMyCompany(companyId);
+      const updated = await storage.updateMyCompany(companyId, input);
+      await logAudit(req, { action: "UPDATE", module: "spolocnosti", entityId: companyId, entityName: updated.name, oldData: oldCompany, newData: input });
 
       if (oldCompany && oldCompany.name !== updated.name) {
-        const linkedCg = await storage.getClientGroupByLinkedCompanyId(Number(req.params.id));
+        const linkedCg = await storage.getClientGroupByLinkedCompanyId(companyId);
         if (linkedCg) {
           await storage.updateClientGroup(linkedCg.id, { name: updated.name });
           await logAudit(req, { action: "UPDATE", module: "skupiny_klientov", entityId: linkedCg.id, entityName: updated.name, newData: { nameSyncFromCompany: true } });

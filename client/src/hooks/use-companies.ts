@@ -27,20 +27,32 @@ export function useMyCompany(id: number | null) {
   });
 }
 
+async function fetchWithMessage(method: string, url: string, data?: unknown) {
+  const res = await fetch(url, {
+    method,
+    headers: data ? { "Content-Type": "application/json" } : {},
+    body: data ? JSON.stringify(data) : undefined,
+    credentials: "include",
+  });
+  if (!res.ok) {
+    let message = "Neznáma chyba";
+    try { message = (await res.json()).message ?? message; } catch {}
+    throw new Error(message);
+  }
+  return res.json();
+}
+
 export function useCreateMyCompany() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async (data: InsertMyCompany) => {
-      const res = await apiRequest("POST", "/api/my-companies", data);
-      return res.json();
-    },
+    mutationFn: async (data: InsertMyCompany) => fetchWithMessage("POST", "/api/my-companies", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/my-companies"] });
-      toast({ title: "Firma vytvoren\u00e1", description: "Spolo\u010dnos\u0165 bola \u00faspe\u0161ne pridan\u00e1." });
+      toast({ title: "Firma vytvorená", description: "Spoločnosť bola úspešne pridaná." });
     },
-    onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa vytvori\u0165 firmu.", variant: "destructive" });
+    onError: (err: Error) => {
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa vytvoriť firmu.", variant: "destructive" });
     },
   });
 }
@@ -49,16 +61,14 @@ export function useUpdateMyCompany() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: UpdateMyCompanyRequest }) => {
-      const res = await apiRequest("PUT", buildUrl("/api/my-companies/:id", { id }), data);
-      return res.json();
-    },
+    mutationFn: async ({ id, data }: { id: number; data: UpdateMyCompanyRequest }) =>
+      fetchWithMessage("PUT", buildUrl("/api/my-companies/:id", { id }), data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/my-companies"] });
-      toast({ title: "Firma aktualizovan\u00e1", description: "Zmeny boli ulo\u017een\u00e9 a p\u00f4vodn\u00fd z\u00e1znam archivovan\u00fd." });
+      toast({ title: "Firma aktualizovaná", description: "Zmeny boli uložené a pôvodný záznam archivovaný." });
     },
-    onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa aktualizova\u0165 firmu.", variant: "destructive" });
+    onError: (err: Error) => {
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa aktualizovať firmu.", variant: "destructive" });
     },
   });
 }
@@ -73,7 +83,7 @@ export function useDeleteMyCompany() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/my-companies"] });
-      toast({ title: "Firma vymazan\u00e1", description: "Z\u00e1znam bol presunut\u00fd do arch\u00edvu." });
+      toast({ title: "Firma vymazaná", description: "Záznam bol presunutý do archívu." });
     },
   });
 }

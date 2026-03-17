@@ -167,6 +167,7 @@ export interface IStorage {
 
   getMyCompanies(includeDeleted?: boolean): Promise<MyCompany[]>;
   getMyCompany(id: number): Promise<MyCompany | undefined>;
+  getMyCompanyByIco(ico: string, excludeId?: number): Promise<MyCompany | undefined>;
   createMyCompany(company: InsertMyCompany): Promise<MyCompany>;
   updateMyCompany(id: number, updates: UpdateMyCompanyRequest): Promise<MyCompany>;
   softDeleteMyCompany(id: number, deletedBy: string, ip: string): Promise<void>;
@@ -839,6 +840,13 @@ export class DatabaseStorage implements IStorage {
 
   async getMyCompany(id: number) {
     const [company] = await db.select().from(myCompanies).where(and(eq(myCompanies.id, id), eq(myCompanies.isDeleted, false)));
+    return company;
+  }
+
+  async getMyCompanyByIco(ico: string, excludeId?: number) {
+    const conditions = [eq(myCompanies.ico, ico), eq(myCompanies.isDeleted, false)];
+    if (excludeId !== undefined) conditions.push(sql`${myCompanies.id} != ${excludeId}` as any);
+    const [company] = await db.select().from(myCompanies).where(and(...conditions));
     return company;
   }
 
