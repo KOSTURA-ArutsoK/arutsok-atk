@@ -1834,7 +1834,7 @@ export async function registerRoutes(
         lastName,
         titleAfter: titleAfter || null,
         validFrom: (() => {
-          if (!since) return new Date();
+          if (!since) return null;
           const parts = String(since).split('.').map((s: string) => s.trim()).filter(Boolean);
           if (parts.length === 3) {
             const iso = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
@@ -1842,7 +1842,7 @@ export async function registerRoutes(
             if (!isNaN(d.getTime())) return d;
           }
           const fallback = new Date(since);
-          return isNaN(fallback.getTime()) ? new Date() : fallback;
+          return isNaN(fallback.getTime()) ? null : fallback;
         })(),
       };
 
