@@ -1293,6 +1293,13 @@ export async function registerRoutes(
       const created = await storage.createMyCompany(input);
       await logAudit(req, { action: "CREATE", module: "spolocnosti", entityId: created.id, entityName: created.name, newData: input });
 
+      // ak je práve jedna aktívna divízia, automaticky priradiť
+      const allDivisions = await storage.getDivisions();
+      const activeDivisions = allDivisions.filter(d => d.isActive);
+      if (activeDivisions.length === 1) {
+        await storage.addCompanyDivision(created.id, activeDivisions[0].id);
+      }
+
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
