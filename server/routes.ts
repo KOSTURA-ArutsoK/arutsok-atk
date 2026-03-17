@@ -1500,13 +1500,15 @@ export async function registerRoutes(
       if (isNaN(officerId)) return res.status(400).json({ message: "Neplatné ID" });
 
       const { birthNumber: bnRaw, ...officerFields } = req.body;
-
-      // strip birthNumber from officer table fields (not stored there)
       delete officerFields.birthNumber;
+
+      // Fetch old record to detect changes for mandate creation
+      const [oldOfficer] = await db.select().from(companyOfficers).where(eq(companyOfficers.id, officerId));
 
       const updated = await storage.updateCompanyOfficer(officerId, officerFields);
 
       // If birthNumber provided, update or create subject
+      let subjectSynced = false;
       if (typeof bnRaw === 'string') {
         const cleanBn = bnRaw.replace(/\//g, '').replace(/\s/g, '').trim();
         if (cleanBn) {
@@ -1514,7 +1516,6 @@ export async function registerRoutes(
           if (updated.subjectId) {
             await db.update(subjects).set({ birthNumber: encrypted }).where(eq(subjects.id, updated.subjectId));
           } else {
-            // create subject with RC
             let stateCode = '421';
             if (req.appUser?.activeStateId) {
               const st = await storage.getState(req.appUser.activeStateId);
@@ -1540,12 +1541,77 @@ export async function registerRoutes(
         }
       }
 
+      // Sync shared fields to linked subject (if exists)
+      const subjectSyncFields = ['firstName', 'lastName', 'titleBefore', 'titleAfter', 'street', 'streetNumber', 'orientNumber', 'postalCode', 'city', 'stateId'] as const;
+      const resolvedSubjectId = updated.subjectId;
+      if (resolvedSubjectId) {
+        const [currentSubject] = await db.select().from(subjects).where(eq(subjects.id, resolvedSubjectId));
+        if (currentSubject) {
+          const subjectUpdates: Record<string, any> = {};
+          const oldData: Record<string, any> = {};
+          const newData: Record<string, any> = {};
+          for (const f of subjectSyncFields) {
+            const newVal = (updated as any)[f];
+            const oldVal = (currentSubject as any)[f];
+            if (newVal !== undefined && newVal !== null && String(newVal) !== String(oldVal ?? '')) {
+              subjectUpdates[f] = newVal;
+              oldData[f] = oldVal;
+              newData[f] = newVal;
+            }
+          }
+          if (Object.keys(subjectUpdates).length > 0) {
+            await db.update(subjects).set(subjectUpdates).where(eq(subjects.id, resolvedSubjectId));
+            subjectSynced = true;
+            await logAudit(req, {
+              action: "OFFICER_SUBJECT_SYNC",
+              module: "company_officers",
+              entityId: officerId,
+              entityName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim(),
+              oldData: { source: 'from_officer', ...oldData },
+              newData: { source: 'from_officer', subjectId: resolvedSubjectId, ...newData },
+            });
+          }
+        }
+      }
+
+      // Auto-create mandate record if validFrom/validTo changed
+      try {
+        const oldFrom = oldOfficer?.validFrom;
+        const newFrom = updated.validFrom;
+        const oldTo = oldOfficer?.validTo;
+        const newTo = updated.validTo;
+        const fromChanged = String(oldFrom ?? '') !== String(newFrom ?? '');
+        const toChanged = String(oldTo ?? '') !== String(newTo ?? '');
+        if (fromChanged || toChanged) {
+          await storage.createOfficerMandate({
+            officerId,
+            validFrom: newFrom ? new Date(newFrom) : null,
+            validTo: newTo ? new Date(newTo) : null,
+            endReason: toChanged && newTo ? 'Zmena dátumu platnosti' : null,
+          });
+        }
+      } catch (mandateErr) {
+        console.error("[MANDATE LOG]", mandateErr);
+      }
+
       await logAudit(req, { action: "UPDATE", module: "spolocnosti", entityId: officerId, entityName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim() });
 
       const [fresh] = await db.select().from(companyOfficers).where(eq(companyOfficers.id, officerId));
-      res.json(fresh);
+      res.json({ ...fresh, subjectSynced });
     } catch (err: any) {
       console.error("[OFFICER UPDATE]", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  // GET officer mandates history
+  app.get("/api/company-officers/:id/mandates", isAuthenticated, async (req, res) => {
+    try {
+      const officerId = Number(req.params.id);
+      if (isNaN(officerId)) return res.status(400).json({ message: "Neplatné ID" });
+      const mandates = await storage.getOfficerMandates(officerId);
+      res.json(mandates);
+    } catch (err: any) {
       res.status(500).json({ message: err?.message || "Internal error" });
     }
   });
@@ -2752,6 +2818,39 @@ export async function registerRoutes(
         }
       } catch (inhErr) {
         console.error("[INHERITANCE CHECK ERROR]", inhErr);
+      }
+
+      // === REVERSE SYNC: if subject linked to officer, push changes back ===
+      try {
+        const officerSyncFields = ['firstName', 'lastName', 'titleBefore', 'titleAfter', 'city', 'stateId'] as const;
+        const linkedOfficers = await db.select().from(companyOfficers).where(eq(companyOfficers.subjectId, subjectId));
+        for (const officer of linkedOfficers) {
+          const officerUpdates: Record<string, any> = {};
+          const oldD: Record<string, any> = {};
+          const newD: Record<string, any> = {};
+          for (const f of officerSyncFields) {
+            const newVal = (updated as any)[f];
+            const oldVal = (officer as any)[f];
+            if (newVal !== undefined && newVal !== null && String(newVal) !== String(oldVal ?? '')) {
+              officerUpdates[f] = newVal;
+              oldD[f] = oldVal;
+              newD[f] = newVal;
+            }
+          }
+          if (Object.keys(officerUpdates).length > 0) {
+            await db.update(companyOfficers).set(officerUpdates).where(eq(companyOfficers.id, officer.id));
+            await logAudit(req, {
+              action: "OFFICER_SUBJECT_SYNC",
+              module: "company_officers",
+              entityId: officer.id,
+              entityName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim(),
+              oldData: { source: 'from_subject', ...oldD },
+              newData: { source: 'from_subject', subjectId, ...newD },
+            });
+          }
+        }
+      } catch (syncErr) {
+        console.error("[REVERSE SYNC ERROR]", syncErr);
       }
 
       res.json(decryptBirthNumber(updated));

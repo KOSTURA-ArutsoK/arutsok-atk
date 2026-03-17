@@ -3,7 +3,7 @@ import { decryptField } from "./crypto";
 import { 
   subjects, myCompanies, partners, contacts, products, commissionSchemes, 
   continents, states, subjectArchive, companyArchive, appUsers, appUserArchive,
-  companyOfficers, partnerContracts, partnerContacts, partnerProducts,
+  companyOfficers, companyOfficerMandates, partnerContracts, partnerContacts, partnerProducts,
   contactProductAssignments, communicationMatrix, globalCounters,
   companyContacts, contractAmendments, userProfiles,
   permissionGroups, permissions, auditLogs,
@@ -20,6 +20,7 @@ import {
   type UpdateSubjectRequest, type UpdateMyCompanyRequest, type UpdatePartnerRequest,
   type AppUser, type InsertAppUser,
   type CompanyOfficer, type InsertCompanyOfficer,
+  type CompanyOfficerMandate, type InsertCompanyOfficerMandate,
   type PartnerContact, type InsertPartnerContact,
   type PartnerProduct, type InsertPartnerProduct,
   type PartnerContract, type InsertPartnerContract,
@@ -177,6 +178,8 @@ export interface IStorage {
   createCompanyOfficer(data: InsertCompanyOfficer): Promise<CompanyOfficer>;
   updateCompanyOfficer(id: number, data: Partial<InsertCompanyOfficer>): Promise<CompanyOfficer>;
   deleteCompanyOfficer(id: number): Promise<void>;
+  getOfficerMandates(officerId: number): Promise<CompanyOfficerMandate[]>;
+  createOfficerMandate(data: InsertCompanyOfficerMandate): Promise<CompanyOfficerMandate>;
   autoArchiveExpiredBindings(): Promise<void>;
   autoMoveUndeliveredContracts(): Promise<number>;
   
@@ -952,6 +955,17 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCompanyOfficer(id: number) {
     await db.delete(companyOfficers).where(eq(companyOfficers.id, id));
+  }
+
+  async getOfficerMandates(officerId: number) {
+    return db.select().from(companyOfficerMandates)
+      .where(eq(companyOfficerMandates.officerId, officerId))
+      .orderBy(desc(companyOfficerMandates.validFrom));
+  }
+
+  async createOfficerMandate(data: InsertCompanyOfficerMandate) {
+    const [mandate] = await db.insert(companyOfficerMandates).values(data).returning();
+    return mandate;
   }
 
   async autoArchiveExpiredBindings() {

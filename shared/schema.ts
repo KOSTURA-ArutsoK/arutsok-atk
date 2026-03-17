@@ -134,8 +134,27 @@ export const companyOfficers = pgTable("company_officers", {
   validFrom: timestamp("valid_from").defaultNow(),
   validTo: timestamp("valid_to"),
   isActive: boolean("is_active").default(true),
+  idCardNumber: text("id_card_number"),
+  idCardExpiry: timestamp("id_card_expiry"),
+  activeFrom: timestamp("active_from"),
+  activeTo: timestamp("active_to"),
+  inactiveFrom: timestamp("inactive_from"),
+  inactiveTo: timestamp("inactive_to"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+export const companyOfficerMandates = pgTable("company_officer_mandates", {
+  id: serial("id").primaryKey(),
+  officerId: integer("officer_id").notNull().references(() => companyOfficers.id),
+  validFrom: timestamp("valid_from"),
+  validTo: timestamp("valid_to"),
+  endReason: text("end_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCompanyOfficerMandateSchema = createInsertSchema(companyOfficerMandates).omit({ id: true, createdAt: true });
+export type CompanyOfficerMandate = typeof companyOfficerMandates.$inferSelect;
+export type InsertCompanyOfficerMandate = z.infer<typeof insertCompanyOfficerMandateSchema>;
 
 // === PARTNERS (External business partners) ===
 export const partners = pgTable("partners", {
