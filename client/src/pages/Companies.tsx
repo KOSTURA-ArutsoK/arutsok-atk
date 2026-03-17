@@ -3198,7 +3198,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                     idCardNumber: editForm.idCardNumber || null,
                     idCardExpiry: editForm.idCardExpiry || null,
                     activeFrom: editForm.activeFrom || null,
-                    activeTo: editForm.isOfficerActive ? null : (editForm.activeTo || null),
+                    activeTo: editForm.activeTo || null,
                     inactiveFrom: editForm.isOfficerActive ? null : (editForm.inactiveFrom || null),
                     inactiveTo: editForm.isOfficerActive ? null : (editForm.inactiveTo || null),
                     birthNumber: editForm.rc || undefined,
