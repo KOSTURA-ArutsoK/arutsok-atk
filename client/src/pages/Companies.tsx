@@ -2648,6 +2648,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
           <UserCheck className="w-3 h-3" />Štatutári{officers.length > 0 ? ` (${officers.length})` : ""}
         </p>
         <Button
+          type="button"
           size="sm"
           variant="outline"
           className="text-xs h-7"
@@ -2716,6 +2717,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
           </div>
           <div className="flex justify-end">
             <Button
+              type="button"
               size="sm"
               className="h-8 text-xs"
               onClick={() => {
@@ -2773,6 +2775,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                   </Button>
                 )}
                 <Button
+                  type="button"
                   size="sm"
                   variant="ghost"
                   className="text-xs h-7 text-destructive hover:text-destructive px-2"
