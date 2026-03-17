@@ -1866,6 +1866,10 @@ function SortDownloadIcon({ className }: { className?: string }) {
   return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className={className} fill="currentColor"><path d="M480-80q-121 0-200.5-32.5T200-220q0-75 79.5-107.5T480-360q121 0 200.5 32.5T760-220q0 75-79.5 107.5T480-80Zm0-80q-101 0-162-21t-74-59q-2 5-3 10t-1 10q0 45 65.5 72.5T480-120q109 0 174.5-27.5T720-220q0-5-1-10t-3-10q-13 38-74 59t-162 21Zm144-57q56-17 56-43t-56-43q-56-17-144-17t-144 17q-56 17-56 43t56 43q56 17 144 17t144-17ZM440-400v-200h-80l160-280v200h80L440-400Zm40 200Zm0 80Zm0-40Z"/></svg>;
 }
 
+function PenSparkIcon({ className }: { className?: string }) {
+  return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className={className} fill="currentColor"><path d="m499-287 335-335-52-52-335 335 52 52Zm-261 87q-100-5-149-42T40-349q0-65 53.5-105.5T242-503q39-3 58.5-12.5T320-542q0-26-29.5-39T193-600l7-80q103 8 151.5 41.5T400-542q0 53-38.5 83T248-423q-64 5-96 23.5T120-349q0 35 28 50.5t94 18.5l-4 80Zm280 7L353-358l382-382q20-20 47.5-20t47.5 20l70 70q20 20 20 47.5T900-575L518-193Zm-159 33q-17 4-30-9t-9-30l33-159 165 165-159 33Z"/></svg>;
+}
+
 type FolderDef = { id: number; label: string; icon: ComponentType<{ className?: string }>; color: string; bgColor: string; count: number; tooltip?: string };
 
 function SupiskaCountdownButton({ receivedAt, onEdit, supiskaId }: { receivedAt: string | Date; onEdit: (e: React.MouseEvent) => void; supiskaId: number }) {
@@ -3687,7 +3691,7 @@ export default function Contracts() {
   const activeRejected = rejectedContracts?.filter(c => !c.isDeleted) || [];
 
   const folderDefs: FolderDef[] = [
-    { id: 1, label: "Nahratie a vytvorenie sprievodky", icon: Inbox, color: "text-amber-500", bgColor: "bg-amber-500/15", count: contractsTotal || activeContracts.length, tooltip: "Zmluva bola nahratá do systému a čaká na zaradenie do sprievodky a odoslanie na centrálu partnera." },
+    { id: 1, label: "Nahratie a vytvorenie sprievodky", icon: PenSparkIcon, color: "text-amber-500", bgColor: "bg-amber-500/15", count: contractsTotal || activeContracts.length, tooltip: "Zmluva bola nahratá do systému a čaká na zaradenie do sprievodky a odoslanie na centrálu partnera." },
     { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length, tooltip: "Zmluvy, ktoré boli vrátené s výhradami od obchodného partnera alebo centrály. Vyžadujú opravu a opätovné odoslanie." },
     { id: 4, label: "Archív zmlúv (s výhradami)", icon: ArchiveClockIcon, color: "text-zinc-400", bgColor: "bg-zinc-400/15", count: activeArchived.length, tooltip: "Archivované zmluvy s výhradami, ktoré neboli opravené alebo boli trvalo zamietnuté." },
     { id: 7, label: "Interné intervencie", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length, tooltip: "Zmluvy vyžadujúce interný zásah — napr. chýbajúce dokumenty, nezrovnalosti v údajoch alebo eskalácia." },
