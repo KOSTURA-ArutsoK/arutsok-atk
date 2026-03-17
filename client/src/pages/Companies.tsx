@@ -950,16 +950,26 @@ function CompanyFormDialog({
               </TabsList>
 
               <TabsContent value="basic" className="space-y-4 mt-4">
-                <div className="flex gap-3">
+                <div className="flex gap-3 items-end">
+                  <div className="flex-[2] space-y-2">
+                    <label className="text-sm font-medium leading-none">UID</label>
+                    <Input
+                      readOnly
+                      value={editingCompany?.uid ?? ""}
+                      placeholder="Vyplní sa automaticky"
+                      className="font-mono text-xs text-muted-foreground bg-muted/40 cursor-default"
+                      data-testid="input-company-uid"
+                    />
+                  </div>
                   <FormField control={form.control} name="name" render={({ field }) => (
-                    <FormItem className="flex-[7]">
+                    <FormItem className="flex-[5]">
                       <FormLabel>Názov spoločnosti</FormLabel>
                       <FormControl><Input {...field} data-testid="input-company-name" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="code" render={({ field }) => (
-                    <FormItem className="flex-[3]">
+                    <FormItem className="flex-[2]">
                       <FormLabel>Kód firmy</FormLabel>
                       <FormControl><Input {...field} maxLength={25} className="font-mono uppercase" data-testid="input-company-code" /></FormControl>
                       <FormMessage />
