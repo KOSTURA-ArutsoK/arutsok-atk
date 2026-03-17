@@ -393,6 +393,17 @@ export default function MojeUlohy() {
         </Card>
       ) : (
         <div className="space-y-8" data-testid="tasks-container">
+          {hasUrgentNbs && (
+            <NbsReportSection
+              tasks={urgentNbs}
+              title="NBS Reporty — URGENTNÉ"
+              isUrgent={true}
+              minDays={minNbsDays}
+              blinkActive={nbsBlinkActive}
+              navigate={navigate}
+            />
+          )}
+
           {companiesWithoutOfficers.length > 0 && (
             <div className="space-y-4" data-testid="companies-without-officers-section">
               <div className="flex items-center gap-2">
@@ -435,17 +446,6 @@ export default function MojeUlohy() {
                 ))}
               </div>
             </div>
-          )}
-
-          {hasUrgentNbs && (
-            <NbsReportSection
-              tasks={urgentNbs}
-              title="NBS Reporty — URGENTNÉ"
-              isUrgent={true}
-              minDays={minNbsDays}
-              blinkActive={nbsBlinkActive}
-              navigate={navigate}
-            />
           )}
 
           <ContractSection
