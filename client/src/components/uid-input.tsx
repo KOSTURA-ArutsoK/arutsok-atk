@@ -90,6 +90,7 @@ export function UIDInput({
 
   const prefixFormatted = effectivePrefix ? formatUidDisplay(effectivePrefix) : "";
   const hasCompleteUid = rawValue.length === 15;
+  const isInvalid = rawValue.length > 0 && rawValue.length !== 15;
 
   return (
     <div className="space-y-1">
@@ -109,7 +110,8 @@ export function UIDInput({
             placeholder={manualOverride || !prefixFormatted ? placeholder : ""}
             value={displayValue}
             onChange={handleInputChange}
-            className="font-mono text-sm"
+            inputMode="numeric"
+            className={`font-mono text-sm${isInvalid ? " border-red-500 focus-visible:ring-red-500" : ""}`}
             style={
               !manualOverride && prefixFormatted
                 ? { paddingLeft: `calc(${prefixFormatted.length}ch + 0.75rem + 0.25rem)` }

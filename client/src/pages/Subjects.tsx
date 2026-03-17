@@ -2784,7 +2784,7 @@ function FullPageEditor({
               Zhoda podľa: <span className="font-medium text-foreground">{existingSubjectBanner.matchedField}</span>
               {" — "}
               <span className="font-medium text-foreground">{existingSubjectBanner.name}</span>
-              {existingSubjectBanner.uid && <span className="ml-1 text-xs text-muted-foreground">(UID: {existingSubjectBanner.uid})</span>}
+              {existingSubjectBanner.uid && <span className="ml-1 text-xs text-muted-foreground font-mono">(UID: {formatUid(existingSubjectBanner.uid)})</span>}
             </p>
             <p className="text-xs text-muted-foreground mt-1">Môžete otvoriť existujúci subjekt, registrovať aj tak, alebo upraviť zadané údaje.</p>
             <div className="flex gap-2 mt-2 flex-wrap">

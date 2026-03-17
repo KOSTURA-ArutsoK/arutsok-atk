@@ -3566,7 +3566,7 @@ export default function Contracts() {
                           <TooltipTrigger asChild>
                             <span className="font-mono text-primary cursor-default">{formatUidShort(specialist.uid)}</span>
                           </TooltipTrigger>
-                          <TooltipContent className="text-xs">{resolveUidName(specialist.uid)} · {specialist.uid}</TooltipContent>
+                          <TooltipContent className="text-xs">{resolveUidName(specialist.uid)} · <span className="font-mono">{formatUid(specialist.uid)}</span></TooltipContent>
                         </Tooltip>
                       ) : "—"}
                     </span>
@@ -3584,7 +3584,7 @@ export default function Contracts() {
                           <TooltipTrigger asChild>
                             <span className="font-mono text-amber-400 cursor-default">{formatUidShort(r1.uid)}</span>
                           </TooltipTrigger>
-                          <TooltipContent className="text-xs">{resolveUidName(r1.uid)} · {r1.uid}</TooltipContent>
+                          <TooltipContent className="text-xs">{resolveUidName(r1.uid)} · <span className="font-mono">{formatUid(r1.uid)}</span></TooltipContent>
                         </Tooltip>
                       ) : "—"}
                     </span>
@@ -3602,7 +3602,7 @@ export default function Contracts() {
                           <TooltipTrigger asChild>
                             <span className="font-mono text-amber-300 cursor-default">{formatUidShort(r2.uid)}</span>
                           </TooltipTrigger>
-                          <TooltipContent className="text-xs">{resolveUidName(r2.uid)} · {r2.uid}</TooltipContent>
+                          <TooltipContent className="text-xs">{resolveUidName(r2.uid)} · <span className="font-mono">{formatUid(r2.uid)}</span></TooltipContent>
                         </Tooltip>
                       ) : "—"}
                     </span>

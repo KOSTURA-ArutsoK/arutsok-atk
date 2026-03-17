@@ -955,7 +955,7 @@ function CompanyFormDialog({
                     <label className="text-sm font-medium leading-none">UID</label>
                     <Input
                       readOnly
-                      value={editingCompany?.uid ?? ""}
+                      value={editingCompany?.uid ? formatUid(editingCompany.uid) : ""}
                       placeholder="Vyplní sa automaticky"
                       className="font-mono text-xs text-muted-foreground bg-muted/40 cursor-default"
                       data-testid="input-company-uid"
@@ -1550,7 +1550,7 @@ function CompanyFormDialog({
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  {emp.uid && <span className="text-xs font-mono text-primary">{emp.uid}</span>}
+                                  {emp.uid && <span className="text-xs font-mono text-primary">{formatUid(emp.uid)}</span>}
                                   {emp.position && <span className="text-xs text-muted-foreground">{emp.position}</span>}
                                 </div>
                                 <p className="text-sm font-medium truncate">
@@ -2026,7 +2026,7 @@ function CompanyDetailDialog({
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 flex-wrap">
-                                        {emp.uid && <span className="text-[10px] font-mono text-primary">{emp.uid}</span>}
+                                        {emp.uid && <span className="text-[10px] font-mono text-primary">{formatUid(emp.uid)}</span>}
                                         {emp.position && <span className="text-[10px] text-muted-foreground">{emp.position}</span>}
                                       </div>
                                       <p className="text-xs font-medium truncate">

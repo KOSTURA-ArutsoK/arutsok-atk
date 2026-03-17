@@ -2306,6 +2306,8 @@ export async function registerRoutes(
     try {
       const input = api.subjects.create.input.parse(req.body);
 
+      if (input.uid) input.uid = input.uid.replace(/\D/g, "");
+
       if (input.birthNumber && (input.type === "person" || input.type === "szco")) {
         const rcResult = validateSlovakRC(input.birthNumber);
         if (!rcResult.valid) {
@@ -2432,6 +2434,8 @@ export async function registerRoutes(
       const isAdmin = appUser.role === 'admin' || appUser.role === 'superadmin' || appUser.role === 'prezident';
 
       const input = api.subjects.update.input.parse(req.body);
+
+      if (input.uid) input.uid = input.uid.replace(/\D/g, "");
 
       if (!isAdmin) {
         delete input.birthNumber;
