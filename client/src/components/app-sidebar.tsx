@@ -5,6 +5,7 @@ import { useHelp } from "@/contexts/help-context";
 import { RankBadge } from "@/components/rank-badge";
 import { DataLinkaIcon } from "@/components/icons/data-linka-icon";
 import { ClientGroupsIcon } from "@/components/icons/client-groups-icon";
+import { StrukturaIcon } from "@/components/icons/struktura-icon";
 import { useQuery } from "@tanstack/react-query";
 import { isAdmin as checkIsAdmin } from "@/lib/utils";
 import type { CircleConfig, SidebarLinkSection, SidebarLink } from "@shared/schema";
@@ -50,7 +51,6 @@ import {
   Building,
   FileSpreadsheet,
   Database,
-  LayoutGrid,
   Zap,
   BarChart3,
   FileInput,
@@ -638,7 +638,7 @@ export function AppSidebar() {
 
               <CollapsibleMenu
                 label="Štruktúra"
-                icon={LayoutGrid}
+                icon={StrukturaIcon}
                 items={[
                   { href: "/sektory-zmluv", icon: FileText, label: "Štruktúra sektorov (A)" },
                   { href: "/sektory-subjektov", icon: Database, label: "UI Subjektov (B)" },
