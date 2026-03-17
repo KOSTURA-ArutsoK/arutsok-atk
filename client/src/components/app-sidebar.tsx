@@ -4,6 +4,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useHelp } from "@/contexts/help-context";
 import { RankBadge } from "@/components/rank-badge";
 import { DataLinkaIcon } from "@/components/icons/data-linka-icon";
+import { ClientGroupsIcon } from "@/components/icons/client-groups-icon";
 import { useQuery } from "@tanstack/react-query";
 import { isAdmin as checkIsAdmin } from "@/lib/utils";
 import type { CircleConfig, SidebarLinkSection, SidebarLink } from "@shared/schema";
@@ -32,7 +33,6 @@ import {
   Phone,
   Timer,
   Eye,
-  UsersRound,
   Contact,
   ArrowDownLeft,
   ArrowUpRight,
@@ -122,7 +122,7 @@ const partneriProduktyItems = [
 
 const klientiItems: { href: string; icon: React.ElementType; label: string }[] = [
   { href: "/subjects", icon: Users, label: "Zoznam klientov" },
-  { href: "/client-groups", icon: UsersRound, label: "Skupiny klientov" },
+  { href: "/client-groups", icon: ClientGroupsIcon, label: "Skupiny klientov" },
 ];
 
 const zoznamZmluvChildren = [
