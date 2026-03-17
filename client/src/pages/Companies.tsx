@@ -179,7 +179,7 @@ const formSchema = insertMyCompanySchema.extend({
   corrPostalCode: z.string().optional().nullable(),
   corrCity: z.string().optional().nullable(),
   stateId: z.number().optional(),
-  description: z.string().min(1, "Charakteristika je povinná"),
+  description: z.string().optional().nullable(),
   subjectType: z.string().optional(),
   code: z.string().min(1, "Kód je povinný").max(25, "Max 25 znakov"),
   foundedDate: z.string().nullable().optional(),
@@ -1008,13 +1008,6 @@ function CompanyFormDialog({
                     )} />
                   </div>
                 )}
-                <FormField control={form.control} name="description" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Charakteristika (Čím sa firma zaoberá) *</FormLabel>
-                    <FormControl><Textarea {...field} value={field.value || ""} rows={4} data-testid="input-description" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
                 <FormField control={form.control} name="foundedDate" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Dátum založenia spoločnosti</FormLabel>
@@ -1580,7 +1573,14 @@ function CompanyFormDialog({
                 )}
               </TabsContent>
 
-              <TabsContent value="notes" className="mt-4">
+              <TabsContent value="notes" className="mt-4 space-y-6">
+                <FormField control={form.control} name="description" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Charakteristika (Čím sa firma zaoberá)</FormLabel>
+                    <FormControl><Textarea {...field} value={field.value || ""} rows={4} data-testid="input-description" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Poznámkový blok</label>
                   <RichTextEditor
