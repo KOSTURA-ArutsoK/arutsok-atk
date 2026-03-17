@@ -2666,21 +2666,6 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
     onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa pridať štatutára", variant: "destructive" }),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const resp = await apiRequest("DELETE", `/api/company-officers/${id}`);
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.message || "Chyba pri mazaní štatutára");
-      }
-      return resp.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/my-companies', companyId, 'officers'] });
-      toast({ title: "Štatutár vymazaný" });
-    },
-    onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa vymazať štatutára", variant: "destructive" }),
-  });
 
   const updateOfficerMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
@@ -2937,17 +2922,6 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                   data-testid={`button-edit-officer-${off.id}`}
                 >
                   <Pencil className="w-3 h-3" />
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="text-xs h-7 text-destructive hover:text-destructive px-2"
-                  onClick={() => deleteMutation.mutate(off.id)}
-                  disabled={deleteMutation.isPending}
-                  data-testid={`button-delete-officer-${off.id}`}
-                >
-                  <Trash2 className="w-3 h-3" />
                 </Button>
               </div>
             </div>

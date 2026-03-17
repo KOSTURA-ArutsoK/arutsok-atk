@@ -1691,13 +1691,7 @@ export async function registerRoutes(
   });
 
   app.delete(api.companyOfficers.delete.path, isAuthenticated, async (req, res) => {
-    try {
-      await storage.deleteCompanyOfficer(Number(req.params.id));
-      await logAudit(req, { action: "DELETE", module: "spolocnosti", entityId: Number(req.params.id) });
-      res.json({ success: true });
-    } catch (err) {
-      throw err;
-    }
+    return res.status(403).json({ message: "Štatutárov nie je možné vymazať" });
   });
 
   app.post("/api/company-officers/:id/register-subject", isAuthenticated, async (req: any, res) => {
