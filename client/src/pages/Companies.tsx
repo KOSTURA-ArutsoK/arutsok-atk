@@ -1122,7 +1122,7 @@ function CompanyFormDialog({
                       </FormItem>
                     )} />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <FormField control={form.control} name="postalCode" render={({ field }) => (
                       <FormItem>
                         <FormLabel>PSČ *</FormLabel>
@@ -1137,23 +1137,23 @@ function CompanyFormDialog({
                         <FormMessage />
                       </FormItem>
                     )} />
+                    <FormField control={form.control} name="stateId" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Štát *</FormLabel>
+                        <Select onValueChange={(v) => field.onChange(Number(v))} value={field.value ? String(field.value) : ""}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-state">
+                              <SelectValue placeholder="Vybrať štát" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {allStates?.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
                   </div>
-                  <FormField control={form.control} name="stateId" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Štát *</FormLabel>
-                      <Select onValueChange={(v) => field.onChange(Number(v))} value={field.value ? String(field.value) : ""}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-state">
-                            <SelectValue placeholder="Vybrať štát" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {allStates?.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
                 </div>
 
                 <Separator />
@@ -1209,7 +1209,7 @@ function CompanyFormDialog({
                           </FormItem>
                         )} />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-3 gap-4">
                         <FormField control={form.control} name="corrPostalCode" render={({ field }) => (
                           <FormItem>
                             <FormLabel>PSČ *</FormLabel>
@@ -1224,23 +1224,23 @@ function CompanyFormDialog({
                             <FormMessage />
                           </FormItem>
                         )} />
+                        <FormField control={form.control} name="corrStateId" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Štát *</FormLabel>
+                            <Select onValueChange={(v) => field.onChange(Number(v))} value={field.value ? String(field.value) : ""}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-corr-state">
+                                  <SelectValue placeholder="Vybrať štát" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {allStates?.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
                       </div>
-                      <FormField control={form.control} name="corrStateId" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Štát *</FormLabel>
-                          <Select onValueChange={(v) => field.onChange(Number(v))} value={field.value ? String(field.value) : ""}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-corr-state">
-                                <SelectValue placeholder="Vybrať štát" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {allStates?.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
                     </>
                   )}
                 </div>
@@ -1934,9 +1934,15 @@ function CompanyDetailDialog({
                     <h4 className="text-sm font-medium">Korespondenčná adresa</h4>
                   </div>
                   <div className="text-sm space-y-1 pl-1">
-                    <p data-testid="text-detail-corr-address">{[company.corrStreet, company.corrStreetNumber, (company as any).corrOrientNumber].filter(Boolean).join(" ") || "-"}</p>
-                    <p className="text-muted-foreground" data-testid="text-detail-corr-city">{[company.corrPostalCode, company.corrCity].filter(Boolean).join(" ") || "-"}</p>
-                    {(company as any).corrStateId && <p data-testid="text-detail-corr-state">{getStateName((company as any).corrStateId)}</p>}
+                    {(() => {
+                      const csn = company.corrStreetNumber;
+                      const con = (company as any).corrOrientNumber;
+                      const corrNum = csn && con ? `${csn}/${con}` : con || csn || null;
+                      return <p data-testid="text-detail-corr-address">{[company.corrStreet, corrNum].filter(Boolean).join(" ") || "-"}</p>;
+                    })()}
+                    <p className="text-muted-foreground" data-testid="text-detail-corr-city">
+                      {[company.corrPostalCode, company.corrCity, (company as any).corrStateId ? getStateName((company as any).corrStateId) : null].filter(Boolean).join(" ") || "-"}
+                    </p>
                   </div>
                 </div>
               </>
