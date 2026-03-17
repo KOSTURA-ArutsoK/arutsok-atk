@@ -52,6 +52,7 @@ interface BranchEntry {
   streetNumber?: string;
   postalCode?: string;
   city?: string;
+  stateId?: number;
   phone?: string;
   email?: string;
   phones?: string[];
@@ -59,6 +60,7 @@ interface BranchEntry {
   isActive?: boolean;
   activeFrom?: string;
   cancelledAt?: string;
+  branchStatus?: string;
   employees?: BranchEmployee[];
 }
 
@@ -1210,6 +1212,20 @@ function CompanyFormDialog({
                       <Input placeholder="PSČ" value={newBranch.postalCode || ""} onChange={e => setNewBranch(p => ({ ...p, postalCode: e.target.value }))} data-testid="input-branch-postal" />
                       <Input placeholder="Mesto" value={newBranch.city || ""} onChange={e => setNewBranch(p => ({ ...p, city: e.target.value }))} data-testid="input-branch-city" />
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">Štát</label>
+                      <Select
+                        value={newBranch.stateId ? String(newBranch.stateId) : ""}
+                        onValueChange={(v) => setNewBranch(p => ({ ...p, stateId: Number(v) }))}
+                      >
+                        <SelectTrigger data-testid="select-branch-state">
+                          <SelectValue placeholder="Vybrať štát" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allStates?.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
                     <Separator />
 
@@ -1449,7 +1465,7 @@ function CompanyFormDialog({
                                 </Badge>
                                 {empCount > 0 && <Badge variant="secondary" className="text-[10px]"><Users className="w-2.5 h-2.5 mr-0.5" />{empCount}</Badge>}
                               </div>
-                              <p className="text-muted-foreground text-xs">{[br.street, br.streetNumber, br.postalCode, br.city].filter(Boolean).join(", ") || "Bez adresy"}</p>
+                              <p className="text-muted-foreground text-xs">{[br.street, br.streetNumber, br.postalCode, br.city, br.stateId ? getStateName(br.stateId) : null].filter(Boolean).join(", ") || "Bez adresy"}</p>
                               <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                                 {br.activeFrom && <span>Od: {br.activeFrom}</span>}
                                 {br.isActive === false && br.cancelledAt && <span className="text-destructive">Zrušená: {br.cancelledAt}</span>}
@@ -1834,7 +1850,7 @@ function CompanyDetailDialog({
                             </Badge>
                             {empList.length > 0 && <Badge variant="secondary" className="text-[10px]"><Users className="w-2.5 h-2.5 mr-0.5" />{empList.length} pracovníkov</Badge>}
                           </div>
-                          <p className="text-muted-foreground text-xs">{[br.street, br.streetNumber, br.postalCode, br.city].filter(Boolean).join(", ") || "Bez adresy"}</p>
+                          <p className="text-muted-foreground text-xs">{[br.street, br.streetNumber, br.postalCode, br.city, br.stateId ? getStateName(br.stateId) : null].filter(Boolean).join(", ") || "Bez adresy"}</p>
                           {(brPhones.length > 0 || brEmails.length > 0) && (
                             <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                               {brPhones.map((p, i) => <span key={i} className="flex items-center gap-0.5"><Phone className="w-2.5 h-2.5" />{p}</span>)}

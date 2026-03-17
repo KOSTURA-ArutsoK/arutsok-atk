@@ -79,7 +79,7 @@ export const myCompanies = pgTable("my_companies", {
   corrPostalCode: text("corr_postal_code"),
   corrCity: text("corr_city"),
   corrStateId: integer("corr_state_id"),
-  branches: jsonb("branches").$type<{ name?: string; street?: string; streetNumber?: string; postalCode?: string; city?: string; phone?: string; email?: string; phones?: string[]; emails?: string[]; isActive?: boolean; activeFrom?: string; cancelledAt?: string; branchStatus?: string; employees?: { photo?: string; uid?: string; position?: string; titleBefore?: string; firstName?: string; lastName?: string; titleAfter?: string; phone?: string; email?: string; otherContact?: string; status?: string }[] }[]>().default([]),
+  branches: jsonb("branches").$type<{ name?: string; street?: string; streetNumber?: string; postalCode?: string; city?: string; stateId?: number; phone?: string; email?: string; phones?: string[]; emails?: string[]; isActive?: boolean; activeFrom?: string; cancelledAt?: string; branchStatus?: string; employees?: { photo?: string; uid?: string; position?: string; titleBefore?: string; firstName?: string; lastName?: string; titleAfter?: string; phone?: string; email?: string; otherContact?: string; status?: string }[] }[]>().default([]),
   stateId: integer("state_id"),
   description: text("description"),
   notes: text("notes"),
