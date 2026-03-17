@@ -530,7 +530,33 @@ function CompanyFormDialog({
   const [newEmployee, setNewEmployee] = useState<BranchEmployee>({ status: "active" });
   const [empPhones, setEmpPhones] = useState<string[]>([]);
   const [empEmails, setEmpEmails] = useState<string[]>([]);
+  const [empUidStatus, setEmpUidStatus] = useState<"idle" | "loading" | "found" | "not-found">("idle");
   const employeePhotoRef = useRef<HTMLInputElement>(null);
+
+  async function lookupEmployeeByUid() {
+    const uid = newEmployee.uid?.trim();
+    if (!uid) return;
+    setEmpUidStatus("loading");
+    try {
+      const res = await fetch(`/api/subjects/by-uid/${encodeURIComponent(uid)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setNewEmployee(prev => ({
+          ...prev,
+          firstName: data.firstName || prev.firstName,
+          lastName: data.lastName || prev.lastName,
+          titleBefore: data.titleBefore || prev.titleBefore,
+          titleAfter: data.titleAfter || prev.titleAfter,
+          photo: data.photoUrl || prev.photo,
+        }));
+        setEmpUidStatus("found");
+      } else {
+        setEmpUidStatus("not-found");
+      }
+    } catch {
+      setEmpUidStatus("not-found");
+    }
+  }
   const [pendingLogo, setPendingLogo] = useState<File | null>(null);
   const [pendingLogoPreview, setPendingLogoPreview] = useState<string | null>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
@@ -777,6 +803,7 @@ function CompanyFormDialog({
       setNewEmployee({ status: "active" });
       setEmpPhones([]);
       setEmpEmails([]);
+      setEmpUidStatus("idle");
       setAddingBranchEmployee(false);
     }
   }
@@ -786,6 +813,7 @@ function CompanyFormDialog({
     setNewEmployee({ ...emp });
     setEmpPhones(emp.phones ?? []);
     setEmpEmails(emp.emails ?? []);
+    setEmpUidStatus("idle");
     setEditingEmployeeIdx(idx);
     setAddingBranchEmployee(true);
   }
@@ -1309,7 +1337,7 @@ function CompanyFormDialog({
                           <Badge variant="secondary" className="text-xs">{branchEmployees.length}</Badge>
                         </div>
                         {!addingBranchEmployee && (
-                          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => { setAddingBranchEmployee(true); setNewEmployee({ status: "active" }); }} data-testid="button-add-employee">
+                          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => { setAddingBranchEmployee(true); setNewEmployee({ status: "active" }); setEmpUidStatus("idle"); }} data-testid="button-add-employee">
                             <UserPlus className="w-3 h-3 mr-1" />Pridať pracovníka
                           </Button>
                         )}
@@ -1329,9 +1357,37 @@ function CompanyFormDialog({
                               <span className="text-[10px] text-muted-foreground">Fotografia</span>
                             </div>
                             <div className="flex-1 space-y-2">
-                              <div className="grid grid-cols-2 gap-2">
-                                <Input placeholder="UID" value={newEmployee.uid || ""} onChange={e => setNewEmployee(p => ({ ...p, uid: e.target.value }))} className="text-sm font-mono" data-testid="input-emp-uid" />
-                                <Input placeholder="Pozícia / funkcia" value={newEmployee.position || ""} onChange={e => setNewEmployee(p => ({ ...p, position: e.target.value }))} className="text-sm" data-testid="input-emp-position" />
+                              <div className="flex gap-2 items-start">
+                                <div className="flex-1 space-y-1">
+                                  <div className="flex gap-1.5">
+                                    <Input
+                                      placeholder="UID"
+                                      value={newEmployee.uid || ""}
+                                      onChange={e => { setNewEmployee(p => ({ ...p, uid: e.target.value })); setEmpUidStatus("idle"); }}
+                                      className="text-sm font-mono"
+                                      data-testid="input-emp-uid"
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={lookupEmployeeByUid}
+                                      disabled={!newEmployee.uid?.trim() || empUidStatus === "loading"}
+                                      className="shrink-0 h-9 text-xs gap-1"
+                                      data-testid="button-emp-uid-search"
+                                    >
+                                      <Search className="w-3 h-3" />
+                                      {empUidStatus === "loading" ? "Hľadám..." : "Hľadať"}
+                                    </Button>
+                                  </div>
+                                  {empUidStatus === "found" && (
+                                    <p className="text-[11px] text-green-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />Pracovník nájdený – údaje doplnené</p>
+                                  )}
+                                  {empUidStatus === "not-found" && (
+                                    <p className="text-[11px] text-amber-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" />UID nenájdené – pracovník musí byť najprv zaregistrovaný v Subjektoch</p>
+                                  )}
+                                </div>
+                                <Input placeholder="Pozícia / funkcia" value={newEmployee.position || ""} onChange={e => setNewEmployee(p => ({ ...p, position: e.target.value }))} className="text-sm w-36" data-testid="input-emp-position" />
                               </div>
                               <div className="grid grid-cols-4 gap-2">
                                 <Input placeholder="Titul pred" value={newEmployee.titleBefore || ""} onChange={e => setNewEmployee(p => ({ ...p, titleBefore: e.target.value }))} className="text-sm" data-testid="input-emp-title-before" />
@@ -1396,7 +1452,7 @@ function CompanyFormDialog({
                           </div>
 
                           <div className="flex gap-2 justify-end pt-1">
-                            <Button type="button" variant="ghost" size="sm" onClick={() => { setAddingBranchEmployee(false); setEditingEmployeeIdx(null); setNewEmployee({ status: "active" }); setEmpPhones([]); setEmpEmails([]); }} data-testid="button-employee-cancel">Zrušiť</Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => { setAddingBranchEmployee(false); setEditingEmployeeIdx(null); setNewEmployee({ status: "active" }); setEmpPhones([]); setEmpEmails([]); setEmpUidStatus("idle"); }} data-testid="button-employee-cancel">Zrušiť</Button>
                             <Button type="button" size="sm" onClick={saveEmployee} data-testid="button-employee-save">{editingEmployeeIdx !== null ? "Uložiť zmeny" : "Uložiť pracovníka"}</Button>
                           </div>
                         </div>

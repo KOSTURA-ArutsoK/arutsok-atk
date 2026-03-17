@@ -7554,14 +7554,25 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Subject not found" });
       }
       const details = (subject as any).details || {};
-      const nameParts = [
-        details.titul_pred || details.titleBefore || '',
-        details.meno || subject.firstName || '',
-        details.priezvisko || subject.lastName || '',
-        details.titul_za || details.titleAfter || '',
-      ].filter(Boolean);
+      const titleBefore = details.titul_pred || details.titleBefore || subject.titleBefore || '';
+      const firstName = details.meno || subject.firstName || '';
+      const lastName = details.priezvisko || subject.lastName || '';
+      const titleAfter = details.titul_za || details.titleAfter || subject.titleAfter || '';
+      const nameParts = [titleBefore, firstName, lastName, titleAfter].filter(Boolean);
       const displayName = nameParts.join(' ') || subject.companyName || 'Neznámy subjekt';
-      res.json({ id: subject.id, uid: subject.uid, displayName, type: subject.type });
+      res.json({
+        id: subject.id,
+        uid: subject.uid,
+        displayName,
+        type: subject.type,
+        titleBefore: titleBefore || null,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        titleAfter: titleAfter || null,
+        photoUrl: subject.photoUrl || null,
+        phone: subject.phone || null,
+        email: subject.email || null,
+      });
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }
