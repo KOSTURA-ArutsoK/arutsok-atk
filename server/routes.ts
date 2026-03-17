@@ -25,6 +25,30 @@ import { scanUploadedFile, scanMultipleFiles, sanitizeExcelWorkbook, checkClamAv
 
 const ROOT_SYSTEM_UID = "421000000000000";
 
+async function linkSubjectToCompanyInNetwork(officerSubjectId: number, activeCompanyId: number | null) {
+  if (!activeCompanyId) return;
+  const [companySubj] = await db.select({ id: subjects.id })
+    .from(subjects)
+    .where(and(eq(subjects.myCompanyId, activeCompanyId), isNull(subjects.deletedAt)))
+    .orderBy(subjects.id)
+    .limit(1);
+  if (!companySubj) return;
+  const [existing] = await db.select({ id: networkLinks.id }).from(networkLinks)
+    .where(and(
+      eq(networkLinks.subjectId, officerSubjectId),
+      eq(networkLinks.guarantorSubjectId, companySubj.id),
+      eq(networkLinks.isActive, true)
+    )).limit(1);
+  if (!existing) {
+    await db.insert(networkLinks).values({
+      subjectId: officerSubjectId,
+      guarantorSubjectId: companySubj.id,
+      linkType: 'active',
+      phase: 'klient',
+    });
+  }
+}
+
 function stripBallast(str: string): string {
   return str.replace(/[\s\-\+\(\)\/\.]/g, "");
 }
@@ -1444,6 +1468,7 @@ export async function registerRoutes(
         };
         subject = await storage.createSubject(subjectData);
         await storage.updateCompanyOfficer(officer.id, { subjectId: subject.id } as any);
+        await linkSubjectToCompanyInNetwork(subject.id, req.appUser?.activeCompanyId || null);
         await logAudit(req, { action: "CREATE", module: "subjekty", entityId: subject.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { uid } });
       }
 
@@ -1509,6 +1534,7 @@ export async function registerRoutes(
               details: { source: 'officer_edit', officerId, officerType: updated.type },
             } as any);
             await storage.updateCompanyOfficer(officerId, { subjectId: newSubject.id } as any);
+            await linkSubjectToCompanyInNetwork(newSubject.id, req.appUser?.activeCompanyId || null);
             await logAudit(req, { action: "CREATE", module: "subjekty", entityId: newSubject.id, entityName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim(), newData: { uid } });
           }
         }
@@ -1584,6 +1610,7 @@ export async function registerRoutes(
 
       const created = await storage.createSubject(subjectData);
       await storage.updateCompanyOfficer(officerId, { subjectId: created.id } as any);
+      await linkSubjectToCompanyInNetwork(created.id, req.appUser?.activeCompanyId || null);
 
       await logAudit(req, {
         action: "CREATE",
@@ -1697,6 +1724,7 @@ export async function registerRoutes(
 
       const subject = await storage.createSubject(subjectData);
       await storage.updateCompanyOfficer(created.id, { subjectId: subject.id } as any);
+      await linkSubjectToCompanyInNetwork(subject.id, req.appUser?.activeCompanyId || null);
 
       await logAudit(req, {
         action: "CREATE",
