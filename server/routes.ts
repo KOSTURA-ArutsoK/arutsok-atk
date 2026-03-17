@@ -2412,6 +2412,7 @@ export async function registerRoutes(
 
   app.get(api.subjects.get.path, isAuthenticated, async (req: any, res) => {
     const subjectId = Number(req.params.id);
+    if (isNaN(subjectId)) return res.status(400).json({ message: "Invalid subject ID" });
     if (req.appUser?.permissionGroupId) {
       const [pg] = await db.select().from(permissionGroups).where(eq(permissionGroups.id, req.appUser.permissionGroupId));
       if (pg?.name === 'Klienti' && req.appUser.linkedSubjectId !== subjectId) {
