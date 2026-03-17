@@ -217,16 +217,6 @@ function LogoUploadSection({ companyId, company }: { companyId: number | null; c
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const { data: history } = useQuery<CompanyLogoHistory[]>({
-    queryKey: ["/api/my-companies", companyId, "logo-history"],
-    queryFn: async () => {
-      const res = await fetch(`/api/my-companies/${companyId}/logo-history`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    enabled: !!companyId,
-  });
-
   const { data: freshCompany } = useQuery<MyCompany>({
     queryKey: ["/api/my-companies", companyId],
     queryFn: async () => {
@@ -304,13 +294,14 @@ function LogoUploadSection({ companyId, company }: { companyId: number | null; c
     }
   }
 
+  const allLogos: any[] = (logoSource?.logos as any[]) || [];
+  const activeLogos = allLogos.filter((l: any) => !l.isArchived);
+  const archivedLogos = allLogos.filter((l: any) => l.isArchived);
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div>
-          <h4 className="text-sm font-medium">Logo spoločnosti</h4>
-          <p className="text-xs text-muted-foreground">Každé nahrané logo sa uchová v histórii</p>
-        </div>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="text-sm font-medium">Logo spoločnosti</h4>
         {companyId ? (
           <>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} data-testid="input-logo-upload" />
@@ -324,53 +315,56 @@ function LogoUploadSection({ companyId, company }: { companyId: number | null; c
         )}
       </div>
 
-      {primaryLogo && (
-        <div className="flex items-center gap-3 p-3 border border-border rounded-md bg-primary/5">
-          <div className="w-14 h-14 rounded-md border border-border overflow-hidden flex-shrink-0 bg-background flex items-center justify-center">
-            <img src={primaryLogo.url} alt="Logo" className="w-full h-full object-contain" />
+      {primaryLogo ? (
+        <div className="flex flex-col items-center gap-3 p-5 border-2 border-primary/40 rounded-lg bg-primary/5" data-testid="div-primary-logo">
+          <div className="w-28 h-28 rounded-lg border border-border overflow-hidden bg-background flex items-center justify-center shadow-md">
+            <img src={primaryLogo.url} alt="Aktívne logo" className="w-full h-full object-contain" />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{primaryLogo.name || "Aktívne logo"}</p>
-            <p className="text-xs text-muted-foreground">Primárne logo</p>
+          <Badge variant="outline" className="border-green-600 text-green-600 text-[10px]">Aktívne logo</Badge>
+          <div className="flex items-center gap-2">
+            <Button type="button" size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => window.open(primaryLogo.url, "_blank")} data-testid="button-view-primary-logo">
+              <Eye className="w-3.5 h-3.5" /> Zobraziť
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="h-7 text-xs gap-1 text-muted-foreground" onClick={handleArchive} disabled={archiving} data-testid="button-archive-logo">
+              {archiving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Archive className="w-3 h-3" />} Archivovať
+            </Button>
           </div>
-          <Button type="button" size="icon" variant="ghost" onClick={() => window.open(primaryLogo.url, "_blank")} data-testid="button-view-primary-logo">
-            <Eye className="w-4 h-4" />
-          </Button>
-          <Button type="button" size="sm" variant="outline" className="h-8 text-xs px-2.5 gap-1.5" onClick={handleArchive} disabled={archiving} data-testid="button-archive-logo">
-            {archiving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Archive className="w-3.5 h-3.5" />}
-            Archivovať
-          </Button>
         </div>
-      )}
-
-      {!primaryLogo && companyId && (
-        <div className="p-6 border border-dashed border-border rounded-md text-center text-sm text-muted-foreground" data-testid="text-no-logo">
+      ) : companyId ? (
+        <div className="p-8 border-2 border-dashed border-border rounded-lg text-center text-sm text-muted-foreground" data-testid="text-no-logo">
           Žiadne aktívne logo
         </div>
+      ) : null}
+
+      {activeLogos.filter((l: any) => !l.isPrimary).length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Ostatné aktívne</p>
+          <div className="grid grid-cols-4 gap-2">
+            {activeLogos.filter((l: any) => !l.isPrimary).map((logo: any, i: number) => (
+              <div key={i} className="group relative flex flex-col items-center gap-1.5 p-2 border border-border rounded-md bg-muted/10 hover:border-primary/40 transition-colors" data-testid={`logo-active-${i}`}>
+                <div className="w-14 h-14 rounded overflow-hidden border border-border bg-background flex items-center justify-center">
+                  <img src={logo.url} alt="logo" className="w-full h-full object-contain" />
+                </div>
+                <Button type="button" size="sm" variant="outline" className="h-6 text-[10px] px-2 w-full" onClick={() => handleSetPrimary(logo.url)} disabled={!!settingPrimary} data-testid={`button-set-primary-logo-${i}`}>
+                  {settingPrimary === logo.url ? <Loader2 className="w-3 h-3 animate-spin" /> : "Nastaviť"}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
-      {history && history.length > 0 && (
+      {archivedLogos.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">História lôg</p>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {history.map((entry) => (
-              <div key={entry.id} className="flex items-center gap-3 p-2.5 border border-border rounded-md" data-testid={`logo-history-row-${entry.id}`}>
-                <div className="w-10 h-10 rounded-md border border-border overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
-                  {entry.logoUrl ? (
-                    <img src={entry.logoUrl} alt="Logo" className="w-full h-full object-contain" />
-                  ) : (
-                    <Image className="w-4 h-4 text-muted-foreground" />
-                  )}
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Archivované</p>
+          <div className="grid grid-cols-4 gap-2">
+            {archivedLogos.map((logo: any, i: number) => (
+              <div key={i} className="flex flex-col items-center gap-1.5 p-2 border border-border/50 rounded-md bg-muted/5 opacity-60" data-testid={`logo-archived-${i}`}>
+                <div className="w-14 h-14 rounded overflow-hidden border border-border bg-background flex items-center justify-center">
+                  <img src={logo.url} alt="logo" className="w-full h-full object-contain grayscale" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs truncate">{entry.originalName || "Logo"}</p>
-                  <p className="text-xs text-muted-foreground">Nahradené: {formatDateTimeSlovak(entry.replacedAt)}</p>
-                </div>
-                <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => window.open(entry.logoUrl, "_blank")} data-testid={`button-view-old-logo-${entry.id}`}>
-                  <Eye className="w-3.5 h-3.5" />
-                </Button>
-                <Button type="button" size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => handleSetPrimary(entry.logoUrl)} disabled={!!settingPrimary} data-testid={`button-restore-logo-${entry.id}`}>
-                  {settingPrimary === entry.logoUrl ? <Loader2 className="w-3 h-3 animate-spin" /> : "Obnoviť"}
+                <Button type="button" size="sm" variant="ghost" className="h-6 text-[10px] px-2 w-full" onClick={() => handleSetPrimary(logo.url)} disabled={!!settingPrimary} data-testid={`button-restore-logo-${i}`}>
+                  {settingPrimary === logo.url ? <Loader2 className="w-3 h-3 animate-spin" /> : "Obnoviť"}
                 </Button>
               </div>
             ))}
