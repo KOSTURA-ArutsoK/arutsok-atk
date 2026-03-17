@@ -1494,6 +1494,7 @@ function CompanyFormDialog({
                   companyId={editingCompany?.id ?? null}
                   registryDirectors={registryResult?.directors}
                   companyUid={editingCompany?.uid}
+                  companyIco={editingCompany?.ico}
                 />
               </TabsContent>
 
@@ -1840,7 +1841,7 @@ function CompanyDetailDialog({
                 Každý štatutár musí byť zapísaný v systéme pod vlastným UID.
               </p>
             </div>
-            <CompanyOfficersSection companyId={company.id} companyUid={company.uid} />
+            <CompanyOfficersSection companyId={company.id} companyUid={company.uid} companyIco={company.ico} />
           </TabsContent>
 
           <TabsContent value="docs" className="mt-4 space-y-6">
@@ -2261,13 +2262,38 @@ function CompanyDivisionsTab({ companyId }: { companyId: number | null }) {
   );
 }
 
-function CompanyOfficersSection({ companyId, registryDirectors, companyUid }: { companyId: number | null; registryDirectors?: RegistryDirector[]; companyUid?: string | null }) {
+function CompanyOfficersSection({ companyId, registryDirectors, companyUid, companyIco }: { companyId: number | null; registryDirectors?: RegistryDirector[]; companyUid?: string | null; companyIco?: string | null }) {
   const { toast } = useToastCompanyDiv();
+  const [localDirectors, setLocalDirectors] = useState<RegistryDirector[] | null>(null);
+  const [fetchingRegistry, setFetchingRegistry] = useState(false);
+
   const { data: officers = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/my-companies', companyId, 'officers'],
     queryFn: () => fetch(`/api/my-companies/${companyId}/officers`).then(r => r.json()),
     enabled: !!companyId,
   });
+
+  async function fetchFromRegistry() {
+    if (!companyIco) return;
+    setFetchingRegistry(true);
+    try {
+      const res = await fetch(`/api/lookup/ico/${companyIco.replace(/\s/g, '')}`);
+      const data = await res.json();
+      if (data?.directors?.length) {
+        setLocalDirectors(data.directors);
+        toast({ title: "Štatutári načítaní", description: `Načítaných ${data.directors.length} štatutárov z Obchodného registra.` });
+      } else {
+        setLocalDirectors([]);
+        toast({ title: "Žiadni štatutári", description: "Obchodný register nevrátil žiadnych štatutárov pre toto IČO.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Chyba", description: "Nepodarilo sa načítať štatutárov z registra.", variant: "destructive" });
+    } finally {
+      setFetchingRegistry(false);
+    }
+  }
+
+  const effectiveDirectors = registryDirectors ?? localDirectors ?? undefined;
 
   const registerMutation = useMutation({
     mutationFn: async (officerId: number) => {
@@ -2320,7 +2346,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid }: { 
     )
   );
 
-  const unregisteredDirectors = (registryDirectors || []).filter(dir => {
+  const unregisteredDirectors = (effectiveDirectors || []).filter(dir => {
     const parts = dir.name.trim().split(/\s+/);
     const titles = ['Ing.', 'Mgr.', 'JUDr.', 'MUDr.', 'RNDr.', 'PhDr.', 'PaedDr.', 'doc.', 'prof.', 'Bc.', 'MBA', 'PhD.', 'CSc.', 'DrSc.', 'RSDr.', 'MVDr.', 'Dr.'];
     const mainParts = parts.filter(p => !titles.some(t => p.replace(/,/g, '').toLowerCase() === t.toLowerCase()));
@@ -2423,9 +2449,31 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid }: { 
       )}
 
       {officers.length === 0 && unregisteredDirectors.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-4" data-testid="text-no-officers">
-          Žiadni štatutári. Vyhľadajte firmu cez IČO v záložke „Základné údaje" pre načítanie štatutárov z Obchodného registra.
-        </p>
+        <div className="flex flex-col items-center gap-3 py-6 text-center" data-testid="text-no-officers">
+          <p className="text-sm text-muted-foreground">
+            Žiadni zapísaní štatutári.
+          </p>
+          {companyIco ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchFromRegistry}
+              disabled={fetchingRegistry || localDirectors !== null}
+              data-testid="button-fetch-officers-from-registry"
+            >
+              {fetchingRegistry ? (
+                <Loader2 className="w-3 h-3 animate-spin mr-2" />
+              ) : (
+                <Search className="w-3 h-3 mr-2" />
+              )}
+              {localDirectors !== null ? "Z registra nenájdení" : "Načítať štatutárov z Obchodného registra"}
+            </Button>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Vyhľadajte firmu cez IČO v záložke „Základné údaje" pre načítanie štatutárov z Obchodného registra.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
