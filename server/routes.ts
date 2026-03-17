@@ -18915,7 +18915,7 @@ export async function registerRoutes(
       const upcomingEvents = await storage.getUpcomingEvents(5);
 
       let nbsReportTasks: any[] = [];
-      if (appUser.role === 'admin' || appUser.role === 'superadmin') {
+      if (isAdmin(appUser)) {
         const now = new Date();
         const cy = now.getFullYear();
         function getNbsDeadlineTask(period: string, year: number): Date {
@@ -19115,7 +19115,7 @@ export async function registerRoutes(
       const nonCalendarCount = transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount + companiesWithoutOfficersCount;
 
       let nbsAlert = { show: false, daysLeft: 0 };
-      if (appUser.role === 'admin' || appUser.role === 'superadmin') {
+      if (isAdmin(appUser)) {
         const now = new Date();
         const currentYear = now.getFullYear();
 
