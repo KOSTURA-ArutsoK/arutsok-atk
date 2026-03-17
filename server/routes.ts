@@ -1539,6 +1539,11 @@ export async function registerRoutes(
       const officerId = Number(req.params.id);
       if (isNaN(officerId)) return res.status(400).json({ message: "Neplatné ID štatutára" });
 
+      const { birthNumber: bnRaw } = req.body;
+      if (!bnRaw || typeof bnRaw !== 'string' || !bnRaw.replace(/\//g, '').replace(/\s/g, '').trim()) {
+        return res.status(400).json({ message: "Rodné číslo je povinné pre zápis do systému (UID sa priraďuje iba pri zadaní RČ)" });
+      }
+
       const allOfficers = await db.select().from(companyOfficers).where(eq(companyOfficers.id, officerId));
       const officer = allOfficers[0];
       if (!officer) return res.status(404).json({ message: "Štatutár nebol nájdený" });
@@ -1574,6 +1579,7 @@ export async function registerRoutes(
         registeredByUserId: req.appUser?.id || null,
         registrationStatus: 'tiper',
         details: { source: 'statutory_registration', officerId: officer.id, officerType: officer.type },
+        birthNumber: encryptField(bnRaw.replace(/\//g, '').replace(/\s/g, '').trim()),
       };
 
       const created = await storage.createSubject(subjectData);
@@ -1665,6 +1671,10 @@ export async function registerRoutes(
 
       const created = await storage.createCompanyOfficer(officerData);
 
+      if (!bnRaw || typeof bnRaw !== 'string' || !bnRaw.replace(/\//g, '').replace(/\s/g, '').trim()) {
+        return res.status(201).json({ officer: created, noRc: true });
+      }
+
       let stateCode = '421';
       if (req.appUser?.activeStateId) {
         const st = await storage.getState(req.appUser.activeStateId);
@@ -1682,10 +1692,8 @@ export async function registerRoutes(
         registeredByUserId: req.appUser?.id || null,
         registrationStatus: 'tiper',
         details: { source: 'registry_statutory', officerId: created.id, officerType: role },
+        birthNumber: encryptField(bnRaw.replace(/\//g, '').replace(/\s/g, '').trim()),
       };
-      if (bnRaw && typeof bnRaw === 'string' && bnRaw.trim()) {
-        subjectData.birthNumber = encryptField(bnRaw.replace(/\//g, '').replace(/\s/g, '').trim());
-      }
 
       const subject = await storage.createSubject(subjectData);
       await storage.updateCompanyOfficer(created.id, { subjectId: subject.id } as any);

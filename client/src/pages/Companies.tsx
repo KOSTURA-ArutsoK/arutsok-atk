@@ -2521,6 +2521,8 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
   const [manualForm, setManualForm] = useState({ titleBefore: "", firstName: "", lastName: "", titleAfter: "", type: "Konateľ", city: "", rc: "" });
   const [pendingRegistryDir, setPendingRegistryDir] = useState<RegistryDirector | null>(null);
   const [rcInput, setRcInput] = useState("");
+  const [pendingOfficerForRc, setPendingOfficerForRc] = useState<any | null>(null);
+  const [rcOfficerInput, setRcOfficerInput] = useState("");
   const [editingOfficer, setEditingOfficer] = useState<any | null>(null);
   const [editForm, setEditForm] = useState<{
     titleBefore: string; firstName: string; lastName: string; titleAfter: string;
@@ -2557,20 +2559,26 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
   const effectiveDirectors = registryDirectors ?? localDirectors ?? undefined;
 
   const registerMutation = useMutation({
-    mutationFn: async (officerId: number) => {
-      const resp = await apiRequest("POST", `/api/company-officers/${officerId}/register-subject`);
+    mutationFn: async ({ officerId, birthNumber }: { officerId: number; birthNumber: string }) => {
+      const resp = await apiRequest("POST", `/api/company-officers/${officerId}/register-subject`, { birthNumber });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.message || "Chyba pri zápise");
+      }
       return resp.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/my-companies', companyId, 'officers'] });
+      setPendingOfficerForRc(null);
+      setRcOfficerInput("");
       if (data.alreadyRegistered) {
         toast({ title: "Štatutár je už zapísaný", description: `UID: ${formatUid(data.subject?.uid)}` });
       } else {
-        toast({ title: "Štatutár zapísaný do systému", description: `UID: ${formatUid(data.uid)}` });
+        toast({ title: "Štatutár zapísaný do systému", description: `UID: ${formatUid(data.uid || data.subject?.uid)}` });
       }
     },
-    onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa zapísať štatutára", variant: "destructive" });
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err?.message || "Nepodarilo sa zapísať štatutára", variant: "destructive" });
     },
   });
 
@@ -2595,6 +2603,8 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
       setRcInput("");
       if (data.alreadyExists) {
         toast({ title: "Štatutár už existuje v záznamoch" });
+      } else if (data.noRc) {
+        toast({ title: "Štatutár zapísaný bez RČ", description: "UID nebolo priradené — rodné číslo je povinné pre vznik UID.", variant: "destructive" });
       } else {
         toast({ title: "Štatutár zapísaný", description: `UID: ${formatUid(data.subject?.uid)}` });
       }
@@ -2790,15 +2800,10 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                     size="sm"
                     variant="outline"
                     className="text-xs h-7"
-                    onClick={() => registerMutation.mutate(off.id)}
-                    disabled={registerMutation.isPending}
+                    onClick={() => { setPendingOfficerForRc(off); setRcOfficerInput(""); }}
                     data-testid={`button-register-officer-${off.id}`}
                   >
-                    {registerMutation.isPending ? (
-                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                    ) : (
-                      <Plus className="w-3 h-3 mr-1" />
-                    )}
+                    <Plus className="w-3 h-3 mr-1" />
                     Zapísať do systému
                   </Button>
                 )}
@@ -2888,7 +2893,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
         <DialogContent className="max-w-sm" data-testid="dialog-rc-registry">
           <DialogHeader>
             <DialogTitle>Zapísať štatutára</DialogTitle>
-            <DialogDescription>Zadajte rodné číslo štatutára pred zápisom do systému.</DialogDescription>
+            <DialogDescription>Rodné číslo je povinné — bez neho nie je možné priradiť UID.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="text-sm font-medium">
@@ -2898,7 +2903,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
               )}
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Rodné číslo</label>
+              <label className="text-xs text-muted-foreground">Rodné číslo <span className="text-destructive">*</span></label>
               <Input
                 placeholder="napr. 800101/1234"
                 value={rcInput}
@@ -2925,10 +2930,66 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                 if (!pendingRegistryDir) return;
                 registerFromRegistryMutation.mutate({ dir: pendingRegistryDir, birthNumber: rcInput });
               }}
-              disabled={registerFromRegistryMutation.isPending}
+              disabled={registerFromRegistryMutation.isPending || rcInput.replace(/[/\s]/g, '').length < 9}
               data-testid="button-rc-dialog-confirm"
             >
               {registerFromRegistryMutation.isPending ? (
+                <Loader2 className="w-3 h-3 animate-spin mr-1" />
+              ) : (
+                <Plus className="w-3 h-3 mr-1" />
+              )}
+              Zapísať
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* RC Dialog for manually added officers (Zapísať do systému) */}
+      <Dialog open={!!pendingOfficerForRc} onOpenChange={(open) => { if (!open) { setPendingOfficerForRc(null); setRcOfficerInput(""); } }}>
+        <DialogContent className="max-w-sm" data-testid="dialog-rc-officer">
+          <DialogHeader>
+            <DialogTitle>Zapísať do systému</DialogTitle>
+            <DialogDescription>Rodné číslo je povinné — bez neho nie je možné priradiť UID.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="text-sm font-medium">
+              {[pendingOfficerForRc?.titleBefore, pendingOfficerForRc?.firstName, pendingOfficerForRc?.lastName, pendingOfficerForRc?.titleAfter].filter(Boolean).join(' ')}
+              {pendingOfficerForRc?.type && (
+                <span className="ml-2 text-xs text-muted-foreground">({pendingOfficerForRc.type})</span>
+              )}
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Rodné číslo <span className="text-destructive">*</span></label>
+              <Input
+                placeholder="napr. 800101/1234"
+                value={rcOfficerInput}
+                onChange={e => setRcOfficerInput(e.target.value)}
+                inputMode="numeric"
+                autoFocus
+                data-testid="input-rc-officer"
+                className="h-8 text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => { setPendingOfficerForRc(null); setRcOfficerInput(""); }}
+              data-testid="button-rc-officer-cancel"
+            >
+              Zrušiť
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (!pendingOfficerForRc) return;
+                registerMutation.mutate({ officerId: pendingOfficerForRc.id, birthNumber: rcOfficerInput });
+              }}
+              disabled={registerMutation.isPending || rcOfficerInput.replace(/[/\s]/g, '').length < 9}
+              data-testid="button-rc-officer-confirm"
+            >
+              {registerMutation.isPending ? (
                 <Loader2 className="w-3 h-3 animate-spin mr-1" />
               ) : (
                 <Plus className="w-3 h-3 mr-1" />
