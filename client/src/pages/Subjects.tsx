@@ -5,7 +5,7 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak, formatDateTimeSlovak, formatPhone, formatUid, canCreateSubjects, canEditRecords, normalizePhone } from "@/lib/utils";
+import { formatDateSlovak, formatDateTimeSlovak, formatPhone, formatUid, canCreateSubjects, canEditRecords, normalizePhone, smartPadUid } from "@/lib/utils";
 import { validateSlovakRC } from "@shared/rc-validator";
 import { validateSlovakICO } from "@shared/ico-validator";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, type ValidityResult } from "@/lib/document-validity";
@@ -2461,6 +2461,8 @@ function FullPageEditor({
   const { data: allStates, isLoading: statesLoading } = useStates();
   const { data: clientTypes, isLoading: typesLoading } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
   const { data: appUser } = useAppUser();
+  const { data: uidPrefixData } = useQuery<{ prefix: string }>({ queryKey: ["/api/uid-prefix"] });
+  const uidPrefix = uidPrefixData?.prefix || "421";
   const timerRef = useRef<number>(performance.now());
 
   const clientType = clientTypes?.find(ct => ct.code === initialData.clientTypeCode);
@@ -2845,8 +2847,13 @@ function FullPageEditor({
                     value={szcoData.szco_uid}
                     onChange={e => setSzcoData(prev => ({ ...prev, szco_uid: e.target.value }))}
                     onBlur={async () => {
-                      const val = szcoData.szco_uid.trim();
-                      if (!val || !val.startsWith("421") || val.length < 6) return;
+                      let val = szcoData.szco_uid.replace(/\s/g, '');
+                      if (!val) return;
+                      if (val.replace(/\D/g, '').length > 0 && val.replace(/\D/g, '').length < 15) {
+                        val = smartPadUid(val, uidPrefix);
+                        setSzcoData(prev => ({ ...prev, szco_uid: val }));
+                      }
+                      if (!val || val.length < 6) return;
                       try {
                         const resp = await fetch(`/api/subjects/by-uid/${encodeURIComponent(val)}`);
                         if (resp.ok) {
@@ -3033,8 +3040,13 @@ function FullPageEditor({
                     value={szcoFoData.fo_uid}
                     onChange={e => setSzcoFoData(prev => ({ ...prev, fo_uid: e.target.value }))}
                     onBlur={async () => {
-                      const val = szcoFoData.fo_uid.trim();
-                      if (!val || !val.startsWith("421") || val.length < 6) return;
+                      let val = szcoFoData.fo_uid.replace(/\s/g, '');
+                      if (!val) return;
+                      if (val.replace(/\D/g, '').length > 0 && val.replace(/\D/g, '').length < 15) {
+                        val = smartPadUid(val, uidPrefix);
+                        setSzcoFoData(prev => ({ ...prev, fo_uid: val }));
+                      }
+                      if (!val || val.length < 6) return;
                       setSzcoFoLoading(true);
                       try {
                         const resp = await fetch(`/api/subjects/search-fo?q=${encodeURIComponent(val)}`);

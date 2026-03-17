@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, User, Lock, Unlock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { smartPadUid } from "@/lib/utils";
 
 function formatUidDisplay(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 15);
@@ -69,6 +70,16 @@ export function UIDInput({
     }
   }, [manualOverride, effectivePrefix, onChange, onPrefixDetected]);
 
+  const handleBlur = useCallback(() => {
+    if (!prefix) return;
+    const raw = stripSpaces(value).replace(/\D/g, '');
+    if (!raw || raw.length === 15) return;
+    const padded = smartPadUid(raw, prefix);
+    if (padded && padded.length === 15 && padded !== raw) {
+      onChange(padded);
+    }
+  }, [prefix, value, onChange]);
+
   const toggleOverride = useCallback(() => {
     setManualOverride(prev => {
       const next = !prev;
@@ -110,6 +121,7 @@ export function UIDInput({
             placeholder={manualOverride || !prefixFormatted ? placeholder : ""}
             value={displayValue}
             onChange={handleInputChange}
+            onBlur={handleBlur}
             inputMode="numeric"
             className={`font-mono text-sm${isInvalid ? " border-red-500 focus-visible:ring-red-500" : ""}`}
             style={

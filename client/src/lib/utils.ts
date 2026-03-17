@@ -42,6 +42,21 @@ export const formatTimestampForFile = (date?: Date): string => {
   return `${y}${m}${day}_${h}${min}${sec}`;
 };
 
+export const smartPadUid = (input: string, prefix: string): string => {
+  const digits = input.replace(/\D/g, '');
+  if (digits.length === 0) return '';
+  if (digits.length === 15) return digits;
+  const pfx = prefix.replace(/\D/g, '');
+  if (!pfx || pfx.length >= 15) return digits.slice(0, 15);
+  const suffixLen = 15 - pfx.length;
+  if (digits.startsWith(pfx) && digits.length <= 15) {
+    const suffix = digits.slice(pfx.length);
+    return pfx + suffix.padStart(suffixLen, '0');
+  }
+  if (digits.length > suffixLen) return (pfx + digits).slice(0, 15);
+  return pfx + digits.padStart(suffixLen, '0');
+};
+
 export const formatUid = (uid: string | null | undefined): string => {
   if (!uid) return '-';
   const digits = uid.replace(/\D/g, '');
