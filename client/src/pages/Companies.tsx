@@ -215,7 +215,18 @@ function LogoUploadSection({ companyId, company }: { companyId: number | null; c
     enabled: !!companyId,
   });
 
-  const primaryLogo = (company?.logos as any[])?.find((l: any) => l.isPrimary) || null;
+  const { data: freshCompany } = useQuery<MyCompany>({
+    queryKey: ["/api/my-companies", companyId],
+    queryFn: async () => {
+      const res = await fetch(`/api/my-companies/${companyId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!companyId,
+  });
+
+  const logoSource = freshCompany || company;
+  const primaryLogo = (logoSource?.logos as any[])?.find((l: any) => l.isPrimary && !l.isArchived) || null;
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -227,6 +238,7 @@ function LogoUploadSection({ companyId, company }: { companyId: number | null; c
       const res = await fetch(`/api/my-companies/${companyId}/files/logos`, { method: "POST", body: fd, credentials: "include" });
       if (!res.ok) throw new Error("Upload failed");
       qc.invalidateQueries({ queryKey: ["/api/my-companies"] });
+      qc.invalidateQueries({ queryKey: ["/api/my-companies", companyId] });
       qc.invalidateQueries({ queryKey: ["/api/my-companies", companyId, "logo-history"] });
       toast({ title: "Logo nahrané", description: `${file.name} je teraz aktívne logo.` });
     } catch {
@@ -249,6 +261,7 @@ function LogoUploadSection({ companyId, company }: { companyId: number | null; c
       });
       if (!res.ok) throw new Error("Failed");
       qc.invalidateQueries({ queryKey: ["/api/my-companies"] });
+      qc.invalidateQueries({ queryKey: ["/api/my-companies", companyId] });
       qc.invalidateQueries({ queryKey: ["/api/my-companies", companyId, "logo-history"] });
       toast({ title: "Logo nastavené", description: "Vybrané logo je teraz primárne." });
     } catch {
@@ -2036,7 +2049,25 @@ export default function Companies() {
               )}
               {sortedData.map(company => (
                 <TableRow key={company.id} data-testid={`row-company-${company.id}`} onRowClick={() => openEdit(company)}>
-                  {columnVisibility.isVisible("name") && <TableCell className="font-medium">{company.name}</TableCell>}
+                  {columnVisibility.isVisible("name") && (
+                    <TableCell>
+                      <div className="flex items-center gap-2.5">
+                        {(() => {
+                          const logo = (company.logos as any[])?.find((l: any) => l.isPrimary && !l.isArchived);
+                          return logo?.url ? (
+                            <div className="w-7 h-7 rounded border border-border bg-background flex-shrink-0 overflow-hidden flex items-center justify-center">
+                              <img src={logo.url} alt="" className="w-full h-full object-contain" data-testid={`img-logo-${company.id}`} />
+                            </div>
+                          ) : (
+                            <div className="w-7 h-7 rounded border border-border/40 bg-muted/30 flex-shrink-0 flex items-center justify-center">
+                              <Building2 className="w-3.5 h-3.5 text-muted-foreground/50" />
+                            </div>
+                          );
+                        })()}
+                        <span className="font-medium">{company.name}</span>
+                      </div>
+                    </TableCell>
+                  )}
                   {columnVisibility.isVisible("ico") && <TableCell className="font-mono text-xs">{company.ico || "-"}</TableCell>}
                   {columnVisibility.isVisible("city") && <TableCell>{company.city || "-"}</TableCell>}
                   {columnVisibility.isVisible("state") && <TableCell>{getStateName(company.stateId)}</TableCell>}
