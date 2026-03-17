@@ -2531,6 +2531,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
     share: string; validFrom: string; validTo: string; rc: string;
     idCardNumber: string; idCardExpiry: string;
     activeFrom: string; activeTo: string; inactiveFrom: string; inactiveTo: string;
+    isOfficerActive: boolean;
   } | null>(null);
 
   const { data: officers = [], isLoading } = useQuery<any[]>({
@@ -2730,6 +2731,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
       activeTo: off.activeTo ? String(off.activeTo).substring(0, 10) : "",
       inactiveFrom: off.inactiveFrom ? String(off.inactiveFrom).substring(0, 10) : "",
       inactiveTo: off.inactiveTo ? String(off.inactiveTo).substring(0, 10) : "",
+      isOfficerActive: !off.inactiveFrom,
     });
     if (off.subjectId) {
       try {
@@ -3119,23 +3121,31 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                 </div>
               </div>
 
-              {/* R9: Aktívny od/do + Neaktívny od/do */}
-              <div className="grid grid-cols-4 gap-2">
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Aktívny od</label>
-                  <Input type="date" className="h-8 text-sm" value={editForm.activeFrom} onChange={e => setEditForm(f => f ? { ...f, activeFrom: e.target.value } : f)} data-testid="input-edit-officer-activefrom" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Aktívny do</label>
-                  <Input type="date" className="h-8 text-sm" value={editForm.activeTo} onChange={e => setEditForm(f => f ? { ...f, activeTo: e.target.value } : f)} data-testid="input-edit-officer-activeto" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Neaktívny od</label>
-                  <Input type="date" className="h-8 text-sm" value={editForm.inactiveFrom} onChange={e => setEditForm(f => f ? { ...f, inactiveFrom: e.target.value } : f)} data-testid="input-edit-officer-inactivefrom" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Neaktívny do</label>
-                  <Input type="date" className="h-8 text-sm" value={editForm.inactiveTo} onChange={e => setEditForm(f => f ? { ...f, inactiveTo: e.target.value } : f)} data-testid="input-edit-officer-inactiveto" />
+              {/* R9: Aktívny/Neaktívny prepínač + kondicionálne dátumy */}
+              <div className="space-y-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={editForm.isOfficerActive
+                    ? "border-green-600 text-green-500 hover:bg-green-950/30 h-8 text-sm"
+                    : "border-red-600 text-red-500 hover:bg-red-950/30 h-8 text-sm"}
+                  onClick={() => setEditForm(f => f ? { ...f, isOfficerActive: !f.isOfficerActive } : f)}
+                  data-testid="button-toggle-officer-active"
+                >
+                  {editForm.isOfficerActive ? "🟢 Aktívny" : "🔴 Neaktívny"}
+                </Button>
+                <div className={`grid gap-2 ${editForm.isOfficerActive ? "grid-cols-1 max-w-[200px]" : "grid-cols-2"}`}>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Aktívny od</label>
+                    <Input type="date" className="h-8 text-sm" value={editForm.activeFrom} onChange={e => setEditForm(f => f ? { ...f, activeFrom: e.target.value } : f)} data-testid="input-edit-officer-activefrom" />
+                  </div>
+                  {!editForm.isOfficerActive && (
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Neaktívny od</label>
+                      <Input type="date" className="h-8 text-sm" value={editForm.inactiveFrom} onChange={e => setEditForm(f => f ? { ...f, inactiveFrom: e.target.value } : f)} data-testid="input-edit-officer-inactivefrom" />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -3188,9 +3198,9 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                     idCardNumber: editForm.idCardNumber || null,
                     idCardExpiry: editForm.idCardExpiry || null,
                     activeFrom: editForm.activeFrom || null,
-                    activeTo: editForm.activeTo || null,
-                    inactiveFrom: editForm.inactiveFrom || null,
-                    inactiveTo: editForm.inactiveTo || null,
+                    activeTo: editForm.isOfficerActive ? null : (editForm.activeTo || null),
+                    inactiveFrom: editForm.isOfficerActive ? null : (editForm.inactiveFrom || null),
+                    inactiveTo: editForm.isOfficerActive ? null : (editForm.inactiveTo || null),
                     birthNumber: editForm.rc || undefined,
                   },
                 });
