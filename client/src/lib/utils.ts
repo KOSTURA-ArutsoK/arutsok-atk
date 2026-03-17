@@ -121,6 +121,7 @@ const PHONE_FLAG_MAP: Array<[string, string]> = [
 export const normalizePhone = (raw: string | null | undefined): string => {
   if (!raw) return '';
   let c = raw.replace(/[^\d+]/g, '');
+  c = c.replace(/\++/g, '+').replace(/(?!^)\+/g, '');
   if (c.startsWith('00')) c = '+' + c.slice(2);
   if (/^09\d{8}$/.test(c)) c = '+421' + c.slice(1);
   else if (/^9\d{8}$/.test(c)) c = '+421' + c;
