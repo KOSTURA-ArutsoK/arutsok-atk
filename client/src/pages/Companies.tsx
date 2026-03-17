@@ -2505,10 +2505,14 @@ function CompanyDivisionsTab({ companyId }: { companyId: number | null }) {
   );
 }
 
+const OFFICER_TYPES = ["Konateľ", "Štatutár", "Predseda predstavenstva", "Člen predstavenstva", "Prokurista", "Predseda dozornej rady", "Člen dozornej rady", "Iné"];
+
 function CompanyOfficersSection({ companyId, registryDirectors, companyUid, companyIco }: { companyId: number | null; registryDirectors?: RegistryDirector[]; companyUid?: string | null; companyIco?: string | null }) {
   const { toast } = useToastCompanyDiv();
   const [localDirectors, setLocalDirectors] = useState<RegistryDirector[] | null>(null);
   const [fetchingRegistry, setFetchingRegistry] = useState(false);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [manualForm, setManualForm] = useState({ titleBefore: "", firstName: "", lastName: "", titleAfter: "", type: "Konateľ", city: "" });
 
   const { data: officers = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/my-companies', companyId, 'officers'],
@@ -2583,6 +2587,39 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
     },
   });
 
+  const createManualMutation = useMutation({
+    mutationFn: async (data: typeof manualForm) => {
+      const resp = await apiRequest("POST", `/api/my-companies/${companyId}/officers`, {
+        type: data.type,
+        titleBefore: data.titleBefore || null,
+        firstName: data.firstName || null,
+        lastName: data.lastName || null,
+        titleAfter: data.titleAfter || null,
+        city: data.city || null,
+      });
+      return resp.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/my-companies', companyId, 'officers'] });
+      toast({ title: "Štatutár pridaný" });
+      setShowManualForm(false);
+      setManualForm({ titleBefore: "", firstName: "", lastName: "", titleAfter: "", type: "Konateľ", city: "" });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa pridať štatutára", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const resp = await apiRequest("DELETE", `/api/company-officers/${id}`);
+      return resp.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/my-companies', companyId, 'officers'] });
+      toast({ title: "Štatutár vymazaný" });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazať štatutára", variant: "destructive" }),
+  });
+
   const registeredNames = new Set(
     officers.map((off: any) =>
       `${(off.firstName || '').toLowerCase().trim()} ${(off.lastName || '').toLowerCase().trim()}`
@@ -2606,11 +2643,100 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
 
   return (
     <div className="space-y-4" data-testid="section-db-officers">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
+          <UserCheck className="w-3 h-3" />Štatutári{officers.length > 0 ? ` (${officers.length})` : ""}
+        </p>
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-xs h-7"
+          onClick={() => setShowManualForm(v => !v)}
+          data-testid="button-toggle-manual-officer-form"
+        >
+          {showManualForm ? <ChevronUp className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+          {showManualForm ? "Zavrieť" : "Pridať manuálne"}
+        </Button>
+      </div>
+
+      {showManualForm && (
+        <div className="border border-border rounded-md p-3 space-y-3 bg-muted/20" data-testid="panel-manual-officer-form">
+          <p className="text-xs font-medium text-muted-foreground">Nový štatutár – manuálny zápis</p>
+          <div className="grid grid-cols-[80px_1fr_1fr_80px] gap-2">
+            <Input
+              placeholder="Titul pred"
+              value={manualForm.titleBefore}
+              onChange={e => setManualForm(f => ({ ...f, titleBefore: e.target.value }))}
+              className="h-8 text-xs"
+              data-testid="input-manual-title-before"
+            />
+            <Input
+              placeholder="Meno *"
+              value={manualForm.firstName}
+              onChange={e => setManualForm(f => ({ ...f, firstName: e.target.value }))}
+              className="h-8 text-xs"
+              data-testid="input-manual-first-name"
+            />
+            <Input
+              placeholder="Priezvisko *"
+              value={manualForm.lastName}
+              onChange={e => setManualForm(f => ({ ...f, lastName: e.target.value }))}
+              className="h-8 text-xs"
+              data-testid="input-manual-last-name"
+            />
+            <Input
+              placeholder="Titul za"
+              value={manualForm.titleAfter}
+              onChange={e => setManualForm(f => ({ ...f, titleAfter: e.target.value }))}
+              className="h-8 text-xs"
+              data-testid="input-manual-title-after"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Select
+              value={manualForm.type}
+              onValueChange={v => setManualForm(f => ({ ...f, type: v }))}
+            >
+              <SelectTrigger className="h-8 text-xs" data-testid="select-manual-officer-type">
+                <SelectValue placeholder="Funkcia" />
+              </SelectTrigger>
+              <SelectContent>
+                {OFFICER_TYPES.map(t => (
+                  <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Mesto (nepovinné)"
+              value={manualForm.city}
+              onChange={e => setManualForm(f => ({ ...f, city: e.target.value }))}
+              className="h-8 text-xs"
+              data-testid="input-manual-city"
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => {
+                if (!manualForm.firstName.trim() && !manualForm.lastName.trim()) {
+                  toast({ title: "Chyba", description: "Zadajte aspoň meno alebo priezvisko", variant: "destructive" });
+                  return;
+                }
+                createManualMutation.mutate(manualForm);
+              }}
+              disabled={createManualMutation.isPending}
+              data-testid="button-save-manual-officer"
+            >
+              {createManualMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+              Uložiť štatutára
+            </Button>
+          </div>
+        </div>
+      )}
+
       {officers.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
-            <UserCheck className="w-3 h-3" />Zapísaní štatutári ({officers.length})
-          </p>
           {officers.map((off: any) => (
             <div key={off.id} className="flex items-center gap-3 p-3 border border-border rounded-md text-sm" data-testid={`officer-db-${off.id}`}>
               <UserCheck className="w-4 h-4 text-green-500 flex-shrink-0" />
@@ -2646,6 +2772,16 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                     Zapísať do systému
                   </Button>
                 )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs h-7 text-destructive hover:text-destructive px-2"
+                  onClick={() => deleteMutation.mutate(off.id)}
+                  disabled={deleteMutation.isPending}
+                  data-testid={`button-delete-officer-${off.id}`}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
               </div>
             </div>
           ))}
