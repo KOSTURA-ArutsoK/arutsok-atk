@@ -1523,7 +1523,7 @@ export async function registerRoutes(
           firstName: firstName || null,
           lastName: lastName || null,
           stateId: req.appUser?.activeStateId || null,
-          myCompanyId: req.appUser?.activeCompanyId || null,
+          myCompanyId: companyId,
           registeredByUserId: req.appUser?.id || null,
           registrationStatus: 'klient',
           birthNumber: encryptField(bnRaw.replace(/\//g, '').replace(/\s/g, '').trim()),
@@ -1531,7 +1531,7 @@ export async function registerRoutes(
         };
         subject = await storage.createSubject(subjectData);
         await storage.updateCompanyOfficer(officer.id, { subjectId: subject.id } as any);
-        await linkSubjectToCompanyInNetwork(subject.id, req.appUser?.activeCompanyId || null);
+        await linkSubjectToCompanyInNetwork(subject.id, companyId);
         await logAudit(req, { action: "CREATE", module: "subjekty", entityId: subject.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { uid } });
       }
 
@@ -1798,7 +1798,7 @@ export async function registerRoutes(
         firstName,
         lastName,
         stateId: req.appUser?.activeStateId || officer.stateId || null,
-        myCompanyId: req.appUser?.activeCompanyId || null,
+        myCompanyId: officer.companyId,
         registeredByUserId: req.appUser?.id || null,
         registrationStatus: 'klient',
         details: { source: 'statutory_registration', officerId: officer.id, officerType: officer.type },
@@ -1807,7 +1807,7 @@ export async function registerRoutes(
 
       const created = await storage.createSubject(subjectData);
       await storage.updateCompanyOfficer(officerId, { subjectId: created.id } as any);
-      await linkSubjectToCompanyInNetwork(created.id, req.appUser?.activeCompanyId || null);
+      await linkSubjectToCompanyInNetwork(created.id, officer.companyId);
 
       await logAudit(req, {
         action: "CREATE",
@@ -1922,7 +1922,7 @@ export async function registerRoutes(
         firstName,
         lastName,
         stateId: req.appUser?.activeStateId || null,
-        myCompanyId: req.appUser?.activeCompanyId || null,
+        myCompanyId: companyId,
         registeredByUserId: req.appUser?.id || null,
         registrationStatus: 'klient',
         details: { source: 'registry_statutory', officerId: created.id, officerType: role },
@@ -1931,7 +1931,7 @@ export async function registerRoutes(
 
       const subject = await storage.createSubject(subjectData);
       await storage.updateCompanyOfficer(created.id, { subjectId: subject.id } as any);
-      await linkSubjectToCompanyInNetwork(subject.id, req.appUser?.activeCompanyId || null);
+      await linkSubjectToCompanyInNetwork(subject.id, companyId);
 
       await logAudit(req, {
         action: "CREATE",
@@ -2371,6 +2371,32 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Swap contact error:", err);
       res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === SUBJECT OFFICER COMPANIES (which companies is this subject an officer of) ===
+  app.get("/api/subjects/:id/officer-companies", isAuthenticated, async (req, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID subjektu" });
+      const rows = await db.select({
+        officerId: companyOfficers.id,
+        officerType: companyOfficers.type,
+        isActive: companyOfficers.isActive,
+        validFrom: companyOfficers.validFrom,
+        validTo: companyOfficers.validTo,
+        companyId: myCompanies.id,
+        companyName: myCompanies.name,
+        companyIco: myCompanies.ico,
+        companyUid: myCompanies.uid,
+      })
+        .from(companyOfficers)
+        .innerJoin(myCompanies, eq(companyOfficers.companyId, myCompanies.id))
+        .where(eq(companyOfficers.subjectId, subjectId))
+        .orderBy(desc(companyOfficers.isActive), desc(companyOfficers.validFrom));
+      res.json(rows);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
     }
   });
 

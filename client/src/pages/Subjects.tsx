@@ -1174,6 +1174,15 @@ function EntityLinksTab({ subject }: { subject: Subject }) {
     queryKey: ['/api/entity-links', subject.id],
   });
 
+  const { data: officerCompanies = [] } = useQuery<any[]>({
+    queryKey: ['/api/subjects', subject.id, 'officer-companies'],
+    queryFn: async () => {
+      const r = await fetch(`/api/subjects/${subject.id}/officer-companies`, { credentials: "include" });
+      if (!r.ok) return [];
+      return r.json();
+    },
+  });
+
   const closeMutation = useMutation({
     mutationFn: async (linkId: number) => {
       await apiRequest("PATCH", `/api/entity-links/${linkId}/close`);
@@ -1313,6 +1322,41 @@ function EntityLinksTab({ subject }: { subject: Subject }) {
                 </Card>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {officerCompanies.length > 0 && (
+        <div>
+          <Separator className="my-3" />
+          <div className="flex items-center gap-2 mb-2">
+            <Briefcase className="w-3.5 h-3.5 text-primary" />
+            <span className="text-sm font-semibold">Štatutár v spoločnostiach</span>
+            <span className="text-xs text-muted-foreground">({officerCompanies.length})</span>
+          </div>
+          <div className="space-y-2">
+            {officerCompanies.map((oc: any) => (
+              <div
+                key={oc.officerId}
+                className={`flex items-center justify-between gap-3 p-3 rounded-md border ${oc.isActive ? "border-border bg-background" : "border-border/50 bg-muted/20 opacity-60"}`}
+                data-testid={`officer-company-${oc.companyId}`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{oc.companyName}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                      {oc.companyIco && <span>IČO: {oc.companyIco}</span>}
+                      {oc.officerType && <Badge variant="outline" className="text-[10px] h-4">{oc.officerType}</Badge>}
+                      {!oc.isActive && <Badge variant="outline" className="text-[10px] h-4 border-red-500/50 text-red-500">Neaktívny</Badge>}
+                    </div>
+                  </div>
+                </div>
+                {oc.companyUid && (
+                  <span className="text-xs font-mono text-muted-foreground shrink-0 whitespace-nowrap">{formatUid(oc.companyUid)}</span>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
