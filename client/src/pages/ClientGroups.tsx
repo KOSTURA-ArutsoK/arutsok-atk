@@ -1598,11 +1598,11 @@ export default function ClientGroups() {
                         <TableCell className="py-1">
                           {(() => {
                             const GROUP_CAT_STYLE: Record<string, { label: string; cls: string }> = {
-                              "Holdingová": { label: "Holdingová", cls: "border-red-600/50 text-red-400" },
-                              "Firemná":    { label: "Firemná",    cls: "border-blue-500/50 text-blue-400" },
-                              "Systémová":  { label: "Systémová",  cls: "border-amber-500/50 text-amber-400" },
-                              "Vlastná":    { label: "Vlastná",    cls: "border-green-600/40 text-green-400" },
-                              "Externá":    { label: "Externá",    cls: "border-slate-500/50 text-slate-400" },
+                              "Holding":   { label: "Holding",   cls: "border-red-600/50 text-red-400" },
+                              "Firemná":   { label: "Firemná",   cls: "border-blue-500/50 text-blue-400" },
+                              "Systémová": { label: "Systémová", cls: "border-amber-500/50 text-amber-400" },
+                              "Vlastná":   { label: "Vlastná",   cls: "border-green-600/40 text-green-400" },
+                              "Externá":   { label: "Externá",   cls: "border-slate-500/50 text-slate-400" },
                             };
                             if (!s.groups || s.groups.length === 0) return <span className="text-muted-foreground text-xs">—</span>;
                             const grouped = (s.groups as { name: string; cat: string }[]).reduce<Record<string, string[]>>((acc, g) => {

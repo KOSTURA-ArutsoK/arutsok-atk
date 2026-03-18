@@ -7647,8 +7647,9 @@ export async function registerRoutes(
         const g = groupMap.get(m.groupId);
         if (!g) continue;
         let cat = "Vlastná";
-        if (g.isHoldingGroup || g.isPartnerGroup) cat = "Firemná";
-        else if (g.isSystem && g.groupCode === "group_cierny_zoznam") cat = "Holdingová";
+        if (g.isSystem && g.groupCode === "group_cierny_zoznam") cat = "Holding";
+        else if (g.isHoldingGroup && !g.isPartnerGroup) cat = "Firemná";
+        else if (g.isPartnerGroup) cat = "Externá";
         else if (g.isSystem) cat = "Systémová";
         if (!memberMap.has(m.subjectId)) memberMap.set(m.subjectId, []);
         const existing = memberMap.get(m.subjectId)!;
