@@ -3511,8 +3511,11 @@ export default function Contracts() {
                     </td>
                   )}
                   {showOrder && (
-                    <td className="px-2 py-1.5 text-center text-muted-foreground">
-                      <InlineSortOrderEdit contractId={contract.id} currentOrder={(contract as any).sortOrderInInventory} />
+                    <td className="px-2 py-1.5 text-center text-muted-foreground font-mono">
+                      {showCheckbox
+                        ? (selectedIds.includes(contract.id) ? <span className="font-semibold text-primary">{selectedIds.indexOf(contract.id) + 1}</span> : <span className="text-muted-foreground/40">—</span>)
+                        : <InlineSortOrderEdit contractId={contract.id} currentOrder={(contract as any).sortOrderInInventory} />
+                      }
                     </td>
                   )}
                   <td className="px-2 py-1.5 whitespace-nowrap" title={partnerName}>
