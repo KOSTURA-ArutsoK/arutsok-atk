@@ -1064,7 +1064,63 @@ export default function ClientGroups() {
       ) : (
         <div className="space-y-3">
 
-          {/* ── 1. HOLDINGOVÉ ── */}
+          {/* ── 1. GLOBÁLNE SKUPINY (spoločnosti štátu + čierny zoznam) ── */}
+          <SectionCard
+            title="Globálne skupiny"
+            accentClass="border-l-red-600"
+            badgeClass="border-red-600/50 text-red-400"
+            badgeText="Globálna"
+            count={1 + globalneGroups.length}
+            testId="section-globalne"
+            isCollapsed={isCollapsed("globalne")}
+            onToggle={() => toggleSection("globalne")}
+          >
+            <Table className="w-full">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Názov</TableHead>
+                  <TableHead className="w-36 text-center">Kód / Skupina právomocí</TableHead>
+                  <TableHead className="w-24 text-center">Prihlásenie</TableHead>
+                  <TableHead className="w-24 text-center">Počet klientov</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {/* Syntetický riadok — Skupiny spoločností štátu */}
+                <TableRow
+                  data-testid="row-spolocnosti-synthetic"
+                  className="cursor-pointer hover:bg-muted/40 transition-colors"
+                  onClick={() => navigate("/my-companies")}
+                >
+                  <TableCell className="font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+                      Skupiny spoločností
+                      <Badge variant="outline" className="text-[9px] h-4 border-violet-500/50 text-violet-400">Spoločnosť</Badge>
+                    </span>
+                  </TableCell>
+                  <TableCell className="w-36 text-center"></TableCell>
+                  <TableCell className="w-24 text-center"></TableCell>
+                  <TableCell className="w-24 text-center">
+                    <span className="font-semibold text-violet-400" data-testid="count-spolocnosti">
+                      {stateCompanies.length}
+                    </span>
+                  </TableCell>
+                  <TableCell className="w-10">
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
+                {/* Čierny zoznam a iné globálne skupiny */}
+                {globalneGroups.map(g => (
+                  <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer" onClick={() => openEdit(g)}>
+                    <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={openEdit} onDelete={openDelete} />
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </SectionCard>
+
+          {/* ── 2. HOLDINGOVÉ ── */}
           <SectionCard
             title="Holdingové"
             accentClass="border-l-blue-500"
@@ -1225,62 +1281,6 @@ export default function ClientGroups() {
                     <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </TableCell>
                 </TableRow>
-              </TableBody>
-            </Table>
-          </SectionCard>
-
-          {/* ── 5. GLOBÁLNE SKUPINY (spoločnosti štátu + čierny zoznam) ── */}
-          <SectionCard
-            title="Globálne skupiny"
-            accentClass="border-l-red-600"
-            badgeClass="border-red-600/50 text-red-400"
-            badgeText="Globálna"
-            count={1 + globalneGroups.length}
-            testId="section-globalne"
-            isCollapsed={isCollapsed("globalne")}
-            onToggle={() => toggleSection("globalne")}
-          >
-            <Table className="w-full">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Názov</TableHead>
-                  <TableHead className="w-36 text-center">Kód / Skupina právomocí</TableHead>
-                  <TableHead className="w-24 text-center">Prihlásenie</TableHead>
-                  <TableHead className="w-24 text-center">Počet klientov</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {/* Syntetický riadok — Skupiny spoločností štátu */}
-                <TableRow
-                  data-testid="row-spolocnosti-synthetic"
-                  className="cursor-pointer hover:bg-muted/40 transition-colors"
-                  onClick={() => navigate("/my-companies")}
-                >
-                  <TableCell className="font-medium">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-violet-400 shrink-0" />
-                      Skupiny spoločností
-                      <Badge variant="outline" className="text-[9px] h-4 border-violet-500/50 text-violet-400">Spoločnosť</Badge>
-                    </span>
-                  </TableCell>
-                  <TableCell className="w-36 text-center"></TableCell>
-                  <TableCell className="w-24 text-center"></TableCell>
-                  <TableCell className="w-24 text-center">
-                    <span className="font-semibold text-violet-400" data-testid="count-spolocnosti">
-                      {stateCompanies.length}
-                    </span>
-                  </TableCell>
-                  <TableCell className="w-10">
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  </TableCell>
-                </TableRow>
-                {/* Čierny zoznam a iné globálne skupiny */}
-                {globalneGroups.map(g => (
-                  <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer" onClick={() => openEdit(g)}>
-                    <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={openEdit} onDelete={openDelete} />
-                  </TableRow>
-                ))}
               </TableBody>
             </Table>
           </SectionCard>
