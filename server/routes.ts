@@ -2377,7 +2377,7 @@ export async function registerRoutes(
       ...s,
       myCompanyName: companyMap.get(s.myCompanyId) || null,
       companyName: s.type === 'person'
-        ? (companyMap.get(s.myCompanyId) || null)
+        ? null
         : (s.companyName || null),
     }));
 
