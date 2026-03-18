@@ -1065,7 +1065,9 @@ export const insertAppUserSchema = createInsertSchema(appUsers).omit({ id: true,
 export const insertCompanyOfficerSchema = createInsertSchema(companyOfficers).omit({ id: true, createdAt: true });
 export const insertPartnerContactSchema = createInsertSchema(partnerContacts).omit({ id: true, createdAt: true });
 export const insertPartnerProductSchema = createInsertSchema(partnerProducts).omit({ id: true, createdAt: true });
-export const insertPartnerContractSchema = createInsertSchema(partnerContracts).omit({ id: true, createdAt: true });
+export const insertPartnerContractSchema = createInsertSchema(partnerContracts)
+  .omit({ id: true, createdAt: true })
+  .extend({ signedDate: z.coerce.date().nullable().optional() });
 export const insertCommunicationMatrixSchema = createInsertSchema(communicationMatrix).omit({ id: true, createdAt: true });
 export const insertCompanyContactSchema = createInsertSchema(companyContacts).omit({ id: true, createdAt: true });
 export const insertClientDocumentHistorySchema = createInsertSchema(clientDocumentHistory).omit({ id: true, archivedAt: true });
