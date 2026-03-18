@@ -2940,9 +2940,7 @@ export default function Contracts() {
   });
 
   const moveToProcessingMutation = useMutation({
-    mutationFn: async (contractIds: number[]) => {
-      const allPhase5Ids = (activeAccepted || []).map(c => c.id);
-      const rejectedIds = allPhase5Ids.filter(id => !contractIds.includes(id));
+    mutationFn: async ({ contractIds, rejectedIds = [] }: { contractIds: number[]; rejectedIds?: number[] }) => {
       const res = await apiRequest("POST", "/api/contracts/move-to-processing", { contractIds, rejectedIds });
       return res.json();
     },
@@ -7903,7 +7901,7 @@ export default function Contracts() {
                             data-testid={`button-approve-sprievodka-${group.inventoryId}`}
                           >
                             {approveSprievodkaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
-                            Schváliť a odoslať sprievodku do centrály
+                            Potvrdiť príjem zmluv v centrále
                           </Button>
                         </div>
                         <div id={`expanded-wrapper-${group.inventoryId}`} style={{ display: isExpanded ? 'block' : 'none' }}>
@@ -8006,15 +8004,6 @@ export default function Contracts() {
             <div className="flex items-center gap-3 p-3 border-b flex-wrap">
               <ShieldCheckDoubleIcon className="w-4 h-4 text-green-500 shrink-0" />
               <p className="text-xs text-muted-foreground flex-1">Zmluvy prijaté do centrály. Tu sa zo zmluvy stáva kontrakt.</p>
-              {rerouteSelectedIds.length > 0 && activeFolder === 5 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
-                  <Button size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white" onClick={() => moveToProcessingMutation.mutate(rerouteSelectedIds)} disabled={moveToProcessingMutation.isPending} data-testid="button-move-to-processing">
-                    {moveToProcessingMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <span className="mr-1.5">📋</span>}
-                    Potvrď zmluvy na sprievodke a daj roztriediť ({rerouteSelectedIds.length})
-                  </Button>
-                </div>
-              )}
             </div>
             <CardContent className="p-0">
               {isLoadingAccepted ? (
@@ -8051,6 +8040,19 @@ export default function Contracts() {
                           <Badge variant="outline" data-testid={`badge-accepted-sprievodka-count-${group.inventoryId}`}>
                             {group.contracts.length} {group.contracts.length === 1 ? "zmluva" : group.contracts.length < 5 ? "zmluvy" : "zmluv"}
                           </Badge>
+                          <Button
+                            size="sm"
+                            className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                            disabled={moveToProcessingMutation.isPending}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              moveToProcessingMutation.mutate({ contractIds: group.contracts.map(c => c.id), rejectedIds: [] });
+                            }}
+                            data-testid={`button-confirm-sprievodka-${group.inventoryId}`}
+                          >
+                            {moveToProcessingMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <span className="mr-1.5">📋</span>}
+                            Potvrď a daj roztriediť ({group.contracts.length})
+                          </Button>
                         </div>
                         <div style={{ display: isExpanded ? 'block' : 'none' }}>
                           <div className="border-t">
@@ -8383,23 +8385,6 @@ export default function Contracts() {
                       </>
                     )}
                   </CardContent>
-                  {false && phaseId === 6 && rerouteSelectedIds.length > 0 && activeFolder === 6 && (
-                    <div className="flex items-center justify-between p-3 border-t bg-green-500/5">
-                      <span className="text-sm text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
-                      <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => createProcessingSupiskaMutation.mutate(rerouteSelectedIds)} disabled={createProcessingSupiskaMutation.isPending} data-testid="button-create-supiska-old">
-                        {createProcessingSupiskaMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ListChecks className="w-4 h-4 mr-2" />}
-                        Vytvoriť súpisku ({rerouteSelectedIds.length})
-                      </Button>
-                    </div>
-                  )}
-                  {false && phaseId === 7 && rerouteSelectedIds.length > 0 && activeFolder === 7 && (
-                    <div className="flex items-center justify-between p-3 border-t bg-orange-500/5">
-                      <span className="text-sm text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
-                      <Button variant="default" className="bg-orange-600 hover:bg-orange-700 text-white" onClick={() => handleReroute("intervencia")} data-testid="button-reroute-intervencia-old">
-                        <ArrowRight className="w-4 h-4 mr-2" />Vrátiť do spracovania ({rerouteSelectedIds.length})
-                      </Button>
-                    </div>
-                  )}
                 </Card>
               </div>
             );
@@ -8410,21 +8395,21 @@ export default function Contracts() {
         <Dialog open={sprievodkaDialogOpen} onOpenChange={setSprievodkaDialogOpen}>
           <DialogContent size="sm">
             <DialogHeader>
-              <DialogTitle data-testid="text-sprievodka-dialog-title">Odoslat zmluvy</DialogTitle>
+              <DialogTitle data-testid="text-sprievodka-dialog-title">Odoslať zmluvy</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Vybranych zmluv: <span className="font-semibold text-foreground">{selectedIds.length}</span>. Zmluvy budu odoslane na schvalenie Centralnej kancelarii cez novu sprievodku.
+                Vybraných zmlúv: <span className="font-semibold text-foreground">{selectedIds.length}</span>. Zmluvy budú odoslané na schválenie Centrálnej kancelárie cez novú sprievodku.
               </p>
               <p className="text-xs font-medium text-red-400" data-testid="text-sprievodka-order-note">
-                Zmluvy budu na sprievodke zoradene podla poradia, v akom ich oznacite.
+                Zmluvy budú na sprievodke zoradené podľa poradia, v akom ich označíte.
               </p>
               <div className="flex items-center justify-end gap-3 flex-wrap">
                 <Button variant="outline" onClick={() => setSprievodkaDialogOpen(false)} data-testid="button-sprievodka-cancel">
-                  Zrusit
+                  Zrušiť
                 </Button>
                 <Button onClick={handleDispatch} disabled={isDispatching} data-testid="button-sprievodka-confirm">
-                  {isDispatching ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Odosielam...</>) : (<><Send className="w-4 h-4 mr-2" />Odoslat</>)}
+                  {isDispatching ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Odosielam...</>) : (<><Send className="w-4 h-4 mr-2" />Odoslať</>)}
                 </Button>
               </div>
             </div>
