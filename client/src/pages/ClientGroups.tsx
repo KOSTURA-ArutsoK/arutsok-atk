@@ -1596,14 +1596,34 @@ export default function ClientGroups() {
                           }
                         </TableCell>
                         <TableCell className="py-1">
-                          <div className="flex flex-wrap gap-1">
-                            {s.groups.length === 0
-                              ? <span className="text-muted-foreground text-xs">—</span>
-                              : s.groups.map((g, i) => (
-                                <Badge key={i} variant="outline" className="text-[9px] h-4 border-green-600/30 text-green-400/80">{g}</Badge>
-                              ))
-                            }
-                          </div>
+                          {(() => {
+                            const GROUP_CAT_STYLE: Record<string, { label: string; cls: string }> = {
+                              "Holdingová": { label: "Holdingová", cls: "border-red-600/50 text-red-400" },
+                              "Firemná":    { label: "Firemná",    cls: "border-blue-500/50 text-blue-400" },
+                              "Systémová":  { label: "Systémová",  cls: "border-amber-500/50 text-amber-400" },
+                              "Vlastná":    { label: "Vlastná",    cls: "border-green-600/40 text-green-400" },
+                              "Externá":    { label: "Externá",    cls: "border-slate-500/50 text-slate-400" },
+                            };
+                            if (!s.groups || s.groups.length === 0) return <span className="text-muted-foreground text-xs">—</span>;
+                            const grouped = (s.groups as { name: string; cat: string }[]).reduce<Record<string, string[]>>((acc, g) => {
+                              if (!acc[g.cat]) acc[g.cat] = [];
+                              acc[g.cat].push(g.name);
+                              return acc;
+                            }, {});
+                            return (
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(grouped).map(([cat, names]) => {
+                                  const style = GROUP_CAT_STYLE[cat] ?? { label: cat, cls: "border-muted text-muted-foreground" };
+                                  const label = names.length > 1 ? `${style.label} (${names.length})` : style.label;
+                                  return (
+                                    <Badge key={cat} variant="outline" title={names.join(", ")} className={`text-[9px] h-4 cursor-default ${style.cls}`}>
+                                      {label}
+                                    </Badge>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                       </TableRow>
                     );

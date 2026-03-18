@@ -7642,17 +7642,17 @@ export async function registerRoutes(
         .from(clientGroupMembers);
       const groupsAll = await db.select({ id: clientGroups.id, name: clientGroups.name, isSystem: clientGroups.isSystem, isHoldingGroup: clientGroups.isHoldingGroup, isPartnerGroup: clientGroups.isPartnerGroup, groupCode: clientGroups.groupCode }).from(clientGroups);
       const groupMap = new Map(groupsAll.map(g => [g.id, g]));
-      const memberMap = new Map<number, string[]>();
+      const memberMap = new Map<number, { name: string; cat: string }[]>();
       for (const m of memberships) {
         const g = groupMap.get(m.groupId);
         if (!g) continue;
-        let cat = "Voliteľná";
+        let cat = "Vlastná";
         if (g.isHoldingGroup || g.isPartnerGroup) cat = "Firemná";
         else if (g.isSystem && g.groupCode === "group_cierny_zoznam") cat = "Holdingová";
         else if (g.isSystem) cat = "Systémová";
         if (!memberMap.has(m.subjectId)) memberMap.set(m.subjectId, []);
-        const label = `${g.name} (${cat})`;
-        if (!memberMap.get(m.subjectId)!.includes(label)) memberMap.get(m.subjectId)!.push(label);
+        const existing = memberMap.get(m.subjectId)!;
+        if (!existing.some(e => e.name === g.name)) existing.push({ name: g.name, cat });
       }
       const result = rows.map(s => ({
         ...s,
