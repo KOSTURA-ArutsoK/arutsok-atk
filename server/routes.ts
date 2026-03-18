@@ -7628,14 +7628,14 @@ export async function registerRoutes(
           isDeceased: subjects.isDeceased,
           isActive: subjects.isActive,
           lifecycleStatus: subjects.lifecycleStatus,
+          deletedAt: subjects.deletedAt,
           contractCount: sql<number>`(SELECT COUNT(*) FROM contracts WHERE contracts.subject_id = ${subjects.id} AND contracts.deleted_at IS NULL)`,
         })
         .from(subjects)
         .leftJoin(myCompanies, eq(subjects.myCompanyId, myCompanies.id))
-        .where(and(
-          isNull(subjects.deletedAt),
+        .where(
           stateId ? sql`${subjects.stateId} = ${stateId}` : sql`true`
-        ))
+        )
         .orderBy(subjects.uid);
       const memberships = await db
         .select({ subjectId: clientGroupMembers.subjectId, groupId: clientGroupMembers.groupId })

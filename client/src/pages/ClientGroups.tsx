@@ -1536,6 +1536,7 @@ export default function ClientGroups() {
                     </TableRow>
                   );
                   return filtered.map(s => {
+                    const isDeleted = !!s.deletedAt;
                     const fullName = s.type === "company"
                       ? (s.companyName || "—")
                       : s.type === "szco"
@@ -1544,13 +1545,15 @@ export default function ClientGroups() {
                     const isDeceased = !!s.isDeceased;
                     const isInactive = s.isActive === false;
                     const hasNoContract = !isDeceased && !isInactive && Number(s.contractCount ?? 0) === 0;
-                    const statusDot = isDeceased
-                      ? { cls: "bg-black dark:bg-gray-200", title: "Zosnulý" }
-                      : isInactive
-                        ? { cls: "bg-red-500", title: "Neaktívny" }
-                        : hasNoContract
-                          ? { cls: "bg-blue-500", title: "Bez zmluvy" }
-                          : { cls: "bg-emerald-500", title: "Aktívny" };
+                    const statusDot = isDeleted
+                      ? { cls: "bg-zinc-600 ring-1 ring-zinc-500", title: "Archivovaný / vymazaný" }
+                      : isDeceased
+                        ? { cls: "bg-black dark:bg-gray-200", title: "Zosnulý" }
+                        : isInactive
+                          ? { cls: "bg-red-500", title: "Neaktívny" }
+                          : hasNoContract
+                            ? { cls: "bg-blue-500", title: "Bez zmluvy" }
+                            : { cls: "bg-emerald-500", title: "Aktívny" };
                     const TYPE_MAP: Record<string, { label: string; cls: string; title: string }> = {
                       person:  { label: "FO",   cls: "border-violet-500/50 text-violet-400",  title: "Fyzické osoby (FO)" },
                       szco:    { label: "SZČO", cls: "border-amber-500/50 text-amber-400",    title: "Živnostníci (SZČO)" },
@@ -1566,8 +1569,8 @@ export default function ClientGroups() {
                       <TableRow
                         key={s.id}
                         data-testid={`row-state-overview-${s.id}`}
-                        className="h-10 cursor-pointer hover:bg-muted/40 transition-colors"
-                        onClick={() => { setStateOverviewOpen(false); navigate(`/subjects?openId=${s.id}`); }}
+                        className={`h-10 transition-colors ${isDeleted ? "opacity-50 cursor-default bg-zinc-900/30" : "cursor-pointer hover:bg-muted/40"}`}
+                        onClick={() => { if (!isDeleted) { setStateOverviewOpen(false); navigate(`/subjects?openId=${s.id}`); } }}
                       >
                         <TableCell className="px-3 py-0">
                           <div
@@ -1578,7 +1581,7 @@ export default function ClientGroups() {
                         <TableCell className="font-mono text-[11px] text-muted-foreground py-0 whitespace-nowrap">
                           {s.uid ? formatUid(s.uid) : "—"}
                         </TableCell>
-                        <TableCell className="font-medium text-sm py-0">{fullName}</TableCell>
+                        <TableCell className={`font-medium text-sm py-0 ${isDeleted ? "line-through text-muted-foreground" : ""}`}>{fullName}</TableCell>
                         <TableCell className="text-center py-0">
                           <Badge variant="outline" className={`text-[9px] h-4 ${typeCls} cursor-default`} title={typeTitle}>{typeLabel}</Badge>
                         </TableCell>
@@ -1618,6 +1621,7 @@ export default function ClientGroups() {
               <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />Bez zmluvy</span>
               <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />Neaktívny</span>
               <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-400 inline-block" />Zosnulý</span>
+              <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-zinc-600 ring-1 ring-zinc-500 inline-block" />Archivovaný</span>
               <span className="ml-auto text-[10px] text-muted-foreground/50 shrink-0">Klik na riadok → otvorí detail subjektu</span>
             </div>
             <div className="flex items-center gap-5">
