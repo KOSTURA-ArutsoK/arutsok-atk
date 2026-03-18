@@ -4704,6 +4704,16 @@ export default function Subjects() {
     }
     return null;
   });
+  const [pendingOpenId] = useState<number | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("openId");
+    if (id) {
+      window.history.replaceState({}, "", window.location.pathname);
+      return parseInt(id, 10);
+    }
+    return null;
+  });
+  const [openIdHandled, setOpenIdHandled] = useState(false);
   const [addNewHandled, setAddNewHandled] = useState(false);
   const [viewTarget, setViewTarget] = useState<Subject | null>(null);
   const [editTarget, setEditTarget] = useState<Subject | null>(null);
@@ -4761,6 +4771,15 @@ export default function Subjects() {
       setIsInitModalOpen(true);
     }
   }, [addNewHandled, pendingAddNew, appUser?.activeStateId]);
+
+  useEffect(() => {
+    if (openIdHandled || !pendingOpenId || !subjects) return;
+    const found = subjects.find((s: any) => s.id === pendingOpenId);
+    if (found) {
+      setOpenIdHandled(true);
+      setViewTarget(found as Subject);
+    }
+  }, [openIdHandled, pendingOpenId, subjects]);
 
   function toggleFilter(category: SubjectStatusCategory) {
     setActiveFilters(prev => {

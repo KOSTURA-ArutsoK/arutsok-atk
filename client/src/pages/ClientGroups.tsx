@@ -1554,7 +1554,7 @@ export default function ClientGroups() {
                         key={s.id}
                         data-testid={`row-state-overview-${s.id}`}
                         className="h-10 cursor-pointer hover:bg-muted/40 transition-colors"
-                        onClick={() => { setStateOverviewOpen(false); navigate(`/subjects/${s.id}`); }}
+                        onClick={() => { setStateOverviewOpen(false); navigate(`/subjects?openId=${s.id}`); }}
                       >
                         <TableCell className="px-3 py-0">
                           <div
