@@ -250,22 +250,52 @@ function StateFormDialog({
 type WikiFlag = { title: string; thumbUrl: string; descriptionUrl: string };
 
 async function searchWikipediaFlag(countryName: string): Promise<WikiFlag | null> {
-  const query = `Flag of ${countryName}`;
-  const searchUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srnamespace=6&srlimit=8&format=json&origin=*`;
-  const searchRes = await fetch(searchUrl);
-  const searchData = await searchRes.json();
-  const results: Array<{ title: string }> = searchData?.query?.search || [];
-  const flagResult = results.find(r => /flag/i.test(r.title) && !/historical|naval|state|civil|war|variant|coat|arm/i.test(r.title)) || results[0];
-  if (!flagResult) return null;
+  // 1. Primárne: sk.wikipedia.org — hľadáme článok "Vlajka [krajina]"
+  try {
+    const skSearchUrl = `https://sk.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent("Vlajka " + countryName)}&srnamespace=0&srlimit=6&format=json&origin=*`;
+    const skSearchRes = await fetch(skSearchUrl);
+    const skSearchData = await skSearchRes.json();
+    const skResults: Array<{ title: string }> = skSearchData?.query?.search || [];
+    const skBest = skResults.find(r => /vlajka/i.test(r.title)) || skResults[0];
 
-  const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(flagResult.title)}&prop=imageinfo&iiprop=url|descriptionurl&iiurlwidth=640&format=json&origin=*`;
-  const infoRes = await fetch(infoUrl);
-  const infoData = await infoRes.json();
-  const pages = infoData?.query?.pages || {};
-  const page = Object.values(pages)[0] as any;
-  const info = page?.imageinfo?.[0];
-  if (!info?.thumburl) return null;
-  return { title: flagResult.title, thumbUrl: info.thumburl, descriptionUrl: info.descriptionurl || "" };
+    if (skBest) {
+      const skImgUrl = `https://sk.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(skBest.title)}&prop=pageimages&pithumbsize=640&pilicense=any&format=json&origin=*`;
+      const skImgRes = await fetch(skImgUrl);
+      const skImgData = await skImgRes.json();
+      const skPages = skImgData?.query?.pages || {};
+      const skPage = Object.values(skPages)[0] as any;
+      const thumbUrl: string | undefined = skPage?.thumbnail?.source;
+      if (thumbUrl) {
+        return {
+          title: skBest.title,
+          thumbUrl,
+          descriptionUrl: `https://sk.wikipedia.org/wiki/${encodeURIComponent(skBest.title)}`,
+        };
+      }
+    }
+  } catch {}
+
+  // 2. Záloha: Wikimedia Commons — "Flag of [krajina]"
+  try {
+    const query = `Flag of ${countryName}`;
+    const searchUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srnamespace=6&srlimit=8&format=json&origin=*`;
+    const searchRes = await fetch(searchUrl);
+    const searchData = await searchRes.json();
+    const results: Array<{ title: string }> = searchData?.query?.search || [];
+    const flagResult = results.find(r => /flag/i.test(r.title) && !/historical|naval|state|civil|war|variant|coat|arm/i.test(r.title)) || results[0];
+    if (!flagResult) return null;
+
+    const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(flagResult.title)}&prop=imageinfo&iiprop=url|descriptionurl&iiurlwidth=640&format=json&origin=*`;
+    const infoRes = await fetch(infoUrl);
+    const infoData = await infoRes.json();
+    const pages = infoData?.query?.pages || {};
+    const page = Object.values(pages)[0] as any;
+    const info = page?.imageinfo?.[0];
+    if (!info?.thumburl) return null;
+    return { title: flagResult.title, thumbUrl: info.thumburl, descriptionUrl: info.descriptionurl || "" };
+  } catch {}
+
+  return null;
 }
 
 function FlagUploadDialog({
@@ -382,6 +412,7 @@ function FlagUploadDialog({
 
           <div className="space-y-2">
             <label className="text-sm font-semibold flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> Stiahnuť z Wikipedie</label>
+            <p className="text-xs text-muted-foreground -mt-1">Primárne sk.wikipedia.org, záloha Wikimedia Commons</p>
             <Button
               type="button"
               variant="outline"
@@ -391,7 +422,7 @@ function FlagUploadDialog({
               data-testid="button-wiki-search-flag"
             >
               {wikiSearching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
-              {wikiSearching ? "Hľadám na Wikimedia Commons..." : `Nájsť vlajku pre „${state.name}"`}
+              {wikiSearching ? "Hľadám na sk.wikipedia.org..." : `Nájsť vlajku pre „${state.name}"`}
             </Button>
 
             {wikiError && (
@@ -404,9 +435,16 @@ function FlagUploadDialog({
             {wikiFlag && (
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
-                  Nájdené: <span className="font-mono truncate max-w-[220px]">{wikiFlag.title.replace("File:", "")}</span>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                  <span className="truncate">
+                    Nájdené: <span className="font-medium text-foreground">{wikiFlag.title.replace("File:", "")}</span>
+                  </span>
                 </div>
+                {wikiFlag.descriptionUrl && (
+                  <a href={wikiFlag.descriptionUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline truncate block">
+                    {wikiFlag.descriptionUrl.replace("https://", "").split("/wiki/")[0]}
+                  </a>
+                )}
                 <div className="flex items-center justify-center p-3 border rounded-md bg-muted/20">
                   <img src={wikiFlag.thumbUrl} alt="Wikipedia vlajka" className="max-h-28 object-contain" />
                 </div>
