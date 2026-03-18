@@ -10,7 +10,7 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import type { ClientGroup, Subject, PermissionGroup, Partner, Product, MyCompany } from "@shared/schema";
 import {
   Plus, Pencil, Loader2, Check, X,
-  Calculator, LogIn, UserPlus, UserMinus, Search, ChevronRight, ChevronDown, Building2, Shield, Lock, Ban,
+  Calculator, LogIn, UserPlus, UserMinus, Search, ChevronRight, ChevronDown, Building2, Shield, Lock, Ban, HelpCircle,
 } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import {
@@ -19,6 +19,7 @@ import {
 import { MoreVertical, Trash2, Eye } from "lucide-react";
 import { SortableTableRow, SortableContext_Wrapper } from "@/components/sortable-list";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -835,7 +836,7 @@ function getGroupMainCategory(g: ClientGroupWithCount): MainCategory {
 
 function SectionCard({
   title, accentClass, badgeClass, badgeText, count, children, cta, testId,
-  isCollapsed, onToggle,
+  isCollapsed, onToggle, tooltip,
 }: {
   title: string;
   accentClass: string;
@@ -847,6 +848,7 @@ function SectionCard({
   testId: string;
   isCollapsed: boolean;
   onToggle: () => void;
+  tooltip?: string;
 }) {
   return (
     <Card className={`border-l-4 ${accentClass}`} data-testid={testId}>
@@ -864,8 +866,22 @@ function SectionCard({
             <Badge variant="secondary" className="text-[9px] h-4 ml-1">{count}</Badge>
           )}
         </div>
-        <div onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           {cta}
+          {tooltip && (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-muted-foreground/30 text-muted-foreground/50 hover:text-muted-foreground hover:border-muted-foreground/60 transition-colors cursor-help">
+                    <HelpCircle className="w-3.5 h-3.5" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs text-xs leading-relaxed">
+                  {tooltip}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </div>
       {!isCollapsed && <CardContent className="p-0">{children}</CardContent>}
@@ -1076,6 +1092,7 @@ export default function ClientGroups() {
             testId="section-globalne"
             isCollapsed={isCollapsed("globalne")}
             onToggle={() => toggleSection("globalne")}
+            tooltip="Holdingové skupiny združujú spoločnosti celého štátu a globálne záznamy platné naprieč všetkými firmami. Patrí sem zoznam spoločností štátu a čierny zoznam podvodníkov, ktorý je zdieľaný pre všetkých."
           >
             <Table className="w-full">
               <TableHeader>
@@ -1132,6 +1149,7 @@ export default function ClientGroups() {
             testId="section-holdingove"
             isCollapsed={isCollapsed("holdingove")}
             onToggle={() => toggleSection("holdingove")}
+            tooltip="Firemné skupiny sú skupiny klientov a partnerov naviazané priamo na konkrétnu spoločnosť alebo partnera v systéme. Tieto skupiny sú väčšinou uzamknuté a ich členstvo sa riadi automaticky podľa firemných vzťahov."
           >
             <Table className="w-full">
               {TABLE_HEADER}
@@ -1178,6 +1196,7 @@ export default function ClientGroups() {
             testId="section-systemove"
             isCollapsed={isCollapsed("systemove")}
             onToggle={() => toggleSection("systemove")}
+            tooltip="Systémové skupiny sú prednastavené skupiny vytvorené samotným systémom. Nedajú sa vymazať ani premenovať. Definujú základné kategórie klientov ako Klienti, Registrovaní klienti či Červený zoznam, ktoré sú kľúčové pre fungovanie celého CRM."
           >
             <Table className="w-full">
               {TABLE_HEADER}
@@ -1217,6 +1236,7 @@ export default function ClientGroups() {
             testId="section-volitelne"
             isCollapsed={isCollapsed("volitelne")}
             onToggle={() => toggleSection("volitelne")}
+            tooltip="Voliteľné skupiny sú vlastné skupiny, ktoré si správca systému môže vytvoriť a prispôsobiť podľa potrieb firmy. Môžu mať vlastné pravidlá prístupu, oprávnenia a polia. Ich poradie je možné meniť presúvaním."
           >
             <SortableContext_Wrapper
               items={volitelneGroups}
@@ -1257,6 +1277,7 @@ export default function ClientGroups() {
             testId="section-ina-spolocnost"
             isCollapsed={isCollapsed("ina_spolocnost")}
             onToggle={() => toggleSection("ina_spolocnost")}
+            tooltip="Táto skupina zobrazuje subjekty, spoločnosti a partnerov, ktorí nepatria do aktuálne aktívnej spoločnosti zobrazenej v hornej lište. Slúži na prehľad entít z iných firiem v rámci toho istého štátu alebo systému."
           >
             <Table className="w-full">
               <TableHeader>
