@@ -955,24 +955,24 @@ function ContractFormDialog({
                       {(() => {
                         const searchLower = rewardSearchSpecialist.toLowerCase().trim();
                         const filtered = searchLower && searchLower.length >= 2
-                          ? (appUsersAll || []).filter(u =>
-                              (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
+                          ? (subjects || []).filter(s =>
+                              !s.deletedAt && (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower))
                             )
                           : [];
                         return (
                           <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-specialist-suggestions">
-                            {filtered.slice(0, 8).map(u => (
+                            {filtered.slice(0, 8).map(s => (
                               <div
-                                key={u.id}
+                                key={s.id}
                                 className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
                                 onClick={() => {
-                                  setSpecialistUid(u.uid || "");
+                                  setSpecialistUid(s.uid || "");
                                   setRewardSearchSpecialist("");
                                 }}
-                                data-testid={`row-specialist-suggestion-${u.id}`}
+                                data-testid={`row-specialist-suggestion-${s.id}`}
                               >
-                                <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
-                                <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(u.uid)}</span>
+                                <span className="font-medium text-xs">{s.type === "company" ? (s.companyName || "") : `${s.firstName || ""} ${s.lastName || ""}`}</span>
+                                <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(s.uid)}</span>
                               </div>
                             ))}
                           </div>
@@ -1054,24 +1054,24 @@ function ContractFormDialog({
                         {(() => {
                           const searchLower = rewardSearchRecommender.toLowerCase().trim();
                           const filtered = searchLower && searchLower.length >= 2
-                            ? (appUsersAll || []).filter(u =>
-                                (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
+                            ? (subjects || []).filter(s =>
+                                !s.deletedAt && (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower))
                               )
                             : [];
                           return (
                             <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-recommender-suggestions">
-                              {filtered.slice(0, 8).map(u => (
+                              {filtered.slice(0, 8).map(s => (
                                 <div
-                                  key={u.id}
+                                  key={s.id}
                                   className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
                                   onClick={() => {
-                                    setNewRecommenderUid(u.uid || "");
+                                    setNewRecommenderUid(s.uid || "");
                                     setRewardSearchRecommender("");
                                   }}
-                                  data-testid={`row-recommender-suggestion-${u.id}`}
+                                  data-testid={`row-recommender-suggestion-${s.id}`}
                                 >
-                                  <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
-                                  <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(u.uid)}</span>
+                                  <span className="font-medium text-xs">{s.type === "company" ? (s.companyName || "") : `${s.firstName || ""} ${s.lastName || ""}`}</span>
+                                  <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(s.uid)}</span>
                                 </div>
                               ))}
                             </div>
@@ -2739,19 +2739,11 @@ export default function Contracts() {
     if (normalizedUid === "421000000000000") {
       return { found: true, label: "ArutsoK — ATK" };
     }
-    const user = (appUsersAll || []).find(u => (u.uid || "").replace(/\s/g, "") === normalizedUid);
-    if (user) {
-      const parts = [user.firstName, user.lastName].filter(Boolean);
-      return { found: true, label: parts.join(" ") || user.username || "Bez mena" };
-    }
     const subj = (subjects || []).find(s => (s.uid || "").replace(/\s/g, "") === normalizedUid && !s.deletedAt);
     if (subj) {
-      if (subj.type === "fo") {
-        const det = (subj.details || {}) as Record<string, unknown>;
-        const titleBefore = (det.titleBefore as string) || "";
-        const titleAfter = (det.titleAfter as string) || "";
-        const parts = [titleBefore, subj.firstName, subj.lastName].filter(Boolean);
-        const full = titleAfter ? `${parts.join(" ")}, ${titleAfter}` : parts.join(" ");
+      if (subj.type === "person" || subj.type === "fo") {
+        const parts = [subj.titleBefore, subj.firstName, subj.lastName].filter(Boolean);
+        const full = subj.titleAfter ? `${parts.join(" ")}, ${subj.titleAfter}` : parts.join(" ");
         return { found: true, label: full || "Bez mena" };
       }
       return { found: true, label: subj.companyName || "Bez nazvu" };
@@ -3333,10 +3325,14 @@ export default function Contracts() {
 
   function resolveUidName(uid: string | null | undefined): string {
     if (!uid) return "—";
-    const u = (appUsersAll || []).find(x => (x.uid || "").replace(/\s/g, "") === uid.replace(/\s/g, ""));
-    if (u) return [u.firstName, u.lastName].filter(Boolean).join(" ") || u.username || uid;
-    const s = (subjects || []).find(x => (x.uid || "").replace(/\s/g, "") === uid.replace(/\s/g, ""));
-    if (s) return [s.firstName, s.lastName].filter(Boolean).join(" ") || s.companyName || uid;
+    const normalized = uid.replace(/\s/g, "");
+    const s = (subjects || []).find(x => (x.uid || "").replace(/\s/g, "") === normalized && !x.deletedAt);
+    if (s) {
+      if (s.type === "person" || s.type === "fo") {
+        return [s.titleBefore, s.firstName, s.lastName].filter(Boolean).join(" ") || s.companyName || uid;
+      }
+      return s.companyName || uid;
+    }
     return uid;
   }
 
@@ -4309,24 +4305,24 @@ export default function Contracts() {
                         {(() => {
                           const searchLower = importRewardSearchSpecialist.toLowerCase().trim();
                           const filtered = searchLower && searchLower.length >= 2
-                            ? (appUsersAll || []).filter(u =>
-                                (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
+                            ? (subjects || []).filter(s =>
+                                !s.deletedAt && (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower))
                               )
                             : [];
                           return (
                             <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-import-specialist-suggestions">
-                              {filtered.slice(0, 8).map(u => (
+                              {filtered.slice(0, 8).map(s => (
                                 <div
-                                  key={u.id}
+                                  key={s.id}
                                   className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
                                   onClick={() => {
-                                    setImportSpecialistUid(u.uid || "");
+                                    setImportSpecialistUid(s.uid || "");
                                     setImportRewardSearchSpecialist("");
                                   }}
-                                  data-testid={`row-import-specialist-${u.id}`}
+                                  data-testid={`row-import-specialist-${s.id}`}
                                 >
-                                  <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
-                                  <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(u.uid)}</span>
+                                  <span className="font-medium text-xs">{s.type === "company" ? (s.companyName || "") : `${s.firstName || ""} ${s.lastName || ""}`}</span>
+                                  <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(s.uid)}</span>
                                 </div>
                               ))}
                             </div>
@@ -4438,24 +4434,24 @@ export default function Contracts() {
                           {(() => {
                             const searchLower = importRewardSearchRecommender.toLowerCase().trim();
                             const filtered = searchLower && searchLower.length >= 2
-                              ? (appUsersAll || []).filter(u =>
-                                  (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
+                              ? (subjects || []).filter(s =>
+                                  !s.deletedAt && (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower))
                                 )
                               : [];
                             return (
                               <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-import-recommender-suggestions">
-                                {filtered.slice(0, 8).map(u => (
+                                {filtered.slice(0, 8).map(s => (
                                   <div
-                                    key={u.id}
+                                    key={s.id}
                                     className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
                                     onClick={() => {
-                                      setImportNewRecommenderUid(u.uid || "");
+                                      setImportNewRecommenderUid(s.uid || "");
                                       setImportRewardSearchRecommender("");
                                     }}
-                                    data-testid={`row-import-recommender-${u.id}`}
+                                    data-testid={`row-import-recommender-${s.id}`}
                                   >
-                                    <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
-                                    <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(u.uid)}</span>
+                                    <span className="font-medium text-xs">{s.type === "company" ? (s.companyName || "") : `${s.firstName || ""} ${s.lastName || ""}`}</span>
+                                    <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(s.uid)}</span>
                                   </div>
                                 ))}
                               </div>
@@ -7176,24 +7172,24 @@ export default function Contracts() {
                         {(() => {
                           const searchLower = preSelectRewardSearchSpecialist.toLowerCase().trim();
                           const filtered = searchLower && searchLower.length >= 2
-                            ? (appUsersAll || []).filter(u =>
-                                (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
+                            ? (subjects || []).filter(s =>
+                                !s.deletedAt && (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower))
                               )
                             : [];
                           return (
                             <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-preselect-specialist-suggestions">
-                              {filtered.slice(0, 8).map(u => (
+                              {filtered.slice(0, 8).map(s => (
                                 <div
-                                  key={u.id}
+                                  key={s.id}
                                   className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
                                   onClick={() => {
-                                    setPreSelectSpecialistUid(u.uid || "");
+                                    setPreSelectSpecialistUid(s.uid || "");
                                     setPreSelectRewardSearchSpecialist("");
                                   }}
-                                  data-testid={`row-preselect-specialist-${u.id}`}
+                                  data-testid={`row-preselect-specialist-${s.id}`}
                                 >
-                                  <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
-                                  <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(u.uid)}</span>
+                                  <span className="font-medium text-xs">{s.type === "company" ? (s.companyName || "") : `${s.firstName || ""} ${s.lastName || ""}`}</span>
+                                  <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(s.uid)}</span>
                                 </div>
                               ))}
                             </div>
@@ -7303,24 +7299,24 @@ export default function Contracts() {
                           {(() => {
                             const searchLower = preSelectRewardSearchRecommender.toLowerCase().trim();
                             const filtered = searchLower && searchLower.length >= 2
-                              ? (appUsersAll || []).filter(u =>
-                                  (`${u.firstName || ""} ${u.lastName || ""} ${u.username || ""} ${u.uid || ""}`.toLowerCase().includes(searchLower))
+                              ? (subjects || []).filter(s =>
+                                  !s.deletedAt && (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower))
                                 )
                               : [];
                             return (
                               <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" style={{ display: filtered.length > 0 ? 'block' : 'none' }} data-testid="list-preselect-recommender-suggestions">
-                                {filtered.slice(0, 8).map(u => (
+                                {filtered.slice(0, 8).map(s => (
                                   <div
-                                    key={u.id}
+                                    key={s.id}
                                     className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover-elevate text-sm"
                                     onClick={() => {
-                                      setPreSelectNewRecommenderUid(u.uid || "");
+                                      setPreSelectNewRecommenderUid(s.uid || "");
                                       setPreSelectRewardSearchRecommender("");
                                     }}
-                                    data-testid={`row-preselect-recommender-${u.id}`}
+                                    data-testid={`row-preselect-recommender-${s.id}`}
                                   >
-                                    <span className="font-medium text-xs">{u.firstName || ""} {u.lastName || ""}</span>
-                                    <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(u.uid)}</span>
+                                    <span className="font-medium text-xs">{s.type === "company" ? (s.companyName || "") : `${s.firstName || ""} ${s.lastName || ""}`}</span>
+                                    <span className="text-xs text-muted-foreground font-mono ml-auto">{formatUid(s.uid)}</span>
                                   </div>
                                 ))}
                               </div>
