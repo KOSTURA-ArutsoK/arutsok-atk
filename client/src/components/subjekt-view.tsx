@@ -1247,10 +1247,10 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
     const diffMin = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-    if (diffMs < 60000) return "pred chvíľou";
-    if (diffMin < 60) return `pred ${diffMin} ${diffMin === 1 ? "minútou" : diffMin < 5 ? "minútami" : "minútami"}`;
-    if (diffHours < 24) return `pred ${diffHours} ${diffHours === 1 ? "hodinou" : diffHours < 5 ? "hodinami" : "hodinami"}`;
-    return `pred ${diffDays} ${diffDays === 1 ? "dňom" : diffDays < 5 ? "dňami" : "dňami"}`;
+    if (diffDays >= 1) return `pred ${diffDays} dňami`;
+    if (diffHours >= 1) return `pred ${diffHours} hodinami`;
+    if (diffMin >= 1) return `pred ${diffMin} minútami`;
+    return "pred menej ako minútou";
   }
 
   const lastLoginAt = (subject as any).lastLoginAt ? new Date((subject as any).lastLoginAt) : null;
@@ -1261,19 +1261,22 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
         {!isClientView && subject.id > 0 && (
           <div className="mb-3 flex items-center gap-3 rounded border border-border/50 bg-muted/20 px-4 py-2.5" data-testid="banner-login-status">
             <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
-            {lastLoginAt ? (
-              <span className="text-sm text-foreground">
-                Naposledy prihlásený:{" "}
-                <span className="font-medium">
-                  {lastLoginAt.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\s/g, "")}
-                  {" "}
-                  {lastLoginAt.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" })}
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Login Status</span>
+              {lastLoginAt ? (
+                <span className="text-sm text-foreground">
+                  Naposledy prihlásený:{" "}
+                  <span className="font-medium">
+                    {lastLoginAt.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\s/g, "")}
+                    {" "}
+                    {lastLoginAt.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  <span className="ml-1.5 text-xs text-muted-foreground">({formatLoginRelative(lastLoginAt)})</span>
                 </span>
-                <span className="ml-1.5 text-xs text-muted-foreground">({formatLoginRelative(lastLoginAt)})</span>
-              </span>
-            ) : (
-              <span className="text-sm text-muted-foreground italic">Subjekt sa do systému ArutsoK ešte nikdy neprihlásil.</span>
-            )}
+              ) : (
+                <span className="text-sm text-muted-foreground italic">Subjekt sa do systému ArutsoK ešte nikdy neprihlásil.</span>
+              )}
+            </div>
           </div>
         )}
         {!isClientView && listStatus === "cierny" && (
