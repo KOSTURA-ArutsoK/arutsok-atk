@@ -2616,7 +2616,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
   const { data: officers = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/my-companies', companyId, 'officers'],
     queryFn: async () => {
-      const r = await fetch(`/api/my-companies/${companyId}/officers`);
+      const r = await fetch(`/api/my-companies/${companyId}/officers`, { credentials: "include" });
       if (!r.ok) throw new Error(`Officers fetch failed: ${r.status}`);
       return r.json();
     },
@@ -2626,7 +2626,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
   const { data: editingOfficerMandatesRaw = [] } = useQuery<any[]>({
     queryKey: ['/api/company-officers', editingOfficer?.id, 'mandates'],
     queryFn: async () => {
-      const r = await fetch(`/api/company-officers/${editingOfficer!.id}/mandates`);
+      const r = await fetch(`/api/company-officers/${editingOfficer!.id}/mandates`, { credentials: "include" });
       if (!r.ok) throw new Error(`Mandates fetch failed: ${r.status}`);
       return r.json();
     },
@@ -2799,7 +2799,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
     });
     if (off.subjectId) {
       try {
-        const res = await fetch(`/api/company-officers/${off.id}/rc`);
+        const res = await fetch(`/api/company-officers/${off.id}/rc`, { credentials: "include" });
         if (res.ok) {
           const data = await res.json();
           if (data.birthNumber) {
