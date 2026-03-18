@@ -4,7 +4,7 @@ import type { Express, RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
-import { appUsers, subjects, auditLogs } from "@shared/schema";
+import { appUsers, subjects, auditLogs, appUserLoginHistory } from "@shared/schema";
 import { eq, and, isNull } from "drizzle-orm";
 
 declare module "express-session" {
@@ -122,7 +122,10 @@ export async function setupAuth(app: Express) {
       } else {
         req.session.loginSubjectId = null;
         req.session.loginStep = "done";
-        await db.update(appUsers).set({ lastLoginAt: new Date() }).where(eq(appUsers.id, user.id));
+        const loginNow = new Date();
+        const ipAddr = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+        await db.update(appUsers).set({ lastLoginAt: loginNow }).where(eq(appUsers.id, user.id));
+        await db.insert(appUserLoginHistory).values({ appUserId: user.id, loginAt: loginNow, ipAddress: ipAddr });
       }
 
       req.session.save((err) => {
@@ -279,7 +282,10 @@ export async function setupAuth(app: Express) {
       }
 
       req.session.loginStep = "done";
-      await db.update(appUsers).set({ lastLoginAt: new Date() }).where(eq(appUsers.id, userId));
+      const loginNow2 = new Date();
+      const ipAddr2 = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+      await db.update(appUsers).set({ lastLoginAt: loginNow2 }).where(eq(appUsers.id, userId));
+      await db.insert(appUserLoginHistory).values({ appUserId: userId, loginAt: loginNow2, ipAddress: ipAddr2 });
       req.session.save((err) => {
         if (err) {
           return res.status(500).json({ message: "Chyba session" });

@@ -109,6 +109,12 @@ export default function Dashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [editOrder, setEditOrder] = useState<string[]>([]);
   const [redListDialogOpen, setRedListDialogOpen] = useState(false);
+  const [loginHistoryOpen, setLoginHistoryOpen] = useState(false);
+
+  const { data: loginHistory } = useQuery<{ id: number; appUserId: number; loginAt: string; ipAddress: string | null }[]>({
+    queryKey: ["/api/app-user/login-history"],
+    enabled: loginHistoryOpen,
+  });
 
   const isAdminUser = useMemo(() => {
     const role = appUser?.role || "";
@@ -680,6 +686,55 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={loginHistoryOpen} onOpenChange={setLoginHistoryOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Archív prihlásení
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1 max-h-96 overflow-y-auto pr-1" data-testid="login-history-list">
+            {!loginHistory ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                Načítava sa...
+              </div>
+            ) : loginHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8 italic">Žiadne záznamy o prihláseniach.</p>
+            ) : (
+              <div className="rounded border border-border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/50 border-b border-border">
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">#</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dátum a čas</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">IP adresa</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loginHistory.map((entry, i) => {
+                      const d = new Date(entry.loginAt);
+                      return (
+                        <tr key={entry.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20" data-testid={`login-history-row-${entry.id}`}>
+                          <td className="px-3 py-2 text-muted-foreground text-xs">{loginHistory.length - i}</td>
+                          <td className="px-3 py-2 font-mono text-xs">
+                            {d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\s/g, "")}
+                            {" "}
+                            {d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground font-mono text-xs">{entry.ipAddress || "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold" data-testid="text-dashboard-title">Prehľad</h2>
@@ -698,9 +753,14 @@ export default function Dashboard() {
               return "pred menej ako minútou";
             }
             return (
-              <div className="flex items-center gap-2 mt-2" data-testid="banner-admin-login-status">
+              <button
+                type="button"
+                onClick={() => setLoginHistoryOpen(true)}
+                className="flex items-center gap-2 mt-2 group cursor-pointer hover:opacity-80 transition-opacity text-left"
+                data-testid="banner-admin-login-status"
+              >
                 <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
                   <span className="font-semibold uppercase tracking-wide text-[10px]">Login Status</span>
                   {" — "}
                   {lastLoginAt ? (
@@ -713,8 +773,9 @@ export default function Dashboard() {
                   ) : (
                     <span className="italic opacity-60">prvé prihlásenie</span>
                   )}
+                  <span className="ml-1.5 opacity-40 text-[10px]">▸ archív</span>
                 </span>
-              </div>
+              </button>
             );
           })()}
         </div>

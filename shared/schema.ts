@@ -482,6 +482,14 @@ export const appUserArchive = pgTable("app_user_archive", {
   reason: text("reason"),
 });
 
+// === APP USER LOGIN HISTORY ===
+export const appUserLoginHistory = pgTable("app_user_login_history", {
+  id: serial("id").primaryKey(),
+  appUserId: integer("app_user_id").notNull().references(() => appUsers.id),
+  loginAt: timestamp("login_at").defaultNow().notNull(),
+  ipAddress: text("ip_address"),
+});
+
 // === RELATIONS ===
 export const subjectsRelations = relations(subjects, ({ one, many }) => ({
   continent: one(continents, { fields: [subjects.continentId], references: [continents.id] }),
