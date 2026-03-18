@@ -377,18 +377,27 @@ function FlagUploadDialog({
     if (!state || !wikiFlag) return;
     setWikiDownloading(true);
     try {
-      const res = await fetch(`/api/states/${state.id}/flag-from-url`, {
+      const imgRes = await fetch(wikiFlag.thumbUrl);
+      if (!imgRes.ok) throw new Error("Nepodarilo sa stiahnuť obrázok z Wikimedia");
+      const blob = await imgRes.blob();
+      const ext = wikiFlag.thumbUrl.split(".").pop()?.split("?")[0] || "png";
+      const file = new File([blob], `wiki-flag.${ext}`, { type: blob.type });
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadRes = await fetch(`/api/states/${state.id}/flag`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        body: formData,
         credentials: "include",
-        body: JSON.stringify({ imageUrl: wikiFlag.thumbUrl }),
       });
-      if (!res.ok) throw new Error("Download failed");
+      if (!uploadRes.ok) {
+        const body = await uploadRes.json().catch(() => ({}));
+        throw new Error(body?.message || "Upload zlyhal");
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/hierarchy/states"] });
-      toast({ title: "Úspech", description: `Vlajka stiahnutá z Wikipedie` });
+      toast({ title: "Úspech", description: "Vlajka stiahnutá z Wikipedie" });
       onOpenChange(false);
-    } catch {
-      toast({ title: "Chyba", description: "Nepodarilo sa stiahnuť vlajku", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Chyba", description: err?.message || "Nepodarilo sa stiahnuť vlajku", variant: "destructive" });
     } finally {
       setWikiDownloading(false);
     }

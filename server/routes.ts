@@ -1018,18 +1018,29 @@ export async function registerRoutes(
     try {
       const id = Number(req.params.id);
       const { imageUrl } = req.body;
-      if (!imageUrl || typeof imageUrl !== "string") return res.status(400).json({ message: "imageUrl povinné" });
-      if (!imageUrl.startsWith("https://upload.wikimedia.org/") && !imageUrl.startsWith("https://commons.wikimedia.org/")) {
-        return res.status(400).json({ message: "Povolené len Wikimedia URL" });
+      console.log("[flag-from-url] id:", id, "imageUrl:", imageUrl);
+      if (!imageUrl || typeof imageUrl !== "string") {
+        console.log("[flag-from-url] REJECTED: no imageUrl");
+        return res.status(400).json({ message: "imageUrl povinné" });
+      }
+      const allowedHosts = ["https://upload.wikimedia.org/", "https://commons.wikimedia.org/", "https://sk.wikipedia.org/", "https://en.wikipedia.org/", "https://cs.wikipedia.org/"];
+      const isAllowed = allowedHosts.some(h => imageUrl.startsWith(h));
+      if (!isAllowed) {
+        console.log("[flag-from-url] REJECTED URL:", imageUrl);
+        return res.status(400).json({ message: "Povolené len Wikimedia/Wikipedia URL" });
       }
       const state = await storage.getState(id);
       if (!state) return res.status(404).json({ message: "Štát nenájdený" });
+      console.log("[flag-from-url] Fetching:", imageUrl);
       const response = await fetch(imageUrl, {
         headers: { "User-Agent": "ArutsoK-CRM/1.0 (contact@arutsok.sk)" },
       });
+      console.log("[flag-from-url] Fetch status:", response.status, "content-type:", response.headers.get("content-type"));
       if (!response.ok) throw new Error(`Wikimedia fetch failed: ${response.status}`);
       const contentType = response.headers.get("content-type") || "image/png";
       const buffer = await response.arrayBuffer();
+      console.log("[flag-from-url] Buffer size:", buffer.byteLength);
+      if (buffer.byteLength === 0) throw new Error("Empty image buffer");
       let ext = ".png";
       if (contentType.includes("jpeg") || contentType.includes("jpg")) ext = ".jpg";
       else if (contentType.includes("webp")) ext = ".webp";
@@ -1037,14 +1048,16 @@ export async function registerRoutes(
       const filename = `${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`;
       const filepath = path.join(UPLOADS_DIR, "flags", filename);
       fs.writeFileSync(filepath, Buffer.from(buffer));
+      console.log("[flag-from-url] Saved to:", filepath, "size:", fs.statSync(filepath).size);
       if (state.flagUrl) await storage.addStateFlagHistory(id, state.flagUrl);
       const flagUrl = `/api/files/flags/${filename}`;
       const updated = await storage.updateState(id, { flagUrl });
+      console.log("[flag-from-url] Updated state flagUrl:", updated?.flagUrl);
       await logAudit(req, { action: "UPDATE", module: "Staty", entityId: id, entityName: state.name, oldData: { flagUrl: state.flagUrl }, newData: { flagUrl } });
       res.json(updated);
     } catch (err) {
-      console.error("Wikipedia flag download error:", err);
-      res.status(500).json({ message: "Chyba pri sťahovaní vlajky" });
+      console.error("[flag-from-url] ERROR:", err);
+      res.status(500).json({ message: String(err) });
     }
   });
 
