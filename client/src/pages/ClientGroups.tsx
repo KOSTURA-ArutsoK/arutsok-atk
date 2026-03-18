@@ -1066,12 +1066,12 @@ export default function ClientGroups() {
       ) : (
         <div className="space-y-3">
 
-          {/* ── 1. GLOBÁLNE SKUPINY (spoločnosti štátu + čierny zoznam) ── */}
+          {/* ── 1. HOLDINGOVÉ SKUPINY (spoločnosti štátu + čierny zoznam) ── */}
           <SectionCard
-            title="Globálne skupiny"
+            title="Holdingové skupiny"
             accentClass="border-l-red-600"
             badgeClass="border-red-600/50 text-red-400"
-            badgeText="Globálna"
+            badgeText="Holding"
             count={1 + globalneGroups.length}
             testId="section-globalne"
             isCollapsed={isCollapsed("globalne")}
@@ -1122,12 +1122,12 @@ export default function ClientGroups() {
             </Table>
           </SectionCard>
 
-          {/* ── 2. HOLDINGOVÉ ── */}
+          {/* ── 2. FIREMNÉ SKUPINY ── */}
           <SectionCard
-            title="Holdingové"
+            title="Firemné skupiny"
             accentClass="border-l-blue-500"
             badgeClass="border-blue-500/50 text-blue-400"
-            badgeText="Holding"
+            badgeText="Firemná"
             count={holdingGroups.length + 1}
             testId="section-holdingove"
             isCollapsed={isCollapsed("holdingove")}
@@ -1170,7 +1170,7 @@ export default function ClientGroups() {
 
           {/* ── 2. HLAVNÉ SYSTÉMOVÉ SKUPINY ── */}
           <SectionCard
-            title="Hlavné systémové skupiny"
+            title="Systémové skupiny"
             accentClass="border-l-amber-500"
             badgeClass="border-amber-500/50 text-amber-400"
             badgeText="Systémová"
@@ -1247,19 +1247,71 @@ export default function ClientGroups() {
             </SortableContext_Wrapper>
           </SectionCard>
 
-          {/* ── 4. INÁ SPOLOČNOSŤ ── */}
+          {/* ── 4. SKUPINA SUBJEKTOV MIMO AKTÍVNEJ SPOLOČNOSTI ── */}
           <SectionCard
-            title="Iná spoločnosť"
+            title="Skupina subjektov mimo aktívnej spoločnosti"
             accentClass="border-l-slate-500"
             badgeClass="border-slate-500/40 text-slate-400"
             badgeText="Externá"
+            count={3}
             testId="section-ina-spolocnost"
             isCollapsed={isCollapsed("ina_spolocnost")}
             onToggle={() => toggleSection("ina_spolocnost")}
           >
             <Table className="w-full">
-              {TABLE_HEADER}
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Názov</TableHead>
+                  <TableHead className="w-36 text-center">Kód / Skupina právomocí</TableHead>
+                  <TableHead className="w-24 text-center">Prihlásenie</TableHead>
+                  <TableHead className="w-24 text-center">Počet</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
               <TableBody>
+                {/* Spoločnosti mimo aktívnej spoločnosti */}
+                <TableRow
+                  data-testid="row-ext-spolocnosti"
+                  className="cursor-pointer hover:bg-muted/40 transition-colors"
+                  onClick={() => navigate("/my-companies")}
+                >
+                  <TableCell className="font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      Spoločnosti mimo aktívnej spoločnosti
+                      <Badge variant="outline" className="text-[9px] h-4 border-slate-500/40 text-slate-400">Spoločnosť</Badge>
+                    </span>
+                  </TableCell>
+                  <TableCell className="w-36 text-center"></TableCell>
+                  <TableCell className="w-24 text-center"></TableCell>
+                  <TableCell className="w-24 text-center">
+                    <span className="font-semibold text-slate-400" data-testid="count-ext-spolocnosti">
+                      {(allCompanies || []).filter((c: MyCompany) => !c.deletedAt && c.id !== appUser?.activeCompanyId).length || "—"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="w-10"><ChevronRight className="w-4 h-4 text-muted-foreground" /></TableCell>
+                </TableRow>
+                {/* Partneri mimo aktívnej spoločnosti */}
+                <TableRow
+                  data-testid="row-ext-partneri"
+                  className="cursor-pointer hover:bg-muted/40 transition-colors"
+                  onClick={() => navigate("/partners")}
+                >
+                  <TableCell className="font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      Partneri mimo aktívnej spoločnosti
+                      <Badge variant="outline" className="text-[9px] h-4 border-slate-500/40 text-slate-400">Partner</Badge>
+                    </span>
+                  </TableCell>
+                  <TableCell className="w-36 text-center"></TableCell>
+                  <TableCell className="w-24 text-center"></TableCell>
+                  <TableCell className="w-24 text-center">
+                    <span className="font-semibold text-slate-400" data-testid="count-ext-partneri">—</span>
+                  </TableCell>
+                  <TableCell className="w-10"><ChevronRight className="w-4 h-4 text-muted-foreground" /></TableCell>
+                </TableRow>
+                {/* Subjekty mimo aktívnej spoločnosti */}
                 <TableRow
                   data-testid="row-ina-spolocnost-synthetic"
                   className="cursor-pointer hover:bg-muted/40 transition-colors"
@@ -1267,21 +1319,19 @@ export default function ClientGroups() {
                 >
                   <TableCell className="font-medium">
                     <span className="inline-flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       Subjekty mimo aktívnej spoločnosti
-                      <Badge variant="outline" className="text-[9px] h-4 border-slate-500/40 text-slate-400">Iná spoločnosť</Badge>
+                      <Badge variant="outline" className="text-[9px] h-4 border-slate-500/40 text-slate-400">Subjekt</Badge>
                     </span>
                   </TableCell>
                   <TableCell className="w-36 text-center"></TableCell>
                   <TableCell className="w-24 text-center"></TableCell>
                   <TableCell className="w-24 text-center">
-                    <span className="font-semibold text-muted-foreground" data-testid="count-ina-spolocnost">
+                    <span className="font-semibold text-slate-400" data-testid="count-ina-spolocnost">
                       {otherCompanyCount?.count ?? "—"}
                     </span>
                   </TableCell>
-                  <TableCell className="w-10">
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  </TableCell>
+                  <TableCell className="w-10"><ChevronRight className="w-4 h-4 text-muted-foreground" /></TableCell>
                 </TableRow>
               </TableBody>
             </Table>
