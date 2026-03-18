@@ -8511,7 +8511,13 @@ export async function registerRoutes(
         statuses.filter(s => s.isIntervention).map(s => s.id)
       );
 
-      const totalContracts = allContracts.length;
+      // Počítajú sa len zmluvy ktoré dosiahli fázu 6 (Roztriedenie kontraktov) alebo vyššiu, prípadne fázu 0 (Dokončené)
+      // Fázy 1–5 (nahratie, sprievodky, archív, prijaté CK) sa nepočítajú ako zmluvy v prehľadoch
+      const countableContracts = allContracts.filter(c => {
+        const phase = c.lifecyclePhase ?? 0;
+        return phase === 0 || phase >= 6;
+      });
+      const totalContracts = countableContracts.length;
       const activeContracts = allContracts.filter(c => c.statusId && activeStatusIds.has(c.statusId));
       const interventionContracts = allContracts.filter(c =>
         (c.statusId && interventionStatusIds.has(c.statusId)) ||
