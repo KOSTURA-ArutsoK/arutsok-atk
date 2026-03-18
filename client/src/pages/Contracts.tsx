@@ -3498,7 +3498,7 @@ export default function Contracts() {
               return (
                 <tr
                   key={contract.id}
-                  className={`border-b hover:bg-green-900/40 cursor-pointer font-mono text-xs ${rowBg}`}
+                  className={`border-b hover:bg-green-900/40 cursor-pointer text-xs font-normal ${rowBg}`}
                   data-testid={`${testIdPrefix}-${contract.id}`}
                   onClick={handleRowClick}
                 >
