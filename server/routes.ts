@@ -2068,7 +2068,11 @@ export async function registerRoutes(
 
   app.post(api.partnerContracts.create.path, isAuthenticated, async (req, res) => {
     try {
-      const input = { ...api.partnerContracts.create.input.parse(req.body), partnerId: Number(req.params.partnerId) };
+      const body = { ...req.body };
+      if (body.signedDate && typeof body.signedDate === "string") {
+        body.signedDate = new Date(body.signedDate);
+      }
+      const input = { ...api.partnerContracts.create.input.parse(body), partnerId: Number(req.params.partnerId) };
       const created = await storage.createPartnerContract(input);
       await logAudit(req, { action: "CREATE", module: "partneri", entityName: "zmluva" });
       res.status(201).json(created);
