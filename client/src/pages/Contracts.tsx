@@ -7818,7 +7818,7 @@ export default function Contracts() {
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-nahravanie">Ziadne zmluvy na nahravanie</p>
               ) : (
                 <>
-                  {renderSprievodkaFullTable(sortedNahravanie, { showCheckbox: true, testIdPrefix: "row-nahravanie", alwaysIncompleteEdit: true, nahratieView: true })}
+                  {renderSprievodkaFullTable(sortedNahravanie, { showCheckbox: true, showOrder: true, testIdPrefix: "row-nahravanie", alwaysIncompleteEdit: true, nahratieView: true })}
                   {hasMoreContracts && (
                     <div className="flex items-center justify-center py-4 border-t">
                       <Button variant="outline" size="sm" onClick={loadMoreContracts} disabled={isLoadingMore} data-testid="button-load-more">
