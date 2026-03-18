@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContacts, usePartnerProducts, useCreatePartnerContact, useCreatePartnerProduct, useUpdatePartnerLifecycleStatus } from "@/hooks/use-partners";
+import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
 import { formatDateSlovak, formatPhone, formatUid, canCreateRecords, canEditRecords, canDeleteRecords, normalizePhone } from "@/lib/utils";
 import { Plus, Briefcase, Pencil, Trash2, Clock, Users, Package, Calendar, Archive, MapPin, Circle, FastForward, Play, Pause, Upload, Square, FileText } from "lucide-react";
@@ -145,6 +146,7 @@ function PartnerUnifiedDialog({
   const lifecycleMutation = useUpdatePartnerLifecycleStatus();
   const { data: allPartners } = usePartners();
   const { data: appUser } = useAppUser();
+  const { data: myCompanies } = useMyCompanies();
   const timerRef = useRef<number>(0);
   const [notesHtml, setNotesHtml] = useState("");
   const [activeTab, setActiveTab] = useState("info");
@@ -774,8 +776,11 @@ function PartnerUnifiedDialog({
                       <div key={c.id} className="flex items-center gap-2 p-2 rounded-md border border-border text-sm" data-testid={`pcontract-${c.id}`}>
                         <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate font-mono">
+                          <p className="font-medium truncate font-mono" data-testid={`text-contract-number-${c.id}`}>
                             {c.contractNumber || <span className="text-muted-foreground italic">Bez cisla</span>}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate" data-testid={`text-contract-company-${c.id}`}>
+                            {myCompanies?.find(co => co.id === c.companyId)?.name || `Spolocnost #${c.companyId}`}
                           </p>
                           {c.signedDate && (
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
