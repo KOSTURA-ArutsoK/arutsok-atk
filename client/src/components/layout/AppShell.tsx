@@ -250,6 +250,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
   }, [setActive]);
 
+  const handleContextSelectFull = useCallback((stateId: number, companyId: number, divisionId: number) => {
+    setActive.mutate({ activeStateId: stateId, activeCompanyId: companyId, activeDivisionId: divisionId }, {
+      onSuccess: () => {
+        setContextOverlayOpen(false);
+      }
+    });
+  }, [setActive]);
+
   const handleContextBack = useCallback(() => {
     if (contextStep === "division") {
       setContextStep("company");
@@ -730,6 +738,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onSelectDivision={handleContextSelectDivision}
         onBack={handleContextBack}
         onClose={() => setContextOverlayOpen(false)}
+        currentContext={{
+          stateName: activeState?.name,
+          companyName: activeCompany?.name,
+          divisionName: activeDivision?.division?.name || activeDivision?.name,
+        }}
+        onSelectFull={handleContextSelectFull}
       />
       {warningOverlay}
     </SidebarProvider>
