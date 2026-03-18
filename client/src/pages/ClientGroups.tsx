@@ -1269,7 +1269,7 @@ export default function ClientGroups() {
 
           {/* ── 4. SKUPINA SUBJEKTOV MIMO AKTÍVNEJ SPOLOČNOSTI ── */}
           <SectionCard
-            title="Skupina subjektov mimo aktívnej spoločnosti"
+            title="Skupina subjektov iných spoločností"
             accentClass="border-l-slate-500"
             badgeClass="border-slate-500/40 text-slate-400"
             badgeText="Externá"
