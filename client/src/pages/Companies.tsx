@@ -2566,7 +2566,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
     if (!companyIco) return;
     setFetchingRegistry(true);
     try {
-      const res = await fetch(`/api/lookup/ico/${companyIco.replace(/\s/g, '')}`);
+      const res = await fetch(`/api/lookup/ico/${companyIco.replace(/\s/g, '')}`, { credentials: "include" });
       const data = await res.json();
       if (data?.directors?.length) {
         setLocalDirectors(data.directors);
