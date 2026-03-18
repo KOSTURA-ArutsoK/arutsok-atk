@@ -1141,7 +1141,7 @@ export default function ClientGroups() {
                 <TableRow
                   data-testid="row-spolocnosti-synthetic"
                   className="cursor-pointer hover:bg-muted/40 transition-colors"
-                  onClick={() => navigate("/my-companies")}
+                  onClick={() => navigate("/companies")}
                 >
                   <TableCell className="font-medium">
                     <span className="inline-flex items-center gap-1.5">
@@ -1328,7 +1328,7 @@ export default function ClientGroups() {
                 <TableRow
                   data-testid="row-ext-spolocnosti"
                   className="cursor-pointer hover:bg-muted/40 transition-colors"
-                  onClick={() => navigate("/my-companies")}
+                  onClick={() => navigate("/companies")}
                 >
                   <TableCell className="font-medium">
                     <span className="inline-flex items-center gap-1.5">
