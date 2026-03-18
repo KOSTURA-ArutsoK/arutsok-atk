@@ -2572,6 +2572,9 @@ export default function Contracts() {
       return { unprocessed: "true" } as Record<string, string>;
     }
     const p: Record<string, string> = {};
+    // Evidencia zmlúv zobrazuje len zmluvy ktoré prešli Roztriedením kontraktov (fáza 6+)
+    // Fázy 1–5 sú viditeľné len v Spracovaní papierových zmlúv
+    p.processedOnly = "true";
     if (filterStatusIds.length > 0) {
       p.statusIds = filterStatusIds.join(",");
     } else if (filterStatusId && filterStatusId !== "all") {

@@ -406,7 +406,7 @@ export interface IStorage {
   // Contracts
   getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<Contract[]>;
   getContractNumbers(companyId?: number): Promise<{ proposalNumbers: Set<string>; contractNumbers: Set<string> }>;
-  getContractsPaginated(filters?: { stateId?: number; statusId?: number; statusIds?: number[]; needsManualVerification?: boolean; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<{ data: Contract[]; total: number }>;
+  getContractsPaginated(filters?: { stateId?: number; statusId?: number; statusIds?: number[]; needsManualVerification?: boolean; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; processedOnly?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<{ data: Contract[]; total: number }>;
   getDispatchedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
   getSystemContractStatus(): Promise<ContractStatus | undefined>;
   getContract(id: number): Promise<Contract | undefined>;
@@ -2891,7 +2891,7 @@ export class DatabaseStorage implements IStorage {
     return { proposalNumbers, contractNumbers };
   }
 
-  async getContractsPaginated(filters?: { stateId?: number; statusId?: number; statusIds?: number[]; needsManualVerification?: boolean; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<{ data: Contract[]; total: number }> {
+  async getContractsPaginated(filters?: { stateId?: number; statusId?: number; statusIds?: number[]; needsManualVerification?: boolean; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; processedOnly?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<{ data: Contract[]; total: number }> {
     const conditions = [];
     if (!filters?.includeDeleted) {
       conditions.push(eq(contracts.isDeleted, false));
@@ -2919,6 +2919,15 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.unprocessed) {
       conditions.push(isNull(contracts.inventoryId));
+    }
+    if (filters?.processedOnly) {
+      // Len zmluvy ktoré dosiahli fázu 6 (Roztriedenie kontraktov) alebo sú dokončené (fáza 0)
+      // Fázy 1–5 sú súčasťou Spracovanie papierových zmlúv a nesmú sa zobrazovať v hlavnom zozname
+      conditions.push(or(
+        eq(contracts.lifecyclePhase, 0),
+        gte(contracts.lifecyclePhase, 6),
+        isNull(contracts.lifecyclePhase)
+      )!);
     }
     if (filters?.companyId) {
       conditions.push(eq(contracts.companyId, filters.companyId));

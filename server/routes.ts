@@ -5978,6 +5978,7 @@ export async function registerRoutes(
       inventoryId: req.query.inventoryId ? parseInt(req.query.inventoryId as string) : undefined,
       includeDeleted: req.query.includeDeleted === 'true',
       unprocessed: req.query.unprocessed === 'true',
+      processedOnly: req.query.processedOnly === 'true',
       companyId: appUser?.activeCompanyId || undefined,
       limit,
       offset,
