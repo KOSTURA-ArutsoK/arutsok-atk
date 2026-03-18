@@ -7577,8 +7577,8 @@ export async function registerRoutes(
   // === CLIENT GROUPS ===
   app.get(api.clientGroupsApi.list.path, isAuthenticated, async (req: any, res) => {
     const allGroups = await storage.getClientGroups(getEnforcedStateId(req));
-    // Holding skupiny sa spravujú výhradne cez Holdingový strom — nezobraziť v zozname
-    const groups = allGroups.filter((g: any) => !g.isHoldingGroup);
+    const includeHolding = req.query.includeHolding === "true";
+    const groups = includeHolding ? allGroups : allGroups.filter((g: any) => !g.isHoldingGroup);
     const result = await Promise.all(groups.map(async (g: any) => ({
       ...g,
       memberCount: g.isPartnerGroup && g.linkedPartnerId
@@ -7586,6 +7586,25 @@ export async function registerRoutes(
         : await storage.getClientGroupMemberCount(g.id),
     })));
     res.json(result);
+  });
+
+  app.get("/api/subjects/count-other-company", isAuthenticated, async (req: any, res) => {
+    try {
+      const activeCompanyId = req.appUser?.activeCompanyId;
+      if (!activeCompanyId) return res.json({ count: 0 });
+      const [result] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(subjects)
+        .where(and(
+          isNull(subjects.deletedAt),
+          eq(subjects.isActive, true),
+          sql`${subjects.type} != 'system'`,
+          sql`${subjects.myCompanyId} != ${activeCompanyId}`
+        ));
+      res.json({ count: result?.count ?? 0 });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
   });
 
   app.get("/api/client-groups/:id", isAuthenticated, async (req: any, res) => {

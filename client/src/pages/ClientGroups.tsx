@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -824,6 +824,131 @@ const CLIENT_GROUPS_FILTER_COLUMNS: SmartColumnDef[] = [
   { key: "memberCount", label: "Pocet klientov", type: "number" },
 ];
 
+type MainCategory = "holdingove" | "systemove" | "volitelne" | "ina_spolocnost" | "globalne";
+
+function getGroupMainCategory(g: ClientGroupWithCount): MainCategory {
+  if (g.isHoldingGroup || g.isPartnerGroup) return "holdingove";
+  if (g.isSystem && (g as any).groupCode === "group_cierny_zoznam") return "globalne";
+  if (g.isSystem) return "systemove";
+  return "volitelne";
+}
+
+function SectionCard({
+  title, accentClass, badgeClass, badgeText, count, children, cta, testId,
+}: {
+  title: string;
+  accentClass: string;
+  badgeClass: string;
+  badgeText: string;
+  count?: number;
+  children: React.ReactNode;
+  cta?: React.ReactNode;
+  testId: string;
+}) {
+  return (
+    <Card className={`border-l-4 ${accentClass}`} data-testid={testId}>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-xs uppercase tracking-widest text-foreground/80">{title}</span>
+          <Badge variant="outline" className={`text-[9px] h-4 ${badgeClass}`}>{badgeText}</Badge>
+          {count !== undefined && (
+            <Badge variant="secondary" className="text-[9px] h-4 ml-1">{count}</Badge>
+          )}
+        </div>
+        {cta}
+      </div>
+      <CardContent className="p-0">{children}</CardContent>
+    </Card>
+  );
+}
+
+const SECTION_COLS = 5;
+const TABLE_HEADER = (
+  <TableHeader>
+    <TableRow>
+      <TableHead>Názov skupiny</TableHead>
+      <TableHead className="w-36 text-center">Skupina právomocí</TableHead>
+      <TableHead className="w-24 text-center">Prihlásenie</TableHead>
+      <TableHead className="w-24 text-center">Počet klientov</TableHead>
+      <TableHead className="w-10"></TableHead>
+    </TableRow>
+  </TableHeader>
+);
+
+function GroupRowCells({
+  group,
+  permGroupsData,
+  onEdit,
+  onDelete,
+}: {
+  group: ClientGroupWithCount;
+  permGroupsData: PermissionGroup[] | undefined;
+  onEdit: (g: ClientGroupWithCount) => void;
+  onDelete: (g: ClientGroupWithCount) => void;
+}) {
+  return (
+    <>
+      <TableCell className="font-medium cursor-pointer hover-elevate" onClick={() => onEdit(group)}>
+        <span className="inline-flex items-center gap-1.5">
+          {group.isPartnerGroup
+            ? <Lock className="w-3.5 h-3.5 text-red-500 shrink-0" />
+            : group.isHoldingGroup
+              ? <Lock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              : group.isSystem
+                ? <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                : null}
+          {group.name}
+          {group.isHoldingGroup && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/50 text-blue-500">Holding</Badge>}
+          {group.isSystem && !group.isHoldingGroup && <Badge variant="outline" className="text-[9px] h-4 border-amber-500/50 text-amber-500">Systémová</Badge>}
+        </span>
+      </TableCell>
+      <TableCell className="w-36 text-center">
+        <Badge variant="outline" data-testid={`badge-level-${group.id}`}>
+          {group.permissionGroupId
+            ? (permGroupsData || []).find(pg => pg.id === group.permissionGroupId)?.name || "—"
+            : "—"}
+        </Badge>
+      </TableCell>
+      <TableCell className="w-24 text-center">
+        {group.allowLogin
+          ? <Check className="w-4 h-4 text-emerald-500 mx-auto" data-testid={`icon-login-${group.id}`} />
+          : <X className="w-4 h-4 text-destructive mx-auto" data-testid={`icon-login-${group.id}`} />}
+      </TableCell>
+      <TableCell className="w-24 text-center">
+        <Badge variant="secondary" data-testid={`badge-count-${group.id}`}>{group.memberCount}</Badge>
+      </TableCell>
+      <TableCell className="w-10">
+        {!group.isHoldingGroup && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon" variant="ghost" data-testid={`button-actions-group-${group.id}`}>
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {!group.isPartnerGroup && (
+                <DropdownMenuItem onClick={() => onEdit(group)} data-testid={`menu-edit-group-${group.id}`}>
+                  <Pencil className="w-4 h-4 mr-2" />Upraviť
+                </DropdownMenuItem>
+              )}
+              {!group.isSystem && !group.isPartnerGroup && (
+                <DropdownMenuItem
+                  onClick={() => onDelete(group)}
+                  disabled={group.memberCount > 0}
+                  className="text-destructive focus:text-destructive"
+                  data-testid={`menu-delete-group-${group.id}`}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />Vymazať
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </TableCell>
+    </>
+  );
+}
+
 export default function ClientGroups() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -833,16 +958,14 @@ export default function ClientGroups() {
 
   const { data: appUser } = useAppUser();
   const { data: companies } = useMyCompanies();
-
-  const { data: groupsRaw, isLoading } = useQuery<ClientGroupWithCount[]>({
-    queryKey: ["/api/client-groups"],
-  });
-  // Filter out individual partner groups — displayed as single "PARTNERI" synthetic row
-  const groups = groupsRaw?.filter(g => !g.isPartnerGroup);
-
   const [, navigate] = useLocation();
 
   const activeDivisionId = (appUser as any)?.activeDivisionId as number | null | undefined;
+
+  const { data: groupsRaw, isLoading } = useQuery<ClientGroupWithCount[]>({
+    queryKey: ["/api/client-groups", "includeHolding"],
+    queryFn: () => fetch("/api/client-groups?includeHolding=true", { credentials: "include" }).then(r => r.json()),
+  });
 
   const { data: partnerCountData } = useQuery<{ count: number }>({
     queryKey: ["/api/partners/active-count", activeDivisionId],
@@ -855,211 +978,248 @@ export default function ClientGroups() {
     },
   });
 
+  const { data: otherCompanyCount } = useQuery<{ count: number }>({
+    queryKey: ["/api/subjects/count-other-company"],
+    queryFn: () => fetch("/api/subjects/count-other-company", { credentials: "include" }).then(r => r.json()),
+  });
+
   const { data: permGroupsData } = useQuery<PermissionGroup[]>({
     queryKey: ["/api/permission-groups"],
   });
-  const groupFilter = useSmartFilter(groups || [], CLIENT_GROUPS_FILTER_COLUMNS, "client-groups");
-  const columnVisibility = useColumnVisibility("client-groups", CLIENT_GROUPS_COLUMNS);
 
   const reorderMutation = useMutation({
     mutationFn: (items: { id: number; sortOrder: number }[]) =>
       apiRequest("PUT", "/api/client-groups/reorder", { items }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/client-groups", "includeHolding"] });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/client-groups/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/client-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/client-groups", "includeHolding"] });
       toast({ title: "Uspech", description: "Skupina vymazana" });
       setDeletingGroup(null);
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat skupinu", variant: "destructive" }),
   });
 
-  // Find the active company name
   const activeCompanyName = appUser?.activeCompanyId
     ? companies?.find(c => c.id === appUser.activeCompanyId)?.name
     : undefined;
 
+  const holdingGroups = (groupsRaw || []).filter(g => g.isHoldingGroup);
+  const systemGroups = (groupsRaw || []).filter(g => getGroupMainCategory(g) === "systemove");
+  const volitelneGroups = (groupsRaw || []).filter(g => getGroupMainCategory(g) === "volitelne");
+  const globalneGroups = (groupsRaw || []).filter(g => getGroupMainCategory(g) === "globalne");
+
+  const openEdit = (g: ClientGroupWithCount) => { setEditingGroup(g); setDialogOpen(true); };
+  const openDelete = (g: ClientGroupWithCount) => setDeletingGroup(g);
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-4">
       <div className="flex items-center justify-between gap-4 flex-wrap w-full">
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Skupiny klientov</h1>
-        <div className="flex items-center gap-2 flex-wrap">
-          <SmartFilterBar filter={groupFilter} />
-          <ColumnManager columnVisibility={columnVisibility} />
-          <Button
-            onClick={() => { setEditingGroup(null); setDialogOpen(true); }}
-            data-testid="button-add-group"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Pridat skupinu
-          </Button>
-        </div>
+        {activeCompanyName && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-md border border-border" data-testid="header-active-company">
+            <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Firma:</span>
+            <span className="text-xs font-medium" data-testid="text-active-company-name">{activeCompanyName}</span>
+          </div>
+        )}
       </div>
 
-      {activeCompanyName && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 rounded-md border border-border" data-testid="header-active-company">
-          <Building2 className="w-4 h-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">Filtrovane podla firmy:</span>
-          <span className="text-sm font-medium" data-testid="text-active-company-name">{activeCompanyName}</span>
-        </div>
-      )}
+      {isLoading ? (
+        <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin" /></div>
+      ) : (
+        <div className="space-y-4">
 
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin" /></div>
-          ) : (
-            <Table stickyHeader className="w-full table-fixed">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10"></TableHead>
-                  {columnVisibility.isVisible("name") && <TableHead>Nazov skupiny</TableHead>}
-                  {columnVisibility.isVisible("permissionGroup") && <TableHead className="w-36 text-center">Skupina pravomoci</TableHead>}
-                  {columnVisibility.isVisible("allowLogin") && <TableHead className="w-28 text-center">Povolenie prihlasenia</TableHead>}
-                  {columnVisibility.isVisible("allowCalculators") && <TableHead className="w-28 text-center">Povolene kalkulacky</TableHead>}
-                  {columnVisibility.isVisible("memberCount") && <TableHead className="w-28 text-center">Pocet klientov</TableHead>}
-                  <TableHead className="w-12"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <SortableContext_Wrapper
-                items={groupFilter.filteredData}
-                onReorder={(items) => reorderMutation.mutate(items.map(i => ({ id: Number(i.id), sortOrder: i.sortOrder })))}
-              >
-                <TableBody>
-                  {/* Synthetic PARTNERI row — naviguje na Zoznam partnerov */}
-                  <TableRow
-                    data-testid="row-partneri-synthetic"
-                    className="bg-red-500/5 border-l-2 border-l-red-500 cursor-pointer hover:bg-red-500/10 transition-colors"
-                    onClick={() => setPartnerGroupOpen(true)}
-                  >
-                    <TableCell></TableCell>
-                    {columnVisibility.isVisible("name") && (
-                      <TableCell className="font-medium">
-                        <span className="inline-flex items-center gap-1.5">
-                          <Lock className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                          PARTNERI
-                          <Badge variant="outline" className="text-[9px] h-4 border-red-500/50 text-red-500">Partner</Badge>
-                        </span>
-                      </TableCell>
-                    )}
-                    {columnVisibility.isVisible("permissionGroup") && <TableCell></TableCell>}
-                    {columnVisibility.isVisible("allowLogin") && <TableCell></TableCell>}
-                    {columnVisibility.isVisible("allowCalculators") && <TableCell></TableCell>}
-                    {columnVisibility.isVisible("memberCount") && (
-                      <TableCell className="text-center">
-                        <span className="font-semibold text-red-500" data-testid="count-partneri">
-                          {partnerCountData?.count ?? "—"}
-                        </span>
-                      </TableCell>
-                    )}
-                    <TableCell>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto" />
-                    </TableCell>
+          {/* ── 1. HOLDINGOVÉ ── */}
+          <SectionCard
+            title="Holdingové"
+            accentClass="border-l-blue-500"
+            badgeClass="border-blue-500/50 text-blue-400"
+            badgeText="Holding"
+            count={holdingGroups.length + 1}
+            testId="section-holdingove"
+          >
+            <Table className="w-full">
+              {TABLE_HEADER}
+              <TableBody>
+                {holdingGroups.map(g => (
+                  <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer" onClick={() => openEdit(g)}>
+                    <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={openEdit} onDelete={openDelete} />
                   </TableRow>
-                  {groupFilter.filteredData.map((group) => (
-                    <SortableTableRow
-                      key={group.id}
-                      id={group.id}
-                      data-testid={`row-group-${group.id}`}
-                      onRowClick={() => { setEditingGroup(group); setDialogOpen(true); }}
-                    >
-                      {columnVisibility.isVisible("name") && <TableCell
-                        className="font-medium cursor-pointer hover-elevate"
-                        onClick={() => { setEditingGroup(group); setDialogOpen(true); }}
-                      >
-                        <span className="inline-flex items-center gap-1.5">
-                          {group.isPartnerGroup
-                            ? <Lock className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                            : group.isHoldingGroup
-                              ? <Lock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                              : group.isSystem
-                                ? <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                : null}
-                          {group.name}
-                          {group.isPartnerGroup
-                            ? <Badge variant="outline" className="text-[9px] h-4 border-red-500/50 text-red-500">Partner</Badge>
-                            : group.isHoldingGroup
-                              ? <Badge variant="outline" className="text-[9px] h-4 border-blue-500/50 text-blue-500">Holding</Badge>
-                              : group.isSystem
-                                ? <Badge variant="outline" className="text-[9px] h-4 border-amber-500/50 text-amber-500">Systémová</Badge>
-                                : null}
-                        </span>
-                      </TableCell>}
-                      {columnVisibility.isVisible("permissionGroup") && <TableCell className="text-center">
-                        <Badge variant="outline" data-testid={`badge-level-${group.id}`}>
-                          {group.permissionGroupId
-                            ? (permGroupsData || []).find(pg => pg.id === group.permissionGroupId)?.name || "—"
-                            : "—"}
-                        </Badge>
-                      </TableCell>}
-                      {columnVisibility.isVisible("allowLogin") && <TableCell className="text-center">
-                        {group.allowLogin ? (
-                          <Check className="w-4 h-4 text-emerald-500 mx-auto" data-testid={`icon-login-${group.id}`} />
-                        ) : (
-                          <X className="w-4 h-4 text-destructive mx-auto" data-testid={`icon-login-${group.id}`} />
-                        )}
-                      </TableCell>}
-                      {columnVisibility.isVisible("allowCalculators") && <TableCell className="text-center">
-                        {group.allowCalculators ? (
-                          <Check className="w-4 h-4 text-emerald-500 mx-auto" data-testid={`icon-calc-${group.id}`} />
-                        ) : (
-                          <X className="w-4 h-4 text-destructive mx-auto" data-testid={`icon-calc-${group.id}`} />
-                        )}
-                      </TableCell>}
-                      {columnVisibility.isVisible("memberCount") && <TableCell className="text-center">
-                        <Badge variant="secondary" data-testid={`badge-count-${group.id}`}>{group.memberCount}</Badge>
-                      </TableCell>}
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="icon" variant="ghost" data-testid={`button-actions-group-${group.id}`}>
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {!group.isPartnerGroup && !group.isHoldingGroup && (
-                              <DropdownMenuItem
-                                onClick={() => { setEditingGroup(group); setDialogOpen(true); }}
-                                data-testid={`menu-edit-group-${group.id}`}
-                              >
-                                <Pencil className="w-4 h-4 mr-2" />
-                                Upraviť
-                              </DropdownMenuItem>
-                            )}
-                            {!group.isSystem && !group.isHoldingGroup && !group.isPartnerGroup && (
-                              <DropdownMenuItem
-                                onClick={() => setDeletingGroup(group)}
-                                disabled={group.memberCount > 0}
-                                className="text-destructive focus:text-destructive"
-                                data-testid={`menu-delete-group-${group.id}`}
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Vymazať
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+                ))}
+                <TableRow
+                  data-testid="row-partneri-synthetic"
+                  className="cursor-pointer hover:bg-muted/40 transition-colors"
+                  onClick={() => setPartnerGroupOpen(true)}
+                >
+                  <TableCell className="font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                      PARTNERI — Zoznam partnerov
+                      <Badge variant="outline" className="text-[9px] h-4 border-red-500/50 text-red-500">Partner</Badge>
+                    </span>
+                  </TableCell>
+                  <TableCell className="w-36 text-center"></TableCell>
+                  <TableCell className="w-24 text-center"></TableCell>
+                  <TableCell className="w-24 text-center">
+                    <span className="font-semibold text-red-500" data-testid="count-partneri">
+                      {partnerCountData?.count ?? "—"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="w-10">
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </SectionCard>
+
+          {/* ── 2. HLAVNÉ SYSTÉMOVÉ SKUPINY ── */}
+          <SectionCard
+            title="Hlavné systémové skupiny"
+            accentClass="border-l-amber-500"
+            badgeClass="border-amber-500/50 text-amber-400"
+            badgeText="Systémová"
+            count={systemGroups.length}
+            testId="section-systemove"
+          >
+            <Table className="w-full">
+              {TABLE_HEADER}
+              <TableBody>
+                {systemGroups.map(g => (
+                  <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer" onClick={() => openEdit(g)}>
+                    <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={openEdit} onDelete={openDelete} />
+                  </TableRow>
+                ))}
+                {systemGroups.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={SECTION_COLS} className="text-center text-muted-foreground py-6 text-sm">Žiadne systémové skupiny</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </SectionCard>
+
+          {/* ── 3. VOLITEĽNÉ SKUPINY ── */}
+          <SectionCard
+            title="Voliteľné skupiny"
+            accentClass="border-l-border"
+            badgeClass="border-border text-muted-foreground"
+            badgeText="Vlastná"
+            count={volitelneGroups.length}
+            cta={
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setEditingGroup(null); setDialogOpen(true); }}
+                data-testid="button-add-group"
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                Pridať skupinu
+              </Button>
+            }
+            testId="section-volitelne"
+          >
+            <SortableContext_Wrapper
+              items={volitelneGroups}
+              onReorder={(items) => reorderMutation.mutate(items.map(i => ({ id: Number(i.id), sortOrder: i.sortOrder })))}
+            >
+              <Table className="w-full">
+                {TABLE_HEADER}
+                <TableBody>
+                  {volitelneGroups.map(g => (
+                    <SortableTableRow key={g.id} id={g.id} data-testid={`row-group-${g.id}`} onRowClick={() => openEdit(g)}>
+                      <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={openEdit} onDelete={openDelete} />
                     </SortableTableRow>
                   ))}
-                  {(!groups || groups.length === 0) && (
+                  {volitelneGroups.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
-                        Ziadne skupiny klientov
+                      <TableCell colSpan={SECTION_COLS} className="text-center text-muted-foreground py-8 text-sm">
+                        <div className="flex flex-col items-center gap-2">
+                          <span>Žiadne voliteľné skupiny</span>
+                          <Button size="sm" variant="outline" onClick={() => { setEditingGroup(null); setDialogOpen(true); }} data-testid="button-add-group-empty">
+                            <Plus className="w-3.5 h-3.5 mr-1" />Vytvoriť prvú skupinu
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
-              </SortableContext_Wrapper>
+              </Table>
+            </SortableContext_Wrapper>
+          </SectionCard>
+
+          {/* ── 4. INÁ SPOLOČNOSŤ ── */}
+          <SectionCard
+            title="Iná spoločnosť"
+            accentClass="border-l-slate-500"
+            badgeClass="border-slate-500/40 text-slate-400"
+            badgeText="Externá"
+            testId="section-ina-spolocnost"
+          >
+            <Table className="w-full">
+              {TABLE_HEADER}
+              <TableBody>
+                <TableRow
+                  data-testid="row-ina-spolocnost-synthetic"
+                  className="cursor-pointer hover:bg-muted/40 transition-colors"
+                  onClick={() => navigate("/subjects?statusFilter=other_company")}
+                >
+                  <TableCell className="font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      Subjekty mimo aktívnej spoločnosti
+                      <Badge variant="outline" className="text-[9px] h-4 border-slate-500/40 text-slate-400">Iná spoločnosť</Badge>
+                    </span>
+                  </TableCell>
+                  <TableCell className="w-36 text-center"></TableCell>
+                  <TableCell className="w-24 text-center"></TableCell>
+                  <TableCell className="w-24 text-center">
+                    <span className="font-semibold text-muted-foreground" data-testid="count-ina-spolocnost">
+                      {otherCompanyCount?.count ?? "—"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="w-10">
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
+              </TableBody>
             </Table>
-          )}
-        </CardContent>
-      </Card>
+          </SectionCard>
+
+          {/* ── 5. GLOBÁLNE SKUPINY ── */}
+          <SectionCard
+            title="Globálne skupiny"
+            accentClass="border-l-red-600"
+            badgeClass="border-red-600/50 text-red-400"
+            badgeText="Globálna"
+            count={globalneGroups.length}
+            testId="section-globalne"
+          >
+            <Table className="w-full">
+              {TABLE_HEADER}
+              <TableBody>
+                {globalneGroups.map(g => (
+                  <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer" onClick={() => openEdit(g)}>
+                    <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={openEdit} onDelete={openDelete} />
+                  </TableRow>
+                ))}
+                {globalneGroups.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={SECTION_COLS} className="text-center text-muted-foreground py-6 text-sm">Žiadne globálne skupiny</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </SectionCard>
+
+        </div>
+      )}
 
       <GroupDetailDialog
         open={dialogOpen}
