@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, Fragment } from "react";
 import DOMPurify from "dompurify";
 import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyCompany } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
@@ -2411,7 +2411,7 @@ export default function Companies() {
                 ) : (
                   <>
                     {stateGroups.map(({ state, companies: stateCompanies }) => (
-                      <>
+                      <Fragment key={`state-group-${state.id}`}>
                         <TableRow
                           key={`state-${state.id}`}
                           className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
@@ -2430,10 +2430,10 @@ export default function Companies() {
                           </TableCell>
                         </TableRow>
                         {expandedStates.has(state.id) && stateCompanies.map(renderCompanyRow)}
-                      </>
+                      </Fragment>
                     ))}
                     {noStateCompanies.length > 0 && (
-                      <>
+                      <Fragment key="state-group-none">
                         <TableRow
                           className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
                           onClick={() => toggleState(null)}
@@ -2450,7 +2450,7 @@ export default function Companies() {
                           </TableCell>
                         </TableRow>
                         {expandedStates.has(null) && noStateCompanies.map(renderCompanyRow)}
-                      </>
+                      </Fragment>
                     )}
                   </>
                 )

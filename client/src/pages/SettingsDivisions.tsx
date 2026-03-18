@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -288,7 +288,7 @@ export default function SettingsDivisions() {
               </TableHeader>
               <TableBody>
                 {companyGroups.map(({ company, divisions }) => (
-                  <>
+                  <Fragment key={`company-group-${company.id}`}>
                     <TableRow
                       key={`company-${company.id}`}
                       className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
@@ -307,10 +307,10 @@ export default function SettingsDivisions() {
                       </TableCell>
                     </TableRow>
                     {expandedCompanies.has(company.id) && divisions.map(renderDivisionRow)}
-                  </>
+                  </Fragment>
                 ))}
                 {unassignedDivisions.length > 0 && (
-                  <>
+                  <Fragment key="company-group-none">
                     <TableRow
                       className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
                       onClick={() => toggleCompany("none")}
@@ -327,7 +327,7 @@ export default function SettingsDivisions() {
                       </TableCell>
                     </TableRow>
                     {expandedCompanies.has("none") && unassignedDivisions.map(renderDivisionRow)}
-                  </>
+                  </Fragment>
                 )}
               </TableBody>
             </Table>

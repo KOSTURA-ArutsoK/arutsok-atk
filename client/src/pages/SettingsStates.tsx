@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDateTimeSlovak } from "@/lib/utils";
@@ -521,7 +521,7 @@ export default function SettingsStates() {
                 ) : (
                   <>
                     {continentGroups.map(({ continent, states }) => (
-                      <>
+                      <Fragment key={`continent-group-${continent.id}`}>
                         <TableRow
                           key={`continent-${continent.id}`}
                           className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
@@ -540,10 +540,10 @@ export default function SettingsStates() {
                           </TableCell>
                         </TableRow>
                         {expandedContinents.has(continent.id) && states.map(renderStateRow)}
-                      </>
+                      </Fragment>
                     ))}
                     {ungrouped.length > 0 && (
-                      <>
+                      <Fragment key="continent-group-none">
                         <TableRow
                           className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
                           onClick={() => toggleContinent(-1)}
@@ -560,7 +560,7 @@ export default function SettingsStates() {
                           </TableCell>
                         </TableRow>
                         {expandedContinents.has(-1) && ungrouped.sort((a, b) => a.name.localeCompare(b.name, "sk")).map(renderStateRow)}
-                      </>
+                      </Fragment>
                     )}
                   </>
                 )}
