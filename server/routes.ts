@@ -2069,8 +2069,8 @@ export async function registerRoutes(
   app.post(api.partnerContracts.create.path, isAuthenticated, async (req, res) => {
     try {
       const body = { ...req.body };
-      if (body.signedDate && typeof body.signedDate === "string") {
-        body.signedDate = new Date(body.signedDate);
+      if (typeof body.signedDate === "string") {
+        body.signedDate = body.signedDate.trim() ? new Date(body.signedDate) : null;
       }
       const input = { ...api.partnerContracts.create.input.parse(body), partnerId: Number(req.params.partnerId) };
       const created = await storage.createPartnerContract(input);
