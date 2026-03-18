@@ -217,14 +217,14 @@ export default function SettingsDivisions() {
 
   function renderDivisionRow(div: Division) {
     return (
-      <TableRow key={div.id} className={!div.isActive ? "opacity-50" : ""} onRowClick={() => openEdit(div)}>
-        {columnVisibility.isVisible("id") && <TableCell data-testid={`text-division-id-${div.id}`}>{div.id}</TableCell>}
+      <TableRow key={div.id} className={`border-l-[3px] border-l-border/40 bg-background hover:bg-muted/30 ${!div.isActive ? "opacity-50" : ""}`} onRowClick={() => openEdit(div)}>
+        {columnVisibility.isVisible("id") && <TableCell className="pl-7" data-testid={`text-division-id-${div.id}`}>{div.id}</TableCell>}
         {columnVisibility.isVisible("emoji") && (
           <TableCell className="text-center text-2xl" data-testid={`text-division-emoji-${div.id}`}>
             {(div as any).emoji || <span className="text-muted-foreground text-sm">–</span>}
           </TableCell>
         )}
-        {columnVisibility.isVisible("name") && <TableCell className="font-medium" data-testid={`text-division-name-${div.id}`}>{div.name}</TableCell>}
+        {columnVisibility.isVisible("name") && <TableCell className="font-medium pl-7" data-testid={`text-division-name-${div.id}`}>{div.name}</TableCell>}
         {columnVisibility.isVisible("code") && <TableCell><Badge variant="secondary" className="font-mono">{div.code || "–"}</Badge></TableCell>}
         {columnVisibility.isVisible("description") && <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{div.description || "–"}</TableCell>}
         {columnVisibility.isVisible("isActive") && <TableCell><Badge variant={div.isActive ? "default" : "secondary"}>{div.isActive ? "Áno" : "Nie"}</Badge></TableCell>}
@@ -291,42 +291,44 @@ export default function SettingsDivisions() {
                   <Fragment key={`company-group-${company.id}`}>
                     <TableRow
                       key={`company-${company.id}`}
-                      className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
+                      className="bg-muted border-t border-border hover:bg-muted/80 cursor-pointer select-none"
                       data-testid={`row-company-group-${company.id}`}
                       onClick={() => toggleCompany(company.id)}
                     >
-                      <TableCell colSpan={colSpan} className="py-2">
+                      <TableCell colSpan={colSpan} className="py-2.5 px-4">
                         <div className="flex items-center gap-2">
                           {expandedCompanies.has(company.id)
-                            ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                            : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                          <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
-                          <span className="font-semibold text-sm">{company.name}</span>
-                          <Badge variant="outline" className="text-[10px] ml-1">{divisions.length}</Badge>
+                            ? <ChevronDown className="w-4 h-4" />
+                            : <ChevronRight className="w-4 h-4" />}
+                          <Building2 className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-semibold text-xs uppercase tracking-wider">{company.name}</span>
+                          <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{divisions.length}</Badge>
                         </div>
                       </TableCell>
                     </TableRow>
                     {expandedCompanies.has(company.id) && divisions.map(renderDivisionRow)}
+                    {expandedCompanies.has(company.id) && <TableRow className="h-0 border-b border-border/60"><TableCell colSpan={colSpan} className="p-0" /></TableRow>}
                   </Fragment>
                 ))}
                 {unassignedDivisions.length > 0 && (
                   <Fragment key="company-group-none">
                     <TableRow
-                      className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
+                      className="bg-muted border-t border-border hover:bg-muted/80 cursor-pointer select-none"
                       onClick={() => toggleCompany("none")}
                     >
-                      <TableCell colSpan={colSpan} className="py-2">
+                      <TableCell colSpan={colSpan} className="py-2.5 px-4">
                         <div className="flex items-center gap-2">
                           {expandedCompanies.has("none")
-                            ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                            : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                          <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
-                          <span className="font-semibold text-sm">Nepriradené</span>
-                          <Badge variant="outline" className="text-[10px] ml-1">{unassignedDivisions.length}</Badge>
+                            ? <ChevronDown className="w-4 h-4" />
+                            : <ChevronRight className="w-4 h-4" />}
+                          <Building2 className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-semibold text-xs uppercase tracking-wider">Nepriradené</span>
+                          <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{unassignedDivisions.length}</Badge>
                         </div>
                       </TableCell>
                     </TableRow>
                     {expandedCompanies.has("none") && unassignedDivisions.map(renderDivisionRow)}
+                    {expandedCompanies.has("none") && <TableRow className="h-0 border-b border-border/60"><TableCell colSpan={colSpan} className="p-0" /></TableRow>}
                   </Fragment>
                 )}
               </TableBody>

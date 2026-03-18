@@ -452,9 +452,9 @@ export default function SettingsStates() {
 
   function renderStateRow(state: State) {
     return (
-      <TableRow key={state.id} data-testid={`row-state-${state.id}`} onRowClick={() => { setEditingState(state); setFormOpen(true); }}>
+      <TableRow key={state.id} data-testid={`row-state-${state.id}`} onRowClick={() => { setEditingState(state); setFormOpen(true); }} className="border-l-[3px] border-l-border/40 bg-background hover:bg-muted/30">
         {columnVisibility.isVisible("id") && <TableCell><Badge variant="outline">{state.id}</Badge></TableCell>}
-        {columnVisibility.isVisible("name") && <TableCell className="font-medium" data-testid={`text-state-name-${state.id}`}>{state.name}</TableCell>}
+        {columnVisibility.isVisible("name") && <TableCell className="font-medium pl-7" data-testid={`text-state-name-${state.id}`}>{state.name}</TableCell>}
         {columnVisibility.isVisible("code") && <TableCell data-testid={`text-state-code-${state.id}`}>{state.code}</TableCell>}
         {columnVisibility.isVisible("currency") && <TableCell data-testid={`text-state-currency-${state.id}`}><Badge variant="outline">{(state as any).currency || "EUR"}</Badge></TableCell>}
         {columnVisibility.isVisible("continentId") && <TableCell className="text-muted-foreground text-xs">{continents?.find(c => c.id === state.continentId)?.name || state.continentId}</TableCell>}
@@ -524,42 +524,44 @@ export default function SettingsStates() {
                       <Fragment key={`continent-group-${continent.id}`}>
                         <TableRow
                           key={`continent-${continent.id}`}
-                          className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
+                          className="bg-muted border-t border-border hover:bg-muted/80 cursor-pointer select-none"
                           data-testid={`row-continent-${continent.id}`}
                           onClick={() => toggleContinent(continent.id)}
                         >
-                          <TableCell colSpan={colSpan} className="py-2">
+                          <TableCell colSpan={colSpan} className="py-2.5 px-4">
                             <div className="flex items-center gap-2">
                               {expandedContinents.has(continent.id)
-                                ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                                : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                              <Globe className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="font-semibold text-sm">{continent.name}</span>
-                              <Badge variant="outline" className="text-[10px] ml-1">{states.length}</Badge>
+                                ? <ChevronDown className="w-4 h-4" />
+                                : <ChevronRight className="w-4 h-4" />}
+                              <Globe className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-semibold text-xs uppercase tracking-wider">{continent.name}</span>
+                              <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{states.length}</Badge>
                             </div>
                           </TableCell>
                         </TableRow>
                         {expandedContinents.has(continent.id) && states.map(renderStateRow)}
+                        {expandedContinents.has(continent.id) && <TableRow className="h-0 border-b border-border/60"><TableCell colSpan={colSpan} className="p-0" /></TableRow>}
                       </Fragment>
                     ))}
                     {ungrouped.length > 0 && (
                       <Fragment key="continent-group-none">
                         <TableRow
-                          className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
+                          className="bg-muted border-t border-border hover:bg-muted/80 cursor-pointer select-none"
                           onClick={() => toggleContinent(-1)}
                         >
-                          <TableCell colSpan={colSpan} className="py-2">
+                          <TableCell colSpan={colSpan} className="py-2.5 px-4">
                             <div className="flex items-center gap-2">
                               {expandedContinents.has(-1)
-                                ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                                : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                              <Globe className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="font-semibold text-sm">Nezaradené</span>
-                              <Badge variant="outline" className="text-[10px] ml-1">{ungrouped.length}</Badge>
+                                ? <ChevronDown className="w-4 h-4" />
+                                : <ChevronRight className="w-4 h-4" />}
+                              <Globe className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-semibold text-xs uppercase tracking-wider">Nezaradené</span>
+                              <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{ungrouped.length}</Badge>
                             </div>
                           </TableCell>
                         </TableRow>
                         {expandedContinents.has(-1) && ungrouped.sort((a, b) => a.name.localeCompare(b.name, "sk")).map(renderStateRow)}
+                        {expandedContinents.has(-1) && <TableRow className="h-0 border-b border-border/60"><TableCell colSpan={colSpan} className="p-0" /></TableRow>}
                       </Fragment>
                     )}
                   </>

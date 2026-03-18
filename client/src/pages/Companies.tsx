@@ -2324,9 +2324,9 @@ export default function Companies() {
   function renderCompanyRow(company: MyCompany) {
     const logo = (company.logos as any[])?.find((l: any) => l.isPrimary && !l.isArchived);
     return (
-      <TableRow key={company.id} data-testid={`row-company-${company.id}`} onRowClick={() => openEdit(company)}>
+      <TableRow key={company.id} data-testid={`row-company-${company.id}`} onRowClick={() => openEdit(company)} className="border-l-[3px] border-l-border/40 bg-background hover:bg-muted/30">
         {columnVisibility.isVisible("name") && (
-          <TableCell>
+          <TableCell className="pl-7">
             <div className="flex items-center gap-2.5">
               {logo?.url ? (
                 <div className="w-7 h-7 rounded border border-border bg-background flex-shrink-0 overflow-hidden flex items-center justify-center">
@@ -2414,42 +2414,44 @@ export default function Companies() {
                       <Fragment key={`state-group-${state.id}`}>
                         <TableRow
                           key={`state-${state.id}`}
-                          className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
+                          className="bg-muted border-t border-border hover:bg-muted/80 cursor-pointer select-none"
                           data-testid={`row-state-group-${state.id}`}
                           onClick={() => toggleState(state.id)}
                         >
-                          <TableCell colSpan={colSpan} className="py-2">
+                          <TableCell colSpan={colSpan} className="py-2.5 px-4">
                             <div className="flex items-center gap-2">
                               {expandedStates.has(state.id)
-                                ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                                : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                              <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="font-semibold text-sm">{state.name}</span>
-                              <Badge variant="outline" className="text-[10px] ml-1">{stateCompanies.length}</Badge>
+                                ? <ChevronDown className="w-4 h-4" />
+                                : <ChevronRight className="w-4 h-4" />}
+                              <MapPin className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-semibold text-xs uppercase tracking-wider">{state.name}</span>
+                              <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{stateCompanies.length}</Badge>
                             </div>
                           </TableCell>
                         </TableRow>
                         {expandedStates.has(state.id) && stateCompanies.map(renderCompanyRow)}
+                        {expandedStates.has(state.id) && <TableRow className="h-0 border-b border-border/60"><TableCell colSpan={colSpan} className="p-0" /></TableRow>}
                       </Fragment>
                     ))}
                     {noStateCompanies.length > 0 && (
                       <Fragment key="state-group-none">
                         <TableRow
-                          className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
+                          className="bg-muted border-t border-border hover:bg-muted/80 cursor-pointer select-none"
                           onClick={() => toggleState(null)}
                         >
-                          <TableCell colSpan={colSpan} className="py-2">
+                          <TableCell colSpan={colSpan} className="py-2.5 px-4">
                             <div className="flex items-center gap-2">
                               {expandedStates.has(null)
-                                ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                                : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                              <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                              <span className="font-semibold text-sm">Bez štátu</span>
-                              <Badge variant="outline" className="text-[10px] ml-1">{noStateCompanies.length}</Badge>
+                                ? <ChevronDown className="w-4 h-4" />
+                                : <ChevronRight className="w-4 h-4" />}
+                              <MapPin className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-semibold text-xs uppercase tracking-wider">Bez štátu</span>
+                              <Badge variant="secondary" className="text-[10px] ml-1 h-4 px-1.5">{noStateCompanies.length}</Badge>
                             </div>
                           </TableCell>
                         </TableRow>
                         {expandedStates.has(null) && noStateCompanies.map(renderCompanyRow)}
+                        {expandedStates.has(null) && <TableRow className="h-0 border-b border-border/60"><TableCell colSpan={colSpan} className="p-0" /></TableRow>}
                       </Fragment>
                     )}
                   </>
