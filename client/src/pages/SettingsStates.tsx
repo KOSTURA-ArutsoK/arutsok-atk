@@ -321,8 +321,23 @@ function FlagUploadDialog({
       setWikiError(null);
       setWikiSearching(false);
       setWikiDownloading(false);
+    } else if (open && state && !state.flagUrl) {
+      setWikiSearching(true);
+      setWikiFlag(null);
+      setWikiError(null);
+      searchWikipediaFlag(state.name).then(result => {
+        if (result) {
+          setWikiFlag(result);
+        } else {
+          setWikiError("Vlajka nenájdená na Wikimedia Commons");
+        }
+      }).catch(() => {
+        setWikiError("Chyba pri vyhľadávaní na Wikimedia");
+      }).finally(() => {
+        setWikiSearching(false);
+      });
     }
-  }, [open]);
+  }, [open, state]);
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -380,8 +395,16 @@ function FlagUploadDialog({
       const imgRes = await fetch(wikiFlag.thumbUrl);
       if (!imgRes.ok) throw new Error("Nepodarilo sa stiahnuť obrázok z Wikimedia");
       const blob = await imgRes.blob();
-      const ext = wikiFlag.thumbUrl.split(".").pop()?.split("?")[0] || "png";
-      const file = new File([blob], `wiki-flag.${ext}`, { type: blob.type });
+      const mimeToExt: Record<string, string> = {
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/webp": "webp",
+        "image/gif": "gif",
+        "image/bmp": "bmp",
+      };
+      const actualMime = blob.type || "image/png";
+      const ext = mimeToExt[actualMime] || "png";
+      const file = new File([blob], `wiki-flag.${ext}`, { type: actualMime });
       const formData = new FormData();
       formData.append("file", file);
       const uploadRes = await fetch(`/api/states/${state.id}/flag`, {
