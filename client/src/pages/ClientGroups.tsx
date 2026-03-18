@@ -1471,37 +1471,32 @@ export default function ClientGroups() {
                 <Badge variant="secondary" className="ml-2 text-[10px]">{stateOverview.length}</Badge>
               )}
             </DialogTitle>
+            <DialogDescription className="sr-only">Prehľad všetkých subjektov v štáte</DialogDescription>
           </DialogHeader>
 
-          <div className="px-4 pt-2 pb-0 shrink-0 bg-muted/20 border-b border-border">
-            <div className="relative mb-2">
+          <div className="px-4 py-2 shrink-0 border-b border-border bg-muted/20">
+            <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <Input
-                placeholder="Hľadať podľa mena, UID, firmy..."
+                placeholder="Hľadať: meno, UID (napr. 2 → 421 000 000 000 002), firma, skupiny…"
                 value={stateOverviewSearch}
                 onChange={e => setStateOverviewSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === "Escape") setStateOverviewSearch(""); }}
                 className="pl-8 h-8 text-xs"
                 data-testid="input-state-overview-search"
               />
-            </div>
-            <div className="flex items-center gap-4 pb-2 text-[11px] text-muted-foreground">
-              <span className="font-semibold text-foreground/60 uppercase tracking-wider text-[10px]">Legenda:</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block shrink-0" />Aktívny</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block shrink-0" />Bez zmluvy</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block shrink-0" />Neaktívny</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-200 inline-block shrink-0" />Zosnulý</span>
             </div>
           </div>
 
           <div className="flex-1 overflow-auto">
             <Table>
-              <TableHeader className="sticky top-0 bg-background z-10">
+              <TableHeader className="sticky top-0 bg-background z-10 border-b border-border">
                 <TableRow className="h-9">
                   <TableHead className="w-8 px-3"></TableHead>
                   <TableHead className="w-44 font-mono text-xs whitespace-nowrap">UID</TableHead>
                   <TableHead className="text-xs">Meno / Názov</TableHead>
                   <TableHead className="w-16 text-center text-xs">Typ</TableHead>
-                  <TableHead className="w-40 text-xs">Spravujúca firma</TableHead>
+                  <TableHead className="text-xs">Spravujúca firma</TableHead>
                   <TableHead className="text-xs">Skupiny</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1514,23 +1509,29 @@ export default function ClientGroups() {
                   </TableRow>
                 )}
                 {!stateOverviewLoading && (() => {
-                  const q = stateOverviewSearch.toLowerCase().trim();
+                  const raw = stateOverviewSearch.trim();
+                  const q = raw.toLowerCase();
+                  const qDigits = raw.replace(/\D/g, "");
                   const filtered = (stateOverview || []).filter(s => {
                     if (!q) return true;
                     const name = s.type === "company" || s.type === "szco"
                       ? (s.companyName || "")
                       : [s.titleBefore, s.firstName, s.lastName, s.titleAfter].filter(Boolean).join(" ");
+                    const uidRaw = (s.uid || "").replace(/\D/g, "");
+                    const uidFmt = formatUid(s.uid);
+                    const companyNames = [s.myCompanyName].filter(Boolean).map(n => n!.toLowerCase());
+                    const uidMatch = uidRaw.includes(qDigits) || uidFmt.includes(q) || uidFmt.replace(/\s/g, "").includes(qDigits);
                     return (
                       name.toLowerCase().includes(q) ||
-                      (s.uid || "").includes(q) ||
-                      (s.myCompanyName || "").toLowerCase().includes(q) ||
+                      (qDigits.length > 0 && uidMatch) ||
+                      companyNames.some(n => n.includes(q)) ||
                       s.groups.some(g => g.toLowerCase().includes(q))
                     );
                   });
                   if (filtered.length === 0) return (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-sm">
-                        {q ? `Žiadne výsledky pre „${q}"` : "Žiadne subjekty v tomto štáte"}
+                        {q ? `Žiadne výsledky pre „${raw}"` : "Žiadne subjekty v tomto štáte"}
                       </TableCell>
                     </TableRow>
                   );
@@ -1556,6 +1557,7 @@ export default function ClientGroups() {
                       : s.type === "szco"
                         ? "border-amber-500/50 text-amber-400"
                         : "border-blue-500/50 text-blue-400";
+                    const companies: string[] = [s.myCompanyName].filter((n): n is string => !!n);
                     return (
                       <TableRow
                         key={s.id}
@@ -1576,8 +1578,15 @@ export default function ClientGroups() {
                         <TableCell className="text-center py-0">
                           <Badge variant="outline" className={`text-[9px] h-4 ${typeCls}`}>{typeLabel}</Badge>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground py-0 max-w-[160px] truncate">
-                          {s.myCompanyName || "—"}
+                        <TableCell className="py-1">
+                          {companies.length === 0
+                            ? <span className="text-muted-foreground text-xs">—</span>
+                            : <div className="flex flex-wrap gap-1">
+                                {companies.map((c, i) => (
+                                  <Badge key={i} variant="outline" className="text-[9px] h-4 border-cyan-600/40 text-cyan-400/90 font-normal">{c}</Badge>
+                                ))}
+                              </div>
+                          }
                         </TableCell>
                         <TableCell className="py-1">
                           <div className="flex flex-wrap gap-1">
@@ -1595,6 +1604,16 @@ export default function ClientGroups() {
                 })()}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Sticky footer – legenda */}
+          <div className="shrink-0 border-t border-green-600/30 bg-green-950/20 px-4 py-2 flex items-center gap-5 text-[11px] text-muted-foreground">
+            <span className="font-semibold text-green-500/70 uppercase tracking-wider text-[10px] shrink-0">Legenda:</span>
+            <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />Aktívny</span>
+            <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />Bez zmluvy</span>
+            <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />Neaktívny</span>
+            <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-400 inline-block" />Zosnulý</span>
+            <span className="ml-auto text-[10px] text-muted-foreground/50 shrink-0">Klik na riadok → otvorí detail subjektu</span>
           </div>
         </DialogContent>
       </Dialog>
