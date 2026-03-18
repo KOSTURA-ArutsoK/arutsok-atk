@@ -1014,6 +1014,40 @@ export async function registerRoutes(
     res.json(await storage.getStateFlagHistory(Number(req.params.id)));
   });
 
+  app.post("/api/states/:id/flag-from-url", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { imageUrl } = req.body;
+      if (!imageUrl || typeof imageUrl !== "string") return res.status(400).json({ message: "imageUrl povinné" });
+      if (!imageUrl.startsWith("https://upload.wikimedia.org/") && !imageUrl.startsWith("https://commons.wikimedia.org/")) {
+        return res.status(400).json({ message: "Povolené len Wikimedia URL" });
+      }
+      const state = await storage.getState(id);
+      if (!state) return res.status(404).json({ message: "Štát nenájdený" });
+      const response = await fetch(imageUrl, {
+        headers: { "User-Agent": "ArutsoK-CRM/1.0 (contact@arutsok.sk)" },
+      });
+      if (!response.ok) throw new Error(`Wikimedia fetch failed: ${response.status}`);
+      const contentType = response.headers.get("content-type") || "image/png";
+      const buffer = await response.arrayBuffer();
+      let ext = ".png";
+      if (contentType.includes("jpeg") || contentType.includes("jpg")) ext = ".jpg";
+      else if (contentType.includes("webp")) ext = ".webp";
+      else if (contentType.includes("svg")) ext = ".svg";
+      const filename = `${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`;
+      const filepath = path.join(UPLOADS_DIR, "flags", filename);
+      fs.writeFileSync(filepath, Buffer.from(buffer));
+      if (state.flagUrl) await storage.addStateFlagHistory(id, state.flagUrl);
+      const flagUrl = `/api/files/flags/${filename}`;
+      const updated = await storage.updateState(id, { flagUrl });
+      await logAudit(req, { action: "UPDATE", module: "Staty", entityId: id, entityName: state.name, oldData: { flagUrl: state.flagUrl }, newData: { flagUrl } });
+      res.json(updated);
+    } catch (err) {
+      console.error("Wikipedia flag download error:", err);
+      res.status(500).json({ message: "Chyba pri sťahovaní vlajky" });
+    }
+  });
+
   // === COMPANY LOGO HISTORY (ArutsoK 31) ===
   app.get("/api/my-companies/:id/logo-history", isAuthenticated, async (req, res) => {
     res.json(await storage.getCompanyLogoHistory(Number(req.params.id)));

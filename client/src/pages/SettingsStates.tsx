@@ -9,7 +9,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
-import { Plus, Pencil, Trash2, Clock, Upload, Image, Globe, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Clock, Upload, Image, Globe, ChevronDown, ChevronRight, Download, Search, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -247,6 +247,27 @@ function StateFormDialog({
   );
 }
 
+type WikiFlag = { title: string; thumbUrl: string; descriptionUrl: string };
+
+async function searchWikipediaFlag(countryName: string): Promise<WikiFlag | null> {
+  const query = `Flag of ${countryName}`;
+  const searchUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srnamespace=6&srlimit=8&format=json&origin=*`;
+  const searchRes = await fetch(searchUrl);
+  const searchData = await searchRes.json();
+  const results: Array<{ title: string }> = searchData?.query?.search || [];
+  const flagResult = results.find(r => /flag/i.test(r.title) && !/historical|naval|state|civil|war|variant|coat|arm/i.test(r.title)) || results[0];
+  if (!flagResult) return null;
+
+  const infoUrl = `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(flagResult.title)}&prop=imageinfo&iiprop=url|descriptionurl&iiurlwidth=640&format=json&origin=*`;
+  const infoRes = await fetch(infoUrl);
+  const infoData = await infoRes.json();
+  const pages = infoData?.query?.pages || {};
+  const page = Object.values(pages)[0] as any;
+  const info = page?.imageinfo?.[0];
+  if (!info?.thumburl) return null;
+  return { title: flagResult.title, thumbUrl: info.thumburl, descriptionUrl: info.descriptionurl || "" };
+}
+
 function FlagUploadDialog({
   open,
   onOpenChange,
@@ -259,6 +280,19 @@ function FlagUploadDialog({
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [wikiSearching, setWikiSearching] = useState(false);
+  const [wikiFlag, setWikiFlag] = useState<WikiFlag | null>(null);
+  const [wikiError, setWikiError] = useState<string | null>(null);
+  const [wikiDownloading, setWikiDownloading] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setWikiFlag(null);
+      setWikiError(null);
+      setWikiSearching(false);
+      setWikiDownloading(false);
+    }
+  }, [open]);
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -287,8 +321,46 @@ function FlagUploadDialog({
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) {
-      uploadMutation.mutate(file);
+    if (file) uploadMutation.mutate(file);
+  }
+
+  async function handleWikiSearch() {
+    if (!state) return;
+    setWikiSearching(true);
+    setWikiFlag(null);
+    setWikiError(null);
+    try {
+      const result = await searchWikipediaFlag(state.name);
+      if (result) {
+        setWikiFlag(result);
+      } else {
+        setWikiError("Vlajka nenájdená na Wikimedia Commons");
+      }
+    } catch {
+      setWikiError("Chyba pri vyhľadávaní na Wikimedia");
+    } finally {
+      setWikiSearching(false);
+    }
+  }
+
+  async function handleWikiDownload() {
+    if (!state || !wikiFlag) return;
+    setWikiDownloading(true);
+    try {
+      const res = await fetch(`/api/states/${state.id}/flag-from-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ imageUrl: wikiFlag.thumbUrl }),
+      });
+      if (!res.ok) throw new Error("Download failed");
+      queryClient.invalidateQueries({ queryKey: ["/api/hierarchy/states"] });
+      toast({ title: "Úspech", description: `Vlajka stiahnutá z Wikipedie` });
+      onOpenChange(false);
+    } catch {
+      toast({ title: "Chyba", description: "Nepodarilo sa stiahnuť vlajku", variant: "destructive" });
+    } finally {
+      setWikiDownloading(false);
     }
   }
 
@@ -298,17 +370,62 @@ function FlagUploadDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle data-testid="text-flag-upload-title">Nahrat vlajku - {state.name}</DialogTitle>
+          <DialogTitle data-testid="text-flag-upload-title">Vlajka — {state.name}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">Aktualna vlajka</label>
-            <div className="flex items-center justify-center p-4 border rounded-md">
+            <label className="text-sm font-medium text-muted-foreground">Aktuálna vlajka</label>
+            <div className="flex items-center justify-center p-4 border rounded-md bg-muted/20">
               <FlagImage src={state.flagUrl} alt={state.name} code={state.code} className="max-h-24 object-contain" />
             </div>
           </div>
+
           <div className="space-y-2">
-            <label className="text-sm font-medium">Vyberte novu vlajku</label>
+            <label className="text-sm font-semibold flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> Stiahnuť z Wikipedie</label>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={handleWikiSearch}
+              disabled={wikiSearching || wikiDownloading}
+              data-testid="button-wiki-search-flag"
+            >
+              {wikiSearching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
+              {wikiSearching ? "Hľadám na Wikimedia Commons..." : `Nájsť vlajku pre „${state.name}"`}
+            </Button>
+
+            {wikiError && (
+              <div className="flex items-center gap-2 text-sm text-destructive p-2 rounded bg-destructive/10">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                {wikiError}
+              </div>
+            )}
+
+            {wikiFlag && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                  Nájdené: <span className="font-mono truncate max-w-[220px]">{wikiFlag.title.replace("File:", "")}</span>
+                </div>
+                <div className="flex items-center justify-center p-3 border rounded-md bg-muted/20">
+                  <img src={wikiFlag.thumbUrl} alt="Wikipedia vlajka" className="max-h-28 object-contain" />
+                </div>
+                <Button
+                  type="button"
+                  className="w-full"
+                  onClick={handleWikiDownload}
+                  disabled={wikiDownloading}
+                  data-testid="button-wiki-download-flag"
+                >
+                  {wikiDownloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                  {wikiDownloading ? "Sťahujem..." : "Uložiť túto vlajku"}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2 border-t pt-3">
+            <label className="text-sm font-semibold">Alebo nahrať vlastný súbor</label>
             <input
               ref={fileInputRef}
               type="file"
@@ -318,14 +435,15 @@ function FlagUploadDialog({
               data-testid="input-flag-file"
             />
             <Button
+              type="button"
               variant="outline"
               className="w-full"
               onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
+              disabled={uploading || wikiDownloading}
               data-testid="button-select-flag-file"
             >
               <Upload className="w-4 h-4 mr-2" />
-              {uploading ? "Nahravam..." : "Vybrat subor"}
+              {uploading ? "Nahrávam..." : "Vybrať súbor"}
             </Button>
           </div>
         </div>
