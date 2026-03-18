@@ -1511,28 +1511,40 @@ export async function registerRoutes(
 
       let subject = null;
       if (bnRaw && typeof bnRaw === 'string' && bnRaw.trim()) {
-        let stateCode = '421';
-        if (req.appUser?.activeStateId) {
-          const st = await storage.getState(req.appUser.activeStateId);
-          if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
+        const cleanBn = bnRaw.replace(/\//g, '').replace(/\s/g, '').trim();
+        const encrypted = encryptField(cleanBn);
+        // Look for existing subject with same birth number to prevent duplicates
+        const allWithBn = await db.select().from(subjects).where(eq(subjects.birthNumber, encrypted));
+        const existing = allWithBn[0] || null;
+        if (existing) {
+          subject = existing;
+          await storage.updateCompanyOfficer(officer.id, { subjectId: existing.id } as any);
+          await linkSubjectToCompanyInNetwork(existing.id, companyId);
+          await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: officer.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { existingSubjectId: existing.id, existingUid: existing.uid } });
+        } else {
+          let stateCode = '421';
+          if (req.appUser?.activeStateId) {
+            const st = await storage.getState(req.appUser.activeStateId);
+            if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
+          }
+          const uid = await storage.generateNextGlobalUid(stateCode);
+          const subjectData: any = {
+            uid,
+            type: 'person',
+            firstName: firstName || null,
+            lastName: lastName || null,
+            stateId: req.appUser?.activeStateId || null,
+            myCompanyId: companyId,
+            registeredByUserId: req.appUser?.id || null,
+            registrationStatus: 'klient',
+            birthNumber: encrypted,
+            details: { source: 'manual_statutory', officerId: officer.id, officerType: type },
+          };
+          subject = await storage.createSubject(subjectData);
+          await storage.updateCompanyOfficer(officer.id, { subjectId: subject.id } as any);
+          await linkSubjectToCompanyInNetwork(subject.id, companyId);
+          await logAudit(req, { action: "CREATE", module: "subjekty", entityId: subject.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { uid } });
         }
-        const uid = await storage.generateNextGlobalUid(stateCode);
-        const subjectData: any = {
-          uid,
-          type: 'person',
-          firstName: firstName || null,
-          lastName: lastName || null,
-          stateId: req.appUser?.activeStateId || null,
-          myCompanyId: companyId,
-          registeredByUserId: req.appUser?.id || null,
-          registrationStatus: 'klient',
-          birthNumber: encryptField(bnRaw.replace(/\//g, '').replace(/\s/g, '').trim()),
-          details: { source: 'manual_statutory', officerId: officer.id, officerType: type },
-        };
-        subject = await storage.createSubject(subjectData);
-        await storage.updateCompanyOfficer(officer.id, { subjectId: subject.id } as any);
-        await linkSubjectToCompanyInNetwork(subject.id, companyId);
-        await logAudit(req, { action: "CREATE", module: "subjekty", entityId: subject.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { uid } });
       }
 
       res.status(201).json({ officer: { ...officer, subjectId: subject?.id || null }, subject });
@@ -1603,27 +1615,35 @@ export async function registerRoutes(
               });
             }
           } else {
-            let stateCode = '421';
-            if (req.appUser?.activeStateId) {
-              const st = await storage.getState(req.appUser.activeStateId);
-              if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
+            // First check if subject with this birth number already exists
+            const existingWithBn = await db.select().from(subjects).where(eq(subjects.birthNumber, encrypted));
+            let newSubject: any;
+            if (existingWithBn.length > 0) {
+              newSubject = existingWithBn[0];
+              await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "company_officers", entityId: officerId, entityName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim(), newData: { existingSubjectId: newSubject.id, existingUid: newSubject.uid } });
+            } else {
+              let stateCode = '421';
+              if (req.appUser?.activeStateId) {
+                const st = await storage.getState(req.appUser.activeStateId);
+                if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
+              }
+              const uid = await storage.generateNextGlobalUid(stateCode);
+              newSubject = await storage.createSubject({
+                uid,
+                type: 'person' as any,
+                firstName: updated.firstName || null,
+                lastName: updated.lastName || null,
+                stateId: req.appUser?.activeStateId || null,
+                myCompanyId: existingOfficer.companyId || null,
+                registeredByUserId: req.appUser?.id || null,
+                registrationStatus: 'klient',
+                birthNumber: encrypted,
+                details: { source: 'officer_edit', officerId, officerType: updated.type },
+              } as any);
+              await logAudit(req, { action: "CREATE", module: "subjekty", entityId: newSubject.id, entityName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim(), newData: { uid } });
             }
-            const uid = await storage.generateNextGlobalUid(stateCode);
-            const newSubject = await storage.createSubject({
-              uid,
-              type: 'person' as any,
-              firstName: updated.firstName || null,
-              lastName: updated.lastName || null,
-              stateId: req.appUser?.activeStateId || null,
-              myCompanyId: req.appUser?.activeCompanyId || null,
-              registeredByUserId: req.appUser?.id || null,
-              registrationStatus: 'klient',
-              birthNumber: encrypted,
-              details: { source: 'officer_edit', officerId, officerType: updated.type },
-            } as any);
             await storage.updateCompanyOfficer(officerId, { subjectId: newSubject.id } as any);
-            await linkSubjectToCompanyInNetwork(newSubject.id, req.appUser?.activeCompanyId || null);
-            await logAudit(req, { action: "CREATE", module: "subjekty", entityId: newSubject.id, entityName: `${updated.firstName || ''} ${updated.lastName || ''}`.trim(), newData: { uid } });
+            await linkSubjectToCompanyInNetwork(newSubject.id, existingOfficer.companyId || null);
             // Immediately sync shared fields to newly created subject
             const syncFieldsNew: Record<string, any> = {};
             const newSyncFields = ['firstName', 'lastName', 'titleBefore', 'titleAfter', 'street', 'streetNumber', 'orientNumber', 'postalCode', 'city', 'stateId'] as const;
