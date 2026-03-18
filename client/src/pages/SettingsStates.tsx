@@ -411,7 +411,7 @@ function FlagUploadDialog({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-semibold flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> Stiahnuť z Wikipedie</label>
+            <label className="text-sm font-semibold flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> Stiahnuť z internetu</label>
             <p className="text-xs text-muted-foreground -mt-1">Primárne sk.wikipedia.org, záloha Wikimedia Commons</p>
             <Button
               type="button"
