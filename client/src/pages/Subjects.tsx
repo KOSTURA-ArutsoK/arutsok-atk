@@ -1671,6 +1671,38 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
         </div>
       </div>
 
+      {(() => {
+        const lastLoginAt = (displaySubject as any).lastLoginAt ? new Date((displaySubject as any).lastLoginAt) : null;
+        function fmtRelative(date: Date) {
+          const diffMs = new Date().getTime() - date.getTime();
+          const m = Math.floor(diffMs / 60000), h = Math.floor(diffMs / 3600000), d = Math.floor(diffMs / 86400000);
+          if (d >= 1) return `pred ${d} dňami`;
+          if (h >= 1) return `pred ${h} hodinami`;
+          if (m >= 1) return `pred ${m} minútami`;
+          return "pred menej ako minútou";
+        }
+        return (
+          <div className="flex items-center gap-3 rounded border border-border/50 bg-muted/20 px-4 py-2.5" data-testid="banner-login-status">
+            <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Login Status</span>
+              {lastLoginAt ? (
+                <span className="text-sm text-foreground">
+                  Naposledy prihlásený:{" "}
+                  <span className="font-medium">
+                    {lastLoginAt.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\s/g, "")}
+                    {" "}{lastLoginAt.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  <span className="ml-1.5 text-xs text-muted-foreground">({fmtRelative(lastLoginAt)})</span>
+                </span>
+              ) : (
+                <span className="text-sm text-muted-foreground italic">Subjekt sa do systému ArutsoK ešte nikdy neprihlásil.</span>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {effectiveListStatus === "cierny" && (
         <div className="flex items-center gap-3 rounded border border-red-900 bg-red-950/80 px-4 py-3 text-red-200" data-testid="dialog-banner-cierny-zoznam">
           <Ban className="w-5 h-5 text-red-400 shrink-0" />
