@@ -7843,7 +7843,7 @@ export default function Contracts() {
               {isLoadingDispatched ? (
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
               ) : dispatchedBySprievodka.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-cakajuce">Ziadne zmluvy cakajuce na prijatie</p>
+                <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-cakajuce">Ziadne zmluvy cakajuce na odoslanie</p>
               ) : (
                 <div className="divide-y">
                   {dispatchedBySprievodka.map(group => ({ ...group, contracts: filterBySearch(group.contracts) })).filter(g => g.contracts.length > 0).map(group => {
