@@ -1557,6 +1557,7 @@ export default function ClientGroups() {
                       company: { label: "PO",   cls: "border-blue-500/50 text-blue-400",      title: "Súkromný sektor (PO)" },
                       ts:      { label: "TS",   cls: "border-teal-500/50 text-teal-400",      title: "Tretí sektor – Neziskovky (TS)" },
                       vs:      { label: "VS",   cls: "border-orange-500/50 text-orange-400",  title: "Verejný sektor – Štát (VS)" },
+                      system:  { label: "SYS",  cls: "border-gray-500/50 text-gray-400",      title: "Systémový subjekt" },
                     };
                     const typeInfo = TYPE_MAP[s.type] ?? { label: s.type.toUpperCase(), cls: "border-muted text-muted-foreground", title: s.type };
                     const { label: typeLabel, cls: typeCls, title: typeTitle } = typeInfo;

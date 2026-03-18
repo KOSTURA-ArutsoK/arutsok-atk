@@ -7634,7 +7634,6 @@ export async function registerRoutes(
         .leftJoin(myCompanies, eq(subjects.myCompanyId, myCompanies.id))
         .where(and(
           isNull(subjects.deletedAt),
-          sql`${subjects.type} != 'system'`,
           stateId ? sql`${subjects.stateId} = ${stateId}` : sql`true`
         ))
         .orderBy(subjects.uid);
