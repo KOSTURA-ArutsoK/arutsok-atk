@@ -1235,7 +1235,7 @@ export default function ClientGroups() {
             accentClass="border-l-red-600"
             badgeClass="border-red-600/50 text-red-400"
             badgeText="Globálna"
-            count={stateCompanies.length + globalneGroups.length}
+            count={1 + globalneGroups.length}
             testId="section-globalne"
             isCollapsed={isCollapsed("globalne")}
             onToggle={() => toggleSection("globalne")}
@@ -1251,53 +1251,36 @@ export default function ClientGroups() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {/* Skupiny spoločností štátu — ako prvé */}
-                {stateCompanies.map((c: MyCompany) => (
-                  <TableRow
-                    key={`company-${c.id}`}
-                    data-testid={`row-company-${c.id}`}
-                    className={`cursor-pointer hover:bg-muted/40 transition-colors ${c.id === appUser?.activeCompanyId ? "bg-violet-500/5" : ""}`}
-                    onClick={() => navigate(`/my-companies/${c.id}`)}
-                  >
-                    <TableCell className="font-medium">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Building2 className="w-3.5 h-3.5 text-violet-400 shrink-0" />
-                        {c.name}
-                        <Badge variant="outline" className="text-[9px] h-4 border-violet-500/50 text-violet-400">Spoločnosť</Badge>
-                        {c.id === appUser?.activeCompanyId && (
-                          <Badge variant="outline" className="text-[9px] h-4 border-violet-500/50 text-violet-400">Aktívna</Badge>
-                        )}
-                      </span>
-                    </TableCell>
-                    <TableCell className="w-36 text-center">
-                      <Badge variant="secondary" className="font-mono text-[10px]">{c.code}</Badge>
-                    </TableCell>
-                    <TableCell className="w-24 text-center text-muted-foreground text-sm">{c.ico || "—"}</TableCell>
-                    <TableCell className="w-24 text-center"></TableCell>
-                    <TableCell className="w-10">
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {/* Oddelovač ak sú obe skupiny */}
-                {stateCompanies.length > 0 && globalneGroups.length > 0 && (
-                  <TableRow className="bg-muted/20 border-t border-border/50 pointer-events-none">
-                    <TableCell colSpan={SECTION_COLS} className="py-1 px-4">
-                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-semibold">Globálne záznamy</span>
-                    </TableCell>
-                  </TableRow>
-                )}
+                {/* Syntetický riadok — Skupiny spoločností štátu */}
+                <TableRow
+                  data-testid="row-spolocnosti-synthetic"
+                  className="cursor-pointer hover:bg-muted/40 transition-colors"
+                  onClick={() => navigate("/my-companies")}
+                >
+                  <TableCell className="font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+                      Skupiny spoločností
+                      <Badge variant="outline" className="text-[9px] h-4 border-violet-500/50 text-violet-400">Spoločnosť</Badge>
+                    </span>
+                  </TableCell>
+                  <TableCell className="w-36 text-center"></TableCell>
+                  <TableCell className="w-24 text-center"></TableCell>
+                  <TableCell className="w-24 text-center">
+                    <span className="font-semibold text-violet-400" data-testid="count-spolocnosti">
+                      {stateCompanies.length}
+                    </span>
+                  </TableCell>
+                  <TableCell className="w-10">
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
                 {/* Čierny zoznam a iné globálne skupiny */}
                 {globalneGroups.map(g => (
                   <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer" onClick={() => openEdit(g)}>
                     <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={openEdit} onDelete={openDelete} />
                   </TableRow>
                 ))}
-                {stateCompanies.length === 0 && globalneGroups.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={SECTION_COLS} className="text-center text-muted-foreground py-6 text-sm">Žiadne globálne skupiny</TableCell>
-                  </TableRow>
-                )}
               </TableBody>
             </Table>
           </SectionCard>
