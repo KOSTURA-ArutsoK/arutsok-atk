@@ -122,6 +122,7 @@ export async function setupAuth(app: Express) {
       } else {
         req.session.loginSubjectId = null;
         req.session.loginStep = "done";
+        await db.update(appUsers).set({ lastLoginAt: new Date() }).where(eq(appUsers.id, user.id));
       }
 
       req.session.save((err) => {
@@ -278,6 +279,7 @@ export async function setupAuth(app: Express) {
       }
 
       req.session.loginStep = "done";
+      await db.update(appUsers).set({ lastLoginAt: new Date() }).where(eq(appUsers.id, userId));
       req.session.save((err) => {
         if (err) {
           return res.status(500).json({ message: "Chyba session" });

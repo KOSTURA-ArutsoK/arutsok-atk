@@ -469,6 +469,7 @@ export const appUsers = pgTable("app_users", {
   institutionName: text("institution_name"),
   credentialNumber: text("credential_number"),
   accessExpiresAt: timestamp("access_expires_at"),
+  lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

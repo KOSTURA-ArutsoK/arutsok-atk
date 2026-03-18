@@ -686,6 +686,37 @@ export default function Dashboard() {
           <p className="text-sm text-muted-foreground mt-1">
             Vitajte, {appUser?.firstName || "Admin"}. Celkový prehľad systému.
           </p>
+          {(() => {
+            const raw = (appUser as any)?.lastLoginAt;
+            const lastLoginAt = raw ? new Date(raw) : null;
+            function fmtRelative(date: Date) {
+              const diffMs = new Date().getTime() - date.getTime();
+              const m = Math.floor(diffMs / 60000), h = Math.floor(diffMs / 3600000), d = Math.floor(diffMs / 86400000);
+              if (d >= 1) return `pred ${d} dňami`;
+              if (h >= 1) return `pred ${h} hodinami`;
+              if (m >= 1) return `pred ${m} minútami`;
+              return "pred menej ako minútou";
+            }
+            return (
+              <div className="flex items-center gap-2 mt-2" data-testid="banner-admin-login-status">
+                <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span className="text-xs text-muted-foreground">
+                  <span className="font-semibold uppercase tracking-wide text-[10px]">Login Status</span>
+                  {" — "}
+                  {lastLoginAt ? (
+                    <>
+                      {lastLoginAt.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\s/g, "")}
+                      {" "}{lastLoginAt.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" })}
+                      {" "}
+                      <span className="opacity-70">({fmtRelative(lastLoginAt)})</span>
+                    </>
+                  ) : (
+                    <span className="italic opacity-60">prvé prihlásenie</span>
+                  )}
+                </span>
+              </div>
+            );
+          })()}
         </div>
         <div className="flex items-center gap-2">
           {isEditing ? <>
