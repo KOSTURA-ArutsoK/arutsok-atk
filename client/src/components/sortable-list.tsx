@@ -53,13 +53,13 @@ export function SortableTableRow({
     <TableRow
       ref={setNodeRef}
       style={style}
-      className={className}
+      className={`h-10 ${className || ""}`}
       data-testid={dataTestId}
       onRowClick={onRowClick}
     >
-      <TableCell className={disabled ? "" : "cursor-grab"}>
+      <TableCell className={`w-8 px-2 py-0 ${disabled ? "" : "cursor-grab"}`}>
         {!disabled && (
-          <span {...attributes} {...listeners}>
+          <span {...attributes} {...listeners} className="flex items-center">
             <GripVertical className="w-4 h-4 text-muted-foreground" />
           </span>
         )}

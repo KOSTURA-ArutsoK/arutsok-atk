@@ -890,9 +890,22 @@ function SectionCard({
 }
 
 const SECTION_COLS = 5;
+const SECTION_COLS_SORTABLE = 6;
 const TABLE_HEADER = (
   <TableHeader>
-    <TableRow>
+    <TableRow className="h-10">
+      <TableHead>Názov skupiny</TableHead>
+      <TableHead className="w-36 text-center">Skupina právomocí</TableHead>
+      <TableHead className="w-24 text-center">Prihlásenie</TableHead>
+      <TableHead className="w-24 text-center">Počet klientov</TableHead>
+      <TableHead className="w-10"></TableHead>
+    </TableRow>
+  </TableHeader>
+);
+const TABLE_HEADER_SORTABLE = (
+  <TableHeader>
+    <TableRow className="h-10">
+      <TableHead className="w-8 px-2"></TableHead>
       <TableHead>Názov skupiny</TableHead>
       <TableHead className="w-36 text-center">Skupina právomocí</TableHead>
       <TableHead className="w-24 text-center">Prihlásenie</TableHead>
@@ -1238,13 +1251,15 @@ export default function ClientGroups() {
             count={volitelneGroups.length}
             cta={
               <Button
+                type="button"
                 size="sm"
                 variant="outline"
+                className="h-7 text-xs px-2 gap-1"
                 onClick={() => { setEditingGroup(null); setDialogOpen(true); }}
                 data-testid="button-add-group"
               >
-                <Plus className="w-3.5 h-3.5 mr-1" />
-                Pridať skupinu
+                <Plus className="w-3 h-3" />
+                Pridať
               </Button>
             }
             testId="section-volitelne"
@@ -1257,7 +1272,7 @@ export default function ClientGroups() {
               onReorder={(items) => reorderMutation.mutate(items.map(i => ({ id: Number(i.id), sortOrder: i.sortOrder })))}
             >
               <Table className="w-full">
-                {TABLE_HEADER}
+                {TABLE_HEADER_SORTABLE}
                 <TableBody>
                   {volitelneGroups.map(g => (
                     <SortableTableRow key={g.id} id={g.id} data-testid={`row-group-${g.id}`} onRowClick={() => openEdit(g)}>
@@ -1265,11 +1280,11 @@ export default function ClientGroups() {
                     </SortableTableRow>
                   ))}
                   {volitelneGroups.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={SECTION_COLS} className="text-center text-muted-foreground py-8 text-sm">
+                    <TableRow className="h-10">
+                      <TableCell colSpan={SECTION_COLS_SORTABLE} className="text-center text-muted-foreground py-8 text-sm">
                         <div className="flex flex-col items-center gap-2">
                           <span>Žiadne voliteľné skupiny</span>
-                          <Button size="sm" variant="outline" onClick={() => { setEditingGroup(null); setDialogOpen(true); }} data-testid="button-add-group-empty">
+                          <Button type="button" size="sm" variant="outline" onClick={() => { setEditingGroup(null); setDialogOpen(true); }} data-testid="button-add-group-empty">
                             <Plus className="w-3.5 h-3.5 mr-1" />Vytvoriť prvú skupinu
                           </Button>
                         </div>
