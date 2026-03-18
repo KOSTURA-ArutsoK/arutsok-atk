@@ -960,7 +960,7 @@ function GroupRowCells({
   );
 }
 
-type SectionKey = "spolocnosti" | "holdingove" | "systemove" | "volitelne" | "ina_spolocnost" | "globalne";
+type SectionKey = "holdingove" | "systemove" | "volitelne" | "ina_spolocnost" | "globalne";
 
 export default function ClientGroups() {
   const { toast } = useToast();
@@ -1063,61 +1063,6 @@ export default function ClientGroups() {
         <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin" /></div>
       ) : (
         <div className="space-y-3">
-
-          {/* ── 0. SKUPINY SPOLOČNOSTÍ ── */}
-          <SectionCard
-            title="Skupiny spoločností"
-            accentClass="border-l-violet-500"
-            badgeClass="border-violet-500/50 text-violet-400"
-            badgeText="Spoločnosť"
-            count={stateCompanies.length}
-            testId="section-spolocnosti"
-            isCollapsed={isCollapsed("spolocnosti")}
-            onToggle={() => toggleSection("spolocnosti")}
-          >
-            <Table className="w-full">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Názov spoločnosti</TableHead>
-                  <TableHead className="w-28 text-center">Kód</TableHead>
-                  <TableHead className="w-32">IČO</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {stateCompanies.map((c: MyCompany) => (
-                  <TableRow
-                    key={c.id}
-                    data-testid={`row-company-${c.id}`}
-                    className={`cursor-pointer hover:bg-muted/40 transition-colors ${c.id === appUser?.activeCompanyId ? "bg-violet-500/5" : ""}`}
-                    onClick={() => navigate(`/my-companies/${c.id}`)}
-                  >
-                    <TableCell className="font-medium">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Building2 className="w-3.5 h-3.5 text-violet-400 shrink-0" />
-                        {c.name}
-                        {c.id === appUser?.activeCompanyId && (
-                          <Badge variant="outline" className="text-[9px] h-4 border-violet-500/50 text-violet-400">Aktívna</Badge>
-                        )}
-                      </span>
-                    </TableCell>
-                    <TableCell className="w-28 text-center">
-                      <Badge variant="secondary" className="font-mono text-[10px]">{c.code}</Badge>
-                    </TableCell>
-                    <TableCell className="w-32 text-muted-foreground text-sm">{c.ico || "—"}</TableCell>
-                    <TableCell className="w-10">
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {stateCompanies.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-6 text-sm">Žiadne spoločnosti v tomto štáte</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </SectionCard>
 
           {/* ── 1. HOLDINGOVÉ ── */}
           <SectionCard
@@ -1284,26 +1229,71 @@ export default function ClientGroups() {
             </Table>
           </SectionCard>
 
-          {/* ── 5. GLOBÁLNE SKUPINY ── */}
+          {/* ── 5. GLOBÁLNE SKUPINY (spoločnosti štátu + čierny zoznam) ── */}
           <SectionCard
             title="Globálne skupiny"
             accentClass="border-l-red-600"
             badgeClass="border-red-600/50 text-red-400"
             badgeText="Globálna"
-            count={globalneGroups.length}
+            count={stateCompanies.length + globalneGroups.length}
             testId="section-globalne"
             isCollapsed={isCollapsed("globalne")}
             onToggle={() => toggleSection("globalne")}
           >
             <Table className="w-full">
-              {TABLE_HEADER}
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Názov</TableHead>
+                  <TableHead className="w-36 text-center">Kód / Skupina právomocí</TableHead>
+                  <TableHead className="w-24 text-center">Prihlásenie</TableHead>
+                  <TableHead className="w-24 text-center">Počet klientov</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
               <TableBody>
+                {/* Skupiny spoločností štátu — ako prvé */}
+                {stateCompanies.map((c: MyCompany) => (
+                  <TableRow
+                    key={`company-${c.id}`}
+                    data-testid={`row-company-${c.id}`}
+                    className={`cursor-pointer hover:bg-muted/40 transition-colors ${c.id === appUser?.activeCompanyId ? "bg-violet-500/5" : ""}`}
+                    onClick={() => navigate(`/my-companies/${c.id}`)}
+                  >
+                    <TableCell className="font-medium">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+                        {c.name}
+                        <Badge variant="outline" className="text-[9px] h-4 border-violet-500/50 text-violet-400">Spoločnosť</Badge>
+                        {c.id === appUser?.activeCompanyId && (
+                          <Badge variant="outline" className="text-[9px] h-4 border-violet-500/50 text-violet-400">Aktívna</Badge>
+                        )}
+                      </span>
+                    </TableCell>
+                    <TableCell className="w-36 text-center">
+                      <Badge variant="secondary" className="font-mono text-[10px]">{c.code}</Badge>
+                    </TableCell>
+                    <TableCell className="w-24 text-center text-muted-foreground text-sm">{c.ico || "—"}</TableCell>
+                    <TableCell className="w-24 text-center"></TableCell>
+                    <TableCell className="w-10">
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {/* Oddelovač ak sú obe skupiny */}
+                {stateCompanies.length > 0 && globalneGroups.length > 0 && (
+                  <TableRow className="bg-muted/20 border-t border-border/50 pointer-events-none">
+                    <TableCell colSpan={SECTION_COLS} className="py-1 px-4">
+                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-semibold">Globálne záznamy</span>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {/* Čierny zoznam a iné globálne skupiny */}
                 {globalneGroups.map(g => (
                   <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer" onClick={() => openEdit(g)}>
                     <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={openEdit} onDelete={openDelete} />
                   </TableRow>
                 ))}
-                {globalneGroups.length === 0 && (
+                {stateCompanies.length === 0 && globalneGroups.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={SECTION_COLS} className="text-center text-muted-foreground py-6 text-sm">Žiadne globálne skupiny</TableCell>
                   </TableRow>
