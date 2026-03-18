@@ -320,6 +320,7 @@ export interface IStorage {
   createRegistrySnapshot(data: InsertRegistrySnapshot): Promise<RegistrySnapshot>;
 
   findClientByEmailPhone(email: string, phone: string): Promise<Subject | undefined>;
+  updateSubjectLastLogin(subjectId: number): Promise<void>;
   createVerificationCode(subjectId: number, channel: string, code: string, expiresAt: Date): Promise<VerificationCode>;
   getValidVerificationCode(subjectId: number, channel: string, code: string): Promise<VerificationCode | undefined>;
   markVerificationCodeUsed(id: number): Promise<void>;
@@ -2285,6 +2286,10 @@ export class DatabaseStorage implements IStorage {
       )
     );
     return match;
+  }
+
+  async updateSubjectLastLogin(subjectId: number): Promise<void> {
+    await db.update(subjects).set({ lastLoginAt: new Date() }).where(eq(subjects.id, subjectId));
   }
 
   async createVerificationCode(subjectId: number, channel: string, code: string, expiresAt: Date): Promise<VerificationCode> {

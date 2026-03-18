@@ -9158,6 +9158,7 @@ export async function registerRoutes(
       await storage.markVerificationCodeUsed(emailValid.id);
 
       const client = await storage.getSubject(subjectId);
+      await storage.updateSubjectLastLogin(subjectId);
 
       res.json({
         success: true,
@@ -9207,6 +9208,8 @@ export async function registerRoutes(
           message: `Vase udaje neboli spravne, volajte ${supportPhone}`,
         });
       }
+
+      await storage.updateSubjectLastLogin(client.id);
 
       res.json({
         success: true,

@@ -1241,9 +1241,41 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
 
   const listStatus = (subject as any).effectiveListStatus as string | null;
 
+  function formatLoginRelative(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffMs < 60000) return "pred chvíľou";
+    if (diffMin < 60) return `pred ${diffMin} ${diffMin === 1 ? "minútou" : diffMin < 5 ? "minútami" : "minútami"}`;
+    if (diffHours < 24) return `pred ${diffHours} ${diffHours === 1 ? "hodinou" : diffHours < 5 ? "hodinami" : "hodinami"}`;
+    return `pred ${diffDays} ${diffDays === 1 ? "dňom" : diffDays < 5 ? "dňami" : "dňami"}`;
+  }
+
+  const lastLoginAt = (subject as any).lastLoginAt ? new Date((subject as any).lastLoginAt) : null;
+
   return (
     <div className="flex gap-4">
       <div className={pdfSidebarOpen ? "flex-1 min-w-0" : "w-full"}>
+        {!isClientView && subject.id > 0 && (
+          <div className="mb-3 flex items-center gap-3 rounded border border-border/50 bg-muted/20 px-4 py-2.5" data-testid="banner-login-status">
+            <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+            {lastLoginAt ? (
+              <span className="text-sm text-foreground">
+                Naposledy prihlásený:{" "}
+                <span className="font-medium">
+                  {lastLoginAt.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\s/g, "")}
+                  {" "}
+                  {lastLoginAt.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+                <span className="ml-1.5 text-xs text-muted-foreground">({formatLoginRelative(lastLoginAt)})</span>
+              </span>
+            ) : (
+              <span className="text-sm text-muted-foreground italic">Subjekt sa do systému ArutsoK ešte nikdy neprihlásil.</span>
+            )}
+          </div>
+        )}
         {!isClientView && listStatus === "cierny" && (
           <div className="mb-3 flex items-center gap-3 rounded border border-red-900 bg-red-950/80 px-4 py-3 text-red-200" data-testid="banner-cierny-zoznam">
             <Ban className="w-5 h-5 text-red-400 shrink-0" />

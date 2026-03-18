@@ -325,6 +325,7 @@ export const subjects = pgTable("subjects", {
   registrationStatus: text("registration_status").$type<"potencialny" | "tiper" | "klient">().default("tiper"),
   parentSubjectId: integer("parent_subject_id"),
   supplementaryIndex: text("supplementary_index"),
+  lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),
 });
