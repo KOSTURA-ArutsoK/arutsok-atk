@@ -968,7 +968,9 @@ export default function ClientGroups() {
   const [editingGroup, setEditingGroup] = useState<ClientGroupWithCount | null>(null);
   const [deletingGroup, setDeletingGroup] = useState<ClientGroupWithCount | null>(null);
   const [partnerGroupOpen, setPartnerGroupOpen] = useState(false);
-  const [collapsedSections, setCollapsedSections] = useState<Set<SectionKey>>(new Set());
+  const [collapsedSections, setCollapsedSections] = useState<Set<SectionKey>>(
+    new Set<SectionKey>(["globalne", "holdingove", "systemove", "volitelne", "ina_spolocnost"])
+  );
 
   const { data: appUser } = useAppUser();
   const { data: allCompanies } = useMyCompanies();
