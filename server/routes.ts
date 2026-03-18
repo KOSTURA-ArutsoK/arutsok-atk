@@ -7629,9 +7629,9 @@ export async function registerRoutes(
         .where(and(
           isNull(subjects.deletedAt),
           sql`${subjects.type} != 'system'`,
-          stateId ? eq(subjects.stateId, stateId) : sql`1=1`
+          stateId ? sql`${subjects.stateId} = ${stateId}` : sql`true`
         ))
-        .orderBy(subjects.lastName, subjects.firstName);
+        .orderBy(subjects.uid);
       const memberships = await db
         .select({ subjectId: clientGroupMembers.subjectId, groupId: clientGroupMembers.groupId })
         .from(clientGroupMembers);

@@ -872,7 +872,7 @@ function SectionCard({
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-muted-foreground/30 text-muted-foreground/50 hover:text-muted-foreground hover:border-muted-foreground/60 transition-colors cursor-help">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-yellow-700/40 text-yellow-700/50 hover:text-yellow-600/80 hover:border-yellow-600/60 transition-colors cursor-help">
                     <HelpCircle className="w-3.5 h-3.5" />
                   </span>
                 </TooltipTrigger>
@@ -1413,7 +1413,7 @@ export default function ClientGroups() {
                         onClick={() => navigate(`/subjects/${s.id}`)}
                       >
                         <TableCell className="w-36 font-mono text-[11px] text-muted-foreground">
-                          {s.uid ? s.uid.replace(/(\d{3})(?=\d)/g, "$1 ").trim() : "—"}
+                          {s.uid ? formatUid(s.uid) : "—"}
                         </TableCell>
                         <TableCell className="font-medium text-sm">{fullName}</TableCell>
                         <TableCell>
