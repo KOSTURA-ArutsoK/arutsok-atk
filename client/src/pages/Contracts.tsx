@@ -5228,6 +5228,7 @@ export default function Contracts() {
     setPreSelectSaving(true);
     try {
       let finalSubjectId = preSelectSubjectId ? parseInt(preSelectSubjectId) : null;
+      let newlyCreatedSubjectId: number | null = null;
 
       if (!finalSubjectId) {
         const subjectData: Record<string, any> = {
@@ -5249,6 +5250,7 @@ export default function Contracts() {
         const subjectRes = await apiRequest("POST", "/api/subjects", subjectData);
         const newSubject = await subjectRes.json();
         finalSubjectId = newSubject.id;
+        newlyCreatedSubjectId = newSubject.id;
         queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
         if (preSelectIcoLookup?.found && preSelectIco.trim() && preSelectSubjectType === "company") {
           const stateParam = activeStateId ? `&stateId=${activeStateId}` : "";
@@ -5294,7 +5296,24 @@ export default function Contracts() {
         savedContractId = preSelectEditingContractId;
         toast({ title: "Úspech", description: "Zmluva bola doplnená" });
       } else {
-        const createRes = await apiRequest("POST", "/api/contracts", contractData);
+        let createRes: Response;
+        try {
+          createRes = await apiRequest("POST", "/api/contracts", contractData);
+        } catch (contractErr) {
+          if (newlyCreatedSubjectId) {
+            await apiRequest("DELETE", `/api/subjects/${newlyCreatedSubjectId}`).catch(() => {});
+            queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+          }
+          throw contractErr;
+        }
+        if (!createRes.ok) {
+          const errBody = await createRes.json().catch(() => ({}));
+          if (newlyCreatedSubjectId) {
+            await apiRequest("DELETE", `/api/subjects/${newlyCreatedSubjectId}`).catch(() => {});
+            queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+          }
+          throw new Error(errBody.message || "Nepodarilo sa zapísať zmluvu");
+        }
         const created = await createRes.json();
         savedContractId = created.id;
         toast({ title: "Úspech", description: "Zmluva zapísaná" });
