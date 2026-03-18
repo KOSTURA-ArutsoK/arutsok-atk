@@ -7,10 +7,10 @@ import { useTableSort } from "@/hooks/use-table-sort";
 import { useToast } from "@/hooks/use-toast";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useMyCompanies } from "@/hooks/use-companies";
-import type { ClientGroup, Subject, PermissionGroup, Partner, Product } from "@shared/schema";
+import type { ClientGroup, Subject, PermissionGroup, Partner, Product, MyCompany } from "@shared/schema";
 import {
   Plus, Pencil, Loader2, Check, X,
-  Calculator, LogIn, UserPlus, UserMinus, Search, ChevronRight, Building2, Shield, Lock, Ban,
+  Calculator, LogIn, UserPlus, UserMinus, Search, ChevronRight, ChevronDown, Building2, Shield, Lock, Ban,
 } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import {
@@ -835,6 +835,7 @@ function getGroupMainCategory(g: ClientGroupWithCount): MainCategory {
 
 function SectionCard({
   title, accentClass, badgeClass, badgeText, count, children, cta, testId,
+  isCollapsed, onToggle,
 }: {
   title: string;
   accentClass: string;
@@ -844,20 +845,30 @@ function SectionCard({
   children: React.ReactNode;
   cta?: React.ReactNode;
   testId: string;
+  isCollapsed: boolean;
+  onToggle: () => void;
 }) {
   return (
     <Card className={`border-l-4 ${accentClass}`} data-testid={testId}>
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+      <div
+        className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30 cursor-pointer select-none hover:bg-muted/50 transition-colors"
+        onClick={onToggle}
+      >
         <div className="flex items-center gap-2">
+          <ChevronDown
+            className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isCollapsed ? "-rotate-90" : "rotate-0"}`}
+          />
           <span className="font-bold text-xs uppercase tracking-widest text-foreground/80">{title}</span>
           <Badge variant="outline" className={`text-[9px] h-4 ${badgeClass}`}>{badgeText}</Badge>
           {count !== undefined && (
             <Badge variant="secondary" className="text-[9px] h-4 ml-1">{count}</Badge>
           )}
         </div>
-        {cta}
+        <div onClick={(e) => e.stopPropagation()}>
+          {cta}
+        </div>
       </div>
-      <CardContent className="p-0">{children}</CardContent>
+      {!isCollapsed && <CardContent className="p-0">{children}</CardContent>}
     </Card>
   );
 }
@@ -949,18 +960,40 @@ function GroupRowCells({
   );
 }
 
+type SectionKey = "spolocnosti" | "holdingove" | "systemove" | "volitelne" | "ina_spolocnost" | "globalne";
+
 export default function ClientGroups() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<ClientGroupWithCount | null>(null);
   const [deletingGroup, setDeletingGroup] = useState<ClientGroupWithCount | null>(null);
   const [partnerGroupOpen, setPartnerGroupOpen] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Set<SectionKey>>(new Set());
 
   const { data: appUser } = useAppUser();
-  const { data: companies } = useMyCompanies();
+  const { data: allCompanies } = useMyCompanies();
   const [, navigate] = useLocation();
 
   const activeDivisionId = (appUser as any)?.activeDivisionId as number | null | undefined;
+  const activeStateId = appUser?.activeStateId;
+
+  const stateCompanies = (allCompanies || []).filter(
+    (c: MyCompany) => !c.deletedAt && (activeStateId ? c.stateId === activeStateId : true)
+  );
+
+  const toggleSection = (key: SectionKey) => {
+    setCollapsedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+  const isCollapsed = (key: SectionKey) => collapsedSections.has(key);
+
+  const activeCompanyName = appUser?.activeCompanyId
+    ? (allCompanies || []).find((c: MyCompany) => c.id === appUser.activeCompanyId)?.name
+    : undefined;
 
   const { data: groupsRaw, isLoading } = useQuery<ClientGroupWithCount[]>({
     queryKey: ["/api/client-groups", "includeHolding"],
@@ -1005,10 +1038,6 @@ export default function ClientGroups() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat skupinu", variant: "destructive" }),
   });
 
-  const activeCompanyName = appUser?.activeCompanyId
-    ? companies?.find(c => c.id === appUser.activeCompanyId)?.name
-    : undefined;
-
   const holdingGroups = (groupsRaw || []).filter(g => g.isHoldingGroup);
   const systemGroups = (groupsRaw || []).filter(g => getGroupMainCategory(g) === "systemove");
   const volitelneGroups = (groupsRaw || []).filter(g => getGroupMainCategory(g) === "volitelne");
@@ -1033,7 +1062,62 @@ export default function ClientGroups() {
       {isLoading ? (
         <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin" /></div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
+
+          {/* ── 0. SKUPINY SPOLOČNOSTÍ ── */}
+          <SectionCard
+            title="Skupiny spoločností"
+            accentClass="border-l-violet-500"
+            badgeClass="border-violet-500/50 text-violet-400"
+            badgeText="Spoločnosť"
+            count={stateCompanies.length}
+            testId="section-spolocnosti"
+            isCollapsed={isCollapsed("spolocnosti")}
+            onToggle={() => toggleSection("spolocnosti")}
+          >
+            <Table className="w-full">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Názov spoločnosti</TableHead>
+                  <TableHead className="w-28 text-center">Kód</TableHead>
+                  <TableHead className="w-32">IČO</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stateCompanies.map((c: MyCompany) => (
+                  <TableRow
+                    key={c.id}
+                    data-testid={`row-company-${c.id}`}
+                    className={`cursor-pointer hover:bg-muted/40 transition-colors ${c.id === appUser?.activeCompanyId ? "bg-violet-500/5" : ""}`}
+                    onClick={() => navigate(`/my-companies/${c.id}`)}
+                  >
+                    <TableCell className="font-medium">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+                        {c.name}
+                        {c.id === appUser?.activeCompanyId && (
+                          <Badge variant="outline" className="text-[9px] h-4 border-violet-500/50 text-violet-400">Aktívna</Badge>
+                        )}
+                      </span>
+                    </TableCell>
+                    <TableCell className="w-28 text-center">
+                      <Badge variant="secondary" className="font-mono text-[10px]">{c.code}</Badge>
+                    </TableCell>
+                    <TableCell className="w-32 text-muted-foreground text-sm">{c.ico || "—"}</TableCell>
+                    <TableCell className="w-10">
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {stateCompanies.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-6 text-sm">Žiadne spoločnosti v tomto štáte</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </SectionCard>
 
           {/* ── 1. HOLDINGOVÉ ── */}
           <SectionCard
@@ -1043,6 +1127,8 @@ export default function ClientGroups() {
             badgeText="Holding"
             count={holdingGroups.length + 1}
             testId="section-holdingove"
+            isCollapsed={isCollapsed("holdingove")}
+            onToggle={() => toggleSection("holdingove")}
           >
             <Table className="w-full">
               {TABLE_HEADER}
@@ -1087,6 +1173,8 @@ export default function ClientGroups() {
             badgeText="Systémová"
             count={systemGroups.length}
             testId="section-systemove"
+            isCollapsed={isCollapsed("systemove")}
+            onToggle={() => toggleSection("systemove")}
           >
             <Table className="w-full">
               {TABLE_HEADER}
@@ -1124,6 +1212,8 @@ export default function ClientGroups() {
               </Button>
             }
             testId="section-volitelne"
+            isCollapsed={isCollapsed("volitelne")}
+            onToggle={() => toggleSection("volitelne")}
           >
             <SortableContext_Wrapper
               items={volitelneGroups}
@@ -1161,6 +1251,8 @@ export default function ClientGroups() {
             badgeClass="border-slate-500/40 text-slate-400"
             badgeText="Externá"
             testId="section-ina-spolocnost"
+            isCollapsed={isCollapsed("ina_spolocnost")}
+            onToggle={() => toggleSection("ina_spolocnost")}
           >
             <Table className="w-full">
               {TABLE_HEADER}
@@ -1200,6 +1292,8 @@ export default function ClientGroups() {
             badgeText="Globálna"
             count={globalneGroups.length}
             testId="section-globalne"
+            isCollapsed={isCollapsed("globalne")}
+            onToggle={() => toggleSection("globalne")}
           >
             <Table className="w-full">
               {TABLE_HEADER}
