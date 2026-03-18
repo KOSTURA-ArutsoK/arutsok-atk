@@ -3,7 +3,7 @@ import DOMPurify from "dompurify";
 import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyCompany } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
-import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, Phone, Mail, GitBranch, Info, UserCheck, UserPlus, Users, Camera, UserCog, Archive } from "lucide-react";
+import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, ChevronRight, Phone, Mail, GitBranch, Info, UserCheck, UserPlus, Users, Camera, UserCog, Archive } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak, formatUid } from "@/lib/utils";
@@ -2271,13 +2271,13 @@ export default function Companies() {
   const { data: allStates } = useStates();
   const deleteMutation = useDeleteMyCompany();
   const tableFilter = useSmartFilter(companies || [], COMPANY_FILTER_COLUMNS, "companies");
-  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("companies", COMPANY_COLUMNS);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCompanyId, setEditingCompanyId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MyCompany | null>(null);
   const [viewTarget, setViewTarget] = useState<MyCompany | null>(null);
   const [logoHistoryTarget, setLogoHistoryTarget] = useState<MyCompany | null>(null);
+  const [expandedStates, setExpandedStates] = useState<Set<number | null>>(new Set());
 
   function openCreate() {
     setEditingCompanyId(null);
@@ -2292,6 +2292,74 @@ export default function Companies() {
   function getStateName(stateId: number | null) {
     if (!stateId || !allStates) return "-";
     return allStates.find(s => s.id === stateId)?.name || "-";
+  }
+
+  function toggleState(stateId: number | null) {
+    setExpandedStates(prev => {
+      const next = new Set(prev);
+      const key = stateId ?? null;
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  const filteredCompanies = tableFilter.filteredData;
+  const isFiltered = filteredCompanies.length !== (companies?.length ?? 0);
+
+  const stateGroups = (allStates || []).map(state => ({
+    state,
+    companies: filteredCompanies.filter(c => c.stateId === state.id).sort((a, b) => a.name.localeCompare(b.name, "sk")),
+  })).filter(g => g.companies.length > 0);
+
+  const noStateCompanies = filteredCompanies.filter(c => !c.stateId).sort((a, b) => a.name.localeCompare(b.name, "sk"));
+
+  const colSpan = [
+    columnVisibility.isVisible("name"),
+    columnVisibility.isVisible("uid"),
+    columnVisibility.isVisible("ico"),
+    columnVisibility.isVisible("city"),
+    columnVisibility.isVisible("state"),
+  ].filter(Boolean).length + 1;
+
+  function renderCompanyRow(company: MyCompany) {
+    const logo = (company.logos as any[])?.find((l: any) => l.isPrimary && !l.isArchived);
+    return (
+      <TableRow key={company.id} data-testid={`row-company-${company.id}`} onRowClick={() => openEdit(company)}>
+        {columnVisibility.isVisible("name") && (
+          <TableCell>
+            <div className="flex items-center gap-2.5">
+              {logo?.url ? (
+                <div className="w-7 h-7 rounded border border-border bg-background flex-shrink-0 overflow-hidden flex items-center justify-center">
+                  <img src={logo.url} alt="" className="w-full h-full object-contain" data-testid={`img-logo-${company.id}`} />
+                </div>
+              ) : (
+                <div className="w-7 h-7 rounded border border-border/40 bg-muted/30 flex-shrink-0 flex items-center justify-center">
+                  <Building2 className="w-3.5 h-3.5 text-muted-foreground/50" />
+                </div>
+              )}
+              <span className="font-medium">{company.name}</span>
+            </div>
+          </TableCell>
+        )}
+        {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs whitespace-nowrap">{company.uid ? formatUid(company.uid) : "-"}</TableCell>}
+        {columnVisibility.isVisible("ico") && <TableCell className="font-mono text-xs">{company.ico || "-"}</TableCell>}
+        {columnVisibility.isVisible("city") && <TableCell>{company.city || "-"}</TableCell>}
+        {columnVisibility.isVisible("state") && <TableCell className="text-muted-foreground text-xs">{getStateName(company.stateId)}</TableCell>}
+        <TableCell>
+          <div className="flex items-center gap-1">
+            <Button type="button" size="icon" variant="ghost" onClick={() => setViewTarget(company)} data-testid={`button-view-${company.id}`}><Eye className="w-4 h-4" /></Button>
+            <Button type="button" size="icon" variant="ghost" onClick={() => setLogoHistoryTarget(company)} data-testid={`button-logo-history-${company.id}`} title="Historia log"><Image className="w-4 h-4" /></Button>
+            <Button type="button" size="icon" variant="ghost" onClick={() => openEdit(company)} data-testid={`button-edit-${company.id}`}><Pencil className="w-4 h-4" /></Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" size="icon" variant="ghost" onClick={() => setDeleteTarget(company)} data-testid={`button-delete-${company.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+            </Tooltip>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
   }
 
   return (
@@ -2316,10 +2384,10 @@ export default function Companies() {
           <Table>
             <TableHeader>
               <TableRow>
-                {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Názov</TableHead>}
+                {columnVisibility.isVisible("name") && <TableHead>Názov</TableHead>}
                 {columnVisibility.isVisible("uid") && <TableHead className="whitespace-nowrap">UID</TableHead>}
-                {columnVisibility.isVisible("ico") && <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>IČO</TableHead>}
-                {columnVisibility.isVisible("city") && <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>}
+                {columnVisibility.isVisible("ico") && <TableHead>IČO</TableHead>}
+                {columnVisibility.isVisible("city") && <TableHead>Mesto</TableHead>}
                 {columnVisibility.isVisible("state") && <TableHead>Štát</TableHead>}
                 <TableHead className="w-[160px]">Akcie</TableHead>
               </TableRow>
@@ -2327,64 +2395,66 @@ export default function Companies() {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell>
+                  <TableCell colSpan={colSpan} className="text-center py-8 text-muted-foreground">Nacitavam...</TableCell>
                 </TableRow>
               )}
               {!isLoading && (!companies || companies.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground" data-testid="text-empty-state">
+                  <TableCell colSpan={colSpan} className="text-center py-12 text-muted-foreground" data-testid="text-empty-state">
                     Žiadne spoločnosti nenájdené. Kliknite na „Pridať novú spoločnosť".
                   </TableCell>
                 </TableRow>
               )}
-              {sortedData.map(company => (
-                <TableRow key={company.id} data-testid={`row-company-${company.id}`} onRowClick={() => openEdit(company)}>
-                  {columnVisibility.isVisible("name") && (
-                    <TableCell>
-                      <div className="flex items-center gap-2.5">
-                        {(() => {
-                          const logo = (company.logos as any[])?.find((l: any) => l.isPrimary && !l.isArchived);
-                          return logo?.url ? (
-                            <div className="w-7 h-7 rounded border border-border bg-background flex-shrink-0 overflow-hidden flex items-center justify-center">
-                              <img src={logo.url} alt="" className="w-full h-full object-contain" data-testid={`img-logo-${company.id}`} />
+              {!isLoading && companies && companies.length > 0 && (
+                isFiltered ? (
+                  filteredCompanies.map(renderCompanyRow)
+                ) : (
+                  <>
+                    {stateGroups.map(({ state, companies: stateCompanies }) => (
+                      <>
+                        <TableRow
+                          key={`state-${state.id}`}
+                          className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
+                          data-testid={`row-state-group-${state.id}`}
+                          onClick={() => toggleState(state.id)}
+                        >
+                          <TableCell colSpan={colSpan} className="py-2">
+                            <div className="flex items-center gap-2">
+                              {expandedStates.has(state.id)
+                                ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                              <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                              <span className="font-semibold text-sm">{state.name}</span>
+                              <Badge variant="outline" className="text-[10px] ml-1">{stateCompanies.length}</Badge>
                             </div>
-                          ) : (
-                            <div className="w-7 h-7 rounded border border-border/40 bg-muted/30 flex-shrink-0 flex items-center justify-center">
-                              <Building2 className="w-3.5 h-3.5 text-muted-foreground/50" />
+                          </TableCell>
+                        </TableRow>
+                        {expandedStates.has(state.id) && stateCompanies.map(renderCompanyRow)}
+                      </>
+                    ))}
+                    {noStateCompanies.length > 0 && (
+                      <>
+                        <TableRow
+                          className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
+                          onClick={() => toggleState(null)}
+                        >
+                          <TableCell colSpan={colSpan} className="py-2">
+                            <div className="flex items-center gap-2">
+                              {expandedStates.has(null)
+                                ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                              <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                              <span className="font-semibold text-sm">Bez štátu</span>
+                              <Badge variant="outline" className="text-[10px] ml-1">{noStateCompanies.length}</Badge>
                             </div>
-                          );
-                        })()}
-                        <span className="font-medium">{company.name}</span>
-                      </div>
-                    </TableCell>
-                  )}
-                  {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs whitespace-nowrap">{company.uid ? formatUid(company.uid) : "-"}</TableCell>}
-                  {columnVisibility.isVisible("ico") && <TableCell className="font-mono text-xs">{company.ico || "-"}</TableCell>}
-                  {columnVisibility.isVisible("city") && <TableCell>{company.city || "-"}</TableCell>}
-                  {columnVisibility.isVisible("state") && <TableCell>{getStateName(company.stateId)}</TableCell>}
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button size="icon" variant="ghost" onClick={() => setViewTarget(company)} data-testid={`button-view-${company.id}`}>
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" onClick={() => setLogoHistoryTarget(company)} data-testid={`button-logo-history-${company.id}`} title="Historia log">
-                        <Image className="w-4 h-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(company)} data-testid={`button-edit-${company.id}`}>
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(company)} data-testid={`button-delete-${company.id}`}>
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                          </TableCell>
+                        </TableRow>
+                        {expandedStates.has(null) && noStateCompanies.map(renderCompanyRow)}
+                      </>
+                    )}
+                  </>
+                )
+              )}
             </TableBody>
           </Table>
         </CardContent>

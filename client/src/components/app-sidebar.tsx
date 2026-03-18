@@ -556,7 +556,10 @@ export function AppSidebar() {
                               className={`cursor-pointer ${specifikacieItems.some(i => i.href === location) ? "text-sidebar-accent-foreground font-medium" : ""}`}
                             >
                               <Layers className="w-3.5 h-3.5" />
-                              <span className="flex-1">Specifikacie</span>
+                              <span>Specifikacie</span>
+                              <span className="flex-1 text-center">
+                                <span className="text-yellow-400 text-[10px] font-semibold">(Global)</span>
+                              </span>
                               <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${nastavenieSubId === "specifikacie" ? "rotate-90" : ""}`} />
                             </SidebarMenuSubButton>
                           </CollapsibleTrigger>

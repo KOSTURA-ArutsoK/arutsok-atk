@@ -9,7 +9,7 @@ import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
-import { Plus, Pencil, Trash2, Clock, Upload, Image, Globe } from "lucide-react";
+import { Plus, Pencil, Trash2, Clock, Upload, Image, Globe, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -400,6 +400,7 @@ export default function SettingsStates() {
   const [flagUploadState, setFlagUploadState] = useState<State | null>(null);
   const [flagHistoryState, setFlagHistoryState] = useState<State | null>(null);
   const [deleteState, setDeleteState] = useState<State | null>(null);
+  const [expandedContinents, setExpandedContinents] = useState<Set<number>>(new Set());
 
   const { data: allStates, isLoading } = useQuery<State[]>({
     queryKey: ["/api/hierarchy/states"],
@@ -410,7 +411,6 @@ export default function SettingsStates() {
   });
 
   const tableFilter = useSmartFilter(allStates || [], STATE_FILTER_COLUMNS, "settings-states-filter");
-  const { sortedData: sortedStates, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("settings-states", STATE_COLUMNS);
 
   const deleteMutation = useMutation({
@@ -423,8 +423,57 @@ export default function SettingsStates() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vymazat stat", variant: "destructive" }),
   });
 
-  function getContinentName(id: number) {
-    return continents?.find(c => c.id === id)?.name || `${id}`;
+  function toggleContinent(id: number) {
+    setExpandedContinents(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  const filteredStates = tableFilter.filteredData;
+  const isFiltered = filteredStates.length !== (allStates?.length ?? 0);
+
+  const continentGroups = (continents || []).map(continent => ({
+    continent,
+    states: [...(filteredStates.filter(s => s.continentId === continent.id))].sort((a, b) => a.name.localeCompare(b.name, "sk")),
+  })).filter(g => g.states.length > 0);
+
+  const ungrouped = filteredStates.filter(s => !continents?.find(c => c.id === s.continentId));
+
+  const colSpan = [
+    columnVisibility.isVisible("id"),
+    columnVisibility.isVisible("name"),
+    columnVisibility.isVisible("code"),
+    columnVisibility.isVisible("currency"),
+    columnVisibility.isVisible("continentId"),
+    columnVisibility.isVisible("flagUrl"),
+  ].filter(Boolean).length + 1;
+
+  function renderStateRow(state: State) {
+    return (
+      <TableRow key={state.id} data-testid={`row-state-${state.id}`} onRowClick={() => { setEditingState(state); setFormOpen(true); }}>
+        {columnVisibility.isVisible("id") && <TableCell><Badge variant="outline">{state.id}</Badge></TableCell>}
+        {columnVisibility.isVisible("name") && <TableCell className="font-medium" data-testid={`text-state-name-${state.id}`}>{state.name}</TableCell>}
+        {columnVisibility.isVisible("code") && <TableCell data-testid={`text-state-code-${state.id}`}>{state.code}</TableCell>}
+        {columnVisibility.isVisible("currency") && <TableCell data-testid={`text-state-currency-${state.id}`}><Badge variant="outline">{(state as any).currency || "EUR"}</Badge></TableCell>}
+        {columnVisibility.isVisible("continentId") && <TableCell className="text-muted-foreground text-xs">{continents?.find(c => c.id === state.continentId)?.name || state.continentId}</TableCell>}
+        {columnVisibility.isVisible("flagUrl") && <TableCell><FlagImage src={state.flagUrl} alt={state.name} code={state.code} className="h-6 object-contain" /></TableCell>}
+        <TableCell className="text-right">
+          <div className="flex items-center justify-end gap-1">
+            <Button size="icon" variant="ghost" onClick={() => setFlagUploadState(state)} data-testid={`button-upload-flag-${state.id}`} title="Nahrat vlajku"><Image className="w-4 h-4" /></Button>
+            <Button size="icon" variant="ghost" onClick={() => setFlagHistoryState(state)} data-testid={`button-flag-history-${state.id}`} title="Historia vlajok statu"><Clock className="w-4 h-4" /></Button>
+            <Button size="icon" variant="ghost" onClick={() => { setEditingState(state); setFormOpen(true); }} data-testid={`button-edit-state-${state.id}`}><Pencil className="w-4 h-4" /></Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="ghost" onClick={() => setDeleteState(state)} data-testid={`button-delete-state-${state.id}`}><Trash2 className="w-4 h-4" /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+            </Tooltip>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
   }
 
   return (
@@ -457,79 +506,64 @@ export default function SettingsStates() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("id") && <TableHead sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort}>ID</TableHead>}
-                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
-                  {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Skratka</TableHead>}
+                  {columnVisibility.isVisible("id") && <TableHead>ID</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead>Nazov</TableHead>}
+                  {columnVisibility.isVisible("code") && <TableHead>Skratka</TableHead>}
                   {columnVisibility.isVisible("currency") && <TableHead>Mena</TableHead>}
-                  {columnVisibility.isVisible("continentId") && <TableHead sortKey="continentId" sortDirection={sortKey === "continentId" ? sortDirection : null} onSort={requestSort}>Kontinent</TableHead>}
+                  {columnVisibility.isVisible("continentId") && <TableHead>Kontinent</TableHead>}
                   {columnVisibility.isVisible("flagUrl") && <TableHead>Vlajka</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedStates.map(state => (
-                  <TableRow key={state.id} data-testid={`row-state-${state.id}`} onRowClick={() => { setEditingState(state); setFormOpen(true); }}>
-                    {columnVisibility.isVisible("id") && <TableCell>
-                      <Badge variant="outline">{state.id}</Badge>
-                    </TableCell>}
-                    {columnVisibility.isVisible("name") && <TableCell className="font-medium" data-testid={`text-state-name-${state.id}`}>
-                      {state.name}
-                    </TableCell>}
-                    {columnVisibility.isVisible("code") && <TableCell data-testid={`text-state-code-${state.id}`}>
-                      {state.code}
-                    </TableCell>}
-                    {columnVisibility.isVisible("currency") && <TableCell data-testid={`text-state-currency-${state.id}`}>
-                      <Badge variant="outline">{(state as any).currency || "EUR"}</Badge>
-                    </TableCell>}
-                    {columnVisibility.isVisible("continentId") && <TableCell>{getContinentName(state.continentId)}</TableCell>}
-                    {columnVisibility.isVisible("flagUrl") && <TableCell>
-                      <FlagImage src={state.flagUrl} alt={state.name} code={state.code} className="h-6 object-contain" />
-                    </TableCell>}
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setFlagUploadState(state)}
-                          data-testid={`button-upload-flag-${state.id}`}
-                          title="Nahrat vlajku"
+                {isFiltered ? (
+                  filteredStates.sort((a, b) => a.name.localeCompare(b.name, "sk")).map(renderStateRow)
+                ) : (
+                  <>
+                    {continentGroups.map(({ continent, states }) => (
+                      <>
+                        <TableRow
+                          key={`continent-${continent.id}`}
+                          className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
+                          data-testid={`row-continent-${continent.id}`}
+                          onClick={() => toggleContinent(continent.id)}
                         >
-                          <Image className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setFlagHistoryState(state)}
-                          data-testid={`button-flag-history-${state.id}`}
-                          title="Historia vlajok statu"
+                          <TableCell colSpan={colSpan} className="py-2">
+                            <div className="flex items-center gap-2">
+                              {expandedContinents.has(continent.id)
+                                ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                              <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+                              <span className="font-semibold text-sm">{continent.name}</span>
+                              <Badge variant="outline" className="text-[10px] ml-1">{states.length}</Badge>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {expandedContinents.has(continent.id) && states.map(renderStateRow)}
+                      </>
+                    ))}
+                    {ungrouped.length > 0 && (
+                      <>
+                        <TableRow
+                          className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
+                          onClick={() => toggleContinent(-1)}
                         >
-                          <Clock className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => { setEditingState(state); setFormOpen(true); }}
-                          data-testid={`button-edit-state-${state.id}`}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => setDeleteState(state)}
-                              data-testid={`button-delete-state-${state.id}`}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          <TableCell colSpan={colSpan} className="py-2">
+                            <div className="flex items-center gap-2">
+                              {expandedContinents.has(-1)
+                                ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                              <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+                              <span className="font-semibold text-sm">Nezaradené</span>
+                              <Badge variant="outline" className="text-[10px] ml-1">{ungrouped.length}</Badge>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {expandedContinents.has(-1) && ungrouped.sort((a, b) => a.name.localeCompare(b.name, "sk")).map(renderStateRow)}
+                      </>
+                    )}
+                  </>
+                )}
               </TableBody>
             </Table>
           )}

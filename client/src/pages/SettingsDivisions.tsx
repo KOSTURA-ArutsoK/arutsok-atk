@@ -6,7 +6,8 @@ import { useTableSort } from "@/hooks/use-table-sort";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import { useAppUser } from "@/hooks/use-app-user";
-import { Plus, Pencil, Trash2, Smile } from "lucide-react";
+import { useMyCompanies } from "@/hooks/use-companies";
+import { Plus, Pencil, Trash2, Smile, ChevronDown, ChevronRight, Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -150,19 +151,14 @@ export default function SettingsDivisions() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingDivision, setEditingDivision] = useState<Division | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Division | null>(null);
+  const [expandedCompanies, setExpandedCompanies] = useState<Set<number | "none">>(new Set());
 
   const { data: appUser } = useAppUser();
   const activeCompanyId = appUser?.activeCompanyId ?? null;
 
-  const { data: divisionLinks, isLoading } = useQuery<any[]>({
-    queryKey: ["/api/companies", activeCompanyId, "divisions"],
-    queryFn: () => fetch(`/api/companies/${activeCompanyId}/divisions`, { credentials: "include" }).then(r => r.json()),
-    enabled: !!activeCompanyId,
-  });
+  const { data: allDivisionsRaw, isLoading } = useQuery<any[]>({ queryKey: ["/api/divisions"] });
+  const { data: allCompanies } = useMyCompanies();
 
-  const divisionsList: Division[] = (divisionLinks || []).map((link: any) => link.division).filter(Boolean);
-
-  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(divisionsList, "name");
   const columnVisibility = useColumnVisibility("settings-divisions", DIVISION_COLUMNS);
 
   const deleteMutation = useMutation({
@@ -186,12 +182,82 @@ export default function SettingsDivisions() {
     setFormOpen(true);
   }
 
+  function toggleCompany(key: number | "none") {
+    setExpandedCompanies(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  const allDivisions: Division[] = allDivisionsRaw || [];
+
+  const companyGroups = (allCompanies || []).map(company => ({
+    company,
+    divisions: allDivisions
+      .filter((d: any) => (d.companies || []).some((c: any) => c.id === company.id))
+      .sort((a, b) => a.name.localeCompare(b.name, "sk")),
+  })).filter(g => g.divisions.length > 0);
+
+  const assignedDivisionIds = new Set(
+    allDivisions.filter((d: any) => (d.companies || []).length > 0).map(d => d.id)
+  );
+  const unassignedDivisions = allDivisions
+    .filter(d => !assignedDivisionIds.has(d.id))
+    .sort((a, b) => a.name.localeCompare(b.name, "sk"));
+
+  const colSpan = [
+    columnVisibility.isVisible("id"),
+    columnVisibility.isVisible("emoji"),
+    columnVisibility.isVisible("name"),
+    columnVisibility.isVisible("code"),
+    columnVisibility.isVisible("description"),
+    columnVisibility.isVisible("isActive"),
+  ].filter(Boolean).length + 1;
+
+  function renderDivisionRow(div: Division) {
+    return (
+      <TableRow key={div.id} className={!div.isActive ? "opacity-50" : ""} onRowClick={() => openEdit(div)}>
+        {columnVisibility.isVisible("id") && <TableCell data-testid={`text-division-id-${div.id}`}>{div.id}</TableCell>}
+        {columnVisibility.isVisible("emoji") && (
+          <TableCell className="text-center text-2xl" data-testid={`text-division-emoji-${div.id}`}>
+            {(div as any).emoji || <span className="text-muted-foreground text-sm">–</span>}
+          </TableCell>
+        )}
+        {columnVisibility.isVisible("name") && <TableCell className="font-medium" data-testid={`text-division-name-${div.id}`}>{div.name}</TableCell>}
+        {columnVisibility.isVisible("code") && <TableCell><Badge variant="secondary" className="font-mono">{div.code || "–"}</Badge></TableCell>}
+        {columnVisibility.isVisible("description") && <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{div.description || "–"}</TableCell>}
+        {columnVisibility.isVisible("isActive") && <TableCell><Badge variant={div.isActive ? "default" : "secondary"}>{div.isActive ? "Áno" : "Nie"}</Badge></TableCell>}
+        <TableCell className="text-right">
+          <div className="flex items-center justify-end gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" size="icon" variant="ghost" onClick={() => openEdit(div)} data-testid={`button-edit-division-${div.id}`}>
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Upraviť</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" size="icon" variant="ghost" onClick={() => setDeleteTarget(div)} data-testid={`button-delete-division-${div.id}`}>
+                  <Trash2 className="w-4 h-4 text-destructive" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Vymazať</TooltipContent>
+            </Tooltip>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-divisions-title">Divízie</h1>
-          <p className="text-muted-foreground text-sm">Divízie aktívnej spoločnosti</p>
+          <p className="text-muted-foreground text-sm">Divízie zoradené podľa spoločnosti</p>
         </div>
         <div className="flex items-center gap-2">
           <ColumnManager columns={DIVISION_COLUMNS} storageKey="settings-divisions" columnVisibility={columnVisibility} />
@@ -205,56 +271,64 @@ export default function SettingsDivisions() {
         <CardContent className="p-0">
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">Načítavam...</div>
-          ) : !sortedData.length ? (
+          ) : !allDivisions.length ? (
             <div className="p-8 text-center text-muted-foreground">Žiadne divízie</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("id") && <TableHead sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort}>ID</TableHead>}
+                  {columnVisibility.isVisible("id") && <TableHead>ID</TableHead>}
                   {columnVisibility.isVisible("emoji") && <TableHead className="w-14 text-center">Emotikon</TableHead>}
-                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Názov</TableHead>}
-                  {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kód</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead>Názov</TableHead>}
+                  {columnVisibility.isVisible("code") && <TableHead>Kód</TableHead>}
                   {columnVisibility.isVisible("description") && <TableHead>Popis</TableHead>}
                   {columnVisibility.isVisible("isActive") && <TableHead>Aktívna</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedData.map((div: Division) => (
-                  <TableRow key={div.id} className={!div.isActive ? "opacity-50" : ""}>
-                    {columnVisibility.isVisible("id") && <TableCell data-testid={`text-division-id-${div.id}`}>{div.id}</TableCell>}
-                    {columnVisibility.isVisible("emoji") && (
-                      <TableCell className="text-center text-2xl" data-testid={`text-division-emoji-${div.id}`}>
-                        {(div as any).emoji || <span className="text-muted-foreground text-sm">–</span>}
+                {companyGroups.map(({ company, divisions }) => (
+                  <>
+                    <TableRow
+                      key={`company-${company.id}`}
+                      className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
+                      data-testid={`row-company-group-${company.id}`}
+                      onClick={() => toggleCompany(company.id)}
+                    >
+                      <TableCell colSpan={colSpan} className="py-2">
+                        <div className="flex items-center gap-2">
+                          {expandedCompanies.has(company.id)
+                            ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                            : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                          <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="font-semibold text-sm">{company.name}</span>
+                          <Badge variant="outline" className="text-[10px] ml-1">{divisions.length}</Badge>
+                        </div>
                       </TableCell>
-                    )}
-                    {columnVisibility.isVisible("name") && <TableCell className="font-medium" data-testid={`text-division-name-${div.id}`}>{div.name}</TableCell>}
-                    {columnVisibility.isVisible("code") && <TableCell><Badge variant="secondary" className="font-mono">{div.code || "–"}</Badge></TableCell>}
-                    {columnVisibility.isVisible("description") && <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{div.description || "–"}</TableCell>}
-                    {columnVisibility.isVisible("isActive") && <TableCell><Badge variant={div.isActive ? "default" : "secondary"}>{div.isActive ? "Áno" : "Nie"}</Badge></TableCell>}
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button size="icon" variant="ghost" onClick={() => openEdit(div)} data-testid={`button-edit-division-${div.id}`}>
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Upraviť</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(div)} data-testid={`button-delete-division-${div.id}`}>
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Vymazať</TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                    </TableRow>
+                    {expandedCompanies.has(company.id) && divisions.map(renderDivisionRow)}
+                  </>
                 ))}
+                {unassignedDivisions.length > 0 && (
+                  <>
+                    <TableRow
+                      className="bg-muted/40 hover:bg-muted/60 cursor-pointer select-none"
+                      onClick={() => toggleCompany("none")}
+                    >
+                      <TableCell colSpan={colSpan} className="py-2">
+                        <div className="flex items-center gap-2">
+                          {expandedCompanies.has("none")
+                            ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                            : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                          <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="font-semibold text-sm">Nepriradené</span>
+                          <Badge variant="outline" className="text-[10px] ml-1">{unassignedDivisions.length}</Badge>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {expandedCompanies.has("none") && unassignedDivisions.map(renderDivisionRow)}
+                  </>
+                )}
               </TableBody>
             </Table>
           )}
