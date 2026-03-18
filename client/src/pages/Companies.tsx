@@ -2825,8 +2825,12 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
   });
 
   if (!companyId) return (
-    <div className="text-sm text-muted-foreground italic py-2">
-      Najprv uložte základné údaje firmy — potom môžete pridávať štatutárov.
+    <div className="rounded-md border border-border bg-muted/30 p-3 space-y-1.5">
+      <p className="text-sm font-medium flex items-center gap-2"><Info className="w-4 h-4 text-primary" />Štatutári nie sú dostupní</p>
+      <p className="text-sm text-muted-foreground">
+        Štatutárov možno pridávať až po prvom uložení firmy — keď firma dostane ID v databáze.
+        Uložte najprv záložku <span className="text-foreground font-medium">Základné údaje</span> a potom sa tu vráťte.
+      </p>
     </div>
   );
   if (isLoading) return (
