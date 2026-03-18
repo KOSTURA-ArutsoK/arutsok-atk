@@ -191,8 +191,8 @@ function PartnerUnifiedDialog({
   });
 
   const createContractMutation = useMutation({
-    mutationFn: async (data: { companyId: number; contractNumber?: string; signedDate?: string }) => {
-      return apiRequest("POST", `/api/partners/${partnerId}/contracts`, data);
+    mutationFn: async (data: { partnerId: number; companyId: number; contractNumber?: string; signedDate?: string }) => {
+      return apiRequest("POST", `/api/partners/${data.partnerId}/contracts`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/partners", partnerId, "contracts"] });
@@ -223,7 +223,9 @@ function PartnerUnifiedDialog({
       toast({ title: "Chyba", description: "Nemas aktivnu spolocnost", variant: "destructive" });
       return;
     }
+    if (!partnerId) return;
     createContractMutation.mutate({
+      partnerId,
       companyId: appUser.activeCompanyId,
       contractNumber: newContractNumber || undefined,
       signedDate: newContractSignedDate || undefined,
@@ -309,6 +311,8 @@ function PartnerUnifiedDialog({
       setShowArchivedContacts(false);
       setNewProductName("");
       setNewProductCode("");
+      setNewContractNumber("");
+      setNewContractSignedDate("");
       setActiveTab("info");
     }
   }, [open, editingPartner, form, appUser?.activeStateId]);
