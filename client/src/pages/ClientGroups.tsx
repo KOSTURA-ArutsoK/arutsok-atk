@@ -1610,13 +1610,23 @@ export default function ClientGroups() {
           </div>
 
           {/* Sticky footer – legenda */}
-          <div className="shrink-0 border-t border-green-600/30 bg-green-950/20 px-4 py-2 flex items-center gap-5 text-[11px] text-muted-foreground">
-            <span className="font-semibold text-green-500/70 uppercase tracking-wider text-[10px] shrink-0">Legenda:</span>
-            <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />Aktívny</span>
-            <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />Bez zmluvy</span>
-            <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />Neaktívny</span>
-            <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-400 inline-block" />Zosnulý</span>
-            <span className="ml-auto text-[10px] text-muted-foreground/50 shrink-0">Klik na riadok → otvorí detail subjektu</span>
+          <div className="shrink-0 border-t border-green-600/30 bg-green-950/20 px-4 py-2 flex flex-col gap-1.5 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-5">
+              <span className="font-semibold text-green-500/70 uppercase tracking-wider text-[10px] w-28 shrink-0">Stav subjektu:</span>
+              <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />Aktívny</span>
+              <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />Bez zmluvy</span>
+              <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />Neaktívny</span>
+              <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-400 inline-block" />Zosnulý</span>
+              <span className="ml-auto text-[10px] text-muted-foreground/50 shrink-0">Klik na riadok → otvorí detail subjektu</span>
+            </div>
+            <div className="flex items-center gap-5">
+              <span className="font-semibold text-green-500/70 uppercase tracking-wider text-[10px] w-28 shrink-0">Typ subjektu:</span>
+              <span className="flex items-center gap-1"><Badge variant="outline" className="text-[9px] h-4 border-violet-500/50 text-violet-400 font-normal">FO</Badge><span className="ml-1">Fyzické osoby</span></span>
+              <span className="flex items-center gap-1"><Badge variant="outline" className="text-[9px] h-4 border-amber-500/50 text-amber-400 font-normal">SZČO</Badge><span className="ml-1">Živnostníci</span></span>
+              <span className="flex items-center gap-1"><Badge variant="outline" className="text-[9px] h-4 border-blue-500/50 text-blue-400 font-normal">PO</Badge><span className="ml-1">Súkromný sektor</span></span>
+              <span className="flex items-center gap-1"><Badge variant="outline" className="text-[9px] h-4 border-teal-500/50 text-teal-400 font-normal">TS</Badge><span className="ml-1">Tretí sektor – Neziskovky</span></span>
+              <span className="flex items-center gap-1"><Badge variant="outline" className="text-[9px] h-4 border-orange-500/50 text-orange-400 font-normal">VS</Badge><span className="ml-1">Verejný sektor – Štát</span></span>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
