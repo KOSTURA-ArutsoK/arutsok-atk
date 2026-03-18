@@ -1495,7 +1495,7 @@ export default function ClientGroups() {
                   <TableHead className="w-8 px-3"></TableHead>
                   <TableHead className="w-44 font-mono text-xs whitespace-nowrap">UID</TableHead>
                   <TableHead className="text-xs">Meno / Názov</TableHead>
-                  <TableHead className="w-16 text-center text-xs">Typ</TableHead>
+                  <TableHead className="w-24 text-center text-xs">Typ subjektu</TableHead>
                   <TableHead className="text-xs">Spravujúca firma</TableHead>
                   <TableHead className="text-xs">Skupiny</TableHead>
                 </TableRow>
@@ -1551,12 +1551,15 @@ export default function ClientGroups() {
                         : hasNoContract
                           ? { cls: "bg-blue-500", title: "Bez zmluvy" }
                           : { cls: "bg-emerald-500", title: "Aktívny" };
-                    const typeLabel = s.type === "person" ? "FO" : s.type === "szco" ? "SZCO" : s.type === "company" ? "PO" : s.type.toUpperCase();
-                    const typeCls = s.type === "person"
-                      ? "border-violet-500/50 text-violet-400"
-                      : s.type === "szco"
-                        ? "border-amber-500/50 text-amber-400"
-                        : "border-blue-500/50 text-blue-400";
+                    const TYPE_MAP: Record<string, { label: string; cls: string; title: string }> = {
+                      person:  { label: "FO",   cls: "border-violet-500/50 text-violet-400",  title: "Fyzické osoby (FO)" },
+                      szco:    { label: "SZČO", cls: "border-amber-500/50 text-amber-400",    title: "Živnostníci (SZČO)" },
+                      company: { label: "PO",   cls: "border-blue-500/50 text-blue-400",      title: "Súkromný sektor (PO)" },
+                      ts:      { label: "TS",   cls: "border-teal-500/50 text-teal-400",      title: "Tretí sektor – Neziskovky (TS)" },
+                      vs:      { label: "VS",   cls: "border-orange-500/50 text-orange-400",  title: "Verejný sektor – Štát (VS)" },
+                    };
+                    const typeInfo = TYPE_MAP[s.type] ?? { label: s.type.toUpperCase(), cls: "border-muted text-muted-foreground", title: s.type };
+                    const { label: typeLabel, cls: typeCls, title: typeTitle } = typeInfo;
                     const companies: string[] = [s.myCompanyName].filter((n): n is string => !!n);
                     return (
                       <TableRow
@@ -1576,7 +1579,7 @@ export default function ClientGroups() {
                         </TableCell>
                         <TableCell className="font-medium text-sm py-0">{fullName}</TableCell>
                         <TableCell className="text-center py-0">
-                          <Badge variant="outline" className={`text-[9px] h-4 ${typeCls}`}>{typeLabel}</Badge>
+                          <Badge variant="outline" className={`text-[9px] h-4 ${typeCls} cursor-default`} title={typeTitle}>{typeLabel}</Badge>
                         </TableCell>
                         <TableCell className="py-1">
                           {companies.length === 0
