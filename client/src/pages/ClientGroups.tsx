@@ -1462,7 +1462,7 @@ export default function ClientGroups() {
 
       {/* ── STATE OVERVIEW MODAL ── */}
       <Dialog open={stateOverviewOpen} onOpenChange={setStateOverviewOpen}>
-        <DialogContent className="w-[85vw] max-w-[85vw] h-[85vh] max-h-[85vh] flex flex-col gap-0 p-0">
+        <DialogContent className="w-[85vw] max-w-[85vw] h-[85vh] max-h-[85vh] flex flex-col gap-0 p-0 border-2 border-green-600/70 rounded-xl overflow-hidden">
           <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
             <DialogTitle className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest">
               <Shield className="w-4 h-4 text-green-500" />
