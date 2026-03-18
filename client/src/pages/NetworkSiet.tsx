@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateTimeSlovak } from "@/lib/utils";
+import { formatDateTimeSlovak, formatUid } from "@/lib/utils";
 import {
   Network, Users, Shield, Snowflake, ArrowRightLeft,
   Check, X, Clock, Search, ChevronDown, ChevronRight,
@@ -67,10 +67,6 @@ function getSubjectName(s: NetworkSubject | undefined): string {
   return `${s.firstName || ""} ${s.lastName || ""}`.trim() || "—";
 }
 
-function formatUid(uid: string | null): string {
-  if (!uid) return "—";
-  return uid.replace(/(\d{3})(?=\d)/g, "$1 ");
-}
 
 function linkTypeBadge(linkType: string) {
   switch (linkType) {

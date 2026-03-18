@@ -60,12 +60,21 @@ export const smartPadUid = (input: string, prefix: string): string => {
 export const formatUid = (uid: string | null | undefined): string => {
   if (!uid) return '-';
   const digits = uid.replace(/\D/g, '');
-  if (!digits.length) return uid;
-  const groups: string[] = [];
-  for (let i = 0; i < digits.length; i += 3) {
-    groups.push(digits.slice(i, i + 3));
+  if (!digits.length) return '-';
+  let full: string;
+  if (digits.length >= 15) {
+    full = digits.slice(0, 15);
+  } else if (digits.startsWith('421')) {
+    const suffix = digits.slice(3);
+    full = '421' + suffix.padStart(12, '0');
+  } else {
+    full = '421' + digits.padStart(12, '0');
   }
-  return groups.join(' ');
+  const groups: string[] = [];
+  for (let i = 0; i < full.length; i += 3) {
+    groups.push(full.slice(i, i + 3));
+  }
+  return '# ' + groups.join(' ');
 };
 
 export const expandUid = (input: string, prefix: string = "421"): string => {

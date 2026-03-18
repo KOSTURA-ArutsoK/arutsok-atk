@@ -5763,9 +5763,9 @@ export default function Contracts() {
                   <span className="text-sm font-semibold">Získatelia a odmeny</span>
                 </div>
                 <div className="px-4 py-3 grid grid-cols-[180px_1fr] gap-x-4">
-                  <Row label="Špecialist" value={spec ? <span className="font-mono">{spec.uid} · <span className="text-emerald-500">{parseFloat(spec.percentage || "0").toFixed(0)}%</span></span> : undefined} />
-                  <Row label="Odporúčateľ 1" value={r1 ? <span className="font-mono">{r1.uid} · <span className="text-amber-400">{parseFloat(r1.percentage || "0").toFixed(0)}%</span></span> : undefined} />
-                  <Row label="Odporúčateľ 2" value={r2 ? <span className="font-mono">{r2.uid} · <span className="text-amber-300">{parseFloat(r2.percentage || "0").toFixed(0)}%</span></span> : undefined} />
+                  <Row label="Špecialist" value={spec ? <span className="font-mono">{formatUid(spec.uid)} · <span className="text-emerald-500">{parseFloat(spec.percentage || "0").toFixed(0)}%</span></span> : undefined} />
+                  <Row label="Odporúčateľ 1" value={r1 ? <span className="font-mono">{formatUid(r1.uid)} · <span className="text-amber-400">{parseFloat(r1.percentage || "0").toFixed(0)}%</span></span> : undefined} />
+                  <Row label="Odporúčateľ 2" value={r2 ? <span className="font-mono">{formatUid(r2.uid)} · <span className="text-amber-300">{parseFloat(r2.percentage || "0").toFixed(0)}%</span></span> : undefined} />
                 </div>
               </div>
               <div className="border rounded-md overflow-hidden">
