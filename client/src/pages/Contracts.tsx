@@ -3498,7 +3498,7 @@ export default function Contracts() {
               return (
                 <tr
                   key={contract.id}
-                  className={`border-b hover:bg-green-900/40 cursor-pointer ${rowBg}`}
+                  className={`border-b hover:bg-green-900/40 cursor-pointer font-mono text-xs ${rowBg}`}
                   data-testid={`${testIdPrefix}-${contract.id}`}
                   onClick={handleRowClick}
                 >
@@ -3537,20 +3537,20 @@ export default function Contracts() {
                       <Badge variant="outline" className="text-[10px] font-normal">{contractTypeLabel[(contract as any).contractType || "Nova"] || (contract as any).contractType || "Nová"}</Badge>
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">
+                  <td className="px-2 py-1.5 whitespace-nowrap">
                     <span className="flex items-center gap-1">
                       {warnSignedDate && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba dátum uzatvorenia</TooltipContent></Tooltip>}
                       {(contract as any).signedDate ? new Date((contract as any).signedDate).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\.\s/g, ".") : "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">
+                  <td className="px-2 py-1.5 whitespace-nowrap">
                     <span className="flex items-center gap-1">
                       {warnNumber && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba číslo návrhu</TooltipContent></Tooltip>}
                       {warnNegativeProposal && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Záporné číslo návrhu nie je povolené</TooltipContent></Tooltip>}
                       {contract.proposalNumber || "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-mono">
+                  <td className="px-2 py-1.5 whitespace-nowrap">
                     <span className="flex items-center gap-1">
                       {(contract as any).isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
                       {contract.insuranceContractNumber || "—"}
@@ -3559,7 +3559,7 @@ export default function Contracts() {
                   <td className="px-2 py-1.5 whitespace-nowrap">
                     <Badge variant="outline" className={`text-[10px] ${typSubjColor}`}>{typSubj}</Badge>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-mono text-muted-foreground">
+                  <td className="px-2 py-1.5 whitespace-nowrap text-muted-foreground">
                     <span className="flex items-center gap-1">
                       {warnRcIco && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba RČ / IČO</TooltipContent></Tooltip>}
                       {isUserRecommender && isFO
@@ -3574,13 +3574,13 @@ export default function Contracts() {
                     </span>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{sub?.titleBefore || "—"}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-medium">
+                  <td className="px-2 py-1.5 whitespace-nowrap">
                     <span className="flex items-center gap-1">
                       {warnMeno && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba meno</TooltipContent></Tooltip>}
                       {sub?.firstName || "—"}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap font-medium">
+                  <td className="px-2 py-1.5 whitespace-nowrap">
                     <span className="flex items-center gap-1">
                       {warnPriezvisko && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba priezvisko</TooltipContent></Tooltip>}
                       {sub?.lastName || "—"}
@@ -3593,7 +3593,7 @@ export default function Contracts() {
                       {specialist ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="font-mono text-primary cursor-default text-[11px]">{formatUid(specialist.uid)}</span>
+                            <span className="text-primary cursor-default">{formatUid(specialist.uid)}</span>
                           </TooltipTrigger>
                           <TooltipContent className="text-xs">{resolveUidName(specialist.uid)}</TooltipContent>
                         </Tooltip>
@@ -3603,7 +3603,7 @@ export default function Contracts() {
                   <td className="px-2 py-1.5 text-center whitespace-nowrap">
                     <span className="flex items-center justify-center gap-1">
                       {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {(specPct + r1Pct + r2Pct).toFixed(0)}%)</TooltipContent></Tooltip>}
-                      {specialist ? <span className="font-mono text-emerald-500">{specPct.toFixed(0)}%</span> : "—"}
+                      {specialist ? <span className="text-emerald-500">{specPct.toFixed(0)}%</span> : "—"}
                     </span>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">
@@ -3611,7 +3611,7 @@ export default function Contracts() {
                       {r1 ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="font-mono text-amber-400 cursor-default text-[11px]">{formatUid(r1.uid)}</span>
+                            <span className="text-amber-400 cursor-default">{formatUid(r1.uid)}</span>
                           </TooltipTrigger>
                           <TooltipContent className="text-xs">{resolveUidName(r1.uid)}</TooltipContent>
                         </Tooltip>
@@ -3621,7 +3621,7 @@ export default function Contracts() {
                   <td className="px-2 py-1.5 text-center whitespace-nowrap">
                     <span className="flex items-center justify-center gap-1">
                       {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {(specPct + r1Pct + r2Pct).toFixed(0)}%)</TooltipContent></Tooltip>}
-                      {r1 ? <span className="font-mono text-amber-400">{r1Pct.toFixed(0)}%</span> : "—"}
+                      {r1 ? <span className="text-amber-400">{r1Pct.toFixed(0)}%</span> : "—"}
                     </span>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">
@@ -3629,7 +3629,7 @@ export default function Contracts() {
                       {r2 ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="font-mono text-amber-300 cursor-default text-[11px]">{formatUid(r2.uid)}</span>
+                            <span className="text-amber-300 cursor-default">{formatUid(r2.uid)}</span>
                           </TooltipTrigger>
                           <TooltipContent className="text-xs">{resolveUidName(r2.uid)}</TooltipContent>
                         </Tooltip>
@@ -3639,7 +3639,7 @@ export default function Contracts() {
                   <td className="px-2 py-1.5 text-center whitespace-nowrap">
                     <span className="flex items-center justify-center gap-1">
                       {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {(specPct + r1Pct + r2Pct).toFixed(0)}%)</TooltipContent></Tooltip>}
-                      {r2 ? <span className="font-mono text-amber-300">{r2Pct.toFixed(0)}%</span> : "—"}
+                      {r2 ? <span className="text-amber-300">{r2Pct.toFixed(0)}%</span> : "—"}
                     </span>
                   </td>
                   {showActions && (
