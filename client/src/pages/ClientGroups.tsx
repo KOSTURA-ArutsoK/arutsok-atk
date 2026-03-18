@@ -1462,7 +1462,7 @@ export default function ClientGroups() {
 
       {/* ── STATE OVERVIEW MODAL ── */}
       <Dialog open={stateOverviewOpen} onOpenChange={setStateOverviewOpen}>
-        <DialogContent className="w-[85vw] max-w-[85vw] h-[85vh] max-h-[85vh] flex flex-col gap-0 p-0 border-2 border-green-600/70 rounded-xl overflow-hidden">
+        <DialogContent className="w-[85vw] max-w-[85vw] h-[85vh] max-h-[85vh] flex flex-col gap-0 p-0 border-2 border-green-500 rounded-xl overflow-hidden shadow-[0_0_0_1px_rgba(34,197,94,0.3)]">
           <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
             <DialogTitle className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest">
               <Shield className="w-4 h-4 text-green-500" />
@@ -1473,8 +1473,8 @@ export default function ClientGroups() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="px-4 py-2 border-b border-border shrink-0 bg-muted/20">
-            <div className="relative">
+          <div className="px-4 pt-2 pb-0 shrink-0 bg-muted/20 border-b border-border">
+            <div className="relative mb-2">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <Input
                 placeholder="Hľadať podľa mena, UID, firmy..."
@@ -1484,6 +1484,13 @@ export default function ClientGroups() {
                 data-testid="input-state-overview-search"
               />
             </div>
+            <div className="flex items-center gap-4 pb-2 text-[11px] text-muted-foreground">
+              <span className="font-semibold text-foreground/60 uppercase tracking-wider text-[10px]">Legenda:</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block shrink-0" />Aktívny</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block shrink-0" />Bez zmluvy</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block shrink-0" />Neaktívny</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-200 inline-block shrink-0" />Zosnulý</span>
+            </div>
           </div>
 
           <div className="flex-1 overflow-auto">
@@ -1491,7 +1498,7 @@ export default function ClientGroups() {
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow className="h-9">
                   <TableHead className="w-8 px-3"></TableHead>
-                  <TableHead className="w-36 font-mono text-xs">UID</TableHead>
+                  <TableHead className="w-44 font-mono text-xs whitespace-nowrap">UID</TableHead>
                   <TableHead className="text-xs">Meno / Názov</TableHead>
                   <TableHead className="w-16 text-center text-xs">Typ</TableHead>
                   <TableHead className="w-40 text-xs">Spravujúca firma</TableHead>
@@ -1562,7 +1569,7 @@ export default function ClientGroups() {
                             title={statusDot.title}
                           />
                         </TableCell>
-                        <TableCell className="font-mono text-[11px] text-muted-foreground py-0">
+                        <TableCell className="font-mono text-[11px] text-muted-foreground py-0 whitespace-nowrap">
                           {s.uid ? formatUid(s.uid) : "—"}
                         </TableCell>
                         <TableCell className="font-medium text-sm py-0">{fullName}</TableCell>
