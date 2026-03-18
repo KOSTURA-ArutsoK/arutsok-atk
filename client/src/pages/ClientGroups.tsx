@@ -976,7 +976,7 @@ function GroupRowCells({
   );
 }
 
-type SectionKey = "holdingove" | "systemove" | "volitelne" | "ina_spolocnost" | "globalne";
+type SectionKey = "holdingove" | "systemove" | "volitelne" | "ina_spolocnost" | "globalne" | "vsetky_subjekty";
 
 export default function ClientGroups() {
   const { toast } = useToast();
@@ -985,7 +985,7 @@ export default function ClientGroups() {
   const [deletingGroup, setDeletingGroup] = useState<ClientGroupWithCount | null>(null);
   const [partnerGroupOpen, setPartnerGroupOpen] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<SectionKey>>(
-    new Set<SectionKey>(["globalne", "holdingove", "systemove", "volitelne", "ina_spolocnost"])
+    new Set<SectionKey>(["globalne", "holdingove", "systemove", "volitelne", "ina_spolocnost", "vsetky_subjekty"])
   );
 
   const { data: appUser } = useAppUser();
@@ -1032,6 +1032,20 @@ export default function ClientGroups() {
   const { data: otherCompanyCount } = useQuery<{ count: number }>({
     queryKey: ["/api/subjects/count-other-company"],
     queryFn: () => fetch("/api/subjects/count-other-company", { credentials: "include" }).then(r => r.json()),
+  });
+
+  const isAdminUser = ["admin", "superadmin", "prezident", "architekt"].includes(appUser?.role || "");
+
+  type StateOverviewSubject = {
+    id: number; uid: string | null;
+    titleBefore: string | null; firstName: string | null; lastName: string | null;
+    titleAfter: string | null; companyName: string | null; type: string;
+    myCompanyId: number | null; groups: string[];
+  };
+  const { data: stateOverview, isLoading: stateOverviewLoading } = useQuery<StateOverviewSubject[]>({
+    queryKey: ["/api/subjects/state-overview"],
+    queryFn: () => fetch("/api/subjects/state-overview", { credentials: "include" }).then(r => r.json()),
+    enabled: isAdminUser,
   });
 
   const { data: permGroupsData } = useQuery<PermissionGroup[]>({
@@ -1357,6 +1371,73 @@ export default function ClientGroups() {
               </TableBody>
             </Table>
           </SectionCard>
+
+          {/* ── 6. VŠETKY SUBJEKTY V ŠTÁTE (len admin) ── */}
+          {isAdminUser && (
+            <SectionCard
+              title="Všetky subjekty v štáte"
+              accentClass="border-l-green-600"
+              badgeClass="border-green-600/50 text-green-400"
+              badgeText="Admin"
+              count={stateOverview?.length}
+              testId="section-vsetky-subjekty"
+              isCollapsed={isCollapsed("vsetky_subjekty")}
+              onToggle={() => toggleSection("vsetky_subjekty")}
+              tooltip="Táto sekcia je prístupná iba pre administrátorov. Zobrazuje VŠETKY subjekty v aktuálnom štáte naprieč všetkými spoločnosťami — bez ohľadu na aktívnu spoločnosť. Slúži na globálny prehľad a audit."
+            >
+              <Table className="w-full">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-36 font-mono">UID</TableHead>
+                    <TableHead>Meno / Názov</TableHead>
+                    <TableHead>Skupiny</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stateOverviewLoading && (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center py-6">
+                        <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!stateOverviewLoading && (stateOverview || []).map(s => {
+                    const fullName = s.type === "company"
+                      ? (s.companyName || "—")
+                      : [s.titleBefore, s.firstName, s.lastName, s.titleAfter].filter(Boolean).join(" ") || "—";
+                    return (
+                      <TableRow
+                        key={s.id}
+                        data-testid={`row-state-subject-${s.id}`}
+                        className="cursor-pointer hover:bg-muted/40 transition-colors"
+                        onClick={() => navigate(`/subjects/${s.id}`)}
+                      >
+                        <TableCell className="w-36 font-mono text-[11px] text-muted-foreground">
+                          {s.uid ? s.uid.replace(/(\d{3})(?=\d)/g, "$1 ").trim() : "—"}
+                        </TableCell>
+                        <TableCell className="font-medium text-sm">{fullName}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {s.groups.length === 0
+                              ? <span className="text-muted-foreground text-xs">—</span>
+                              : s.groups.map((g, i) => (
+                                <Badge key={i} variant="outline" className="text-[9px] h-4 border-green-600/40 text-green-400">{g}</Badge>
+                              ))
+                            }
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {!stateOverviewLoading && (stateOverview || []).length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground py-6 text-sm">Žiadne subjekty v tomto štáte</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </SectionCard>
+          )}
 
         </div>
       )}

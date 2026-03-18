@@ -7607,6 +7607,58 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/subjects/state-overview", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!isAdmin(appUser)) return res.status(403).json({ message: "Len admin/superadmin" });
+      const enforcedState = getEnforcedStateId(req);
+      const stateId = enforcedState || appUser?.activeStateId;
+      const rows = await db
+        .select({
+          id: subjects.id,
+          uid: subjects.uid,
+          titleBefore: subjects.titleBefore,
+          firstName: subjects.firstName,
+          lastName: subjects.lastName,
+          titleAfter: subjects.titleAfter,
+          companyName: subjects.companyName,
+          type: subjects.type,
+          myCompanyId: subjects.myCompanyId,
+        })
+        .from(subjects)
+        .where(and(
+          isNull(subjects.deletedAt),
+          sql`${subjects.type} != 'system'`,
+          stateId ? eq(subjects.stateId, stateId) : sql`1=1`
+        ))
+        .orderBy(subjects.lastName, subjects.firstName);
+      const memberships = await db
+        .select({ subjectId: clientGroupMembers.subjectId, groupId: clientGroupMembers.groupId })
+        .from(clientGroupMembers);
+      const groupsAll = await db.select({ id: clientGroups.id, name: clientGroups.name, isSystem: clientGroups.isSystem, isHoldingGroup: clientGroups.isHoldingGroup, isPartnerGroup: clientGroups.isPartnerGroup, groupCode: clientGroups.groupCode }).from(clientGroups);
+      const groupMap = new Map(groupsAll.map(g => [g.id, g]));
+      const memberMap = new Map<number, string[]>();
+      for (const m of memberships) {
+        const g = groupMap.get(m.groupId);
+        if (!g) continue;
+        let cat = "Voliteľná";
+        if (g.isHoldingGroup || g.isPartnerGroup) cat = "Firemná";
+        else if (g.isSystem && g.groupCode === "group_cierny_zoznam") cat = "Holdingová";
+        else if (g.isSystem) cat = "Systémová";
+        if (!memberMap.has(m.subjectId)) memberMap.set(m.subjectId, []);
+        const label = `${g.name} (${cat})`;
+        if (!memberMap.get(m.subjectId)!.includes(label)) memberMap.get(m.subjectId)!.push(label);
+      }
+      const result = rows.map(s => ({
+        ...s,
+        groups: memberMap.get(s.id) || [],
+      }));
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
   app.get("/api/client-groups/:id", isAuthenticated, async (req: any, res) => {
     const group = await storage.getClientGroup(Number(req.params.id));
     if (!group) return res.status(404).json({ message: "Skupina nenajdena" });
