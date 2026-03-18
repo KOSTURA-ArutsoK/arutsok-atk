@@ -1,8 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContacts, usePartnerProducts, useCreatePartnerContact, useCreatePartnerProduct, useUpdatePartnerLifecycleStatus } from "@/hooks/use-partners";
 import { useAppUser } from "@/hooks/use-app-user";
 import { formatDateSlovak, formatPhone, formatUid, canCreateRecords, canEditRecords, canDeleteRecords, normalizePhone } from "@/lib/utils";
-import { Plus, Briefcase, Pencil, Trash2, Clock, Users, Package, Calendar, Archive, MapPin, Circle, FastForward, Play, Pause, Upload, Square } from "lucide-react";
+import { Plus, Briefcase, Pencil, Trash2, Clock, Users, Package, Calendar, Archive, MapPin, Circle, FastForward, Play, Pause, Upload, Square, FileText } from "lucide-react";
+import type { PartnerContract } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -171,6 +174,59 @@ function PartnerUnifiedDialog({
   const [newProductName, setNewProductName] = useState("");
   const [newProductType, setNewProductType] = useState("Financny");
   const [newProductCode, setNewProductCode] = useState("");
+  const [newContractNumber, setNewContractNumber] = useState("");
+  const [newContractSignedDate, setNewContractSignedDate] = useState("");
+
+  const { data: pContracts } = useQuery<PartnerContract[]>({
+    queryKey: ["/api/partners", partnerId, "contracts"],
+    queryFn: async () => {
+      if (!partnerId) return [];
+      const res = await fetch(`/api/partners/${partnerId}/contracts`, { credentials: "include" });
+      if (!res.ok) throw new Error("Chyba pri nacitani zmluv");
+      return res.json();
+    },
+    enabled: isEditing && !!partnerId,
+  });
+
+  const createContractMutation = useMutation({
+    mutationFn: async (data: { companyId: number; contractNumber?: string; signedDate?: string }) => {
+      return apiRequest("POST", `/api/partners/${partnerId}/contracts`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/partners", partnerId, "contracts"] });
+      setNewContractNumber("");
+      setNewContractSignedDate("");
+      toast({ title: "Zmluva pridana" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteContractMutation = useMutation({
+    mutationFn: async (contractId: number) => {
+      return apiRequest("DELETE", `/api/partner-contracts/${contractId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/partners", partnerId, "contracts"] });
+      toast({ title: "Zmluva vymazana" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  function handleAddContract() {
+    if (!appUser?.activeCompanyId) {
+      toast({ title: "Chyba", description: "Nemas aktivnu spolocnost", variant: "destructive" });
+      return;
+    }
+    createContractMutation.mutate({
+      companyId: appUser.activeCompanyId,
+      contractNumber: newContractNumber || undefined,
+      signedDate: newContractSignedDate || undefined,
+    });
+  }
 
   const form = useForm<PartnerFormData>({
     resolver: zodResolver(partnerFormSchema),
@@ -372,6 +428,7 @@ function PartnerUnifiedDialog({
                 <TabsTrigger value="info" data-testid="partner-tab-info">Info</TabsTrigger>
                 <TabsTrigger value="contacts" data-testid="partner-tab-contacts" disabled={!isEditing} style={{ display: isEditing ? undefined : 'none' }}>Kontakty</TabsTrigger>
                 <TabsTrigger value="products" data-testid="partner-tab-products" disabled={!isEditing} style={{ display: isEditing ? undefined : 'none' }}>Produkty</TabsTrigger>
+                <TabsTrigger value="zmluvy" data-testid="partner-tab-zmluvy" disabled={!isEditing} style={{ display: isEditing ? undefined : 'none' }}>Zmluvy</TabsTrigger>
                 <TabsTrigger value="notes" data-testid="partner-tab-notes">Poznamky</TabsTrigger>
               </TabsList>
 
@@ -701,6 +758,78 @@ function PartnerUnifiedDialog({
                   </div>
                   <Button type="button" size="sm" onClick={handleAddProduct} disabled={!newProductName} data-testid="button-add-product">
                     <Plus className="w-4 h-4 mr-1" /> Pridat produkt
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="zmluvy" className="mt-4 space-y-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <FileText className="w-4 h-4 text-muted-foreground" />
+                  <h4 className="text-sm font-medium">Zmluvy s partnerom</h4>
+                  <Badge variant="secondary" className="ml-auto">{pContracts?.length || 0}</Badge>
+                </div>
+                {pContracts && pContracts.length > 0 ? (
+                  <div className="space-y-2">
+                    {pContracts.map(c => (
+                      <div key={c.id} className="flex items-center gap-2 p-2 rounded-md border border-border text-sm" data-testid={`pcontract-${c.id}`}>
+                        <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate font-mono">
+                            {c.contractNumber || <span className="text-muted-foreground italic">Bez cisla</span>}
+                          </p>
+                          {c.signedDate && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Calendar className="w-3 h-3" />
+                              <span>Podpis: {formatDateSlovak(c.signedDate)}</span>
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => deleteContractMutation.mutate(c.id)}
+                          disabled={deleteContractMutation.isPending}
+                          data-testid={`button-delete-contract-${c.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">Ziadne zmluvy s partnerom</p>
+                )}
+                <Separator />
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium">Pridat zmluvu</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Cislo zmluvy (volitelne)"
+                      value={newContractNumber}
+                      onChange={e => setNewContractNumber(e.target.value)}
+                      className="font-mono"
+                      data-testid="input-contract-number"
+                    />
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-muted-foreground">Datum podpisu (volitelne)</label>
+                      <Input
+                        type="date"
+                        value={newContractSignedDate}
+                        onChange={e => setNewContractSignedDate(e.target.value)}
+                        data-testid="input-contract-signed-date"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddContract}
+                    disabled={createContractMutation.isPending}
+                    data-testid="button-add-contract"
+                  >
+                    <Plus className="w-4 h-4 mr-1" /> Pridat zmluvu
                   </Button>
                 </div>
               </TabsContent>
