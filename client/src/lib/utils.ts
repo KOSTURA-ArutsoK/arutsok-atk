@@ -74,7 +74,7 @@ export const formatUid = (uid: string | null | undefined): string => {
   for (let i = 0; i < full.length; i += 3) {
     groups.push(full.slice(i, i + 3));
   }
-  return '# ' + groups.join(' ');
+  return groups.join(' ');
 };
 
 export const expandUid = (input: string, prefix: string = "421"): string => {
