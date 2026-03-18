@@ -3010,14 +3010,6 @@ function SubjectRelationsSection({ subjectId }: { subjectId: number }) {
                     {addRelation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Link2 className="w-3 h-3 mr-1" />}
                     Prepojiť
                   </Button>
-                  <Button size="sm" variant="outline" className="text-xs" onClick={() => {
-                    if (!targetSubjectSearch.trim()) return;
-                    const parts = targetSubjectSearch.trim().split(" ");
-                    createDraftAndLink.mutate({ firstName: parts[0], lastName: parts.slice(1).join(" ") || undefined, type: "FO" });
-                  }} disabled={!targetSubjectSearch.trim() || !selectedRoleId || createDraftAndLink.isPending} data-testid="btn-create-draft-subject">
-                    {createDraftAndLink.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <UserPlus className="w-3 h-3 mr-1" />}
-                    Vytvoriť draft
-                  </Button>
                 </div>
               </div>
             </DialogContent>

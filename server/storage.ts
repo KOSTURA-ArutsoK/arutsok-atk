@@ -1339,6 +1339,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSubject(insertSubject: InsertSubject) {
+    // === GLOBAL UID INTEGRITY RULE ===
+    // UID can ONLY be generated when:
+    // - For person/szco: birthNumber (RC) is present AND firstName + lastName are present
+    // - For company/organization: companyName is present AND IČO is in details.ico or details.dynamicFields.ico
+    const subjectType = insertSubject.type;
+    const personTypes = ['person', 'szco'];
+    const companyTypes = ['company', 'organization'];
+
+    if (personTypes.includes(subjectType)) {
+      if (!insertSubject.birthNumber) {
+        throw new Error("UID_INTEGRITY: Pre osobu/SZČO musí byť zadané rodné číslo (RČ) pred pridelením UID");
+      }
+      if (!insertSubject.firstName || !insertSubject.lastName) {
+        throw new Error("UID_INTEGRITY: Pre osobu/SZČO musí byť zadané meno a priezvisko pred pridelením UID");
+      }
+    } else if (companyTypes.includes(subjectType)) {
+      if (!insertSubject.companyName) {
+        throw new Error("UID_INTEGRITY: Pre spoločnosť/organizáciu musí byť zadaný názov pred pridelením UID");
+      }
+      const detailsObj = insertSubject.details as any;
+      const ico = detailsObj?.ico || detailsObj?.dynamicFields?.ico;
+      if (!ico) {
+        throw new Error("UID_INTEGRITY: Pre spoločnosť/organizáciu musí byť zadané IČO pred pridelením UID");
+      }
+    }
+    // === END GLOBAL UID INTEGRITY RULE ===
+
     const state = insertSubject.stateId ? await db.select().from(states).where(eq(states.id, insertSubject.stateId)).then(r => r[0]) : null;
     const company = insertSubject.myCompanyId ? await db.select().from(myCompanies).where(eq(myCompanies.id, insertSubject.myCompanyId)).then(r => r[0]) : null;
     const continent = state?.continentId ? await db.select().from(continents).where(eq(continents.id, state.continentId)).then(r => r[0]) : null;

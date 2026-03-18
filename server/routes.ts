@@ -1396,17 +1396,25 @@ export async function registerRoutes(
         let companySubjectId: number | null = existingSubj?.id ?? null;
 
         if (!companySubjectId) {
-          const [newSubj] = await db.insert(subjects).values({
-            uid: created.uid,
-            type: "company",
-            companyName: created.name,
-            myCompanyId: created.id,
-            stateId: created.stateId ?? null,
-            registrationStatus: "klient",
-            lifecycleStatus: "active",
-            isActive: true,
-          } as any).returning({ id: subjects.id });
-          companySubjectId = newSubj.id;
+          // GLOBAL UID INTEGRITY RULE: company shadow subject must have companyName AND IČO
+          if (!created.name) {
+            console.error("[UID_INTEGRITY] Company shadow subject blocked: missing companyName for myCompanyId", created.id);
+          } else if (!created.ico) {
+            console.error("[UID_INTEGRITY] Company shadow subject blocked: missing IČO for myCompanyId", created.id, "name:", created.name);
+          } else {
+            const [newSubj] = await db.insert(subjects).values({
+              uid: created.uid,
+              type: "company",
+              companyName: created.name,
+              myCompanyId: created.id,
+              stateId: created.stateId ?? null,
+              registrationStatus: "klient",
+              lifecycleStatus: "active",
+              isActive: true,
+              details: { ico: created.ico },
+            } as any).returning({ id: subjects.id });
+            companySubjectId = newSubj.id;
+          }
         }
 
         // nájsť koreňový subjekt 421 000 000 000 000
@@ -16813,6 +16821,8 @@ export async function registerRoutes(
     firstName: z.string().optional().nullable(),
     lastName: z.string().optional().nullable(),
     companyName: z.string().optional().nullable(),
+    birthNumber: z.string().optional().nullable(),
+    ico: z.string().optional().nullable(),
     type: z.enum(["FO", "PO", "SZCO"]).default("FO"),
     sourceContext: z.string().optional(),
     sourceRelationRoleCode: z.string().optional(),
@@ -16825,6 +16835,22 @@ export async function registerRoutes(
 
       if (!parsed.firstName && !parsed.lastName && !parsed.companyName) {
         return res.status(400).json({ message: "Meno alebo názov firmy je povinný" });
+      }
+
+      // GLOBAL UID INTEGRITY RULE: no UID without RC or IČO + name
+      const isPersonType = parsed.type === "FO" || parsed.type === "SZCO";
+      const isCompanyType = parsed.type === "PO";
+      if (isPersonType && !parsed.birthNumber) {
+        return res.status(400).json({ message: "Pre osobu/SZČO je povinné rodné číslo (RČ) pred vytvorením subjektu s UID" });
+      }
+      if (isPersonType && (!parsed.firstName || !parsed.lastName)) {
+        return res.status(400).json({ message: "Pre osobu/SZČO je povinné meno a priezvisko" });
+      }
+      if (isCompanyType && !parsed.ico) {
+        return res.status(400).json({ message: "Pre spoločnosť je povinné IČO pred vytvorením subjektu s UID" });
+      }
+      if (isCompanyType && !parsed.companyName) {
+        return res.status(400).json({ message: "Pre spoločnosť je povinný názov" });
       }
 
       const searchName = parsed.companyName
