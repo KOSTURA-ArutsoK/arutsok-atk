@@ -6064,7 +6064,13 @@ export async function registerRoutes(
       const migrationDates = req.body?._migrationDates;
       const bodyClean = { ...req.body };
       delete bodyClean._migrationDates;
-      const input = api.contractsApi.create.input.parse(bodyClean);
+      const parseResult = api.contractsApi.create.input.safeParse(bodyClean);
+      if (!parseResult.success) {
+        console.error("CONTRACT CREATE VALIDATION ERROR:", JSON.stringify(parseResult.error.issues, null, 2));
+        console.error("CONTRACT CREATE BODY:", JSON.stringify(bodyClean, null, 2));
+        return res.status(400).json({ message: parseResult.error.issues[0]?.message || "Validation error" });
+      }
+      const input = parseResult.data;
       const appUser = req.appUser;
 
       if (input.subjectId) {
