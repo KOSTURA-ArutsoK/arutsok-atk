@@ -5,7 +5,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
-import { Plus, Pencil, Trash2, Building, Link2, Unlink, Smile } from "lucide-react";
+import { useAppUser } from "@/hooks/use-app-user";
+import { Plus, Pencil, Trash2, Smile } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,13 +28,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -44,7 +38,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { Division, MyCompany } from "@shared/schema";
+import type { Division } from "@shared/schema";
 
 const EMOJI_LIST = [
   "🏦","💼","📊","📈","📉","💰","💵","💳","🏧","💹",
@@ -79,7 +73,6 @@ const DIVISION_COLUMNS: ColumnDef[] = [
   { key: "emoji", label: "Emotikon" },
   { key: "name", label: "Názov" },
   { key: "code", label: "Kód" },
-  { key: "companies", label: "Spoločnosť" },
   { key: "description", label: "Popis" },
   { key: "isActive", label: "Aktívna" },
 ];
@@ -157,19 +150,26 @@ export default function SettingsDivisions() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingDivision, setEditingDivision] = useState<Division | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Division | null>(null);
-  const [companiesDialogDivision, setCompaniesDialogDivision] = useState<Division | null>(null);
 
-  const { data: divisionsList, isLoading } = useQuery<Division[]>({
-    queryKey: ["/api/divisions"],
+  const { data: appUser } = useAppUser();
+  const activeCompanyId = appUser?.activeCompanyId ?? null;
+
+  const { data: divisionLinks, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/companies", activeCompanyId, "divisions"],
+    queryFn: () => fetch(`/api/companies/${activeCompanyId}/divisions`, { credentials: "include" }).then(r => r.json()),
+    enabled: !!activeCompanyId,
   });
 
-  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(divisionsList || [], "name");
+  const divisionsList: Division[] = (divisionLinks || []).map((link: any) => link.division).filter(Boolean);
+
+  const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(divisionsList, "name");
   const columnVisibility = useColumnVisibility("settings-divisions", DIVISION_COLUMNS);
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest("DELETE", `/api/divisions/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies", activeCompanyId, "divisions"] });
       toast({ title: "Úspech", description: "Divízia vymazaná" });
       setDeleteTarget(null);
     },
@@ -191,7 +191,7 @@ export default function SettingsDivisions() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-divisions-title">Divízie</h1>
-          <p className="text-muted-foreground text-sm">Správa divízií holdingu</p>
+          <p className="text-muted-foreground text-sm">Divízie aktívnej spoločnosti</p>
         </div>
         <div className="flex items-center gap-2">
           <ColumnManager columns={DIVISION_COLUMNS} storageKey="settings-divisions" columnVisibility={columnVisibility} />
@@ -215,7 +215,6 @@ export default function SettingsDivisions() {
                   {columnVisibility.isVisible("emoji") && <TableHead className="w-14 text-center">Emotikon</TableHead>}
                   {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Názov</TableHead>}
                   {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kód</TableHead>}
-                  {columnVisibility.isVisible("companies") && <TableHead>Spoločnosť</TableHead>}
                   {columnVisibility.isVisible("description") && <TableHead>Popis</TableHead>}
                   {columnVisibility.isVisible("isActive") && <TableHead>Aktívna</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
@@ -232,31 +231,10 @@ export default function SettingsDivisions() {
                     )}
                     {columnVisibility.isVisible("name") && <TableCell className="font-medium" data-testid={`text-division-name-${div.id}`}>{div.name}</TableCell>}
                     {columnVisibility.isVisible("code") && <TableCell><Badge variant="secondary" className="font-mono">{div.code || "–"}</Badge></TableCell>}
-                    {columnVisibility.isVisible("companies") && (
-                      <TableCell data-testid={`text-division-companies-${div.id}`}>
-                        {(div as any).companies?.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {(div as any).companies.map((c: any) => (
-                              <Badge key={c.id} variant="outline" className="text-xs">{c.name}</Badge>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">–</span>
-                        )}
-                      </TableCell>
-                    )}
                     {columnVisibility.isVisible("description") && <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{div.description || "–"}</TableCell>}
                     {columnVisibility.isVisible("isActive") && <TableCell><Badge variant={div.isActive ? "default" : "secondary"}>{div.isActive ? "Áno" : "Nie"}</Badge></TableCell>}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button size="icon" variant="ghost" onClick={() => setCompaniesDialogDivision(div)} data-testid={`button-division-companies-${div.id}`}>
-                              <Building className="w-4 h-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Priradené spoločnosti</TooltipContent>
-                        </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button size="icon" variant="ghost" onClick={() => openEdit(div)} data-testid={`button-edit-division-${div.id}`}>
@@ -283,7 +261,7 @@ export default function SettingsDivisions() {
         </CardContent>
       </Card>
 
-      <DivisionFormDialog open={formOpen} onOpenChange={setFormOpen} editingDivision={editingDivision} />
+      <DivisionFormDialog open={formOpen} onOpenChange={setFormOpen} editingDivision={editingDivision} activeCompanyId={activeCompanyId} />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
@@ -301,8 +279,6 @@ export default function SettingsDivisions() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <DivisionCompaniesDialog division={companiesDialogDivision} onClose={() => setCompaniesDialogDivision(null)} />
     </div>
   );
 }
@@ -311,10 +287,12 @@ function DivisionFormDialog({
   open,
   onOpenChange,
   editingDivision,
+  activeCompanyId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingDivision: Division | null;
+  activeCompanyId: number | null;
 }) {
   const { toast } = useToast();
   const [name, setName] = useState("");
@@ -334,9 +312,17 @@ function DivisionFormDialog({
   const emojiDuplicate = !!emoji && usedEmojis.includes(emoji);
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/divisions", data),
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/divisions", data);
+      const newDivision = await res.json();
+      if (activeCompanyId && newDivision?.id) {
+        await apiRequest("POST", `/api/companies/${activeCompanyId}/divisions`, { divisionId: newDivision.id });
+      }
+      return newDivision;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies", activeCompanyId, "divisions"] });
       toast({ title: "Úspech", description: "Divízia vytvorená" });
       onOpenChange(false);
     },
@@ -347,6 +333,7 @@ function DivisionFormDialog({
     mutationFn: (data: any) => apiRequest("PUT", `/api/divisions/${editingDivision?.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/companies", activeCompanyId, "divisions"] });
       toast({ title: "Úspech", description: "Divízia aktualizovaná" });
       onOpenChange(false);
     },
@@ -473,118 +460,3 @@ function DivisionFormDialog({
   );
 }
 
-function DivisionCompaniesDialog({
-  division,
-  onClose,
-}: {
-  division: Division | null;
-  onClose: () => void;
-}) {
-  const { toast } = useToast();
-  const [addCompanyId, setAddCompanyId] = useState("");
-
-  const { data: linkedCompanies, isLoading } = useQuery<any[]>({
-    queryKey: ["/api/divisions", division?.id, "companies"],
-    queryFn: () => fetch(`/api/divisions/${division?.id}/companies`).then(r => r.json()),
-    enabled: !!division,
-  });
-
-  const { data: allCompanies } = useQuery<MyCompany[]>({
-    queryKey: ["/api/my-companies"],
-    enabled: !!division,
-  });
-
-  const addMutation = useMutation({
-    mutationFn: (divisionId: number) =>
-      apiRequest("POST", `/api/companies/${addCompanyId}/divisions`, { divisionId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/divisions", division?.id, "companies"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
-      toast({ title: "Úspech", description: "Spoločnosť priradená" });
-      setAddCompanyId("");
-    },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa priradiť spoločnosť", variant: "destructive" }),
-  });
-
-  const removeMutation = useMutation({
-    mutationFn: (linkId: number) => apiRequest("DELETE", `/api/company-divisions/${linkId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/divisions", division?.id, "companies"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
-      toast({ title: "Úspech", description: "Prepojenie odstránené" });
-    },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odstrániť prepojenie", variant: "destructive" }),
-  });
-
-  const linkedCompanyIds = (linkedCompanies || []).map((lc: any) => lc.company?.id || lc.companyId);
-  const availableCompanies = (allCompanies || []).filter(c => !linkedCompanyIds.includes(c.id));
-
-  return (
-    <Dialog open={!!division} onOpenChange={() => onClose()}>
-      <DialogContent size="lg">
-        <DialogHeader>
-          <DialogTitle data-testid="text-division-companies-title">
-            Spoločnosti v divízii: {(division as any)?.emoji} {division?.name}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Select value={addCompanyId} onValueChange={setAddCompanyId}>
-              <SelectTrigger className="flex-1" data-testid="select-add-company-to-division">
-                <SelectValue placeholder="Vyberte spoločnosť na priradenie" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableCompanies.map(c => (
-                  <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              onClick={() => division && addCompanyId && addMutation.mutate(division.id)}
-              disabled={!addCompanyId || addMutation.isPending}
-              data-testid="button-add-company-to-division"
-            >
-              <Link2 className="w-4 h-4 mr-2" /> Priradiť
-            </Button>
-          </div>
-
-          {isLoading ? (
-            <div className="text-center text-muted-foreground py-4">Načítavam...</div>
-          ) : !(linkedCompanies || []).length ? (
-            <div className="text-center text-muted-foreground py-4">Žiadne priradené spoločnosti</div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Spoločnosť</TableHead>
-                  <TableHead>Kód</TableHead>
-                  <TableHead>Špecializácia</TableHead>
-                  <TableHead className="text-right">Akcie</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(linkedCompanies || []).map((link: any) => (
-                  <TableRow key={link.id}>
-                    <TableCell className="font-medium" data-testid={`text-linked-company-${link.id}`}>{link.company?.name || "–"}</TableCell>
-                    <TableCell><Badge variant="secondary">{link.company?.code || "–"}</Badge></TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{link.company?.specialization || "–"}</TableCell>
-                    <TableCell className="text-right">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button size="icon" variant="ghost" onClick={() => removeMutation.mutate(link.id)} data-testid={`button-remove-company-link-${link.id}`}>
-                            <Unlink className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Odstrániť prepojenie</TooltipContent>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
