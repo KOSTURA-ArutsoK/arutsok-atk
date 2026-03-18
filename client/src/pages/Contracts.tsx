@@ -3540,7 +3540,7 @@ export default function Contracts() {
                   <td className="px-2 py-1.5 whitespace-nowrap font-mono">
                     <span className="flex items-center gap-1">
                       {warnSignedDate && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba dátum uzatvorenia</TooltipContent></Tooltip>}
-                      {(contract as any).signedDate ? new Date((contract as any).signedDate).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}
+                      {(contract as any).signedDate ? new Date((contract as any).signedDate).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\.\s/g, ".") : "—"}
                     </span>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap font-mono">
@@ -3593,9 +3593,9 @@ export default function Contracts() {
                       {specialist ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="font-mono text-primary cursor-default">{formatUidShort(specialist.uid)}</span>
+                            <span className="font-mono text-primary cursor-default text-[11px]">{formatUid(specialist.uid)}</span>
                           </TooltipTrigger>
-                          <TooltipContent className="text-xs">{resolveUidName(specialist.uid)} · <span className="font-mono">{formatUid(specialist.uid)}</span></TooltipContent>
+                          <TooltipContent className="text-xs">{resolveUidName(specialist.uid)}</TooltipContent>
                         </Tooltip>
                       ) : "—"}
                     </span>
@@ -3611,9 +3611,9 @@ export default function Contracts() {
                       {r1 ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="font-mono text-amber-400 cursor-default">{formatUidShort(r1.uid)}</span>
+                            <span className="font-mono text-amber-400 cursor-default text-[11px]">{formatUid(r1.uid)}</span>
                           </TooltipTrigger>
-                          <TooltipContent className="text-xs">{resolveUidName(r1.uid)} · <span className="font-mono">{formatUid(r1.uid)}</span></TooltipContent>
+                          <TooltipContent className="text-xs">{resolveUidName(r1.uid)}</TooltipContent>
                         </Tooltip>
                       ) : "—"}
                     </span>
@@ -3629,9 +3629,9 @@ export default function Contracts() {
                       {r2 ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="font-mono text-amber-300 cursor-default">{formatUidShort(r2.uid)}</span>
+                            <span className="font-mono text-amber-300 cursor-default text-[11px]">{formatUid(r2.uid)}</span>
                           </TooltipTrigger>
-                          <TooltipContent className="text-xs">{resolveUidName(r2.uid)} · <span className="font-mono">{formatUid(r2.uid)}</span></TooltipContent>
+                          <TooltipContent className="text-xs">{resolveUidName(r2.uid)}</TooltipContent>
                         </Tooltip>
                       ) : "—"}
                     </span>
