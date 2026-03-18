@@ -1363,7 +1363,7 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
                   {isPerson ? "FO" : isSzco ? "SZČO" : "PO"}
                 </Badge>
                 {(() => {
-                  const rs = (subject as any).registrationStatus || 'tiper';
+                  const rs = (subject as any).registrationStatus || 'klient';
                   const cfg: Record<string, { label: string; cls: string }> = {
                     potencialny: { label: "Potenciálny", cls: "text-[10px] border-gray-400/50 text-gray-400" },
                     tiper: { label: "Tipér", cls: "text-[10px] border-blue-500/50 text-blue-500" },

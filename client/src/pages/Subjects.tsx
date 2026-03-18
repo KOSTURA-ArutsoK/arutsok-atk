@@ -1582,7 +1582,7 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
               </h2>
               <span className="text-xs font-mono text-muted-foreground shrink-0">{formatUid(subject.uid)}</span>
               {(() => {
-                const rs = (displaySubject as any).registrationStatus || 'tiper';
+                const rs = (displaySubject as any).registrationStatus || 'klient';
                 const cfg: Record<string, { label: string; cls: string }> = {
                   potencialny: { label: "Potenciálny", cls: "text-[10px] border-gray-400/50 text-gray-400" },
                   tiper: { label: "Tipér", cls: "text-[10px] border-blue-500/50 text-blue-500" },
@@ -4922,7 +4922,7 @@ export default function Subjects() {
                         </TableCell>}
                         {columnVisibility.isVisible("registrationStatus") && <TableCell className="align-middle">
                           {(() => {
-                            const rs = (subject as any).registrationStatus || 'tiper';
+                            const rs = (subject as any).registrationStatus || 'klient';
                             const config = REGISTRATION_STATUS_LABELS[rs] || REGISTRATION_STATUS_LABELS.tiper;
                             return <Badge variant={config.variant} className={config.className} data-testid={`badge-registration-status-${subject.id}`}>{config.label}</Badge>;
                           })()}

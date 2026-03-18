@@ -1355,7 +1355,7 @@ export async function registerRoutes(
             companyName: created.name,
             myCompanyId: created.id,
             stateId: created.stateId ?? null,
-            registrationStatus: "tiper",
+            registrationStatus: "klient",
             lifecycleStatus: "active",
             isActive: true,
           } as any).returning({ id: subjects.id });
@@ -1478,7 +1478,7 @@ export async function registerRoutes(
           stateId: req.appUser?.activeStateId || null,
           myCompanyId: req.appUser?.activeCompanyId || null,
           registeredByUserId: req.appUser?.id || null,
-          registrationStatus: 'tiper',
+          registrationStatus: 'klient',
           birthNumber: encryptField(bnRaw.replace(/\//g, '').replace(/\s/g, '').trim()),
           details: { source: 'manual_statutory', officerId: officer.id, officerType: type },
         };
@@ -1570,7 +1570,7 @@ export async function registerRoutes(
               stateId: req.appUser?.activeStateId || null,
               myCompanyId: req.appUser?.activeCompanyId || null,
               registeredByUserId: req.appUser?.id || null,
-              registrationStatus: 'tiper',
+              registrationStatus: 'klient',
               birthNumber: encrypted,
               details: { source: 'officer_edit', officerId, officerType: updated.type },
             } as any);
@@ -1753,7 +1753,7 @@ export async function registerRoutes(
         stateId: req.appUser?.activeStateId || officer.stateId || null,
         myCompanyId: req.appUser?.activeCompanyId || null,
         registeredByUserId: req.appUser?.id || null,
-        registrationStatus: 'tiper',
+        registrationStatus: 'klient',
         details: { source: 'statutory_registration', officerId: officer.id, officerType: officer.type },
         birthNumber: encryptField(bnRaw.replace(/\//g, '').replace(/\s/g, '').trim()),
       };
@@ -1877,7 +1877,7 @@ export async function registerRoutes(
         stateId: req.appUser?.activeStateId || null,
         myCompanyId: req.appUser?.activeCompanyId || null,
         registeredByUserId: req.appUser?.id || null,
-        registrationStatus: 'tiper',
+        registrationStatus: 'klient',
         details: { source: 'registry_statutory', officerId: created.id, officerType: role },
         birthNumber: encryptField(bnRaw.replace(/\//g, '').replace(/\s/g, '').trim()),
       };
@@ -2665,16 +2665,7 @@ export async function registerRoutes(
       }
 
       if (!input.registrationStatus) {
-        const hasName = !!(input.firstName || input.companyName);
-        const hasContact = !!(input.email || input.phone);
-        const hasType = !!(input.type && input.type !== '');
-        if (hasType && hasName) {
-          input.registrationStatus = 'tiper';
-        } else if (hasName && hasContact) {
-          input.registrationStatus = 'potencialny';
-        } else {
-          input.registrationStatus = 'tiper';
-        }
+        input.registrationStatus = 'klient';
       }
 
       if (input.firstName) input.firstName = capitalizeName(input.firstName) ?? input.firstName;
