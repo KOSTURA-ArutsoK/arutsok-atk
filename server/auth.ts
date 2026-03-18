@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
 import { appUsers, subjects, auditLogs, appUserLoginHistory } from "@shared/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, gte } from "drizzle-orm";
 
 declare module "express-session" {
   interface SessionData {
@@ -124,8 +124,13 @@ export async function setupAuth(app: Express) {
         req.session.loginStep = "done";
         const loginNow = new Date();
         const ipAddr = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
-        await db.update(appUsers).set({ lastLoginAt: loginNow }).where(eq(appUsers.id, user.id));
-        await db.insert(appUserLoginHistory).values({ appUserId: user.id, loginAt: loginNow, ipAddress: ipAddr });
+        const tenSecsAgo = new Date(loginNow.getTime() - 10000);
+        const [recent] = await db.select().from(appUserLoginHistory)
+          .where(and(eq(appUserLoginHistory.appUserId, user.id), gte(appUserLoginHistory.loginAt, tenSecsAgo)));
+        if (!recent) {
+          await db.update(appUsers).set({ lastLoginAt: loginNow }).where(eq(appUsers.id, user.id));
+          await db.insert(appUserLoginHistory).values({ appUserId: user.id, loginAt: loginNow, ipAddress: ipAddr });
+        }
       }
 
       req.session.save((err) => {
@@ -284,8 +289,13 @@ export async function setupAuth(app: Express) {
       req.session.loginStep = "done";
       const loginNow2 = new Date();
       const ipAddr2 = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
-      await db.update(appUsers).set({ lastLoginAt: loginNow2 }).where(eq(appUsers.id, userId));
-      await db.insert(appUserLoginHistory).values({ appUserId: userId, loginAt: loginNow2, ipAddress: ipAddr2 });
+      const tenSecsAgo2 = new Date(loginNow2.getTime() - 10000);
+      const [recent2] = await db.select().from(appUserLoginHistory)
+        .where(and(eq(appUserLoginHistory.appUserId, userId), gte(appUserLoginHistory.loginAt, tenSecsAgo2)));
+      if (!recent2) {
+        await db.update(appUsers).set({ lastLoginAt: loginNow2 }).where(eq(appUsers.id, userId));
+        await db.insert(appUserLoginHistory).values({ appUserId: userId, loginAt: loginNow2, ipAddress: ipAddr2 });
+      }
       req.session.save((err) => {
         if (err) {
           return res.status(500).json({ message: "Chyba session" });
