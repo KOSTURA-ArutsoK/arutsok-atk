@@ -7624,8 +7624,14 @@ export async function registerRoutes(
           companyName: subjects.companyName,
           type: subjects.type,
           myCompanyId: subjects.myCompanyId,
+          myCompanyName: myCompanies.name,
+          isDeceased: subjects.isDeceased,
+          isActive: subjects.isActive,
+          lifecycleStatus: subjects.lifecycleStatus,
+          contractCount: sql<number>`(SELECT COUNT(*) FROM contracts WHERE contracts.subject_id = ${subjects.id} AND contracts.deleted_at IS NULL)`,
         })
         .from(subjects)
+        .leftJoin(myCompanies, eq(subjects.myCompanyId, myCompanies.id))
         .where(and(
           isNull(subjects.deletedAt),
           sql`${subjects.type} != 'system'`,

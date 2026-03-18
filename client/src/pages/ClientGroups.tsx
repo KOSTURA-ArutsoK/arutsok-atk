@@ -1053,13 +1053,18 @@ export default function ClientGroups() {
     id: number; uid: string | null;
     titleBefore: string | null; firstName: string | null; lastName: string | null;
     titleAfter: string | null; companyName: string | null; type: string;
-    myCompanyId: number | null; groups: string[];
+    myCompanyId: number | null; myCompanyName: string | null;
+    isDeceased: boolean | null; isActive: boolean | null;
+    lifecycleStatus: string | null; contractCount: number;
+    groups: string[];
   };
   const { data: stateOverview, isLoading: stateOverviewLoading } = useQuery<StateOverviewSubject[]>({
     queryKey: ["/api/subjects/state-overview"],
     queryFn: () => fetch("/api/subjects/state-overview", { credentials: "include" }).then(r => r.json()),
     enabled: isAdminUser,
   });
+  const [stateOverviewOpen, setStateOverviewOpen] = useState(false);
+  const [stateOverviewSearch, setStateOverviewSearch] = useState("");
 
   const { data: permGroupsData } = useQuery<PermissionGroup[]>({
     queryKey: ["/api/permission-groups"],
@@ -1400,57 +1405,26 @@ export default function ClientGroups() {
               onToggle={() => toggleSection("vsetky_subjekty")}
               tooltip="Táto sekcia je prístupná iba pre administrátorov. Zobrazuje VŠETKY subjekty v aktuálnom štáte naprieč všetkými spoločnosťami — bez ohľadu na aktívnu spoločnosť. Slúži na globálny prehľad a audit."
             >
-              <Table className="w-full">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-36 font-mono">UID</TableHead>
-                    <TableHead>Meno / Názov</TableHead>
-                    <TableHead>Skupiny</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {stateOverviewLoading && (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center py-6">
-                        <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {!stateOverviewLoading && (stateOverview || []).map(s => {
-                    const fullName = s.type === "company"
-                      ? (s.companyName || "—")
-                      : [s.titleBefore, s.firstName, s.lastName, s.titleAfter].filter(Boolean).join(" ") || "—";
-                    return (
-                      <TableRow
-                        key={s.id}
-                        data-testid={`row-state-subject-${s.id}`}
-                        className="cursor-pointer hover:bg-muted/40 transition-colors"
-                        onClick={() => navigate(`/subjects/${s.id}`)}
-                      >
-                        <TableCell className="w-36 font-mono text-[11px] text-muted-foreground">
-                          {s.uid ? formatUid(s.uid) : "—"}
-                        </TableCell>
-                        <TableCell className="font-medium text-sm">{fullName}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {s.groups.length === 0
-                              ? <span className="text-muted-foreground text-xs">—</span>
-                              : s.groups.map((g, i) => (
-                                <Badge key={i} variant="outline" className="text-[9px] h-4 border-green-600/40 text-green-400">{g}</Badge>
-                              ))
-                            }
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {!stateOverviewLoading && (stateOverview || []).length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground py-6 text-sm">Žiadne subjekty v tomto štáte</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/10">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  {stateOverviewLoading
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /><span>Načítavam...</span></>
+                    : <span><span className="font-semibold text-foreground">{(stateOverview || []).length}</span> subjektov v štáte</span>
+                  }
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs px-3 gap-1.5 border-green-600/40 text-green-400 hover:bg-green-600/10 hover:text-green-300"
+                  onClick={() => setStateOverviewOpen(true)}
+                  data-testid="button-open-state-overview"
+                  disabled={stateOverviewLoading}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  Zobraziť všetky subjekty
+                </Button>
+              </div>
             </SectionCard>
           )}
 
@@ -1485,6 +1459,138 @@ export default function ClientGroups() {
       </AlertDialog>
 
       <PartnerGroupDialog open={partnerGroupOpen} onOpenChange={setPartnerGroupOpen} activeDivisionId={activeDivisionId} />
+
+      {/* ── STATE OVERVIEW MODAL ── */}
+      <Dialog open={stateOverviewOpen} onOpenChange={setStateOverviewOpen}>
+        <DialogContent className="w-[85vw] max-w-[85vw] h-[85vh] max-h-[85vh] flex flex-col gap-0 p-0">
+          <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest">
+              <Shield className="w-4 h-4 text-green-500" />
+              Všetky subjekty v štáte
+              {stateOverview && (
+                <Badge variant="secondary" className="ml-2 text-[10px]">{stateOverview.length}</Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="px-4 py-2 border-b border-border shrink-0 bg-muted/20">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Hľadať podľa mena, UID, firmy..."
+                value={stateOverviewSearch}
+                onChange={e => setStateOverviewSearch(e.target.value)}
+                className="pl-8 h-8 text-xs"
+                data-testid="input-state-overview-search"
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-auto">
+            <Table>
+              <TableHeader className="sticky top-0 bg-background z-10">
+                <TableRow className="h-9">
+                  <TableHead className="w-8 px-3"></TableHead>
+                  <TableHead className="w-36 font-mono text-xs">UID</TableHead>
+                  <TableHead className="text-xs">Meno / Názov</TableHead>
+                  <TableHead className="w-16 text-center text-xs">Typ</TableHead>
+                  <TableHead className="w-40 text-xs">Spravujúca firma</TableHead>
+                  <TableHead className="text-xs">Skupiny</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stateOverviewLoading && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-12">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!stateOverviewLoading && (() => {
+                  const q = stateOverviewSearch.toLowerCase().trim();
+                  const filtered = (stateOverview || []).filter(s => {
+                    if (!q) return true;
+                    const name = s.type === "company" || s.type === "szco"
+                      ? (s.companyName || "")
+                      : [s.titleBefore, s.firstName, s.lastName, s.titleAfter].filter(Boolean).join(" ");
+                    return (
+                      name.toLowerCase().includes(q) ||
+                      (s.uid || "").includes(q) ||
+                      (s.myCompanyName || "").toLowerCase().includes(q) ||
+                      s.groups.some(g => g.toLowerCase().includes(q))
+                    );
+                  });
+                  if (filtered.length === 0) return (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-sm">
+                        {q ? `Žiadne výsledky pre „${q}"` : "Žiadne subjekty v tomto štáte"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                  return filtered.map(s => {
+                    const fullName = s.type === "company"
+                      ? (s.companyName || "—")
+                      : s.type === "szco"
+                        ? (s.companyName || [s.firstName, s.lastName].filter(Boolean).join(" ") || "—")
+                        : [s.titleBefore, s.firstName, s.lastName, s.titleAfter].filter(Boolean).join(" ") || "—";
+                    const isDeceased = !!s.isDeceased;
+                    const isInactive = s.isActive === false;
+                    const hasNoContract = !isDeceased && !isInactive && Number(s.contractCount ?? 0) === 0;
+                    const statusDot = isDeceased
+                      ? { cls: "bg-black dark:bg-gray-200", title: "Zosnulý" }
+                      : isInactive
+                        ? { cls: "bg-red-500", title: "Neaktívny" }
+                        : hasNoContract
+                          ? { cls: "bg-blue-500", title: "Bez zmluvy" }
+                          : { cls: "bg-emerald-500", title: "Aktívny" };
+                    const typeLabel = s.type === "person" ? "FO" : s.type === "szco" ? "SZCO" : s.type === "company" ? "PO" : s.type.toUpperCase();
+                    const typeCls = s.type === "person"
+                      ? "border-violet-500/50 text-violet-400"
+                      : s.type === "szco"
+                        ? "border-amber-500/50 text-amber-400"
+                        : "border-blue-500/50 text-blue-400";
+                    return (
+                      <TableRow
+                        key={s.id}
+                        data-testid={`row-state-overview-${s.id}`}
+                        className="h-10 cursor-pointer hover:bg-muted/40 transition-colors"
+                        onClick={() => { setStateOverviewOpen(false); navigate(`/subjects/${s.id}`); }}
+                      >
+                        <TableCell className="px-3 py-0">
+                          <div
+                            className={`w-2.5 h-2.5 rounded-full ${statusDot.cls} shrink-0`}
+                            title={statusDot.title}
+                          />
+                        </TableCell>
+                        <TableCell className="font-mono text-[11px] text-muted-foreground py-0">
+                          {s.uid ? formatUid(s.uid) : "—"}
+                        </TableCell>
+                        <TableCell className="font-medium text-sm py-0">{fullName}</TableCell>
+                        <TableCell className="text-center py-0">
+                          <Badge variant="outline" className={`text-[9px] h-4 ${typeCls}`}>{typeLabel}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground py-0 max-w-[160px] truncate">
+                          {s.myCompanyName || "—"}
+                        </TableCell>
+                        <TableCell className="py-1">
+                          <div className="flex flex-wrap gap-1">
+                            {s.groups.length === 0
+                              ? <span className="text-muted-foreground text-xs">—</span>
+                              : s.groups.map((g, i) => (
+                                <Badge key={i} variant="outline" className="text-[9px] h-4 border-green-600/30 text-green-400/80">{g}</Badge>
+                              ))
+                            }
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  });
+                })()}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
