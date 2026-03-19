@@ -25,17 +25,17 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
 
   const theme = isDark
     ? {
-        bg: "linear-gradient(145deg, #232323, #3a3a3a)",
-        shadowRest: "10px 10px 20px #1a1a1a, -10px -10px 20px #3e3e3e",
-        shadowPressed: "inset 5px 5px 10px #151515, inset -3px -3px 8px #3e3e3e",
-        textColor: "#b0b0b0",
-        globeOpacity: 0.45,
+        bg: "linear-gradient(145deg, #0e2a4a, #1c4278)",
+        shadowRest: "10px 10px 20px #091d35, -10px -10px 20px #1e4a8e",
+        shadowPressed: "inset 5px 5px 10px #091d35, inset -3px -3px 8px #1e4a8e",
+        textColor: "#a0bcd8",
+        globeOpacity: 0.6,
       }
     : {
-        bg: "linear-gradient(145deg, #e2e2e2, #f8f8f8)",
-        shadowRest: "10px 10px 20px #bebebe, -10px -10px 20px #ffffff",
-        shadowPressed: "inset 5px 5px 10px #bebebe, inset -3px -3px 8px #ffffff",
-        textColor: "#555555",
+        bg: "linear-gradient(145deg, #c8d8ed, #e8f2fc)",
+        shadowRest: "10px 10px 20px #a5b8d0, -10px -10px 20px #ffffff",
+        shadowPressed: "inset 5px 5px 10px #a5b8d0, inset -3px -3px 8px #ffffff",
+        textColor: "#2a5080",
         globeOpacity: 0.55,
       };
 
@@ -73,8 +73,8 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
             style={{
               width: 36,
               height: 36,
-              color: "#3b9ede",
-              filter: `drop-shadow(0 0 6px rgba(59,158,222,${theme.globeOpacity}))`,
+              color: "#FFBF00",
+              filter: `drop-shadow(0 0 6px rgba(255,191,0,${theme.globeOpacity}))`,
             }}
           />
           <span
@@ -85,8 +85,8 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
               fontWeight: 800,
               fontSize: 18,
               lineHeight: 1,
-              color: "#3b9ede",
-              filter: "drop-shadow(0 0 5px #3b9ede)",
+              color: "#FFBF00",
+              filter: "drop-shadow(0 0 5px #FFBF00)",
             }}
           >
             +
