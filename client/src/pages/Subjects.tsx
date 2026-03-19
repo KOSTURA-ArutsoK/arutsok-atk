@@ -43,6 +43,7 @@ import { getFieldsForClientTypeId, getSectionsForClientTypeId, getPanelsForClien
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { InternationalPhoneInput } from "@/components/ui/international-phone-input";
+import { PhoneInput } from "@/components/phone-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTableSort } from "@/hooks/use-table-sort";
@@ -2384,11 +2385,11 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
       ) : field.fieldType === "phone" ? (
-        <Input
-          type="tel"
+        <PhoneInput
           value={dynamicValues[field.fieldKey] || ""}
-          onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: normalizePhone(e.target.value) || e.target.value }))}
-          className={errorBorder}
+          onChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+          initialDialCode={allStates?.find(s => s.id === appUser?.activeStateId)?.code}
+          error={!!errorBorder}
           data-testid={`input-dynamic-${field.fieldKey}`}
         />
       ) : field.fieldType === "iban" ? (
@@ -3873,10 +3874,10 @@ function FullPageEditor({
                                     <div className="space-y-1 flex-1 min-w-[160px]">
                                       <Label className="text-xs text-muted-foreground">{contact.type === "phone" ? "Telefónne číslo" : "Emailová adresa"} {contact.isPrimary ? "*" : ""}</Label>
                                       {contact.type === "phone" ? (
-                                        <InternationalPhoneInput
+                                        <PhoneInput
                                           value={contact.value}
                                           onChange={val => setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, value: val } : c))}
-                                          dialCode={allStates?.find(s => s.id === appUser?.activeStateId)?.code}
+                                          initialDialCode={allStates?.find(s => s.id === appUser?.activeStateId)?.code}
                                           data-testid={`input-contact-value-${cIdx}`}
                                         />
                                       ) : (
@@ -4012,7 +4013,13 @@ function FullPageEditor({
                     <FormField control={form.control} name="phone" render={({ field }) => (
                       <FormItem className="w-[200px] min-w-[160px] shrink-0">
                         <FormLabel>Telefón</FormLabel>
-                        <FormControl><Input type="tel" {...field} value={field.value || ""} onChange={e => field.onChange(normalizePhone(e.target.value) || e.target.value)} data-testid="input-subject-phone" /></FormControl>
+                        <PhoneInput
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          initialDialCode={allStates?.find(s => s.id === appUser?.activeStateId)?.code}
+                          data-testid="input-subject-phone"
+                        />
                         <FormMessage />
                       </FormItem>
                     )} />

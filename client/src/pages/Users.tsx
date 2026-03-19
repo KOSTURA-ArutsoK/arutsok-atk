@@ -45,6 +45,7 @@ import type { AppUser, PermissionGroup, ClientGroup } from "@shared/schema";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { HelpIcon } from "@/components/help-icon";
 import { useAppUser } from "@/hooks/use-app-user";
+import { useStates } from "@/hooks/use-hierarchy";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -157,6 +158,7 @@ function UserFormDialog({
 }) {
   const { toast } = useToast();
   const { data: currentUser } = useAppUser();
+  const { data: allStates } = useStates();
   const [form, setForm] = useState<UserFormData>(emptyForm);
   const timerRef = useRef<number>(0);
   const canEditSecurity = currentUser?.role === 'admin' || currentUser?.role === 'superadmin' || currentUser?.role === 'architekt' || currentUser?.role === 'prezident';
@@ -351,6 +353,7 @@ function UserFormDialog({
                 <PhoneInput
                   value={form.phone}
                   onChange={val => setForm(f => ({ ...f, phone: val }))}
+                  initialDialCode={allStates?.find(s => s.id === currentUser?.activeStateId)?.code}
                   data-testid="input-user-phone"
                 />
               </div>

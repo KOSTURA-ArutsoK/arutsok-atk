@@ -4,6 +4,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContacts, usePartnerProducts, useCreatePartnerContact, useCreatePartnerProduct, useUpdatePartnerLifecycleStatus } from "@/hooks/use-partners";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
+import { useStates } from "@/hooks/use-hierarchy";
+import { PhoneInput } from "@/components/phone-input";
 import { formatDateSlovak, formatPhone, formatUid, canCreateRecords, canEditRecords, canDeleteRecords, normalizePhone } from "@/lib/utils";
 import { Plus, Briefcase, Pencil, Trash2, Clock, Users, Package, Calendar, Archive, MapPin, Circle, FastForward, Play, Pause, Upload, Square, FileText } from "lucide-react";
 import type { PartnerContract } from "@shared/schema";
@@ -146,6 +148,7 @@ function PartnerUnifiedDialog({
   const lifecycleMutation = useUpdatePartnerLifecycleStatus();
   const { data: allPartners } = usePartners();
   const { data: appUser } = useAppUser();
+  const { data: allStates } = useStates();
   const { data: myCompanies } = useMyCompanies();
   const timerRef = useRef<number>(0);
   const [notesHtml, setNotesHtml] = useState("");
@@ -705,7 +708,7 @@ function PartnerUnifiedDialog({
                     <Input placeholder="Meno" value={newContactFirst} onChange={e => setNewContactFirst(e.target.value)} data-testid="input-contact-first" />
                     <Input placeholder="Priezvisko" value={newContactLast} onChange={e => setNewContactLast(e.target.value)} data-testid="input-contact-last" />
                     <Input placeholder="Email" value={newContactEmail} onChange={e => setNewContactEmail(e.target.value)} data-testid="input-contact-email" />
-                    <Input placeholder="Telefon" value={newContactPhone} onChange={e => setNewContactPhone(normalizePhone(e.target.value) || e.target.value)} data-testid="input-contact-phone" />
+                    <PhoneInput value={newContactPhone} onChange={val => setNewContactPhone(val)} initialDialCode={allStates?.find(s => s.id === appUser?.activeStateId)?.code} data-testid="input-contact-phone" />
                     <Input placeholder="Pozicia" value={newContactPosition} onChange={e => setNewContactPosition(e.target.value)} data-testid="input-contact-position" />
                     <div className="flex flex-col gap-1">
                       <label className="text-xs text-muted-foreground">Aktivny od</label>

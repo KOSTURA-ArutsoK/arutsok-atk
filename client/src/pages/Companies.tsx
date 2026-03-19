@@ -3,6 +3,7 @@ import DOMPurify from "dompurify";
 import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyCompany } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
+import { PhoneInput } from "@/components/phone-input";
 import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, ChevronRight, Phone, Mail, GitBranch, Info, UserCheck, UserPlus, Users, Camera, UserCog, Archive } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -1337,7 +1338,7 @@ function CompanyFormDialog({
                       </div>
                       {branchPhones.map((ph, i) => (
                         <div key={i} className="flex gap-2">
-                          <Input placeholder={`Telefón ${i + 1}`} value={ph} onChange={e => setBranchPhones(prev => prev.map((p, j) => j === i ? e.target.value : p))} data-testid={`input-branch-phone-${i}`} />
+                          <PhoneInput value={ph} onChange={val => setBranchPhones(prev => prev.map((p, j) => j === i ? val : p))} initialDialCode={allStates?.find(s => s.id === appUser?.activeStateId)?.code} data-testid={`input-branch-phone-${i}`} />
                           <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-destructive hover:text-destructive" onClick={() => setBranchPhones(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-branch-phone-${i}`}><X className="w-3.5 h-3.5" /></Button>
                         </div>
                       ))}
@@ -1478,7 +1479,7 @@ function CompanyFormDialog({
                             </div>
                             {empPhones.map((ph, i) => (
                               <div key={i} className="flex gap-2">
-                                <Input placeholder={`Telefón ${i + 1}`} value={ph} onChange={e => setEmpPhones(prev => prev.map((p, j) => j === i ? e.target.value : p))} className="text-sm" data-testid={`input-emp-phone-${i}`} />
+                                <PhoneInput value={ph} onChange={val => setEmpPhones(prev => prev.map((p, j) => j === i ? val : p))} initialDialCode={allStates?.find(s => s.id === appUser?.activeStateId)?.code} data-testid={`input-emp-phone-${i}`} />
                                 <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-destructive hover:text-destructive" onClick={() => setEmpPhones(prev => prev.filter((_, j) => j !== i))} data-testid={`button-remove-emp-phone-${i}`}><X className="w-3 h-3" /></Button>
                               </div>
                             ))}

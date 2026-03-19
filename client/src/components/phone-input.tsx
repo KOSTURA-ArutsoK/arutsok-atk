@@ -248,6 +248,14 @@ export const COUNTRIES: Country[] = [
   { name: "Zimbabwe", code: "ZW", dialCode: "+263", flag: "🇿🇼" },
 ];
 
+const SK_COUNTRY = COUNTRIES.find(c => c.code === "SK")!;
+
+function detectCountryFromDialCode(dialCode: string): Country {
+  const normalized = dialCode.startsWith('+') ? dialCode : `+${dialCode}`;
+  const sorted = [...COUNTRIES].sort((a, b) => b.dialCode.length - a.dialCode.length);
+  return sorted.find(c => c.dialCode === normalized) ?? SK_COUNTRY;
+}
+
 function detectCountry(phone: string): Country {
   const normalized = normalizePhone(phone);
   if (normalized.startsWith('+')) {
@@ -256,7 +264,7 @@ function detectCountry(phone: string): Country {
       if (normalized.startsWith(c.dialCode)) return c;
     }
   }
-  return COUNTRIES.find(c => c.code === "SK")!;
+  return SK_COUNTRY;
 }
 
 function extractLocal(phone: string, dialCode: string): string {
@@ -267,6 +275,14 @@ function extractLocal(phone: string, dialCode: string): string {
   return normalized.startsWith('+') ? normalized.slice(dialCode.length) : normalized;
 }
 
+function formatLocalDisplay(digits: string): string {
+  if (!digits) return '';
+  const clean = digits.replace(/\D/g, '');
+  if (clean.length <= 3) return clean;
+  if (clean.length <= 6) return `${clean.slice(0, 3)} ${clean.slice(3)}`;
+  return `${clean.slice(0, 3)} ${clean.slice(3, 6)} ${clean.slice(6, 9)}`;
+}
+
 interface PhoneInputProps {
   value: string;
   onChange: (val: string) => void;
@@ -275,23 +291,49 @@ interface PhoneInputProps {
   "data-testid"?: string;
   disabled?: boolean;
   className?: string;
+  initialDialCode?: string;
+  error?: boolean;
 }
 
-export function PhoneInput({ value, onChange, onBlur, placeholder, "data-testid": testId, disabled, className }: PhoneInputProps) {
+export function PhoneInput({ value, onChange, onBlur, placeholder, "data-testid": testId, disabled, className, initialDialCode, error }: PhoneInputProps) {
+  const getInitialCountry = (): Country => {
+    if (value) return detectCountry(value);
+    if (initialDialCode) return detectCountryFromDialCode(initialDialCode);
+    return SK_COUNTRY;
+  };
+
   const [open, setOpen] = useState(false);
-  const [country, setCountry] = useState<Country>(() => detectCountry(value));
-  const [localNumber, setLocalNumber] = useState(() => extractLocal(value, detectCountry(value).dialCode));
+  const [country, setCountry] = useState<Country>(getInitialCountry);
+  const [localNumber, setLocalNumber] = useState(() => {
+    const c = getInitialCountry();
+    return extractLocal(value, c.dialCode);
+  });
   const [search, setSearch] = useState("");
+  const [isInvalid, setIsInvalid] = useState(false);
   const prevValueRef = useRef(value);
 
   useEffect(() => {
     if (value !== prevValueRef.current) {
       prevValueRef.current = value;
-      const c = detectCountry(value);
-      setCountry(c);
-      setLocalNumber(extractLocal(value, c.dialCode));
+      if (value) {
+        const c = detectCountry(value);
+        setCountry(c);
+        setLocalNumber(extractLocal(value, c.dialCode));
+      } else if (initialDialCode) {
+        const c = detectCountryFromDialCode(initialDialCode);
+        setCountry(c);
+        setLocalNumber('');
+      }
+      setIsInvalid(false);
     }
-  }, [value]);
+  }, [value, initialDialCode]);
+
+  useEffect(() => {
+    if (!value && initialDialCode) {
+      const c = detectCountryFromDialCode(initialDialCode);
+      setCountry(prev => prev.dialCode === c.dialCode ? prev : c);
+    }
+  }, [initialDialCode, value]);
 
   const buildFull = useCallback((c: Country, local: string): string => {
     const digits = local.replace(/\D/g, '');
@@ -303,27 +345,33 @@ export function PhoneInput({ value, onChange, onBlur, placeholder, "data-testid"
     setCountry(c);
     setOpen(false);
     setSearch("");
+    setIsInvalid(false);
     onChange(buildFull(c, localNumber));
   };
 
   const handleLocalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
-    setLocalNumber(raw);
-    onChange(buildFull(country, raw));
+    const digits = raw.replace(/\D/g, '');
+    setLocalNumber(formatLocalDisplay(digits));
+    onChange(buildFull(country, digits));
   };
 
   const handleBlur = () => {
-    const full = buildFull(country, localNumber);
+    const digits = localNumber.replace(/\D/g, '');
+    setIsInvalid(digits.length > 0 && digits.length !== 9);
+    const full = buildFull(country, digits);
     const normalized = normalizePhone(full);
     if (normalized && normalized !== full) {
       const newCountry = detectCountry(normalized);
       const newLocal = extractLocal(normalized, newCountry.dialCode);
       setCountry(newCountry);
-      setLocalNumber(newLocal);
+      setLocalNumber(formatLocalDisplay(newLocal.replace(/\D/g, '')));
       onChange(normalized);
     }
     onBlur?.();
   };
+
+  const showError = isInvalid || error;
 
   const filtered = search.trim()
     ? COUNTRIES.filter(c =>
@@ -341,7 +389,7 @@ export function PhoneInput({ value, onChange, onBlur, placeholder, "data-testid"
             type="button"
             variant="outline"
             disabled={disabled}
-            className="rounded-r-none border-r-0 px-2 font-mono text-sm h-9 shrink-0 gap-1"
+            className={`rounded-r-none border-r-0 px-2 font-mono text-sm h-9 shrink-0 gap-1 ${showError ? 'border-red-500 ring-1 ring-red-500' : ''}`}
             data-testid={testId ? `${testId}-country` : "phone-country-trigger"}
           >
             <span className="text-base leading-none">{country.flag}</span>
@@ -383,7 +431,7 @@ export function PhoneInput({ value, onChange, onBlur, placeholder, "data-testid"
         onBlur={handleBlur}
         placeholder={placeholder ?? "9XX XXX XXX"}
         disabled={disabled}
-        className="rounded-l-none font-mono h-9"
+        className={`rounded-l-none font-mono h-9 ${showError ? 'border-red-500 ring-1 ring-red-500 focus-visible:ring-red-500' : ''}`}
         data-testid={testId ?? "phone-input"}
       />
     </div>
