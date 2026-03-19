@@ -372,7 +372,15 @@ function CountryPickerDialog({
           </div>
           {/* Country list — fills remaining dialog height */}
           <div className="flex-1 min-h-0 border border-border rounded-md overflow-y-auto">
-            {filtered.length === 0 ? (
+            {filtered.length === 0 && pickerContinent === "Antarktída" ? (
+              <div className="flex items-start gap-3 text-sm text-muted-foreground p-5">
+                <span className="text-2xl leading-none mt-0.5 shrink-0">🧊</span>
+                <div className="space-y-1">
+                  <p className="font-medium text-foreground">Antarktída nemá žiadne suverénne štáty</p>
+                  <p>Antarktída je medzinárodne neutrálne územie spravované Antarktickou zmluvou z roku 1959, ktorú podpísalo 54 krajín. Zmluva zakazuje vojenské aktivity, ťažbu nerastných surovín a zakladanie stálych osídlení. Na kontinente existuje len niekoľko vedeckých staníc prevádzkovaných rôznymi krajinami, ale žiadna z nich nemá štatút suverénneho štátu ani územia so sídlom vlády.</p>
+                </div>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">Žiadna krajina nenájdená</div>
             ) : (
               <div className="divide-y divide-border">
