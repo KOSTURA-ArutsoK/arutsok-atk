@@ -291,33 +291,33 @@ export function ContextSelectorOverlay({
                         style={{ transition: "fill 0.2s ease, stroke 0.2s ease" }}
                       />
                     </svg>
-                    <div style={{
+                    <span style={{
                       position: "absolute",
-                      top: 0, left: 0, right: 0, bottom: 0,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "flex-end",
-                      paddingBottom: 38,
-                      gap: 5,
+                      top: 82,
+                      left: 0,
+                      right: 0,
+                      textAlign: "center",
+                      fontSize: 30,
+                      lineHeight: 1,
                     }}>
-                      <span style={{ fontSize: 28, lineHeight: 1 }}>
-                        {divEmoji || "🌲"}
-                      </span>
-                      <span style={{
-                        fontFamily: "sans-serif",
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: isHov ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.70)",
-                        textAlign: "center",
-                        lineHeight: 1.3,
-                        maxWidth: 110,
-                        wordBreak: "break-word",
-                        transition: "color 0.2s ease",
-                      }}>
-                        {divName}
-                      </span>
-                    </div>
+                      {divEmoji || "🌲"}
+                    </span>
+                    <span style={{
+                      position: "absolute",
+                      top: 120,
+                      left: 20,
+                      right: 20,
+                      fontFamily: "sans-serif",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: isHov ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.70)",
+                      textAlign: "center",
+                      lineHeight: 1.3,
+                      wordBreak: "break-word",
+                      transition: "color 0.2s ease",
+                    }}>
+                      {divName}
+                    </span>
                   </button>
                 );
               })}
