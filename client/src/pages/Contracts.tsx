@@ -4970,8 +4970,11 @@ export default function Contracts() {
         if (pnVal) params.set("proposalNumber", pnVal);
         const res = await fetch(`/api/contracts/check-number-duplicates?${params.toString()}`, { credentials: "include" });
         const dupes = await res.json();
-        if (Array.isArray(dupes) && dupes.length > 0) {
-          setPreSelectNumberDuplicates(dupes);
+        const filteredDupes = Array.isArray(dupes)
+          ? dupes.filter((d: any) => d.id !== preSelectEditingContractId)
+          : [];
+        if (filteredDupes.length > 0) {
+          setPreSelectNumberDuplicates(filteredDupes);
           setPreSelectCheckingDuplicates(false);
           return;
         }
