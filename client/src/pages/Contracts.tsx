@@ -5555,7 +5555,18 @@ export default function Contracts() {
       setPreSelectTitleAfter(sub.titleAfter || "");
       setPreSelectBirthNumber(sub.birthNumber || "");
       setPreSelectBusinessName(sub.companyName || "");
-      setPreSelectIco((sub.details as any)?.ico || "");
+      const subIco = (sub.details as any)?.ico || "";
+      setPreSelectIco(subIco);
+      // Naplniť vyhľadávacie pole identifikátorom subjektu
+      if (sub.type === "person") {
+        setPreSelectSubjectSearch(sub.birthNumber || `${sub.firstName || ""} ${sub.lastName || ""}`.trim());
+      } else {
+        setPreSelectSubjectSearch(subIco || sub.companyName || `${sub.firstName || ""} ${sub.lastName || ""}`.trim());
+      }
+      // Pre SZČO/org/štát — zobraziť FO osobu ak existuje
+      if ((sub.type === "szco" || sub.type === "organization" || sub.type === "state") && (sub.firstName || sub.lastName)) {
+        setPreSelectShowNameFields(true);
+      }
     } else {
       setPreSelectSubjectId("");
       setPreSelectSubjectType("person");
@@ -5566,8 +5577,8 @@ export default function Contracts() {
       setPreSelectBirthNumber("");
       setPreSelectBusinessName("");
       setPreSelectIco("");
+      setPreSelectSubjectSearch("");
     }
-    setPreSelectSubjectSearch("");
     setPreSelectClientTypeId("");
 
     // --- Krok 3: odmeny (špecialist + odporúčatelia) ---
@@ -7177,10 +7188,31 @@ export default function Contracts() {
               </div>
             )}
 
+            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && preSelectBusinessName && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded border border-border/40 bg-muted/20">
+                <span className="text-xs text-muted-foreground">{preSelectSubjectType === "szco" ? "Živnosť:" : preSelectSubjectType === "organization" ? "Organizácia:" : "Inštitúcia:"}</span>
+                <span className="text-sm font-medium" data-testid="text-preselect-business-name-readonly">{preSelectBusinessName}</span>
+                {preSelectIco && <span className="text-xs text-muted-foreground font-mono ml-auto">IČO: {preSelectIco}</span>}
+              </div>
+            )}
+
+            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && !preSelectFirstName && !preSelectLastName && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded border border-amber-500/30 bg-amber-500/10">
+                <span className="text-xs text-amber-400" data-testid="text-preselect-no-fo-readonly">Nemáme informácie o FO vlastníkovi</span>
+              </div>
+            )}
+
             {preSelectSubjectId && preSelectSubjectType === "person" && (
               <div className="flex items-center gap-2 px-3 py-2 rounded border border-border/40 bg-muted/20">
                 <span className="text-xs text-muted-foreground">Rodné číslo:</span>
                 <span className="text-sm font-mono" data-testid="text-preselect-rc-readonly">{preSelectBirthNumber || "—"}</span>
+              </div>
+            )}
+
+            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && preSelectBirthNumber && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded border border-border/40 bg-muted/20">
+                <span className="text-xs text-muted-foreground">RČ vlastníka:</span>
+                <span className="text-sm font-mono" data-testid="text-preselect-fo-rc-readonly">{preSelectBirthNumber}</span>
               </div>
             )}
 
