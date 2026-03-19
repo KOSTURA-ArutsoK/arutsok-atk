@@ -71,7 +71,7 @@ export const COUNTRIES: Country[] = [
   { name: "Nemecko", code: "DE", dialCode: "+49" },
   { name: "Ghana", code: "GH", dialCode: "+233" },
   { name: "Grécko", code: "GR", dialCode: "+30" },
-  { name: "Guatemal", code: "GT", dialCode: "+502" },
+  { name: "Guatemala", code: "GT", dialCode: "+502" },
   { name: "Guinea", code: "GN", dialCode: "+224" },
   { name: "Haiti", code: "HT", dialCode: "+509" },
   { name: "Honduras", code: "HN", dialCode: "+504" },
@@ -184,6 +184,57 @@ export const COUNTRIES: Country[] = [
 ];
 
 const SK_COUNTRY = COUNTRIES.find(c => c.code === "SK")!;
+
+const COUNTRY_BY_CODE = Object.fromEntries(COUNTRIES.map(c => [c.code, c]));
+
+const NEIGHBOR_MAP: Record<string, string[]> = {
+  "+421": ["SK", "CZ", "AT", "PL", "HU", "UA"],
+  "+420": ["CZ", "SK", "AT", "DE", "PL"],
+  "+43":  ["AT", "SK", "CZ", "DE", "HU", "SI", "CH", "IT", "LI"],
+  "+48":  ["PL", "SK", "CZ", "DE", "UA", "BY", "LT", "RU"],
+  "+36":  ["HU", "SK", "AT", "UA", "RO", "RS", "HR", "SI"],
+  "+380": ["UA", "SK", "PL", "HU", "RO", "MD", "BY", "RU"],
+  "+49":  ["DE", "AT", "CH", "CZ", "PL", "NL", "BE", "FR", "LU", "DK"],
+  "+33":  ["FR", "BE", "LU", "DE", "CH", "IT", "ES", "AD", "MC"],
+  "+39":  ["IT", "FR", "CH", "AT", "SI", "SM", "VA"],
+  "+34":  ["ES", "FR", "PT", "AD"],
+  "+351": ["PT", "ES"],
+  "+32":  ["BE", "FR", "DE", "LU", "NL"],
+  "+31":  ["NL", "BE", "DE"],
+  "+41":  ["CH", "DE", "FR", "IT", "AT", "LI"],
+  "+386": ["SI", "AT", "IT", "HU", "HR"],
+  "+385": ["HR", "SI", "HU", "RS", "BA", "ME"],
+  "+381": ["RS", "HU", "HR", "BA", "ME", "AL", "MK", "BG", "RO"],
+  "+382": ["ME", "RS", "AL", "HR", "BA"],
+  "+387": ["BA", "HR", "RS", "ME"],
+  "+40":  ["RO", "HU", "UA", "MD", "BG", "RS"],
+  "+373": ["MD", "RO", "UA"],
+  "+359": ["BG", "RO", "RS", "MK", "GR", "TR"],
+  "+30":  ["GR", "BG", "MK", "AL", "TR"],
+  "+355": ["AL", "GR", "MK", "RS", "ME"],
+  "+389": ["MK", "GR", "BG", "RS", "AL"],
+  "+383": ["XK", "RS", "AL", "MK", "ME"],
+  "+7":   ["RU", "UA", "BY", "FI", "EE", "LV", "LT", "PL", "NO", "KZ"],
+  "+375": ["BY", "RU", "UA", "PL", "LT", "LV"],
+  "+370": ["LT", "BY", "RU", "LV", "PL"],
+  "+371": ["LV", "LT", "BY", "RU", "EE"],
+  "+372": ["EE", "LV", "RU", "FI"],
+  "+358": ["FI", "SE", "NO", "RU", "EE"],
+  "+47":  ["NO", "SE", "FI", "RU"],
+  "+46":  ["SE", "NO", "FI", "DK"],
+  "+45":  ["DK", "SE", "NO", "DE"],
+  "+353": ["IE", "GB"],
+  "+44":  ["GB", "IE", "FR"],
+  "+90":  ["TR", "GR", "BG", "GE", "AM", "AZ", "IR", "IQ", "SY"],
+  "+994": ["AZ", "RU", "GE", "AM", "TR", "IR"],
+  "+374": ["AM", "TR", "GE", "AZ", "IR"],
+  "+995": ["GE", "RU", "TR", "AM", "AZ"],
+};
+
+function getNeighborCodes(dialCode: string): string[] {
+  const normalized = dialCode.startsWith('+') ? dialCode : `+${dialCode}`;
+  return NEIGHBOR_MAP[normalized] ?? [];
+}
 
 function flagUrl(code: string): string {
   return `https://flagcdn.com/w20/${code.toLowerCase()}.png`;
@@ -311,6 +362,31 @@ export function PhoneInput({
   const isInvalid = touched && rawDigits.length > 0 && rawDigits.length !== 9;
   const showError = isInvalid || error;
 
+  const neighborCodes = initialDialCode ? getNeighborCodes(initialDialCode) : [];
+  const neighborCountries = neighborCodes
+    .map(code => COUNTRY_BY_CODE[code])
+    .filter(Boolean);
+  const otherCountries = search.trim()
+    ? []
+    : COUNTRIES.filter(c => !neighborCodes.includes(c.code));
+
+  const filteredNeighbors = search.trim()
+    ? neighborCountries.filter(c =>
+        c.name.toLowerCase().includes(search.toLowerCase()) ||
+        c.dialCode.includes(search) ||
+        c.code.toLowerCase().includes(search.toLowerCase())
+      )
+    : neighborCountries;
+
+  const filteredOthers = search.trim()
+    ? COUNTRIES.filter(c =>
+        !neighborCodes.includes(c.code) &&
+        (c.name.toLowerCase().includes(search.toLowerCase()) ||
+         c.dialCode.includes(search) ||
+         c.code.toLowerCase().includes(search.toLowerCase()))
+      )
+    : otherCountries;
+
   const handleCountrySelect = (c: Country) => {
     setCountry(c);
     setOpen(false);
@@ -331,13 +407,19 @@ export function PhoneInput({
     onBlur?.();
   };
 
-  const filtered = search.trim()
-    ? COUNTRIES.filter(c =>
-        c.name.toLowerCase().includes(search.toLowerCase()) ||
-        c.dialCode.includes(search) ||
-        c.code.toLowerCase().includes(search.toLowerCase())
-      )
-    : COUNTRIES;
+  const renderCountryItem = (c: Country) => (
+    <CommandItem
+      key={c.code}
+      value={c.code}
+      onSelect={() => handleCountrySelect(c)}
+      className="flex items-center gap-2 cursor-pointer"
+      data-testid={`phone-country-${c.code}`}
+    >
+      <CountryFlag code={c.code} name={c.name} />
+      <span className="flex-1 text-sm">{c.name}</span>
+      <span className="text-xs text-muted-foreground font-mono">{c.dialCode}</span>
+    </CommandItem>
+  );
 
   return (
     <div className={`flex gap-0 ${className ?? ''}`}>
@@ -362,23 +444,18 @@ export function PhoneInput({
               value={search}
               onValueChange={setSearch}
             />
-            <CommandList className="max-h-64">
+            <CommandList className="max-h-72">
               <CommandEmpty>Žiadna krajina nenájdená</CommandEmpty>
-              <CommandGroup>
-                {filtered.map(c => (
-                  <CommandItem
-                    key={c.code}
-                    value={c.code}
-                    onSelect={() => handleCountrySelect(c)}
-                    className="flex items-center gap-2 cursor-pointer"
-                    data-testid={`phone-country-${c.code}`}
-                  >
-                    <CountryFlag code={c.code} name={c.name} />
-                    <span className="flex-1 text-sm">{c.name}</span>
-                    <span className="text-xs text-muted-foreground font-mono">{c.dialCode}</span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+              {filteredNeighbors.length > 0 && (
+                <CommandGroup heading="Blízke krajiny">
+                  {filteredNeighbors.map(renderCountryItem)}
+                </CommandGroup>
+              )}
+              {filteredOthers.length > 0 && (
+                <CommandGroup heading={search.trim() ? "Výsledky" : "Všetky krajiny"}>
+                  {filteredOthers.map(renderCountryItem)}
+                </CommandGroup>
+              )}
             </CommandList>
           </Command>
         </PopoverContent>
