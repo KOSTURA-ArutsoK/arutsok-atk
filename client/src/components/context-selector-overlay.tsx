@@ -321,10 +321,8 @@ export function ContextSelectorOverlay({
                         textAlign: "center",
                         lineHeight: 1.3,
                         wordBreak: "break-word",
+                        maxHeight: `${3 * 11 * 1.3}px`,
                         overflow: "hidden",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: "vertical",
                         transition: "color 0.2s ease",
                       }}>
                         {divName}
