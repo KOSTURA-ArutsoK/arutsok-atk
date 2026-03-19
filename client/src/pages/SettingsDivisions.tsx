@@ -7,7 +7,8 @@ import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibili
 import { ColumnManager } from "@/components/column-manager";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useMyCompanies } from "@/hooks/use-companies";
-import { Plus, Pencil, Trash2, Smile, ChevronDown, ChevronRight, Building2 } from "lucide-react";
+import { Pencil, Trash2, Smile, ChevronDown, ChevronRight, Building2 } from "lucide-react";
+import { AddDivisionCard } from "@/components/AddDivisionCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -224,7 +225,7 @@ export default function SettingsDivisions() {
             {(div as any).emoji || <span className="text-muted-foreground text-sm">–</span>}
           </TableCell>
         )}
-        {columnVisibility.isVisible("name") && <TableCell className="font-medium pl-7" data-testid={`text-division-name-${div.id}`}>{div.name}</TableCell>}
+        {columnVisibility.isVisible("name") && <TableCell className="font-medium pl-7" data-testid={`text-division-name-${div.id}`}>🌲 {div.name}</TableCell>}
         {columnVisibility.isVisible("code") && <TableCell><Badge variant="secondary" className="font-mono">{div.code || "–"}</Badge></TableCell>}
         {columnVisibility.isVisible("description") && <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{div.description || "–"}</TableCell>}
         {columnVisibility.isVisible("isActive") && <TableCell><Badge variant={div.isActive ? "default" : "secondary"}>{div.isActive ? "Áno" : "Nie"}</Badge></TableCell>}
@@ -261,11 +262,10 @@ export default function SettingsDivisions() {
         </div>
         <div className="flex items-center gap-2">
           <ColumnManager columns={DIVISION_COLUMNS} storageKey="settings-divisions" columnVisibility={columnVisibility} />
-          <Button onClick={openNew} data-testid="button-add-division">
-            <Plus className="w-4 h-4 mr-2" /> Pridať divíziu
-          </Button>
         </div>
       </div>
+
+      <AddDivisionCard onClick={openNew} />
 
       <Card>
         <CardContent className="p-0">

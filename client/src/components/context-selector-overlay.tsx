@@ -268,7 +268,7 @@ export function ContextSelectorOverlay({
                       )}
                     </div>
                     <span className="text-sm font-medium text-white/70 group-hover:text-white transition-colors text-center leading-tight">
-                      {divName}
+                      🌲 {divName}
                     </span>
                   </button>
                 );
