@@ -18,8 +18,6 @@ function useDarkMode() {
   return isDark;
 }
 
-// Equilateral triangle: P1=(80,6) top, P2=(6,134) bottom-left, P3=(154,134) bottom-right
-// Quadratic bezier corners with tangent distance t=25 for smooth rounded vertices
 const TRIANGLE_PATH = "M 92,28 L 141,112 Q 154,134 129,134 L 31,134 Q 6,134 19,112 L 68,28 Q 80,6 92,28 Z";
 
 export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
@@ -51,10 +49,8 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
 
   return (
     <div className="flex flex-col items-center justify-center w-full py-4">
-      <div
-        role="button"
-        tabIndex={0}
-        aria-label="Pridať divíziu"
+      <button
+        type="button"
         data-testid="button-add-division-card"
         onClick={onClick}
         onMouseEnter={() => setHovered(true)}
@@ -63,14 +59,16 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
         onMouseUp={() => setPressed(false)}
         onTouchStart={() => setPressed(true)}
         onTouchEnd={() => setPressed(false)}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
         style={{
           position: "relative",
           width: 160,
           height: 140,
+          background: "none",
+          border: "none",
+          padding: 0,
           cursor: "pointer",
-          userSelect: "none",
           outline: "none",
+          userSelect: "none",
           filter: isActive ? undefined : theme.outerFilter,
           transition: "filter 0.12s ease",
         }}
@@ -86,23 +84,17 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
               <stop offset="0%" stopColor={theme.gradFrom} />
               <stop offset="100%" stopColor={theme.gradTo} />
             </linearGradient>
-
-            {/* Neumorphic inner shadow filter — simulates inset effect on the triangle */}
             <filter id="addDivInner" x="-20%" y="-20%" width="140%" height="140%">
-              {/* Inner shadow 1: dark, offset top-left → appears as shadow from top-left */}
               <feFlood floodColor={theme.inner1Color} floodOpacity="1" result="s1color" />
               <feComposite in="s1color" in2="SourceAlpha" operator="out" result="s1inv" />
               <feGaussianBlur in="s1inv" stdDeviation="5" result="s1blur" />
               <feOffset in="s1blur" dx="5" dy="5" result="s1off" />
               <feComposite in="s1off" in2="SourceAlpha" operator="in" result="s1inner" />
-
-              {/* Inner shadow 2: light/blue, offset bottom-right → highlights the other corner */}
               <feFlood floodColor={theme.inner2Color} floodOpacity={theme.inner2Opacity} result="s2color" />
               <feComposite in="s2color" in2="SourceAlpha" operator="out" result="s2inv" />
               <feGaussianBlur in="s2inv" stdDeviation="4" result="s2blur" />
               <feOffset in="s2blur" dx="-3" dy="-3" result="s2off" />
               <feComposite in="s2off" in2="SourceAlpha" operator="in" result="s2inner" />
-
               <feMerge>
                 <feMergeNode in="SourceGraphic" />
                 <feMergeNode in="s1inner" />
@@ -110,7 +102,6 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
               </feMerge>
             </filter>
           </defs>
-
           <path
             d={TRIANGLE_PATH}
             fill="url(#addDivGrad)"
@@ -134,13 +125,7 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
           }}
         >
           <div style={{ position: "relative", display: "inline-flex" }}>
-            <span
-              style={{
-                fontSize: 30,
-                lineHeight: 1,
-                filter: "drop-shadow(0 0 8px rgba(255,191,0,0.8))",
-              }}
-            >
+            <span style={{ fontSize: 30, lineHeight: 1, filter: "drop-shadow(0 0 8px rgba(255,191,0,0.8))" }}>
               🌲
             </span>
             <span
@@ -172,7 +157,7 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
             Pridať divíziu
           </span>
         </div>
-      </div>
+      </button>
     </div>
   );
 }
