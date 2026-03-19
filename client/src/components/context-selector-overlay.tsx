@@ -246,78 +246,79 @@ export function ContextSelectorOverlay({
           </div>
 
           <div className="overflow-y-auto overflow-x-hidden w-full max-w-3xl py-2" style={{ maxHeight: "calc(90vh - 140px)" }}>
-            <div className="flex flex-wrap items-start justify-center gap-6 p-2">
+            <div className="flex flex-wrap items-start justify-center gap-5 p-2">
               {companyDivisions.map(cd => {
                 const divId = cd.divisionId || cd.division?.id;
                 const divName = cd.division?.name || cd.name || "Divízia";
                 const divEmoji = cd.division?.emoji || cd.emoji;
                 const isDivisionInactive = cd.division?.isActive === false;
                 const isHov = hoveredDivId === divId;
-                const gradId = `ctxDivGrad-${divId}`;
-                const trianglePath = "M 92,28 L 141,112 Q 154,134 129,134 L 31,134 Q 6,134 19,112 L 68,28 Q 80,6 92,28 Z";
+                const triPath = "M 92,28 L 141,112 Q 154,134 129,134 L 31,134 Q 6,134 19,112 L 68,28 Q 80,6 92,28 Z";
                 return (
-                  <div
+                  <button
                     key={divId}
-                    className="flex flex-col items-center gap-2"
-                    style={{ opacity: isDivisionInactive ? 0.5 : 1, filter: isDivisionInactive ? "grayscale(1)" : undefined }}
+                    type="button"
+                    onClick={() => onSelectDivision(divId)}
+                    data-testid={`context-division-${divId}`}
+                    onMouseEnter={() => setHoveredDivId(divId ?? null)}
+                    onMouseLeave={() => setHoveredDivId(null)}
+                    style={{
+                      position: "relative",
+                      width: 128,
+                      height: 144,
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      outline: "none",
+                      userSelect: "none",
+                      opacity: isDivisionInactive ? 0.5 : 1,
+                      filter: isDivisionInactive ? "grayscale(1)" : undefined,
+                      transition: "filter 0.2s ease",
+                    }}
                   >
-                    <button
-                      type="button"
-                      onClick={() => onSelectDivision(divId)}
-                      data-testid={`context-division-${divId}`}
-                      onMouseEnter={() => setHoveredDivId(divId ?? null)}
-                      onMouseLeave={() => setHoveredDivId(null)}
-                      style={{
-                        position: "relative",
-                        width: 120,
-                        height: 105,
-                        background: "none",
-                        border: "none",
-                        padding: 0,
-                        cursor: "pointer",
-                        outline: "none",
-                        userSelect: "none",
-                        filter: isHov
-                          ? "drop-shadow(0 0 14px rgba(56,189,248,0.7)) drop-shadow(0 0 5px rgba(56,189,248,0.4))"
-                          : "drop-shadow(4px 4px 10px rgba(0,0,0,0.6)) drop-shadow(-3px -3px 7px rgba(20,50,130,0.35))",
-                        transition: "filter 0.15s ease",
-                      }}
+                    <svg
+                      width="128"
+                      height="144"
+                      viewBox="0 0 160 140"
+                      style={{ position: "absolute", top: 0, left: 0, display: "block" }}
                     >
-                      <svg
-                        width="120"
-                        height="105"
-                        viewBox="0 0 160 140"
-                        style={{ position: "absolute", top: 0, left: 0, display: "block" }}
-                      >
-                        <defs>
-                          <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor={isHov ? "#0d2a52" : "#0a1f3d"} />
-                            <stop offset="100%" stopColor={isHov ? "#2050a0" : "#1a3f80"} />
-                          </linearGradient>
-                        </defs>
-                        <path d={trianglePath} fill={`url(#${gradId})`} />
-                      </svg>
-                      <div style={{
-                        position: "absolute",
-                        top: 0, left: 0, right: 0, bottom: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        paddingTop: 18,
+                      <path
+                        d={triPath}
+                        fill={isHov ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)"}
+                        stroke={isHov ? "rgba(56,189,248,0.8)" : "rgba(255,255,255,0.10)"}
+                        strokeWidth="1.5"
+                        style={{ transition: "fill 0.2s ease, stroke 0.2s ease" }}
+                      />
+                    </svg>
+                    <div style={{
+                      position: "absolute",
+                      top: 0, left: 0, right: 0, bottom: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                      paddingBottom: 28,
+                      gap: 4,
+                    }}>
+                      <span style={{ fontSize: 22, lineHeight: 1 }}>
+                        {divEmoji || "🌲"}
+                      </span>
+                      <span style={{
+                        fontFamily: "sans-serif",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: isHov ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.70)",
+                        textAlign: "center",
+                        lineHeight: 1.3,
+                        maxWidth: 80,
+                        wordBreak: "break-word",
+                        transition: "color 0.2s ease",
                       }}>
-                        <span style={{
-                          fontSize: 26,
-                          lineHeight: 1,
-                          filter: "sepia(1) saturate(4) hue-rotate(15deg) brightness(1.3) drop-shadow(0 0 6px rgba(255,191,0,0.8))",
-                        }}>
-                          {divEmoji || "🌲"}
-                        </span>
-                      </div>
-                    </button>
-                    <span className="text-sm font-medium text-white/70 text-center leading-tight" style={{ maxWidth: 120 }}>
-                      🌲 {divName}
-                    </span>
-                  </div>
+                        {divName}
+                      </span>
+                    </div>
+                  </button>
                 );
               })}
             </div>
