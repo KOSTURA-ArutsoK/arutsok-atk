@@ -7729,12 +7729,28 @@ export async function registerRoutes(
         _isPartner: true,
       }));
 
-      const subjectsMapped = rows.map(s => ({
-        ...s,
-        groups: memberMap.get(s.id) || [],
-        _isMyCompany: false,
-        _isPartner: false,
-      }));
+      const activeCompanyId = appUser?.activeCompanyId ?? null;
+
+      const subjectsMapped = rows.map(s => {
+        const baseGroups: { name: string; cat: string }[] = memberMap.get(s.id) || [];
+        // If this subject belongs to a DIFFERENT company than the logged-in user's active company
+        // → add an implicit "Externá" badge (external to the current company context)
+        if (
+          activeCompanyId !== null &&
+          s.myCompanyId !== null &&
+          s.myCompanyId !== activeCompanyId &&
+          !baseGroups.some(g => g.cat === "Externá" || g.cat === "Firemná")
+        ) {
+          const companyLabel = s.myCompanyName || "Iná firma";
+          baseGroups.push({ name: companyLabel, cat: "Externá" });
+        }
+        return {
+          ...s,
+          groups: baseGroups,
+          _isMyCompany: false,
+          _isPartner: false,
+        };
+      });
 
       // Build set of known UIDs
       const knownUids = new Set<string>();
