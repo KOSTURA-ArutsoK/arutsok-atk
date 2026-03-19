@@ -1,12 +1,43 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Globe } from "lucide-react";
 
 interface AddStateButtonProps {
   onClick: () => void;
 }
 
+function useDarkMode() {
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.classList.contains("dark")
+  );
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+  return isDark;
+}
+
 export function AddStateButton({ onClick }: AddStateButtonProps) {
   const [pressed, setPressed] = useState(false);
+  const isDark = useDarkMode();
+
+  const theme = isDark
+    ? {
+        bg: "linear-gradient(145deg, #232323, #3a3a3a)",
+        shadowRest: "10px 10px 20px #1a1a1a, -10px -10px 20px #3e3e3e",
+        shadowPressed: "inset 5px 5px 10px #151515, inset -3px -3px 8px #3e3e3e",
+        textColor: "#b0b0b0",
+        globeOpacity: 0.45,
+      }
+    : {
+        bg: "linear-gradient(145deg, #e2e2e2, #f8f8f8)",
+        shadowRest: "10px 10px 20px #bebebe, -10px -10px 20px #ffffff",
+        shadowPressed: "inset 5px 5px 10px #bebebe, inset -3px -3px 8px #ffffff",
+        textColor: "#555555",
+        globeOpacity: 0.55,
+      };
 
   return (
     <div className="flex flex-col items-center justify-center w-full py-6">
@@ -23,10 +54,8 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
           width: 140,
           height: 140,
           borderRadius: "50%",
-          background: "linear-gradient(145deg, #232323, #3a3a3a)",
-          boxShadow: pressed
-            ? "inset 5px 5px 10px #151515, inset -3px -3px 8px #3e3e3e"
-            : "10px 10px 20px #1a1a1a, -10px -10px 20px #3e3e3e",
+          background: theme.bg,
+          boxShadow: pressed ? theme.shadowPressed : theme.shadowRest,
           border: "none",
           cursor: "pointer",
           display: "flex",
@@ -45,7 +74,7 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
               width: 36,
               height: 36,
               color: "#FFBF00",
-              filter: "drop-shadow(0 0 6px rgba(255,191,0,0.45))",
+              filter: `drop-shadow(0 0 6px rgba(255,191,0,${theme.globeOpacity}))`,
             }}
           />
           <span
@@ -68,7 +97,7 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
             fontFamily: "sans-serif",
             fontSize: 11,
             fontWeight: 500,
-            color: "#b0b0b0",
+            color: theme.textColor,
             letterSpacing: "0.04em",
             textAlign: "center",
             lineHeight: 1.2,
