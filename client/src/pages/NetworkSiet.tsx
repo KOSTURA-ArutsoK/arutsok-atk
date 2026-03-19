@@ -532,7 +532,7 @@ export default function NetworkSiet() {
                 </div>
               ) : (
 <div className="space-y-1">
-                  <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs text-muted-foreground uppercase tracking-wider border-b border-border">
+                  <div className="sticky top-0 z-10 grid grid-cols-12 gap-2 px-3 py-2 text-xs text-muted-foreground uppercase tracking-wider border-b border-border bg-card">
                     <div className="col-span-4">UID</div>
                     <div className="col-span-2">Typ</div>
                     <div className="col-span-3">Meno / Názov</div>
