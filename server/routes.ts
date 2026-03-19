@@ -18983,31 +18983,41 @@ export async function registerRoutes(
 
       const allLinks = await db.select().from(networkLinks).where(eq(networkLinks.isActive, true));
 
-      const subjectIds = new Set<number>();
-      subjectIds.add(rootSubject.id);
-      allLinks.forEach(l => {
-        subjectIds.add(l.subjectId);
-        subjectIds.add(l.guarantorSubjectId);
-      });
+      // ALL subjects with UIDs (not just those in network_links)
+      const allSubjectsWithUid = await db.select({
+        id: subjects.id,
+        uid: subjects.uid,
+        firstName: subjects.firstName,
+        lastName: subjects.lastName,
+        companyName: subjects.companyName,
+        type: subjects.type,
+        registrationStatus: subjects.registrationStatus,
+        lifecycleStatus: subjects.lifecycleStatus,
+        isActive: subjects.isActive,
+      }).from(subjects).where(
+        and(isNotNull(subjects.uid), isNull(subjects.deletedAt))
+      );
 
-      const allSubjects = subjectIds.size > 0
-        ? await db.select({
-            id: subjects.id,
-            uid: subjects.uid,
-            firstName: subjects.firstName,
-            lastName: subjects.lastName,
-            companyName: subjects.companyName,
-            type: subjects.type,
-            registrationStatus: subjects.registrationStatus,
-            lifecycleStatus: subjects.lifecycleStatus,
-            isActive: subjects.isActive,
-          }).from(subjects).where(
-            and(
-              inArray(subjects.id, Array.from(subjectIds)),
-              isNull(subjects.deletedAt)
-            )
-          )
-        : [];
+      // myCompanies with UIDs — included as type "mycompany"
+      const allMyCompaniesWithUid = await db.select({
+        id: myCompanies.id,
+        uid: myCompanies.uid,
+        name: myCompanies.name,
+      }).from(myCompanies).where(isNotNull(myCompanies.uid));
+
+      const myCompanySubjects = allMyCompaniesWithUid.map(mc => ({
+        id: -(mc.id),          // negative ID to avoid collision with subjects
+        uid: mc.uid,
+        firstName: null,
+        lastName: null,
+        companyName: mc.name,
+        type: 'mycompany',
+        registrationStatus: null,
+        lifecycleStatus: null,
+        isActive: true,
+      }));
+
+      const allSubjects = [...allSubjectsWithUid, ...myCompanySubjects];
 
       res.json({
         root: rootSubject,
