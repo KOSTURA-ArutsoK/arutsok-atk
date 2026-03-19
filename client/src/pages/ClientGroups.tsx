@@ -935,12 +935,15 @@ function GroupRowCells({
             ? <Lock className="w-3.5 h-3.5 text-red-500 shrink-0" />
             : group.isHoldingGroup
               ? <Lock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-              : group.isSystem
-                ? <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                : null}
+              : group.isSystem && group.groupCode === "group_cierny_zoznam"
+                ? <Ban className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                : group.isSystem
+                  ? <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  : null}
           {group.name}
           {group.isHoldingGroup && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/50 text-blue-500">Holding</Badge>}
-          {group.isSystem && !group.isHoldingGroup && <Badge variant="outline" className="text-[9px] h-4 border-amber-500/50 text-amber-500">Systémová</Badge>}
+          {group.isSystem && !group.isHoldingGroup && group.groupCode !== "group_cierny_zoznam" && <Badge variant="outline" className="text-[9px] h-4 border-amber-500/50 text-amber-500">Systémová</Badge>}
+          {group.isSystem && group.groupCode === "group_cierny_zoznam" && <Badge variant="outline" className="text-[9px] h-4 border-red-500/50 text-red-500">Globálna</Badge>}
         </span>
       </TableCell>
       <TableCell className="w-36 text-center">
@@ -1132,7 +1135,7 @@ export default function ClientGroups() {
               <TableBody>
                 {holdingGroups.map(g => (
                   <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer hover:bg-muted/40 transition-colors border-l-[3px] border-l-border/40" onClick={() => navigate("/companies")}>
-                    <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={openEdit} onDelete={openDelete} />
+                    <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={() => navigate("/companies")} onDelete={openDelete} />
                   </TableRow>
                 ))}
                 <TableRow
