@@ -96,7 +96,7 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
           style={{
             fontFamily: "sans-serif",
             fontSize: 11,
-            fontWeight: 500,
+            fontWeight: 700,
             color: theme.textColor,
             letterSpacing: "0.04em",
             textAlign: "center",
