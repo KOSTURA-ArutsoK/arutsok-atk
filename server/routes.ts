@@ -2760,14 +2760,24 @@ export async function registerRoutes(
       if (input.firstName) input.firstName = capitalizeName(input.firstName) ?? input.firstName;
       if (input.lastName) input.lastName = capitalizeName(input.lastName) ?? input.lastName;
 
-      // UID pre manuálnu registráciu — okamžité pridelenie (import používa createSubjectNoUID bez UID)
+      // UID pre manuálnu registráciu — GLOBAL RULE: UID vzniká JEDINE keď je RC (osoba/SZČO) alebo IČO (firma)
       {
-        let stateCode = '421';
-        if (req.appUser?.activeStateId) {
-          const st = await storage.getState(req.appUser.activeStateId);
-          if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
+        const _personTypes = ['person', 'szco'];
+        const _companyTypes = ['company', 'organization'];
+        const rawBnForUid = input.birthNumber;
+        const detailsForUid = input.details as any;
+        const _hasIco = _companyTypes.includes(input.type) && !!(detailsForUid?.ico || detailsForUid?.dynamicFields?.ico);
+        const _hasRC = _personTypes.includes(input.type) && !!rawBnForUid;
+        const _isOtherType = !_personTypes.includes(input.type) && !_companyTypes.includes(input.type);
+        const _shouldGetUid = _hasRC || _hasIco || _isOtherType;
+        if (_shouldGetUid) {
+          let stateCode = '421';
+          if (req.appUser?.activeStateId) {
+            const st = await storage.getState(req.appUser.activeStateId);
+            if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
+          }
+          (input as any).uid = await storage.generateNextGlobalUid(stateCode);
         }
-        (input as any).uid = await storage.generateNextGlobalUid(stateCode);
       }
 
       if (input.type === 'szco') {

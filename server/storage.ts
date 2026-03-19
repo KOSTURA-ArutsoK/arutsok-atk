@@ -1339,37 +1339,55 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSubject(insertSubject: InsertSubject) {
-    // === GLOBAL UID INTEGRITY RULE ===
-    // UID can ONLY be generated when:
-    // - For person/szco: birthNumber (RC) is present AND firstName + lastName are present
-    // - For company/organization: companyName is present AND IČO is in details.ico or details.dynamicFields.ico
     const subjectType = insertSubject.type;
     const personTypes = ['person', 'szco'];
     const companyTypes = ['company', 'organization'];
+    const presetUid = (insertSubject as any).uid as string | undefined;
 
-    if (personTypes.includes(subjectType)) {
-      if (!insertSubject.birthNumber) {
-        throw new Error("UID_INTEGRITY: Pre osobu/SZČO musí byť zadané rodné číslo (RČ) pred pridelením UID");
+    // === CASE 1: UID already pre-assigned by caller (e.g. officer routes) ===
+    // Caller has already verified conditions and generated the UID externally.
+    // Skip integrity check; populate continentId from state hierarchy if missing.
+    if (presetUid) {
+      if (!insertSubject.continentId && insertSubject.stateId) {
+        const state = await db.select().from(states).where(eq(states.id, insertSubject.stateId)).then(r => r[0]);
+        if (state?.continentId) (insertSubject as any).continentId = state.continentId;
       }
-      if (!insertSubject.firstName || !insertSubject.lastName) {
-        throw new Error("UID_INTEGRITY: Pre osobu/SZČO musí byť zadané meno a priezvisko pred pridelením UID");
-      }
-    } else if (companyTypes.includes(subjectType)) {
-      if (!insertSubject.companyName) {
-        throw new Error("UID_INTEGRITY: Pre spoločnosť/organizáciu musí byť zadaný názov pred pridelením UID");
-      }
-      const detailsObj = insertSubject.details as any;
-      const ico = detailsObj?.ico || detailsObj?.dynamicFields?.ico;
-      if (!ico) {
-        throw new Error("UID_INTEGRITY: Pre spoločnosť/organizáciu musí byť zadané IČO pred pridelením UID");
-      }
+      const [subject] = await db.insert(subjects).values({ ...(insertSubject as any) }).returning();
+      return subject;
     }
-    // === END GLOBAL UID INTEGRITY RULE ===
+
+    // === CASE 2: UID needs to be generated — check eligibility ===
+    // GLOBAL RULE: UID arises ONLY when RC (person/szco) or IČO (company) is provided.
+    const detailsObj = insertSubject.details as any;
+    const hasRC = personTypes.includes(subjectType) && !!insertSubject.birthNumber;
+    const hasIco = companyTypes.includes(subjectType) && !!(detailsObj?.ico || detailsObj?.dynamicFields?.ico);
+    const isOtherType = !personTypes.includes(subjectType) && !companyTypes.includes(subjectType);
+
+    const shouldGenerateUid = hasRC || hasIco || isOtherType;
+
+    if (!shouldGenerateUid) {
+      // Conditions not met → insert WITHOUT uid (valid for potencialny/tiper without RC)
+      if (personTypes.includes(subjectType) && insertSubject.firstName && insertSubject.lastName && !insertSubject.birthNumber) {
+        // ok — name present, just no RC
+      } else if (companyTypes.includes(subjectType) && !insertSubject.companyName) {
+        throw new Error("UID_INTEGRITY: Pre spoločnosť/organizáciu musí byť zadaný názov");
+      }
+      const [subject] = await db.insert(subjects).values({ ...(insertSubject as any), uid: null }).returning();
+      return subject;
+    }
+
+    // Validate name for UID generation
+    if (personTypes.includes(subjectType) && (!insertSubject.firstName || !insertSubject.lastName)) {
+      throw new Error("UID_INTEGRITY: Pre osobu/SZČO musí byť zadané meno a priezvisko pred pridelením UID");
+    }
+    if (companyTypes.includes(subjectType) && !insertSubject.companyName) {
+      throw new Error("UID_INTEGRITY: Pre spoločnosť/organizáciu musí byť zadaný názov pred pridelením UID");
+    }
 
     const state = insertSubject.stateId ? await db.select().from(states).where(eq(states.id, insertSubject.stateId)).then(r => r[0]) : null;
     const company = insertSubject.myCompanyId ? await db.select().from(myCompanies).where(eq(myCompanies.id, insertSubject.myCompanyId)).then(r => r[0]) : null;
     const continent = state?.continentId ? await db.select().from(continents).where(eq(continents.id, state.continentId)).then(r => r[0]) : null;
-    
+
     if (!state || !company || !continent) {
       throw new Error("Invalid hierarchy references for UID generation");
     }
@@ -1378,9 +1396,9 @@ export class DatabaseStorage implements IStorage {
       insertSubject.continentId = continent.id;
     }
 
-    const uid = insertSubject.uid || await this.generateUID(state.code, continent.code);
-    
-    const [subject] = await db.insert(subjects).values({ ...insertSubject, uid }).returning();
+    const uid = await this.generateUID(state.code, continent.code);
+
+    const [subject] = await db.insert(subjects).values({ ...(insertSubject as any), uid }).returning();
     return subject;
   }
 
