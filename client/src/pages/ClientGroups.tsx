@@ -1525,7 +1525,7 @@ export default function ClientGroups() {
                       name.toLowerCase().includes(q) ||
                       (qDigits.length > 0 && uidMatch) ||
                       companyNames.some(n => n.includes(q)) ||
-                      s.groups.some(g => g.toLowerCase().includes(q))
+                      s.groups.some(g => (typeof g === "string" ? g : (g as any).name ?? "").toLowerCase().includes(q))
                     );
                   });
                   if (filtered.length === 0) return (
