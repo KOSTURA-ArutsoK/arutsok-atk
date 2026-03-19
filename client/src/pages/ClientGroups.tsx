@@ -1564,13 +1564,20 @@ export default function ClientGroups() {
                     };
                     const typeInfo = TYPE_MAP[s.type] ?? { label: s.type.toUpperCase(), cls: "border-muted text-muted-foreground", title: s.type };
                     const { label: typeLabel, cls: typeCls, title: typeTitle } = typeInfo;
+                    const isMyCompany = !!(s as any)._isMyCompany;
                     const companies: string[] = [s.myCompanyName].filter((n): n is string => !!n);
+                    const handleRowClick = () => {
+                      if (isDeleted) return;
+                      setStateOverviewOpen(false);
+                      if (isMyCompany) navigate("/companies");
+                      else navigate(`/subjects?openId=${s.id}`);
+                    };
                     return (
                       <TableRow
                         key={s.id}
                         data-testid={`row-state-overview-${s.id}`}
-                        className={`h-10 transition-colors ${isDeleted ? "opacity-50 cursor-default bg-zinc-900/30" : "cursor-pointer hover:bg-muted/40"}`}
-                        onClick={() => { if (!isDeleted) { setStateOverviewOpen(false); navigate(`/subjects?openId=${s.id}`); } }}
+                        className={`h-10 transition-colors ${isDeleted ? "opacity-50 cursor-default bg-zinc-900/30" : isMyCompany ? "cursor-pointer hover:bg-blue-950/30" : "cursor-pointer hover:bg-muted/40"}`}
+                        onClick={handleRowClick}
                       >
                         <TableCell className="px-3 py-0">
                           <div

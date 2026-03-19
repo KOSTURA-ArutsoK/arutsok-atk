@@ -7655,11 +7655,62 @@ export async function registerRoutes(
         const existing = memberMap.get(m.subjectId)!;
         if (!existing.some(e => e.name === g.name)) existing.push({ name: g.name, cat });
       }
-      const result = rows.map(s => ({
+      // Include myCompanies as "holdingové" rows
+      const mcRows = await db
+        .select({
+          id: myCompanies.id,
+          uid: myCompanies.uid,
+          name: myCompanies.name,
+          subjectType: myCompanies.subjectType,
+          isDeleted: myCompanies.isDeleted,
+          deletedAt: myCompanies.deletedAt,
+        })
+        .from(myCompanies)
+        .where(stateId ? eq(myCompanies.stateId, stateId) : sql`true`);
+
+      const subjectTypeToType = (st: string | null): string => {
+        if (st === "fo") return "person";
+        if (st === "szco") return "szco";
+        if (st === "ts") return "ts";
+        if (st === "vs") return "vs";
+        return "company";
+      };
+
+      const mcMapped = mcRows.map(mc => ({
+        id: -(mc.id),           // negative ID to distinguish from subjects
+        uid: mc.uid,
+        titleBefore: null,
+        firstName: null,
+        lastName: null,
+        titleAfter: null,
+        companyName: mc.name,
+        type: subjectTypeToType(mc.subjectType),
+        myCompanyId: null,
+        myCompanyName: null,
+        isDeceased: false,
+        isActive: !mc.isDeleted,
+        lifecycleStatus: mc.isDeleted ? "archived" : "active",
+        deletedAt: mc.deletedAt,
+        contractCount: 0,
+        groups: [{ name: mc.name, cat: "Firemná" }] as { name: string; cat: string }[],
+        _isMyCompany: true,
+      }));
+
+      const subjectsMapped = rows.map(s => ({
         ...s,
         groups: memberMap.get(s.id) || [],
+        _isMyCompany: false,
       }));
-      res.json(result);
+
+      // Merge and sort by uid (nulls last)
+      const all = [...subjectsMapped, ...mcMapped].sort((a, b) => {
+        if (!a.uid && !b.uid) return 0;
+        if (!a.uid) return 1;
+        if (!b.uid) return -1;
+        return a.uid.localeCompare(b.uid);
+      });
+
+      res.json(all);
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });
     }
