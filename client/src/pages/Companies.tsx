@@ -548,8 +548,6 @@ function CompanyFormDialog({
   const [registryError, setRegistryError] = useState<string | null>(null);
   const [selectedActivityIndices, setSelectedActivityIndices] = useState<Set<number>>(new Set());
   const [localActivities, setLocalActivities] = useState<BusinessActivity[]>([]);
-  const [newActivityText, setNewActivityText] = useState("");
-  const [newActivitySince, setNewActivitySince] = useState("");
   const [corrSameAsHQ, setCorrSameAsHQ] = useState(false);
   const [branches, setBranches] = useState<BranchEntry[]>([]);
   const [addingBranch, setAddingBranch] = useState(false);
@@ -640,6 +638,20 @@ function CompanyFormDialog({
         setCorrSameAsHQ(!hasCorrAddr);
         setBranches((editingCompany.branches as BranchEntry[]) || []);
         setLocalActivities((editingCompany.businessActivities as BusinessActivity[]) || []);
+        if (editingCompany.ico?.trim()) {
+          const ico = editingCompany.ico.trim();
+          setRegistryLoading(true);
+          fetch(`/api/lookup/ico/${encodeURIComponent(ico)}?type=company`, { credentials: "include" })
+            .then(r => r.json())
+            .then(data => {
+              if (data.found && data.businessActivities?.length) {
+                setRegistryResult(data);
+                setSelectedActivityIndices(new Set(data.businessActivities.map((_: BusinessActivity, i: number) => i)));
+              }
+            })
+            .catch(() => {})
+            .finally(() => setRegistryLoading(false));
+        }
         form.reset({
           name: editingCompany.name,
           subjectType: (editingCompany as any).subjectType || "",
@@ -1333,9 +1345,16 @@ function CompanyFormDialog({
                   </div>
                 )}
 
-                {!registryResult && localActivities.length === 0 && (
+                {registryLoading && !registryResult && (
+                  <div className="rounded-md border border-border p-4 flex items-center justify-center gap-2 text-sm text-muted-foreground" data-testid="text-activities-loading">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Načítavam predmety podnikania z ORSR…
+                  </div>
+                )}
+
+                {!registryLoading && !registryResult && localActivities.length === 0 && (
                   <div className="rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground" data-testid="text-activities-empty">
-                    Žiadne predmety podnikania. Vyhľadajte firmu cez IČO v záložke Základné údaje alebo pridajte manuálne.
+                    {form.getValues("ico") ? "Predmety podnikania neboli nájdené v ORSR registri." : "Zadajte IČO v záložke Základné údaje pre načítanie predmetov podnikania z ORSR."}
                   </div>
                 )}
 
@@ -1372,50 +1391,6 @@ function CompanyFormDialog({
                   </div>
                 )}
 
-                {/* Manual add form */}
-                <div className="border border-border rounded-md p-3 space-y-3" data-testid="section-add-activity">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pridať manuálne</p>
-                  <div className="space-y-2">
-                    <textarea
-                      className="w-full min-h-[72px] resize-y rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      placeholder="Popis predmetu podnikania..."
-                      value={newActivityText}
-                      onChange={e => setNewActivityText(e.target.value)}
-                      data-testid="input-new-activity-text"
-                    />
-                    <div className="flex gap-2 items-center">
-                      <div className="flex items-center gap-2 flex-1">
-                        <label className="text-xs text-muted-foreground whitespace-nowrap">Dátum od</label>
-                        <input
-                          type="date"
-                          className="flex-1 h-8 rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                          value={newActivitySince}
-                          onChange={e => setNewActivitySince(e.target.value)}
-                          data-testid="input-new-activity-since"
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-8 shrink-0"
-                        data-testid="button-add-activity"
-                        disabled={!newActivityText.trim()}
-                        onClick={() => {
-                          if (!newActivityText.trim()) return;
-                          const entry: BusinessActivity = { text: newActivityText.trim() };
-                          if (newActivitySince) entry.since = newActivitySince;
-                          setLocalActivities(prev => [...prev, entry]);
-                          setNewActivityText("");
-                          setNewActivitySince("");
-                        }}
-                      >
-                        <Plus className="w-4 h-4 mr-1" />
-                        Pridať
-                      </Button>
-                    </div>
-                  </div>
-                </div>
               </TabsContent>
 
               <TabsContent value="branches" className="mt-4 space-y-4">
