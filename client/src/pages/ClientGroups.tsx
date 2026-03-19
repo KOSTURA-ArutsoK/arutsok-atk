@@ -1569,11 +1569,13 @@ export default function ClientGroups() {
                     const typeInfo = TYPE_MAP[s.type] ?? { label: s.type.toUpperCase(), cls: "border-muted text-muted-foreground", title: s.type };
                     const { label: typeLabel, cls: typeCls, title: typeTitle } = typeInfo;
                     const isMyCompany = !!(s as any)._isMyCompany;
+                    const isPartner = !!(s as any)._isPartner;
                     const companies: string[] = [s.myCompanyName].filter((n): n is string => !!n);
                     const handleRowClick = () => {
                       if (isDeleted || isGap) return;
                       setStateOverviewOpen(false);
                       if (isMyCompany) navigate("/companies");
+                      else if (isPartner) navigate("/partners");
                       else navigate(`/subjects?openId=${s.id}`);
                     };
                     return (
@@ -1581,9 +1583,10 @@ export default function ClientGroups() {
                         key={String(s.id)}
                         data-testid={`row-state-overview-${s.id}`}
                         className={`h-10 transition-colors ${
-                          isGap    ? "opacity-25 cursor-default bg-zinc-950/60 select-none" :
+                          isGap     ? "opacity-25 cursor-default bg-zinc-950/60 select-none" :
                           isDeleted ? "opacity-50 cursor-default bg-zinc-900/30" :
                           isMyCompany ? "cursor-pointer hover:bg-blue-950/30" :
+                          isPartner   ? "cursor-pointer hover:bg-slate-900/40" :
                           "cursor-pointer hover:bg-muted/40"
                         }`}
                         onClick={handleRowClick}

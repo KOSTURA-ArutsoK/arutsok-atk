@@ -7696,16 +7696,51 @@ export async function registerRoutes(
         _isMyCompany: true,
       }));
 
+      // Include partners as "externé" rows
+      const partnerRows = await db
+        .select({
+          id: partners.id,
+          uid: partners.uid,
+          name: partners.name,
+          isDeleted: partners.isDeleted,
+          deletedAt: partners.deletedAt,
+        })
+        .from(partners)
+        .where(stateId ? eq(partners.stateId, stateId) : sql`true`);
+
+      const partnerMapped = partnerRows.map(p => ({
+        id: -(10000 + p.id),   // offset to avoid collision with mcMapped negative IDs
+        uid: p.uid,
+        titleBefore: null,
+        firstName: null,
+        lastName: null,
+        titleAfter: null,
+        companyName: p.name,
+        type: "company" as string,
+        myCompanyId: null,
+        myCompanyName: null,
+        isDeceased: false,
+        isActive: !p.isDeleted,
+        lifecycleStatus: p.isDeleted ? "archived" : "active",
+        deletedAt: p.deletedAt,
+        contractCount: 0,
+        groups: [{ name: p.name, cat: "Externá" }] as { name: string; cat: string }[],
+        _isMyCompany: false,
+        _isPartner: true,
+      }));
+
       const subjectsMapped = rows.map(s => ({
         ...s,
         groups: memberMap.get(s.id) || [],
         _isMyCompany: false,
+        _isPartner: false,
       }));
 
       // Build set of known UIDs
       const knownUids = new Set<string>();
       for (const s of subjectsMapped) if (s.uid) knownUids.add(s.uid);
       for (const mc of mcMapped) if (mc.uid) knownUids.add(mc.uid);
+      for (const p of partnerMapped) if (p.uid) knownUids.add(p.uid);
 
       // Detect prefix from state code (e.g. "421") and generate gap placeholders
       const stateRow = stateId
@@ -7749,7 +7784,7 @@ export async function registerRoutes(
       }
 
       // Merge and sort by uid (nulls last)
-      const all = [...subjectsMapped, ...mcMapped].sort((a, b) => {
+      const all = [...subjectsMapped, ...mcMapped, ...partnerMapped].sort((a, b) => {
         if (!a.uid && !b.uid) return 0;
         if (!a.uid) return 1;
         if (!b.uid) return -1;
