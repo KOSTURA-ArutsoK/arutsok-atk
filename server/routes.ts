@@ -7803,14 +7803,11 @@ export async function registerRoutes(
           merged.push({ ...row } as any);
         } else {
           const cur = merged[existing] as any;
-          // Keep higher-priority row as base, merge groups
-          const mergedGroups = [...(cur.groups || []), ...(row.groups || [])];
+          // Higher-priority row wins entirely — groups are NOT merged
           if (priority(row) < priority(cur)) {
-            // incoming row has higher priority — swap base but keep merged groups
-            merged[existing] = { ...row, groups: mergedGroups } as any;
-          } else {
-            merged[existing] = { ...cur, groups: mergedGroups } as any;
+            merged[existing] = { ...row } as any;
           }
+          // else keep existing — do nothing
         }
       }
 
