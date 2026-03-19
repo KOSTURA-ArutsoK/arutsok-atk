@@ -20,6 +20,7 @@ function useDarkMode() {
 }
 
 export function AddStateButton({ onClick }: AddStateButtonProps) {
+  const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
   const isDark = useDarkMode();
 
@@ -45,9 +46,10 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
         type="button"
         data-testid="button-add-state"
         onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => { setHovered(false); setPressed(false); }}
         onMouseDown={() => setPressed(true)}
         onMouseUp={() => setPressed(false)}
-        onMouseLeave={() => setPressed(false)}
         onTouchStart={() => setPressed(true)}
         onTouchEnd={() => setPressed(false)}
         style={{
@@ -55,7 +57,7 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
           height: 140,
           borderRadius: "50%",
           background: theme.bg,
-          boxShadow: pressed ? theme.shadowPressed : theme.shadowRest,
+          boxShadow: (hovered || pressed) ? theme.shadowPressed : theme.shadowRest,
           border: "none",
           cursor: "pointer",
           display: "flex",
