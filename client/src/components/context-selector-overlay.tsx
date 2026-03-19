@@ -294,7 +294,7 @@ export function ContextSelectorOverlay({
                     {/* Emoji — absolútna pevná pozícia */}
                     <span style={{
                       position: "absolute",
-                      top: 68,
+                      top: 70,
                       left: 0,
                       right: 0,
                       textAlign: "center",
@@ -308,7 +308,7 @@ export function ContextSelectorOverlay({
                     {/* Text zóna: od spodku emotikonapo základňu trojuholníka, vycentrovaný */}
                     <div style={{
                       position: "absolute",
-                      top: 86,
+                      top: 82,
                       left: 38,
                       right: 38,
                       bottom: 9,
