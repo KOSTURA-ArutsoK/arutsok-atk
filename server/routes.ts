@@ -2074,6 +2074,125 @@ export async function registerRoutes(
     }
   });
 
+  // === PARTNER FILE / LOGO MANAGEMENT ===
+  app.post("/api/partners/:partnerId/files/:section", isAuthenticated, upload.single("file"), async (req, res) => {
+    try {
+      const partnerId = Number(req.params.partnerId);
+      const section = req.params.section as "official" | "work" | "tax" | "logos";
+      if (!["official", "work", "tax", "logos"].includes(section)) return res.status(400).json({ message: "Invalid section" });
+
+      const partner = await storage.getPartner(partnerId);
+      if (!partner) return res.status(404).json({ message: "Partner not found" });
+
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: "No file uploaded" });
+      const secScan = await scanUploadedFile(file.path, file.originalname, file.mimetype);
+      if (!secScan.safe) return res.status(400).json({ message: `⚠️ Bezpečnostná chyba: ${secScan.reason}` });
+
+      if (section === "logos") {
+        const logoEntry = {
+          name: file.originalname,
+          url: `/api/files/logos/${file.filename}`,
+          uploadedAt: new Date().toISOString(),
+          isPrimary: true,
+          isArchived: false,
+        };
+        const currentLogos = (partner.logos as any[]) || [];
+        const archivedLogos = currentLogos.map((l: any) => ({ ...l, isPrimary: false, isArchived: l.isPrimary ? true : l.isArchived }));
+        const updatedLogos = [...archivedLogos, logoEntry];
+        await storage.updatePartner(partnerId, { logos: updatedLogos, changeReason: `Logo uploaded: ${file.originalname}` });
+        res.status(201).json(logoEntry);
+      } else {
+        const docEntry = {
+          name: file.originalname,
+          url: `/api/files/${section}/${file.filename}`,
+          uploadedAt: new Date().toISOString(),
+        };
+        const docsField = section === "official" ? "officialDocs" : section === "tax" ? "taxDocs" : "workDocs";
+        const currentDocs = ((partner as any)[docsField] as any[]) || [];
+        const updatedDocs = [...currentDocs, docEntry];
+        await storage.updatePartner(partnerId, { [docsField]: updatedDocs, changeReason: `File uploaded: ${file.originalname}` });
+        res.status(201).json(docEntry);
+      }
+    } catch (err) {
+      console.error("Partner file upload error:", err);
+      res.status(500).json({ message: "Upload failed" });
+    }
+  });
+
+  app.delete("/api/partners/:partnerId/files/:section", isAuthenticated, async (req, res) => {
+    try {
+      const partnerId = Number(req.params.partnerId);
+      const section = req.params.section as "official" | "work" | "tax";
+      const { fileUrl } = req.body;
+
+      const partner = await storage.getPartner(partnerId);
+      if (!partner) return res.status(404).json({ message: "Partner not found" });
+
+      const docsField = section === "official" ? "officialDocs" : section === "tax" ? "taxDocs" : "workDocs";
+      const currentDocs = ((partner as any)[docsField] as any[]) || [];
+      const updatedDocs = currentDocs.filter((d: any) => d.url !== fileUrl);
+
+      const filename = fileUrl.split("/").pop();
+      if (filename) {
+        const filePath = path.join(UPLOADS_DIR, section, filename);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      }
+
+      await storage.updatePartner(partnerId, { [docsField]: updatedDocs, changeReason: `File deleted` });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Partner file delete error:", err);
+      res.status(500).json({ message: "Delete failed" });
+    }
+  });
+
+  app.put("/api/partners/:partnerId/logos/set-primary", isAuthenticated, async (req, res) => {
+    try {
+      const partnerId = Number(req.params.partnerId);
+      const { logoUrl } = req.body;
+      const partner = await storage.getPartner(partnerId);
+      if (!partner) return res.status(404).json({ message: "Partner not found" });
+
+      const currentLogos = (partner.logos as any[]) || [];
+      const updatedLogos = currentLogos.map((l: any) => ({
+        ...l,
+        isPrimary: l.url === logoUrl,
+        isArchived: l.url === logoUrl ? false : (l.isPrimary ? true : l.isArchived),
+      }));
+
+      await storage.updatePartner(partnerId, { logos: updatedLogos, changeReason: "Logo set as primary" });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to set primary logo" });
+    }
+  });
+
+  app.put("/api/partners/:partnerId/logos/archive", isAuthenticated, async (req, res) => {
+    try {
+      const partnerId = Number(req.params.partnerId);
+      const { logoUrl } = req.body;
+      if (!logoUrl || typeof logoUrl !== "string") return res.status(400).json({ message: "logoUrl is required" });
+
+      const partner = await storage.getPartner(partnerId);
+      if (!partner) return res.status(404).json({ message: "Partner not found" });
+
+      const currentLogos = (partner.logos as any[]) || [];
+      if (!currentLogos.some((l: any) => l.url === logoUrl)) return res.status(404).json({ message: "Logo not found" });
+
+      const updatedLogos = currentLogos.map((l: any) => ({
+        ...l,
+        isArchived: l.url === logoUrl ? true : l.isArchived,
+        isPrimary: l.url === logoUrl ? false : l.isPrimary,
+      }));
+
+      await storage.updatePartner(partnerId, { logos: updatedLogos, changeReason: "Logo archived" });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Failed to archive logo" });
+    }
+  });
+
   // === PARTNER LIFECYCLE STATUS ===
   app.patch("/api/partners/:id/lifecycle-status", isAuthenticated, async (req: any, res) => {
     try {
