@@ -7783,8 +7783,39 @@ export async function registerRoutes(
         }
       }
 
-      // Merge and sort by uid (nulls last)
-      const all = [...subjectsMapped, ...mcMapped, ...partnerMapped].sort((a, b) => {
+      // Deduplicate by UID: if multiple sources share the same UID, keep the highest-priority
+      // row (subject > myCompany > partner) and merge all their group badges into one.
+      const merged: typeof subjectsMapped = [];
+      const uidIndex = new Map<string, number>(); // uid → index in merged
+
+      const priority = (row: any): number => {
+        if (row._isGap) return 99;
+        if (row._isMyCompany) return 2;
+        if (row._isPartner) return 3;
+        return 1; // real subject wins
+      };
+
+      for (const row of [...subjectsMapped, ...mcMapped, ...partnerMapped]) {
+        if (!row.uid) { merged.push(row as any); continue; }
+        const existing = uidIndex.get(row.uid);
+        if (existing === undefined) {
+          uidIndex.set(row.uid, merged.length);
+          merged.push({ ...row } as any);
+        } else {
+          const cur = merged[existing] as any;
+          // Keep higher-priority row as base, merge groups
+          const mergedGroups = [...(cur.groups || []), ...(row.groups || [])];
+          if (priority(row) < priority(cur)) {
+            // incoming row has higher priority — swap base but keep merged groups
+            merged[existing] = { ...row, groups: mergedGroups } as any;
+          } else {
+            merged[existing] = { ...cur, groups: mergedGroups } as any;
+          }
+        }
+      }
+
+      // Sort by uid (nulls last)
+      const all = merged.sort((a: any, b: any) => {
         if (!a.uid && !b.uid) return 0;
         if (!a.uid) return 1;
         if (!b.uid) return -1;
