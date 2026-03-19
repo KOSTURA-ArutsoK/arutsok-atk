@@ -3777,7 +3777,10 @@ export default function Contracts() {
     ? row2FolderDefs
     : row2FolderDefs.filter(f => f.id <= SPECIALIST_MAX_FOLDER);
 
-  const anyRedInFolder1 = (activeContracts || []).some(c => isContractEffectivelyIncomplete(c));
+  const anyRedInFolder1 = selectedIds.length > 0 && selectedIds.some(id => {
+    const c = (activeContracts || []).find(c => c.id === id);
+    return c ? isContractEffectivelyIncomplete(c) : false;
+  });
 
   function filterBySearch(list: Contract[]) {
     if (!searchQuery.trim()) return list;
