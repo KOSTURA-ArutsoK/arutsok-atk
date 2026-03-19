@@ -4,7 +4,7 @@ import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyComp
 import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
 import { PhoneInput } from "@/components/phone-input";
-import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, ChevronRight, Phone, Mail, GitBranch, Info, UserCheck, UserPlus, Users, Camera, UserCog, Archive } from "lucide-react";
+import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, ChevronRight, Phone, Mail, GitBranch, Info, UserCheck, UserPlus, Users, Camera, UserCog, Archive, Briefcase } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak, formatUid } from "@/lib/utils";
@@ -546,8 +546,10 @@ function CompanyFormDialog({
   const [registryLoading, setRegistryLoading] = useState(false);
   const [registryResult, setRegistryResult] = useState<RegistryLookupResponse | null>(null);
   const [registryError, setRegistryError] = useState<string | null>(null);
-  const [showActivities, setShowActivities] = useState(true);
   const [selectedActivityIndices, setSelectedActivityIndices] = useState<Set<number>>(new Set());
+  const [localActivities, setLocalActivities] = useState<BusinessActivity[]>([]);
+  const [newActivityText, setNewActivityText] = useState("");
+  const [newActivitySince, setNewActivitySince] = useState("");
   const [corrSameAsHQ, setCorrSameAsHQ] = useState(false);
   const [branches, setBranches] = useState<BranchEntry[]>([]);
   const [addingBranch, setAddingBranch] = useState(false);
@@ -637,6 +639,7 @@ function CompanyFormDialog({
         const hasCorrAddr = !!(editingCompany.corrStreet || editingCompany.corrStreetNumber || (editingCompany as any).corrOrientNumber || editingCompany.corrPostalCode || editingCompany.corrCity || (editingCompany as any).corrStateId);
         setCorrSameAsHQ(!hasCorrAddr);
         setBranches((editingCompany.branches as BranchEntry[]) || []);
+        setLocalActivities((editingCompany.businessActivities as BusinessActivity[]) || []);
         form.reset({
           name: editingCompany.name,
           subjectType: (editingCompany as any).subjectType || "",
@@ -667,6 +670,7 @@ function CompanyFormDialog({
         setPlatcaDph(false);
         setCorrSameAsHQ(true);
         setBranches([]);
+        setLocalActivities([]);
         form.reset({
           name: "",
           code: "",
@@ -880,15 +884,11 @@ function CompanyFormDialog({
 
   function onSubmit(data: FormData) {
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
-    const allActivities: BusinessActivity[] = registryResult?.businessActivities || (editingCompany?.businessActivities as BusinessActivity[]) || [];
-    const biz: BusinessActivity[] = registryResult?.businessActivities
-      ? allActivities.filter((_, i) => selectedActivityIndices.has(i))
-      : allActivities;
     const payload = {
       ...data,
       notes: notesHtml,
       processingTimeSec,
-      businessActivities: biz,
+      businessActivities: localActivities,
       foundedDate: data.foundedDate ? new Date(data.foundedDate).toISOString() : null,
       vatRegisteredAt: data.vatRegisteredAt ? new Date(data.vatRegisteredAt).toISOString() : null,
       corrStreet: corrSameAsHQ ? null : (data.corrStreet || null),
@@ -946,6 +946,7 @@ function CompanyFormDialog({
                 <TabsTrigger value="basic" data-testid="tab-basic">Základné údaje</TabsTrigger>
                 <TabsTrigger value="officers" data-testid="tab-officers">Štatutári</TabsTrigger>
                 <TabsTrigger value="address" data-testid="tab-address">Adresa</TabsTrigger>
+                <TabsTrigger value="activities" data-testid="tab-activities">Predmet podnikania</TabsTrigger>
                 <TabsTrigger value="branches" data-testid="tab-branches">Pobočky</TabsTrigger>
                 <TabsTrigger value="divisions" data-testid="tab-divisions">Divízie</TabsTrigger>
                 <TabsTrigger value="docs" data-testid="tab-docs">Dokumenty</TabsTrigger>
@@ -1279,6 +1280,142 @@ function CompanyFormDialog({
                   )}
                 </div>
 
+              </TabsContent>
+
+              <TabsContent value="activities" className="mt-4 space-y-4">
+                {/* ORSR import section */}
+                {registryResult?.businessActivities && registryResult.businessActivities.length > 0 && (
+                  <div className="border border-border rounded-md" data-testid="section-orsr-activities">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <Search className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium">Z ORSR registra</span>
+                        <Badge variant="secondary" className="text-xs">{selectedActivityIndices.size}/{registryResult.businessActivities.length}</Badge>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        data-testid="button-import-activities"
+                        onClick={() => {
+                          const toAdd = registryResult.businessActivities!
+                            .filter((_, i) => selectedActivityIndices.has(i));
+                          setLocalActivities(prev => {
+                            const existing = new Set(prev.map(a => a.text));
+                            return [...prev, ...toAdd.filter(a => !existing.has(a.text))];
+                          });
+                        }}
+                      >
+                        Importovať vybrané
+                      </Button>
+                    </div>
+                    <div className="p-3 space-y-1.5 max-h-52 overflow-y-auto">
+                      {registryResult.businessActivities.map((act, idx) => (
+                        <div key={idx} className="flex items-start gap-2 text-sm" data-testid={`orsr-activity-row-${idx}`}>
+                          <Checkbox
+                            checked={selectedActivityIndices.has(idx)}
+                            onCheckedChange={(checked) => {
+                              const next = new Set(selectedActivityIndices);
+                              if (checked) next.add(idx); else next.delete(idx);
+                              setSelectedActivityIndices(next);
+                            }}
+                            data-testid={`checkbox-orsr-activity-${idx}`}
+                            className="mt-0.5 shrink-0"
+                          />
+                          <span className="text-muted-foreground flex-1">{act.text}</span>
+                          {act.since && (
+                            <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">od {act.since}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!registryResult && localActivities.length === 0 && (
+                  <div className="rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground" data-testid="text-activities-empty">
+                    Žiadne predmety podnikania. Vyhľadajte firmu cez IČO v záložke Základné údaje alebo pridajte manuálne.
+                  </div>
+                )}
+
+                {/* Current activities list */}
+                {localActivities.length > 0 && (
+                  <div className="border border-border rounded-md" data-testid="section-local-activities">
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
+                      <Briefcase className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Predmety podnikania</span>
+                      <Badge variant="secondary" className="text-xs">{localActivities.length}</Badge>
+                    </div>
+                    <div className="divide-y divide-border max-h-64 overflow-y-auto">
+                      {localActivities.map((act, idx) => (
+                        <div key={idx} className="flex items-start gap-2 px-3 py-2 text-sm group" data-testid={`activity-row-${idx}`}>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-foreground break-words">{act.text}</p>
+                            {act.since && (
+                              <p className="text-xs text-muted-foreground mt-0.5 font-mono">od {act.since}</p>
+                            )}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5"
+                            data-testid={`button-delete-activity-${idx}`}
+                            onClick={() => setLocalActivities(prev => prev.filter((_, i) => i !== idx))}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Manual add form */}
+                <div className="border border-border rounded-md p-3 space-y-3" data-testid="section-add-activity">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pridať manuálne</p>
+                  <div className="space-y-2">
+                    <textarea
+                      className="w-full min-h-[72px] resize-y rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      placeholder="Popis predmetu podnikania..."
+                      value={newActivityText}
+                      onChange={e => setNewActivityText(e.target.value)}
+                      data-testid="input-new-activity-text"
+                    />
+                    <div className="flex gap-2 items-center">
+                      <div className="flex items-center gap-2 flex-1">
+                        <label className="text-xs text-muted-foreground whitespace-nowrap">Dátum od</label>
+                        <input
+                          type="date"
+                          className="flex-1 h-8 rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          value={newActivitySince}
+                          onChange={e => setNewActivitySince(e.target.value)}
+                          data-testid="input-new-activity-since"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 shrink-0"
+                        data-testid="button-add-activity"
+                        disabled={!newActivityText.trim()}
+                        onClick={() => {
+                          if (!newActivityText.trim()) return;
+                          const entry: BusinessActivity = { text: newActivityText.trim() };
+                          if (newActivitySince) entry.since = newActivitySince;
+                          setLocalActivities(prev => [...prev, entry]);
+                          setNewActivityText("");
+                          setNewActivitySince("");
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Pridať
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </TabsContent>
 
               <TabsContent value="branches" className="mt-4 space-y-4">
@@ -1648,57 +1785,6 @@ function CompanyFormDialog({
 
               <TabsContent value="divisions" className="mt-4 space-y-6">
                 <CompanyDivisionsTab companyId={editingCompany?.id || null} />
-
-                <Separator />
-
-                {(() => {
-                  const activitiesSource: BusinessActivity[] = registryResult?.businessActivities ?? (editingCompany?.businessActivities as BusinessActivity[]) ?? [];
-                  const isFromLookup = !!registryResult?.businessActivities;
-                  return (
-                    <div data-testid="section-business-activities">
-                      <div className="border border-border rounded-md">
-                        <button
-                          type="button"
-                          className="flex items-center justify-between w-full p-3 text-sm font-medium hover:bg-muted/50 transition-colors"
-                          onClick={() => setShowActivities(!showActivities)}
-                          data-testid="button-toggle-activities"
-                        >
-                          <span>Predmety podnikania ({isFromLookup ? `${selectedActivityIndices.size}/${activitiesSource.length}` : activitiesSource.length})</span>
-                          {showActivities ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </button>
-                        {showActivities && activitiesSource.length > 0 && (
-                          <div className="border-t border-border p-3 space-y-1.5 max-h-48 overflow-y-auto">
-                            {activitiesSource.map((act, idx) => (
-                              <div key={idx} className="flex items-start gap-2 text-sm" data-testid={`activity-row-${idx}`}>
-                                {isFromLookup && (
-                                  <Checkbox
-                                    checked={selectedActivityIndices.has(idx)}
-                                    onCheckedChange={(checked) => {
-                                      const next = new Set(selectedActivityIndices);
-                                      if (checked) next.add(idx); else next.delete(idx);
-                                      setSelectedActivityIndices(next);
-                                    }}
-                                    data-testid={`checkbox-activity-${idx}`}
-                                    className="mt-0.5"
-                                  />
-                                )}
-                                <span className="text-muted-foreground flex-1">{act.text}</span>
-                                {act.since && (
-                                  <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">(od: {act.since})</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {showActivities && activitiesSource.length === 0 && (
-                          <div className="border-t border-border p-3 text-sm text-muted-foreground">
-                            Žiadne predmety podnikania. Vyhľadajte firmu cez IČO v záložke Základné údaje.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
               </TabsContent>
 
               <TabsContent value="officers" className="mt-4 space-y-4">
@@ -1889,6 +1975,7 @@ function CompanyDetailDialog({
             <TabsTrigger value="basic" data-testid="detail-tab-basic">Základné údaje</TabsTrigger>
             <TabsTrigger value="officers" data-testid="detail-tab-officers">Štatutári</TabsTrigger>
             <TabsTrigger value="address" data-testid="detail-tab-address">Adresa</TabsTrigger>
+            <TabsTrigger value="activities" data-testid="detail-tab-activities">Predmet podnikania</TabsTrigger>
             <TabsTrigger value="branches" data-testid="detail-tab-branches">Pobočky</TabsTrigger>
             <TabsTrigger value="docs" data-testid="detail-tab-docs">Dokumenty</TabsTrigger>
             <TabsTrigger value="logo" data-testid="detail-tab-logo">Logo</TabsTrigger>
@@ -1922,24 +2009,6 @@ function CompanyDetailDialog({
                 <div>
                   <span className="text-xs text-muted-foreground">Čím sa firma zaoberá</span>
                   <p className="text-sm mt-1 whitespace-pre-wrap" data-testid="text-detail-description">{company.description}</p>
-                </div>
-              </>
-            )}
-            {((company.businessActivities as BusinessActivity[]) || []).length > 0 && (
-              <>
-                <Separator />
-                <div data-testid="detail-section-activities">
-                  <span className="text-xs text-muted-foreground">Predmety podnikania</span>
-                  <div className="mt-1 space-y-1 max-h-40 overflow-y-auto">
-                    {(company.businessActivities as BusinessActivity[]).map((act, idx) => (
-                      <div key={idx} className="flex items-start justify-between gap-2 text-sm">
-                        <span className="text-muted-foreground flex-1">{act.text}</span>
-                        {act.since && (
-                          <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">(od: {act.since})</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
                 </div>
               </>
             )}
@@ -1992,6 +2061,32 @@ function CompanyDetailDialog({
               </>
             )}
 
+          </TabsContent>
+
+          <TabsContent value="activities" className="mt-4 space-y-3">
+            {((company.businessActivities as BusinessActivity[]) || []).length === 0 ? (
+              <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-testid="detail-activities-empty">
+                Žiadne predmety podnikania.
+              </div>
+            ) : (
+              <div className="border border-border rounded-md" data-testid="detail-section-activities">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
+                  <Briefcase className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Predmety podnikania</span>
+                  <Badge variant="secondary" className="text-xs">{((company.businessActivities as BusinessActivity[]) || []).length}</Badge>
+                </div>
+                <div className="divide-y divide-border">
+                  {((company.businessActivities as BusinessActivity[]) || []).map((act, idx) => (
+                    <div key={idx} className="flex items-start justify-between gap-3 px-3 py-2.5 text-sm" data-testid={`detail-activity-row-${idx}`}>
+                      <span className="text-foreground flex-1 leading-relaxed">{act.text}</span>
+                      {act.since && (
+                        <span className="text-xs text-muted-foreground whitespace-nowrap font-mono shrink-0 mt-0.5">od {act.since}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="branches" className="mt-4 space-y-4">
