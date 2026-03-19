@@ -73,8 +73,8 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
             style={{
               width: 36,
               height: 36,
-              color: "#FFBF00",
-              filter: `drop-shadow(0 0 6px rgba(255,191,0,${theme.globeOpacity}))`,
+              color: "#3b9ede",
+              filter: `drop-shadow(0 0 6px rgba(59,158,222,${theme.globeOpacity}))`,
             }}
           />
           <span
@@ -85,8 +85,8 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
               fontWeight: 800,
               fontSize: 18,
               lineHeight: 1,
-              color: "#FFBF00",
-              filter: "drop-shadow(0 0 5px #FFBF00)",
+              color: "#3b9ede",
+              filter: "drop-shadow(0 0 5px #3b9ede)",
             }}
           >
             +
