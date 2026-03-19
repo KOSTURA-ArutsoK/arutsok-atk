@@ -239,14 +239,16 @@ export default function SettingsDivisions() {
               </TooltipTrigger>
               <TooltipContent>Upraviť</TooltipContent>
             </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button type="button" size="icon" variant="ghost" onClick={() => setDeleteTarget(div)} data-testid={`button-delete-division-${div.id}`}>
-                  <Trash2 className="w-4 h-4 text-destructive" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Vymazať</TooltipContent>
-            </Tooltip>
+            {((div as any).contractCount ?? 0) === 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button type="button" size="icon" variant="ghost" onClick={() => setDeleteTarget(div)} data-testid={`button-delete-division-${div.id}`}>
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Vymazať</TooltipContent>
+              </Tooltip>
+            )}
           </div>
         </TableCell>
       </TableRow>

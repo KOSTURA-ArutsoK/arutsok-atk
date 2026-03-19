@@ -1073,7 +1073,15 @@ export async function registerRoutes(
       const divs = await storage.getDivisions();
       const enriched = await Promise.all(divs.map(async (d) => {
         const links = await storage.getDivisionCompanies(d.id);
-        return { ...d, companies: links.map(l => ({ id: l.company.id, name: l.company.name, code: (l.company as any).code || null })) };
+        const [{ count: contractCount }] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(contracts)
+          .where(eq(contracts.divisionId, d.id));
+        return {
+          ...d,
+          companies: links.map(l => ({ id: l.company.id, name: l.company.name, code: (l.company as any).code || null })),
+          contractCount: contractCount ?? 0,
+        };
       }));
       res.json(enriched);
     } catch (err) { res.status(500).json({ message: String(err) }); }
@@ -1161,9 +1169,17 @@ export async function registerRoutes(
 
   app.delete("/api/divisions/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const old = await storage.getDivision(Number(req.params.id));
-      await storage.deleteDivision(Number(req.params.id));
-      await logAudit(req, { action: "DELETE", module: "divisions", entityId: Number(req.params.id), oldData: old });
+      const divId = Number(req.params.id);
+      const [{ count: contractCount }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(contracts)
+        .where(eq(contracts.divisionId, divId));
+      if ((contractCount ?? 0) > 0) {
+        return res.status(409).json({ message: "Divíziu nemožno vymazať — obsahuje zmluvy." });
+      }
+      const old = await storage.getDivision(divId);
+      await storage.deleteDivision(divId);
+      await logAudit(req, { action: "DELETE", module: "divisions", entityId: divId, oldData: old });
       res.json({ success: true });
     } catch (err) { res.status(500).json({ message: String(err) }); }
   });
