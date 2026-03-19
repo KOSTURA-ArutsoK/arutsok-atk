@@ -548,6 +548,8 @@ function CompanyFormDialog({
   const [registryError, setRegistryError] = useState<string | null>(null);
   const [selectedActivityIndices, setSelectedActivityIndices] = useState<Set<number>>(new Set());
   const [localActivities, setLocalActivities] = useState<BusinessActivity[]>([]);
+  const [newActivityText, setNewActivityText] = useState("");
+  const [newActivitySince, setNewActivitySince] = useState("");
   const [corrSameAsHQ, setCorrSameAsHQ] = useState(false);
   const [branches, setBranches] = useState<BranchEntry[]>([]);
   const [addingBranch, setAddingBranch] = useState(false);
@@ -647,6 +649,11 @@ function CompanyFormDialog({
               if (data.found && data.businessActivities?.length) {
                 setRegistryResult(data);
                 setSelectedActivityIndices(new Set(data.businessActivities.map((_: BusinessActivity, i: number) => i)));
+                setLocalActivities(prev => {
+                  const existing = new Set(prev.map((a: BusinessActivity) => a.text.trim()));
+                  const newOnes = (data.businessActivities as BusinessActivity[]).filter((a: BusinessActivity) => !existing.has(a.text.trim()));
+                  return newOnes.length > 0 ? [...prev, ...newOnes] : prev;
+                });
               }
             })
             .catch(() => {})
@@ -741,6 +748,11 @@ function CompanyFormDialog({
       setRegistryResult(data);
       if (data.businessActivities?.length) {
         setSelectedActivityIndices(new Set(data.businessActivities.map((_: BusinessActivity, i: number) => i)));
+        setLocalActivities(prev => {
+          const existing = new Set(prev.map((a: BusinessActivity) => a.text.trim()));
+          const newOnes = (data.businessActivities as BusinessActivity[]).filter(a => !existing.has(a.text.trim()));
+          return newOnes.length > 0 ? [...prev, ...newOnes] : prev;
+        });
       }
       if (data.name) form.setValue("name", data.name);
       if (data.street) form.setValue("street", data.street);
@@ -1390,6 +1402,51 @@ function CompanyFormDialog({
                     </div>
                   </div>
                 )}
+
+                {/* Manual add form */}
+                <div className="border border-border rounded-md p-3 space-y-3" data-testid="section-add-activity">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pridať manuálne</p>
+                  <div className="space-y-2">
+                    <textarea
+                      className="w-full min-h-[72px] resize-y rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      placeholder="Popis predmetu podnikania alebo činnosti..."
+                      value={newActivityText}
+                      onChange={e => setNewActivityText(e.target.value)}
+                      data-testid="input-new-activity-text"
+                    />
+                    <div className="flex gap-2 items-center">
+                      <div className="flex items-center gap-2 flex-1">
+                        <label className="text-xs text-muted-foreground whitespace-nowrap">Dátum od</label>
+                        <input
+                          type="date"
+                          className="flex-1 h-8 rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          value={newActivitySince}
+                          onChange={e => setNewActivitySince(e.target.value)}
+                          data-testid="input-new-activity-since"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 shrink-0"
+                        data-testid="button-add-activity"
+                        disabled={!newActivityText.trim()}
+                        onClick={() => {
+                          if (!newActivityText.trim()) return;
+                          const entry: BusinessActivity = { text: newActivityText.trim() };
+                          if (newActivitySince) entry.since = newActivitySince;
+                          setLocalActivities(prev => [...prev, entry]);
+                          setNewActivityText("");
+                          setNewActivitySince("");
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Pridať
+                      </Button>
+                    </div>
+                  </div>
+                </div>
 
               </TabsContent>
 
