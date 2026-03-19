@@ -7803,11 +7803,15 @@ export async function registerRoutes(
           merged.push({ ...row } as any);
         } else {
           const cur = merged[existing] as any;
-          // Higher-priority row wins entirely — groups are NOT merged
+          // Always merge group badges from all sources (subject groups + Firemná + Externá…)
+          const allGroups = [...(cur.groups || []), ...(row.groups || [])];
           if (priority(row) < priority(cur)) {
-            merged[existing] = { ...row } as any;
+            // Incoming has higher priority — use it as the base row, keep all groups
+            merged[existing] = { ...row, groups: allGroups } as any;
+          } else {
+            // Keep existing base row, just append incoming groups
+            merged[existing] = { ...cur, groups: allGroups } as any;
           }
-          // else keep existing — do nothing
         }
       }
 
