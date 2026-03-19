@@ -4,6 +4,7 @@ import { useMyCompanies, useCreateMyCompany, useUpdateMyCompany, useDeleteMyComp
 import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
 import { PhoneInput } from "@/components/phone-input";
+import { AddCompanyCard } from "@/components/AddCompanyCard";
 import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, ChevronRight, Phone, Mail, GitBranch, Info, UserCheck, UserPlus, Users, Camera, UserCog, Archive, Briefcase } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -2500,12 +2501,10 @@ export default function Companies() {
         <div className="flex items-center gap-2 flex-wrap">
           <SmartFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
-          <Button onClick={openCreate} data-testid="button-add-company">
-            <Plus className="w-4 h-4 mr-2" />
-            Pridať novú spoločnosť
-          </Button>
         </div>
       </div>
+
+      <AddCompanyCard onClick={openCreate} />
 
       <Card>
         <CardContent className="p-0">
