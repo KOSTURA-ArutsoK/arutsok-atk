@@ -373,7 +373,7 @@ function CountryPickerDialog({
           {/* Country list — fills remaining dialog height */}
           <div className="flex-1 min-h-0 border border-border rounded-md overflow-y-auto">
             {filtered.length === 0 && pickerContinent === "Antarktída" ? (
-              <div className="h-full flex flex-col p-5 gap-5 overflow-y-auto">
+              <div className="flex flex-col p-5 gap-5">
                 <div className="flex items-center gap-3">
                   <span className="text-4xl">🧊</span>
                   <div>
