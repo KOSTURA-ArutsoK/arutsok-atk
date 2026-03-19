@@ -977,6 +977,7 @@ export const supisky = pgTable("supisky", {
   dispatchMethod: text("dispatch_method"),
   dispatchedAt: timestamp("dispatched_at"),
   receivedByPartnerAt: timestamp("received_by_partner_at"),
+  attachments: text("attachments").array().default([]),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

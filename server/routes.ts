@@ -389,11 +389,12 @@ fs.mkdirSync(path.join(UPLOADS_DIR, "profiles"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "flags"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "status-change-docs"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "subject-photos"), { recursive: true });
+fs.mkdirSync(path.join(UPLOADS_DIR, "supiska-attachments"), { recursive: true });
 
 const uploadStorage = multer.diskStorage({
   destination: (req, _file, cb) => {
     const section = (req.params as any).section || (req as any)._uploadSection;
-    const validDirs = ["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs", "subject-photos", "datova-linka"];
+    const validDirs = ["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs", "subject-photos", "datova-linka", "supiska-attachments"];
     const dir = validDirs.includes(section) ? section : "official";
     cb(null, path.join(UPLOADS_DIR, dir));
   },
@@ -5132,6 +5133,44 @@ export async function registerRoutes(
     } catch (err: any) {
       console.error("Supiska dispatch error:", err);
       res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  app.post("/api/supisky/:id/upload-attachment", isAuthenticated,
+    (req: any, _res: any, next: any) => { req._uploadSection = "supiska-attachments"; next(); },
+    upload.single("file"), async (req: any, res) => {
+    try {
+      const supiskaId = Number(req.params.id);
+      if (!req.file) return res.status(400).json({ message: "Žiadny súbor" });
+      const supiska = await storage.getSupiska(supiskaId);
+      if (!supiska) return res.status(404).json({ message: "Súpiska nenájdená" });
+      const fileUrl = `/api/files/supiska-attachments/${req.file.filename}`;
+      const current = (supiska as any).attachments || [];
+      await db.update(supisky).set({ attachments: [...current, fileUrl] }).where(eq(supisky.id, supiskaId));
+      res.json({ url: fileUrl, name: req.file.originalname, size: req.file.size });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri nahrávaní" });
+    }
+  });
+
+  app.delete("/api/supisky/:id/attachment", isAuthenticated, async (req: any, res) => {
+    try {
+      const supiskaId = Number(req.params.id);
+      const { url } = req.body;
+      if (!url) return res.status(400).json({ message: "Chýba URL súboru" });
+      const supiska = await storage.getSupiska(supiskaId);
+      if (!supiska) return res.status(404).json({ message: "Súpiska nenájdená" });
+      const current: string[] = (supiska as any).attachments || [];
+      const updated = current.filter(u => u !== url);
+      await db.update(supisky).set({ attachments: updated }).where(eq(supisky.id, supiskaId));
+      // try delete physical file
+      try {
+        const filename = url.split("/").pop();
+        if (filename) fs.unlinkSync(path.join(UPLOADS_DIR, "supiska-attachments", filename));
+      } catch {}
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba pri mazaní" });
     }
   });
 

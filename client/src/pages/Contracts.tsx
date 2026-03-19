@@ -3114,6 +3114,51 @@ export default function Contracts() {
   const [dispatchSuopiskaId, setDispatchSuopiskaId] = useState<number | null>(null);
   const [dispatchMethod, setDispatchMethod] = useState("");
   const [dispatchDate, setDispatchDate] = useState("");
+  const [dispatchFiles, setDispatchFiles] = useState<{ name: string; url: string; size: number }[]>([]);
+  const [dispatchUploading, setDispatchUploading] = useState(false);
+  const [dispatchDragOver, setDispatchDragOver] = useState(false);
+  const dispatchFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDispatchUpload = async (files: File[]) => {
+    if (!dispatchSuopiskaId || files.length === 0) return;
+    setDispatchUploading(true);
+    for (const file of files) {
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch(`/api/supisky/${dispatchSuopiskaId}/upload-attachment`, {
+          method: "POST",
+          credentials: "include",
+          body: fd,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setDispatchFiles(prev => [...prev, { name: data.name || file.name, url: data.url, size: data.size || file.size }]);
+        } else {
+          const err = await res.json().catch(() => ({ message: "Chyba pri nahrávaní" }));
+          toast({ title: "Chyba", description: err.message, variant: "destructive" });
+        }
+      } catch {
+        toast({ title: "Chyba", description: "Nepodarilo sa nahrať súbor", variant: "destructive" });
+      }
+    }
+    setDispatchUploading(false);
+  };
+
+  const handleDispatchRemoveFile = async (url: string) => {
+    if (!dispatchSuopiskaId) return;
+    try {
+      await fetch(`/api/supisky/${dispatchSuopiskaId}/attachment`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      setDispatchFiles(prev => prev.filter(f => f.url !== url));
+    } catch {
+      toast({ title: "Chyba", description: "Nepodarilo sa odstrániť súbor", variant: "destructive" });
+    }
+  };
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
   const [receiveSuopiskaId, setReceiveSuopiskaId] = useState<number | null>(null);
   const [receiveDate, setReceiveDate] = useState("");
@@ -8313,7 +8358,7 @@ export default function Contracts() {
                                         size="sm"
                                         variant="default"
                                         className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                                        onClick={(e) => { e.stopPropagation(); setDispatchSuopiskaId(sup.id); setDispatchMethod(""); setDispatchDate(""); setDispatchDialogOpen(true); }}
+                                        onClick={(e) => { e.stopPropagation(); setDispatchSuopiskaId(sup.id); setDispatchMethod(""); setDispatchDate(""); setDispatchFiles([]); setDispatchDialogOpen(true); }}
                                         data-testid={`button-dispatch-supiska-${sup.id}`}
                                       >
                                         <Send className="w-3 h-3 mr-1" />Odoslať obchodnému partnerovi
@@ -8489,10 +8534,73 @@ export default function Contracts() {
                 <Label>Dátum a čas odoslania</Label>
                 <Input type="datetime-local" value={dispatchDate} onChange={e => setDispatchDate(e.target.value)} data-testid="input-dispatch-date" />
               </div>
+
+              {/* File drop zone */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <Paperclip className="w-3.5 h-3.5" />
+                  Prílohy (voliteľné)
+                </Label>
+                <input
+                  type="file"
+                  multiple
+                  ref={dispatchFileInputRef}
+                  className="hidden"
+                  data-testid="input-dispatch-file"
+                  onChange={e => handleDispatchUpload(Array.from(e.target.files || []))}
+                />
+                <div
+                  className={`border-2 border-dashed rounded-md px-4 py-5 text-center cursor-pointer transition-colors ${dispatchDragOver ? "border-indigo-500 bg-indigo-500/10" : "border-border hover:border-muted-foreground/40 hover:bg-accent/30"}`}
+                  onDragOver={e => { e.preventDefault(); setDispatchDragOver(true); }}
+                  onDragLeave={() => setDispatchDragOver(false)}
+                  onDrop={e => {
+                    e.preventDefault();
+                    setDispatchDragOver(false);
+                    handleDispatchUpload(Array.from(e.dataTransfer.files));
+                  }}
+                  onClick={() => dispatchFileInputRef.current?.click()}
+                  data-testid="dropzone-dispatch-files"
+                >
+                  {dispatchUploading ? (
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span className="text-sm">Nahrávam...</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                      <Upload className="w-6 h-6 mb-1 opacity-60" />
+                      <p className="text-sm">Presuňte súbory sem alebo <span className="text-indigo-400 underline">vyberte zo zariadenia</span></p>
+                      <p className="text-xs opacity-50">PDF, obrázky, Word, Excel, … max 50 MB</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Uploaded files list */}
+                {dispatchFiles.length > 0 && (
+                  <div className="space-y-1 mt-1">
+                    {dispatchFiles.map((f, i) => (
+                      <div key={i} className="flex items-center gap-2 px-2 py-1.5 rounded border border-border bg-accent/20 text-sm" data-testid={`dispatch-file-${i}`}>
+                        <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <a href={f.url} target="_blank" rel="noopener noreferrer" className="flex-1 text-foreground hover:text-indigo-400 truncate" title={f.name}>{f.name}</a>
+                        <span className="text-xs text-muted-foreground shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:text-red-400 shrink-0"
+                          onClick={() => handleDispatchRemoveFile(f.url)}
+                          data-testid={`btn-remove-dispatch-file-${i}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center justify-end gap-3 flex-wrap">
                 <Button variant="outline" onClick={() => setDispatchDialogOpen(false)} data-testid="button-dispatch-cancel">Zrušiť</Button>
                 <Button
-                  disabled={!dispatchMethod || !dispatchDate || dispatchSupiskaMutation.isPending}
+                  disabled={!dispatchMethod || !dispatchDate || dispatchSupiskaMutation.isPending || dispatchUploading}
                   onClick={() => {
                     if (dispatchSuopiskaId && dispatchMethod && dispatchDate) {
                       dispatchSupiskaMutation.mutate({ supiskaId: dispatchSuopiskaId, dispatchMethod, dispatchedAt: dispatchDate });
@@ -8502,7 +8610,7 @@ export default function Contracts() {
                   data-testid="button-dispatch-confirm"
                 >
                   {dispatchSupiskaMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                  Odoslať
+                  Odoslať{dispatchFiles.length > 0 ? ` (${dispatchFiles.length} príl.)` : ""}
                 </Button>
               </div>
             </div>
