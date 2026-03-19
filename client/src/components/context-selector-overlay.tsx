@@ -264,8 +264,8 @@ export function ContextSelectorOverlay({
                     onMouseLeave={() => setHoveredDivId(null)}
                     style={{
                       position: "relative",
-                      width: 128,
-                      height: 144,
+                      width: 180,
+                      height: 200,
                       background: "none",
                       border: "none",
                       padding: 0,
@@ -278,8 +278,8 @@ export function ContextSelectorOverlay({
                     }}
                   >
                     <svg
-                      width="128"
-                      height="144"
+                      width="180"
+                      height="200"
                       viewBox="0 0 160 140"
                       style={{ position: "absolute", top: 0, left: 0, display: "block" }}
                     >
@@ -298,10 +298,10 @@ export function ContextSelectorOverlay({
                       flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "flex-end",
-                      paddingBottom: 28,
-                      gap: 4,
+                      paddingBottom: 38,
+                      gap: 5,
                     }}>
-                      <span style={{ fontSize: 22, lineHeight: 1 }}>
+                      <span style={{ fontSize: 28, lineHeight: 1 }}>
                         {divEmoji || "🌲"}
                       </span>
                       <span style={{
@@ -311,7 +311,7 @@ export function ContextSelectorOverlay({
                         color: isHov ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.70)",
                         textAlign: "center",
                         lineHeight: 1.3,
-                        maxWidth: 80,
+                        maxWidth: 110,
                         wordBreak: "break-word",
                         transition: "color 0.2s ease",
                       }}>
