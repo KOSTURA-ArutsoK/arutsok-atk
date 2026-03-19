@@ -2394,14 +2394,14 @@ export default function Partners() {
                           <Pencil className="w-4 h-4" />
                         </Button>
                       )}
-                      {canDeleteRecords(appUser) && (
+                      {canDeleteRecords(appUser) && !partner.uid && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setDeleteTarget(partner); }} data-testid={`button-delete-partner-${partner.id}`}>
                               <Trash2 className="w-4 h-4 text-destructive" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Zmazať partnera</TooltipContent>
+                          <TooltipContent>Zmazať prázdny záznam</TooltipContent>
                         </Tooltip>
                       )}
                     </div>

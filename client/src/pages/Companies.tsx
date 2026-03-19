@@ -2487,12 +2487,14 @@ export default function Companies() {
             <Button type="button" size="icon" variant="ghost" onClick={() => setViewTarget(company)} data-testid={`button-view-${company.id}`}><Eye className="w-4 h-4" /></Button>
             <Button type="button" size="icon" variant="ghost" onClick={() => setLogoHistoryTarget(company)} data-testid={`button-logo-history-${company.id}`} title="Historia log"><Image className="w-4 h-4" /></Button>
             <Button type="button" size="icon" variant="ghost" onClick={() => openEdit(company)} data-testid={`button-edit-${company.id}`}><Pencil className="w-4 h-4" /></Button>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button type="button" size="icon" variant="ghost" onClick={() => setDeleteTarget(company)} data-testid={`button-delete-${company.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-              </TooltipTrigger>
-              <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-            </Tooltip>
+            {!company.uid && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button type="button" size="icon" variant="ghost" onClick={() => setDeleteTarget(company)} data-testid={`button-delete-${company.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                </TooltipTrigger>
+                <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+              </Tooltip>
+            )}
           </div>
         </TableCell>
       </TableRow>
