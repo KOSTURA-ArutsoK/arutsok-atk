@@ -531,89 +531,86 @@ export default function NetworkSiet() {
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
               ) : (
-                <>{(() => {
-                  const sorted = [...(networkData?.subjects || [])].sort((a, b) => {
-                    const ua = a.uid || "zzz";
-                    const ub = b.uid || "zzz";
-                    return ua.localeCompare(ub);
-                  });
-                  // group by uid (null uid = each its own group)
-                  const groups: { uid: string | null; items: typeof sorted }[] = [];
-                  sorted.forEach(s => {
-                    if (!s.uid) { groups.push({ uid: null, items: [s] }); return; }
-                    const last = groups[groups.length - 1];
-                    if (last && last.uid === s.uid) last.items.push(s);
-                    else groups.push({ uid: s.uid, items: [s] });
-                  });
+<div className="space-y-1">
+                  <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs text-muted-foreground uppercase tracking-wider border-b border-border">
+                    <div className="col-span-4">UID</div>
+                    <div className="col-span-2">Typ</div>
+                    <div className="col-span-3">Meno / Názov</div>
+                    <div className="col-span-3">Štítky</div>
+                  </div>
 
-                  const rowCls = "grid grid-cols-12 gap-2 px-3 py-2 text-sm items-center";
-                  const renderBadges = (s: typeof sorted[0]) => (
-                    <div className="col-span-3 flex flex-wrap gap-1">
-                      {s.registrationStatus === "klient" && <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px] px-1.5 py-0">Klient</Badge>}
-                      {s.registrationStatus === "tiper" && <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[10px] px-1.5 py-0">Tipér</Badge>}
-                      {s.registrationStatus === "potencialny" && <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30 text-[10px] px-1.5 py-0">Potenciálny</Badge>}
-                      {s.isOfficer && <Badge className="bg-indigo-500/20 text-indigo-400 border-indigo-500/30 text-[10px] px-1.5 py-0">Štatutár</Badge>}
-                      {s.type === "mycompany" && <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] px-1.5 py-0">Vlastná spol.</Badge>}
-                      {s.type === "partner" && <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-[10px] px-1.5 py-0">Partner</Badge>}
-                      {s.type === "system" && <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30 text-[10px] px-1.5 py-0">Systém</Badge>}
-                    </div>
-                  );
+                  {(() => {
+                    type S = NonNullable<typeof networkData>["subjects"][0];
+                    const sorted = [...(networkData?.subjects || [])].sort((a: S, b: S) => {
+                      const ua = a.uid || "zzz";
+                      const ub = b.uid || "zzz";
+                      return ua.localeCompare(ub);
+                    });
+                    // group consecutive rows by uid; null uid = individual row
+                    const groups: { uid: string | null; items: S[] }[] = [];
+                    sorted.forEach((s: S) => {
+                      if (!s.uid) { groups.push({ uid: null, items: [s] }); return; }
+                      const last = groups[groups.length - 1];
+                      if (last && last.uid === s.uid) last.items.push(s);
+                      else groups.push({ uid: s.uid, items: [s] });
+                    });
 
-                  return (
-                    <div className="space-y-1">
-                      <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs text-muted-foreground uppercase tracking-wider border-b border-border">
-                        <div className="col-span-1">Typ</div>
-                        <div className="col-span-4">Meno / Názov</div>
-                        <div className="col-span-4">UID</div>
-                        <div className="col-span-3">Štítky</div>
-                      </div>
+                    return groups.map((group, gi) => {
+                      const isShared = group.items.length > 1;
+                      // collect unique types and all badges across group
+                      const uniqueTypes = [...new Set(group.items.map((s: S) => s.type))];
+                      const names = [...new Set(group.items.map((s: S) => getSubjectName(s)).filter(Boolean))];
+                      const hasKlient = group.items.some((s: S) => s.registrationStatus === "klient");
+                      const hasTiper = group.items.some((s: S) => s.registrationStatus === "tiper");
+                      const hasPotenc = group.items.some((s: S) => s.registrationStatus === "potencialny");
+                      const hasOfficer = group.items.some((s: S) => s.isOfficer);
+                      const hasMyCompany = uniqueTypes.includes("mycompany");
+                      const hasPartner = uniqueTypes.includes("partner");
+                      const hasSystem = uniqueTypes.includes("system");
 
-                      {groups.map((group, gi) => {
-                        const isShared = group.items.length > 1;
-                        if (!isShared) {
-                          const s = group.items[0];
-                          return (
-                            <div key={`g-${gi}`} className={`${rowCls} rounded hover:bg-accent/50`} data-testid={`uid-row-${s.id}`}>
-                              <div className="col-span-1">{subjectTypeBadge(s.type)}</div>
-                              <div className="col-span-4 font-medium text-foreground">{getSubjectName(s)}</div>
-                              <div className="col-span-4 font-mono text-xs text-muted-foreground">
-                                {s.uid ? formatUid(s.uid) : <span className="text-muted-foreground/40 italic">bez UID</span>}
-                              </div>
-                              {renderBadges(s)}
-                            </div>
-                          );
-                        }
-                        return (
-                          <div key={`g-${gi}`} className="border border-amber-500/40 rounded-lg overflow-hidden bg-amber-500/5" data-testid={`uid-group-${group.uid}`}>
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border-b border-amber-500/30">
-                              <Link2 className="w-3 h-3 text-amber-400 shrink-0" />
-                              <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider">Tá istá entita</span>
-                              <span className="font-mono text-[10px] text-amber-400/70 ml-1">{formatUid(group.uid)}</span>
-                              <Badge className="ml-auto bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px] px-1.5 py-0">{group.items.length}×</Badge>
-                            </div>
-                            {group.items.map((s, si) => (
-                              <div key={s.id} className={`${rowCls} hover:bg-amber-500/10 ${si < group.items.length - 1 ? "border-b border-amber-500/20" : ""}`} data-testid={`uid-row-${s.id}`}>
-                                <div className="col-span-1">{subjectTypeBadge(s.type)}</div>
-                                <div className="col-span-4 font-medium text-foreground">{getSubjectName(s)}</div>
-                                <div className="col-span-4 font-mono text-xs text-muted-foreground/60 line-through decoration-amber-500/40">
-                                  {formatUid(s.uid)}
-                                </div>
-                                {renderBadges(s)}
-                              </div>
-                            ))}
+                      return (
+                        <div
+                          key={`g-${gi}`}
+                          className="grid grid-cols-12 gap-2 px-3 py-2 text-sm rounded hover:bg-accent/50 items-center"
+                          data-testid={isShared ? `uid-group-${group.uid}` : `uid-row-${group.items[0].id}`}
+                        >
+                          {/* UID — first */}
+                          <div className="col-span-4 font-mono text-xs text-muted-foreground flex items-center gap-1.5">
+                            {group.uid
+                              ? formatUid(group.uid)
+                              : <span className="text-muted-foreground/40 italic">bez UID</span>}
+                            {isShared && <Link2 className="w-3 h-3 text-muted-foreground/50 shrink-0" />}
                           </div>
-                        );
-                      })}
-
-                      {!networkData?.subjects?.length && (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                          <p>Žiadne záznamy</p>
+                          {/* Type(s) */}
+                          <div className="col-span-2 flex flex-wrap gap-1">
+                            {uniqueTypes.map((t: string) => <span key={t}>{subjectTypeBadge(t)}</span>)}
+                          </div>
+                          {/* Name(s) */}
+                          <div className="col-span-3 font-medium text-foreground text-xs">
+                            {names.join(" / ") || "—"}
+                          </div>
+                          {/* Badges — all combined */}
+                          <div className="col-span-3 flex flex-wrap gap-1">
+                            {hasKlient && <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px] px-1.5 py-0">Klient</Badge>}
+                            {hasTiper && <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[10px] px-1.5 py-0">Tipér</Badge>}
+                            {hasPotenc && <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30 text-[10px] px-1.5 py-0">Potenciálny</Badge>}
+                            {hasOfficer && <Badge className="bg-indigo-500/20 text-indigo-400 border-indigo-500/30 text-[10px] px-1.5 py-0">Štatutár</Badge>}
+                            {hasMyCompany && <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] px-1.5 py-0">Vlastná spol.</Badge>}
+                            {hasPartner && <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-[10px] px-1.5 py-0">Partner</Badge>}
+                            {hasSystem && <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30 text-[10px] px-1.5 py-0">Systém</Badge>}
+                          </div>
                         </div>
-                      )}
+                      );
+                    });
+                  })()}
+
+                  {!networkData?.subjects?.length && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p>Žiadne záznamy</p>
                     </div>
-                  );
-                })()}</>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
