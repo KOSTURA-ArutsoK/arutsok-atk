@@ -318,15 +318,15 @@ function CountryPickerDialog({
   continents: { id: number; name: string; code: string }[];
   onSelect: (c: WC, continentId: number) => void;
 }) {
-  const [pickerContinent, setPickerContinent] = useState("");
+  const [pickerContinent, setPickerContinent] = useState("all");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    if (open) { setPickerContinent(""); setSearch(""); }
+    if (open) { setPickerContinent("all"); setSearch(""); }
   }, [open]);
 
   const filtered = WORLD_COUNTRIES.filter(c => {
-    const matchContinent = !pickerContinent || c.continent === pickerContinent;
+    const matchContinent = pickerContinent === "all" || c.continent === pickerContinent;
     const matchSearch = !search || c.name.toLowerCase().includes(search.toLowerCase());
     return matchContinent && matchSearch;
   }).sort((a, b) => a.name.localeCompare(b.name, "sk"));
@@ -345,7 +345,7 @@ function CountryPickerDialog({
                 <SelectValue placeholder="Všetky kontinenty" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Všetky kontinenty</SelectItem>
+                <SelectItem value="all">Všetky kontinenty</SelectItem>
                 {continents.map(c => (
                   <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                 ))}
