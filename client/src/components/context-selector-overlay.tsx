@@ -127,7 +127,7 @@ export function ContextSelectorOverlay({
           <h2 className="text-2xl font-bold text-white tracking-tight text-center" data-testid="text-context-title">
             Vyberte štát
           </h2>
-          <div className="flex flex-nowrap items-start justify-center gap-10">
+          <div className="flex flex-wrap items-start justify-center gap-10 max-w-3xl px-6">
             {[...states].sort((a, b) => a.name.localeCompare(b.name, "sk")).map(s => (
               <button
                 key={s.id}
