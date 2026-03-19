@@ -27,30 +27,20 @@ export function AddCompanyCard({ onClick }: AddCompanyCardProps) {
   const theme = isDark
     ? {
         bg: "linear-gradient(145deg, #0a1f3d, #1a3f80)",
-        bgHover: "linear-gradient(145deg, #122850, #2251a0)",
-        border: "1px solid #1e3a6e",
-        borderHover: "1px solid #3060b0",
-        shadowRest: "0 4px 12px rgba(0,0,0,0.6)",
-        shadowHover: "0 10px 28px rgba(10,30,100,0.85)",
-        shadowPressed: "0 1px 6px rgba(0,0,0,0.7)",
+        shadowRest: "10px 10px 20px #060f20, -10px -10px 20px #204898",
+        shadowActive: "inset 5px 5px 10px #060f20, inset -3px -3px 8px #204898",
         textColor: "#b8d0f0",
-        textColorHover: "#ddeeff",
+        globeOpacity: 0.65,
       }
     : {
         bg: "linear-gradient(145deg, #aac8e8, #d8eafa)",
-        bgHover: "linear-gradient(145deg, #90b8e0, #c0dff8)",
-        border: "1px solid #88a8cc",
-        borderHover: "1px solid #5588bb",
-        shadowRest: "0 4px 12px rgba(100,140,200,0.25)",
-        shadowHover: "0 10px 28px rgba(60,110,180,0.4)",
-        shadowPressed: "0 1px 6px rgba(80,120,180,0.2)",
+        shadowRest: "10px 10px 20px #88a8cc, -10px -10px 20px #ffffff",
+        shadowActive: "inset 5px 5px 10px #88a8cc, inset -3px -3px 8px #ffffff",
         textColor: "#1a3f70",
-        textColorHover: "#0d2a55",
+        globeOpacity: 0.6,
       };
 
-  const currentBg = pressed ? theme.bg : hovered ? theme.bgHover : theme.bg;
-  const currentBorder = hovered ? theme.borderHover : theme.border;
-  const currentText = hovered ? theme.textColorHover : theme.textColor;
+  const isActive = hovered || pressed;
 
   return (
     <div className="flex items-center justify-center w-full py-4">
@@ -66,10 +56,11 @@ export function AddCompanyCard({ onClick }: AddCompanyCardProps) {
         onTouchEnd={() => setPressed(false)}
         style={{
           width: 160,
-          background: currentBg,
-          border: currentBorder,
-          borderRadius: 12,
-          boxShadow: pressed ? theme.shadowPressed : hovered ? theme.shadowHover : theme.shadowRest,
+          minHeight: 120,
+          background: theme.bg,
+          border: "none",
+          borderRadius: 14,
+          boxShadow: isActive ? theme.shadowActive : theme.shadowRest,
           cursor: "pointer",
           display: "flex",
           flexDirection: "column",
@@ -77,29 +68,27 @@ export function AddCompanyCard({ onClick }: AddCompanyCardProps) {
           justifyContent: "center",
           gap: 10,
           padding: "20px 16px 18px",
-          transition: "box-shadow 0.18s ease, transform 0.18s ease, background 0.18s ease, border-color 0.18s ease",
-          transform: pressed ? "translateY(1px)" : hovered ? "translateY(-4px)" : "translateY(0)",
+          transition: "box-shadow 0.12s ease",
           outline: "none",
           userSelect: "none",
         }}
       >
-        {/* Icon with "+" badge top-right */}
         <div style={{ position: "relative", display: "inline-flex" }}>
           <Building2
             style={{
               width: 36,
               height: 36,
               color: "#FFBF00",
-              filter: "drop-shadow(0 0 6px rgba(255,191,0,0.55))",
+              filter: `drop-shadow(0 0 6px rgba(255,191,0,${theme.globeOpacity}))`,
             }}
           />
           <span
             style={{
               position: "absolute",
-              top: -8,
+              top: -6,
               right: -10,
-              fontWeight: 900,
-              fontSize: 20,
+              fontWeight: 800,
+              fontSize: 18,
               lineHeight: 1,
               color: "#FFBF00",
               filter: "drop-shadow(0 0 5px #FFBF00)",
@@ -108,17 +97,15 @@ export function AddCompanyCard({ onClick }: AddCompanyCardProps) {
             +
           </span>
         </div>
-
         <span
           style={{
             fontFamily: "sans-serif",
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: 800,
-            color: currentText,
-            letterSpacing: "0.02em",
+            color: theme.textColor,
+            letterSpacing: "0.04em",
             textAlign: "center",
-            lineHeight: 1.3,
-            transition: "color 0.18s ease",
+            lineHeight: 1.2,
           }}
         >
           Pridať spoločnosť
