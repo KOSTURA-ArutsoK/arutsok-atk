@@ -454,10 +454,12 @@ function StateFormDialog({
   open,
   onOpenChange,
   editingState,
+  initialCountry,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingState: State | null;
+  initialCountry?: { c: WC; cid: number } | null;
 }) {
   const { toast } = useToast();
   const timerRef = useRef<number>(0);
@@ -501,11 +503,17 @@ function StateFormDialog({
         setCurrency((editingState as any).currency || "EUR");
         setContinentId(editingState.continentId.toString());
         setFlagUrl(editingState.flagUrl ?? null);
+      } else if (initialCountry) {
+        setName(initialCountry.c.name);
+        setCode(initialCountry.c.dial);
+        setCurrency(initialCountry.c.currency);
+        setContinentId(initialCountry.cid.toString());
+        setFlagUrl(`https://flagcdn.com/w40/${initialCountry.c.iso}.png`);
       } else {
         setName(""); setCode(""); setCurrency("EUR"); setContinentId("1"); setFlagUrl(null);
       }
     }
-  }, [open, editingState]);
+  }, [open, editingState, initialCountry]);
 
   function handleCountrySelect(c: WC, cid: number) {
     setName(c.name);
@@ -993,6 +1001,8 @@ export default function SettingsStates() {
   const { toast } = useToast();
   const [formOpen, setFormOpen] = useState(false);
   const [editingState, setEditingState] = useState<State | null>(null);
+  const [addPickerOpen, setAddPickerOpen] = useState(false);
+  const [addInitialCountry, setAddInitialCountry] = useState<{ c: WC; cid: number } | null>(null);
   const [flagUploadState, setFlagUploadState] = useState<State | null>(null);
   const [flagHistoryState, setFlagHistoryState] = useState<State | null>(null);
   const [deleteState, setDeleteState] = useState<State | null>(null);
@@ -1087,7 +1097,7 @@ export default function SettingsStates() {
         </div>
       </div>
 
-      <AddStateButton onClick={() => { setEditingState(null); setFormOpen(true); }} />
+      <AddStateButton onClick={() => { setAddInitialCountry(null); setAddPickerOpen(true); }} />
 
       <Card>
         <CardContent className="p-0">
@@ -1202,10 +1212,23 @@ export default function SettingsStates() {
         </CardContent>
       </Card>
 
+      <CountryPickerDialog
+        open={addPickerOpen}
+        onOpenChange={setAddPickerOpen}
+        continents={continents ?? []}
+        onSelect={(c, cid) => {
+          setAddInitialCountry({ c, cid });
+          setAddPickerOpen(false);
+          setEditingState(null);
+          setFormOpen(true);
+        }}
+      />
+
       <StateFormDialog
         open={formOpen}
-        onOpenChange={setFormOpen}
+        onOpenChange={(open) => { setFormOpen(open); if (!open) setAddInitialCountry(null); }}
         editingState={editingState}
+        initialCountry={editingState ? null : addInitialCountry}
       />
 
       <FlagUploadDialog
