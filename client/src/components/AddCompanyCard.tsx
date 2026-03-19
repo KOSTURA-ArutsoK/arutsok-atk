@@ -26,28 +26,20 @@ export function AddCompanyCard({ onClick }: AddCompanyCardProps) {
 
   const theme = isDark
     ? {
-        bg: "#1a1a1a",
-        border: "1px solid #2e2e2e",
-        shadowRest: "0 2px 8px rgba(0,0,0,0.5)",
-        shadowHover: "0 8px 24px rgba(0,0,0,0.7)",
-        shadowPressed: "0 1px 4px rgba(0,0,0,0.6)",
-        iconBg: "#262626",
-        iconColor: "#9ca3af",
-        plusColor: "#d1d5db",
-        textColor: "#e5e7eb",
-        subTextColor: "#6b7280",
+        bg: "linear-gradient(145deg, #0a1f3d, #1a3f80)",
+        border: "1px solid #1e3a6e",
+        shadowRest: "0 4px 12px rgba(0,0,0,0.6)",
+        shadowHover: "0 10px 28px rgba(0,20,60,0.8)",
+        shadowPressed: "0 1px 6px rgba(0,0,0,0.7)",
+        textColor: "#b8d0f0",
       }
     : {
-        bg: "#f0f2f5",
-        border: "1px solid #d1d9e0",
-        shadowRest: "0 2px 8px rgba(0,0,0,0.08)",
-        shadowHover: "0 8px 24px rgba(0,0,0,0.15)",
-        shadowPressed: "0 1px 4px rgba(0,0,0,0.12)",
-        iconBg: "#e2e8f0",
-        iconColor: "#64748b",
-        plusColor: "#374151",
-        textColor: "#1e293b",
-        subTextColor: "#64748b",
+        bg: "linear-gradient(145deg, #aac8e8, #d8eafa)",
+        border: "1px solid #88a8cc",
+        shadowRest: "0 4px 12px rgba(100,140,200,0.25)",
+        shadowHover: "0 10px 28px rgba(80,120,180,0.35)",
+        shadowPressed: "0 1px 6px rgba(80,120,180,0.2)",
+        textColor: "#1a3f70",
       };
 
   return (
@@ -81,36 +73,26 @@ export function AddCompanyCard({ onClick }: AddCompanyCardProps) {
           userSelect: "none",
         }}
       >
-        <div style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
           <span
             style={{
-              fontWeight: 800,
+              fontWeight: 900,
               fontSize: 20,
               lineHeight: 1,
-              color: theme.plusColor,
+              color: "#FFBF00",
+              filter: "drop-shadow(0 0 5px #FFBF00)",
             }}
           >
             +
           </span>
-          <div
+          <Building2
             style={{
-              width: 52,
-              height: 52,
-              borderRadius: 10,
-              background: theme.iconBg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              width: 34,
+              height: 34,
+              color: "#FFBF00",
+              filter: "drop-shadow(0 0 6px rgba(255,191,0,0.55))",
             }}
-          >
-            <Building2
-              style={{
-                width: 28,
-                height: 28,
-                color: theme.iconColor,
-              }}
-            />
-          </div>
+          />
         </div>
         <span
           style={{
