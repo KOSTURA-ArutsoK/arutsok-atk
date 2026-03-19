@@ -5334,7 +5334,14 @@ export async function registerRoutes(
         );
         const result: any[] = [];
         for (const sup of allProcessing) {
-          result.push({ ...sup, contracts: [] });
+          const supiskaLinks = await storage.getSupiskaContracts(sup.id);
+          const cids = supiskaLinks.map((l: any) => l.contractId);
+          const contractsList: any[] = [];
+          for (const cid of cids) {
+            const [c] = await db.select().from(contracts).where(eq(contracts.id, cid));
+            if (c) contractsList.push(c);
+          }
+          result.push({ ...sup, contracts: contractsList });
         }
         return res.json(result);
       }

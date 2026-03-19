@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo, type ComponentType } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak, formatUid, expandUid, getDateSemaphore, getDateSemaphoreClasses, canCreateRecords, canDeleteRecords, canEditRecords, isAdmin, isRecommender, rcToBirthDateStr, NAVRH_LABEL_FULL, NAVRH_LABEL_SHORT, parsePersonName } from "@/lib/utils";
+import { formatDateSlovak, formatDateTimeSlovak, formatUid, expandUid, getDateSemaphore, getDateSemaphoreClasses, canCreateRecords, canDeleteRecords, canEditRecords, isAdmin, isRecommender, rcToBirthDateStr, NAVRH_LABEL_FULL, NAVRH_LABEL_SHORT, parsePersonName } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useToast } from "@/hooks/use-toast";
@@ -8391,8 +8391,8 @@ export default function Contracts() {
                                   {(sup.dispatchMethod || sup.receivedByPartnerAt) && (
                                     <div className="flex items-center gap-3 px-3 pb-2 text-xs text-muted-foreground flex-wrap">
                                       {sup.dispatchMethod && <span>Spôsob: <span className="font-medium text-foreground">{sup.dispatchMethod}</span></span>}
-                                      {sup.dispatchedAt && <span>Odoslané: <span className="font-medium text-foreground">{formatDateSlovak(sup.dispatchedAt)}</span></span>}
-                                      {sup.receivedByPartnerAt && <span>Prijaté: <span className="font-medium text-foreground">{formatDateSlovak(sup.receivedByPartnerAt)}</span></span>}
+                                      {sup.dispatchedAt && <span>Odoslané: <span className="font-medium text-foreground">{formatDateTimeSlovak(sup.dispatchedAt)}</span></span>}
+                                      {sup.receivedByPartnerAt && <span>Prijaté: <span className="font-medium text-foreground">{formatDateTimeSlovak(sup.receivedByPartnerAt)}</span></span>}
                                     </div>
                                   )}
                                   {sup.contracts && sup.contracts.length > 0 && (
