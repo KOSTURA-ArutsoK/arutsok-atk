@@ -25,18 +25,18 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
 
   const theme = isDark
     ? {
-        bg: "linear-gradient(145deg, #0e2a4a, #1c4278)",
-        shadowRest: "10px 10px 20px #091d35, -10px -10px 20px #1e4a8e",
-        shadowPressed: "inset 5px 5px 10px #091d35, inset -3px -3px 8px #1e4a8e",
-        textColor: "#a0bcd8",
-        globeOpacity: 0.6,
+        bg: "linear-gradient(145deg, #0a1f3d, #1a3f80)",
+        shadowRest: "10px 10px 20px #060f20, -10px -10px 20px #204898",
+        shadowPressed: "inset 5px 5px 10px #060f20, inset -3px -3px 8px #204898",
+        textColor: "#b8d0f0",
+        globeOpacity: 0.65,
       }
     : {
-        bg: "linear-gradient(145deg, #c8d8ed, #e8f2fc)",
-        shadowRest: "10px 10px 20px #a5b8d0, -10px -10px 20px #ffffff",
-        shadowPressed: "inset 5px 5px 10px #a5b8d0, inset -3px -3px 8px #ffffff",
-        textColor: "#2a5080",
-        globeOpacity: 0.55,
+        bg: "linear-gradient(145deg, #aac8e8, #d8eafa)",
+        shadowRest: "10px 10px 20px #88a8cc, -10px -10px 20px #ffffff",
+        shadowPressed: "inset 5px 5px 10px #88a8cc, inset -3px -3px 8px #ffffff",
+        textColor: "#1a3f70",
+        globeOpacity: 0.6,
       };
 
   return (
@@ -96,7 +96,7 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
           style={{
             fontFamily: "sans-serif",
             fontSize: 11,
-            fontWeight: 700,
+            fontWeight: 800,
             color: theme.textColor,
             letterSpacing: "0.04em",
             textAlign: "center",
