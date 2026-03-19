@@ -81,7 +81,7 @@ function GroupDetailDialog({
   const isSystem = !!group?.isSystem;
   const isHolding = !!(group as ClientGroupWithCount)?.isHoldingGroup;
   const isPartner = !!(group as ClientGroupWithCount)?.isPartnerGroup;
-  const isBlacklist = (group as any)?.groupCode === "group_cierny_zoznam";
+  const isBlacklist = group?.groupCode === "group_cierny_zoznam";
 
   useEffect(() => {
     if (open) {
@@ -829,7 +829,8 @@ type MainCategory = "holdingove" | "systemove" | "volitelne" | "ina_spolocnost" 
 
 function getGroupMainCategory(g: ClientGroupWithCount): MainCategory {
   if (g.isHoldingGroup || g.isPartnerGroup) return "holdingove";
-  if (g.isSystem && (g as any).groupCode === "group_cierny_zoznam") return "globalne";
+  if (g.isSystem && g.groupCode === "group_cierny_zoznam") return "globalne";
+  if (g.isSystem && ["group_klient", "group_registrovany", "group_cerveny_zoznam"].includes(g.groupCode ?? "")) return "systemove";
   if (g.isSystem) return "systemove";
   return "volitelne";
 }
@@ -1130,7 +1131,7 @@ export default function ClientGroups() {
               {TABLE_HEADER}
               <TableBody>
                 {holdingGroups.map(g => (
-                  <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer" onClick={() => openEdit(g)}>
+                  <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer hover:bg-muted/40 transition-colors border-l-[3px] border-l-border/40" onClick={() => navigate("/companies")}>
                     <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={openEdit} onDelete={openDelete} />
                   </TableRow>
                 ))}
@@ -1177,7 +1178,7 @@ export default function ClientGroups() {
               {TABLE_HEADER}
               <TableBody>
                 {systemGroups.map(g => (
-                  <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer" onClick={() => openEdit(g)}>
+                  <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer hover:bg-muted/40 transition-colors border-l-[3px] border-l-border/40" onClick={() => openEdit(g)}>
                     <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={openEdit} onDelete={openDelete} />
                   </TableRow>
                 ))}
@@ -1223,7 +1224,7 @@ export default function ClientGroups() {
                 {TABLE_HEADER_SORTABLE}
                 <TableBody>
                   {volitelneGroups.map(g => (
-                    <SortableTableRow key={g.id} id={g.id} data-testid={`row-group-${g.id}`} onRowClick={() => openEdit(g)}>
+                    <SortableTableRow key={g.id} id={g.id} data-testid={`row-group-${g.id}`} className="border-l-[3px] border-l-border/40" onRowClick={() => openEdit(g)}>
                       <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={openEdit} onDelete={openDelete} />
                     </SortableTableRow>
                   ))}
@@ -1308,7 +1309,7 @@ export default function ClientGroups() {
               {TABLE_HEADER}
               <TableBody>
                 {globalneGroups.map(g => (
-                  <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer" onClick={() => openEdit(g)}>
+                  <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer hover:bg-muted/40 transition-colors border-l-[3px] border-l-border/40" onClick={() => openEdit(g)}>
                     <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={openEdit} onDelete={openDelete} />
                   </TableRow>
                 ))}
