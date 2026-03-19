@@ -125,14 +125,14 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
           }}
         >
           <div style={{ position: "relative", display: "inline-flex" }}>
-            <span style={{ fontSize: 30, lineHeight: 1, filter: "drop-shadow(0 0 8px rgba(255,191,0,0.8))" }}>
+            <span style={{ fontSize: 30, lineHeight: 1, filter: "sepia(1) saturate(4) hue-rotate(15deg) brightness(1.3) drop-shadow(0 0 8px rgba(255,191,0,0.8))" }}>
               🌲
             </span>
             <span
               style={{
                 position: "absolute",
-                top: -8,
-                right: -10,
+                top: -4,
+                right: -6,
                 fontWeight: 800,
                 fontSize: 18,
                 lineHeight: 1,
