@@ -3404,6 +3404,7 @@ export default function Contracts() {
     const specPct = parseFloat(specialist?.percentage || "0") || 0;
     const r1Pct = parseFloat(r1?.percentage || "0") || 0;
     const r2Pct = parseFloat(r2?.percentage || "0") || 0;
+    const allDistPct = specPct + recommenders.reduce((sum: number, r: any) => sum + (parseFloat(r.percentage || "0") || 0), 0);
     const sub2 = subjects?.find(s => s.id === contract.subjectId);
     const importRaw2 = (contract as any).importedRawData || {};
     const resolvedSubjType2 = sub2?.type || importRaw2["subjectType"] || importRaw2["typ_subjektu"] || null;
@@ -3416,7 +3417,7 @@ export default function Contracts() {
     const warnSignedDate = !(contract as any).signedDate;
     const warnNumber = !hasNumber;
     const warnSpecialist = !specialist;
-    const warnSumNot100 = !!specialist && (specPct + r1Pct + r2Pct) !== 100;
+    const warnSumNot100 = !!specialist && Math.round(allDistPct) !== 100;
     const warnRcIco2 = isFO2 && !rcIco2;
     const warnMeno2 = isFO2 && !sub2?.firstName;
     const warnPriezvisko2 = isFO2 && !sub2?.lastName;
@@ -3522,8 +3523,10 @@ export default function Contracts() {
               const specPct = parseFloat(specialist?.percentage || "0") || 0;
               const r1Pct = parseFloat(r1?.percentage || "0") || 0;
               const r2Pct = parseFloat(r2?.percentage || "0") || 0;
+              const allRecPct = recommenders.reduce((sum: number, r: any) => sum + (parseFloat(r.percentage || "0") || 0), 0);
+              const allPct = specPct + allRecPct;
               const warnSpecialist = !specialist;
-              const warnSumNot100 = !!specialist && (specPct + r1Pct + r2Pct) !== 100;
+              const warnSumNot100 = !!specialist && Math.round(allPct) !== 100;
               const warnNegativeProposal = !!(contract.proposalNumber && contract.proposalNumber.trim().startsWith('-'));
               const effectivelyIncomplete = isIncomplete || warnPartner || warnProduct || warnContractType || warnSignedDate || warnNumber || warnSpecialist || warnSumNot100 || warnRcIco || warnMeno || warnPriezvisko || warnNazov || warnNegativeProposal;
               const rowBg = effectivelyIncomplete
@@ -3649,7 +3652,7 @@ export default function Contracts() {
                   </td>
                   <td className="px-2 py-1.5 text-center whitespace-nowrap">
                     <span className="flex items-center justify-center gap-1">
-                      {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {(specPct + r1Pct + r2Pct).toFixed(0)}%)</TooltipContent></Tooltip>}
+                      {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {allPct.toFixed(0)}%)</TooltipContent></Tooltip>}
                       {specialist ? <span className="text-emerald-500">{specPct.toFixed(0)}%</span> : "—"}
                     </span>
                   </td>
@@ -3667,7 +3670,7 @@ export default function Contracts() {
                   </td>
                   <td className="px-2 py-1.5 text-center whitespace-nowrap">
                     <span className="flex items-center justify-center gap-1">
-                      {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {(specPct + r1Pct + r2Pct).toFixed(0)}%)</TooltipContent></Tooltip>}
+                      {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {allPct.toFixed(0)}%)</TooltipContent></Tooltip>}
                       {r1 ? <span className="text-amber-400">{r1Pct.toFixed(0)}%</span> : "—"}
                     </span>
                   </td>
@@ -3681,11 +3684,23 @@ export default function Contracts() {
                           <TooltipContent className="text-xs">{resolveUidName(r2.uid)}</TooltipContent>
                         </Tooltip>
                       ) : "—"}
+                      {recommenders.length > 2 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-[10px] text-muted-foreground cursor-default font-mono">(+{recommenders.length - 2})</span>
+                          </TooltipTrigger>
+                          <TooltipContent className="text-xs">
+                            {recommenders.slice(2).map((r: any, i: number) => (
+                              <div key={i}>{formatUid(r.uid)} — {parseFloat(r.percentage || "0").toFixed(0)}%</div>
+                            ))}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </span>
                   </td>
                   <td className="px-2 py-1.5 text-center whitespace-nowrap">
                     <span className="flex items-center justify-center gap-1">
-                      {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {(specPct + r1Pct + r2Pct).toFixed(0)}%)</TooltipContent></Tooltip>}
+                      {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {allPct.toFixed(0)}%)</TooltipContent></Tooltip>}
                       {r2 ? <span className="text-amber-300">{r2Pct.toFixed(0)}%</span> : "—"}
                     </span>
                   </td>
