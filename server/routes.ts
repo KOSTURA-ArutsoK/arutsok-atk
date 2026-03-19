@@ -18983,8 +18983,8 @@ export async function registerRoutes(
 
       const allLinks = await db.select().from(networkLinks).where(eq(networkLinks.isActive, true));
 
-      // ALL subjects with UIDs (not just those in network_links)
-      const allSubjectsWithUid = await db.select({
+      // ALL subjects (with or without UID)
+      const allSubjectsRaw = await db.select({
         id: subjects.id,
         uid: subjects.uid,
         firstName: subjects.firstName,
@@ -18994,35 +18994,71 @@ export async function registerRoutes(
         registrationStatus: subjects.registrationStatus,
         lifecycleStatus: subjects.lifecycleStatus,
         isActive: subjects.isActive,
-      }).from(subjects).where(
-        and(isNotNull(subjects.uid), isNull(subjects.deletedAt))
-      );
+      }).from(subjects).where(isNull(subjects.deletedAt));
 
-      // myCompanies with UIDs — included as type "mycompany"
-      const allMyCompaniesWithUid = await db.select({
+      // ALL myCompanies (with or without UID)
+      const allMyCompaniesRaw = await db.select({
         id: myCompanies.id,
         uid: myCompanies.uid,
         name: myCompanies.name,
-      }).from(myCompanies).where(isNotNull(myCompanies.uid));
+      }).from(myCompanies);
 
-      const myCompanySubjects = allMyCompaniesWithUid.map(mc => ({
-        id: -(mc.id),          // negative ID to avoid collision with subjects
+      // ALL partners
+      const allPartnersRaw = await db.select({
+        id: partners.id,
+        uid: partners.uid,
+        name: partners.name,
+        specialization: partners.specialization,
+      }).from(partners).where(
+        or(eq(partners.isDeleted, false), isNull(partners.isDeleted))
+      );
+
+      // Company officers — to mark which subject IDs are štatutári
+      const allOfficers = await db.select({
+        subjectId: companyOfficers.subjectId,
+        type: companyOfficers.type,
+        companyId: companyOfficers.companyId,
+      }).from(companyOfficers);
+
+      const officerSubjectIds = new Set(allOfficers.map(o => o.subjectId).filter(Boolean));
+
+      const myCompanySubjects = allMyCompaniesRaw.map(mc => ({
+        id: -(mc.id),
         uid: mc.uid,
         firstName: null,
         lastName: null,
         companyName: mc.name,
-        type: 'mycompany',
+        type: 'mycompany' as const,
         registrationStatus: null,
         lifecycleStatus: null,
         isActive: true,
+        isOfficer: false,
       }));
 
-      const allSubjects = [...allSubjectsWithUid, ...myCompanySubjects];
+      const partnerSubjects = allPartnersRaw.map(p => ({
+        id: -(10000 + p.id),
+        uid: p.uid,
+        firstName: null,
+        lastName: null,
+        companyName: p.name,
+        type: 'partner' as const,
+        registrationStatus: null,
+        lifecycleStatus: null,
+        isActive: true,
+        isOfficer: false,
+      }));
+
+      const allSubjects = [
+        ...allSubjectsRaw.map(s => ({ ...s, isOfficer: officerSubjectIds.has(s.id) })),
+        ...myCompanySubjects,
+        ...partnerSubjects,
+      ];
 
       res.json({
         root: rootSubject,
         links: allLinks,
         subjects: allSubjects,
+        officerSubjectIds: Array.from(officerSubjectIds),
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba pri načítaní siete" });

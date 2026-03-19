@@ -28,6 +28,7 @@ type NetworkSubject = {
   registrationStatus?: string | null;
   lifecycleStatus?: string | null;
   isActive?: boolean;
+  isOfficer?: boolean;
 };
 
 type NetworkLink = {
@@ -77,6 +78,8 @@ function subjectTypeBadge(type: string | null) {
       return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-[10px] px-1.5 py-0">PO</Badge>;
     case "mycompany":
       return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] px-1.5 py-0">MC</Badge>;
+    case "partner":
+      return <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-[10px] px-1.5 py-0">PTN</Badge>;
     case "ts":
       return <Badge className="bg-teal-500/20 text-teal-400 border-teal-500/30 text-[10px] px-1.5 py-0">TS</Badge>;
     case "vs":
@@ -357,7 +360,7 @@ export default function NetworkSiet() {
             <Users className="w-4 h-4 mr-1" />Zoznam prepojení
           </TabsTrigger>
           <TabsTrigger value="uids" data-testid="tab-uids">
-            <Shield className="w-4 h-4 mr-1" />Všetky UID
+            <Shield className="w-4 h-4 mr-1" />Register entít
           </TabsTrigger>
           <TabsTrigger value="transfers" data-testid="tab-transfers">
             <ArrowRightLeft className="w-4 h-4 mr-1" />Prestupové protokoly
@@ -514,10 +517,13 @@ export default function NetworkSiet() {
         <TabsContent value="uids">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-                <Shield className="w-4 h-4" />
-                Register všetkých UID — subjekty + vlastné spoločnosti
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  Register entít — subjekty, partneri, vlastné spoločnosti
+                </CardTitle>
+                <span className="text-xs text-muted-foreground">{networkData?.subjects?.length ?? 0} záznamov</span>
+              </div>
             </CardHeader>
             <CardContent>
               {loadingTree ? (
@@ -530,24 +536,32 @@ export default function NetworkSiet() {
                     <div className="col-span-1">Typ</div>
                     <div className="col-span-4">Meno / Názov</div>
                     <div className="col-span-4">UID</div>
-                    <div className="col-span-3">Stav</div>
+                    <div className="col-span-3">Štítky</div>
                   </div>
                   {[...(networkData?.subjects || [])]
-                    .sort((a, b) => (a.uid || "").localeCompare(b.uid || ""))
+                    .sort((a, b) => {
+                      const ua = a.uid || "zzz";
+                      const ub = b.uid || "zzz";
+                      return ua.localeCompare(ub);
+                    })
                     .map(s => (
                       <div
                         key={`uid-${s.id}`}
                         className="grid grid-cols-12 gap-2 px-3 py-2 text-sm rounded hover:bg-accent/50 items-center"
-                        data-testid={`uid-row-${s.uid}`}
+                        data-testid={`uid-row-${s.id}`}
                       >
                         <div className="col-span-1">{subjectTypeBadge(s.type)}</div>
                         <div className="col-span-4 font-medium text-foreground">{getSubjectName(s)}</div>
-                        <div className="col-span-4 font-mono text-xs text-muted-foreground">{s.uid ? formatUid(s.uid) : "—"}</div>
-                        <div className="col-span-3 text-xs text-muted-foreground">
+                        <div className="col-span-4 font-mono text-xs text-muted-foreground">
+                          {s.uid ? formatUid(s.uid) : <span className="text-muted-foreground/40 italic">bez UID</span>}
+                        </div>
+                        <div className="col-span-3 flex flex-wrap gap-1">
                           {s.registrationStatus === "klient" && <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px] px-1.5 py-0">Klient</Badge>}
                           {s.registrationStatus === "tiper" && <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[10px] px-1.5 py-0">Tipér</Badge>}
                           {s.registrationStatus === "potencialny" && <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30 text-[10px] px-1.5 py-0">Potenciálny</Badge>}
-                          {s.type === "mycompany" && <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] px-1.5 py-0">Vlastná spoločnosť</Badge>}
+                          {s.isOfficer && <Badge className="bg-indigo-500/20 text-indigo-400 border-indigo-500/30 text-[10px] px-1.5 py-0">Štatutár</Badge>}
+                          {s.type === "mycompany" && <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] px-1.5 py-0">Vlastná spol.</Badge>}
+                          {s.type === "partner" && <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-[10px] px-1.5 py-0">Partner</Badge>}
                           {s.type === "system" && <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30 text-[10px] px-1.5 py-0">Systém</Badge>}
                         </div>
                       </div>
@@ -555,7 +569,7 @@ export default function NetworkSiet() {
                   {!networkData?.subjects?.length && (
                     <div className="text-center py-8 text-muted-foreground">
                       <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p>Žiadne UID záznamy</p>
+                      <p>Žiadne záznamy</p>
                     </div>
                   )}
                 </div>
