@@ -3162,7 +3162,7 @@ export default function Contracts() {
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
   const [receiveSuopiskaId, setReceiveSuopiskaId] = useState<number | null>(null);
   const [receiveDate, setReceiveDate] = useState("");
-  const [receiveFile, setReceiveFile] = useState<File | null>(null);
+  const [receiveFiles, setReceiveFiles] = useState<File[]>([]);
   const [receiveDragActive, setReceiveDragActive] = useState(false);
   const receiveFileInputRef = useRef<HTMLInputElement>(null);
   const [removeFromSupiskaConfirm, setRemoveFromSupiskaConfirm] = useState<{ contractId: number; contractNumber: string; supiskaId: number; supName: string } | null>(null);
@@ -8623,7 +8623,7 @@ export default function Contracts() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={receiveDialogOpen} onOpenChange={(open) => { setReceiveDialogOpen(open); if (!open) { setReceiveFile(null); setReceiveDragActive(false); } }}>
+        <Dialog open={receiveDialogOpen} onOpenChange={(open) => { setReceiveDialogOpen(open); if (!open) { setReceiveFiles([]); setReceiveDragActive(false); } }}>
           <DialogContent size="sm">
             <DialogHeader>
               <DialogTitle data-testid="text-receive-dialog-title">Potvrdenie prijatia partnerom</DialogTitle>
@@ -8636,60 +8636,85 @@ export default function Contracts() {
                   <p className="text-xs text-red-500" data-testid="text-receive-date-future">Dátum a čas prijatia nesmie byť v budúcnosti</p>
                 )}
               </div>
-              {/* Príloha — drag-and-drop */}
+              {/* Prílohy — drag-and-drop (multiple) */}
               <div className="space-y-2">
-                <Label>Príloha (voliteľné)</Label>
-                {receiveFile ? (
-                  <div className="flex items-center gap-2 border border-border rounded-md px-3 py-2 bg-muted/30" data-testid="receive-file-selected">
-                    <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <span className="text-sm flex-1 truncate" title={receiveFile.name}>{receiveFile.name}</span>
-                    <button type="button" onClick={() => setReceiveFile(null)} className="text-muted-foreground hover:text-foreground shrink-0" data-testid="button-receive-file-remove">
-                      <X className="w-4 h-4" />
-                    </button>
+                <Label className="flex items-center gap-1.5">
+                  <Paperclip className="w-3.5 h-3.5" />
+                  Prílohy (voliteľné)
+                </Label>
+                <input
+                  ref={receiveFileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  data-testid="input-receive-file"
+                  onChange={(e) => {
+                    const picked = Array.from(e.target.files || []);
+                    if (picked.length) setReceiveFiles(prev => [...prev, ...picked]);
+                    if (receiveFileInputRef.current) receiveFileInputRef.current.value = "";
+                  }}
+                />
+                <div
+                  className={`border-2 border-dashed rounded-md px-4 py-5 text-center cursor-pointer transition-colors ${receiveDragActive ? "border-purple-500 bg-purple-500/10" : "border-border hover:border-muted-foreground/40 hover:bg-accent/30"}`}
+                  onDragOver={(e) => { e.preventDefault(); setReceiveDragActive(true); }}
+                  onDragLeave={() => setReceiveDragActive(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setReceiveDragActive(false);
+                    const dropped = Array.from(e.dataTransfer.files);
+                    if (dropped.length) setReceiveFiles(prev => [...prev, ...dropped]);
+                  }}
+                  onClick={() => receiveFileInputRef.current?.click()}
+                  data-testid="receive-dropzone"
+                >
+                  <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                    <Upload className="w-6 h-6 mb-1 opacity-60" />
+                    <p className="text-sm">Presuňte súbory sem alebo <span className="text-purple-400 underline">vyberte zo zariadenia</span></p>
+                    <p className="text-xs opacity-50">PDF, obrázky, Word, Excel, … max 50 MB</p>
                   </div>
-                ) : (
-                  <div
-                    className={`border-2 border-dashed rounded-md p-4 text-center cursor-pointer transition-colors ${receiveDragActive ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/50"}`}
-                    onDragOver={(e) => { e.preventDefault(); setReceiveDragActive(true); }}
-                    onDragLeave={(e) => { e.preventDefault(); setReceiveDragActive(false); }}
-                    onDrop={(e) => { e.preventDefault(); setReceiveDragActive(false); const f = e.dataTransfer.files[0]; if (f) setReceiveFile(f); }}
-                    onClick={() => receiveFileInputRef.current?.click()}
-                    data-testid="receive-dropzone"
-                  >
-                    <Upload className={`w-6 h-6 mx-auto mb-1 ${receiveDragActive ? "text-primary" : "text-muted-foreground"}`} />
-                    <p className="text-sm text-muted-foreground">{receiveDragActive ? "Pustite súbor sem" : "Potiahnite súbor sem alebo kliknite"}</p>
-                    <input
-                      ref={receiveFileInputRef}
-                      type="file"
-                      className="hidden"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) setReceiveFile(f); if (receiveFileInputRef.current) receiveFileInputRef.current.value = ""; }}
-                      data-testid="input-receive-file"
-                    />
+                </div>
+                {receiveFiles.length > 0 && (
+                  <div className="space-y-1 mt-1">
+                    {receiveFiles.map((f, i) => (
+                      <div key={i} className="flex items-center gap-2 px-2 py-1.5 rounded border border-border bg-accent/20 text-sm" data-testid={`receive-file-${i}`}>
+                        <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span className="flex-1 truncate text-foreground" title={f.name}>{f.name}</span>
+                        <span className="text-xs text-muted-foreground shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:text-red-400 shrink-0"
+                          onClick={() => setReceiveFiles(prev => prev.filter((_, idx) => idx !== i))}
+                          data-testid={`button-receive-file-remove-${i}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
               <div className="flex items-center justify-end gap-3 flex-wrap">
-                <Button type="button" variant="outline" onClick={() => { setReceiveDialogOpen(false); setReceiveFile(null); }} data-testid="button-receive-cancel">Zrušiť</Button>
+                <Button type="button" variant="outline" onClick={() => { setReceiveDialogOpen(false); setReceiveFiles([]); }} data-testid="button-receive-cancel">Zrušiť</Button>
                 <Button
                   type="button"
                   disabled={!receiveDate || new Date(receiveDate) > new Date() || receiveSupiskaMutation.isPending}
                   onClick={async () => {
                     if (!receiveSuopiskaId || !receiveDate) return;
-                    if (receiveFile) {
+                    for (const file of receiveFiles) {
                       try {
                         const fd = new FormData();
-                        fd.append("file", receiveFile);
+                        fd.append("file", file);
                         await fetch(`/api/supisky/${receiveSuopiskaId}/upload-attachment`, { method: "POST", credentials: "include", body: fd });
                       } catch {}
                     }
                     receiveSupiskaMutation.mutate({ supiskaId: receiveSuopiskaId, receivedAt: receiveDate });
                     setReceiveDialogOpen(false);
-                    setReceiveFile(null);
+                    setReceiveFiles([]);
                   }}
                   data-testid="button-receive-confirm"
                 >
                   {receiveSupiskaMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Award className="w-4 h-4 mr-2" />}
-                  Potvrdiť prijatie
+                  Potvrdiť prijatie{receiveFiles.length > 0 ? ` (${receiveFiles.length} príl.)` : ""}
                 </Button>
               </div>
             </div>
