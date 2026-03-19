@@ -302,26 +302,34 @@ export function ContextSelectorOverlay({
                     }}>
                       {divEmoji || "🌲"}
                     </span>
-                    <span style={{
+                    <div style={{
                       position: "absolute",
-                      top: 120,
+                      top: 116,
                       left: 42,
                       right: 42,
-                      fontFamily: "sans-serif",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: isHov ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.70)",
-                      textAlign: "center",
-                      lineHeight: 1.3,
-                      wordBreak: "break-word",
+                      bottom: 9,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                       overflow: "hidden",
-                      display: "-webkit-box",
-                      WebkitLineClamp: 3,
-                      WebkitBoxOrient: "vertical",
-                      transition: "color 0.2s ease",
                     }}>
-                      {divName}
-                    </span>
+                      <span style={{
+                        fontFamily: "sans-serif",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: isHov ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.70)",
+                        textAlign: "center",
+                        lineHeight: 1.3,
+                        wordBreak: "break-word",
+                        overflow: "hidden",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: "vertical",
+                        transition: "color 0.2s ease",
+                      }}>
+                        {divName}
+                      </span>
+                    </div>
                   </button>
                 );
               })}
