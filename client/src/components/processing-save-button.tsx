@@ -1,3 +1,4 @@
+import { useRef, useEffect } from "react";
 import { Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -10,11 +11,29 @@ interface ProcessingSaveButtonProps {
 }
 
 export function ProcessingSaveButton({ isPending, onClick, type = "submit", disabled, className }: ProcessingSaveButtonProps) {
+  const clickedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isPending) {
+      clickedRef.current = false;
+    }
+  }, [isPending]);
+
+  function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
+    if (clickedRef.current || isPending || disabled) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    clickedRef.current = true;
+    onClick?.();
+  }
+
   return (
     <div className={`sticky bottom-0 z-50 bg-background/95 backdrop-blur border-t border-border p-3 flex justify-end ${className || ""}`}>
       <Button
         type={type}
-        onClick={onClick}
+        onClick={handleClick}
         disabled={isPending || disabled}
         data-testid="button-save-processing"
       >

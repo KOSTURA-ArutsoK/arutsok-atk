@@ -496,6 +496,7 @@ function PartnerUnifiedDialog({
   const { data: myCompanies } = useMyCompanies();
   const timerRef = useRef<number>(0);
   const registryLookupBtnRef = useRef<HTMLButtonElement>(null);
+  const isSubmittingRef = useRef(false);
 
   // Core state
   const [notesHtml, setNotesHtml] = useState("");
@@ -978,6 +979,8 @@ function PartnerUnifiedDialog({
   // ─── Submit ────────────────────────────────────────────────────────────────
 
   function onSubmit(data: PartnerFormData) {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
     const { collaborationDate, vatRegisteredAt, foundedDate, ...rest } = data;
     const payload: any = {
@@ -1004,10 +1007,12 @@ function PartnerUnifiedDialog({
     }
 
     if (lifecycleStatus === "fast_forward" && !statusStartDate) {
+      isSubmittingRef.current = false;
       toast({ title: "Chyba", description: "Stav 'Štart spolupráce' vyžaduje dátum štartu", variant: "destructive" });
       return;
     }
     if (lifecycleStatus === "eject" && !statusEndDate) {
+      isSubmittingRef.current = false;
       toast({ title: "Chyba", description: "Stav 'Výpoveď zmluvy' vyžaduje dátum ukončenia", variant: "destructive" });
       return;
     }
@@ -1026,18 +1031,21 @@ function PartnerUnifiedDialog({
               if (lifecycleStatus === "fast_forward" && statusStartDate) statusData.startDate = new Date(statusStartDate).toISOString();
               if (lifecycleStatus === "eject" && statusEndDate) statusData.endDate = new Date(statusEndDate).toISOString();
               lifecycleMutation.mutate({ id: editingPartner.id, data: statusData }, {
-                onSuccess: () => handleOpenChange(false),
-                onError: () => toast({ title: "Chyba", description: "Nepodarilo sa zmeniť stav", variant: "destructive" }),
+                onSuccess: () => { isSubmittingRef.current = false; handleOpenChange(false); },
+                onError: () => { isSubmittingRef.current = false; toast({ title: "Chyba", description: "Nepodarilo sa zmeniť stav", variant: "destructive" }); },
               });
             } else {
+              isSubmittingRef.current = false;
               handleOpenChange(false);
             }
           },
+          onError: () => { isSubmittingRef.current = false; },
         }
       );
     } else {
       createMutation.mutate(payload as InsertPartner, {
         onSuccess: async (newPartner: any) => {
+          isSubmittingRef.current = false;
           if (pendingLogo && newPartner?.id) {
             try {
               const fd = new FormData();
@@ -1051,6 +1059,7 @@ function PartnerUnifiedDialog({
           }
           handleOpenChange(false);
         },
+        onError: () => { isSubmittingRef.current = false; },
       });
     }
   }

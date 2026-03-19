@@ -542,6 +542,7 @@ function CompanyFormDialog({
   const { data: appUser } = useAppUser();
   const timerRef = useRef<number>(0);
   const registryLookupBtnRef = useRef<HTMLButtonElement>(null);
+  const isSubmittingRef = useRef(false);
   const [notesHtml, setNotesHtml] = useState("");
   const [platcaDph, setPlatcaDph] = useState(false);
   const [registryLoading, setRegistryLoading] = useState(false);
@@ -908,6 +909,8 @@ function CompanyFormDialog({
   }
 
   function onSubmit(data: FormData) {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
     const payload = {
       ...data,
@@ -928,11 +931,15 @@ function CompanyFormDialog({
     if (editingCompany) {
       updateMutation.mutate(
         { id: editingCompany.id, data: { ...payload, changeReason: "User edit" } },
-        { onSuccess: () => handleOpenChange(false) }
+        {
+          onSuccess: () => { isSubmittingRef.current = false; handleOpenChange(false); },
+          onError: () => { isSubmittingRef.current = false; },
+        }
       );
     } else {
       createMutation.mutate(payload as InsertMyCompany, {
         onSuccess: async (newCompany) => {
+          isSubmittingRef.current = false;
           if (pendingLogo && newCompany?.id) {
             try {
               const fd = new FormData();
@@ -947,6 +954,7 @@ function CompanyFormDialog({
           }
           handleOpenChange(false);
         },
+        onError: () => { isSubmittingRef.current = false; },
       });
     }
   }
