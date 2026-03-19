@@ -337,9 +337,9 @@ function CountryPickerDialog({
         <DialogHeader>
           <DialogTitle>Vybrať krajinu</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3 h-full">
           {/* Filters */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 shrink-0">
             <Select value={pickerContinent} onValueChange={setPickerContinent}>
               <SelectTrigger className="w-48 shrink-0" data-testid="select-picker-continent">
                 <SelectValue placeholder="Všetky kontinenty" />
@@ -367,8 +367,8 @@ function CountryPickerDialog({
               )}
             </div>
           </div>
-          {/* Country list */}
-          <div className="border border-border rounded-md overflow-y-auto max-h-[400px]">
+          {/* Country list — fills remaining dialog height */}
+          <div className="flex-1 min-h-0 border border-border rounded-md overflow-y-auto">
             {filtered.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">Žiadna krajina nenájdená</div>
             ) : (
@@ -399,7 +399,7 @@ function CountryPickerDialog({
               </div>
             )}
           </div>
-          <div className="text-xs text-muted-foreground text-right">{filtered.length} krajín</div>
+          <div className="text-xs text-muted-foreground text-right shrink-0">{filtered.length} krajín</div>
         </div>
       </DialogContent>
     </Dialog>
