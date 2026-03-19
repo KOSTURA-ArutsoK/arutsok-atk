@@ -7702,6 +7702,52 @@ export async function registerRoutes(
         _isMyCompany: false,
       }));
 
+      // Build set of known UIDs
+      const knownUids = new Set<string>();
+      for (const s of subjectsMapped) if (s.uid) knownUids.add(s.uid);
+      for (const mc of mcMapped) if (mc.uid) knownUids.add(mc.uid);
+
+      // Detect prefix from state code (e.g. "421") and generate gap placeholders
+      const stateRow = stateId
+        ? await db.select({ code: states.code }).from(states).where(eq(states.id, stateId)).limit(1)
+        : [];
+      const prefix = stateRow[0]?.code ?? "421";
+
+      const allUidsBigInt = [...knownUids]
+        .map(u => { try { return BigInt(u); } catch { return null; } })
+        .filter((n): n is bigint => n !== null);
+
+      if (allUidsBigInt.length > 0) {
+        const minUid = allUidsBigInt.reduce((a, b) => a < b ? a : b);
+        const maxUid = allUidsBigInt.reduce((a, b) => a > b ? a : b);
+        for (let u = minUid; u <= maxUid; u += 1n) {
+          const uidStr = String(u);
+          if (!knownUids.has(uidStr)) {
+            // Gap — placeholder row
+            (subjectsMapped as any[]).push({
+              id: `gap-${uidStr}`,
+              uid: uidStr,
+              titleBefore: null,
+              firstName: null,
+              lastName: null,
+              titleAfter: null,
+              companyName: null,
+              type: "unknown",
+              myCompanyId: null,
+              myCompanyName: null,
+              isDeceased: false,
+              isActive: false,
+              lifecycleStatus: "deleted",
+              deletedAt: new Date(0),   // sentinel to trigger archived styling
+              contractCount: 0,
+              groups: [],
+              _isMyCompany: false,
+              _isGap: true,
+            });
+          }
+        }
+      }
+
       // Merge and sort by uid (nulls last)
       const all = [...subjectsMapped, ...mcMapped].sort((a, b) => {
         if (!a.uid && !b.uid) return 0;

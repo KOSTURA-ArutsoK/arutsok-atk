@@ -1537,6 +1537,7 @@ export default function ClientGroups() {
                   );
                   return filtered.map(s => {
                     const isDeleted = !!s.deletedAt;
+                    const isGap = !!(s as any)._isGap;
                     const fullName = s.type === "company"
                       ? (s.companyName || "—")
                       : s.type === "szco"
@@ -1545,7 +1546,9 @@ export default function ClientGroups() {
                     const isDeceased = !!s.isDeceased;
                     const isInactive = s.isActive === false;
                     const hasNoContract = !isDeceased && !isInactive && Number(s.contractCount ?? 0) === 0;
-                    const statusDot = isDeleted
+                    const statusDot = isGap
+                      ? { cls: "bg-zinc-800 ring-1 ring-zinc-700", title: "Neznámy – UID bez záznamu" }
+                      : isDeleted
                       ? { cls: "bg-zinc-600 ring-1 ring-zinc-500", title: "Archivovaný / vymazaný" }
                       : isDeceased
                         ? { cls: "bg-black dark:bg-gray-200", title: "Zosnulý" }
@@ -1561,22 +1564,28 @@ export default function ClientGroups() {
                       ts:      { label: "TS",   cls: "border-teal-500/50 text-teal-400",      title: "Tretí sektor – Neziskovky (TS)" },
                       vs:      { label: "VS",   cls: "border-orange-500/50 text-orange-400",  title: "Verejný sektor – Štát (VS)" },
                       system:  { label: "SYS",  cls: "border-gray-500/50 text-gray-400",      title: "Systémový subjekt" },
+                      unknown: { label: "?",    cls: "border-zinc-700/50 text-zinc-600",       title: "Neznámy – záznam neexistuje" },
                     };
                     const typeInfo = TYPE_MAP[s.type] ?? { label: s.type.toUpperCase(), cls: "border-muted text-muted-foreground", title: s.type };
                     const { label: typeLabel, cls: typeCls, title: typeTitle } = typeInfo;
                     const isMyCompany = !!(s as any)._isMyCompany;
                     const companies: string[] = [s.myCompanyName].filter((n): n is string => !!n);
                     const handleRowClick = () => {
-                      if (isDeleted) return;
+                      if (isDeleted || isGap) return;
                       setStateOverviewOpen(false);
                       if (isMyCompany) navigate("/companies");
                       else navigate(`/subjects?openId=${s.id}`);
                     };
                     return (
                       <TableRow
-                        key={s.id}
+                        key={String(s.id)}
                         data-testid={`row-state-overview-${s.id}`}
-                        className={`h-10 transition-colors ${isDeleted ? "opacity-50 cursor-default bg-zinc-900/30" : isMyCompany ? "cursor-pointer hover:bg-blue-950/30" : "cursor-pointer hover:bg-muted/40"}`}
+                        className={`h-10 transition-colors ${
+                          isGap    ? "opacity-25 cursor-default bg-zinc-950/60 select-none" :
+                          isDeleted ? "opacity-50 cursor-default bg-zinc-900/30" :
+                          isMyCompany ? "cursor-pointer hover:bg-blue-950/30" :
+                          "cursor-pointer hover:bg-muted/40"
+                        }`}
                         onClick={handleRowClick}
                       >
                         <TableCell className="px-3 py-0">
@@ -1588,7 +1597,9 @@ export default function ClientGroups() {
                         <TableCell className="font-mono text-[11px] text-muted-foreground py-0 whitespace-nowrap">
                           {s.uid ? formatUid(s.uid) : "—"}
                         </TableCell>
-                        <TableCell className={`font-medium text-sm py-0 ${isDeleted ? "line-through text-muted-foreground" : ""}`}>{fullName}</TableCell>
+                        <TableCell className={`font-medium text-sm py-0 ${isGap ? "italic text-zinc-700" : isDeleted ? "line-through text-muted-foreground" : ""}`}>
+                          {isGap ? "— neznámy —" : fullName}
+                        </TableCell>
                         <TableCell className="text-center py-0">
                           <Badge variant="outline" className={`text-[9px] h-4 ${typeCls} cursor-default`} title={typeTitle}>{typeLabel}</Badge>
                         </TableCell>
@@ -1649,6 +1660,7 @@ export default function ClientGroups() {
               <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />Neaktívny</span>
               <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-400 inline-block" />Zosnulý</span>
               <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-zinc-600 ring-1 ring-zinc-500 inline-block" />Archivovaný</span>
+              <span className="flex items-center gap-1.5 shrink-0 opacity-40"><span className="w-2.5 h-2.5 rounded-full bg-zinc-800 ring-1 ring-zinc-700 inline-block" />Neznámy (medzera)</span>
               <span className="ml-auto text-[10px] text-muted-foreground/50 shrink-0">Klik na riadok → otvorí detail subjektu</span>
             </div>
             <div className="flex items-center gap-5">
