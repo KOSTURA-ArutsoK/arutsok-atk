@@ -20818,6 +20818,13 @@ async function seedDatabase() {
   if (existingContinents.length === 0) {
     const [europe] = await db.insert(continents).values({ name: "Europa", code: "01" }).returning();
     const [namerica] = await db.insert(continents).values({ name: "Severn\u00e1 Amerika", code: "02" }).returning();
+    await db.insert(continents).values([
+      { name: "Južn\u00e1 Amerika", code: "03" },
+      { name: "\u00c1zia", code: "04" },
+      { name: "Afrika", code: "05" },
+      { name: "Oce\u00e1nia", code: "06" },
+      { name: "Antarkt\u00edda", code: "07" },
+    ]);
     
     const [slovakia] = await db.insert(states).values([
       { continentId: europe.id, name: "Slovensko", code: "421", currency: "EUR", flagUrl: "https://flagcdn.com/w40/sk.png" },
