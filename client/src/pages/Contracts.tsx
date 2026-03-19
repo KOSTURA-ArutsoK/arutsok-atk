@@ -7080,60 +7080,74 @@ export default function Contracts() {
             {!preSelectNoFoInfo && (preSelectShowNameFields || (preSelectSubjectType === "person" && !preSelectSubjectId)) && (
               <div className="space-y-2">
                 {/* Riadok 1: tituly + meno + priezvisko */}
-                <div className="grid grid-cols-4 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">Titul pred menom</label>
-                    <TitleCombobox
-                      ref={refTitleBeforeInput}
-                      value={preSelectTitleBefore}
-                      onChange={setPreSelectTitleBefore}
-                      options={TITLES_BEFORE}
-                      placeholder="napr. Ing."
-                      readOnly={!!preSelectSubjectId}
-                      onFocusNext={() => focusNextEmptyRequired("title-before")}
-                      data-testid="input-preselect-title-before"
-                    />
+                {preSelectSubjectId ? (
+                  <div className="flex items-baseline gap-1.5 flex-wrap px-3 py-2 rounded border border-border/40 bg-muted/20" data-testid="text-preselect-name-preview">
+                    {preSelectTitleBefore && (
+                      <span className="text-xs font-normal text-muted-foreground">{preSelectTitleBefore}</span>
+                    )}
+                    <span className="text-base font-bold text-foreground">
+                      {[preSelectFirstName, preSelectLastName].filter(Boolean).join(" ")}
+                    </span>
+                    {preSelectTitleAfter && (
+                      <span className="text-xs font-normal text-muted-foreground">, {preSelectTitleAfter}</span>
+                    )}
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium flex items-center gap-1">Meno {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && <span className="text-red-400">*</span>} {isFieldMissing("first-name") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
-                    <Input
-                      ref={refFirstNameInput}
-                      value={preSelectFirstName}
-                      onChange={(e) => setPreSelectFirstName(e.target.value)}
-                      placeholder="Meno"
-                      readOnly={!!preSelectSubjectId}
-                      className={isFieldMissing("first-name") ? "border-red-500 ring-red-500/30" : ""}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNextEmptyRequired("first-name"); } }}
-                      data-testid="input-preselect-first-name"
-                    />
+                ) : (
+                  <div className="grid grid-cols-4 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Titul pred menom</label>
+                      <TitleCombobox
+                        ref={refTitleBeforeInput}
+                        value={preSelectTitleBefore}
+                        onChange={setPreSelectTitleBefore}
+                        options={TITLES_BEFORE}
+                        placeholder="napr. Ing."
+                        readOnly={false}
+                        onFocusNext={() => focusNextEmptyRequired("title-before")}
+                        data-testid="input-preselect-title-before"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium flex items-center gap-1">Meno {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && <span className="text-red-400">*</span>} {isFieldMissing("first-name") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
+                      <Input
+                        ref={refFirstNameInput}
+                        value={preSelectFirstName}
+                        onChange={(e) => setPreSelectFirstName(e.target.value)}
+                        placeholder="Meno"
+                        readOnly={false}
+                        className={isFieldMissing("first-name") ? "border-red-500 ring-red-500/30" : ""}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNextEmptyRequired("first-name"); } }}
+                        data-testid="input-preselect-first-name"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium flex items-center gap-1">Priezvisko {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && <span className="text-red-400">*</span>} {isFieldMissing("last-name") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
+                      <Input
+                        ref={refLastNameInput}
+                        value={preSelectLastName}
+                        onChange={(e) => setPreSelectLastName(e.target.value)}
+                        placeholder="Priezvisko"
+                        readOnly={false}
+                        className={isFieldMissing("last-name") ? "border-red-500 ring-red-500/30" : ""}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNextEmptyRequired("last-name"); } }}
+                        data-testid="input-preselect-last-name"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium">Titul za menom</label>
+                      <TitleCombobox
+                        ref={refTitleAfterInput}
+                        value={preSelectTitleAfter}
+                        onChange={setPreSelectTitleAfter}
+                        options={TITLES_AFTER}
+                        placeholder="napr. PhD."
+                        readOnly={false}
+                        onFocusNext={() => focusNextEmptyRequired("title-after")}
+                        data-testid="input-preselect-title-after"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium flex items-center gap-1">Priezvisko {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && <span className="text-red-400">*</span>} {isFieldMissing("last-name") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
-                    <Input
-                      ref={refLastNameInput}
-                      value={preSelectLastName}
-                      onChange={(e) => setPreSelectLastName(e.target.value)}
-                      placeholder="Priezvisko"
-                      readOnly={!!preSelectSubjectId}
-                      className={isFieldMissing("last-name") ? "border-red-500 ring-red-500/30" : ""}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); focusNextEmptyRequired("last-name"); } }}
-                      data-testid="input-preselect-last-name"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">Titul za menom</label>
-                    <TitleCombobox
-                      ref={refTitleAfterInput}
-                      value={preSelectTitleAfter}
-                      onChange={setPreSelectTitleAfter}
-                      options={TITLES_AFTER}
-                      placeholder="napr. PhD."
-                      readOnly={!!preSelectSubjectId}
-                      onFocusNext={() => focusNextEmptyRequired("title-after")}
-                      data-testid="input-preselect-title-after"
-                    />
-                  </div>
-                </div>
+                )}
                 {/* Riadok 2: auto-údaje z RČ — len pre FO */}
                 {preSelectSubjectType === "person" && rcBirthInfo && (
                   <div className="grid grid-cols-3 gap-2">
