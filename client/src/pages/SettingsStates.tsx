@@ -370,48 +370,49 @@ function CountryPickerDialog({
               )}
             </div>
           </div>
-          {/* Country list — fills remaining dialog height */}
-          <div className="flex-1 min-h-0 border border-border rounded-md overflow-y-auto">
-            {filtered.length === 0 && pickerContinent === "Antarktída" ? (
-              <div className="flex flex-col p-5 gap-5">
-                <div className="flex items-center gap-3">
-                  <span className="text-4xl">🧊</span>
-                  <div>
-                    <p className="text-base font-semibold text-foreground">Antarktída</p>
-                    <p className="text-xs text-muted-foreground">Neutrálne medzinárodné územie — žiadne suverénne štáty</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {[
-                    { label: "Rozloha", value: "14 000 000 km²", icon: "🗺️" },
-                    { label: "Stála populácia", value: "0 obyvateľov", icon: "👤" },
-                    { label: "Leto (výskumníci)", value: "≈ 5 000 osôb", icon: "☀️" },
-                    { label: "Zima (výskumníci)", value: "≈ 1 000 osôb", icon: "❄️" },
-                    { label: "Vedecké stanice", value: "≈ 70 staníc", icon: "🔬" },
-                    { label: "Krajiny so stanicami", value: "30 krajín", icon: "🌍" },
-                    { label: "Najvyšší bod", value: "Vinson Massif 4 892 m", icon: "⛰️" },
-                    { label: "Najnižšia teplota", value: "−89,2 °C (1983)", icon: "🌡️" },
-                    { label: "Antarktická zmluva", value: "1. dec. 1959", icon: "📜" },
-                  ].map(({ label, value, icon }) => (
-                    <div key={label} className="flex flex-col gap-0.5 rounded-md border border-border/60 bg-muted/30 px-3 py-2">
-                      <span className="text-xs text-muted-foreground flex items-center gap-1"><span>{icon}</span>{label}</span>
-                      <span className="text-sm font-semibold text-foreground">{value}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p className="font-medium text-foreground text-sm">Prečo tu nie sú žiadne štáty?</p>
-                  <p>Antarktída je jedinou obývanou oblasťou sveta bez suverénnej vlády. Spravuje ju <strong className="text-foreground">Antarktická zmluva</strong> podpísaná 1. decembra 1959 v Meste Washington (vstúpila do platnosti 23. júna 1961), ku ktorej pristúpilo celkovo <strong className="text-foreground">54 štátov</strong>.</p>
-                  <p>Zmluva na dobu neurčitú zakazuje:</p>
-                  <ul className="list-none space-y-1 pl-2">
-                    {["Vojenské aktivity, zbrane a jadrové skúšky", "Ťažbu nerastných surovín a neobnoviteľných zdrojov", "Zakladanie stálych civilných osídlení so štatútom štátu", "Územné nároky nových krajín (platné nároky 7 krajín sú zmrazené)"].map(item => (
-                      <li key={item} className="flex items-start gap-2"><span className="text-amber-400 mt-0.5 shrink-0">▸</span><span>{item}</span></li>
-                    ))}
-                  </ul>
-                  <p>Sedem krajín (Argentína, Austrália, Čile, Francúzsko, Nórsko, Nový Zéland, Veľká Británia) má historické územné nároky, ktoré zmluva <em>zmrazila</em> — ani ich neruší, ani neuznáva.</p>
+          {/* Antarctica special panel — outside scrollbox, no scrollbar */}
+          {filtered.length === 0 && pickerContinent === "Antarktída" ? (
+            <div className="flex-1 flex flex-col gap-5 border border-border rounded-md p-5">
+              <div className="flex items-center gap-3">
+                <span className="text-4xl">🧊</span>
+                <div>
+                  <p className="text-base font-semibold text-foreground">Antarktída</p>
+                  <p className="text-xs text-muted-foreground">Neutrálne medzinárodné územie — žiadne suverénne štáty</p>
                 </div>
               </div>
-            ) : filtered.length === 0 ? (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {[
+                  { label: "Rozloha", value: "14 000 000 km²", icon: "🗺️" },
+                  { label: "Stála populácia", value: "0 obyvateľov", icon: "👤" },
+                  { label: "Leto (výskumníci)", value: "≈ 5 000 osôb", icon: "☀️" },
+                  { label: "Zima (výskumníci)", value: "≈ 1 000 osôb", icon: "❄️" },
+                  { label: "Vedecké stanice", value: "≈ 70 staníc", icon: "🔬" },
+                  { label: "Krajiny so stanicami", value: "30 krajín", icon: "🌍" },
+                  { label: "Najvyšší bod", value: "Vinson Massif 4 892 m", icon: "⛰️" },
+                  { label: "Najnižšia teplota", value: "−89,2 °C (1983)", icon: "🌡️" },
+                  { label: "Antarktická zmluva", value: "1. dec. 1959", icon: "📜" },
+                ].map(({ label, value, icon }) => (
+                  <div key={label} className="flex flex-col gap-0.5 rounded-md border border-border/60 bg-muted/30 px-3 py-2">
+                    <span className="text-xs text-muted-foreground flex items-center gap-1"><span>{icon}</span>{label}</span>
+                    <span className="text-sm font-semibold text-foreground">{value}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p className="font-medium text-foreground text-sm">Prečo tu nie sú žiadne štáty?</p>
+                <p>Antarktída je jedinou obývanou oblasťou sveta bez suverénnej vlády. Spravuje ju <strong className="text-foreground">Antarktická zmluva</strong> podpísaná 1. decembra 1959 v Meste Washington (vstúpila do platnosti 23. júna 1961), ku ktorej pristúpilo celkovo <strong className="text-foreground">54 štátov</strong>.</p>
+                <p>Zmluva na dobu neurčitú zakazuje:</p>
+                <ul className="list-none space-y-1 pl-2">
+                  {["Vojenské aktivity, zbrane a jadrové skúšky", "Ťažbu nerastných surovín a neobnoviteľných zdrojov", "Zakladanie stálych civilných osídlení so štatútom štátu", "Územné nároky nových krajín (platné nároky 7 krajín sú zmrazené)"].map(item => (
+                    <li key={item} className="flex items-start gap-2"><span className="text-amber-400 mt-0.5 shrink-0">▸</span><span>{item}</span></li>
+                  ))}
+                </ul>
+                <p>Sedem krajín (Argentína, Austrália, Čile, Francúzsko, Nórsko, Nový Zéland, Veľká Británia) má historické územné nároky, ktoré zmluva <em>zmrazila</em> — ani ich neruší, ani neuznáva.</p>
+              </div>
+            </div>
+          ) : (
+          <div className="flex-1 min-h-0 border border-border rounded-md overflow-y-auto">
+            {filtered.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">Žiadna krajina nenájdená</div>
             ) : (
               <div className="divide-y divide-border">
@@ -441,6 +442,7 @@ function CountryPickerDialog({
               </div>
             )}
           </div>
+          )}
           <div className="text-xs text-muted-foreground text-right shrink-0">{filtered.length} krajín</div>
         </div>
       </DialogContent>
