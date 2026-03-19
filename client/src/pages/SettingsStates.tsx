@@ -989,10 +989,12 @@ export default function SettingsStates() {
   const filteredStates = tableFilter.filteredData;
   const isFiltered = filteredStates.length !== (allStates?.length ?? 0);
 
+  const ANTARCTICA_CONTINENT_ID = 7;
+
   const continentGroups = (continents || []).map(continent => ({
     continent,
     states: [...(filteredStates.filter(s => s.continentId === continent.id))].sort((a, b) => a.name.localeCompare(b.name, "sk")),
-  })).filter(g => g.states.length > 0);
+  })).filter(g => g.states.length > 0 || g.continent.id === ANTARCTICA_CONTINENT_ID);
 
   const ungrouped = filteredStates.filter(s => !continents?.find(c => c.id === s.continentId));
 
@@ -1089,6 +1091,19 @@ export default function SettingsStates() {
                             </div>
                           </TableCell>
                         </TableRow>
+                        {expandedContinents.has(continent.id) && states.length === 0 && continent.id === ANTARCTICA_CONTINENT_ID && (
+                          <TableRow>
+                            <TableCell colSpan={colSpan} className="py-4 px-7">
+                              <div className="flex items-start gap-3 text-sm text-muted-foreground bg-muted/40 rounded-md px-4 py-3 border border-border/50">
+                                <span className="text-2xl leading-none mt-0.5">🧊</span>
+                                <div className="space-y-1">
+                                  <p className="font-medium text-foreground">Antarktída nemá žiadne suverénne štáty</p>
+                                  <p>Antarktída je medzinárodne neutrálne územie spravované Antarktickou zmluvou z roku 1959, ktorú podpísalo 54 krajín. Zmluva zakazuje vojenské aktivity, ťažbu nerastných surovín a zakladanie stálych osídlení. Na kontinente existuje len niekoľko vedeckých staníc prevádzkovaných rôznymi krajinami, ale žiadna z nich nemá štatút suverénneho štátu ani územia so sídlom vlády.</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
                         {expandedContinents.has(continent.id) && states.map(renderStateRow)}
                         {expandedContinents.has(continent.id) && <TableRow className="h-0 border-b border-border/60"><TableCell colSpan={colSpan} className="p-0" /></TableRow>}
                       </Fragment>
