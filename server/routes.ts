@@ -1073,14 +1073,18 @@ export async function registerRoutes(
       const divs = await storage.getDivisions();
       const enriched = await Promise.all(divs.map(async (d) => {
         const links = await storage.getDivisionCompanies(d.id);
-        const [{ count: contractCount }] = await db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(contracts)
-          .where(eq(contracts.divisionId, d.id));
+        const countResult = await db.execute(sql`
+          SELECT COUNT(*)::int AS cnt FROM contracts c
+          JOIN sector_products sp ON c.sector_product_id = sp.id
+          JOIN sections sec ON sp.section_id = sec.id
+          JOIN sectors s ON sec.sector_id = s.id
+          WHERE s.division_id = ${d.id} AND c.is_deleted = false
+        `);
+        const contractCount = (countResult as any).rows?.[0]?.cnt ?? 0;
         return {
           ...d,
           companies: links.map(l => ({ id: l.company.id, name: l.company.name, code: (l.company as any).code || null })),
-          contractCount: contractCount ?? 0,
+          contractCount,
         };
       }));
       res.json(enriched);
@@ -1170,11 +1174,15 @@ export async function registerRoutes(
   app.delete("/api/divisions/:id", isAuthenticated, async (req: any, res) => {
     try {
       const divId = Number(req.params.id);
-      const [{ count: contractCount }] = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(contracts)
-        .where(eq(contracts.divisionId, divId));
-      if ((contractCount ?? 0) > 0) {
+      const countResult = await db.execute(sql`
+        SELECT COUNT(*)::int AS cnt FROM contracts c
+        JOIN sector_products sp ON c.sector_product_id = sp.id
+        JOIN sections sec ON sp.section_id = sec.id
+        JOIN sectors s ON sec.sector_id = s.id
+        WHERE s.division_id = ${divId} AND c.is_deleted = false
+      `);
+      const contractCount = (countResult as any).rows?.[0]?.cnt ?? 0;
+      if (contractCount > 0) {
         return res.status(409).json({ message: "Divíziu nemožno vymazať — obsahuje zmluvy." });
       }
       const old = await storage.getDivision(divId);
