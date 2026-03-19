@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -123,6 +124,27 @@ interface BusinessActivity {
   since?: string;
 }
 
+interface RegistryLookupResponse {
+  found: boolean;
+  source?: string;
+  name?: string;
+  street?: string;
+  streetNumber?: string;
+  zip?: string;
+  city?: string;
+  legalForm?: string;
+  dic?: string;
+  icDph?: string;
+  vatParagraph?: string;
+  vatRegisteredAt?: string;
+  foundedDate?: string;
+  businessActivities?: BusinessActivity[];
+  directors?: any[];
+  actingNote?: string;
+  message?: string;
+  error?: string;
+}
+
 // ─── Lifecycle Status Config ──────────────────────────────────────────────────
 
 const LIFECYCLE_STATUS_CONFIG: Record<string, { label: string; Icon: typeof Circle; colorClass: string; filled?: boolean }> = {
@@ -171,22 +193,18 @@ const PARTNER_FILTER_COLUMNS: SmartColumnDef[] = [
   { key: "collaborationDate", label: "Datum spoluprace", type: "date" },
 ];
 
-const specializationOptions = [
-  { value: "SFA", label: "SFA" },
-  { value: "Reality", label: "Reality" },
-  { value: "Prenajom", label: "Prenajom" },
-  { value: "Predaj zbrani", label: "Predaj zbrani" },
-  { value: "Obchod", label: "Obchod" },
-  { value: "Poistenie", label: "Poistenie" },
-  { value: "Dochodok", label: "Dochodok" },
-  { value: "Ine", label: "Ine" },
-];
-
 // ─── Form Schema ─────────────────────────────────────────────────────────────
 
 const partnerFormSchema = insertPartnerSchema.extend({
-  name: z.string().min(1, "Nazov je povinny"),
-  collaborationDate: z.string().optional(),
+  name: z.string().min(1, "Názov je povinný"),
+  subjectType: z.string().optional(),
+  ico: z.string().optional().nullable(),
+  dic: z.string().optional().nullable(),
+  icDph: z.string().optional().nullable(),
+  vatParagraph: z.string().optional().nullable(),
+  vatRegisteredAt: z.string().nullable().optional(),
+  foundedDate: z.string().nullable().optional(),
+  collaborationDate: z.string().optional().nullable(),
   corrStreet: z.string().optional().nullable(),
   corrStreetNumber: z.string().optional().nullable(),
   corrOrientNumber: z.string().optional().nullable(),
@@ -477,6 +495,7 @@ function PartnerUnifiedDialog({
   const { data: allStates } = useStates();
   const { data: myCompanies } = useMyCompanies();
   const timerRef = useRef<number>(0);
+  const registryLookupBtnRef = useRef<HTMLButtonElement>(null);
 
   // Core state
   const [notesHtml, setNotesHtml] = useState("");
@@ -484,6 +503,20 @@ function PartnerUnifiedDialog({
   const [lifecycleStatus, setLifecycleStatus] = useState("record");
   const [statusStartDate, setStatusStartDate] = useState("");
   const [statusEndDate, setStatusEndDate] = useState("");
+
+  // DPH
+  const [platcaDph, setPlatcaDph] = useState(false);
+
+  // ORSR registry
+  const [registryLoading, setRegistryLoading] = useState(false);
+  const [registryResult, setRegistryResult] = useState<RegistryLookupResponse | null>(null);
+  const [registryError, setRegistryError] = useState<string | null>(null);
+  const [selectedActivityIndices, setSelectedActivityIndices] = useState<Set<number>>(new Set());
+
+  // Pending logo for new partner
+  const [pendingLogo, setPendingLogo] = useState<File | null>(null);
+  const [pendingLogoPreview, setPendingLogoPreview] = useState<string | null>(null);
+  const logoFileRef = useRef<HTMLInputElement>(null);
 
   // Business activities
   const [localActivities, setLocalActivities] = useState<BusinessActivity[]>([]);
@@ -584,10 +617,14 @@ function PartnerUnifiedDialog({
     defaultValues: {
       name: "",
       code: "",
+      subjectType: "",
       specialization: "",
       ico: "",
       dic: "",
       icDph: "",
+      vatParagraph: "",
+      vatRegisteredAt: null,
+      foundedDate: null,
       street: "",
       streetNumber: "",
       orientNumber: "",
@@ -606,22 +643,33 @@ function PartnerUnifiedDialog({
     },
   });
 
+  const watchedSubjectType = form.watch("subjectType");
+
   useEffect(() => {
     if (open) {
       timerRef.current = performance.now();
+      setRegistryResult(null);
+      setRegistryError(null);
+      setPendingLogo(null);
+      setPendingLogoPreview(null);
       if (editingPartner) {
         const ep = editingPartner as any;
         const hasCorrAddr = !!(ep.corrStreet || ep.corrStreetNumber || ep.corrOrientNumber || ep.corrPostalCode || ep.corrCity || ep.corrStateId);
         setCorrSameAsHQ(!hasCorrAddr);
         setLocalActivities((ep.businessActivities as BusinessActivity[]) || []);
         setBranches((ep.branches as BranchEntry[]) || []);
+        setPlatcaDph(!!(ep.icDph && ep.icDph.trim()));
         form.reset({
           name: editingPartner.name,
           code: editingPartner.code || "",
+          subjectType: ep.subjectType || "",
           specialization: editingPartner.specialization || "",
           ico: editingPartner.ico || "",
           dic: editingPartner.dic || "",
           icDph: editingPartner.icDph || "",
+          vatParagraph: ep.vatParagraph || "",
+          vatRegisteredAt: ep.vatRegisteredAt ? new Date(ep.vatRegisteredAt).toISOString().split("T")[0] : null,
+          foundedDate: ep.foundedDate ? new Date(ep.foundedDate).toISOString().split("T")[0] : null,
           street: editingPartner.street || "",
           streetNumber: editingPartner.streetNumber || "",
           orientNumber: editingPartner.orientNumber || "",
@@ -642,17 +690,36 @@ function PartnerUnifiedDialog({
         setLifecycleStatus(editingPartner.lifecycleStatus || "record");
         setStatusStartDate(editingPartner.statusStartDate ? new Date(editingPartner.statusStartDate).toISOString().split("T")[0] : "");
         setStatusEndDate(editingPartner.statusEndDate ? new Date(editingPartner.statusEndDate).toISOString().split("T")[0] : "");
+        // Auto-load ORSR if IČO and type is PO
+        if (ep.ico?.trim() && ep.subjectType === "po") {
+          setRegistryLoading(true);
+          fetch(`/api/lookup/ico/${encodeURIComponent(ep.ico.trim())}?type=company`, { credentials: "include" })
+            .then(r => r.json())
+            .then(data => {
+              if (data.found && data.businessActivities?.length) {
+                setRegistryResult(data);
+                setSelectedActivityIndices(new Set(data.businessActivities.map((_: BusinessActivity, i: number) => i)));
+              }
+            })
+            .catch(() => {})
+            .finally(() => setRegistryLoading(false));
+        }
       } else {
-        setCorrSameAsHQ(false);
+        setCorrSameAsHQ(true);
         setLocalActivities([]);
         setBranches([]);
+        setPlatcaDph(false);
         form.reset({
           name: "",
           code: "",
+          subjectType: "",
           specialization: "",
           ico: "",
           dic: "",
           icDph: "",
+          vatParagraph: "",
+          vatRegisteredAt: null,
+          foundedDate: null,
           street: "",
           streetNumber: "",
           orientNumber: "",
@@ -695,13 +762,79 @@ function PartnerUnifiedDialog({
       setBranchEmails([]);
       setBranchEmployees([]);
       setAddingBranchEmployee(false);
+      setSelectedActivityIndices(new Set());
       setActiveTab("basic");
     }
   }, [open, editingPartner, form, appUser?.activeStateId]);
 
   const handleOpenChange = useCallback((isOpen: boolean) => {
+    if (!isOpen) {
+      setPendingLogo(null);
+      setPendingLogoPreview(null);
+    }
     onOpenChange(isOpen);
   }, [onOpenChange]);
+
+  // ─── ORSR Registry Lookup ──────────────────────────────────────────────────
+
+  async function handleRegistryLookup() {
+    const ico = form.getValues("ico");
+    if (!ico || ico.trim().length < 6) {
+      setRegistryError("Zadajte platné IČO (min. 6 znakov)");
+      return;
+    }
+    setRegistryLoading(true);
+    setRegistryResult(null);
+    setRegistryError(null);
+    try {
+      const res = await fetch(`/api/lookup/ico/${encodeURIComponent(ico.trim())}?type=company`, { credentials: "include" });
+      const data = await res.json();
+      if (!res.ok || !data.found) {
+        setRegistryError(data.message || data.error || "Firma nenájdená v registri");
+        return;
+      }
+      setRegistryResult(data);
+      if (data.businessActivities?.length) {
+        setSelectedActivityIndices(new Set(data.businessActivities.map((_: BusinessActivity, i: number) => i)));
+        setLocalActivities(prev => {
+          const existing = new Set(prev.map((a: BusinessActivity) => a.text.trim()));
+          const newOnes = (data.businessActivities as BusinessActivity[]).filter((a: BusinessActivity) => !existing.has(a.text.trim()));
+          return newOnes.length > 0 ? [...prev, ...newOnes] : prev;
+        });
+      }
+      if (data.name) form.setValue("name", data.name);
+      if (data.street) form.setValue("street", data.street);
+      if (data.streetNumber) {
+        const raw = String(data.streetNumber).trim();
+        if (raw.includes("/")) {
+          const [popisne, orientacne] = raw.split("/").map((s: string) => s.trim());
+          form.setValue("streetNumber", popisne || "");
+          form.setValue("orientNumber", orientacne || "");
+        } else {
+          form.setValue("streetNumber", "");
+          form.setValue("orientNumber", raw);
+        }
+      }
+      if (data.zip) form.setValue("postalCode", data.zip);
+      if (data.city) form.setValue("city", data.city);
+      if (data.legalForm) form.setValue("description", data.legalForm);
+      const currentDic = form.getValues("dic");
+      if (data.dic && (!currentDic || !currentDic.trim())) {
+        form.setValue("dic", data.dic);
+      }
+      if (data.foundedDate) form.setValue("foundedDate", data.foundedDate);
+      if (data.icDph) {
+        form.setValue("icDph", data.icDph);
+        setPlatcaDph(true);
+      }
+      if (data.vatParagraph) form.setValue("vatParagraph", data.vatParagraph);
+      if (data.vatRegisteredAt) form.setValue("vatRegisteredAt", data.vatRegisteredAt);
+    } catch {
+      setRegistryError("Chyba pri komunikácii s registrom");
+    } finally {
+      setRegistryLoading(false);
+    }
+  }
 
   // ─── Branch helpers ────────────────────────────────────────────────────────
 
@@ -846,12 +979,14 @@ function PartnerUnifiedDialog({
 
   function onSubmit(data: PartnerFormData) {
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
-    const { collaborationDate, ...rest } = data;
+    const { collaborationDate, vatRegisteredAt, foundedDate, ...rest } = data;
     const payload: any = {
       ...rest,
       notes: notesHtml,
       processingTimeSec,
       collaborationDate: collaborationDate ? new Date(collaborationDate) : null,
+      vatRegisteredAt: vatRegisteredAt ? new Date(vatRegisteredAt) : null,
+      foundedDate: foundedDate ? new Date(foundedDate) : null,
       businessActivities: localActivities,
       branches,
       corrStreet: corrSameAsHQ ? null : (data.corrStreet || null),
@@ -861,6 +996,12 @@ function PartnerUnifiedDialog({
       corrCity: corrSameAsHQ ? null : (data.corrCity || null),
       corrStateId: corrSameAsHQ ? null : (data.corrStateId || null),
     };
+
+    if (!platcaDph) {
+      payload.icDph = null;
+      payload.vatParagraph = null;
+      payload.vatRegisteredAt = null;
+    }
 
     if (lifecycleStatus === "fast_forward" && !statusStartDate) {
       toast({ title: "Chyba", description: "Stav 'Štart spolupráce' vyžaduje dátum štartu", variant: "destructive" });
@@ -886,7 +1027,7 @@ function PartnerUnifiedDialog({
               if (lifecycleStatus === "eject" && statusEndDate) statusData.endDate = new Date(statusEndDate).toISOString();
               lifecycleMutation.mutate({ id: editingPartner.id, data: statusData }, {
                 onSuccess: () => handleOpenChange(false),
-                onError: () => toast({ title: "Chyba", description: "Nepodarilo sa zmeniť stav životného cyklu", variant: "destructive" }),
+                onError: () => toast({ title: "Chyba", description: "Nepodarilo sa zmeniť stav", variant: "destructive" }),
               });
             } else {
               handleOpenChange(false);
@@ -896,7 +1037,20 @@ function PartnerUnifiedDialog({
       );
     } else {
       createMutation.mutate(payload as InsertPartner, {
-        onSuccess: () => handleOpenChange(false),
+        onSuccess: async (newPartner: any) => {
+          if (pendingLogo && newPartner?.id) {
+            try {
+              const fd = new FormData();
+              fd.append("file", pendingLogo);
+              await fetch(`/api/partners/${newPartner.id}/files/logos`, {
+                method: "POST",
+                body: fd,
+                credentials: "include",
+              });
+            } catch {}
+          }
+          handleOpenChange(false);
+        },
       });
     }
   }
@@ -955,28 +1109,9 @@ function PartnerUnifiedDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent size="lg">
         <DialogHeader>
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-              {(() => {
-                const logo = (editingPartner?.logos as any[])?.find((l: any) => l.isPrimary && !l.isArchived);
-                return logo
-                  ? <img src={logo.url} alt="logo" className="w-full h-full object-contain rounded-md" />
-                  : <Briefcase className="w-5 h-5 text-primary" />;
-              })()}
-            </div>
-            <div className="min-w-0">
-              <DialogTitle data-testid="text-partner-dialog-title">
-                {editingPartner ? editingPartner.name : "Pridať nového partnera"}
-              </DialogTitle>
-              {editingPartner && (
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  {editingPartner.code && <Badge variant="secondary" className="font-mono">{editingPartner.code}</Badge>}
-                  {editingPartner.specialization && <Badge variant="outline">{editingPartner.specialization}</Badge>}
-                  {editingPartner.uid && <span className="text-xs font-mono text-muted-foreground">{formatUid(editingPartner.uid)}</span>}
-                </div>
-              )}
-            </div>
-          </div>
+          <DialogTitle data-testid="text-partner-dialog-title">
+            {editingPartner ? editingPartner.name : "Pridať nového partnera"}
+          </DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -987,8 +1122,8 @@ function PartnerUnifiedDialog({
                 <TabsTrigger value="address" data-testid="partner-tab-address">Adresa</TabsTrigger>
                 <TabsTrigger value="activities" data-testid="partner-tab-activities">Predmet podnikania</TabsTrigger>
                 <TabsTrigger value="branches" data-testid="partner-tab-branches">Pobočky</TabsTrigger>
-                <TabsTrigger value="logo" data-testid="partner-tab-logo">Logo</TabsTrigger>
                 <TabsTrigger value="docs" data-testid="partner-tab-docs">Dokumenty</TabsTrigger>
+                <TabsTrigger value="logo" data-testid="partner-tab-logo">Logo</TabsTrigger>
                 {isEditing && <TabsTrigger value="contacts" data-testid="partner-tab-contacts">Kontakty</TabsTrigger>}
                 {isEditing && <TabsTrigger value="products" data-testid="partner-tab-products">Produkty</TabsTrigger>}
                 {isEditing && <TabsTrigger value="zmluvy" data-testid="partner-tab-zmluvy">Zmluvy</TabsTrigger>}
@@ -998,75 +1133,197 @@ function PartnerUnifiedDialog({
               {/* ─── Základné údaje ─────────────────────────────────────── */}
               <TabsContent value="basic" className="space-y-4 mt-4">
                 {editingPartner?.uid && (
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/40 border border-border/50">
+                  <div className="flex items-center gap-2 px-1 py-1.5 rounded-md bg-muted/40 border border-border/50">
                     <span className="text-xs text-muted-foreground shrink-0">UID</span>
                     <span className="font-mono text-sm font-medium tracking-wide whitespace-nowrap select-all" data-testid="input-partner-uid">{formatUid(editingPartner.uid)}</span>
                   </div>
                 )}
 
-                <FormField control={form.control} name="name" render={({ field }) => (
+                {/* Name + Code v jednom riadku — rovnako ako Companies.tsx */}
+                <div className="flex gap-3 items-end">
+                  <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem className="flex-[5]">
+                      <FormLabel>Názov partnera *</FormLabel>
+                      <FormControl><Input {...field} data-testid="input-partner-name" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="code" render={({ field }) => (
+                    <FormItem className="flex-[2]">
+                      <FormLabel>Kód partnera</FormLabel>
+                      <FormControl><Input {...field} value={field.value || ""} maxLength={25} className="font-mono uppercase" data-testid="input-partner-code" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+
+                {/* Typ subjektu — rovnako ako Companies.tsx */}
+                <FormField control={form.control} name="subjectType" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Názov partnera</FormLabel>
-                    <FormControl><Input {...field} data-testid="input-partner-name" /></FormControl>
+                    <FormLabel>Typ subjektu</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-partner-subject-type">
+                          <SelectValue placeholder="Vyberte typ subjektu" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="fo">FO — Fyzická osoba</SelectItem>
+                        <SelectItem value="szco">SZČO — Samostatne zárobkovo činná osoba</SelectItem>
+                        <SelectItem value="po">PO — Súkromný sektor</SelectItem>
+                        <SelectItem value="ns">NS — Tretí sektor (neziskovky)</SelectItem>
+                        <SelectItem value="vs">VS — Verejný sektor (štát)</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )} />
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="code" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Kód partnera</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} maxLength={10} className="font-mono uppercase" data-testid="input-partner-code" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="specialization" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Zameranie</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                {/* IČO s ORSR vyhľadávaním (len pri type=po) | DIČ s "povinné" badge */}
+                <div className="flex items-start gap-3">
+                  <div className="w-[60%] space-y-2">
+                    <FormField control={form.control} name="ico" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>IČO</FormLabel>
                         <FormControl>
-                          <SelectTrigger data-testid="select-partner-specialization">
-                            <SelectValue placeholder="Vybrať zameranie" />
-                          </SelectTrigger>
+                          <div className={`relative rounded-md transition-all duration-200 ${registryResult && !registryError ? "ring-2 ring-green-600 ring-offset-0" : ""}`}>
+                            <Input
+                              {...field}
+                              value={field.value || ""}
+                              data-testid="input-partner-ico"
+                              className={`${watchedSubjectType === "po" ? "pr-32" : ""} ${registryResult && !registryError ? "border-green-600 bg-green-950/20 focus-visible:ring-green-600" : ""}`}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && watchedSubjectType === "po") {
+                                  e.preventDefault();
+                                  handleRegistryLookup();
+                                }
+                              }}
+                            />
+                            {watchedSubjectType === "po" && (
+                              <button
+                                ref={registryLookupBtnRef}
+                                type="button"
+                                disabled={registryLoading}
+                                onClick={handleRegistryLookup}
+                                data-testid="button-registry-lookup"
+                                className={`absolute right-0 top-0 bottom-0 flex items-center gap-1.5 px-3 text-xs font-medium border-l rounded-r-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                                  ${registryResult && !registryError
+                                    ? "border-green-600 text-green-500 bg-green-950/30 hover:bg-green-900/40"
+                                    : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                  }`}
+                              >
+                                {registryLoading
+                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  : registryResult && !registryError
+                                    ? <CheckCircle2 className="w-3.5 h-3.5" />
+                                    : <Search className="w-3.5 h-3.5" />
+                                }
+                                {registryLoading ? "Hľadám..." : registryResult && !registryError ? "Nájdené" : "Hľadať"}
+                              </button>
+                            )}
+                          </div>
                         </FormControl>
-                        <SelectContent>
-                          {specializationOptions.map(opt => (
-                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    {watchedSubjectType === "po" && registryError && (
+                      <div className="flex items-center gap-1 text-xs text-destructive" data-testid="text-registry-error">
+                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="truncate">{registryError}</span>
+                      </div>
+                    )}
+                  </div>
+                  <FormField control={form.control} name="dic" render={({ field }) => (
+                    <FormItem className="w-[40%] flex-shrink-0">
+                      <FormLabel>DIČ *</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input {...field} value={field.value || ""} className="pr-[72px]" data-testid="input-partner-dic" />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/30 pointer-events-none select-none" data-testid="badge-dic-required">
+                            povinné
+                          </span>
+                        </div>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <FormField control={form.control} name="ico" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>IČO</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-ico" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="dic" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>DIČ</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-dic" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="icDph" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>IČ DPH</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-icdph" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                {/* Platca DPH switch */}
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={platcaDph}
+                    onCheckedChange={(checked) => {
+                      setPlatcaDph(checked);
+                      if (!checked) {
+                        form.setValue("icDph", "");
+                        form.setValue("vatParagraph", "");
+                        form.setValue("vatRegisteredAt", null);
+                      }
+                    }}
+                    data-testid="switch-platca-dph"
+                  />
+                  <span className="text-sm font-medium">Platca DPH</span>
                 </div>
+
+                {/* IČ DPH, Paragraf, Dátum registrácie DPH — len keď platcaDph */}
+                {platcaDph && (
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField control={form.control} name="icDph" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>IČ DPH *</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} data-testid="input-partner-icdph" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="vatParagraph" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Podľa paragrafu</FormLabel>
+                        <FormControl>
+                          <Input {...field} value={field.value || ""} placeholder="§4" data-testid="input-partner-vat-paragraph" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="vatRegisteredAt" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Dátum registrácie DPH</FormLabel>
+                        <FormControl>
+                          <Input type="date" value={field.value || ""} onChange={(e) => field.onChange(e.target.value || null)} data-testid="input-partner-vat-registered-at" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                )}
+
+                {/* Dátum vzniku */}
+                <FormField control={form.control} name="foundedDate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Dátum vzniku partnera</FormLabel>
+                    <FormControl>
+                      <Input type="date" value={field.value || ""} onChange={(e) => field.onChange(e.target.value || null)} data-testid="input-partner-founded-date" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <Separator />
+
+                {/* Partner-specific fields */}
+                <FormField control={form.control} name="specialization" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Zameranie partnera</FormLabel>
+                    <FormControl><Input {...field} value={field.value || ""} placeholder="napr. Poistenie, Reality, SFA..." data-testid="input-partner-specialization" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
                 <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Charakteristika / popis činnosti</FormLabel>
+                    <FormLabel>Charakteristika / popis</FormLabel>
                     <FormControl><Textarea {...field} value={field.value || ""} rows={3} data-testid="input-partner-description" /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1078,7 +1335,7 @@ function PartnerUnifiedDialog({
                     <FormControl>
                       <Input
                         type="date"
-                        value={field.value ? (typeof field.value === "string" ? field.value : new Date(field.value).toISOString().split("T")[0]) : ""}
+                        value={field.value ? (typeof field.value === "string" ? field.value : new Date(field.value as any).toISOString().split("T")[0]) : ""}
                         onChange={(e) => field.onChange(e.target.value || undefined)}
                         data-testid="input-partner-collaboration-date"
                       />
@@ -1089,6 +1346,7 @@ function PartnerUnifiedDialog({
 
                 <Separator />
 
+                {/* Stav partnerstva — POSLEDNÝ PARAMETER */}
                 <div className="space-y-3">
                   <label className="text-sm font-medium flex items-center gap-2">
                     <Play className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1144,53 +1402,52 @@ function PartnerUnifiedDialog({
 
               {/* ─── Adresa ─────────────────────────────────────────────── */}
               <TabsContent value="address" className="space-y-6 mt-4">
-                {/* HQ Address */}
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-muted-foreground" />
-                    <h4 className="text-sm font-medium">Sídlo partnera</h4>
+                    <h4 className="text-sm font-medium">Adresa sídla</h4>
                   </div>
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-4 gap-4">
                     <FormField control={form.control} name="street" render={({ field }) => (
                       <FormItem className="col-span-2">
-                        <FormLabel>Ulica</FormLabel>
+                        <FormLabel>Ulica *</FormLabel>
                         <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-street" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="streetNumber" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Číslo popisné</FormLabel>
+                        <FormLabel>Popisné číslo</FormLabel>
                         <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-street-number" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="orientNumber" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Číslo orient.</FormLabel>
+                        <FormLabel>Orientačné číslo</FormLabel>
                         <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-orient-number" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
                   </div>
-                  <div className="grid grid-cols-5 gap-3">
+                  <div className="grid grid-cols-5 gap-4">
                     <FormField control={form.control} name="postalCode" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>PSČ</FormLabel>
+                        <FormLabel>PSČ *</FormLabel>
                         <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-postal-code" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="city" render={({ field }) => (
                       <FormItem className="col-span-2">
-                        <FormLabel>Mesto</FormLabel>
+                        <FormLabel>Mesto / Obec *</FormLabel>
                         <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-city" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="stateId" render={({ field }) => (
                       <FormItem className="col-span-2">
-                        <FormLabel>Štát</FormLabel>
+                        <FormLabel>Štát *</FormLabel>
                         <Select onValueChange={(v) => field.onChange(Number(v))} value={field.value ? String(field.value) : ""}>
                           <FormControl>
                             <SelectTrigger data-testid="select-partner-state">
@@ -1209,12 +1466,11 @@ function PartnerUnifiedDialog({
 
                 <Separator />
 
-                {/* Correspondence Address */}
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-muted-foreground" />
-                      <h4 className="text-sm font-medium">Korešpondenčná adresa</h4>
+                      <Mail className="w-4 h-4 text-muted-foreground" />
+                      <h4 className="text-sm font-medium">Korespondenčná adresa</h4>
                     </div>
                     <div className="flex items-center gap-2">
                       <Checkbox
@@ -1233,7 +1489,7 @@ function PartnerUnifiedDialog({
                         }}
                         data-testid="checkbox-corr-same"
                       />
-                      <label htmlFor="corr-same" className="text-xs text-muted-foreground cursor-pointer">Rovnaká ako sídlo</label>
+                      <label htmlFor="corr-same" className="text-xs text-muted-foreground cursor-pointer select-none">Rovnaká ako sídlo</label>
                     </div>
                   </div>
 
@@ -1243,7 +1499,7 @@ function PartnerUnifiedDialog({
                     </div>
                   ) : (
                     <>
-                      <div className="grid grid-cols-4 gap-3">
+                      <div className="grid grid-cols-4 gap-4">
                         <FormField control={form.control} name="corrStreet" render={({ field }) => (
                           <FormItem className="col-span-2">
                             <FormLabel>Ulica</FormLabel>
@@ -1253,20 +1509,20 @@ function PartnerUnifiedDialog({
                         )} />
                         <FormField control={form.control} name="corrStreetNumber" render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Číslo popisné</FormLabel>
+                            <FormLabel>Popisné číslo</FormLabel>
                             <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-corr-street-number" /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )} />
                         <FormField control={form.control} name="corrOrientNumber" render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Číslo orient.</FormLabel>
+                            <FormLabel>Orientačné číslo</FormLabel>
                             <FormControl><Input {...field} value={field.value || ""} data-testid="input-partner-corr-orient-number" /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )} />
                       </div>
-                      <div className="grid grid-cols-5 gap-3">
+                      <div className="grid grid-cols-5 gap-4">
                         <FormField control={form.control} name="corrPostalCode" render={({ field }) => (
                           <FormItem>
                             <FormLabel>PSČ</FormLabel>
@@ -1305,6 +1561,72 @@ function PartnerUnifiedDialog({
 
               {/* ─── Predmet podnikania ──────────────────────────────────── */}
               <TabsContent value="activities" className="mt-4 space-y-4">
+                {/* ORSR activities section — rovnako ako Companies.tsx */}
+                {registryResult?.businessActivities && registryResult.businessActivities.length > 0 && (
+                  <div className="border border-border rounded-md" data-testid="section-orsr-activities">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30 gap-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        <span className="text-sm font-medium">Z ORSR registra</span>
+                        <Badge variant="secondary" className="text-xs">{selectedActivityIndices.size}/{registryResult.businessActivities.length}</Badge>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        data-testid="button-import-selected-activities"
+                        onClick={() => {
+                          const toAdd = registryResult.businessActivities!
+                            .filter((_, i) => selectedActivityIndices.has(i));
+                          const existing = new Set(localActivities.map((a: BusinessActivity) => a.text.trim()));
+                          const newOnes = toAdd.filter(a => !existing.has(a.text.trim()));
+                          if (newOnes.length > 0) setLocalActivities(prev => [...prev, ...newOnes]);
+                        }}
+                      >
+                        Importovať označené
+                      </Button>
+                    </div>
+                    <div className="divide-y divide-border max-h-48 overflow-y-auto">
+                      {registryResult.businessActivities.map((act, idx) => (
+                        <div key={idx} className="flex items-start gap-2 px-3 py-2 text-sm" data-testid={`orsr-activity-row-${idx}`}>
+                          <Checkbox
+                            id={`orsr-act-${idx}`}
+                            checked={selectedActivityIndices.has(idx)}
+                            onCheckedChange={(checked) => {
+                              setSelectedActivityIndices(prev => {
+                                const next = new Set(prev);
+                                if (checked) next.add(idx);
+                                else next.delete(idx);
+                                return next;
+                              });
+                            }}
+                            className="mt-0.5 shrink-0"
+                            data-testid={`checkbox-orsr-activity-${idx}`}
+                          />
+                          <label htmlFor={`orsr-act-${idx}`} className="flex-1 cursor-pointer leading-relaxed text-foreground">{act.text}</label>
+                          {act.since && <span className="text-xs text-muted-foreground font-mono shrink-0">od {act.since}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {registryLoading && !registryResult && (
+                  <div className="text-sm text-muted-foreground flex items-center gap-2 p-3">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Načítavam predmety podnikania z ORSR…
+                  </div>
+                )}
+
+                {!registryLoading && !registryResult && localActivities.length === 0 && (
+                  <div className="rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground" data-testid="text-activities-empty">
+                    {form.getValues("ico") && watchedSubjectType === "po"
+                      ? "Predmety podnikania neboli nájdené v ORSR registri."
+                      : "Zadajte IČO a typ PO v záložke Základné údaje pre načítanie predmetov podnikania z ORSR, alebo pridajte manuálne."}
+                  </div>
+                )}
+
                 {localActivities.length > 0 && (
                   <div className="border border-border rounded-md" data-testid="section-local-activities">
                     <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
@@ -1332,12 +1654,6 @@ function PartnerUnifiedDialog({
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
-
-                {localActivities.length === 0 && (
-                  <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-testid="text-activities-empty">
-                    Žiadne predmety podnikania. Pridajte ich manuálne nižšie.
                   </div>
                 )}
 
@@ -1378,8 +1694,7 @@ function PartnerUnifiedDialog({
                           setNewActivitySince("");
                         }}
                       >
-                        <Plus className="w-4 h-4 mr-1" />
-                        Pridať
+                        <Plus className="w-4 h-4 mr-1" />Pridať
                       </Button>
                     </div>
                   </div>
@@ -1513,10 +1828,7 @@ function PartnerUnifiedDialog({
                           <div className="flex items-start gap-3">
                             <div className="flex flex-col items-center gap-1 shrink-0">
                               <div className="w-16 h-16 rounded-md border border-border overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80" onClick={() => employeePhotoRef.current?.click()} data-testid="employee-photo-area">
-                                {newEmployee.photo
-                                  ? <img src={newEmployee.photo} className="w-full h-full object-cover" alt="foto" />
-                                  : <Camera className="w-5 h-5 text-muted-foreground" />
-                                }
+                                {newEmployee.photo ? <img src={newEmployee.photo} className="w-full h-full object-cover" alt="foto" /> : <Camera className="w-5 h-5 text-muted-foreground" />}
                               </div>
                               <input ref={employeePhotoRef} type="file" accept="image/*" className="hidden" onChange={handleEmployeePhotoUpload} data-testid="input-employee-photo" />
                               <span className="text-[10px] text-muted-foreground">Fotografia</span>
@@ -1645,7 +1957,6 @@ function PartnerUnifiedDialog({
                   </div>
                 )}
 
-                {/* Branch list */}
                 {branches.length > 0 && !addingBranch && (
                   <div className="space-y-2">
                     {branches.map((br, idx) => (
@@ -1694,16 +2005,6 @@ function PartnerUnifiedDialog({
                 )}
               </TabsContent>
 
-              {/* ─── Logo ────────────────────────────────────────────────── */}
-              <TabsContent value="logo" className="mt-4">
-                <PartnerLogoSection partnerId={editingPartner?.id ?? null} partner={editingPartner} />
-                {!editingPartner && (
-                  <div className="mt-3 rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground" data-testid="text-logo-save-first">
-                    Logo bude možné nahrať po prvom uložení partnera.
-                  </div>
-                )}
-              </TabsContent>
-
               {/* ─── Dokumenty ───────────────────────────────────────────── */}
               <TabsContent value="docs" className="mt-4 space-y-6">
                 <PartnerFileSection
@@ -1729,6 +2030,58 @@ function PartnerUnifiedDialog({
                   label="Sekcia C: Daňové dokumenty"
                   sublabel="Daňové doklady, výkazy"
                 />
+              </TabsContent>
+
+              {/* ─── Logo ────────────────────────────────────────────────── */}
+              <TabsContent value="logo" className="mt-4">
+                {isEditing ? (
+                  <PartnerLogoSection partnerId={editingPartner.id} partner={editingPartner} />
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Logo partnera</label>
+                      <p className="text-xs text-muted-foreground">Logo sa nahrá automaticky po prvom uložení partnera</p>
+                      <input
+                        ref={logoFileRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        data-testid="input-logo-file"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setPendingLogo(file);
+                          if (file) {
+                            const url = URL.createObjectURL(file);
+                            setPendingLogoPreview(url);
+                          } else {
+                            setPendingLogoPreview(null);
+                          }
+                        }}
+                      />
+                      <div className="flex items-center gap-3">
+                        <Button type="button" size="sm" variant="outline" onClick={() => logoFileRef.current?.click()} data-testid="button-select-logo">
+                          <Image className="w-4 h-4 mr-2" />
+                          {pendingLogo ? "Zmeniť logo" : "Vybrať logo"}
+                        </Button>
+                        {pendingLogo && (
+                          <Button type="button" size="sm" variant="ghost" onClick={() => { setPendingLogo(null); setPendingLogoPreview(null); }} data-testid="button-clear-logo">
+                            <X className="w-4 h-4 mr-1" />Odstrániť
+                          </Button>
+                        )}
+                      </div>
+                      {pendingLogoPreview && (
+                        <div className="mt-3 w-40 h-28 border border-border rounded-md overflow-hidden flex items-center justify-center bg-muted/30" data-testid="div-logo-preview">
+                          <img src={pendingLogoPreview} alt="Logo preview" className="w-full h-full object-contain" />
+                        </div>
+                      )}
+                      {!pendingLogo && (
+                        <div className="mt-3 p-8 border-2 border-dashed border-border rounded-lg text-center text-sm text-muted-foreground" data-testid="text-no-pending-logo">
+                          Žiadne logo vybrané
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </TabsContent>
 
               {/* ─── Kontakty ────────────────────────────────────────────── */}
@@ -1877,7 +2230,7 @@ function PartnerUnifiedDialog({
                             <p className="font-medium truncate font-mono" data-testid={`text-contract-number-${c.id}`}>
                               {c.contractNumber || <span className="text-muted-foreground italic">Bez čísla</span>}
                             </p>
-                            <p className="text-xs text-muted-foreground truncate" data-testid={`text-contract-company-${c.id}`}>
+                            <p className="text-xs text-muted-foreground truncate">
                               {myCompanies?.find(co => co.id === c.companyId)?.name || `Spoločnosť #${c.companyId}`}
                             </p>
                             {c.signedDate && (

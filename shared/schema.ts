@@ -186,6 +186,10 @@ export const partners = pgTable("partners", {
   corrPostalCode: text("corr_postal_code"),
   corrCity: text("corr_city"),
   corrStateId: integer("corr_state_id"),
+  subjectType: text("subject_type"),
+  vatParagraph: text("vat_paragraph"),
+  vatRegisteredAt: timestamp("vat_registered_at"),
+  foundedDate: timestamp("founded_date"),
   notes: text("notes"),
   lifecycleStatus: text("lifecycle_status").default("record"),
   statusStartDate: timestamp("status_start_date"),
@@ -1078,6 +1082,8 @@ export const insertPartnerSchema = createInsertSchema(partners).omit({ id: true,
   collaborationDate: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
   statusStartDate: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
   statusEndDate: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
+  vatRegisteredAt: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
+  foundedDate: z.union([z.string(), z.date(), z.null()]).optional().transform(v => v ? (typeof v === 'string' ? new Date(v) : v) : null),
 });
 export const insertContactSchema = createInsertSchema(contacts).omit({ id: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true, updatedAt: true, isDeleted: true, deletedBy: true, deletedAt: true, deletedFromIp: true, displayName: true });
