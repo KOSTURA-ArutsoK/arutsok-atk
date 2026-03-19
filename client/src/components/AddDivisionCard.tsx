@@ -152,6 +152,7 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
               letterSpacing: "0.04em",
               textAlign: "center",
               lineHeight: 1.2,
+              marginTop: 4,
             }}
           >
             Pridať divíziu
