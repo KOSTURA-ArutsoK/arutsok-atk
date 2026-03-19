@@ -1358,6 +1358,21 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
               showHistory={!isClientView}
             />
             <div className="flex flex-col gap-1">
+              {(isPerson || isSzco) ? (
+                <div className="flex items-baseline gap-1.5 flex-wrap" data-testid="text-subject-profile-name">
+                  {subject.titleBefore && (
+                    <span className="text-xs font-normal text-muted-foreground">{subject.titleBefore}</span>
+                  )}
+                  <span className="text-base font-bold text-foreground leading-tight">
+                    {[subject.firstName, subject.lastName].filter(Boolean).join(" ")}
+                  </span>
+                  {subject.titleAfter && (
+                    <span className="text-xs font-normal text-muted-foreground">, {subject.titleAfter}</span>
+                  )}
+                </div>
+              ) : subject.companyName ? (
+                <span className="text-base font-bold text-foreground leading-tight" data-testid="text-subject-profile-name">{subject.companyName}</span>
+              ) : null}
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs">
                   {isPerson ? "FO" : isSzco ? "SZČO" : "PO"}

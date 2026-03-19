@@ -1620,11 +1620,23 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3 flex-wrap justify-between">
             <div className="flex items-center gap-2 min-w-0">
-              <h2 className="text-lg font-semibold truncate" data-testid="text-subject-detail-name">
-                {subject.type === 'person'
-                  ? `${subject.lastName}, ${subject.firstName}`
-                  : subject.companyName}
-              </h2>
+              <div className="flex items-baseline gap-1.5 flex-wrap min-w-0" data-testid="text-subject-detail-name">
+                {(subject.type === 'person' || subject.type === 'szco') ? (
+                  <>
+                    {(subject as any).titleBefore && (
+                      <span className="text-sm font-normal text-muted-foreground">{(subject as any).titleBefore}</span>
+                    )}
+                    <span className="text-lg font-bold text-foreground truncate">
+                      {subject.firstName} {subject.lastName}
+                    </span>
+                    {(subject as any).titleAfter && (
+                      <span className="text-sm font-normal text-muted-foreground">, {(subject as any).titleAfter}</span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-lg font-bold text-foreground truncate">{subject.companyName}</span>
+                )}
+              </div>
               <span className="text-xs font-mono text-muted-foreground shrink-0">{formatUid(subject.uid)}</span>
               {(() => {
                 const rs = (displaySubject as any).registrationStatus || 'klient';
