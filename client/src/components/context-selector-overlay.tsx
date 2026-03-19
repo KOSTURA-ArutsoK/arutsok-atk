@@ -305,8 +305,8 @@ export function ContextSelectorOverlay({
                     <span style={{
                       position: "absolute",
                       top: 120,
-                      left: 20,
-                      right: 20,
+                      left: 42,
+                      right: 42,
                       fontFamily: "sans-serif",
                       fontSize: 11,
                       fontWeight: 600,
@@ -314,6 +314,10 @@ export function ContextSelectorOverlay({
                       textAlign: "center",
                       lineHeight: 1.3,
                       wordBreak: "break-word",
+                      overflow: "hidden",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: "vertical",
                       transition: "color 0.2s ease",
                     }}>
                       {divName}
