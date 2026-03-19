@@ -61,8 +61,8 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
         onTouchEnd={() => setPressed(false)}
         style={{
           position: "relative",
-          width: 160,
-          height: 140,
+          width: 168,
+          height: 147,
           background: "none",
           border: "none",
           padding: 0,
@@ -74,8 +74,8 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
         }}
       >
         <svg
-          width="160"
-          height="140"
+          width="168"
+          height="147"
           viewBox="0 0 160 140"
           style={{ position: "absolute", top: 0, left: 0, display: "block" }}
         >
@@ -120,12 +120,12 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            paddingTop: 30,
+            paddingTop: 32,
             gap: 6,
           }}
         >
           <div style={{ position: "relative", display: "inline-flex" }}>
-            <span style={{ fontSize: 30, lineHeight: 1, filter: "sepia(1) saturate(6) hue-rotate(8deg) brightness(1.15) drop-shadow(0 0 6px #FFBF00)" }}>
+            <span style={{ fontSize: 32, lineHeight: 1, filter: "sepia(1) saturate(6) hue-rotate(8deg) brightness(1.15) drop-shadow(0 0 6px #FFBF00)" }}>
               🌲
             </span>
             <span
@@ -134,7 +134,7 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
                 top: -4,
                 right: -2,
                 fontWeight: 800,
-                fontSize: 18,
+                fontSize: 19,
                 lineHeight: 1,
                 color: "#FFBF00",
                 filter: "drop-shadow(0 0 5px #FFBF00)",
@@ -146,7 +146,7 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
           <span
             style={{
               fontFamily: "sans-serif",
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: 800,
               color: theme.textColor,
               letterSpacing: "0.04em",
