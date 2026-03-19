@@ -21,6 +21,7 @@ export const COUNTRIES: Country[] = [
   { name: "Argentína", code: "AR", dialCode: "+54" },
   { name: "Arménsko", code: "AM", dialCode: "+374" },
   { name: "Austrália", code: "AU", dialCode: "+61" },
+  { name: "Rakúsko", code: "AT", dialCode: "+43" },
   { name: "Azerbajdžan", code: "AZ", dialCode: "+994" },
   { name: "Bahrajn", code: "BH", dialCode: "+973" },
   { name: "Bangladéš", code: "BD", dialCode: "+880" },
