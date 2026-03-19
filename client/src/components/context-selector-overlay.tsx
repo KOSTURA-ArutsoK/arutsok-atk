@@ -308,7 +308,7 @@ export function ContextSelectorOverlay({
                     {/* Text zóna: od spodku emotikonapo základňu trojuholníka, vycentrovaný */}
                     <div style={{
                       position: "absolute",
-                      top: 82,
+                      top: 83,
                       left: 38,
                       right: 38,
                       bottom: 9,
