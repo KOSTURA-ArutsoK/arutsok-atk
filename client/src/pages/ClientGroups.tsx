@@ -1114,74 +1114,17 @@ export default function ClientGroups() {
       ) : (
         <div className="space-y-3">
 
-          {/* ── 1. HOLDINGOVÉ SKUPINY (spoločnosti štátu + čierny zoznam) ── */}
+          {/* ── 1. HOLDINGOVÉ (isHoldingGroup skupiny + PARTNERI synthetic) ── */}
           <SectionCard
             title="Holdingové skupiny"
-            accentClass="border-l-red-600"
-            badgeClass="border-red-600/50 text-red-400"
-            badgeText="Holding"
-            count={1 + globalneGroups.length}
-            testId="section-globalne"
-            isCollapsed={isCollapsed("globalne")}
-            onToggle={() => toggleSection("globalne")}
-            tooltip="Holdingové skupiny združujú spoločnosti celého štátu a globálne záznamy platné naprieč všetkými firmami. Patrí sem zoznam spoločností štátu a čierny zoznam podvodníkov, ktorý je zdieľaný pre všetkých."
-          >
-            <Table className="w-full">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Názov</TableHead>
-                  <TableHead className="w-36 text-center">Kód / Skupina právomocí</TableHead>
-                  <TableHead className="w-24 text-center">Prihlásenie</TableHead>
-                  <TableHead className="w-24 text-center">Počet klientov</TableHead>
-                  <TableHead className="w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {/* Syntetický riadok — Skupiny spoločností štátu */}
-                <TableRow
-                  data-testid="row-spolocnosti-synthetic"
-                  className="cursor-pointer hover:bg-muted/40 transition-colors"
-                  onClick={() => navigate("/companies")}
-                >
-                  <TableCell className="font-medium">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-violet-400 shrink-0" />
-                      Skupiny spoločností
-                      <Badge variant="outline" className="text-[9px] h-4 border-violet-500/50 text-violet-400">Spoločnosť</Badge>
-                    </span>
-                  </TableCell>
-                  <TableCell className="w-36 text-center"></TableCell>
-                  <TableCell className="w-24 text-center"></TableCell>
-                  <TableCell className="w-24 text-center">
-                    <span className="font-semibold text-violet-400" data-testid="count-spolocnosti">
-                      {stateCompanies.length}
-                    </span>
-                  </TableCell>
-                  <TableCell className="w-10">
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  </TableCell>
-                </TableRow>
-                {/* Čierny zoznam a iné globálne skupiny */}
-                {globalneGroups.map(g => (
-                  <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer" onClick={() => openEdit(g)}>
-                    <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={openEdit} onDelete={openDelete} />
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </SectionCard>
-
-          {/* ── 2. FIREMNÉ SKUPINY ── */}
-          <SectionCard
-            title="Firemné skupiny"
             accentClass="border-l-blue-500"
             badgeClass="border-blue-500/50 text-blue-400"
-            badgeText="Firemná"
+            badgeText="Holding"
             count={holdingGroups.length + 1}
             testId="section-holdingove"
             isCollapsed={isCollapsed("holdingove")}
             onToggle={() => toggleSection("holdingove")}
-            tooltip="Firemné skupiny sú skupiny klientov a partnerov naviazané priamo na konkrétnu spoločnosť alebo partnera v systéme. Tieto skupiny sú väčšinou uzamknuté a ich členstvo sa riadi automaticky podľa firemných vzťahov."
+            tooltip="Holdingové skupiny sú skupiny klientov a partnerov naviazané priamo na konkrétnu spoločnosť alebo partnera v systéme. Tieto skupiny sú uzamknuté a ich členstvo sa riadi automaticky podľa firemných vzťahov."
           >
             <Table className="w-full">
               {TABLE_HEADER}
@@ -1220,7 +1163,7 @@ export default function ClientGroups() {
 
           {/* ── 2. HLAVNÉ SYSTÉMOVÉ SKUPINY ── */}
           <SectionCard
-            title="Systémové skupiny"
+            title="Hlavné systémové skupiny"
             accentClass="border-l-amber-500"
             badgeClass="border-amber-500/50 text-amber-400"
             badgeText="Systémová"
@@ -1301,17 +1244,17 @@ export default function ClientGroups() {
             </SortableContext_Wrapper>
           </SectionCard>
 
-          {/* ── 4. SKUPINA SUBJEKTOV MIMO AKTÍVNEJ SPOLOČNOSTI ── */}
+          {/* ── 4. INÁ SPOLOČNOSŤ — subjekty mimo aktívnej spoločnosti ── */}
           <SectionCard
-            title="Skupina subjektov iných spoločností"
+            title="Iná spoločnosť"
             accentClass="border-l-slate-500"
             badgeClass="border-slate-500/40 text-slate-400"
             badgeText="Externá"
-            count={3}
+            count={otherCompanyCount?.count}
             testId="section-ina-spolocnost"
             isCollapsed={isCollapsed("ina_spolocnost")}
             onToggle={() => toggleSection("ina_spolocnost")}
-            tooltip="Táto skupina zobrazuje subjekty, spoločnosti a partnerov, ktorí nepatria do aktuálne aktívnej spoločnosti zobrazenej v hornej lište. Slúži na prehľad entít z iných firiem v rámci toho istého štátu alebo systému."
+            tooltip="Táto sekcia zobrazuje subjekty, ktoré nepatria do aktuálne aktívnej spoločnosti. Slúži na prehľad entít z iných firiem v rámci toho istého štátu alebo systému."
           >
             <Table className="w-full">
               <TableHeader>
@@ -1319,54 +1262,11 @@ export default function ClientGroups() {
                   <TableHead>Názov</TableHead>
                   <TableHead className="w-36 text-center">Kód / Skupina právomocí</TableHead>
                   <TableHead className="w-24 text-center">Prihlásenie</TableHead>
-                  <TableHead className="w-24 text-center">Počet</TableHead>
+                  <TableHead className="w-24 text-center">Počet subjektov</TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {/* Spoločnosti mimo aktívnej spoločnosti */}
-                <TableRow
-                  data-testid="row-ext-spolocnosti"
-                  className="cursor-pointer hover:bg-muted/40 transition-colors"
-                  onClick={() => navigate("/companies")}
-                >
-                  <TableCell className="font-medium">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      Spoločnosti mimo aktívnej spoločnosti
-                      <Badge variant="outline" className="text-[9px] h-4 border-slate-500/40 text-slate-400">Spoločnosť</Badge>
-                    </span>
-                  </TableCell>
-                  <TableCell className="w-36 text-center"></TableCell>
-                  <TableCell className="w-24 text-center"></TableCell>
-                  <TableCell className="w-24 text-center">
-                    <span className="font-semibold text-slate-400" data-testid="count-ext-spolocnosti">
-                      {(allCompanies || []).filter((c: MyCompany) => !c.deletedAt && c.id !== appUser?.activeCompanyId).length || "—"}
-                    </span>
-                  </TableCell>
-                  <TableCell className="w-10"><ChevronRight className="w-4 h-4 text-muted-foreground" /></TableCell>
-                </TableRow>
-                {/* Partneri mimo aktívnej spoločnosti */}
-                <TableRow
-                  data-testid="row-ext-partneri"
-                  className="cursor-pointer hover:bg-muted/40 transition-colors"
-                  onClick={() => navigate("/partners")}
-                >
-                  <TableCell className="font-medium">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      Partneri mimo aktívnej spoločnosti
-                      <Badge variant="outline" className="text-[9px] h-4 border-slate-500/40 text-slate-400">Partner</Badge>
-                    </span>
-                  </TableCell>
-                  <TableCell className="w-36 text-center"></TableCell>
-                  <TableCell className="w-24 text-center"></TableCell>
-                  <TableCell className="w-24 text-center">
-                    <span className="font-semibold text-slate-400" data-testid="count-ext-partneri">—</span>
-                  </TableCell>
-                  <TableCell className="w-10"><ChevronRight className="w-4 h-4 text-muted-foreground" /></TableCell>
-                </TableRow>
-                {/* Subjekty mimo aktívnej spoločnosti */}
                 <TableRow
                   data-testid="row-ina-spolocnost-synthetic"
                   className="cursor-pointer hover:bg-muted/40 transition-colors"
@@ -1376,7 +1276,7 @@ export default function ClientGroups() {
                     <span className="inline-flex items-center gap-1.5">
                       <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       Subjekty mimo aktívnej spoločnosti
-                      <Badge variant="outline" className="text-[9px] h-4 border-slate-500/40 text-slate-400">Subjekt</Badge>
+                      <Badge variant="outline" className="text-[9px] h-4 border-slate-500/40 text-slate-400">Externá</Badge>
                     </span>
                   </TableCell>
                   <TableCell className="w-36 text-center"></TableCell>
@@ -1388,6 +1288,35 @@ export default function ClientGroups() {
                   </TableCell>
                   <TableCell className="w-10"><ChevronRight className="w-4 h-4 text-muted-foreground" /></TableCell>
                 </TableRow>
+              </TableBody>
+            </Table>
+          </SectionCard>
+
+          {/* ── 5. GLOBÁLNE SKUPINY (isSystem + group_cierny_zoznam) ── */}
+          <SectionCard
+            title="Globálne skupiny"
+            accentClass="border-l-red-600"
+            badgeClass="border-red-600/50 text-red-400"
+            badgeText="Globálna"
+            count={globalneGroups.length}
+            testId="section-globalne"
+            isCollapsed={isCollapsed("globalne")}
+            onToggle={() => toggleSection("globalne")}
+            tooltip="Globálne skupiny sú zdieľané naprieč celým systémom bez ohľadu na aktívnu spoločnosť. Patrí sem čierny zoznam podvodníkov a iné globálne záznamy platné pre všetky firmy."
+          >
+            <Table className="w-full">
+              {TABLE_HEADER}
+              <TableBody>
+                {globalneGroups.map(g => (
+                  <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer" onClick={() => openEdit(g)}>
+                    <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={openEdit} onDelete={openDelete} />
+                  </TableRow>
+                ))}
+                {globalneGroups.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={SECTION_COLS} className="text-center text-muted-foreground py-6 text-sm">Žiadne globálne skupiny</TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </SectionCard>
