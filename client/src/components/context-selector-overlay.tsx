@@ -246,7 +246,7 @@ export function ContextSelectorOverlay({
           </div>
 
           <div className="overflow-y-auto overflow-x-hidden w-full max-w-3xl py-2" style={{ maxHeight: "calc(90vh - 140px)" }}>
-            <div className="flex flex-wrap items-start justify-center gap-1 p-2">
+            <div className="flex flex-wrap items-start justify-center gap-0 p-2">
               {companyDivisions.map(cd => {
                 const divId = cd.divisionId || cd.division?.id;
                 const divName = cd.division?.name || cd.name || "Divízia";
