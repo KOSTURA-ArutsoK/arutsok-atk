@@ -111,10 +111,23 @@ export default function Dashboard() {
   const [redListDialogOpen, setRedListDialogOpen] = useState(false);
   const [loginHistoryOpen, setLoginHistoryOpen] = useState(false);
 
-  const { data: loginHistory } = useQuery<{ id: number; appUserId: number; loginAt: string; ipAddress: string | null }[]>({
+  const { data: loginHistory } = useQuery<{ id: number; appUserId: number; loginAt: string; logoutAt: string | null; ipAddress: string | null }[]>({
     queryKey: ["/api/app-user/login-history"],
     enabled: loginHistoryOpen,
   });
+
+  const formatDuration = (loginAt: string, logoutAt: string | null): string => {
+    if (!logoutAt) return "Prebieha";
+    const ms = new Date(logoutAt).getTime() - new Date(loginAt).getTime();
+    if (ms < 0) return "—";
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  };
 
   const isAdminUser = useMemo(() => {
     const role = appUser?.role || "";
@@ -709,6 +722,7 @@ export default function Dashboard() {
                     <tr className="bg-muted/50 border-b border-border">
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">#</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dátum a čas</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Trvanie</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">IP adresa</th>
                     </tr>
                   </thead>
@@ -722,6 +736,12 @@ export default function Dashboard() {
                             {d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\s/g, "")}
                             {" "}
                             {d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-xs tabular-nums">
+                            {entry.logoutAt
+                              ? <span className="text-foreground">{formatDuration(entry.loginAt, entry.logoutAt)}</span>
+                              : <span className="text-emerald-500 text-[10px] font-semibold tracking-wide">● Prebieha</span>
+                            }
                           </td>
                           <td className="px-3 py-2 text-muted-foreground font-mono text-xs">{entry.ipAddress || "—"}</td>
                         </tr>

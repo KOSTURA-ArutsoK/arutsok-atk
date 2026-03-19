@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
 import { appUsers, subjects, auditLogs, appUserLoginHistory } from "@shared/schema";
-import { eq, and, isNull, gte } from "drizzle-orm";
+import { eq, and, isNull, gte, desc } from "drizzle-orm";
 
 declare module "express-session" {
   interface SessionData {
@@ -308,7 +308,26 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/logout", (req, res) => {
+  app.post("/api/logout", async (req, res) => {
+    const userId = (req.session as any).userId;
+    if (userId) {
+      try {
+        // Record logoutAt on the most recent login entry for this user
+        const [lastEntry] = await db
+          .select({ id: appUserLoginHistory.id })
+          .from(appUserLoginHistory)
+          .where(and(eq(appUserLoginHistory.appUserId, userId), isNull(appUserLoginHistory.logoutAt)))
+          .orderBy(desc(appUserLoginHistory.loginAt))
+          .limit(1);
+        if (lastEntry) {
+          await db.update(appUserLoginHistory)
+            .set({ logoutAt: new Date() })
+            .where(eq(appUserLoginHistory.id, lastEntry.id));
+        }
+      } catch (e) {
+        console.error("Logout: failed to record logoutAt", e);
+      }
+    }
     req.session.destroy((err) => {
       if (err) {
         console.error("Logout error:", err);

@@ -487,6 +487,7 @@ export const appUserLoginHistory = pgTable("app_user_login_history", {
   id: serial("id").primaryKey(),
   appUserId: integer("app_user_id").notNull().references(() => appUsers.id),
   loginAt: timestamp("login_at").defaultNow().notNull(),
+  logoutAt: timestamp("logout_at"),
   ipAddress: text("ip_address"),
 });
 
