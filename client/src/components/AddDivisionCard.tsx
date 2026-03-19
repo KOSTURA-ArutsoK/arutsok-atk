@@ -20,7 +20,6 @@ function useDarkMode() {
 
 // Equilateral triangle: P1=(80,6) top, P2=(6,134) bottom-left, P3=(154,134) bottom-right
 // Quadratic bezier corners with tangent distance t=25 for smooth rounded vertices
-// M 92,28 → L 141,112 → Q P3 → L 31,134 → Q P2 → L 68,28 → Q P1 → Z
 const TRIANGLE_PATH = "M 92,28 L 141,112 Q 154,134 129,134 L 31,134 Q 6,134 19,112 L 68,28 Q 80,6 92,28 Z";
 
 export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
@@ -34,18 +33,20 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
     ? {
         gradFrom: isActive ? "#061225" : "#0a1f3d",
         gradTo: isActive ? "#112860" : "#1a3f80",
-        shadowRest: "drop-shadow(6px 6px 12px #060f20) drop-shadow(-4px -4px 10px #204898)",
-        shadowActive: "drop-shadow(1px 1px 3px #060f20)",
+        outerFilter: "drop-shadow(8px 8px 16px #060f20) drop-shadow(-5px -5px 12px #204898)",
+        inner1Color: "#060f20",
+        inner2Color: "#204898",
+        inner2Opacity: "0.9",
         textColor: "#b8d0f0",
-        emojiOpacity: 0.8,
       }
     : {
         gradFrom: isActive ? "#88a8cc" : "#aac8e8",
         gradTo: isActive ? "#b0cee8" : "#d8eafa",
-        shadowRest: "drop-shadow(6px 6px 12px #88a8cc) drop-shadow(-4px -4px 10px #ffffff)",
-        shadowActive: "drop-shadow(1px 1px 3px #88a8cc)",
+        outerFilter: "drop-shadow(8px 8px 14px #88a8cc) drop-shadow(-5px -5px 12px #ffffff)",
+        inner1Color: "#88a8cc",
+        inner2Color: "#ffffff",
+        inner2Opacity: "0.85",
         textColor: "#1a3f70",
-        emojiOpacity: 0.7,
       };
 
   return (
@@ -70,9 +71,8 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
           cursor: "pointer",
           userSelect: "none",
           outline: "none",
-          filter: isActive ? theme.shadowActive : theme.shadowRest,
-          transform: isActive ? "scale(0.95)" : "scale(1)",
-          transition: "filter 0.12s ease, transform 0.12s ease",
+          filter: isActive ? undefined : theme.outerFilter,
+          transition: "filter 0.12s ease",
         }}
       >
         <svg
@@ -86,8 +86,36 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
               <stop offset="0%" stopColor={theme.gradFrom} />
               <stop offset="100%" stopColor={theme.gradTo} />
             </linearGradient>
+
+            {/* Neumorphic inner shadow filter — simulates inset effect on the triangle */}
+            <filter id="addDivInner" x="-20%" y="-20%" width="140%" height="140%">
+              {/* Inner shadow 1: dark, offset top-left → appears as shadow from top-left */}
+              <feFlood floodColor={theme.inner1Color} floodOpacity="1" result="s1color" />
+              <feComposite in="s1color" in2="SourceAlpha" operator="out" result="s1inv" />
+              <feGaussianBlur in="s1inv" stdDeviation="5" result="s1blur" />
+              <feOffset in="s1blur" dx="5" dy="5" result="s1off" />
+              <feComposite in="s1off" in2="SourceAlpha" operator="in" result="s1inner" />
+
+              {/* Inner shadow 2: light/blue, offset bottom-right → highlights the other corner */}
+              <feFlood floodColor={theme.inner2Color} floodOpacity={theme.inner2Opacity} result="s2color" />
+              <feComposite in="s2color" in2="SourceAlpha" operator="out" result="s2inv" />
+              <feGaussianBlur in="s2inv" stdDeviation="4" result="s2blur" />
+              <feOffset in="s2blur" dx="-3" dy="-3" result="s2off" />
+              <feComposite in="s2off" in2="SourceAlpha" operator="in" result="s2inner" />
+
+              <feMerge>
+                <feMergeNode in="SourceGraphic" />
+                <feMergeNode in="s1inner" />
+                <feMergeNode in="s2inner" />
+              </feMerge>
+            </filter>
           </defs>
-          <path d={TRIANGLE_PATH} fill="url(#addDivGrad)" />
+
+          <path
+            d={TRIANGLE_PATH}
+            fill="url(#addDivGrad)"
+            filter={isActive ? "url(#addDivInner)" : undefined}
+          />
         </svg>
 
         <div
@@ -110,7 +138,7 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
               style={{
                 fontSize: 30,
                 lineHeight: 1,
-                filter: `drop-shadow(0 0 8px rgba(255,191,0,${theme.emojiOpacity}))`,
+                filter: "drop-shadow(0 0 8px rgba(255,191,0,0.8))",
               }}
             >
               🌲
