@@ -153,12 +153,24 @@ export default function SettingsDivisions() {
   const [editingDivision, setEditingDivision] = useState<Division | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Division | null>(null);
   const [expandedCompanies, setExpandedCompanies] = useState<Set<number | "none">>(new Set());
+  const [expandedInitialized, setExpandedInitialized] = useState(false);
 
   const { data: appUser } = useAppUser();
   const activeCompanyId = appUser?.activeCompanyId ?? null;
 
   const { data: allDivisionsRaw, isLoading } = useQuery<any[]>({ queryKey: ["/api/divisions"] });
   const { data: allCompanies } = useMyCompanies();
+
+  useEffect(() => {
+    if (!expandedInitialized && allCompanies && allDivisionsRaw) {
+      const ids = new Set<number | "none">(allCompanies.map(c => c.id as number));
+      const allDivs: any[] = allDivisionsRaw || [];
+      const hasUnassigned = allDivs.some((d: any) => !(d.companies || []).length);
+      if (hasUnassigned) ids.add("none");
+      setExpandedCompanies(ids);
+      setExpandedInitialized(true);
+    }
+  }, [allCompanies, allDivisionsRaw, expandedInitialized]);
 
   const columnVisibility = useColumnVisibility("settings-divisions", DIVISION_COLUMNS);
 
