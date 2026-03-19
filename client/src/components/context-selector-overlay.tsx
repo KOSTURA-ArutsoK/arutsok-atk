@@ -291,42 +291,55 @@ export function ContextSelectorOverlay({
                         style={{ transition: "fill 0.2s ease, stroke 0.2s ease" }}
                       />
                     </svg>
-                    <span style={{
-                      position: "absolute",
-                      top: 82,
-                      left: 0,
-                      right: 0,
-                      textAlign: "center",
-                      fontSize: 30,
-                      lineHeight: 1,
-                    }}>
-                      {divEmoji || "🌲"}
-                    </span>
+                    {/* ATK-Tri-Card: flex column overlay */}
                     <div style={{
                       position: "absolute",
-                      top: 116,
-                      left: 42,
-                      right: 42,
-                      bottom: 9,
+                      top: 0, left: 0, right: 0, bottom: 0,
                       display: "flex",
+                      flexDirection: "column",
                       alignItems: "center",
-                      justifyContent: "center",
-                      overflow: "hidden",
+                      paddingTop: 76,
+                      paddingBottom: 10,
+                      paddingLeft: 28,
+                      paddingRight: 28,
+                      boxSizing: "border-box",
                     }}>
+                      {/* Emoji — pevná pozícia od vrchu */}
                       <span style={{
-                        fontFamily: "sans-serif",
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: isHov ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.70)",
-                        textAlign: "center",
-                        lineHeight: 1.3,
-                        wordBreak: "break-word",
-                        maxHeight: `${3 * 11 * 1.3}px`,
-                        overflow: "hidden",
-                        transition: "color 0.2s ease",
+                        fontSize: 30,
+                        lineHeight: 1,
+                        flexShrink: 0,
+                        userSelect: "none",
                       }}>
-                        {divName}
+                        {divEmoji || "🌲"}
                       </span>
+
+                      {/* Text — vyplní zvyšok a vycentruje sa vertikálne */}
+                      <div style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "hidden",
+                        width: "100%",
+                        minHeight: 0,
+                      }}>
+                        <span style={{
+                          fontFamily: "sans-serif",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: isHov ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.70)",
+                          textAlign: "justify",
+                          textAlignLast: "center",
+                          lineHeight: 1.3,
+                          wordBreak: "break-word",
+                          maxHeight: `${3 * 11 * 1.3}px`,
+                          overflow: "hidden",
+                          transition: "color 0.2s ease",
+                        }}>
+                          {divName}
+                        </span>
+                      </div>
                     </div>
                   </button>
                 );
