@@ -4172,7 +4172,16 @@ export class DatabaseStorage implements IStorage {
 
   async permanentDeleteEntity(entityType: string, id: number): Promise<void> {
     switch (entityType) {
-      case 'subjects': await db.delete(subjects).where(and(eq(subjects.id, id), isNotNull(subjects.deletedAt))); break;
+      case 'subjects': {
+        const [subj] = await db.select({ uid: subjects.uid, firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName })
+          .from(subjects).where(and(eq(subjects.id, id), isNotNull(subjects.deletedAt)));
+        if (!subj) throw new Error("Subjekt nenájdený v archíve");
+        if (subj.uid) {
+          throw new Error(`Subjekty s UID sa nesmú natvrdo vymazať (globálne pravidlo). Subjekt "${subj.firstName || subj.companyName || id}" ostáva v archíve so soft-delete.`);
+        }
+        await db.delete(subjects).where(and(eq(subjects.id, id), isNotNull(subjects.deletedAt)));
+        break;
+      }
       case 'sectors': await db.delete(sectors).where(and(eq(sectors.id, id), isNotNull(sectors.deletedAt))); break;
       case 'sections': await db.delete(sections).where(and(eq(sections.id, id), isNotNull(sections.deletedAt))); break;
       case 'sectorProducts': await db.delete(sectorProducts).where(and(eq(sectorProducts.id, id), isNotNull(sectorProducts.deletedAt))); break;

@@ -144,8 +144,15 @@ export default function Archive() {
       setDeleteTarget(null);
       setPassword("");
     },
-    onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa vymazat zaznam.", variant: "destructive" });
+    onError: (err: any) => {
+      let msg = "Nepodarilo sa vymazat zaznam.";
+      try {
+        const raw = err?.message || "";
+        const jsonPart = raw.includes(": ") ? raw.slice(raw.indexOf(": ") + 2) : raw;
+        const parsed = JSON.parse(jsonPart);
+        if (parsed?.message) msg = parsed.message;
+      } catch {}
+      toast({ title: "Chyba", description: msg, variant: "destructive" });
     },
   });
 
