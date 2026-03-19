@@ -1662,8 +1662,6 @@ export default function ClientGroups() {
               <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />Bez zmluvy</span>
               <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />Neaktívny</span>
               <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-400 inline-block" />Zosnulý</span>
-              <span className="flex items-center gap-1.5 shrink-0"><span className="w-2.5 h-2.5 rounded-full bg-zinc-600 ring-1 ring-zinc-500 inline-block" />Archivovaný</span>
-              <span className="flex items-center gap-1.5 shrink-0 opacity-40"><span className="w-2.5 h-2.5 rounded-full bg-zinc-800 ring-1 ring-zinc-700 inline-block" />Neznámy (medzera)</span>
               <span className="ml-auto text-[10px] text-muted-foreground/50 shrink-0">Klik na riadok → otvorí detail subjektu</span>
             </div>
             <div className="flex items-center gap-5">
