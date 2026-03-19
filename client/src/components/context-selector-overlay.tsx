@@ -291,54 +291,46 @@ export function ContextSelectorOverlay({
                         style={{ transition: "fill 0.2s ease, stroke 0.2s ease" }}
                       />
                     </svg>
-                    {/* ATK-Tri-Card: flex column overlay */}
+                    {/* Emoji — absolútna pevná pozícia */}
+                    <span style={{
+                      position: "absolute",
+                      top: 82,
+                      left: 0,
+                      right: 0,
+                      textAlign: "center",
+                      fontSize: 30,
+                      lineHeight: 1,
+                      userSelect: "none",
+                    }}>
+                      {divEmoji || "🌲"}
+                    </span>
+
+                    {/* Text zóna: od spodku emotikonapo základňu trojuholníka, vycentrovaný */}
                     <div style={{
                       position: "absolute",
-                      top: 0, left: 0, right: 0, bottom: 0,
+                      top: 114,
+                      left: 38,
+                      right: 38,
+                      bottom: 9,
                       display: "flex",
-                      flexDirection: "column",
                       alignItems: "center",
-                      paddingTop: 76,
-                      paddingBottom: 10,
-                      paddingLeft: 28,
-                      paddingRight: 28,
-                      boxSizing: "border-box",
+                      justifyContent: "center",
+                      overflow: "hidden",
                     }}>
-                      {/* Emoji — pevná pozícia od vrchu */}
                       <span style={{
-                        fontSize: 30,
-                        lineHeight: 1,
-                        flexShrink: 0,
-                        userSelect: "none",
-                      }}>
-                        {divEmoji || "🌲"}
-                      </span>
-
-                      {/* Text — vyplní zvyšok a vycentruje sa vertikálne */}
-                      <div style={{
-                        flex: 1,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
+                        fontFamily: "sans-serif",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: isHov ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.70)",
+                        textAlign: "center",
+                        lineHeight: 1.3,
+                        wordBreak: "break-word",
+                        maxHeight: `${3 * 11 * 1.3}px`,
                         overflow: "hidden",
-                        width: "100%",
-                        minHeight: 0,
+                        transition: "color 0.2s ease",
                       }}>
-                        <span style={{
-                          fontFamily: "sans-serif",
-                          fontSize: 11,
-                          fontWeight: 600,
-                          color: isHov ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.70)",
-                          textAlign: "center",
-                          lineHeight: 1.3,
-                          wordBreak: "break-word",
-                          maxHeight: `${3 * 11 * 1.3}px`,
-                          overflow: "hidden",
-                          transition: "color 0.2s ease",
-                        }}>
-                          {divName}
-                        </span>
-                      </div>
+                        {divName}
+                      </span>
                     </div>
                   </button>
                 );
