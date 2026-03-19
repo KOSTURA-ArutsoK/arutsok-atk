@@ -117,16 +117,14 @@ export default function Dashboard() {
   });
 
   const formatDuration = (loginAt: string, logoutAt: string | null): string => {
-    if (!logoutAt) return "Prebieha";
+    if (!logoutAt) return "—";
     const ms = new Date(logoutAt).getTime() - new Date(loginAt).getTime();
     if (ms < 0) return "—";
     const totalSec = Math.floor(ms / 1000);
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
-    if (h > 0) return `${h}h ${m}m`;
-    if (m > 0) return `${m}m ${s}s`;
-    return `${s}s`;
+    return `${String(h).padStart(4, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   };
 
   const isAdminUser = useMemo(() => {
@@ -737,11 +735,8 @@ export default function Dashboard() {
                             {" "}
                             {d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                           </td>
-                          <td className="px-3 py-2 font-mono text-xs tabular-nums">
-                            {entry.logoutAt
-                              ? <span className="text-foreground">{formatDuration(entry.loginAt, entry.logoutAt)}</span>
-                              : <span className="text-emerald-500 text-[10px] font-semibold tracking-wide">● Prebieha</span>
-                            }
+                          <td className="px-3 py-2 text-muted-foreground font-mono text-xs tabular-nums">
+                            {formatDuration(entry.loginAt, entry.logoutAt)}
                           </td>
                           <td className="px-3 py-2 text-muted-foreground font-mono text-xs">{entry.ipAddress || "—"}</td>
                         </tr>
