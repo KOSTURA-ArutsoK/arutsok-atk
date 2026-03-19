@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { formatDateTimeSlovak } from "@/lib/utils";
+import { formatDateTimeSlovak, formatUid } from "@/lib/utils";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useSmartFilter } from "@/hooks/use-smart-filter";
 import type { SmartColumnDef } from "@/hooks/use-smart-filter";
@@ -119,9 +119,20 @@ export default function History() {
     },
   });
 
-  const { data: users } = useQuery<{ id: number; username: string; firstName: string | null; lastName: string | null }[]>({
+  const { data: users } = useQuery<{ id: number; username: string; firstName: string | null; lastName: string | null; uid: string | null }[]>({
     queryKey: ["/api/audit-logs/users"],
   });
+
+  // userId → { displayName, uid }
+  const userMap = new Map<number, { displayName: string; uid: string | null }>(
+    (users || []).map(u => [
+      u.id,
+      {
+        displayName: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.username,
+        uid: u.uid ?? null,
+      },
+    ])
+  );
 
   const logs = data?.logs || [];
   const tableFilter = useSmartFilter(logs, FILTER_COLUMNS, "history");
@@ -259,11 +270,18 @@ export default function History() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Vsetci pouzivatelia</SelectItem>
-                  {(users || []).map(u => (
-                    <SelectItem key={u.id} value={String(u.id)}>
-                      {u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.username}
-                    </SelectItem>
-                  ))}
+                  {(users || []).map(u => {
+                    const name = u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.username;
+                    const uid = u.uid ? formatUid(u.uid) : null;
+                    return (
+                      <SelectItem key={u.id} value={String(u.id)}>
+                        <span className="flex flex-col leading-tight">
+                          <span>{name}</span>
+                          {uid && <span className="text-[10px] text-muted-foreground font-mono">{uid}</span>}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -310,7 +328,7 @@ export default function History() {
                   <TableRow>
                     {columnVisibility.isVisible("id") && <TableHead className="w-[50px]" sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort}>ID</TableHead>}
                     {columnVisibility.isVisible("createdAt") && <TableHead className="w-[160px]" sortKey="createdAt" sortDirection={sortKey === "createdAt" ? sortDirection : null} onSort={requestSort}>Cas</TableHead>}
-                    {columnVisibility.isVisible("username") && <TableHead className="w-[120px]" sortKey="username" sortDirection={sortKey === "username" ? sortDirection : null} onSort={requestSort}>Pouzivatel</TableHead>}
+                    {columnVisibility.isVisible("username") && <TableHead className="w-[150px]" sortKey="username" sortDirection={sortKey === "username" ? sortDirection : null} onSort={requestSort}>Používateľ</TableHead>}
                     {columnVisibility.isVisible("action") && <TableHead className="w-[90px]" sortKey="action" sortDirection={sortKey === "action" ? sortDirection : null} onSort={requestSort}>Akcia</TableHead>}
                     {columnVisibility.isVisible("module") && <TableHead className="w-[120px]" sortKey="module" sortDirection={sortKey === "module" ? sortDirection : null} onSort={requestSort}>Modul</TableHead>}
                     {columnVisibility.isVisible("entityName") && <TableHead sortKey="entityName" sortDirection={sortKey === "entityName" ? sortDirection : null} onSort={requestSort}>Entita</TableHead>}
@@ -323,7 +341,16 @@ export default function History() {
                     <TableRow key={log.id} className="hover-elevate cursor-pointer" onClick={() => setDetailLog(log)} data-testid={`row-audit-log-${log.id}`}>
                       {columnVisibility.isVisible("id") && <TableCell className="font-mono text-xs text-muted-foreground">{log.id}</TableCell>}
                       {columnVisibility.isVisible("createdAt") && <TableCell className="text-xs">{formatDate(log.createdAt)}</TableCell>}
-                      {columnVisibility.isVisible("username") && <TableCell className="text-xs font-medium">{log.username || "-"}</TableCell>}
+                      {columnVisibility.isVisible("username") && (
+                        <TableCell className="text-xs">
+                          <div className="font-medium leading-tight">{log.username || "-"}</div>
+                          {log.userId && userMap.get(log.userId)?.uid && (
+                            <div className="font-mono text-[10px] text-muted-foreground tracking-tight">
+                              {formatUid(userMap.get(log.userId)!.uid!)}
+                            </div>
+                          )}
+                        </TableCell>
+                      )}
                       {columnVisibility.isVisible("action") && <TableCell>
                         <Badge variant={ACTION_VARIANTS[log.action] || "outline"} className="text-[10px]">
                           {ACTION_LABELS[log.action] || log.action}
@@ -404,11 +431,19 @@ export default function History() {
                   <p className="text-sm font-medium">{formatDate(detailLog.createdAt)}</p>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground">Pouzivatel</label>
+                  <label className="text-xs text-muted-foreground">Používateľ</label>
                   <p className="text-sm font-medium flex items-center gap-1">
-                    <User className="w-3 h-3" />
+                    <User className="w-3 h-3 shrink-0" />
                     {detailLog.username || "-"}
                   </p>
+                  {detailLog.userId && userMap.get(detailLog.userId)?.uid && (
+                    <p className="text-[11px] font-mono text-muted-foreground mt-0.5 tracking-tight">
+                      {formatUid(userMap.get(detailLog.userId)!.uid!)}
+                    </p>
+                  )}
+                  {detailLog.userId && (
+                    <p className="text-[10px] text-muted-foreground">ID používateľa: {detailLog.userId}</p>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground">Akcia</label>

@@ -1245,7 +1245,7 @@ export async function registerRoutes(
   app.get("/api/audit-logs/users", isAuthenticated, async (_req, res) => {
     try {
       const users = await storage.getAppUsers();
-      res.json(users.map(u => ({ id: u.id, username: u.username, firstName: u.firstName, lastName: u.lastName })));
+      res.json(users.map(u => ({ id: u.id, username: u.username, firstName: u.firstName, lastName: u.lastName, uid: u.uid ?? null })));
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }
