@@ -10,6 +10,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import { Plus, Pencil, Trash2, Clock, Upload, Image, Globe, ChevronDown, ChevronRight, Download, Search, CheckCircle2, AlertCircle, Loader2, X } from "lucide-react";
+import { AddStateButton } from "@/components/AddStateButton";
 
 interface WC { name: string; iso: string; dial: string; currency: string; continent: string; }
 const WORLD_COUNTRIES: WC[] = [
@@ -334,10 +335,12 @@ function CountryPickerDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="lg">
-        <DialogHeader>
-          <DialogTitle>Vybrať krajinu</DialogTitle>
-        </DialogHeader>
         <div className="flex flex-col gap-3 h-full">
+          {/* Header — custom, non-sticky, no clipping */}
+          <div className="shrink-0 flex items-center gap-2 pt-2 pb-3 border-b border-border/60 -mx-6 px-6">
+            <Globe className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="text-base font-semibold">Vybrať krajinu</span>
+          </div>
           {/* Filters */}
           <div className="flex gap-2 shrink-0">
             <Select value={pickerContinent} onValueChange={setPickerContinent}>
@@ -1038,15 +1041,10 @@ export default function SettingsStates() {
         <div className="flex items-center gap-2 flex-wrap">
           <SmartFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
-          <Button
-            onClick={() => { setEditingState(null); setFormOpen(true); }}
-            data-testid="button-add-state"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Pridat stat
-          </Button>
         </div>
       </div>
+
+      <AddStateButton onClick={() => { setEditingState(null); setFormOpen(true); }} />
 
       <Card>
         <CardContent className="p-0">
