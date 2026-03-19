@@ -1032,11 +1032,11 @@ export default function SettingsStates() {
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold" data-testid="text-page-title">Staty</h1>
-          <p className="text-sm text-muted-foreground">Sprava statov a vlajok</p>
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">Staty</h1>
+          <p className="text-sm text-muted-foreground mt-1">Sprava statov a vlajok</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <SmartFilterBar filter={tableFilter} />
