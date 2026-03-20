@@ -4220,6 +4220,9 @@ export default function Contracts() {
           <p className="text-xs text-muted-foreground">
             Nahrajte Excel (.xlsx) alebo CSV súbor so stĺpcami A–T. Mapovanie 1:1 — systém stĺpce neprehadzuje.
           </p>
+          <p className="text-[10px] font-mono text-muted-foreground/70 bg-muted/20 rounded px-2 py-1 leading-relaxed">
+            A: partner · B: produkt · C: typ_zmluvy · D: datum_uzatvorenia · E: cislo_navrhu · F: cislo_zmluvy · <span className="text-foreground/60">G: typ_subjektu</span> · H: rodne_cislo · I: titul_pred · J: meno · K: priezvisko · L: titul_za · M: ico · N: nazov_firmy · O: specialista_uid · P: specialista_% · Q: odporucitel1_uid · R: odporucitel1_% · S: odporucitel2_uid · T: odporucitel2_%
+          </p>
 
           <div className="border rounded overflow-hidden">
             <div className="bg-muted/50 px-2 py-0.5 text-[10px] font-medium border-b grid grid-cols-3">
