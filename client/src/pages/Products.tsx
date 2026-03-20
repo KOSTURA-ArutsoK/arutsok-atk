@@ -943,7 +943,7 @@ export default function Products() {
         <AddProductCard onClick={handleAdd} />
       )}
 
-      <Card style={{ marginTop: -30 }}>
+      <Card style={{ marginTop: -50 }}>
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
