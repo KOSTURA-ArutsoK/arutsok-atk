@@ -276,7 +276,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
             d={hexPath}
             fill="url(#hexGradPartner)"
             stroke={isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)"}
-            strokeWidth="1.8"
+            strokeWidth="2"
             style={{ transition: "stroke 0.15s ease" }}
           />
         </svg>
