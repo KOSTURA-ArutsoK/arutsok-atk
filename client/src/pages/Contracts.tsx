@@ -2321,6 +2321,7 @@ export default function Contracts() {
   const [duplicateModal, setDuplicateModal] = useState<{ open: boolean; subjectName?: string }>({ open: false });
   const [preSelectOpen, setPreSelectOpen] = useState(false);
   const [preSelectStep, setPreSelectStep] = useState<1 | 2 | 3 | 4>(1);
+  const [preSelectMaxStep, setPreSelectMaxStep] = useState<number>(1);
   const [preSelectContractType, setPreSelectContractType] = useState<string>("");
   const [preSelectPartnerId, setPreSelectPartnerId] = useState<string>("");
   const [preSelectProductId, setPreSelectProductId] = useState<string>("");
@@ -5112,6 +5113,10 @@ export default function Contracts() {
   };
 
   useEffect(() => {
+    setPreSelectMaxStep(prev => Math.max(prev, preSelectStep));
+  }, [preSelectStep]);
+
+  useEffect(() => {
     if (preSelectStep === 2) {
       const t = setTimeout(() => {
         const activeRadio = document.querySelector('[data-testid="toggle-subject-type"] button[aria-checked="true"]') as HTMLElement;
@@ -5246,6 +5251,7 @@ export default function Contracts() {
   const resetPreSelectDialog = () => {
     setPreSelectOpen(false);
     setPreSelectStep(1);
+    setPreSelectMaxStep(1);
     setPreSelectContractType("");
     setPreSelectPartnerId("");
     setPreSelectProductId("");
@@ -6014,14 +6020,41 @@ export default function Contracts() {
         </DialogHeader>
 
         <DialogScrollContent>
-        <div className="flex items-center gap-2 mb-2">
-          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 1 ? "bg-primary text-primary-foreground" : preSelectStep > 1 ? "bg-green-600 text-white" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-1">1</div>
-          <div className="flex-1 h-px bg-border" />
-          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 2 ? "bg-primary text-primary-foreground" : preSelectStep > 2 ? "bg-green-600 text-white" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-2">2</div>
-          <div className="flex-1 h-px bg-border" />
-          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 3 ? "bg-primary text-primary-foreground" : preSelectStep > 3 ? "bg-green-600 text-white" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-3">3</div>
-          <div className="flex-1 h-px bg-border" />
-          <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${preSelectStep === 4 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`} data-testid="step-indicator-4">4</div>
+        <div className="flex items-start gap-0 mb-3">
+          {([
+            { n: 1, label: "Partner & Zmluva" },
+            { n: 2, label: "Klient" },
+            { n: 3, label: "Odmeny" },
+            { n: 4, label: "Dokumenty" },
+          ] as { n: 1|2|3|4; label: string }[]).map((st, idx, arr) => {
+            const isActive = preSelectStep === st.n;
+            const isDone = preSelectStep > st.n;
+            const isReachable = st.n <= preSelectMaxStep;
+            return (
+              <React.Fragment key={st.n}>
+                <div className="flex flex-col items-center gap-1 min-w-0">
+                  <button
+                    type="button"
+                    disabled={!isReachable}
+                    onClick={() => { if (isReachable) setPreSelectStep(st.n); }}
+                    className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold transition-colors
+                      ${isActive ? "bg-primary text-primary-foreground" :
+                        isDone ? "bg-green-600 text-white hover:bg-green-500 cursor-pointer" :
+                        isReachable ? "bg-primary/40 text-white hover:bg-primary/60 cursor-pointer" :
+                        "bg-muted text-muted-foreground cursor-default"}`}
+                    data-testid={`step-indicator-${st.n}`}
+                  >
+                    {isDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : st.n}
+                  </button>
+                  <span className={`text-[10px] font-medium whitespace-nowrap leading-tight text-center
+                    ${isActive ? "text-primary" : isDone ? "text-green-500" : "text-muted-foreground/50"}`}>
+                    {st.label}
+                  </span>
+                </div>
+                {idx < arr.length - 1 && <div className="flex-1 h-px bg-border mt-3.5 mx-1" />}
+              </React.Fragment>
+            );
+          })}
         </div>
 
         <div style={{ display: preSelectStep === 1 ? 'block' : 'none' }}>
