@@ -162,12 +162,48 @@ function LifecycleStatusIcon({ status }: { status: string | null | undefined }) 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className="inline-flex" data-testid={`status-lifecycle-${status || "record"}`}>
+        <span className="inline-flex holding-chip-emoji cursor-pointer" data-testid={`status-lifecycle-${status || "record"}`}>
           <IconComp className={`w-5 h-5 ${config.colorClass}`} fill={config.filled ? "currentColor" : "none"} />
         </span>
       </TooltipTrigger>
       <TooltipContent>{config.label}</TooltipContent>
     </Tooltip>
+  );
+}
+
+// ─── Partner Hex Avatar ───────────────────────────────────────────────────────
+
+function PartnerHexAvatar({ logo, name, onClick }: { logo?: string; name: string; onClick?: (e: React.MouseEvent) => void }) {
+  const letter = name.charAt(0).toUpperCase();
+  return (
+    <div
+      className="partner-hex-btn relative flex-shrink-0"
+      style={{ width: 30, height: 34 }}
+      onClick={onClick}
+      title={name}
+    >
+      <svg viewBox="0 0 30 34" className="absolute inset-0 w-full h-full" fill="none">
+        <polygon
+          points="15,1.5 28,8.5 28,25.5 15,32.5 2,25.5 2,8.5"
+          fill="rgba(245,158,11,0.10)"
+          stroke="rgb(59,130,246)"
+          strokeWidth="1.5"
+        />
+        <polygon
+          points="15,4.5 25,10 25,24 15,29.5 5,24 5,10"
+          fill="none"
+          stroke="rgba(245,158,11,0.22)"
+          strokeWidth="0.6"
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        {logo ? (
+          <img src={logo} alt="" className="w-4 h-4 object-contain rounded-sm" />
+        ) : (
+          <span className="text-[10px] font-bold text-amber-400 select-none leading-none">{letter}</span>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -2367,47 +2403,63 @@ export default function Partners() {
                   </TableCell>
                 </TableRow>
               )}
-              {sortedData.map(partner => (
-                <TableRow key={partner.id} data-testid={`row-partner-${partner.id}`} onRowClick={() => openPartner(partner)}>
-                  {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs text-muted-foreground">{formatUid(partner.uid) || "-"}</TableCell>}
-                  {columnVisibility.isVisible("name") && (
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {(() => {
-                          const logo = (partner.logos as any[])?.find((l: any) => l.isPrimary && !l.isArchived);
-                          return logo ? <img src={logo.url} alt="logo" className="w-6 h-6 object-contain rounded flex-shrink-0" /> : null;
-                        })()}
-                        {partner.name}
+              {sortedData.map(partner => {
+                const primaryLogo = (partner.logos as any[])?.find((l: any) => l.isPrimary && !l.isArchived);
+                return (
+                  <TableRow key={partner.id} data-testid={`row-partner-${partner.id}`} onRowClick={() => openPartner(partner)} className="h-12">
+                    {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs text-muted-foreground align-middle">{formatUid(partner.uid) || "-"}</TableCell>}
+                    {columnVisibility.isVisible("name") && (
+                      <TableCell className="font-medium align-middle">
+                        <div className="flex items-center gap-2.5">
+                          <PartnerHexAvatar
+                            logo={primaryLogo?.url}
+                            name={partner.name}
+                            onClick={(e) => { e.stopPropagation(); openPartner(partner); }}
+                          />
+                          <span>{partner.name}</span>
+                        </div>
+                      </TableCell>
+                    )}
+                    {columnVisibility.isVisible("code") && <TableCell className="align-middle">{partner.code ? <Badge variant="secondary" className="font-mono">{partner.code}</Badge> : "-"}</TableCell>}
+                    {columnVisibility.isVisible("specialization") && <TableCell className="text-sm align-middle">{partner.specialization || "-"}</TableCell>}
+                    {columnVisibility.isVisible("ico") && <TableCell className="text-sm align-middle">{partner.ico || "-"}</TableCell>}
+                    {columnVisibility.isVisible("city") && <TableCell className="text-sm align-middle">{partner.city || "-"}</TableCell>}
+                    {columnVisibility.isVisible("collaborationDate") && <TableCell className="text-xs text-muted-foreground align-middle">{formatDateSlovak(partner.collaborationDate)}</TableCell>}
+                    <TableCell className="align-middle">
+                      <div className="flex items-center gap-1">
+                        <LifecycleStatusIcon status={partner.lifecycleStatus} />
+                        {canEditRecords(appUser) && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="holding-chip-emoji"
+                            onClick={(e) => { e.stopPropagation(); openPartner(partner); }}
+                            data-testid={`button-edit-partner-${partner.id}`}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {canDeleteRecords(appUser) && !partner.uid && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="holding-chip-emoji"
+                                onClick={(e) => { e.stopPropagation(); setDeleteTarget(partner); }}
+                                data-testid={`button-delete-partner-${partner.id}`}
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                          </Tooltip>
+                        )}
                       </div>
                     </TableCell>
-                  )}
-                  {columnVisibility.isVisible("code") && <TableCell>{partner.code ? <Badge variant="secondary" className="font-mono">{partner.code}</Badge> : "-"}</TableCell>}
-                  {columnVisibility.isVisible("specialization") && <TableCell className="text-sm">{partner.specialization || "-"}</TableCell>}
-                  {columnVisibility.isVisible("ico") && <TableCell className="text-sm">{partner.ico || "-"}</TableCell>}
-                  {columnVisibility.isVisible("city") && <TableCell className="text-sm">{partner.city || "-"}</TableCell>}
-                  {columnVisibility.isVisible("collaborationDate") && <TableCell className="text-xs text-muted-foreground">{formatDateSlovak(partner.collaborationDate)}</TableCell>}
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <LifecycleStatusIcon status={partner.lifecycleStatus} />
-                      {canEditRecords(appUser) && (
-                        <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); openPartner(partner); }} data-testid={`button-edit-partner-${partner.id}`}>
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                      )}
-                      {canDeleteRecords(appUser) && !partner.uid && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setDeleteTarget(partner); }} data-testid={`button-delete-partner-${partner.id}`}>
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                        </Tooltip>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
