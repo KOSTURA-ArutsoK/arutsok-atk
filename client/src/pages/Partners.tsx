@@ -256,7 +256,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
         >
           <defs>
             <filter id="amberGlow" x="-60%" y="-60%" width="220%" height="220%">
-              <feGaussianBlur stdDeviation="16" result="blur" />
+              <feGaussianBlur stdDeviation="20" result="blur" />
             </filter>
             <linearGradient id="hexGradPartner" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0%" stopColor="#0a1f3d" />
@@ -266,7 +266,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           {/* Podsvietenie — jantárové v kľude, zlaté pri hoveri */}
           <path
             d={hexPath}
-            fill={isActive ? "rgba(255,210,0,1.0)" : "rgba(56,189,248,0.50)"}
+            fill={isActive ? "rgba(255,210,0,1.0)" : "rgba(245,158,11,0.65)"}
             filter="url(#amberGlow)"
             style={{ transition: "fill 0.2s ease" }}
           />
@@ -274,7 +274,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           <path
             d={hexPath}
             fill="url(#hexGradPartner)"
-            stroke={isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)"}
+            stroke={isActive ? "rgba(245,158,11,1.0)" : "rgba(245,158,11,0.60)"}
             strokeWidth="1.8"
             style={{ transition: "stroke 0.15s ease" }}
           />
