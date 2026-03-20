@@ -4258,7 +4258,7 @@ export default function Contracts() {
           </div>
 
           <div className="text-[9px] text-muted-foreground leading-tight">
-            <span className="text-red-400 font-semibold">*</span> povinné &nbsp; <span className="text-amber-400 font-semibold">**</span> podľa typu &nbsp; <span className="text-amber-400 font-semibold">***</span> buď E alebo F &nbsp;·&nbsp; <span className="font-semibold">FO</span>: H+J+K &nbsp; <span className="font-semibold">SZČO</span>: H+J+K+M+N &nbsp; <span className="font-semibold">PO/TS/VS</span>: M+N (H+J+K = oprávnená osoba)
+            <span className="text-red-400 font-semibold">*</span> povinné &nbsp; <span className="text-amber-400 font-semibold">**</span> podľa typu &nbsp; <span className="text-amber-400 font-semibold">***</span> buď E alebo F &nbsp;·&nbsp; G: FO | SZČO | PO | TS | VS &nbsp;·&nbsp; <span className="font-semibold">FO</span>: H+J+K &nbsp; <span className="font-semibold">SZČO</span>: H+J+K+M+N &nbsp; <span className="font-semibold">PO/TS/VS</span>: M+N+H+J+K (H+J+K = štatutár)
           </div>
 
           <div className="bg-amber-500/10 border border-amber-500/30 rounded px-3 py-2 space-y-2">
@@ -4273,7 +4273,8 @@ export default function Contracts() {
           </div>
 
           <div className="bg-muted/30 rounded px-2 py-1 font-mono text-[9px] text-muted-foreground">
-            <span className="text-foreground/60">Ukážka:</span> Allianz | PZP Auto | Nova | 10.03.2026 | N-2024-001 | | person | 850101/1234 | Ing. | Jan | Novak | | | | 421000000000002 | 100 | | | |
+            <span className="text-foreground/60">Ukážka FO:</span> Allianz | PZP Auto | Nova | 10.03.2026 | N-2024-001 | | <span className="text-amber-400">FO</span> | 850101/1234 | Ing. | Ján | Novák | | | | 421000000000002 | 100 | | | | <br/>
+            <span className="text-foreground/60">Ukážka PO:</span> ČSOB | Poistenie | Zmenova | 15.01.2026 | | Z-050 | <span className="text-amber-400">PO</span> | 900101/0012 | Ing. | Mária | Kováčová | PhD. | 12345678 | ABC s.r.o. | 421000000000001 | 80 | 421000000000004 | 20 | |
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">

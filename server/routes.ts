@@ -6383,7 +6383,7 @@ export async function registerRoutes(
         if (contract.subjectId) {
           const [subj] = await db.select({ id: subjects.id, uid: subjects.uid, type: subjects.type, linkedFoId: subjects.linkedFoId }).from(subjects).where(eq(subjects.id, contract.subjectId)).limit(1);
           if (subj) {
-            const isFirm = subj.type === "szco" || subj.type === "company" || subj.type === "organization";
+            const isFirm = subj.type === "szco" || subj.type === "company" || subj.type === "organization" || subj.type === "ts" || subj.type === "vs";
             if (isFirm) {
               // Assign UID to company first (counter increments)
               if (!subj.uid) {
@@ -7384,11 +7384,10 @@ export async function registerRoutes(
             }
 
           } else {
-            // FO: standard single-subject logic
-            if (rc || ico) {
+            // FO: standard single-subject logic — identifier is RC only (IČO/nazov_firmy are ignored)
+            if (rc) {
               const dupCheck = await storage.checkDuplicateSubject({
-                birthNumber: rc || undefined,
-                ico: ico || undefined,
+                birthNumber: rc,
               });
               if (dupCheck) {
                 resolvedSubjectId = dupCheck.id;
@@ -11473,25 +11472,25 @@ export async function registerRoutes(
       const exampleRows = [
         {
           partner: "Allianz", produkt: "PZP Auto", typ_zmluvy: "Nova", datum_uzatvorenia: "10.03.2026 14:30:00", cislo_navrhu: "N-2024-001", cislo_zmluvy: "",
-          typ_subjektu: "person", rodne_cislo: "850101/1234", titul_pred: "Ing.", meno: "Ján", priezvisko: "Novák", titul_za: "", ico: "", nazov_firmy: "",
+          typ_subjektu: "FO", rodne_cislo: "850101/1234", titul_pred: "Ing.", meno: "Ján", priezvisko: "Novák", titul_za: "", ico: "", nazov_firmy: "",
           specialista_uid: "421000000001", specialista_pct: "100",
           odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "",
         },
         {
           partner: "Generali", produkt: "Životné poistenie", typ_zmluvy: "Prestupova", datum_uzatvorenia: "05.02.2026", cislo_navrhu: "N-2024-002", cislo_zmluvy: "",
-          typ_subjektu: "szco", rodne_cislo: "900515/4567", titul_pred: "", meno: "Peter", priezvisko: "Horváth", titul_za: "", ico: "12345678", nazov_firmy: "Peter Horváth - stolárstvo",
+          typ_subjektu: "SZČO", rodne_cislo: "900515/4567", titul_pred: "", meno: "Peter", priezvisko: "Horváth", titul_za: "", ico: "12345678", nazov_firmy: "Peter Horváth - stolárstvo",
           specialista_uid: "421000000002", specialista_pct: "70",
           odporucitel1_uid: "421000000003", odporucitel1_pct: "30", odporucitel2_uid: "", odporucitel2_pct: "",
         },
         {
           partner: "ČSOB", produkt: "Podnikateľské poistenie", typ_zmluvy: "Zmenova", datum_uzatvorenia: "15.01.2026", cislo_navrhu: "", cislo_zmluvy: "Z-2024-050",
-          typ_subjektu: "company", rodne_cislo: "900101/0012", titul_pred: "Ing.", meno: "Mária", priezvisko: "Kováčová", titul_za: "PhD.", ico: "12345678", nazov_firmy: "ABC Trading s.r.o.",
+          typ_subjektu: "PO", rodne_cislo: "900101/0012", titul_pred: "Ing.", meno: "Mária", priezvisko: "Kováčová", titul_za: "PhD.", ico: "12345678", nazov_firmy: "ABC Trading s.r.o.",
           specialista_uid: "421000000001", specialista_pct: "80",
           odporucitel1_uid: "421000000004", odporucitel1_pct: "20", odporucitel2_uid: "", odporucitel2_pct: "",
         },
         {
           partner: "Uniqa", produkt: "Poistenie zodpovednosti", typ_zmluvy: "Nova", datum_uzatvorenia: "28.12.2025", cislo_navrhu: "N-2024-003", cislo_zmluvy: "",
-          typ_subjektu: "organization", rodne_cislo: "780310/7654", titul_pred: "Mgr.", meno: "Jana", priezvisko: "Svobodová", titul_za: "", ico: "31234567", nazov_firmy: "Nadácia Dobré srdce",
+          typ_subjektu: "TS", rodne_cislo: "780310/7654", titul_pred: "Mgr.", meno: "Jana", priezvisko: "Svobodová", titul_za: "", ico: "31234567", nazov_firmy: "Nadácia Dobré srdce",
           specialista_uid: "421000000002", specialista_pct: "100",
           odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "",
         },
