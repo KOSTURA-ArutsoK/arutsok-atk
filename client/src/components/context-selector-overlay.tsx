@@ -131,22 +131,15 @@ export function ContextSelectorOverlay({
           </h2>
           <div className="flex flex-wrap items-start justify-center gap-10 max-w-3xl px-6">
             {[...states].sort((a, b) => a.name.localeCompare(b.name, "sk")).map(s => {
-              const isActive = s.id === activeStateId;
               return (
                 <button
                   key={s.id}
                   type="button"
-                  onClick={isActive ? undefined : () => onSelectState(s.id)}
-                  disabled={isActive}
-                  className={`flex flex-col items-center gap-3 group ${isActive ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}
+                  onClick={() => onSelectState(s.id)}
+                  className="flex flex-col items-center gap-3 group cursor-pointer"
                   data-testid={`context-state-${s.id}`}
-                  title={isActive ? "Tento štát je už aktívny" : undefined}
                 >
-                  <div className={`rounded-full p-1.5 border-2 transition-all duration-200 ${
-                    isActive
-                      ? "border-white/20 grayscale"
-                      : "border-sky-400/40 group-hover:border-sky-400 group-hover:shadow-lg group-hover:shadow-sky-400/30 group-hover:scale-105"
-                  }`}>
+                  <div className="rounded-full p-1.5 border-2 transition-all duration-200 border-sky-400/40 group-hover:border-sky-400 group-hover:shadow-lg group-hover:shadow-sky-400/30 group-hover:scale-105">
                     <StateFlagImage
                       src={s.flagUrl}
                       alt={s.name}
@@ -154,11 +147,8 @@ export function ContextSelectorOverlay({
                       className="w-20 h-20 object-cover rounded-full"
                     />
                   </div>
-                  <span className={`text-sm font-medium text-center whitespace-nowrap transition-colors ${
-                    isActive ? "text-white/35" : "text-white/80 group-hover:text-white"
-                  }`}>
+                  <span className="text-sm font-medium text-center whitespace-nowrap transition-colors text-white/80 group-hover:text-white">
                     {s.name}
-                    {isActive && <span className="block text-[10px] text-white/30 mt-0.5">aktívny</span>}
                   </span>
                 </button>
               );
