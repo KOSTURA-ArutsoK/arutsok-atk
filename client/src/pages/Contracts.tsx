@@ -2321,7 +2321,7 @@ export default function Contracts() {
   const [duplicateModal, setDuplicateModal] = useState<{ open: boolean; subjectName?: string }>({ open: false });
   const [preSelectOpen, setPreSelectOpen] = useState(false);
   const [preSelectStep, setPreSelectStep] = useState<1 | 2 | 3 | 4>(1);
-  const [preSelectContractType, setPreSelectContractType] = useState<string>("Nova");
+  const [preSelectContractType, setPreSelectContractType] = useState<string>("");
   const [preSelectPartnerId, setPreSelectPartnerId] = useState<string>("");
   const [preSelectProductId, setPreSelectProductId] = useState<string>("");
   const [preSelectProductOpen, setPreSelectProductOpen] = useState(false);
@@ -5246,7 +5246,7 @@ export default function Contracts() {
   const resetPreSelectDialog = () => {
     setPreSelectOpen(false);
     setPreSelectStep(1);
-    setPreSelectContractType("Nova");
+    setPreSelectContractType("");
     setPreSelectPartnerId("");
     setPreSelectProductId("");
     setPreSelectSubjectSearch("");
@@ -5708,7 +5708,7 @@ export default function Contracts() {
     );
 
     // --- Preload contractType ---
-    setPreSelectContractType((contract as any).contractType || "Nova");
+    setPreSelectContractType((contract as any).contractType || "");
 
     // --- Preload signedDate ---
     const existingSignedDate = (contract as any).signedDate;
