@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo, type ComponentType } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, Fragment, type ComponentType } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak, formatUid, expandUid, getDateSemaphore, getDateSemaphoreClasses, canCreateRecords, canDeleteRecords, canEditRecords, isAdmin, isRecommender, rcToBirthDateStr, NAVRH_LABEL_FULL, NAVRH_LABEL_SHORT, parsePersonName } from "@/lib/utils";
@@ -6031,7 +6031,7 @@ export default function Contracts() {
             const isDone = preSelectStep > st.n;
             const isReachable = st.n <= preSelectMaxStep;
             return (
-              <React.Fragment key={st.n}>
+              <Fragment key={st.n}>
                 <div className="flex flex-col items-center gap-1 min-w-0">
                   <button
                     type="button"
@@ -6052,7 +6052,7 @@ export default function Contracts() {
                   </span>
                 </div>
                 {idx < arr.length - 1 && <div className="flex-1 h-px bg-border mt-3.5 mx-1" />}
-              </React.Fragment>
+              </Fragment>
             );
           })}
         </div>
@@ -6857,6 +6857,11 @@ export default function Contracts() {
                         } else {
                           setPreSelectShowNameFields(true);
                           setPreSelectNoFoInfo(false);
+                          setTimeout(() => {
+                            const el = document.querySelector('[data-testid="input-preselect-title-before"]') as HTMLElement;
+                            if (el) { el.focus(); return; }
+                            refFirstNameInput.current?.focus();
+                          }, 60);
                         }
                       }
                     }}
@@ -7361,6 +7366,11 @@ export default function Contracts() {
                               setPreSelectSearchHint("possible_rc");
                             }
                             setPreSelectShowNameFields(true);
+                            setTimeout(() => {
+                              const el = document.querySelector('[data-testid="input-preselect-title-before"]') as HTMLElement;
+                              if (el) { el.focus(); return; }
+                              refFirstNameInput.current?.focus();
+                            }, 60);
                           }
                         } else if (e.key === "Tab" && preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length > 0) {
                           e.preventDefault();
