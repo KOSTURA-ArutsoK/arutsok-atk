@@ -11534,7 +11534,7 @@ export async function registerRoutes(
       for (const rowData of exampleRows) {
         const exRow = sheet.addRow(rowData);
         exRow.font = yellowFont;
-        for (let c = 1; c <= 20; c++) {
+        for (let c = 1; c <= 22; c++) {
           exRow.getCell(c).fill = yellowFill;
         }
       }
