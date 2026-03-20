@@ -4218,14 +4218,14 @@ export default function Contracts() {
         {importStep === 1 && (
         <div className="space-y-2 text-justify">
           <p className="text-xs text-muted-foreground">
-            Nahrajte Excel (.xlsx) alebo CSV súbor so stĺpcami A–S. Mapovanie 1:1 — systém stĺpce neprehadzuje.
+            Nahrajte Excel (.xlsx) alebo CSV súbor so stĺpcami A–T. Mapovanie 1:1 — systém stĺpce neprehadzuje.
           </p>
 
           <div className="border rounded overflow-hidden">
             <div className="bg-muted/50 px-2 py-0.5 text-[10px] font-medium border-b grid grid-cols-3">
               <span>Krok 1: Partner &amp; zmluva (A–F)</span>
-              <span>Krok 2: Klient / subjekt (G–M)</span>
-              <span>Krok 3: Získateľ (N–S)</span>
+              <span>Krok 2: Klient / subjekt (G–N)</span>
+              <span>Krok 3: Získateľ (O–T)</span>
             </div>
             <div className="grid grid-cols-3 text-[10px]">
               <div className="border-r">
@@ -4238,26 +4238,27 @@ export default function Contracts() {
               </div>
               <div className="border-r">
                 <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">G</span><span>typ_subjektu</span><span className="ml-auto text-red-400">*</span></div>
-                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">H</span><span>rc_ico</span><span className="ml-auto text-amber-400">**</span></div>
-                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">I</span><span>nazov_firmy</span><span className="ml-auto text-amber-400">**</span></div>
-                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">J</span><span>titul_pred</span><span className="ml-auto text-muted-foreground">—</span></div>
-                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">K</span><span>meno</span><span className="ml-auto text-amber-400">**</span></div>
-                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">L</span><span>priezvisko</span><span className="ml-auto text-amber-400">**</span></div>
-                <div className="flex px-1.5 py-px"><span className="font-mono w-5">M</span><span>titul_za</span><span className="ml-auto text-muted-foreground">—</span></div>
+                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">H</span><span>rodne_cislo</span><span className="ml-auto text-amber-400">**</span></div>
+                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">I</span><span>titul_pred</span><span className="ml-auto text-muted-foreground">—</span></div>
+                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">J</span><span>meno</span><span className="ml-auto text-amber-400">**</span></div>
+                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">K</span><span>priezvisko</span><span className="ml-auto text-amber-400">**</span></div>
+                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">L</span><span>titul_za</span><span className="ml-auto text-muted-foreground">—</span></div>
+                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">M</span><span>ico</span><span className="ml-auto text-amber-400">**</span></div>
+                <div className="flex px-1.5 py-px bg-muted/10"><span className="font-mono w-5">N</span><span>nazov_firmy</span><span className="ml-auto text-amber-400">**</span></div>
               </div>
               <div>
-                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">N</span><span>specialista_uid</span><span className="ml-auto text-red-400">*</span></div>
-                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">O</span><span>specialista_%</span><span className="ml-auto text-red-400">*</span></div>
-                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">P</span><span>odporucitel1_uid</span><span className="ml-auto text-muted-foreground">—</span></div>
-                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">Q</span><span>odporucitel1_%</span><span className="ml-auto text-muted-foreground">—</span></div>
-                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">R</span><span>odporucitel2_uid</span><span className="ml-auto text-muted-foreground">—</span></div>
-                <div className="flex px-1.5 py-px bg-muted/10"><span className="font-mono w-5">S</span><span>odporucitel2_%</span><span className="ml-auto text-muted-foreground">—</span></div>
+                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">O</span><span>specialista_uid</span><span className="ml-auto text-red-400">*</span></div>
+                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">P</span><span>specialista_%</span><span className="ml-auto text-red-400">*</span></div>
+                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">Q</span><span>odporucitel1_uid</span><span className="ml-auto text-muted-foreground">—</span></div>
+                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">R</span><span>odporucitel1_%</span><span className="ml-auto text-muted-foreground">—</span></div>
+                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">S</span><span>odporucitel2_uid</span><span className="ml-auto text-muted-foreground">—</span></div>
+                <div className="flex px-1.5 py-px bg-muted/10"><span className="font-mono w-5">T</span><span>odporucitel2_%</span><span className="ml-auto text-muted-foreground">—</span></div>
               </div>
             </div>
           </div>
 
           <div className="text-[9px] text-muted-foreground leading-tight">
-            <span className="text-red-400 font-semibold">*</span> povinné &nbsp; <span className="text-amber-400 font-semibold">**</span> podľa typu &nbsp; <span className="text-amber-400 font-semibold">***</span> buď E alebo F &nbsp;·&nbsp; <span className="font-semibold">FO</span>: rc_ico+meno+priezvisko &nbsp; <span className="font-semibold">PO</span>: ico+firma &nbsp; <span className="font-semibold">SZCO</span>: rc_ico+firma+meno+priezvisko
+            <span className="text-red-400 font-semibold">*</span> povinné &nbsp; <span className="text-amber-400 font-semibold">**</span> podľa typu &nbsp; <span className="text-amber-400 font-semibold">***</span> buď E alebo F &nbsp;·&nbsp; <span className="font-semibold">FO</span>: H+J+K &nbsp; <span className="font-semibold">SZČO</span>: H+J+K+M+N &nbsp; <span className="font-semibold">PO/TS/VS</span>: M+N (H+J+K = oprávnená osoba)
           </div>
 
           <div className="bg-amber-500/10 border border-amber-500/30 rounded px-3 py-2 space-y-2">
@@ -4267,12 +4268,12 @@ export default function Contracts() {
             </div>
             <div className="flex items-start gap-2">
               <span className="text-red-500 font-bold text-xs mt-px">2.</span>
-              <p className="text-[11px] text-red-500 leading-snug">Ak specialista nema 100% a odporucitel nie je vypisany, zmluva bude nahrata ale oznacena ako chybna.</p>
+              <p className="text-[11px] text-red-500 leading-snug">Pre SZČO/PO/TS/VS sa vytvárajú 2 subjekty — firma (IČO+názov) a oprávnená osoba (RČ+meno). Zmluva sa viaže na firmu.</p>
             </div>
           </div>
 
           <div className="bg-muted/30 rounded px-2 py-1 font-mono text-[9px] text-muted-foreground">
-            <span className="text-foreground/60">Ukážka:</span> Allianz | PZP Auto | Nova | 10.03.2026 | N-2024-001 | | person | 850101/1234 | | | Jan | Novak | | 421000000000002 | 100 | | | |
+            <span className="text-foreground/60">Ukážka:</span> Allianz | PZP Auto | Nova | 10.03.2026 | N-2024-001 | | person | 850101/1234 | Ing. | Jan | Novak | | | | 421000000000002 | 100 | | | |
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">

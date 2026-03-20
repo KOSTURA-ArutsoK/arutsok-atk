@@ -6362,6 +6362,11 @@ export async function registerRoutes(
       }
       const globalNumbers: Record<number, number> = {};
       const acceptedContractIds = contractIds.map(Number);
+      let stateCode = '421';
+      if (req.appUser?.activeStateId) {
+        const st = await storage.getState(req.appUser.activeStateId);
+        if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
+      }
       for (const cId of acceptedContractIds) {
         const contract = await storage.getContract(cId);
         if (!contract) continue;
@@ -6373,6 +6378,37 @@ export async function registerRoutes(
           const globalNum = await storage.getNextCounterValue("global_contract_number");
           updateData.globalNumber = globalNum;
           globalNumbers[cId] = globalNum;
+        }
+        // UID assignment: assign UIDs to contract's subject and authorized person (linkedFo)
+        if (contract.subjectId) {
+          const [subj] = await db.select({ id: subjects.id, uid: subjects.uid, type: subjects.type, linkedFoId: subjects.linkedFoId }).from(subjects).where(eq(subjects.id, contract.subjectId)).limit(1);
+          if (subj) {
+            const isFirm = subj.type === "szco" || subj.type === "company" || subj.type === "organization";
+            if (isFirm) {
+              // Assign UID to company first (counter increments)
+              if (!subj.uid) {
+                const companyUid = await storage.generateNextGlobalUid(stateCode);
+                await db.update(subjects).set({ uid: companyUid }).where(eq(subjects.id, subj.id));
+              }
+              // Assign UID to authorized person (linkedFo) second
+              if (subj.linkedFoId) {
+                const [linkedFo] = await db.select({ id: subjects.id, uid: subjects.uid }).from(subjects).where(eq(subjects.id, subj.linkedFoId)).limit(1);
+                if (linkedFo && !linkedFo.uid) {
+                  const personUid = await storage.generateNextGlobalUid(stateCode);
+                  await db.update(subjects).set({ uid: personUid }).where(eq(subjects.id, linkedFo.id));
+                  updateData.konatelUid = personUid;
+                } else if (linkedFo?.uid && !contract.konatelUid) {
+                  updateData.konatelUid = linkedFo.uid;
+                }
+              }
+            } else {
+              // FO: assign UID to person
+              if (!subj.uid) {
+                const personUid = await storage.generateNextGlobalUid(stateCode);
+                await db.update(subjects).set({ uid: personUid }).where(eq(subjects.id, subj.id));
+              }
+            }
+          }
         }
         await storage.updateContract(cId, updateData);
       }
@@ -6928,7 +6964,7 @@ export async function registerRoutes(
       let headers: string[] = [];
       const rawRows: Record<string, string>[] = [];
 
-      const POSITIONAL_COLUMNS = ["partner", "produkt", "typ_zmluvy", "datum_uzatvorenia", "cislo_navrhu", "cislo_zmluvy", "typ_subjektu", "rc_ico", "nazov_firmy", "titul_pred", "meno", "priezvisko", "titul_za"];
+      const POSITIONAL_COLUMNS = ["partner", "produkt", "typ_zmluvy", "datum_uzatvorenia", "cislo_navrhu", "cislo_zmluvy", "typ_subjektu", "rodne_cislo", "titul_pred", "meno", "priezvisko", "titul_za", "ico", "nazov_firmy"];
 
       const HEADER_ALIASES: Record<string, string> = {
         "cislo navrhu": "cislo_navrhu", "cislo_navrhu": "cislo_navrhu", "proposal_number": "cislo_navrhu", "č. návrhu": "cislo_navrhu", "číslo návrhu": "cislo_navrhu", "cislo navrhu": "cislo_navrhu",
@@ -6936,18 +6972,20 @@ export async function registerRoutes(
         "partner": "partner", "partner_name": "partner",
         "produkt": "produkt", "product": "produkt", "product_name": "produkt",
         "typ subjektu": "typ_subjektu", "typ_subjektu": "typ_subjektu", "subject_type": "typ_subjektu", "typ": "typ_subjektu",
-        "rc ico": "rc_ico", "rc_ico": "rc_ico", "rc / ico": "rc_ico", "rc_/_ico": "rc_ico", "rc/ico": "rc_ico", "rodne cislo": "rc_ico", "rodné číslo": "rc_ico", "rodne_cislo": "rc_ico", "rc": "rc_ico", "ico": "rc_ico", "ičo": "rc_ico", "birth_number": "rc_ico",
+        "rc_ico": "rc_ico", "rc ico": "rc_ico", "rc / ico": "rc_ico", "rc_/_ico": "rc_ico", "rc/ico": "rc_ico",
+        "rodne cislo": "rodne_cislo", "rodné číslo": "rodne_cislo", "rodne_cislo": "rodne_cislo", "rc": "rodne_cislo", "birth_number": "rodne_cislo", "h: rodne cislo": "rodne_cislo", "h: rodné číslo": "rodne_cislo",
+        "ico": "ico", "ičo": "ico", "ic": "ico", "m: ico": "ico", "m: ičo": "ico",
         "nazov firmy": "nazov_firmy", "nazov_firmy": "nazov_firmy", "názov firmy": "nazov_firmy", "company_name": "nazov_firmy", "firma": "nazov_firmy",
         "titul pred": "titul_pred", "titul_pred": "titul_pred", "title_before": "titul_pred", "titul pred menom": "titul_pred",
         "meno": "meno", "first_name": "meno", "krstne meno": "meno", "krstné meno": "meno",
         "priezvisko": "priezvisko", "last_name": "priezvisko",
         "titul za": "titul_za", "titul_za": "titul_za", "title_after": "titul_za", "titul za menom": "titul_za",
-        "specialista": "specialista", "specialist": "specialista", "specialista_uid": "specialista", "specialista uid": "specialista", "m: specialista uid": "specialista", "m: špecialista uid": "specialista",
-        "specialista podiel": "specialista_podiel", "specialista_podiel": "specialista_podiel", "specialist_percentage": "specialista_podiel", "specialista_%": "specialista_podiel", "specialista_pct": "specialista_podiel", "n: specialista %": "specialista_podiel", "n: špecialista %": "specialista_podiel",
-        "odporucitel": "odporucitel", "odporucatel": "odporucitel", "recommender": "odporucitel", "odporucitel1_uid": "odporucitel", "odporucitel1 uid": "odporucitel", "odporucatel 1 uid": "odporucitel", "odporucatel_1_uid": "odporucitel", "o: odporucitel 1 uid": "odporucitel", "o: odporúčateľ 1 uid": "odporucitel",
-        "odporucitel podiel": "odporucitel_podiel", "odporucitel_podiel": "odporucitel_podiel", "recommender_percentage": "odporucitel_podiel", "odporucitel1_%": "odporucitel_podiel", "odporucitel1_pct": "odporucitel_podiel", "p: odporucitel 1 %": "odporucitel_podiel", "p: odporúčateľ 1 %": "odporucitel_podiel", "odporucatel 1 %": "odporucitel_podiel", "odporucatel_1_%": "odporucitel_podiel",
-        "odporucitel2_uid": "odporucitel2", "odporucitel2 uid": "odporucitel2", "odporucatel 2 uid": "odporucitel2", "odporucatel_2_uid": "odporucitel2", "q: odporucitel 2 uid": "odporucitel2", "q: odporúčateľ 2 uid": "odporucitel2",
-        "odporucitel2_%": "odporucitel2_podiel", "odporucitel2_pct": "odporucitel2_podiel", "odporucitel2_podiel": "odporucitel2_podiel", "r: odporucitel 2 %": "odporucitel2_podiel", "r: odporúčateľ 2 %": "odporucitel2_podiel", "odporucatel 2 %": "odporucitel2_podiel", "odporucatel_2_%": "odporucitel2_podiel",
+        "specialista": "specialista", "specialist": "specialista", "specialista_uid": "specialista", "specialista uid": "specialista", "m: specialista uid": "specialista", "m: špecialista uid": "specialista", "o: specialista uid": "specialista", "o: špecialista uid": "specialista",
+        "specialista podiel": "specialista_podiel", "specialista_podiel": "specialista_podiel", "specialist_percentage": "specialista_podiel", "specialista_%": "specialista_podiel", "specialista_pct": "specialista_podiel", "n: specialista %": "specialista_podiel", "n: špecialista %": "specialista_podiel", "p: specialista %": "specialista_podiel", "p: špecialista %": "specialista_podiel",
+        "odporucitel": "odporucitel", "odporucatel": "odporucitel", "recommender": "odporucitel", "odporucitel1_uid": "odporucitel", "odporucitel1 uid": "odporucitel", "odporucatel 1 uid": "odporucitel", "odporucatel_1_uid": "odporucitel", "o: odporucitel 1 uid": "odporucitel", "o: odporúčateľ 1 uid": "odporucitel", "q: odporucitel 1 uid": "odporucitel", "q: odporúčateľ 1 uid": "odporucitel",
+        "odporucitel podiel": "odporucitel_podiel", "odporucitel_podiel": "odporucitel_podiel", "recommender_percentage": "odporucitel_podiel", "odporucitel1_%": "odporucitel_podiel", "odporucitel1_pct": "odporucitel_podiel", "p: odporucitel 1 %": "odporucitel_podiel", "p: odporúčateľ 1 %": "odporucitel_podiel", "odporucatel 1 %": "odporucitel_podiel", "odporucatel_1_%": "odporucitel_podiel", "r: odporucitel 1 %": "odporucitel_podiel", "r: odporúčateľ 1 %": "odporucitel_podiel",
+        "odporucitel2_uid": "odporucitel2", "odporucitel2 uid": "odporucitel2", "odporucatel 2 uid": "odporucitel2", "odporucatel_2_uid": "odporucitel2", "q: odporucitel 2 uid": "odporucitel2", "q: odporúčateľ 2 uid": "odporucitel2", "s: odporucitel 2 uid": "odporucitel2", "s: odporúčateľ 2 uid": "odporucitel2",
+        "odporucitel2_%": "odporucitel2_podiel", "odporucitel2_pct": "odporucitel2_podiel", "odporucitel2_podiel": "odporucitel2_podiel", "r: odporucitel 2 %": "odporucitel2_podiel", "r: odporúčateľ 2 %": "odporucitel2_podiel", "odporucatel 2 %": "odporucitel2_podiel", "odporucatel_2_%": "odporucitel2_podiel", "t: odporucitel 2 %": "odporucitel2_podiel", "t: odporúčateľ 2 %": "odporucitel2_podiel",
         "typ zmluvy": "typ_zmluvy", "typ_zmluvy": "typ_zmluvy", "type_of_contract": "typ_zmluvy", "contract_type": "typ_zmluvy", "c: typ zmluvy": "typ_zmluvy",
         "datum uzatvorenia": "datum_uzatvorenia", "datum_uzatvorenia": "datum_uzatvorenia", "dátum uzatvorenia": "datum_uzatvorenia", "d: dátum uzatvorenia": "datum_uzatvorenia", "d: datum uzatvorenia": "datum_uzatvorenia",
         "datum podpisu": "datum_uzatvorenia", "datum_podpisu": "datum_uzatvorenia", "dátum podpisu": "datum_uzatvorenia", "signed_date": "datum_uzatvorenia", "signing_date": "datum_uzatvorenia",
@@ -6985,7 +7023,7 @@ export async function registerRoutes(
         return underscored;
       }
 
-      const KNOWN_IMPORT_HEADERS = new Set([...POSITIONAL_COLUMNS, ...Object.values(HEADER_ALIASES), "specialista", "specialista_podiel", "odporucitel", "odporucitel_podiel", "odporucitel2", "odporucitel2_podiel", "typ_zmluvy"]);
+      const KNOWN_IMPORT_HEADERS = new Set([...POSITIONAL_COLUMNS, ...Object.values(HEADER_ALIASES), "specialista", "specialista_podiel", "odporucitel", "odporucitel_podiel", "odporucitel2", "odporucitel2_podiel", "typ_zmluvy", "rodne_cislo", "ico", "rc_ico"]);
 
       if (isCSV) {
         const csvContent = fs.readFileSync(file.path, "utf-8");
@@ -7051,7 +7089,7 @@ export async function registerRoutes(
 
         if (!firstRowLooksLikeHeader) {
           headers = [];
-          for (let ci = 1; ci <= 11; ci++) {
+          for (let ci = 1; ci <= 20; ci++) {
             headers[ci] = `col_${ci}`;
           }
         } else {
@@ -7156,7 +7194,9 @@ export async function registerRoutes(
           const partnerName = rowData["partner"] || rowData["partner_name"] || null;
           const productName = rowData["produkt"] || rowData["product"] || rowData["product_name"] || null;
           const typSubjektu = rowData["typ_subjektu"] || rowData["typ"] || rowData["subject_type"] || null;
-          const rcIcoRaw = rowData["rc_ico"] || rowData["rodne_cislo"] || rowData["rc"] || rowData["ico"] || rowData["birth_number"] || null;
+          const rcRaw = rowData["rodne_cislo"] || rowData["rc"] || rowData["birth_number"] || null;
+          const icoRaw = rowData["ico"] || rowData["ičo"] || null;
+          const rcIcoLegacy = rowData["rc_ico"] || null;
 
           let resolvedPartnerId: number | null = null;
           if (partnerName) {
@@ -7175,12 +7215,14 @@ export async function registerRoutes(
             if (found) resolvedProductId = found.id;
           }
 
-          let subjectType: "person" | "szco" | "company" = "person";
+          let subjectType: "person" | "szco" | "company" | "organization" = "person";
           if (typSubjektu) {
             const tLower = typSubjektu.toLowerCase().trim();
             if (["po", "company", "firma", "pravnicka_osoba", "právnická osoba", "právnická", "pravnicka", "p.o.", "p.o"].includes(tLower)) subjectType = "company";
             else if (["szco", "szčo", "živnostník", "zivnostnik", "s.z.č.o.", "s.z.c.o.", "szč.o.", "szc.o."].includes(tLower)) subjectType = "szco";
             else if (["fo", "person", "fyzická osoba", "fyzicka_osoba", "fyzicka osoba", "fyzická", "fyzicka", "f.o.", "f.o", "fyz"].includes(tLower)) subjectType = "person";
+            else if (["ts", "ts.", "t.s.", "technický správca", "technicky spravca", "technický spravca"].includes(tLower)) subjectType = "organization";
+            else if (["vs", "vs.", "v.s.", "verejný správca", "verejny spravca", "verejný spravca"].includes(tLower)) subjectType = "organization";
           }
 
           const firstName = capitalizeName(rowData["meno"] || rowData["first_name"] || null);
@@ -7236,7 +7278,8 @@ export async function registerRoutes(
                 cislo_navrhu: cisloNavrhu,
                 cislo_zmluvy: cisloZmluvy,
                 typ_subjektu: rowData["typ_subjektu"] || rowData["typ"] || rowData["subject_type"] || null,
-                rc_ico: rowData["rc_ico"] || rowData["rodne_cislo"] || rowData["rc"] || rowData["ico"] || rowData["birth_number"] || null,
+                rodne_cislo: rowData["rodne_cislo"] || rowData["rc"] || rowData["birth_number"] || null,
+                ico: rowData["ico"] || rowData["ičo"] || rowData["rc_ico"] || null,
                 meno: rowData["meno"] || rowData["first_name"] || null,
                 priezvisko: rowData["priezvisko"] || rowData["last_name"] || null,
               } as any,
@@ -7251,17 +7294,18 @@ export async function registerRoutes(
           const odporucitel2Uid = normalizeImportUid(rowData["odporucitel2"] || rowData["odporucitel2_uid"] || null);
           const odporucitel2Podiel = rowData["odporucitel2_podiel"] || rowData["odporucitel2_pct"] || rowData["odporucitel2_%"] || null;
 
-          let rc: string | null = null;
-          let ico: string | null = null;
-          if (rcIcoRaw) {
-            const cleaned = rcIcoRaw.replace(/[\/\s-]/g, "");
-            if (subjectType === "company") {
-              ico = rcIcoRaw;
+          let rc: string | null = rcRaw || null;
+          let ico: string | null = icoRaw || null;
+          // Backward compat: if old combined rc_ico column present and new dedicated columns are empty
+          if (!rc && !ico && rcIcoLegacy) {
+            const cleaned = rcIcoLegacy.replace(/[\/\s-]/g, "");
+            if (subjectType === "company" || subjectType === "organization") {
+              ico = rcIcoLegacy;
             } else if (subjectType === "szco") {
-              if (cleaned.length <= 8 && /^\d+$/.test(cleaned)) ico = rcIcoRaw;
-              else rc = rcIcoRaw;
+              if (cleaned.length <= 8 && /^\d+$/.test(cleaned)) ico = rcIcoLegacy;
+              else rc = rcIcoLegacy;
             } else {
-              rc = rcIcoRaw;
+              rc = rcIcoLegacy;
             }
           }
 
@@ -7284,36 +7328,94 @@ export async function registerRoutes(
           }
 
           let resolvedSubjectId: number | null = null;
-          if (rc || ico) {
-            const dupCheck = await storage.checkDuplicateSubject({
-              birthNumber: rc || undefined,
-              ico: ico || undefined,
-            });
-            if (dupCheck) {
-              resolvedSubjectId = dupCheck.id;
-            } else {
-              // Subject not found — create WITHOUT UID. UID is assigned only at central receipt (Folder 2/3).
-              const canCreatePerson = (subjectType === "person" || subjectType === "szco") && firstName && lastName && rc;
-              const canCreateCompany = (subjectType === "company" || subjectType === "organization") && companyName && ico;
-              const canCreateSzco = subjectType === "szco" && firstName && lastName && ico;
-              if (canCreatePerson || canCreateCompany || canCreateSzco) {
+          let resolvedAuthorizedPersonId: number | null = null;
+
+          const isFirmType = subjectType === "szco" || subjectType === "company" || subjectType === "organization";
+
+          if (isFirmType) {
+            // For SZČO/PO/TS/VS: create/find company subject from IČO+companyName,
+            // and create/find authorized person from RC+name; link via linkedFoId
+
+            // 1. Find or create company subject (primary subject for the contract)
+            if (ico) {
+              const dupCompany = await storage.checkDuplicateSubject({ ico });
+              if (dupCompany) {
+                resolvedSubjectId = dupCompany.id;
+              } else if (companyName && !icoValidationError) {
                 try {
-                  const newSubj = await storage.createSubjectNoUID({
-                    type: subjectType === "company" ? "company" : subjectType === "szco" ? "szco" : subjectType === "organization" ? "organization" : "person",
+                  const newCompany = await storage.createSubjectNoUID({
+                    type: subjectType === "szco" ? "szco" : subjectType === "organization" ? "organization" : "company",
+                    companyName: companyName || null,
+                    details: { ico },
+                    registeredByUserId: appUser?.id || null,
+                  });
+                  resolvedSubjectId = newCompany.id;
+                } catch (subjectErr: any) {
+                  console.error(`[IMPORT] Chyba pri vytváraní firmového subjektu pre riadok ${rowNum}:`, subjectErr.message);
+                }
+              }
+            }
+
+            // 2. Find or create authorized person (oprávnená osoba / štatutár)
+            if (rc && !rcValidationError && firstName && lastName) {
+              const dupPerson = await storage.checkDuplicateSubject({ birthNumber: rc });
+              if (dupPerson) {
+                resolvedAuthorizedPersonId = dupPerson.id;
+              } else {
+                try {
+                  const newPerson = await storage.createSubjectNoUID({
+                    type: "person",
                     firstName: firstName || null,
                     lastName: lastName || null,
-                    companyName: companyName || null,
                     birthNumber: rc || null,
                     titleBefore: titleBefore || null,
                     titleAfter: titleAfter || null,
-                    email: email || null,
-                    phone: phone || null,
-                    details: ico ? { ico } : {},
                     registeredByUserId: appUser?.id || null,
                   });
-                  resolvedSubjectId = newSubj.id;
+                  resolvedAuthorizedPersonId = newPerson.id;
                 } catch (subjectErr: any) {
-                  console.error(`[IMPORT] Chyba pri vytváraní subjektu pre riadok ${rowNum}:`, subjectErr.message);
+                  console.error(`[IMPORT] Chyba pri vytváraní oprávnenej osoby pre riadok ${rowNum}:`, subjectErr.message);
+                }
+              }
+            }
+
+            // 3. Link company → authorized person via linkedFoId (only if not already linked)
+            if (resolvedSubjectId && resolvedAuthorizedPersonId) {
+              await db.update(subjects)
+                .set({ linkedFoId: resolvedAuthorizedPersonId })
+                .where(and(eq(subjects.id, resolvedSubjectId), isNull(subjects.linkedFoId)));
+            }
+
+          } else {
+            // FO: standard single-subject logic
+            if (rc || ico) {
+              const dupCheck = await storage.checkDuplicateSubject({
+                birthNumber: rc || undefined,
+                ico: ico || undefined,
+              });
+              if (dupCheck) {
+                resolvedSubjectId = dupCheck.id;
+              } else {
+                const canCreatePerson = firstName && lastName && rc && !rcValidationError;
+                if (canCreatePerson) {
+                  try {
+                    const newSubj = await storage.createSubjectNoUID({
+                      type: "person",
+                      firstName: firstName || null,
+                      lastName: lastName || null,
+                      companyName: null,
+                      birthNumber: rc || null,
+                      titleBefore: titleBefore || null,
+                      titleAfter: titleAfter || null,
+                      email: email || null,
+                      phone: phone || null,
+                      details: {},
+                      registeredByUserId: appUser?.id || null,
+                    });
+                    resolvedSubjectId = newSubj.id;
+                  } catch (subjectErr: any) {
+                    console.error(`[IMPORT] Chyba pri vytváraní subjektu pre riadok ${rowNum}:`, subjectErr.message);
+                  }
                 }
               }
             }
@@ -7332,12 +7434,12 @@ export async function registerRoutes(
           if (!resolvedProductId) missingFields.push("Produkt");
           if (!cisloNavrhu && !cisloZmluvy) missingFields.push("Číslo návrhu alebo číslo zmluvy");
           if (!resolvedSubjectId) {
-            if (subjectType === "person" || subjectType === "szco") {
+            if (subjectType === "person") {
               if (!rc) missingFields.push("Rodné číslo");
               if (!firstName) missingFields.push("Meno");
               if (!lastName) missingFields.push("Priezvisko");
             }
-            if (subjectType === "company" || subjectType === "szco") {
+            if (subjectType === "company" || subjectType === "szco" || subjectType === "organization") {
               if (!ico) missingFields.push("IČO");
               if (!companyName) missingFields.push("Názov firmy");
             }
@@ -7482,7 +7584,8 @@ export async function registerRoutes(
               cislo_navrhu: cisloNavrhu,
               cislo_zmluvy: cisloZmluvy,
               typ_subjektu: typSubjektu,
-              rc_ico: rcIcoRaw,
+              rodne_cislo: rc,
+              ico: ico,
               nazov_firmy: companyName,
               titul_pred: titleBefore,
               meno: firstName,
@@ -11319,18 +11422,19 @@ export async function registerRoutes(
         { header: "E: Číslo návrhu ***", key: "cislo_navrhu", width: 22 },
         { header: "F: Číslo zmluvy ***", key: "cislo_zmluvy", width: 22 },
         { header: "G: Typ subjektu *", key: "typ_subjektu", width: 18 },
-        { header: "H: RČ / IČO **", key: "rc_ico", width: 18 },
-        { header: "I: Názov firmy **", key: "nazov_firmy", width: 24 },
-        { header: "J: Titul pred —", key: "titul_pred", width: 14 },
-        { header: "K: Meno **", key: "meno", width: 18 },
-        { header: "L: Priezvisko **", key: "priezvisko", width: 18 },
-        { header: "M: Titul za —", key: "titul_za", width: 14 },
-        { header: "N: Špecialista UID *", key: "specialista_uid", width: 22 },
-        { header: "O: Špecialista % *", key: "specialista_pct", width: 16 },
-        { header: "P: Odporúčateľ 1 UID —", key: "odporucitel1_uid", width: 24 },
-        { header: "Q: Odporúčateľ 1 % —", key: "odporucitel1_pct", width: 20 },
-        { header: "R: Odporúčateľ 2 UID —", key: "odporucitel2_uid", width: 24 },
-        { header: "S: Odporúčateľ 2 % —", key: "odporucitel2_pct", width: 20 },
+        { header: "H: Rodné číslo **", key: "rodne_cislo", width: 18 },
+        { header: "I: Titul pred —", key: "titul_pred", width: 14 },
+        { header: "J: Meno **", key: "meno", width: 18 },
+        { header: "K: Priezvisko **", key: "priezvisko", width: 18 },
+        { header: "L: Titul za —", key: "titul_za", width: 14 },
+        { header: "M: IČO **", key: "ico", width: 16 },
+        { header: "N: Názov firmy **", key: "nazov_firmy", width: 26 },
+        { header: "O: Špecialista UID *", key: "specialista_uid", width: 22 },
+        { header: "P: Špecialista % *", key: "specialista_pct", width: 16 },
+        { header: "Q: Odporúčateľ 1 UID —", key: "odporucitel1_uid", width: 24 },
+        { header: "R: Odporúčateľ 1 % —", key: "odporucitel1_pct", width: 20 },
+        { header: "S: Odporúčateľ 2 UID —", key: "odporucitel2_uid", width: 24 },
+        { header: "T: Odporúčateľ 2 % —", key: "odporucitel2_pct", width: 20 },
       ];
 
       const headerRow = sheet.getRow(1);
@@ -11345,14 +11449,17 @@ export async function registerRoutes(
         5: "FF92400E", // E: cislo_navrhu *** (at least one of E/F)
         6: "FF92400E", // F: cislo_zmluvy ***
         7: "FF991B1B", // G: typ_subjektu *
-        8: "FFB45309", // H: rc_ico **
-        9: "FFB45309", // I: nazov_firmy **
-        11: "FFB45309", // K: meno **
-        12: "FFB45309", // L: priezvisko **
-        14: "FF991B1B", // N: specialista_uid *
-        15: "FF991B1B", // O: specialista_% *
+        8: "FFB45309", // H: rodne_cislo ** (FO/SZČO)
+        // I (9): titul_pred — optional
+        10: "FFB45309", // J: meno ** (FO/SZČO)
+        11: "FFB45309", // K: priezvisko ** (FO/SZČO)
+        // L (12): titul_za — optional
+        13: "FFB45309", // M: ico ** (SZČO/PO/TS/VS)
+        14: "FFB45309", // N: nazov_firmy ** (SZČO/PO/TS/VS)
+        15: "FF991B1B", // O: specialista_uid *
+        16: "FF991B1B", // P: specialista_% *
       };
-      for (let i = 1; i <= 19; i++) {
+      for (let i = 1; i <= 20; i++) {
         const cell = headerRow.getCell(i);
         if (colColors[i]) {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: colColors[i] } };
@@ -11362,36 +11469,28 @@ export async function registerRoutes(
 
       const exampleRows = [
         {
-          partner: "Allianz", produkt: "PZP Auto", datum_uzatvorenia: "10.03.2026 14:30:00", cislo_navrhu: "N-2024-001", cislo_zmluvy: "",
-          typ_subjektu: "person", rc_ico: "850101/1234", nazov_firmy: "", titul_pred: "Ing.",
-          meno: "Ján", priezvisko: "Novák", titul_za: "",
+          partner: "Allianz", produkt: "PZP Auto", typ_zmluvy: "Nova", datum_uzatvorenia: "10.03.2026 14:30:00", cislo_navrhu: "N-2024-001", cislo_zmluvy: "",
+          typ_subjektu: "person", rodne_cislo: "850101/1234", titul_pred: "Ing.", meno: "Ján", priezvisko: "Novák", titul_za: "", ico: "", nazov_firmy: "",
           specialista_uid: "421000000001", specialista_pct: "100",
           odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "",
-          typ_zmluvy: "Nova",
         },
         {
-          partner: "Generali", produkt: "Životné poistenie", datum_uzatvorenia: "05.02.2026", cislo_navrhu: "N-2024-002", cislo_zmluvy: "",
-          typ_subjektu: "szco", rc_ico: "900515/4567", nazov_firmy: "Peter Horváth - stolárstvo", titul_pred: "",
-          meno: "Peter", priezvisko: "Horváth", titul_za: "",
+          partner: "Generali", produkt: "Životné poistenie", typ_zmluvy: "Prestupova", datum_uzatvorenia: "05.02.2026", cislo_navrhu: "N-2024-002", cislo_zmluvy: "",
+          typ_subjektu: "szco", rodne_cislo: "900515/4567", titul_pred: "", meno: "Peter", priezvisko: "Horváth", titul_za: "", ico: "12345678", nazov_firmy: "Peter Horváth - stolárstvo",
           specialista_uid: "421000000002", specialista_pct: "70",
           odporucitel1_uid: "421000000003", odporucitel1_pct: "30", odporucitel2_uid: "", odporucitel2_pct: "",
-          typ_zmluvy: "Prestupova",
         },
         {
-          partner: "ČSOB", produkt: "Podnikateľské poistenie", datum_uzatvorenia: "15.01.2026", cislo_navrhu: "", cislo_zmluvy: "Z-2024-050",
-          typ_subjektu: "company", rc_ico: "12345678", nazov_firmy: "ABC Trading s.r.o.", titul_pred: "",
-          meno: "", priezvisko: "", titul_za: "",
+          partner: "ČSOB", produkt: "Podnikateľské poistenie", typ_zmluvy: "Zmenova", datum_uzatvorenia: "15.01.2026", cislo_navrhu: "", cislo_zmluvy: "Z-2024-050",
+          typ_subjektu: "company", rodne_cislo: "900101/0012", titul_pred: "Ing.", meno: "Mária", priezvisko: "Kováčová", titul_za: "PhD.", ico: "12345678", nazov_firmy: "ABC Trading s.r.o.",
           specialista_uid: "421000000001", specialista_pct: "80",
           odporucitel1_uid: "421000000004", odporucitel1_pct: "20", odporucitel2_uid: "", odporucitel2_pct: "",
-          typ_zmluvy: "Zmenova",
         },
         {
-          partner: "Uniqa", produkt: "Poistenie zodpovednosti", datum_uzatvorenia: "28.12.2025", cislo_navrhu: "N-2024-003", cislo_zmluvy: "",
-          typ_subjektu: "organization", rc_ico: "31234567", nazov_firmy: "Nadácia Dobré srdce", titul_pred: "",
-          meno: "", priezvisko: "", titul_za: "",
+          partner: "Uniqa", produkt: "Poistenie zodpovednosti", typ_zmluvy: "Nova", datum_uzatvorenia: "28.12.2025", cislo_navrhu: "N-2024-003", cislo_zmluvy: "",
+          typ_subjektu: "organization", rodne_cislo: "", titul_pred: "", meno: "", priezvisko: "", titul_za: "", ico: "31234567", nazov_firmy: "Nadácia Dobré srdce",
           specialista_uid: "421000000002", specialista_pct: "100",
           odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "",
-          typ_zmluvy: "Nova",
         },
       ];
 
@@ -11401,7 +11500,7 @@ export async function registerRoutes(
       for (const rowData of exampleRows) {
         const exRow = sheet.addRow(rowData);
         exRow.font = yellowFont;
-        for (let c = 1; c <= 19; c++) {
+        for (let c = 1; c <= 20; c++) {
           exRow.getCell(c).fill = yellowFill;
         }
       }
@@ -11425,7 +11524,7 @@ export async function registerRoutes(
 
       for (let r = 1; r <= 5; r++) {
         const row = sheet.getRow(r);
-        for (let c = 1; c <= 19; c++) {
+        for (let c = 1; c <= 20; c++) {
           row.getCell(c).protection = { locked: true };
         }
       }
@@ -11445,7 +11544,7 @@ export async function registerRoutes(
 
       for (let r = 6; r <= 1100; r++) {
         const row = sheet.getRow(r);
-        for (let c = 1; c <= 19; c++) {
+        for (let c = 1; c <= 20; c++) {
           row.getCell(c).protection = { locked: false };
         }
         row.getCell(3).dataValidation = {
