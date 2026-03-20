@@ -7261,9 +7261,9 @@ export default function Contracts() {
                     )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-2 items-end">
                     <div className="space-y-1">
-                      <label className="text-xs font-medium">Titul pred menom</label>
+                      <label className="text-xs font-medium flex items-center min-h-[1.25rem]">Titul pred menom</label>
                       <TitleCombobox
                         ref={refTitleBeforeInput}
                         value={preSelectTitleBefore}
@@ -7276,7 +7276,7 @@ export default function Contracts() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-medium flex items-center gap-1">Meno {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && <span className="text-red-400">*</span>} {isFieldMissing("first-name") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
+                      <label className="text-xs font-medium flex items-center gap-1 min-h-[1.25rem]">Meno {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && <span className="text-red-400">*</span>} {isFieldMissing("first-name") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                       <Input
                         ref={refFirstNameInput}
                         value={preSelectFirstName}
@@ -7289,7 +7289,7 @@ export default function Contracts() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-medium flex items-center gap-1">Priezvisko {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && <span className="text-red-400">*</span>} {isFieldMissing("last-name") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
+                      <label className="text-xs font-medium flex items-center gap-1 min-h-[1.25rem]">Priezvisko {(preSelectSubjectType === "person" || preSelectSubjectType === "szco") && <span className="text-red-400">*</span>} {isFieldMissing("last-name") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                       <Input
                         ref={refLastNameInput}
                         value={preSelectLastName}
@@ -7302,7 +7302,7 @@ export default function Contracts() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-medium">Titul za menom</label>
+                      <label className="text-xs font-medium flex items-center min-h-[1.25rem]">Titul za menom</label>
                       <TitleCombobox
                         ref={refTitleAfterInput}
                         value={preSelectTitleAfter}
