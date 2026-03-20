@@ -209,9 +209,9 @@ function PartnerHexAvatar({ logo, name, onClick }: { logo?: string; name: string
 
 function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
+  const [pressed, setPressed] = useState(false);
 
   // Pointy-top hexagon, center (80,90), R=68, corner-radius≈8
-  // Vertices: top(80,22) TR(139,56) BR(139,124) bot(80,158) BL(21,124) TL(21,56)
   const hexPath =
     "M 73,26 Q 80,22 87,26 " +
     "L 132,52 Q 139,56 139,64 " +
@@ -220,80 +220,107 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
     "L 28,128 Q 21,124 21,116 " +
     "L 21,64 Q 21,56 28,52 Z";
 
-  const iconColor = hovered ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.72)";
+  const isActive = hovered || pressed;
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      data-testid="button-add-partner"
-      title="Pridať nového partnera"
-      style={{
-        position: "relative",
-        width: 140,
-        height: 160,
-        background: "none",
-        border: "none",
-        padding: 0,
-        cursor: "pointer",
-        outline: "none",
-        userSelect: "none",
-        transition: "transform 0.2s ease, filter 0.2s ease",
-        transform: hovered ? "scale(1.05)" : "scale(1)",
-        filter: hovered
-          ? "drop-shadow(0 0 14px rgba(56,189,248,0.55))"
-          : "none",
-      }}
-    >
-      {/* Hexagón pozadie */}
-      <svg
-        width="140"
-        height="160"
-        viewBox="0 0 160 180"
-        fill="none"
-        style={{ position: "absolute", top: 0, left: 0 }}
+    <div className="flex items-center justify-center w-full py-4">
+      <button
+        type="button"
+        onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => { setHovered(false); setPressed(false); }}
+        onMouseDown={() => setPressed(true)}
+        onMouseUp={() => setPressed(false)}
+        data-testid="button-add-partner"
+        title="Pridať nového partnera"
+        style={{
+          position: "relative",
+          width: 140,
+          height: 162,
+          background: "none",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          outline: "none",
+          userSelect: "none",
+          transition: "transform 0.15s ease, filter 0.15s ease",
+          transform: isActive ? "scale(1.05)" : "scale(1)",
+          filter: isActive
+            ? "drop-shadow(0 0 14px rgba(245,158,11,0.60))"
+            : "drop-shadow(0 0 4px rgba(245,158,11,0.15))",
+        }}
       >
-        <path
-          d={hexPath}
-          fill={hovered ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)"}
-          stroke={hovered ? "rgba(56,189,248,0.85)" : "rgba(255,255,255,0.18)"}
-          strokeWidth="2"
-          style={{ transition: "fill 0.2s ease, stroke 0.2s ease" }}
-        />
-      </svg>
+        {/* Hexagón SVG s gradientovým pozadím ako v spoločnosti */}
+        <svg
+          width="140"
+          height="162"
+          viewBox="0 0 160 180"
+          fill="none"
+          style={{ position: "absolute", top: 0, left: 0 }}
+        >
+          <defs>
+            <linearGradient id="hexGradPartner" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#0a1f3d" />
+              <stop offset="100%" stopColor="#1a3f80" />
+            </linearGradient>
+          </defs>
+          <path
+            d={hexPath}
+            fill="url(#hexGradPartner)"
+            stroke={isActive ? "rgba(245,158,11,0.55)" : "rgba(245,158,11,0.22)"}
+            strokeWidth="2"
+            style={{ transition: "stroke 0.15s ease" }}
+          />
+        </svg>
 
-      {/* Handshake + Plus: spoločne vycentrované (vertikálne aj horizontálne) */}
-      <div style={{
-        position: "absolute",
-        top: 0, left: 0, right: 0, bottom: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}>
-        <div style={{ position: "relative", display: "inline-flex" }}>
-          <Handshake
-            size={44}
-            strokeWidth={1.5}
-            color={iconColor}
-            style={{ transition: "color 0.2s ease", display: "block" }}
-          />
-          {/* Plus: vpravo hore tesne pri ikone */}
-          <Plus
-            size={13}
-            strokeWidth={2.5}
-            color={hovered ? "rgba(56,189,248,1)" : "rgba(255,255,255,0.80)"}
-            style={{
-              position: "absolute",
-              top: -5,
-              right: -8,
-              transition: "color 0.2s ease",
-            }}
-          />
+        {/* Handshake + Plus: vycentrované */}
+        <div style={{
+          position: "absolute",
+          top: 0, left: 0, right: 0, bottom: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+        }}>
+          <div style={{ position: "relative", display: "inline-flex" }}>
+            <Handshake
+              size={42}
+              strokeWidth={1.5}
+              style={{
+                color: "#FFBF00",
+                filter: `drop-shadow(0 0 6px rgba(255,191,0,${isActive ? 0.85 : 0.50}))`,
+                transition: "filter 0.15s ease",
+                display: "block",
+              }}
+            />
+            <Plus
+              size={13}
+              strokeWidth={2.5}
+              style={{
+                position: "absolute",
+                top: -5,
+                right: -8,
+                color: "#FFBF00",
+                filter: "drop-shadow(0 0 4px #FFBF00)",
+              }}
+            />
+          </div>
+          <span style={{
+            fontFamily: "sans-serif",
+            fontSize: 10,
+            fontWeight: 800,
+            color: isActive ? "#b8d0f0" : "#7a9fc0",
+            letterSpacing: "0.04em",
+            textAlign: "center",
+            lineHeight: 1.2,
+            transition: "color 0.15s ease",
+          }}>
+            Pridať partnera
+          </span>
         </div>
-      </div>
-    </button>
+      </button>
+    </div>
   );
 }
 
@@ -2448,24 +2475,20 @@ export default function Partners() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-3 items-center gap-4">
-        {/* Vľavo: titul */}
-        <div>
-          <h2 className="text-2xl font-bold" data-testid="text-partners-title">Zoznam partnerov</h2>
-          <p className="text-sm text-muted-foreground mt-1">Správa externých obchodných partnerov.</p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-2xl font-bold whitespace-nowrap" data-testid="text-partners-title">Zoznam partnerov</h2>
+          <p className="text-sm text-muted-foreground mt-1 whitespace-nowrap">Správa externých obchodných partnerov.</p>
         </div>
-        {/* Stred: hexagón */}
-        <div className="flex justify-center">
-          {canCreateRecords(appUser) && (
-            <AddPartnerHexButton onClick={openCreate} />
-          )}
-        </div>
-        {/* Vpravo: filtre */}
-        <div className="flex items-center justify-end gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
           <SmartFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
         </div>
       </div>
+
+      {canCreateRecords(appUser) && (
+        <AddPartnerHexButton onClick={openCreate} />
+      )}
 
       <Card>
         <CardContent className="p-0">
