@@ -135,7 +135,7 @@ export function ContextSelectorOverlay({
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => onSelectState(s.id)}
+                  onClick={() => { if (s.id !== activeStateId) onSelectState(s.id); }}
                   className="flex flex-col items-center gap-3 group cursor-pointer"
                   data-testid={`context-state-${s.id}`}
                 >
