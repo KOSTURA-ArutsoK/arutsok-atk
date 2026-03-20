@@ -153,6 +153,45 @@
   }
 }
 
+/* ── Holding chip: interactive pressed/depth effect ─────────────────────── */
+.holding-chip {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+  transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+/* Light mode hover: inset shadow → ilúzia zatlačenia do hĺbky */
+.holding-chip:hover {
+  transform: scale(0.96);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.38), inset 0 1px 3px rgba(0,0,0,0.22);
+}
+.holding-chip:active {
+  transform: scale(0.92);
+  box-shadow: inset 0 4px 14px rgba(0,0,0,0.52);
+}
+/* Dark mode hover: modrý glow, zosilnený o ~20%, zmenšený rozptyl */
+.dark .holding-chip:hover {
+  box-shadow:
+    0 0 0 1px rgba(59,130,246,0.38),
+    0 0 7px 1px rgba(59,130,246,0.44),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.dark .holding-chip:active {
+  transform: scale(0.92);
+  box-shadow:
+    inset 0 3px 10px rgba(0,0,0,0.58),
+    0 0 4px rgba(59,130,246,0.22);
+}
+
+/* Emoji division tlačidlo: iba scale efekt (bez box-shadow základu) */
+.holding-chip-emoji {
+  transition: transform 0.15s ease-in-out;
+}
+.holding-chip-emoji:hover {
+  transform: scale(0.96);
+}
+.holding-chip-emoji:active {
+  transform: scale(0.92);
+}
+
 @layer utilities {
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;

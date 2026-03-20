@@ -489,11 +489,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <button
                         type="button"
                         onClick={canSwitch ? openStateSelector : undefined}
-                        className={`flex items-center justify-center gap-1.5 px-2.5 h-7 rounded-full transition-all ${canSwitch ? "hover:brightness-110 cursor-pointer" : "cursor-default"}`}
+                        className={`flex items-center justify-center gap-1.5 px-2.5 h-7 rounded-full ${canSwitch ? "holding-chip cursor-pointer" : "cursor-default"}`}
                         style={{
                           background: "hsl(222 15% 28%)",
                           border: "1px solid hsl(222 12% 36%)",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)"
+                          ...(canSwitch ? {} : { boxShadow: "0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" })
                         }}
                         data-testid="button-state-switcher"
                       >
@@ -515,11 +515,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <button
                         type="button"
                         onClick={canSwitch ? openCompanySelector : undefined}
-                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full transition-all ${canSwitch ? "hover:brightness-110 cursor-pointer" : "cursor-default"}`}
+                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full ${canSwitch ? "holding-chip cursor-pointer" : "cursor-default"}`}
                         style={{
                           background: "hsl(222 15% 28%)",
                           border: "1px solid hsl(222 12% 36%)",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)"
+                          ...(canSwitch ? {} : { boxShadow: "0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)" })
                         }}
                         data-testid="button-company-switcher"
                       >
@@ -567,7 +567,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                   <button
                                     type="button"
                                     onClick={() => handleContextSelectDivision(divId)}
-                                    className={`w-6 h-6 rounded-full flex items-center justify-center text-sm transition-all ${
+                                    className={`w-6 h-6 rounded-full flex items-center justify-center text-sm holding-chip-emoji ${
                                       isActiveDivision
                                         ? "ring-2 ring-zinc-400 bg-zinc-400/20"
                                         : "hover:bg-zinc-400/15"
@@ -593,11 +593,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             <button
                               type="button"
                               onClick={openDivisionSelector}
-                              className="flex items-center gap-1.5 px-2.5 h-7 rounded-full transition-all hover:brightness-110 cursor-pointer"
+                              className="flex items-center gap-1.5 px-2.5 h-7 rounded-full holding-chip cursor-pointer"
                               style={{
                                 background: "hsl(222 15% 28%)",
-                                border: "1px solid hsl(222 12% 36%)",
-                                boxShadow: "0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)"
+                                border: "1px solid hsl(222 12% 36%)"
                               }}
                               data-testid="button-division-switcher"
                             >
