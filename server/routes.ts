@@ -6767,6 +6767,17 @@ export async function registerRoutes(
             return res.status(403).json({ message: "Subjekt na červenom zozname — zmluva vyžaduje schválenie administrátorom" });
           }
         }
+
+        if (input.productId && subjectForCheck?.type) {
+          const productForCheck = await storage.getProduct(input.productId);
+          const allowed: string[] = (productForCheck as any)?.allowedSubjectTypes || [];
+          if (allowed.length > 0 && !allowed.includes(subjectForCheck.type)) {
+            const typeLabel = (t: string) => t === "person" ? "FO" : t === "szco" ? "SZČO" : t === "company" ? "PO" : t === "organization" ? "TS" : t === "state" ? "VS" : t;
+            const allowedLabels = allowed.map(typeLabel).join(", ");
+            const subjectLabel = typeLabel(subjectForCheck.type);
+            return res.status(400).json({ message: `Produkt „${productForCheck?.name}" nie je určený pre typ subjektu ${subjectLabel}. Povolené typy: ${allowedLabels}.` });
+          }
+        }
       }
       const createData = { ...input, uploadedByUserId: appUser?.id || null } as any;
       if (appUser?.activeStateId) {
@@ -7473,6 +7484,14 @@ export async function registerRoutes(
           }
           if (!resolvedContractType) {
             missingFields.push("Chýba typ zmluvy");
+          }
+          if (resolvedProductId && subjectType) {
+            const prodCheck = allProducts.find(p => p.id === resolvedProductId);
+            const allowedTypes: string[] = (prodCheck as any)?.allowedSubjectTypes || [];
+            if (allowedTypes.length > 0 && !allowedTypes.includes(subjectType)) {
+              const typeLabel = (t: string) => t === "person" ? "FO" : t === "szco" ? "SZČO" : t === "company" ? "PO" : t === "organization" ? "TS" : t === "state" ? "VS" : t;
+              missingFields.push(`Produkt „${prodCheck?.name}" nie je určený pre typ subjektu ${typeLabel(subjectType)} — povolené: ${allowedTypes.map(typeLabel).join(", ")}`);
+            }
           }
           const isIncomplete = missingFields.length > 0;
 

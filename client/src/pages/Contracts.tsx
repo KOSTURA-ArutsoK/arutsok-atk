@@ -5404,6 +5404,11 @@ export default function Contracts() {
     return false;
   })();
 
+  const preSelectSelectedProduct = products?.find(p => p.id.toString() === preSelectProductId);
+  const preSelectAllowedSubjectTypes: string[] = (preSelectSelectedProduct as any)?.allowedSubjectTypes || [];
+  const preSelectSubjectTypeBlocked = preSelectAllowedSubjectTypes.length > 0 && !preSelectAllowedSubjectTypes.includes(preSelectSubjectType);
+  const preSelectSubjectTypeLabel = (t: string) => t === "person" ? "FO" : t === "szco" ? "SZČO" : t === "company" ? "PO" : t === "organization" ? "TS" : t === "state" ? "VS" : t;
+
   const handlePreSelectConfirm = async () => {
     if (!preSelectSubjectId && !preSelectIsValid) {
       toast({ title: "Chyba", description: "Vyplnte povinne polia", variant: "destructive" });
@@ -6482,6 +6487,21 @@ export default function Contracts() {
                     </div>
                   );
                 })()}
+              </div>
+            )}
+
+            {/* Varovanie — nekompatibilný typ subjektu s produktom */}
+            {preSelectSubjectTypeBlocked && (
+              <div className="flex items-start gap-2 px-3 py-2.5 rounded border border-red-500/50 bg-red-500/10" data-testid="alert-subject-type-blocked">
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="text-xs font-semibold text-red-400">Nekompatibilný typ subjektu</p>
+                  <p className="text-xs text-red-300">
+                    Produkt <strong>{preSelectSelectedProduct?.name}</strong> je povolený len pre:{" "}
+                    <strong>{preSelectAllowedSubjectTypes.map(preSelectSubjectTypeLabel).join(", ")}</strong>.
+                    Zmluvu nie je možné vytvoriť pre typ <strong>{preSelectSubjectTypeLabel(preSelectSubjectType)}</strong>.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -7576,7 +7596,7 @@ export default function Contracts() {
               <Button ref={refStep2Back} variant="outline" tabIndex={-1} onClick={handlePreSelectStep2Back} onKeyDown={e => { if (e.key === "Tab") { e.preventDefault(); refStep2Confirm.current?.focus(); } }} data-testid="button-preselect-back">
                 Spat
               </Button>
-              <Button ref={refStep2Confirm} tabIndex={0} onClick={() => { if (preSelectIsValid) setPreSelectStep(3); }} disabled={!preSelectIsValid} onKeyDown={e => { if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); refStep2Back.current?.focus(); } }} data-testid="button-preselect-step2-next">
+              <Button ref={refStep2Confirm} tabIndex={0} onClick={() => { if (preSelectIsValid && !preSelectSubjectTypeBlocked) setPreSelectStep(3); }} disabled={!preSelectIsValid || preSelectSubjectTypeBlocked} onKeyDown={e => { if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); refStep2Back.current?.focus(); } }} data-testid="button-preselect-step2-next">
                 Dalej
               </Button>
             </div>

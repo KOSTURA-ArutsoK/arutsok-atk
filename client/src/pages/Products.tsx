@@ -122,6 +122,7 @@ function ProductFormDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [allowedSpecialists, setAllowedSpecialists] = useState<string[]>([]);
+  const [allowedSubjectTypes, setAllowedSubjectTypes] = useState<string[]>([]);
   const [notesHtml, setNotesHtml] = useState("");
   const [paramValues, setParamValues] = useState<Record<number, string>>({});
   const [activeTab, setActiveTab] = useState<"info" | "dokumentacia">("info");
@@ -186,6 +187,7 @@ function ProductFormDialog({
         setName(editingProduct.name || "");
         setDescription(editingProduct.description || "");
         setAllowedSpecialists(editingProduct.allowedSpecialists || []);
+        setAllowedSubjectTypes((editingProduct as any).allowedSubjectTypes || []);
         setNotesHtml(editingProduct.notes || "");
         setRequiredDocuments((editingProduct as any).requiredDocuments || []);
       } else {
@@ -194,6 +196,7 @@ function ProductFormDialog({
         setName("");
         setDescription("");
         setAllowedSpecialists([]);
+        setAllowedSubjectTypes([]);
         setNotesHtml("");
         setRequiredDocuments([]);
       }
@@ -218,6 +221,7 @@ function ProductFormDialog({
       name,
       description,
       allowedSpecialists,
+      allowedSubjectTypes,
       notes: notesHtml,
       requiredDocuments,
       processingTimeSec,
@@ -317,6 +321,49 @@ function ProductFormDialog({
                   </label>
                 ))}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Pre koho je produkt určený</label>
+                <span className="text-xs text-muted-foreground">(ak nevyberiete, produkt je povolený pre všetky typy)</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { val: "person", label: "FO", desc: "Fyzická osoba" },
+                  { val: "szco", label: "SZČO", desc: "Živnostník" },
+                  { val: "company", label: "PO", desc: "Právnická osoba" },
+                  { val: "organization", label: "TS", desc: "Tretí sektor (nadácia)" },
+                  { val: "state", label: "VS", desc: "Verejný sektor" },
+                ] as const).map(opt => {
+                  const active = allowedSubjectTypes.includes(opt.val);
+                  return (
+                    <button
+                      key={opt.val}
+                      type="button"
+                      onClick={() => {
+                        if (active) {
+                          setAllowedSubjectTypes(prev => prev.filter(t => t !== opt.val));
+                        } else {
+                          setAllowedSubjectTypes(prev => [...prev, opt.val]);
+                        }
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-medium transition-colors ${active ? "bg-primary/15 border-primary text-primary" : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"}`}
+                      data-testid={`toggle-subject-type-allowed-${opt.val}`}
+                    >
+                      {active && <span className="text-primary">✓</span>}
+                      {opt.label}
+                      <span className={`text-[10px] ${active ? "text-primary/70" : "text-muted-foreground"}`}>— {opt.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {allowedSubjectTypes.length > 0 && (
+                <p className="text-xs text-amber-400 flex items-center gap-1">
+                  <span>⚠</span>
+                  Produkt bude dostupný len pre: {allowedSubjectTypes.map(t => t === "person" ? "FO" : t === "szco" ? "SZČO" : t === "company" ? "PO" : t === "organization" ? "TS" : "VS").join(", ")}. Zmluvy s iným typom subjektu budú odmietnuté.
+                </p>
+              )}
             </div>
 
             {assignedParams.length > 0 && (
