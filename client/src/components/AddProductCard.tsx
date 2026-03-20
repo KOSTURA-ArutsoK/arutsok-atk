@@ -87,6 +87,8 @@ export function AddProductCard({ onClick }: AddProductCardProps) {
             <span style={{
               fontSize: 38,
               lineHeight: 1,
+              position: "relative",
+              top: -6,
               filter: `sepia(1) saturate(8) hue-rotate(8deg) brightness(1.2) drop-shadow(0 0 8px rgba(255,191,0,${isActive ? 0.95 : 0.55}))`,
               transition: "filter 0.15s ease",
               display: "block",
@@ -97,7 +99,7 @@ export function AddProductCard({ onClick }: AddProductCardProps) {
               style={{
                 position: "absolute",
                 top: -6,
-                right: -2,
+                right: -9,
                 color: "#FFBF00",
                 filter: "drop-shadow(0 0 5px #FFBF00)",
               }}
