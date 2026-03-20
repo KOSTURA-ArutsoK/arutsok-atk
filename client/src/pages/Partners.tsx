@@ -2530,14 +2530,7 @@ export default function Partners() {
                     {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs text-muted-foreground align-middle">{formatUid(partner.uid) || "-"}</TableCell>}
                     {columnVisibility.isVisible("name") && (
                       <TableCell className="font-medium align-middle">
-                        <div className="flex items-center gap-2.5">
-                          <PartnerHexAvatar
-                            logo={primaryLogo?.url}
-                            name={partner.name}
-                            onClick={(e) => { e.stopPropagation(); openPartner(partner); }}
-                          />
-                          <span>{partner.name}</span>
-                        </div>
+                        <span>{partner.name}</span>
                       </TableCell>
                     )}
                     {columnVisibility.isVisible("code") && <TableCell className="align-middle">{partner.code ? <Badge variant="secondary" className="font-mono">{partner.code}</Badge> : "-"}</TableCell>}
