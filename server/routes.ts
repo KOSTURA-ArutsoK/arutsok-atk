@@ -47,7 +47,18 @@ async function getOrCreateCompanySubject(companyId: number): Promise<{ id: numbe
     .limit(1);
   if (!mc) return null;
 
+  // Use the company's UID only if it's not already taken by another subject
+  let subjectUid: string | null = null;
+  if (mc.uid) {
+    const [uidTaken] = await db.select({ id: subjects.id })
+      .from(subjects)
+      .where(eq(subjects.uid, mc.uid))
+      .limit(1);
+    if (!uidTaken) subjectUid = mc.uid;
+  }
+
   const [created] = await db.insert(subjects).values({
+    uid: subjectUid,
     type: 'mycompany',
     companyName: mc.name,
     myCompanyId: companyId,
@@ -602,6 +613,17 @@ export async function registerRoutes(
           // Get or create the dedicated company subject (type='mycompany')
           const companyNode = await getOrCreateCompanySubject(mc.id);
           if (!companyNode || companyNode.id === rootSubj.id) continue;
+
+          // Backfill UID on company node if missing
+          const [companyNodeFull] = await db.select({ id: subjects.id, uid: subjects.uid })
+            .from(subjects).where(eq(subjects.id, companyNode.id)).limit(1);
+          if (companyNodeFull && !companyNodeFull.uid && mc.uid) {
+            const [uidTaken] = await db.select({ id: subjects.id }).from(subjects)
+              .where(eq(subjects.uid, mc.uid)).limit(1);
+            if (!uidTaken) {
+              await db.update(subjects).set({ uid: mc.uid }).where(eq(subjects.id, companyNode.id));
+            }
+          }
 
           // Ensure company node → root
           const [rootLink] = await db.select({ id: networkLinks.id }).from(networkLinks)
