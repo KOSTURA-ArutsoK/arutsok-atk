@@ -7297,13 +7297,10 @@ export async function registerRoutes(
           let rc: string | null = rcRaw || null;
           let ico: string | null = icoRaw || null;
           // Backward compat: if old combined rc_ico column present and new dedicated columns are empty
+          // Type-based mapping: FO → rc, all firm types (szco/company/organization) → ico
           if (!rc && !ico && rcIcoLegacy) {
-            const cleaned = rcIcoLegacy.replace(/[\/\s-]/g, "");
-            if (subjectType === "company" || subjectType === "organization") {
+            if (subjectType === "company" || subjectType === "organization" || subjectType === "szco") {
               ico = rcIcoLegacy;
-            } else if (subjectType === "szco") {
-              if (cleaned.length <= 8 && /^\d+$/.test(cleaned)) ico = rcIcoLegacy;
-              else rc = rcIcoLegacy;
             } else {
               rc = rcIcoLegacy;
             }
@@ -7443,6 +7440,12 @@ export async function registerRoutes(
               if (!ico) missingFields.push("IČO");
               if (!companyName) missingFields.push("Názov firmy");
             }
+          }
+          // For firm types, authorized person (štatutár/oprávnená osoba) is required
+          if (isFirmType && !resolvedAuthorizedPersonId) {
+            if (!rc) missingFields.push("RČ oprávnenej osoby");
+            if (!firstName) missingFields.push("Meno oprávnenej osoby");
+            if (!lastName) missingFields.push("Priezvisko oprávnenej osoby");
           }
           if (rcValidationError) {
             missingFields.push(`Neplatné RČ: ${rcValidationError}`);
@@ -11488,7 +11491,7 @@ export async function registerRoutes(
         },
         {
           partner: "Uniqa", produkt: "Poistenie zodpovednosti", typ_zmluvy: "Nova", datum_uzatvorenia: "28.12.2025", cislo_navrhu: "N-2024-003", cislo_zmluvy: "",
-          typ_subjektu: "organization", rodne_cislo: "", titul_pred: "", meno: "", priezvisko: "", titul_za: "", ico: "31234567", nazov_firmy: "Nadácia Dobré srdce",
+          typ_subjektu: "organization", rodne_cislo: "780310/7654", titul_pred: "Mgr.", meno: "Jana", priezvisko: "Svobodová", titul_za: "", ico: "31234567", nazov_firmy: "Nadácia Dobré srdce",
           specialista_uid: "421000000002", specialista_pct: "100",
           odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "",
         },

@@ -4876,18 +4876,19 @@ export default function Contracts() {
                       <TableHead className="text-xs w-8 sticky left-8 bg-card z-20">!</TableHead>
                       <TableHead className="text-xs whitespace-nowrap">A: Partner</TableHead>
                       <TableHead className="text-xs whitespace-nowrap">B: Produkt</TableHead>
-                      <TableHead className="text-xs whitespace-nowrap">C: Č. návrhu</TableHead>
-                      <TableHead className="text-xs whitespace-nowrap">D: Č. zmluvy</TableHead>
-                      <TableHead className="text-xs whitespace-nowrap">E: Typ subjektu</TableHead>
-                      <TableHead className="text-xs whitespace-nowrap">F: RČ / IČO</TableHead>
-                      <TableHead className="text-xs whitespace-nowrap">G: Názov firmy</TableHead>
-                      <TableHead className="text-xs whitespace-nowrap">H: Klient</TableHead>
-                      <TableHead className="text-xs whitespace-nowrap">L: Špecialist UID</TableHead>
-                      <TableHead className="text-xs whitespace-nowrap">M: Špecialist %</TableHead>
-                      <TableHead className="text-xs whitespace-nowrap">N: Odporúčateľ 1 UID</TableHead>
-                      <TableHead className="text-xs whitespace-nowrap">O: Odporúčateľ 1 %</TableHead>
-                      <TableHead className="text-xs whitespace-nowrap">P: Odporúčateľ 2 UID</TableHead>
-                      <TableHead className="text-xs whitespace-nowrap">Q: Odporúčateľ 2 %</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">E: Č. návrhu</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">F: Č. zmluvy</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">G: Typ subjektu</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">H: Rodné číslo</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">M: IČO</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">N: Názov firmy</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">J–K: Klient</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">O: Špecialist UID</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">P: Špecialist %</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">Q: Odporúčateľ 1 UID</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">R: Odporúčateľ 1 %</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">S: Odporúčateľ 2 UID</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">T: Odporúčateľ 2 %</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -4926,12 +4927,13 @@ export default function Contracts() {
                           <TableCell className="text-xs">{rd.produkt || <span className="text-muted-foreground/30">—</span>}</TableCell>
                           <TableCell className="text-xs font-mono">{rd.cislo_navrhu || <span className="text-muted-foreground/30">—</span>}</TableCell>
                           <TableCell className="text-xs font-mono">{rd.cislo_zmluvy || <span className="text-muted-foreground/30">—</span>}</TableCell>
-                          <TableCell className="text-xs">{rd.typ_subjektu || <span className="text-muted-foreground/30">—</span>}</TableCell>
-                          <TableCell className="text-xs font-mono">{rd.rc_ico || <span className="text-muted-foreground/30">—</span>}</TableCell>
-                          <TableCell className="text-xs whitespace-nowrap" title={rd.nazov_firmy || ""}>{rd.nazov_firmy || <span className="text-muted-foreground/30">—</span>}</TableCell>
-                          <TableCell className="text-xs whitespace-nowrap" title={[rd.titul_pred, rd.meno, rd.priezvisko, rd.titul_za ? `, ${rd.titul_za}` : ""].filter(Boolean).join(" ") || "—"}>
-                            {(rd.meno || rd.priezvisko) ? (
-                              <span>{[rd.titul_pred, rd.meno, rd.priezvisko].filter(Boolean).join(" ")}{rd.titul_za ? <span className="text-muted-foreground">, {rd.titul_za}</span> : null}</span>
+                          <TableCell className="text-xs">{rd.typ_subjektu || rd.subjectType || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs font-mono">{rd.rodne_cislo || rd.birthNumber || rd.rc_ico || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs font-mono">{rd.ico || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs whitespace-nowrap" title={rd.nazov_firmy || rd.companyName || ""}>{rd.nazov_firmy || rd.companyName || <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs whitespace-nowrap" title={[rd.titul_pred, rd.meno || rd.firstName, rd.priezvisko || rd.lastName, rd.titul_za ? `, ${rd.titul_za}` : ""].filter(Boolean).join(" ") || "—"}>
+                            {(rd.meno || rd.firstName || rd.priezvisko || rd.lastName) ? (
+                              <span>{[rd.titul_pred, rd.meno || rd.firstName, rd.priezvisko || rd.lastName].filter(Boolean).join(" ")}{rd.titul_za ? <span className="text-muted-foreground">, {rd.titul_za}</span> : null}</span>
                             ) : <span className="text-muted-foreground/30">—</span>}
                           </TableCell>
                           <TableCell className="text-xs font-mono text-muted-foreground whitespace-nowrap">{rd.specialista ? formatUid(rd.specialista) : <span className="text-muted-foreground/30">—</span>}</TableCell>
