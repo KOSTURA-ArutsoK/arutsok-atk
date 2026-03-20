@@ -724,6 +724,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         companyDivisions={companyDivisions}
         currentStateId={pendingStateId}
         currentCompanyId={pendingCompanyId}
+        activeStateId={appUser?.activeStateId ?? null}
         onSelectState={handleContextSelectState}
         onSelectCompany={handleContextSelectCompany}
         onSelectDivision={handleContextSelectDivision}
