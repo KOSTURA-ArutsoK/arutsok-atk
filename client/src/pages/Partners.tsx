@@ -255,8 +255,8 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           style={{ position: "absolute", top: 0, left: 0, overflow: "visible" }}
         >
           <defs>
-            <filter id="amberGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="10" result="blur" />
+            <filter id="amberGlow" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="16" result="blur" />
             </filter>
             <linearGradient id="hexGradPartner" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0%" stopColor="#0a1f3d" />
