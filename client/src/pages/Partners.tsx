@@ -291,16 +291,15 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           gap: 9,
         }}>
           <div style={{ position: "relative", display: "inline-flex" }}>
-            <Handshake
-              size={46}
-              strokeWidth={1.4}
-              style={{
-                color: "#FFBF00",
-                filter: `drop-shadow(0 0 8px rgba(255,191,0,${isActive ? 0.95 : 0.55}))`,
-                transition: "filter 0.15s ease",
-                display: "block",
-              }}
-            />
+            <span style={{
+              fontSize: 42,
+              lineHeight: 1,
+              position: "relative",
+              top: -4,
+              filter: `sepia(1) saturate(8) hue-rotate(8deg) brightness(1.2) drop-shadow(0 0 8px rgba(255,191,0,${isActive ? 0.95 : 0.55}))`,
+              transition: "filter 0.15s ease",
+              display: "block",
+            }}>🤝</span>
             <Plus
               size={14}
               strokeWidth={2.5}
