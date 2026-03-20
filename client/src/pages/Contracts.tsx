@@ -6457,7 +6457,7 @@ export default function Contracts() {
               <>
               {/* Rámček 1: Entita (SZCO/PO/TS/VS) + vyhľadávanie */}
               {!preSelectIcoLookup?.found && (
-              <div className="border border-border/60 rounded-md p-3 space-y-2">
+              <div className={`border rounded-md p-3 space-y-2 ${preSelectSubjectType === "szco" ? "border-amber-500/40" : preSelectSubjectType === "organization" ? "border-green-500/40" : preSelectSubjectType === "state" ? "border-cyan-500/40" : "border-purple-500/40"}`}>
                 <div className="flex items-center gap-1.5 text-xs font-semibold mb-1">
                   {preSelectSubjectType === "szco" ? <Briefcase className="w-3.5 h-3.5 text-amber-400" /> : preSelectSubjectType === "organization" ? <Building className="w-3.5 h-3.5 text-green-400" /> : preSelectSubjectType === "state" ? <Landmark className="w-3.5 h-3.5 text-cyan-400" /> : <Building2 className="w-3.5 h-3.5 text-purple-400" />}
                   <span className={preSelectSubjectType === "szco" ? "text-amber-400" : preSelectSubjectType === "organization" ? "text-green-400" : preSelectSubjectType === "state" ? "text-cyan-400" : "text-purple-400"}>
