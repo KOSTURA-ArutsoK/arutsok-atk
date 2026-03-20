@@ -110,6 +110,8 @@ export function AddCompanyCard({ onClick }: AddCompanyCardProps) {
             letterSpacing: "0.04em",
             textAlign: "center",
             lineHeight: 1.2,
+            display: "block",
+            width: "100%",
           }}>
             Pridať spoločnosť
           </span>
