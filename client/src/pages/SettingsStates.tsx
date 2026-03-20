@@ -515,7 +515,7 @@ function StateFormDialog({
         setCode(initialCountry.c.dial);
         setCurrency(initialCountry.c.currency);
         setContinentId(initialCountry.cid.toString());
-        setFlagUrl(`https://flagcdn.com/w40/${initialCountry.c.iso}.png`);
+        setFlagUrl(`https://flagcdn.com/w160/${initialCountry.c.iso}.png`);
       } else {
         setName(""); setCode(""); setCurrency("EUR"); setContinentId("1"); setFlagUrl(null);
       }
@@ -527,7 +527,7 @@ function StateFormDialog({
     setCode(c.dial);
     setCurrency(c.currency);
     setContinentId(cid.toString());
-    setFlagUrl(`https://flagcdn.com/w40/${c.iso}.png`);
+    setFlagUrl(`https://flagcdn.com/w160/${c.iso}.png`);
   }
 
   function handleSubmit() {

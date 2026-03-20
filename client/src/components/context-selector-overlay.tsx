@@ -36,10 +36,16 @@ function formatCompanyName(name: string): { main: string; legal: string | null }
   return { main: trimmed, legal: null };
 }
 
+function upgradeFlagUrl(src: string | null | undefined): string | null | undefined {
+  if (!src) return src;
+  return src.replace(/flagcdn\.com\/w\d+\//i, "flagcdn.com/w160/");
+}
+
 function StateFlagImage({ src, alt, code, className }: { src: string | null | undefined; alt: string; code?: string; className?: string }) {
   const [failed, setFailed] = useState(false);
+  const resolvedSrc = upgradeFlagUrl(src);
 
-  if (!src || failed) {
+  if (!resolvedSrc || failed) {
     return (
       <div
         className={`flex items-center justify-center rounded-full bg-muted/50 ${className || "w-20 h-20"}`}
@@ -53,7 +59,7 @@ function StateFlagImage({ src, alt, code, className }: { src: string | null | un
 
   return (
     <img
-      src={src}
+      src={resolvedSrc}
       alt={alt}
       className={className || "w-20 h-20 object-cover rounded-full"}
       onError={() => setFailed(true)}
