@@ -19419,19 +19419,24 @@ export async function registerRoutes(
           isOfficer: false,
         }));
 
-      const partnerSubjects = allPartnersRaw.map(p => ({
-        id: -(10000 + p.id),
-        uid: p.uid,
-        firstName: null,
-        lastName: null,
-        companyName: p.name,
-        type: 'partner' as const,
-        registrationStatus: null,
-        lifecycleStatus: null,
-        isActive: true,
-        isOfficer: false,
-        myCompanyId: (p as any).myCompanyId ?? null,
-      }));
+      // UIDs already represented by real subjects — skip duplicate virtual partner nodes
+      const existingSubjectUids = new Set(allSubjectsRaw.map(s => s.uid).filter(Boolean) as string[]);
+
+      const partnerSubjects = allPartnersRaw
+        .filter(p => !p.uid || !existingSubjectUids.has(p.uid))
+        .map(p => ({
+          id: -(10000 + p.id),
+          uid: p.uid,
+          firstName: null,
+          lastName: null,
+          companyName: p.name,
+          type: 'partner' as const,
+          registrationStatus: null,
+          lifecycleStatus: null,
+          isActive: true,
+          isOfficer: false,
+          myCompanyId: (p as any).myCompanyId ?? null,
+        }));
 
       // Build map: myCompanyId → real company node subject id
       const companyNodeByMyCompanyId = new Map<number, number>();
@@ -19442,9 +19447,11 @@ export async function registerRoutes(
       }
 
       // Virtual links: partner → company node (for partners with myCompanyId)
+      // Skip partners already represented by a real subject (same UID)
       let virtualLinkId = -1;
       const virtualPartnerLinks: any[] = [];
       for (const p of allPartnersRaw) {
+        if (p.uid && existingSubjectUids.has(p.uid)) continue; // real subject already in tree
         const pMyCompanyId = (p as any).myCompanyId as number | null;
         if (!pMyCompanyId) continue;
         const companyNodeId = companyNodeByMyCompanyId.get(pMyCompanyId);
