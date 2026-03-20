@@ -2460,6 +2460,7 @@ export default function Contracts() {
     const missing: string[] = [];
     if (step === 1) {
       if (!preSelectPartnerId) missing.push("partner");
+      if (!preSelectProductId) missing.push("product");
       if (!preSelectContractType) missing.push("contract-type");
       if (!preSelectSignedDate) missing.push("signed-date");
       if (!preSelectNumberValue.trim()) missing.push("number");
@@ -2495,6 +2496,7 @@ export default function Contracts() {
     const nextField = emptyFields[nextIdx >= emptyFields.length ? 0 : nextIdx];
     const refMap: Record<string, React.RefObject<any> | string> = {
       "partner": "select-preselect-partner",
+      "product": "select-preselect-product",
       "contract-type": "select-preselect-contract-type",
       "signed-date": refSignedDay,
       "number": refNumberInput,
@@ -6040,10 +6042,10 @@ export default function Contracts() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium flex items-center min-h-[1.25rem]">Vyberte produkt</label>
+                <label className="text-xs font-medium flex items-center gap-1 min-h-[1.25rem]">Vyberte produkt {isFieldMissing("product") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                 <Select value={preSelectProductId} onValueChange={(v) => { setPreSelectProductId(v); }} open={preSelectProductOpen} onOpenChange={setPreSelectProductOpen} disabled={!preSelectPartnerId}>
-                  <SelectTrigger ref={refProductTrigger} data-testid="select-preselect-product" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); setPreSelectProductOpen(prev => !prev); } }}>
-                    <SelectValue placeholder={preSelectPartnerId ? "Vyberte produkt (volitelne)" : "Najprv vyberte partnera"} />
+                  <SelectTrigger ref={refProductTrigger} className={isFieldMissing("product") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-product" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); setPreSelectProductOpen(prev => !prev); } }}>
+                    <SelectValue placeholder={preSelectPartnerId ? "Vyberte produkt" : "Najprv vyberte partnera"} />
                   </SelectTrigger>
                   <SelectContent>
                     {preSelectFilteredProducts.map(p => (
