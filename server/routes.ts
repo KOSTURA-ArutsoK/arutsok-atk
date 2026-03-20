@@ -7329,15 +7329,24 @@ export async function registerRoutes(
 
           const isFirmType = subjectType === "szco" || subjectType === "company" || subjectType === "organization";
 
+          // Helper: normalize a company/person name for comparison (lowercase, collapse spaces, strip legal suffixes)
+          const normalizeName = (n: string | null | undefined) =>
+            (n || "").toLowerCase().replace(/\b(s\.r\.o\.|spol\.\s*s\s*r\.o\.|a\.s\.|s\.a\.|k\.s\.|v\.o\.s\.|a\.s|sro|as)\b/gi, "").replace(/[\s\-.,]/g, "");
+
           if (isFirmType) {
-            // For SZČO/PO/TS/VS: create/find company subject from IČO+companyName,
-            // and create/find authorized person from RC+name; link via linkedFoId
+            // For SZČO/PO/TS/VS: create/find company subject (by IČO+name) and authorized person (by RC+name)
+            // Uses checkDuplicateSubjectOnly — searches subjects table only (avoids partner/myCompany ID confusion)
 
             // 1. Find or create company subject (primary subject for the contract)
             if (ico) {
-              const dupCompany = await storage.checkDuplicateSubject({ ico });
+              const dupCompany = await storage.checkDuplicateSubjectOnly({ ico });
               if (dupCompany) {
                 resolvedSubjectId = dupCompany.id;
+                // Name verification: IČO is authoritative; log mismatch for audit
+                if (companyName && dupCompany.name &&
+                    normalizeName(companyName) !== normalizeName(dupCompany.name)) {
+                  console.log(`[IMPORT] IČO match (${ico}) name mismatch: import="${companyName}" stored="${dupCompany.name}" row=${rowNum} — using existing subject`);
+                }
               } else if (companyName && !icoValidationError) {
                 try {
                   const newCompany = await storage.createSubjectNoUID({
@@ -7354,10 +7363,17 @@ export async function registerRoutes(
             }
 
             // 2. Find or create authorized person (oprávnená osoba / štatutár)
+            //    Identity key: RC + meno + priezvisko (+ tituly); RC is primary unique key
             if (rc && !rcValidationError && firstName && lastName) {
-              const dupPerson = await storage.checkDuplicateSubject({ birthNumber: rc });
+              const dupPerson = await storage.checkDuplicateSubjectOnly({ birthNumber: rc });
               if (dupPerson) {
                 resolvedAuthorizedPersonId = dupPerson.id;
+                // Name verification: RC is authoritative; log mismatch for audit
+                const storedName = dupPerson.name.toLowerCase();
+                const importName = `${firstName} ${lastName}`.toLowerCase();
+                if (!storedName.includes(firstName.toLowerCase()) || !storedName.includes(lastName.toLowerCase())) {
+                  console.log(`[IMPORT] RC match (${rc}) name mismatch: import="${importName}" stored="${dupPerson.name}" row=${rowNum} — using existing subject`);
+                }
               } else {
                 try {
                   const newPerson = await storage.createSubjectNoUID({
@@ -7384,11 +7400,10 @@ export async function registerRoutes(
             }
 
           } else {
-            // FO: standard single-subject logic — identifier is RC only (IČO/nazov_firmy are ignored)
+            // FO: identifier is RC only (IČO/nazov_firmy are strictly ignored for FO)
+            // Uses checkDuplicateSubjectOnly — subjects table only, no partner/myCompany crossover
             if (rc) {
-              const dupCheck = await storage.checkDuplicateSubject({
-                birthNumber: rc,
-              });
+              const dupCheck = await storage.checkDuplicateSubjectOnly({ birthNumber: rc });
               if (dupCheck) {
                 resolvedSubjectId = dupCheck.id;
               } else {
