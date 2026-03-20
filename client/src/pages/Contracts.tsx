@@ -6025,9 +6025,9 @@ export default function Contracts() {
         <div style={{ display: preSelectStep === 1 ? 'block' : 'none' }}>
           <div className="space-y-2">
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 items-end">
               <div className="space-y-1">
-                <label className="text-xs font-medium flex items-center gap-1">Vyberte partnera {isFieldMissing("partner") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
+                <label className="text-xs font-medium flex items-center gap-1 min-h-[1.25rem]">Vyberte partnera {isFieldMissing("partner") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                 <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); }}>
                   <SelectTrigger ref={refPartnerTrigger} className={isFieldMissing("partner") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-partner">
                     <SelectValue placeholder="Vyberte partnera" />
@@ -6040,7 +6040,7 @@ export default function Contracts() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium">Vyberte produkt</label>
+                <label className="text-xs font-medium flex items-center min-h-[1.25rem]">Vyberte produkt</label>
                 <Select value={preSelectProductId} onValueChange={(v) => { setPreSelectProductId(v); }} open={preSelectProductOpen} onOpenChange={setPreSelectProductOpen} disabled={!preSelectPartnerId}>
                   <SelectTrigger ref={refProductTrigger} data-testid="select-preselect-product" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); setPreSelectProductOpen(prev => !prev); } }}>
                     <SelectValue placeholder={preSelectPartnerId ? "Vyberte produkt (volitelne)" : "Najprv vyberte partnera"} />
