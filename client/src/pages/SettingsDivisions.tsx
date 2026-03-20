@@ -281,7 +281,7 @@ export default function SettingsDivisions() {
 
       <AddDivisionCard onClick={openNew} />
 
-      <Card>
+      <Card style={{ marginTop: -10 }}>
         <CardContent className="p-0">
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">Načítavam...</div>
