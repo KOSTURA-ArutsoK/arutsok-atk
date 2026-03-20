@@ -235,8 +235,8 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
         title="Pridať nového partnera"
         style={{
           position: "relative",
-          width: 200,
-          height: 230,
+          width: 180,
+          height: 207,
           background: "none",
           border: "none",
           padding: 0,
@@ -248,8 +248,8 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
         }}
       >
         <svg
-          width="200"
-          height="230"
+          width="180"
+          height="207"
           viewBox="0 0 160 180"
           fill="none"
           style={{ position: "absolute", top: 0, left: 0, overflow: "visible" }}
