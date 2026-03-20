@@ -199,11 +199,16 @@ export default function NetworkSiet() {
   }, [networkData?.subjects]);
 
   const treeData = useMemo(() => {
-    if (!networkData?.links) return [];
+    if (!networkData?.links) return { childrenMap: new Map(), linkedSubjectIds: new Set<number>(), orphanRootIds: [] as number[] };
     const links = networkData.links;
 
     const childrenMap = new Map<number, { link: NetworkLink; subject: NetworkSubject }[]>();
+    const linkedSubjectIds = new Set<number>();
+    const guarantorIds = new Set<number>();
+
     links.forEach(link => {
+      linkedSubjectIds.add(link.subjectId);
+      guarantorIds.add(link.guarantorSubjectId);
       const guarantorId = link.guarantorSubjectId;
       const subject = subjectMap.get(link.subjectId);
       if (!subject) return;
@@ -211,8 +216,24 @@ export default function NetworkSiet() {
       childrenMap.get(guarantorId)!.push({ link, subject });
     });
 
-    return { childrenMap };
-  }, [networkData?.links, subjectMap]);
+    // Orphan root: guarantor that is not itself a child in any link (not in linkedSubjectIds)
+    // and is not the system root — these are disconnected subtree roots
+    const rootId = networkData?.root?.id;
+    const orphanRootIds = [...guarantorIds].filter(gid =>
+      gid !== rootId && !linkedSubjectIds.has(gid)
+    );
+
+    return { childrenMap, linkedSubjectIds, orphanRootIds };
+  }, [networkData?.links, networkData?.root?.id, subjectMap]);
+
+  const unlinkedSubjects = useMemo(() => {
+    if (!networkData?.subjects) return [];
+    return networkData.subjects.filter(s =>
+      s.id !== networkData?.root?.id &&
+      !treeData.linkedSubjectIds?.has(s.id) &&
+      !treeData.orphanRootIds?.includes(s.id)
+    );
+  }, [networkData?.subjects, networkData?.root?.id, treeData]);
 
   const filteredLinks = useMemo(() => {
     if (!networkData?.links) return [];
@@ -381,13 +402,41 @@ export default function NetworkSiet() {
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
               ) : networkData?.root ? (
-                <div className="font-mono text-sm">
+                <div className="font-mono text-sm space-y-1">
                   {renderTreeNode(networkData.root.id)}
                   {(!treeData.childrenMap || treeData.childrenMap.size === 0) && (
                     <div className="text-center py-8 text-muted-foreground">
                       <Network className="w-8 h-8 mx-auto mb-2 opacity-50" />
                       <p>Sieť zatiaľ nemá žiadne prepojenia</p>
                       <p className="text-xs mt-1">Prepojenia vznikajú automaticky z Dátovej linky alebo manuálne</p>
+                    </div>
+                  )}
+                  {/* Sirotské podstromy — garantori bez napojenia na koreň */}
+                  {treeData.orphanRootIds && treeData.orphanRootIds.length > 0 && (
+                    <div className="mt-4 border-t border-dashed border-amber-500/20 pt-3">
+                      <div className="flex items-center gap-2 px-2 py-1 mb-1">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-xs text-amber-400 font-semibold uppercase tracking-wider">Odpojené podstromy</span>
+                      </div>
+                      {treeData.orphanRootIds.map(oid => renderTreeNode(oid, 1))}
+                    </div>
+                  )}
+                  {/* Nepripojení — subjekty bez akejkoľvek linky */}
+                  {unlinkedSubjects.length > 0 && (
+                    <div className="mt-4 border-t border-dashed border-muted/30 pt-3">
+                      <div className="flex items-center gap-2 px-2 py-1 mb-1">
+                        <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Nepripojení ({unlinkedSubjects.length})</span>
+                      </div>
+                      {unlinkedSubjects.map(s => (
+                        <div key={s.id} className="flex items-center gap-3 py-1 px-2 rounded hover:bg-accent/50" style={{ marginLeft: 24 }}>
+                          <div className="w-4 shrink-0" />
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${s.registrationStatus === "klient" ? "bg-amber-400" : s.registrationStatus === "tiper" ? "bg-purple-400" : "bg-muted-foreground"}`} />
+                          <span className="text-sm font-medium text-foreground min-w-[180px]">{getSubjectName(s)}</span>
+                          <span className="text-xs font-mono text-muted-foreground w-[148px] shrink-0">{formatUid(s.uid)}</span>
+                          <div className="flex items-center gap-1">{subjectTypeBadge(s.type)}</div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
