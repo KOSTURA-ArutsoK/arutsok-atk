@@ -209,7 +209,21 @@ function PartnerHexAvatar({ logo, name, onClick }: { logo?: string; name: string
 
 function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
-  const hexPath = "M 80,15 L 145,52 L 145,128 L 80,165 L 15,128 L 15,52 Z";
+
+  // Pointy-top hexagon, center (80,90), R=68, corner-radius≈8
+  // Vertices: top(80,22) TR(139,56) BR(139,124) bot(80,158) BL(21,124) TL(21,56)
+  const hexPath =
+    "M 73,26 Q 80,22 87,26 " +
+    "L 132,52 Q 139,56 139,64 " +
+    "L 139,116 Q 139,124 132,128 " +
+    "L 87,154 Q 80,158 73,154 " +
+    "L 28,128 Q 21,124 21,116 " +
+    "L 21,64 Q 21,56 28,52 Z";
+
+  const amber = "#F59E0B";
+  const amberDim = "rgba(245,158,11,0.75)";
+  const handColor = hovered ? amber : amberDim;
+
   return (
     <button
       type="button"
@@ -217,6 +231,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       data-testid="button-add-partner"
+      title="Pridať nového partnera"
       style={{
         position: "relative",
         width: 160,
@@ -227,73 +242,71 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
         cursor: "pointer",
         outline: "none",
         userSelect: "none",
-        transition: "transform 0.2s ease, filter 0.2s ease",
-        transform: hovered ? "scale(1.05)" : "scale(1)",
-        filter: hovered ? "drop-shadow(0 0 14px rgba(56,189,248,0.55))" : "none",
+        transition: "transform 0.15s ease, filter 0.15s ease",
+        transform: hovered ? "scale(0.96)" : "scale(1)",
+        filter: hovered
+          ? "drop-shadow(0 0 16px rgba(245,158,11,0.65))"
+          : "drop-shadow(0 0 5px rgba(245,158,11,0.20))",
       }}
     >
       <svg
         width="160"
         height="180"
         viewBox="0 0 160 180"
-        style={{ position: "absolute", top: 0, left: 0, display: "block" }}
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
       >
+        {/* ── ZAOBLENÝ HEXAGÓN (Royal Blue) ── */}
         <path
           d={hexPath}
-          fill={hovered ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)"}
-          stroke={hovered ? "rgba(56,189,248,0.8)" : "rgba(255,255,255,0.10)"}
-          strokeWidth="1.5"
-          style={{ transition: "fill 0.2s ease, stroke 0.2s ease" }}
-        />
-      </svg>
-      <div style={{
-        position: "absolute",
-        top: 50,
-        left: 0,
-        right: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}>
-        <svg
-          width="30"
-          height="30"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={hovered ? "rgba(56,189,248,1)" : "rgba(255,255,255,0.65)"}
+          fill={hovered ? "rgba(59,130,246,0.10)" : "rgba(59,130,246,0.05)"}
+          stroke="#3B82F6"
           strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{ transition: "stroke 0.2s ease" }}
-        >
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </div>
-      <div style={{
-        position: "absolute",
-        top: 88,
-        left: 22,
-        right: 22,
-        bottom: 18,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
-      }}>
-        <span style={{
-          fontFamily: "sans-serif",
-          fontSize: 11,
-          fontWeight: 600,
-          color: hovered ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.65)",
-          textAlign: "center",
-          lineHeight: 1.35,
-          wordBreak: "break-word",
-          transition: "color 0.2s ease",
-        }}>
-          Pridať nového partnera
-        </span>
-      </div>
+          style={{ transition: "fill 0.15s ease" }}
+        />
+
+        {/* ── HANDSHAKE (Gold/Amber, line-art) ──
+            Anatomia:
+            • Ľavé predlaktie: M 38,127 → (64,105)
+            • Pravé predlaktie: M 122,127 → (96,105)
+            • Grip blok: obdĺžnik 64..96 × 88..105
+            • 4 zaoblené prsty (pravá ruka, na vrchu) nad y=88
+            • Ľavý palec (vľavo od gripu) a pravý palec (vpravo)
+        */}
+
+        {/* Ľavé predlaktie */}
+        <path d="M 38,127 L 64,105" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
+        {/* Pravé predlaktie */}
+        <path d="M 122,127 L 96,105" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
+
+        {/* Ľavý bok gripu */}
+        <path d="M 64,105 L 64,88" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
+        {/* Pravý bok gripu */}
+        <path d="M 96,105 L 96,88" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
+        {/* Spodná linia gripu */}
+        <path d="M 64,105 L 96,105" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
+        {/* Horná linia gripu (kde sedia prsty) */}
+        <path d="M 64,88 L 96,88" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
+
+        {/* 4 zaoblené prsty nad gripom (od ľavého okraja, každý ~8px) */}
+        {/* Prst 1 (malíček) x≈64..72 */}
+        <path d="M 65,88 C 64,81 67,77 69,77 C 71,77 74,81 73,88" stroke={handColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "stroke 0.15s ease" }} />
+        {/* Prst 2 (prsteník) x≈73..80 */}
+        <path d="M 74,88 C 73,80 76,76 78,76 C 80,76 83,80 82,88" stroke={handColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "stroke 0.15s ease" }} />
+        {/* Prst 3 (prostredník) x≈82..89 */}
+        <path d="M 83,88 C 82,79 85,75 87,75 C 89,75 92,79 91,88" stroke={handColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "stroke 0.15s ease" }} />
+        {/* Prst 4 (ukazovák) x≈91..96 */}
+        <path d="M 92,88 C 91,81 93,78 95,78 C 97,78 97,82 96,88" stroke={handColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "stroke 0.15s ease" }} />
+
+        {/* Ľavý palec (oblúk od ľavého boku gripu smerom hore-vľavo) */}
+        <path d="M 64,97 C 57,93 56,83 63,81" stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none" style={{ transition: "stroke 0.15s ease" }} />
+        {/* Pravý palec (oblúk od pravého boku gripu smerom hore-vpravo) */}
+        <path d="M 96,97 C 103,93 104,83 97,81" stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none" style={{ transition: "stroke 0.15s ease" }} />
+
+        {/* ── PLUS ZNAMIENKO (vpravo hore, nad pravým zápästím) ── */}
+        <line x1="112" y1="70" x2="112" y2="80" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
+        <line x1="107" y1="75" x2="117" y2="75" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
+      </svg>
     </button>
   );
 }
