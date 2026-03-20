@@ -6941,8 +6941,8 @@ export default function Contracts() {
                     </span>
                   </div>
                 )}
-                {/* Meno/tituly keď je FO nájdená */}
-                {!preSelectNoFoInfo && preSelectShowNameFields && (
+                {/* Meno/tituly — vždy viditeľné ak nie je noFoInfo */}
+                {!preSelectNoFoInfo && (
                   <div className="grid grid-cols-4 gap-2 items-end">
                     <div className="space-y-1">
                       <label className="text-xs font-medium flex items-center min-h-[1.25rem]">Titul pred menom</label>
@@ -7531,15 +7531,24 @@ export default function Contracts() {
               </div>
             )}
 
-            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && preSelectBusinessName && (
+            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && preSelectBusinessName && (
               <div className="flex items-center gap-2 px-3 py-2 rounded border border-border/40 bg-muted/20">
-                <span className="text-xs text-muted-foreground">{preSelectSubjectType === "szco" ? "Živnosť:" : preSelectSubjectType === "organization" ? "Organizácia:" : "Inštitúcia:"}</span>
+                <span className="text-xs text-muted-foreground">{preSelectSubjectType === "szco" ? "Živnosť:" : preSelectSubjectType === "company" ? "Spoločnosť:" : preSelectSubjectType === "organization" ? "Organizácia:" : "Inštitúcia:"}</span>
                 <span className="text-sm font-medium" data-testid="text-preselect-business-name-readonly">{preSelectBusinessName}</span>
                 {preSelectIco && <span className="text-xs text-muted-foreground font-mono ml-auto">IČO: {preSelectIco}</span>}
               </div>
             )}
 
-            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && !preSelectFirstName && !preSelectLastName && (
+            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && (preSelectFirstName || preSelectLastName) && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded border border-blue-500/30 bg-blue-500/5">
+                <User className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <span className="text-xs text-muted-foreground">FO vlastník:</span>
+                <span className="text-sm font-medium" data-testid="text-preselect-fo-name-readonly">{[preSelectTitleBefore, preSelectFirstName, preSelectLastName, preSelectTitleAfter].filter(Boolean).join(" ")}</span>
+                {preSelectBirthNumber && <span className="text-xs text-muted-foreground font-mono ml-auto">RČ: {preSelectBirthNumber}</span>}
+              </div>
+            )}
+
+            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && !preSelectFirstName && !preSelectLastName && (
               <div className="flex items-center gap-2 px-3 py-2 rounded border border-amber-500/30 bg-amber-500/10">
                 <span className="text-xs text-amber-400" data-testid="text-preselect-no-fo-readonly">Nemáme informácie o FO vlastníkovi</span>
               </div>
