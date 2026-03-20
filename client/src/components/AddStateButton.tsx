@@ -67,7 +67,7 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
             cy="80"
             r="68"
             fill="url(#circleGradState)"
-            stroke={isActive ? "rgba(57,255,20,0.70)" : "rgba(245,158,11,0.35)"}
+            stroke={isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)"}
             strokeWidth="1.8"
             style={{ transition: "stroke 0.15s ease" }}
           />
