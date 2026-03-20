@@ -929,7 +929,6 @@ export default function Products() {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-bold" data-testid="text-page-title">Katalóg produktov</h2>
-            <Badge variant="secondary">{activeProducts.length}</Badge>
             <HelpIcon text="Katalog produktov v hierarchii Sektor > Sekcia > Produkt. Produkty obsahuju panely s parametrami." side="right" />
           </div>
           <p className="text-sm text-muted-foreground mt-1">Správa produktov</p>
