@@ -243,11 +243,8 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           cursor: "pointer",
           outline: "none",
           userSelect: "none",
-          transition: "transform 0.15s ease, filter 0.15s ease",
+          transition: "transform 0.15s ease",
           transform: pressed ? "scale(0.96)" : hovered ? "scale(1.05)" : "scale(1)",
-          filter: isActive
-            ? "drop-shadow(0 0 28px rgba(245,158,11,0.90))"
-            : "drop-shadow(0 0 22px rgba(245,158,11,0.65))",
         }}
       >
         <svg
@@ -255,18 +252,29 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           height="230"
           viewBox="0 0 160 180"
           fill="none"
-          style={{ position: "absolute", top: 0, left: 0 }}
+          style={{ position: "absolute", top: 0, left: 0, overflow: "visible" }}
         >
           <defs>
+            <filter id="amberGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="10" result="blur" />
+            </filter>
             <linearGradient id="hexGradPartner" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0%" stopColor="#0a1f3d" />
               <stop offset="100%" stopColor="#1a3f80" />
             </linearGradient>
           </defs>
+          {/* Jantárové podsvietenie — SVG filter, vždy viditeľný */}
+          <path
+            d={hexPath}
+            fill={isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.48)"}
+            filter="url(#amberGlow)"
+            style={{ transition: "fill 0.15s ease" }}
+          />
+          {/* Hlavný hexagón */}
           <path
             d={hexPath}
             fill="url(#hexGradPartner)"
-            stroke={isActive ? "rgba(245,158,11,0.60)" : "rgba(245,158,11,0.25)"}
+            stroke={isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)"}
             strokeWidth="1.8"
             style={{ transition: "stroke 0.15s ease" }}
           />
