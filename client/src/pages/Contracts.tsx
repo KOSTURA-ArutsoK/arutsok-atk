@@ -2311,6 +2311,7 @@ export default function Contracts() {
   const [rerouteSource, setRerouteSource] = useState<"neprijate" | "archiv" | "spracovanie" | null>(null);
 
   const [expandedSprievodky, setExpandedSprievodky] = useState<Set<number>>(new Set());
+  const [centralAcceptedIds, setCentralAcceptedIds] = useState<Set<number>>(new Set());
   const [bulkDateDialogOpen, setBulkDateDialogOpen] = useState(false);
   const [bulkDateTarget, setBulkDateTarget] = useState<{ type: "inventory" | "template"; id: number; name: string } | null>(null);
   const [bulkLogisticDate, setBulkLogisticDate] = useState("");
@@ -2668,6 +2669,16 @@ export default function Contracts() {
     queryKey: ["/api/contracts/accepted"],
     enabled: isEvidencia,
   });
+
+  useEffect(() => {
+    if (!acceptedContracts) return;
+    setCentralAcceptedIds(prev => {
+      const allIds = acceptedContracts.filter(c => !c.isDeleted).map(c => c.id);
+      const next = new Set(prev);
+      allIds.forEach(id => { if (!next.has(id)) next.add(id); });
+      return next;
+    });
+  }, [acceptedContracts]);
 
   const { data: archivedContracts, isLoading: isLoadingArchived } = useQuery<Contract[]>({
     queryKey: ["/api/contracts/archived"],
@@ -3436,9 +3447,14 @@ export default function Contracts() {
       testIdPrefix?: string;
       alwaysIncompleteEdit?: boolean;
       nahratieView?: boolean;
+      centralAcceptOpts?: {
+        acceptedIds: Set<number>;
+        onToggle: (id: number) => void;
+        onToggleAll: (ids: number[], check: boolean) => void;
+      };
     } = {}
   ) {
-    const { showCheckbox = false, showOrder = false, showActions = true, logViewFn, testIdPrefix = "row-spr", alwaysIncompleteEdit = false, nahratieView = false } = opts;
+    const { showCheckbox = false, showOrder = false, showActions = true, logViewFn, testIdPrefix = "row-spr", alwaysIncompleteEdit = false, nahratieView = false, centralAcceptOpts } = opts;
     const contractTypeLabel: Record<string, string> = {
       Nova: "Nová", Prestupova: "Prestupová", Zmenova: "Zmenová", Dodatok: "Dodatok"
     };
@@ -3447,6 +3463,16 @@ export default function Contracts() {
         <table className="w-full text-xs border-separate border-spacing-0" style={{ minWidth: 1750 }}>
           <thead className="sticky top-0 z-20 bg-card border-b border-border">
             <tr className="bg-muted/50">
+              {centralAcceptOpts && <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b sticky left-0 bg-card z-30 w-10" title="Prijaté centrálou">
+                <div className="flex flex-col items-center gap-0.5">
+                  <Checkbox
+                    checked={contractsList.length > 0 && contractsList.every(c => centralAcceptOpts.acceptedIds.has(c.id))}
+                    onCheckedChange={(checked) => centralAcceptOpts.onToggleAll(contractsList.map(c => c.id), !!checked)}
+                    data-testid="checkbox-central-accept-all"
+                  />
+                  <span className="text-[9px] leading-none text-green-500 font-semibold">✓</span>
+                </div>
+              </th>}
               {showCheckbox && <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b sticky left-0 bg-card z-30 w-8">
                 <Checkbox
                   checked={contractsList.filter(c => !isContractEffectivelyIncomplete(c)).length > 0 && contractsList.filter(c => !isContractEffectivelyIncomplete(c)).every(c => selectedIds.includes(c.id))}
@@ -3556,6 +3582,16 @@ export default function Contracts() {
                   data-testid={`${testIdPrefix}-${contract.id}`}
                   onClick={handleRowClick}
                 >
+                  {centralAcceptOpts && (
+                    <td className="px-2 py-1.5 sticky left-0 z-10 bg-card text-center" onClick={e => e.stopPropagation()}>
+                      <Checkbox
+                        checked={centralAcceptOpts.acceptedIds.has(contract.id)}
+                        onCheckedChange={() => centralAcceptOpts.onToggle(contract.id)}
+                        data-testid={`checkbox-central-accept-${contract.id}`}
+                        className={centralAcceptOpts.acceptedIds.has(contract.id) ? "data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600" : ""}
+                      />
+                    </td>
+                  )}
                   {showCheckbox && (
                     <td className={`px-2 py-1.5 sticky left-0 z-10 bg-card ${isSelected ? "border-l-2 border-l-primary" : effectivelyIncomplete ? "border-l-2 border-l-red-500" : ""}`} onClick={e => e.stopPropagation()}>
                       <Checkbox
@@ -8299,23 +8335,55 @@ export default function Contracts() {
                           <Badge variant="outline" data-testid={`badge-accepted-sprievodka-count-${group.inventoryId}`}>
                             {group.contracts.length} {group.contracts.length === 1 ? "zmluva" : group.contracts.length < 5 ? "zmluvy" : "zmluv"}
                           </Badge>
-                          <Button
-                            size="sm"
-                            className="bg-cyan-600 hover:bg-cyan-700 text-white"
-                            disabled={moveToProcessingMutation.isPending}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              moveToProcessingMutation.mutate({ contractIds: group.contracts.map(c => c.id), rejectedIds: [] });
-                            }}
-                            data-testid={`button-confirm-sprievodka-${group.inventoryId}`}
-                          >
-                            {moveToProcessingMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <span className="mr-1.5">📋</span>}
-                            Potvrď a daj roztriediť ({group.contracts.length})
-                          </Button>
+                          {(() => {
+                            const groupIds = group.contracts.map(c => c.id);
+                            const acceptedCount = groupIds.filter(id => centralAcceptedIds.has(id)).length;
+                            const rejectedCount = groupIds.length - acceptedCount;
+                            return (
+                              <div className="flex items-center gap-2">
+                                {rejectedCount > 0 && (
+                                  <span className="text-xs text-red-400 font-medium" data-testid={`text-rejected-count-${group.inventoryId}`}>
+                                    {rejectedCount}× výhrady
+                                  </span>
+                                )}
+                                <Button
+                                  size="sm"
+                                  className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                                  disabled={moveToProcessingMutation.isPending || acceptedCount === 0}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const rejected = groupIds.filter(id => !centralAcceptedIds.has(id));
+                                    moveToProcessingMutation.mutate({ contractIds: groupIds.filter(id => centralAcceptedIds.has(id)), rejectedIds: rejected });
+                                  }}
+                                  data-testid={`button-confirm-sprievodka-${group.inventoryId}`}
+                                >
+                                  {moveToProcessingMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <span className="mr-1.5">📋</span>}
+                                  Potvrď a daj roztriediť ({acceptedCount})
+                                </Button>
+                              </div>
+                            );
+                          })()}
                         </div>
                         <div style={{ display: isExpanded ? 'block' : 'none' }}>
                           <div className="border-t">
-                            {renderSprievodkaFullTable(group.contracts, { testIdPrefix: "row-accepted", nahratieView: true })}
+                            {renderSprievodkaFullTable(group.contracts, {
+                              testIdPrefix: "row-accepted",
+                              nahratieView: true,
+                              centralAcceptOpts: {
+                                acceptedIds: centralAcceptedIds,
+                                onToggle: (id) => setCentralAcceptedIds(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(id)) next.delete(id); else next.add(id);
+                                  return next;
+                                }),
+                                onToggleAll: (ids, check) => setCentralAcceptedIds(prev => {
+                                  const next = new Set(prev);
+                                  if (check) ids.forEach(id => next.add(id));
+                                  else ids.forEach(id => next.delete(id));
+                                  return next;
+                                }),
+                              },
+                            })}
                           </div>
                         </div>
                       </div>
