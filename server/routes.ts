@@ -7334,45 +7334,19 @@ export async function registerRoutes(
             (n || "").toLowerCase().replace(/\b(s\.r\.o\.|spol\.\s*s\s*r\.o\.|a\.s\.|s\.a\.|k\.s\.|v\.o\.s\.|a\.s|sro|as)\b/gi, "").replace(/[\s\-.,]/g, "");
 
           if (isFirmType) {
-            // For SZČO/PO/TS/VS: create/find company subject (by IČO+name) and authorized person (by RC+name)
-            // Uses checkDuplicateSubjectOnly — searches subjects table only (avoids partner/myCompany ID confusion)
+            // For SZČO/PO/TS/VS: process person first (H–L), then firm (M–N), then link
+            // Uses checkDuplicateSubjectOnly — subjects table only (avoids partner/myCompany ID confusion)
 
-            // 1. Find or create company subject (primary subject for the contract)
-            if (ico) {
-              const dupCompany = await storage.checkDuplicateSubjectOnly({ ico });
-              if (dupCompany) {
-                resolvedSubjectId = dupCompany.id;
-                // Name verification: IČO is authoritative; log mismatch for audit
-                if (companyName && dupCompany.name &&
-                    normalizeName(companyName) !== normalizeName(dupCompany.name)) {
-                  console.log(`[IMPORT] IČO match (${ico}) name mismatch: import="${companyName}" stored="${dupCompany.name}" row=${rowNum} — using existing subject`);
-                }
-              } else if (companyName && !icoValidationError) {
-                try {
-                  const newCompany = await storage.createSubjectNoUID({
-                    type: subjectType === "szco" ? "szco" : subjectType === "organization" ? "organization" : "company",
-                    companyName: companyName || null,
-                    details: { ico },
-                    registeredByUserId: appUser?.id || null,
-                  });
-                  resolvedSubjectId = newCompany.id;
-                } catch (subjectErr: any) {
-                  console.error(`[IMPORT] Chyba pri vytváraní firmového subjektu pre riadok ${rowNum}:`, subjectErr.message);
-                }
-              }
-            }
-
-            // 2. Find or create authorized person (oprávnená osoba / štatutár)
+            // 1. Find or create authorized person (oprávnená osoba / štatutár) — H–L columns
             //    Identity key: RC + meno + priezvisko (+ tituly); RC is primary unique key
             if (rc && !rcValidationError && firstName && lastName) {
               const dupPerson = await storage.checkDuplicateSubjectOnly({ birthNumber: rc });
               if (dupPerson) {
                 resolvedAuthorizedPersonId = dupPerson.id;
-                // Name verification: RC is authoritative; log mismatch for audit
-                const storedName = dupPerson.name.toLowerCase();
-                const importName = `${firstName} ${lastName}`.toLowerCase();
-                if (!storedName.includes(firstName.toLowerCase()) || !storedName.includes(lastName.toLowerCase())) {
-                  console.log(`[IMPORT] RC match (${rc}) name mismatch: import="${importName}" stored="${dupPerson.name}" row=${rowNum} — using existing subject`);
+                // Name verification: RC is authoritative in Slovakia; log mismatch for audit
+                if (!dupPerson.name.toLowerCase().includes(firstName.toLowerCase()) ||
+                    !dupPerson.name.toLowerCase().includes(lastName.toLowerCase())) {
+                  console.log(`[IMPORT] RC match (${rc}) name mismatch: import="${firstName} ${lastName}" stored="${dupPerson.name}" row=${rowNum} — using existing`);
                 }
               } else {
                 try {
@@ -7392,11 +7366,37 @@ export async function registerRoutes(
               }
             }
 
-            // 3. Link company → authorized person via linkedFoId (only if not already linked)
+            // 2. Find or create company subject (primary subject for the contract) — M–N columns
+            //    Identity key: IČO + názov_firmy; IČO is primary unique key
+            if (ico) {
+              const dupCompany = await storage.checkDuplicateSubjectOnly({ ico });
+              if (dupCompany) {
+                resolvedSubjectId = dupCompany.id;
+                // Name verification: IČO is authoritative; log mismatch for audit
+                if (companyName && dupCompany.name &&
+                    normalizeName(companyName) !== normalizeName(dupCompany.name)) {
+                  console.log(`[IMPORT] IČO match (${ico}) name mismatch: import="${companyName}" stored="${dupCompany.name}" row=${rowNum} — using existing`);
+                }
+              } else if (companyName && !icoValidationError) {
+                try {
+                  const newCompany = await storage.createSubjectNoUID({
+                    type: subjectType === "szco" ? "szco" : subjectType === "organization" ? "organization" : "company",
+                    companyName: companyName || null,
+                    details: { ico },
+                    registeredByUserId: appUser?.id || null,
+                  });
+                  resolvedSubjectId = newCompany.id;
+                } catch (subjectErr: any) {
+                  console.error(`[IMPORT] Chyba pri vytváraní firmového subjektu pre riadok ${rowNum}:`, subjectErr.message);
+                }
+              }
+            }
+
+            // 3. Link company → authorized person via linkedFoId (always overwrite for this import row)
             if (resolvedSubjectId && resolvedAuthorizedPersonId) {
               await db.update(subjects)
                 .set({ linkedFoId: resolvedAuthorizedPersonId })
-                .where(and(eq(subjects.id, resolvedSubjectId), isNull(subjects.linkedFoId)));
+                .where(eq(subjects.id, resolvedSubjectId));
             }
 
           } else {
