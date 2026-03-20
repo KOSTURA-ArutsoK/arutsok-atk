@@ -7246,7 +7246,13 @@ export default function Contracts() {
             )}
 
             {!preSelectNoFoInfo && (preSelectShowNameFields || (preSelectSubjectType === "person" && !preSelectSubjectId)) && (
-              <div className="space-y-2">
+              <div className={preSelectSubjectType === "person" && !preSelectSubjectId ? "border border-blue-500/30 rounded-md p-3 space-y-2" : "space-y-2"}>
+                {preSelectSubjectType === "person" && !preSelectSubjectId && (
+                  <div className="flex items-center gap-1.5 text-xs font-semibold mb-1">
+                    <User className="w-3.5 h-3.5 text-blue-400" />
+                    <span className="text-blue-400">Fyzická osoba (FO)</span>
+                  </div>
+                )}
                 {/* Riadok 1: tituly + meno + priezvisko */}
                 {preSelectSubjectId ? (
                   <div className="flex items-baseline gap-1.5 flex-wrap px-3 py-2 rounded border border-border/40 bg-muted/20" data-testid="text-preselect-name-preview">
