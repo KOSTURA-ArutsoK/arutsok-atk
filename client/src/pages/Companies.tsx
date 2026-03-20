@@ -1017,7 +1017,7 @@ function CompanyFormDialog({
                 <FormField control={form.control} name="subjectType" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Typ subjektu</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                    <Select key={`subjectType-${editingCompany?.id ?? 'new'}`} onValueChange={field.onChange} value={field.value || undefined}>
                       <FormControl>
                         <SelectTrigger data-testid="select-subject-type">
                           <SelectValue placeholder="Vyberte typ subjektu" />
