@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import DOMPurify from "dompurify";
+import { AddProductCard } from "@/components/AddProductCard";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateSlovak, canCreateRecords, canEditRecords, canDeleteRecords } from "@/lib/utils";
@@ -936,15 +937,14 @@ export default function Products() {
         <div className="flex items-center gap-2 flex-wrap">
           <SmartFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
-          {canCreateRecords(appUser) && (
-            <Button onClick={handleAdd} data-testid="button-add-product">
-              <Plus className="w-4 h-4 mr-1" /> Pridat produkt
-            </Button>
-          )}
         </div>
       </div>
 
-      <Card>
+      {canCreateRecords(appUser) && (
+        <AddProductCard onClick={handleAdd} />
+      )}
+
+      <Card style={{ marginTop: -10 }}>
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
