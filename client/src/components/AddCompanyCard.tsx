@@ -25,8 +25,8 @@ export function AddCompanyCard({ onClick }: AddCompanyCardProps) {
         onTouchEnd={() => setPressed(false)}
         style={{
           position: "relative",
-          width: 165,
-          height: 190,
+          width: 150,
+          height: 173,
           background: "none",
           border: "none",
           padding: 0,
@@ -38,8 +38,8 @@ export function AddCompanyCard({ onClick }: AddCompanyCardProps) {
         }}
       >
         <svg
-          width="165"
-          height="190"
+          width="150"
+          height="173"
           viewBox="0 0 160 180"
           fill="none"
           style={{ position: "absolute", top: 0, left: 0, overflow: "visible" }}
