@@ -58,7 +58,7 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
           {/* Podsvietenie */}
           <path
             d={TRIANGLE_PATH}
-            fill={isActive ? "rgba(255,210,0,1.0)" : "rgba(56,189,248,0.50)"}
+            fill={isActive ? "rgba(57,255,20,1.0)" : "rgba(56,189,248,0.50)"}
             filter="url(#divisionGlow)"
             style={{ transition: "fill 0.2s ease" }}
           />
