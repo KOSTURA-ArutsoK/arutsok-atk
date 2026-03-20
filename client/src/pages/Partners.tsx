@@ -2475,12 +2475,12 @@ export default function Partners() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <h2 className="text-2xl font-bold whitespace-nowrap" data-testid="text-partners-title">Zoznam partnerov</h2>
-          <p className="text-sm text-muted-foreground mt-1 whitespace-nowrap">Správa externých obchodných partnerov.</p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold" data-testid="text-partners-title">Zoznam partnerov</h2>
+          <p className="text-sm text-muted-foreground mt-1">Správa externých obchodných partnerov.</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+        <div className="flex items-center gap-2 flex-wrap">
           <SmartFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
         </div>
