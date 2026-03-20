@@ -735,6 +735,47 @@ export async function registerRoutes(
         }
       }
 
+      // Repair: one-time sync subject → partner for all matching UIDs (subject is source of truth)
+      {
+        const allActivePartnerUids = await db.select({ uid: partners.uid })
+          .from(partners)
+          .where(and(isNotNull(partners.uid), or(eq(partners.isDeleted, false), isNull(partners.isDeleted))));
+        let synced = 0;
+        for (const { uid } of allActivePartnerUids) {
+          if (!uid) continue;
+          const [subj] = await db.select({
+            type: subjects.type, firstName: subjects.firstName, lastName: subjects.lastName,
+            companyName: subjects.companyName, street: subjects.street, streetNumber: subjects.streetNumber,
+            postalCode: subjects.postalCode, city: subjects.city, details: subjects.details,
+          }).from(subjects).where(and(eq(subjects.uid, uid), isNull(subjects.deletedAt))).limit(1);
+          if (!subj) continue;
+
+          const name = (subj.type === 'company' || subj.type === 'szco' || subj.type === 'organization')
+            ? (subj.companyName || undefined)
+            : `${subj.firstName || ''} ${subj.lastName || ''}`.trim() || undefined;
+          const ico = (subj.details as any)?.ico || (subj.details as any)?.dynamicFields?.ico || undefined;
+          const dic = (subj.details as any)?.dic || (subj.details as any)?.dynamicFields?.dic || undefined;
+
+          const patch: Record<string, any> = {};
+          if (name) patch.name = name;
+          if (subj.street) patch.street = subj.street;
+          if (subj.streetNumber) patch.streetNumber = subj.streetNumber;
+          if (subj.postalCode) patch.postalCode = subj.postalCode;
+          if (subj.city) patch.city = subj.city;
+          if (ico) patch.ico = ico;
+          if (dic) patch.dic = dic;
+
+          if (Object.keys(patch).length > 0) {
+            await db.update(partners).set(patch).where(and(
+              eq(partners.uid, uid),
+              or(eq(partners.isDeleted, false), isNull(partners.isDeleted))
+            ));
+            synced++;
+          }
+        }
+        if (synced > 0) console.log(`[SEED] Synced subject→partner data for ${synced} partner(s)`);
+      }
+
       // Repair: migrate partners.myCompanyId → partnerCompanyLinks (idempotent)
       {
         const allActivePartners = await db.select({ id: partners.id, myCompanyId: partners.myCompanyId })
@@ -2286,11 +2327,90 @@ export async function registerRoutes(
     }
   });
 
+  // ─── Sync helpers: keep subject ↔ partner data consistent when they share the same UID ──────
+
+  /** Sync a partner's identity fields FROM its matching subject (subject is source of truth). */
+  async function syncPartnerFromSubject(partnerUid: string | null) {
+    if (!partnerUid) return;
+    const [subj] = await db.select({
+      type: subjects.type, firstName: subjects.firstName, lastName: subjects.lastName,
+      companyName: subjects.companyName, street: subjects.street, streetNumber: subjects.streetNumber,
+      postalCode: subjects.postalCode, city: subjects.city, details: subjects.details,
+    }).from(subjects).where(and(eq(subjects.uid, partnerUid), isNull(subjects.deletedAt))).limit(1);
+    if (!subj) return;
+
+    const name = subj.type === 'company' || subj.type === 'szco' || subj.type === 'organization'
+      ? (subj.companyName || undefined)
+      : `${subj.firstName || ''} ${subj.lastName || ''}`.trim() || undefined;
+    const ico = (subj.details as any)?.ico || (subj.details as any)?.dynamicFields?.ico || undefined;
+    const dic = (subj.details as any)?.dic || (subj.details as any)?.dynamicFields?.dic || undefined;
+
+    const patch: Record<string, any> = {};
+    if (name) patch.name = name;
+    if (subj.street !== undefined) patch.street = subj.street;
+    if (subj.streetNumber !== undefined) patch.streetNumber = subj.streetNumber;
+    if (subj.postalCode !== undefined) patch.postalCode = subj.postalCode;
+    if (subj.city !== undefined) patch.city = subj.city;
+    if (ico !== undefined) patch.ico = ico;
+    if (dic !== undefined) patch.dic = dic;
+
+    if (Object.keys(patch).length === 0) return;
+    await db.update(partners).set(patch).where(and(
+      eq(partners.uid, partnerUid),
+      or(eq(partners.isDeleted, false), isNull(partners.isDeleted))
+    ));
+  }
+
+  /** Sync a subject's identity fields FROM its matching partner (subject takes partner data). */
+  async function syncSubjectFromPartner(partnerUid: string | null) {
+    if (!partnerUid) return;
+    const [prt] = await db.select({
+      name: partners.name, street: partners.street, streetNumber: partners.streetNumber,
+      postalCode: partners.postalCode, city: partners.city, ico: partners.ico, dic: partners.dic,
+    }).from(partners).where(and(
+      eq(partners.uid, partnerUid),
+      or(eq(partners.isDeleted, false), isNull(partners.isDeleted))
+    )).limit(1);
+    if (!prt) return;
+
+    const [subj] = await db.select({ id: subjects.id, type: subjects.type, details: subjects.details })
+      .from(subjects).where(and(eq(subjects.uid, partnerUid), isNull(subjects.deletedAt))).limit(1);
+    if (!subj) return;
+
+    const patch: Record<string, any> = {};
+    if (prt.street !== undefined) patch.street = prt.street;
+    if (prt.streetNumber !== undefined) patch.streetNumber = prt.streetNumber;
+    if (prt.postalCode !== undefined) patch.postalCode = prt.postalCode;
+    if (prt.city !== undefined) patch.city = prt.city;
+    // Sync name into the right field based on subject type
+    if (prt.name) {
+      if (subj.type === 'company' || subj.type === 'organization') {
+        patch.companyName = prt.name;
+      } else if (subj.type === 'person' || subj.type === 'szco') {
+        const parts = prt.name.trim().split(/\s+/);
+        patch.firstName = parts[0] || '';
+        patch.lastName = parts.slice(1).join(' ') || '';
+      }
+    }
+    // Sync IČO / DIČ into details
+    if (prt.ico || prt.dic) {
+      const existingDetails = (subj.details as any) || {};
+      patch.details = { ...existingDetails };
+      if (prt.ico) patch.details.ico = prt.ico;
+      if (prt.dic) patch.details.dic = prt.dic;
+    }
+
+    if (Object.keys(patch).length === 0) return;
+    await db.update(subjects).set(patch).where(eq(subjects.id, subj.id));
+  }
+
   app.put(api.partners.update.path, isAuthenticated, async (req, res) => {
     try {
       const input = api.partners.update.input.parse(req.body);
       const oldPartner = await storage.getPartner(Number(req.params.id));
       const updated = await storage.updatePartner(Number(req.params.id), input);
+      // Sync partner changes → matching subject
+      if (updated.uid) await syncSubjectFromPartner(updated.uid).catch(() => {});
       await logAudit(req, { action: "UPDATE", module: "partneri", entityId: Number(req.params.id), oldData: oldPartner, newData: input });
       res.json(updated);
     } catch (err) {
@@ -3318,6 +3438,8 @@ export async function registerRoutes(
       }
 
       const updated = await storage.updateSubject(subjectId, input);
+      // Sync subject changes → matching partner (subject is source of truth)
+      if (updated.uid) await syncPartnerFromSubject(updated.uid).catch(() => {});
       await logAudit(req, {
         action: "UPDATE",
         module: "subjekty",
