@@ -223,7 +223,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
   const isActive = hovered || pressed;
 
   return (
-    <div className="flex items-center justify-center w-full -mt-[100px] pb-1">
+    <div className="flex items-center justify-center w-full -mt-[200px] pb-1">
       <button
         type="button"
         onClick={onClick}
