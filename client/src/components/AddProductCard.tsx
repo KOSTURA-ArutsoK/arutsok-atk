@@ -5,7 +5,8 @@ interface AddProductCardProps {
   onClick: () => void;
 }
 
-const OCTAGON_PATH = "M 80,14 L 120,30 L 136,70 L 120,110 L 80,126 L 40,110 L 24,70 L 40,30 Z";
+// Flat-top octagon: horná aj spodná strana sú vodorovné
+const OCTAGON_PATH = "M 101,20 L 130,49 L 130,91 L 101,120 L 59,120 L 30,91 L 30,49 L 59,20 Z";
 
 export function AddProductCard({ onClick }: AddProductCardProps) {
   const [hovered, setHovered] = useState(false);
@@ -14,7 +15,7 @@ export function AddProductCard({ onClick }: AddProductCardProps) {
   const isActive = hovered || pressed;
 
   return (
-    <div className="flex items-center justify-center w-full" style={{ marginTop: -10, paddingBottom: 4 }}>
+    <div className="flex items-center justify-center w-full" style={{ marginTop: 4, paddingBottom: 4 }}>
       <button
         type="button"
         data-testid="button-add-product-card"

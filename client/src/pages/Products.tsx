@@ -940,19 +940,18 @@ export default function Products() {
         </div>
       </div>
 
-      {canCreateRecords(appUser) && (
-        <AddProductCard onClick={handleAdd} />
-      )}
-
-      <Card style={{ marginTop: -10 }}>
-        <CardContent className="p-0">
+      <Card>
+        <CardContent className="p-0 overflow-hidden">
+          {canCreateRecords(appUser) && (
+            <AddProductCard onClick={handleAdd} />
+          )}
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : activeProducts.length === 0 ? (
-            <div className="text-center py-12 text-sm text-muted-foreground" data-testid="text-no-products">
-              Ziadne produkty. Kliknite na "Pridat produkt".
+            <div className="text-center pb-10 text-sm text-muted-foreground" data-testid="text-no-products">
+              Ziadne produkty.
             </div>
           ) : (
             <Table>
