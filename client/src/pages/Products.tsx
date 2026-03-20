@@ -925,14 +925,14 @@ export default function Products() {
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Package className="w-5 h-5 text-primary" />
-          <div className="flex items-center gap-1.5">
-            <h1 className="text-lg font-bold" data-testid="text-page-title">Globalny katalog produktov</h1>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold" data-testid="text-page-title">Globálny katalóg produktov</h2>
+            <Badge variant="secondary">{activeProducts.length}</Badge>
             <HelpIcon text="Katalog produktov v hierarchii Sektor > Sekcia > Produkt. Produkty obsahuju panely s parametrami." side="right" />
           </div>
-          <Badge variant="secondary">{activeProducts.length}</Badge>
+          <p className="text-sm text-muted-foreground mt-1">Správa produktov, parametrov a nastavení globálneho katalógu.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <SmartFilterBar filter={tableFilter} />
