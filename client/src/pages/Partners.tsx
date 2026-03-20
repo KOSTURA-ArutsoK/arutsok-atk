@@ -220,9 +220,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
     "L 28,128 Q 21,124 21,116 " +
     "L 21,64 Q 21,56 28,52 Z";
 
-  const amber = "#F59E0B";
-  const amberDim = "rgba(245,158,11,0.75)";
-  const handColor = hovered ? amber : amberDim;
+  const iconColor = hovered ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.72)";
 
   return (
     <button
@@ -234,70 +232,66 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
       title="Pridať nového partnera"
       style={{
         position: "relative",
-        width: 160,
-        height: 180,
+        width: 140,
+        height: 160,
         background: "none",
         border: "none",
         padding: 0,
         cursor: "pointer",
         outline: "none",
         userSelect: "none",
-        transition: "transform 0.15s ease, filter 0.15s ease",
-        transform: hovered ? "scale(0.96)" : "scale(1)",
+        transition: "transform 0.2s ease, filter 0.2s ease",
+        transform: hovered ? "scale(1.05)" : "scale(1)",
         filter: hovered
-          ? "drop-shadow(0 0 16px rgba(245,158,11,0.65))"
-          : "drop-shadow(0 0 5px rgba(245,158,11,0.20))",
+          ? "drop-shadow(0 0 14px rgba(56,189,248,0.55))"
+          : "none",
       }}
     >
       {/* Hexagón pozadie */}
       <svg
-        width="160"
-        height="180"
+        width="140"
+        height="160"
         viewBox="0 0 160 180"
         fill="none"
         style={{ position: "absolute", top: 0, left: 0 }}
       >
         <path
           d={hexPath}
-          fill={hovered ? "rgba(59,130,246,0.10)" : "rgba(59,130,246,0.05)"}
-          stroke="#3B82F6"
+          fill={hovered ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)"}
+          stroke={hovered ? "rgba(56,189,248,0.85)" : "rgba(255,255,255,0.18)"}
           strokeWidth="2"
-          style={{ transition: "fill 0.15s ease" }}
+          style={{ transition: "fill 0.2s ease, stroke 0.2s ease" }}
         />
       </svg>
 
-      {/* Handshake ikona (Lucide) – centrovaná v hexagóne */}
+      {/* Handshake + Plus: spoločne vycentrované (vertikálne aj horizontálne) */}
       <div style={{
         position: "absolute",
         top: 0, left: 0, right: 0, bottom: 0,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        paddingBottom: 10,
       }}>
-        <Handshake
-          size={56}
-          strokeWidth={1.5}
-          color={handColor}
-          style={{ transition: "color 0.15s ease" }}
-        />
-      </div>
-
-      {/* Plus znamienko – vpravo hore nad pravým zápästím */}
-      <div style={{
-        position: "absolute",
-        top: 52,
-        right: 28,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}>
-        <Plus
-          size={14}
-          strokeWidth={2.5}
-          color={handColor}
-          style={{ transition: "color 0.15s ease" }}
-        />
+        <div style={{ position: "relative", display: "inline-flex" }}>
+          <Handshake
+            size={44}
+            strokeWidth={1.5}
+            color={iconColor}
+            style={{ transition: "color 0.2s ease", display: "block" }}
+          />
+          {/* Plus: vpravo hore tesne pri ikone */}
+          <Plus
+            size={13}
+            strokeWidth={2.5}
+            color={hovered ? "rgba(56,189,248,1)" : "rgba(255,255,255,0.80)"}
+            style={{
+              position: "absolute",
+              top: -5,
+              right: -8,
+              transition: "color 0.2s ease",
+            }}
+          />
+        </div>
       </div>
     </button>
   );
@@ -2454,17 +2448,22 @@ export default function Partners() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="grid grid-cols-3 items-center gap-4">
+        {/* Vľavo: titul */}
         <div>
           <h2 className="text-2xl font-bold" data-testid="text-partners-title">Zoznam partnerov</h2>
           <p className="text-sm text-muted-foreground mt-1">Správa externých obchodných partnerov.</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <SmartFilterBar filter={tableFilter} />
-          <ColumnManager columnVisibility={columnVisibility} />
+        {/* Stred: hexagón */}
+        <div className="flex justify-center">
           {canCreateRecords(appUser) && (
             <AddPartnerHexButton onClick={openCreate} />
           )}
+        </div>
+        {/* Vpravo: filtre */}
+        <div className="flex items-center justify-end gap-2 flex-wrap">
+          <SmartFilterBar filter={tableFilter} />
+          <ColumnManager columnVisibility={columnVisibility} />
         </div>
       </div>
 
