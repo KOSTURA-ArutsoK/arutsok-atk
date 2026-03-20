@@ -940,11 +940,12 @@ export default function Products() {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0 overflow-hidden">
-          {canCreateRecords(appUser) && (
-            <AddProductCard onClick={handleAdd} />
-          )}
+      {canCreateRecords(appUser) && (
+        <AddProductCard onClick={handleAdd} />
+      )}
+
+      <Card style={{ marginTop: -8 }}>
+        <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
