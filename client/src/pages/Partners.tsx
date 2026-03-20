@@ -235,8 +235,8 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
         title="Pridať nového partnera"
         style={{
           position: "relative",
-          width: 140,
-          height: 162,
+          width: 172,
+          height: 198,
           background: "none",
           border: "none",
           padding: 0,
@@ -244,32 +244,53 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           outline: "none",
           userSelect: "none",
           transition: "transform 0.15s ease, filter 0.15s ease",
-          transform: isActive ? "scale(1.05)" : "scale(1)",
-          filter: isActive
-            ? "drop-shadow(0 0 14px rgba(245,158,11,0.60))"
-            : "drop-shadow(0 0 4px rgba(245,158,11,0.15))",
+          transform: pressed ? "scale(0.97)" : hovered ? "scale(1.04)" : "scale(1)",
+          filter: hovered
+            ? "drop-shadow(0 0 16px rgba(245,158,11,0.65)) drop-shadow(5px 7px 14px #060f20) drop-shadow(-3px -4px 9px #1c468a)"
+            : pressed
+            ? "drop-shadow(2px 3px 6px #060f20) drop-shadow(-1px -2px 4px #1c468a)"
+            : "drop-shadow(6px 7px 14px #060f20) drop-shadow(-4px -4px 10px #1c468a)",
         }}
       >
-        {/* Hexagón SVG s gradientovým pozadím ako v spoločnosti */}
+        {/* Hexagón SVG — gradient + highlight hrana pre 3D efekt */}
         <svg
-          width="140"
-          height="162"
+          width="172"
+          height="198"
           viewBox="0 0 160 180"
           fill="none"
           style={{ position: "absolute", top: 0, left: 0 }}
         >
           <defs>
             <linearGradient id="hexGradPartner" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#0a1f3d" />
+              <stop offset="0%" stopColor="#112244" />
               <stop offset="100%" stopColor="#1a3f80" />
             </linearGradient>
           </defs>
+          {/* Hlavný hexagón */}
           <path
             d={hexPath}
             fill="url(#hexGradPartner)"
-            stroke={isActive ? "rgba(245,158,11,0.55)" : "rgba(245,158,11,0.22)"}
-            strokeWidth="2"
+            stroke={isActive ? "rgba(245,158,11,0.60)" : "rgba(245,158,11,0.25)"}
+            strokeWidth="1.8"
             style={{ transition: "stroke 0.15s ease" }}
+          />
+          {/* Highlight hrana — ľavá/horná strana pre 3D dojem */}
+          <path
+            d={
+              "M 73,26 Q 80,22 87,26 " +
+              "L 132,52 Q 139,56 139,64"
+            }
+            fill="none"
+            stroke="rgba(255,255,255,0.18)"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+          <path
+            d={"M 21,64 Q 21,56 28,52 L 73,26"}
+            fill="none"
+            stroke="rgba(255,255,255,0.10)"
+            strokeWidth="1"
+            strokeLinecap="round"
           />
         </svg>
 
@@ -285,22 +306,22 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
         }}>
           <div style={{ position: "relative", display: "inline-flex" }}>
             <Handshake
-              size={42}
+              size={46}
               strokeWidth={1.5}
               style={{
                 color: "#FFBF00",
-                filter: `drop-shadow(0 0 6px rgba(255,191,0,${isActive ? 0.85 : 0.50}))`,
+                filter: `drop-shadow(0 0 7px rgba(255,191,0,${isActive ? 0.90 : 0.55}))`,
                 transition: "filter 0.15s ease",
                 display: "block",
               }}
             />
             <Plus
-              size={13}
+              size={14}
               strokeWidth={2.5}
               style={{
                 position: "absolute",
-                top: -5,
-                right: -8,
+                top: -6,
+                right: -9,
                 color: "#FFBF00",
                 filter: "drop-shadow(0 0 4px #FFBF00)",
               }}
@@ -308,13 +329,12 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           </div>
           <span style={{
             fontFamily: "sans-serif",
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: 800,
-            color: isActive ? "#b8d0f0" : "#7a9fc0",
+            color: "#b8d0f0",
             letterSpacing: "0.04em",
             textAlign: "center",
             lineHeight: 1.2,
-            transition: "color 0.15s ease",
           }}>
             Pridať partnera
           </span>
