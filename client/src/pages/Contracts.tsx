@@ -6700,8 +6700,16 @@ export default function Contracts() {
 
             {(preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && !preSelectSubjectId && (
               <>
+              {/* Bublina 1: Firma/Živnosť */}
               {!preSelectIcoLookup?.found && (
-              <div className="space-y-1">
+              <div className="border border-border/60 rounded-md p-3 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-semibold mb-1">
+                  {preSelectSubjectType === "szco" ? <Briefcase className="w-3.5 h-3.5 text-amber-400" /> : preSelectSubjectType === "organization" ? <Building className="w-3.5 h-3.5 text-green-400" /> : preSelectSubjectType === "state" ? <Landmark className="w-3.5 h-3.5 text-cyan-400" /> : <Building2 className="w-3.5 h-3.5 text-purple-400" />}
+                  <span className={preSelectSubjectType === "szco" ? "text-amber-400" : preSelectSubjectType === "organization" ? "text-green-400" : preSelectSubjectType === "state" ? "text-cyan-400" : "text-purple-400"}>
+                    {preSelectSubjectType === "szco" ? "Živnosť (SZČO)" : preSelectSubjectType === "organization" ? "Organizácia (TS)" : preSelectSubjectType === "state" ? "Inštitúcia (VS)" : "Spoločnosť (PO)"}
+                  </span>
+                </div>
+                <div className="space-y-1">
                 <label className="text-xs font-medium flex items-center gap-1">{preSelectSubjectType === "szco" ? "Názov živnosti" : preSelectSubjectType === "organization" ? "Názov organizácie/nadácie" : preSelectSubjectType === "state" ? "Názov inštitúcie" : "Názov spoločnosti"} * {isFieldMissing("business-name") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                 <Input
                   ref={refBusinessNameInput}
@@ -6742,18 +6750,16 @@ export default function Contracts() {
                     <span className="text-xs text-blue-400">Preberám údaje z registra...</span>
                   </div>
                 )}
+                </div>
               </div>
               )}
 
-              {/* FO search — vždy viditeľné pre szco/company/org/state */}
+              {/* Bublina 2: FO — vždy viditeľné pre szco/company/org/state */}
               {(preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && !preSelectSubjectId && (
-                <div className="space-y-1.5">
-                  {/* Mini type indicator — len FO */}
-                  <div className="relative w-full flex p-0.5 bg-muted/40 rounded border border-border/60">
-                    <div className="relative z-10 w-full flex items-center justify-center gap-1.5 px-2 py-1 text-xs font-medium text-foreground rounded bg-background shadow border border-border/50">
-                      <User className="w-3 h-3" />
-                      Fyzická osoba (FO)
-                    </div>
+                <div className="border border-blue-500/30 rounded-md p-3 space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold mb-1">
+                    <User className="w-3.5 h-3.5 text-blue-400" />
+                    <span className="text-blue-400">Fyzická osoba (FO)</span>
                   </div>
                   {/* FO search input */}
                   <div className="relative">
