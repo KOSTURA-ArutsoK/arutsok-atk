@@ -553,6 +553,7 @@ function CompanyFormDialog({
   const [localActivities, setLocalActivities] = useState<BusinessActivity[]>([]);
   const [newActivityText, setNewActivityText] = useState("");
   const [newActivitySince, setNewActivitySince] = useState("");
+  const [newActivityUntil, setNewActivityUntil] = useState("");
   const [editingActivityIdx, setEditingActivityIdx] = useState<number | null>(null);
   const [editingActivityValues, setEditingActivityValues] = useState<{ text: string; since: string; until: string }>({ text: "", since: "", until: "" });
   const [corrSameAsHQ, setCorrSameAsHQ] = useState(false);
@@ -1488,16 +1489,6 @@ function CompanyFormDialog({
                       data-testid="input-new-activity-text"
                     />
                     <div className="flex gap-2 items-center">
-                      <div className="flex items-center gap-2 flex-1">
-                        <label className="text-xs text-muted-foreground whitespace-nowrap">Dátum od</label>
-                        <input
-                          type="date"
-                          className="flex-1 h-8 rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                          value={newActivitySince}
-                          onChange={e => setNewActivitySince(e.target.value)}
-                          data-testid="input-new-activity-since"
-                        />
-                      </div>
                       <Button
                         type="button"
                         size="sm"
@@ -1509,14 +1500,34 @@ function CompanyFormDialog({
                           if (!newActivityText.trim()) return;
                           const entry: BusinessActivity = { text: newActivityText.trim() };
                           if (newActivitySince) entry.since = newActivitySince;
+                          if (newActivityUntil) entry.until = newActivityUntil;
                           setLocalActivities(prev => [...prev, entry]);
                           setNewActivityText("");
                           setNewActivitySince("");
+                          setNewActivityUntil("");
                         }}
                       >
                         <Plus className="w-4 h-4 mr-1" />
                         Pridať
                       </Button>
+                      <div className="flex items-center gap-2 ml-auto">
+                        <label className="text-xs text-muted-foreground whitespace-nowrap">Od</label>
+                        <input
+                          type="date"
+                          className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          value={newActivitySince}
+                          onChange={e => setNewActivitySince(e.target.value)}
+                          data-testid="input-new-activity-since"
+                        />
+                        <label className="text-xs text-red-400 whitespace-nowrap">Do</label>
+                        <input
+                          type="date"
+                          className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm text-red-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          value={newActivityUntil}
+                          onChange={e => setNewActivityUntil(e.target.value)}
+                          data-testid="input-new-activity-until"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
