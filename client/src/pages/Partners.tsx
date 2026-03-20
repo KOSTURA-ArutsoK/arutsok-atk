@@ -222,6 +222,14 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
 
   const isActive = hovered || pressed;
 
+  // Aproximované rohy hexagónu (z hexPath Q-kriviek)
+  const TRx = 136, TRy = 54;
+  const BRx = 136, BRy = 126;
+  const Bx  = 80,  By  = 158;
+  const BLx = 24,  BLy = 126;
+  // Extrúzia (smer: vpravo-dole → 3D hĺbka)
+  const ex = 6, ey = 8;
+
   return (
     <div className="flex items-center justify-center w-full py-4">
       <button
@@ -235,8 +243,8 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
         title="Pridať nového partnera"
         style={{
           position: "relative",
-          width: 172,
-          height: 198,
+          width: 176,
+          height: 204,
           background: "none",
           border: "none",
           padding: 0,
@@ -244,73 +252,102 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           outline: "none",
           userSelect: "none",
           transition: "transform 0.15s ease, filter 0.15s ease",
-          transform: pressed ? "scale(0.97)" : hovered ? "scale(1.04)" : "scale(1)",
+          transform: pressed
+            ? "scale(0.96) translateY(3px)"
+            : hovered ? "scale(1.05)" : "scale(1)",
           filter: hovered
-            ? "drop-shadow(0 0 16px rgba(245,158,11,0.65)) drop-shadow(5px 7px 14px #060f20) drop-shadow(-3px -4px 9px #1c468a)"
+            ? "drop-shadow(0 0 20px rgba(245,158,11,0.70)) drop-shadow(0 8px 16px rgba(0,0,0,0.55))"
             : pressed
-            ? "drop-shadow(2px 3px 6px #060f20) drop-shadow(-1px -2px 4px #1c468a)"
-            : "drop-shadow(6px 7px 14px #060f20) drop-shadow(-4px -4px 10px #1c468a)",
+            ? "drop-shadow(0 2px 6px rgba(0,0,0,0.60))"
+            : "drop-shadow(0 10px 18px rgba(0,0,0,0.60)) drop-shadow(0 2px 4px rgba(0,0,0,0.40))",
         }}
       >
-        {/* Hexagón SVG — gradient + highlight hrana pre 3D efekt */}
         <svg
-          width="172"
-          height="198"
+          width="176"
+          height="204"
           viewBox="0 0 160 180"
           fill="none"
           style={{ position: "absolute", top: 0, left: 0 }}
         >
           <defs>
-            <linearGradient id="hexGradPartner" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#112244" />
-              <stop offset="100%" stopColor="#1a3f80" />
+            <linearGradient id="hexFaceGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%"   stopColor="#1e3d72" />
+              <stop offset="100%" stopColor="#0d2040" />
+            </linearGradient>
+            <linearGradient id="hexRightWall" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%"   stopColor="#0e2248" />
+              <stop offset="100%" stopColor="#091838" />
             </linearGradient>
           </defs>
-          {/* Hlavný hexagón */}
+
+          {/* Bočná stena — pravá */}
+          <polygon
+            points={`${TRx},${TRy} ${TRx+ex},${TRy+ey} ${BRx+ex},${BRy+ey} ${BRx},${BRy}`}
+            fill="#0d2145"
+          />
+          {/* Bočná stena — vpravo-dole */}
+          <polygon
+            points={`${BRx},${BRy} ${BRx+ex},${BRy+ey} ${Bx+ex},${By+ey} ${Bx},${By}`}
+            fill="#091838"
+          />
+          {/* Bočná stena — vľavo-dole */}
+          <polygon
+            points={`${Bx},${By} ${Bx+ex},${By+ey} ${BLx+ex},${BLy+ey} ${BLx},${BLy}`}
+            fill="#0b1d40"
+          />
+
+          {/* Spodná hrana bočných stien */}
+          <polyline
+            points={`${TRx+ex},${TRy+ey} ${BRx+ex},${BRy+ey} ${Bx+ex},${By+ey} ${BLx+ex},${BLy+ey}`}
+            fill="none"
+            stroke="rgba(0,0,0,0.40)"
+            strokeWidth="1"
+          />
+
+          {/* Hlavná plocha hexagónu */}
           <path
             d={hexPath}
-            fill="url(#hexGradPartner)"
-            stroke={isActive ? "rgba(245,158,11,0.60)" : "rgba(245,158,11,0.25)"}
-            strokeWidth="1.8"
+            fill="url(#hexFaceGrad)"
+            stroke={isActive ? "rgba(245,158,11,0.75)" : "rgba(245,158,11,0.32)"}
+            strokeWidth="1.6"
             style={{ transition: "stroke 0.15s ease" }}
           />
-          {/* Highlight hrana — ľavá/horná strana pre 3D dojem */}
+
+          {/* Highlight — horná ľavá hrana (svetlo zhora-vľavo = 3D lesk) */}
           <path
-            d={
-              "M 73,26 Q 80,22 87,26 " +
-              "L 132,52 Q 139,56 139,64"
-            }
+            d="M 24,54 Q 21,56 21,64 L 21,116 Q 21,124 28,128"
             fill="none"
-            stroke="rgba(255,255,255,0.18)"
-            strokeWidth="1.5"
+            stroke="rgba(255,255,255,0.08)"
+            strokeWidth="2"
             strokeLinecap="round"
           />
           <path
-            d={"M 21,64 Q 21,56 28,52 L 73,26"}
+            d="M 73,26 Q 80,22 87,26 L 132,52 Q 139,56 139,64"
             fill="none"
-            stroke="rgba(255,255,255,0.10)"
-            strokeWidth="1"
+            stroke="rgba(255,255,255,0.22)"
+            strokeWidth="1.8"
             strokeLinecap="round"
           />
         </svg>
 
-        {/* Handshake + Plus: vycentrované */}
+        {/* Obsah — ikona + text, vertikálne aj horizontálne vycentrované */}
         <div style={{
           position: "absolute",
-          top: 0, left: 0, right: 0, bottom: 0,
+          top: 0, left: 0, right: 0,
+          bottom: ey + 4,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: 8,
+          gap: 9,
         }}>
           <div style={{ position: "relative", display: "inline-flex" }}>
             <Handshake
               size={46}
-              strokeWidth={1.5}
+              strokeWidth={1.4}
               style={{
                 color: "#FFBF00",
-                filter: `drop-shadow(0 0 7px rgba(255,191,0,${isActive ? 0.90 : 0.55}))`,
+                filter: `drop-shadow(0 0 8px rgba(255,191,0,${isActive ? 0.95 : 0.55}))`,
                 transition: "filter 0.15s ease",
                 display: "block",
               }}
@@ -323,7 +360,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
                 top: -6,
                 right: -9,
                 color: "#FFBF00",
-                filter: "drop-shadow(0 0 4px #FFBF00)",
+                filter: "drop-shadow(0 0 5px #FFBF00)",
               }}
             />
           </div>
@@ -332,7 +369,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
             fontSize: 11,
             fontWeight: 800,
             color: "#b8d0f0",
-            letterSpacing: "0.04em",
+            letterSpacing: "0.05em",
             textAlign: "center",
             lineHeight: 1.2,
           }}>
