@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, bigint, numeric, varchar, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, bigint, numeric, varchar, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -214,6 +214,15 @@ export const partnerContracts = pgTable("partner_contracts", {
   contractFile: jsonb("contract_file").$type<DocEntry | null>(),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// === PARTNER ↔ COMPANY LINKS (many-to-many, one record per company the partner belongs to) ===
+export const partnerCompanyLinks = pgTable("partner_company_links", {
+  id: serial("id").primaryKey(),
+  partnerId: integer("partner_id").notNull().references(() => partners.id),
+  myCompanyId: integer("my_company_id").notNull().references(() => myCompanies.id),
+}, (t) => ({
+  uniq: uniqueIndex("pcl_partner_company_uniq").on(t.partnerId, t.myCompanyId),
+}));
 
 // === PARTNER CONTACTS (External) ===
 export const partnerContacts = pgTable("partner_contacts", {

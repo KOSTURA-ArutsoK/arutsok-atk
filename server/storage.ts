@@ -1076,6 +1076,14 @@ export class DatabaseStorage implements IStorage {
       uid = await this.generateNextGlobalUid(stateCode);
     }
 
+    // If a partner with this UID already exists, return it (don't create duplicate)
+    const [existingPartner] = await db.select().from(partners)
+      .where(and(eq(partners.uid, uid), or(eq(partners.isDeleted, false), isNull(partners.isDeleted))))
+      .limit(1);
+    if (existingPartner) {
+      return { partner: existingPartner, matchedSubject };
+    }
+
     const [newPartner] = await db.insert(partners).values({ ...partner, uid }).returning();
 
     return { partner: newPartner, matchedSubject };
