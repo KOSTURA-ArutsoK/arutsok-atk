@@ -6986,6 +6986,8 @@ export async function registerRoutes(
         "odporucitel podiel": "odporucitel_podiel", "odporucitel_podiel": "odporucitel_podiel", "recommender_percentage": "odporucitel_podiel", "odporucitel1_%": "odporucitel_podiel", "odporucitel1_pct": "odporucitel_podiel", "p: odporucitel 1 %": "odporucitel_podiel", "p: odporúčateľ 1 %": "odporucitel_podiel", "odporucatel 1 %": "odporucitel_podiel", "odporucatel_1_%": "odporucitel_podiel", "r: odporucitel 1 %": "odporucitel_podiel", "r: odporúčateľ 1 %": "odporucitel_podiel",
         "odporucitel2_uid": "odporucitel2", "odporucitel2 uid": "odporucitel2", "odporucatel 2 uid": "odporucitel2", "odporucatel_2_uid": "odporucitel2", "q: odporucitel 2 uid": "odporucitel2", "q: odporúčateľ 2 uid": "odporucitel2", "s: odporucitel 2 uid": "odporucitel2", "s: odporúčateľ 2 uid": "odporucitel2",
         "odporucitel2_%": "odporucitel2_podiel", "odporucitel2_pct": "odporucitel2_podiel", "odporucitel2_podiel": "odporucitel2_podiel", "r: odporucitel 2 %": "odporucitel2_podiel", "r: odporúčateľ 2 %": "odporucitel2_podiel", "odporucatel 2 %": "odporucitel2_podiel", "odporucatel_2_%": "odporucitel2_podiel", "t: odporucitel 2 %": "odporucitel2_podiel", "t: odporúčateľ 2 %": "odporucitel2_podiel",
+        "odporucitel3_uid": "odporucitel3", "odporucitel3 uid": "odporucitel3", "odporucatel 3 uid": "odporucitel3", "odporucatel_3_uid": "odporucitel3", "u: odporucitel 3 uid": "odporucitel3", "u: odporúčateľ 3 uid": "odporucitel3",
+        "odporucitel3_%": "odporucitel3_podiel", "odporucitel3_pct": "odporucitel3_podiel", "odporucitel3_podiel": "odporucitel3_podiel", "odporucatel 3 %": "odporucitel3_podiel", "odporucatel_3_%": "odporucitel3_podiel", "v: odporucitel 3 %": "odporucitel3_podiel", "v: odporúčateľ 3 %": "odporucitel3_podiel",
         "typ zmluvy": "typ_zmluvy", "typ_zmluvy": "typ_zmluvy", "type_of_contract": "typ_zmluvy", "contract_type": "typ_zmluvy", "c: typ zmluvy": "typ_zmluvy",
         "datum uzatvorenia": "datum_uzatvorenia", "datum_uzatvorenia": "datum_uzatvorenia", "dátum uzatvorenia": "datum_uzatvorenia", "d: dátum uzatvorenia": "datum_uzatvorenia", "d: datum uzatvorenia": "datum_uzatvorenia",
         "datum podpisu": "datum_uzatvorenia", "datum_podpisu": "datum_uzatvorenia", "dátum podpisu": "datum_uzatvorenia", "signed_date": "datum_uzatvorenia", "signing_date": "datum_uzatvorenia",
@@ -7023,7 +7025,7 @@ export async function registerRoutes(
         return underscored;
       }
 
-      const KNOWN_IMPORT_HEADERS = new Set([...POSITIONAL_COLUMNS, ...Object.values(HEADER_ALIASES), "specialista", "specialista_podiel", "odporucitel", "odporucitel_podiel", "odporucitel2", "odporucitel2_podiel", "typ_zmluvy", "rodne_cislo", "ico", "rc_ico"]);
+      const KNOWN_IMPORT_HEADERS = new Set([...POSITIONAL_COLUMNS, ...Object.values(HEADER_ALIASES), "specialista", "specialista_podiel", "odporucitel", "odporucitel_podiel", "odporucitel2", "odporucitel2_podiel", "odporucitel3", "odporucitel3_podiel", "typ_zmluvy", "rodne_cislo", "ico", "rc_ico"]);
 
       if (isCSV) {
         const csvContent = fs.readFileSync(file.path, "utf-8");
@@ -7293,6 +7295,8 @@ export async function registerRoutes(
           const odporucitelPodiel = rowData["odporucitel_podiel"] || rowData["recommender_percentage"] || rowData["odporucitel1_pct"] || rowData["odporucitel1_%"] || null;
           const odporucitel2Uid = normalizeImportUid(rowData["odporucitel2"] || rowData["odporucitel2_uid"] || null);
           const odporucitel2Podiel = rowData["odporucitel2_podiel"] || rowData["odporucitel2_pct"] || rowData["odporucitel2_%"] || null;
+          const odporucitel3Uid = normalizeImportUid(rowData["odporucitel3"] || rowData["odporucitel3_uid"] || null);
+          const odporucitel3Podiel = rowData["odporucitel3_podiel"] || rowData["odporucitel3_pct"] || rowData["odporucitel3_%"] || null;
 
           let rc: string | null = rcRaw || null;
           let ico: string | null = icoRaw || null;
@@ -7525,7 +7529,7 @@ export async function registerRoutes(
 
           const created = await storage.createContract(contractData);
 
-          if (specialistaUid || odporucitelUid) {
+          if (specialistaUid || odporucitelUid || odporucitel3Uid) {
             const distributions: { contractId: number; type: string; uid: string; percentage: string; sortOrder: number }[] = [];
             if (specialistaUid) {
               distributions.push({
@@ -7563,6 +7567,15 @@ export async function registerRoutes(
                 sortOrder: distributions.length,
               });
             }
+            if (odporucitel3Uid) {
+              distributions.push({
+                contractId: created.id,
+                type: "recommender",
+                uid: odporucitel3Uid.trim(),
+                percentage: odporucitel3Podiel ? String(parseFloat(odporucitel3Podiel) || 0) : "0",
+                sortOrder: distributions.length,
+              });
+            }
             try {
               await storage.saveContractRewardDistributions(created.id, distributions);
             } catch (rewardErr: any) {
@@ -7575,7 +7588,7 @@ export async function registerRoutes(
             module: "zmluvy",
             entityId: created.id,
             entityName: `Import riadok ${rowNum}: kontrakt #${created.id}`,
-            newData: { row: rowNum, contractId: created.id, partnerId: resolvedPartnerId, productId: resolvedProductId, subjectId: resolvedSubjectId, specialistaUid, odporucitelUid, odporucitel2Uid },
+            newData: { row: rowNum, contractId: created.id, partnerId: resolvedPartnerId, productId: resolvedProductId, subjectId: resolvedSubjectId, specialistaUid, odporucitelUid, odporucitel2Uid, odporucitel3Uid },
           });
 
           if (isIncomplete) incompleteCount++;
@@ -7614,6 +7627,8 @@ export async function registerRoutes(
               odporucitel_podiel: odporucitelPodiel,
               odporucitel2: odporucitel2Uid,
               odporucitel2_podiel: odporucitel2Podiel,
+              odporucitel3: odporucitel3Uid,
+              odporucitel3_podiel: odporucitel3Podiel,
             },
           });
         } catch (rowErr: any) {
@@ -11452,6 +11467,8 @@ export async function registerRoutes(
         { header: "R: Odporúčateľ 1 % —", key: "odporucitel1_pct", width: 20 },
         { header: "S: Odporúčateľ 2 UID —", key: "odporucitel2_uid", width: 24 },
         { header: "T: Odporúčateľ 2 % —", key: "odporucitel2_pct", width: 20 },
+        { header: "U: Odporúčateľ 3 UID —", key: "odporucitel3_uid", width: 24 },
+        { header: "V: Odporúčateľ 3 % —", key: "odporucitel3_pct", width: 20 },
       ];
 
       const headerRow = sheet.getRow(1);
@@ -11476,7 +11493,7 @@ export async function registerRoutes(
         15: "FF991B1B", // O: specialista_uid *
         16: "FF991B1B", // P: specialista_% *
       };
-      for (let i = 1; i <= 20; i++) {
+      for (let i = 1; i <= 22; i++) {
         const cell = headerRow.getCell(i);
         if (colColors[i]) {
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: colColors[i] } };
@@ -11489,25 +11506,25 @@ export async function registerRoutes(
           partner: "Allianz", produkt: "PZP Auto", typ_zmluvy: "Nova", datum_uzatvorenia: "10.03.2026 14:30:00", cislo_navrhu: "N-2024-001", cislo_zmluvy: "",
           typ_subjektu: "FO", rodne_cislo: "850101/1234", titul_pred: "Ing.", meno: "Ján", priezvisko: "Novák", titul_za: "", ico: "", nazov_firmy: "",
           specialista_uid: "421000000001", specialista_pct: "100",
-          odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "",
+          odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "", odporucitel3_uid: "", odporucitel3_pct: "",
         },
         {
           partner: "Generali", produkt: "Životné poistenie", typ_zmluvy: "Prestupova", datum_uzatvorenia: "05.02.2026", cislo_navrhu: "N-2024-002", cislo_zmluvy: "",
           typ_subjektu: "SZČO", rodne_cislo: "900515/4567", titul_pred: "", meno: "Peter", priezvisko: "Horváth", titul_za: "", ico: "12345678", nazov_firmy: "Peter Horváth - stolárstvo",
           specialista_uid: "421000000002", specialista_pct: "70",
-          odporucitel1_uid: "421000000003", odporucitel1_pct: "30", odporucitel2_uid: "", odporucitel2_pct: "",
+          odporucitel1_uid: "421000000003", odporucitel1_pct: "30", odporucitel2_uid: "", odporucitel2_pct: "", odporucitel3_uid: "", odporucitel3_pct: "",
         },
         {
           partner: "ČSOB", produkt: "Podnikateľské poistenie", typ_zmluvy: "Zmenova", datum_uzatvorenia: "15.01.2026", cislo_navrhu: "", cislo_zmluvy: "Z-2024-050",
           typ_subjektu: "PO", rodne_cislo: "900101/0012", titul_pred: "Ing.", meno: "Mária", priezvisko: "Kováčová", titul_za: "PhD.", ico: "12345678", nazov_firmy: "ABC Trading s.r.o.",
           specialista_uid: "421000000001", specialista_pct: "80",
-          odporucitel1_uid: "421000000004", odporucitel1_pct: "20", odporucitel2_uid: "", odporucitel2_pct: "",
+          odporucitel1_uid: "421000000004", odporucitel1_pct: "20", odporucitel2_uid: "", odporucitel2_pct: "", odporucitel3_uid: "", odporucitel3_pct: "",
         },
         {
           partner: "Uniqa", produkt: "Poistenie zodpovednosti", typ_zmluvy: "Nova", datum_uzatvorenia: "28.12.2025", cislo_navrhu: "N-2024-003", cislo_zmluvy: "",
           typ_subjektu: "TS", rodne_cislo: "780310/7654", titul_pred: "Mgr.", meno: "Jana", priezvisko: "Svobodová", titul_za: "", ico: "31234567", nazov_firmy: "Nadácia Dobré srdce",
           specialista_uid: "421000000002", specialista_pct: "100",
-          odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "",
+          odporucitel1_uid: "", odporucitel1_pct: "", odporucitel2_uid: "", odporucitel2_pct: "", odporucitel3_uid: "", odporucitel3_pct: "",
         },
       ];
 

@@ -3841,9 +3841,10 @@ export default function Contracts() {
                 <TableHead className="whitespace-nowrap text-xs">I: Meno</TableHead>
                 <TableHead className="whitespace-nowrap text-xs">J: Priezvisko</TableHead>
                 <TableHead className="whitespace-nowrap text-xs">K: Titul za</TableHead>
-                <TableHead className="whitespace-nowrap text-xs">L+M: Špecialist (UID %)</TableHead>
-                <TableHead className="whitespace-nowrap text-xs">N+O: Odporúčateľ 1 (UID %)</TableHead>
-                <TableHead className="whitespace-nowrap text-xs">P+Q: Odporúčateľ 2 (UID %)</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">O+P: Špecialist (UID %)</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">Q+R: Odporúčateľ 1 (UID %)</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">S+T: Odporúčateľ 2 (UID %)</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">U+V: Odporúčateľ 3 (UID %)</TableHead>
               </>
             ) : (
               <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Subjekt</TableHead>
@@ -4007,6 +4008,9 @@ export default function Contracts() {
                       </TableCell>
                       <TableCell className="text-xs font-mono py-1 whitespace-nowrap">
                         {raw.odporucitel2 ? <span className="text-muted-foreground">{formatUid(raw.odporucitel2)}{raw.odporucitel2_podiel != null && raw.odporucitel2_podiel !== "" ? <span className="text-primary font-semibold"> ({raw.odporucitel2_podiel}%)</span> : ""}</span> : <span className="text-muted-foreground/30">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs font-mono py-1 whitespace-nowrap">
+                        {raw.odporucitel3 ? <span className="text-muted-foreground">{formatUid(raw.odporucitel3)}{raw.odporucitel3_podiel != null && raw.odporucitel3_podiel !== "" ? <span className="text-primary font-semibold"> ({raw.odporucitel3_podiel}%)</span> : ""}</span> : <span className="text-muted-foreground/30">—</span>}
                       </TableCell>
                     </>
                   );
@@ -4218,17 +4222,17 @@ export default function Contracts() {
         {importStep === 1 && (
         <div className="space-y-2 text-justify">
           <p className="text-xs text-muted-foreground">
-            Nahrajte Excel (.xlsx) alebo CSV súbor so stĺpcami A–T. Mapovanie 1:1 — systém stĺpce neprehadzuje.
+            Nahrajte Excel (.xlsx) alebo CSV súbor so stĺpcami A–V. Mapovanie 1:1 — systém stĺpce neprehadzuje.
           </p>
           <p className="text-[10px] font-mono text-muted-foreground/70 bg-muted/20 rounded px-2 py-1 leading-relaxed">
-            A: partner · B: produkt · C: typ_zmluvy · D: datum_uzatvorenia · E: cislo_navrhu · F: cislo_zmluvy · <span className="text-foreground/60">G: typ_subjektu</span> · H: rodne_cislo · I: titul_pred · J: meno · K: priezvisko · L: titul_za · M: ico · N: nazov_firmy · O: specialista_uid · P: specialista_% · Q: odporucitel1_uid · R: odporucitel1_% · S: odporucitel2_uid · T: odporucitel2_%
+            A: partner · B: produkt · C: typ_zmluvy · D: datum_uzatvorenia · E: cislo_navrhu · F: cislo_zmluvy · <span className="text-foreground/60">G: typ_subjektu</span> · H: rodne_cislo · I: titul_pred · J: meno · K: priezvisko · L: titul_za · M: ico · N: nazov_firmy · O: specialista_uid · P: specialista_% · Q: odporucitel1_uid · R: odporucitel1_% · S: odporucitel2_uid · T: odporucitel2_% · U: odporucitel3_uid · V: odporucitel3_%
           </p>
 
           <div className="border rounded overflow-hidden">
             <div className="bg-muted/50 px-2 py-0.5 text-[10px] font-medium border-b grid grid-cols-3">
               <span>Krok 1: Partner &amp; zmluva (A–F)</span>
               <span>Krok 2: Klient / subjekt (G–N)</span>
-              <span>Krok 3: Získateľ (O–T)</span>
+              <span>Krok 3: Získateľ (O–V)</span>
             </div>
             <div className="grid grid-cols-3 text-[10px]">
               <div className="border-r">
@@ -4255,7 +4259,9 @@ export default function Contracts() {
                 <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">Q</span><span>odporucitel1_uid</span><span className="ml-auto text-muted-foreground">—</span></div>
                 <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">R</span><span>odporucitel1_%</span><span className="ml-auto text-muted-foreground">—</span></div>
                 <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">S</span><span>odporucitel2_uid</span><span className="ml-auto text-muted-foreground">—</span></div>
-                <div className="flex px-1.5 py-px bg-muted/10"><span className="font-mono w-5">T</span><span>odporucitel2_%</span><span className="ml-auto text-muted-foreground">—</span></div>
+                <div className="flex border-b px-1.5 py-px bg-muted/10"><span className="font-mono w-5">T</span><span>odporucitel2_%</span><span className="ml-auto text-muted-foreground">—</span></div>
+                <div className="flex border-b px-1.5 py-px"><span className="font-mono w-5">U</span><span>odporucitel3_uid</span><span className="ml-auto text-muted-foreground">—</span></div>
+                <div className="flex px-1.5 py-px bg-muted/10"><span className="font-mono w-5">V</span><span>odporucitel3_%</span><span className="ml-auto text-muted-foreground">—</span></div>
               </div>
             </div>
           </div>
@@ -4893,6 +4899,8 @@ export default function Contracts() {
                       <TableHead className="text-xs whitespace-nowrap">R: Odporúčateľ 1 %</TableHead>
                       <TableHead className="text-xs whitespace-nowrap">S: Odporúčateľ 2 UID</TableHead>
                       <TableHead className="text-xs whitespace-nowrap">T: Odporúčateľ 2 %</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">U: Odporúčateľ 3 UID</TableHead>
+                      <TableHead className="text-xs whitespace-nowrap">V: Odporúčateľ 3 %</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -4946,6 +4954,8 @@ export default function Contracts() {
                           <TableCell className="text-xs text-right">{rd.odporucitel_podiel != null ? `${rd.odporucitel_podiel}%` : <span className="text-muted-foreground/30">—</span>}</TableCell>
                           <TableCell className="text-xs font-mono text-muted-foreground whitespace-nowrap">{rd.odporucitel2 ? formatUid(rd.odporucitel2) : <span className="text-muted-foreground/30">—</span>}</TableCell>
                           <TableCell className="text-xs text-right">{rd.odporucitel2_podiel != null ? `${rd.odporucitel2_podiel}%` : <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs font-mono text-muted-foreground whitespace-nowrap">{rd.odporucitel3 ? formatUid(rd.odporucitel3) : <span className="text-muted-foreground/30">—</span>}</TableCell>
+                          <TableCell className="text-xs text-right">{rd.odporucitel3_podiel != null ? `${rd.odporucitel3_podiel}%` : <span className="text-muted-foreground/30">—</span>}</TableCell>
                         </TableRow>
                       );
                     })}
@@ -5775,7 +5785,7 @@ export default function Contracts() {
     const dists = allRewardDist.filter((d: any) => d.contractId === c.id);
     const spec = dists.find((d: any) => d.type === "specialist");
     const recs = dists.filter((d: any) => d.type === "recommender").sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    const r1 = recs[0]; const r2 = recs[1];
+    const r1 = recs[0]; const r2 = recs[1]; const r3 = recs[2];
     const docs = Array.isArray(c.documents) ? c.documents as any[] : [];
     const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
       <>
@@ -5871,6 +5881,7 @@ export default function Contracts() {
                   <Row label="Špecialist" value={spec ? <span className="font-mono">{formatUid(spec.uid)} · <span className="text-emerald-500">{parseFloat(spec.percentage || "0").toFixed(0)}%</span></span> : undefined} />
                   <Row label="Odporúčateľ 1" value={r1 ? <span className="font-mono">{formatUid(r1.uid)} · <span className="text-amber-400">{parseFloat(r1.percentage || "0").toFixed(0)}%</span></span> : undefined} />
                   <Row label="Odporúčateľ 2" value={r2 ? <span className="font-mono">{formatUid(r2.uid)} · <span className="text-amber-300">{parseFloat(r2.percentage || "0").toFixed(0)}%</span></span> : undefined} />
+                  <Row label="Odporúčateľ 3" value={r3 ? <span className="font-mono">{formatUid(r3.uid)} · <span className="text-amber-200">{parseFloat(r3.percentage || "0").toFixed(0)}%</span></span> : undefined} />
                 </div>
               </div>
               <div className="border rounded-md overflow-hidden">
