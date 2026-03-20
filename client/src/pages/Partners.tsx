@@ -10,7 +10,7 @@ import { formatDateSlovak, formatPhone, formatUid, canCreateRecords, canEditReco
 import {
   Plus, Briefcase, Pencil, Trash2, Clock, Users, Package, Calendar, Archive, MapPin, Circle,
   FastForward, Play, Pause, Upload, Square, FileText, X, Download, Image, Loader2, GitBranch,
-  Phone, Mail, Camera, UserCog, UserPlus, Search, CheckCircle2, AlertCircle,
+  Phone, Mail, Camera, UserCog, UserPlus, Search, CheckCircle2, AlertCircle, Handshake,
 } from "lucide-react";
 import type { PartnerContract, DocEntry } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
@@ -249,14 +249,14 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           : "drop-shadow(0 0 5px rgba(245,158,11,0.20))",
       }}
     >
+      {/* Hexagón pozadie */}
       <svg
         width="160"
         height="180"
         viewBox="0 0 160 180"
         fill="none"
-        xmlns="http://www.w3.org/2000/svg"
+        style={{ position: "absolute", top: 0, left: 0 }}
       >
-        {/* ── ZAOBLENÝ HEXAGÓN (Royal Blue) ── */}
         <path
           d={hexPath}
           fill={hovered ? "rgba(59,130,246,0.10)" : "rgba(59,130,246,0.05)"}
@@ -264,72 +264,41 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           strokeWidth="2"
           style={{ transition: "fill 0.15s ease" }}
         />
-
-        {/* ── HANDSHAKE (Gold/Amber, organický line-art) ──
-            Obe ruky sa stretávajú v strede (pohľad spredu).
-            Pravá ruka je navrchu – viditeľné 4 zaoblené prsty.
-            Oba palce sú viditeľné po stranách.
-            ŽIADNE rovné línie ani obdĺžniky.
-        */}
-
-        {/* Ľavé predlaktie – organická krivka z ľava dolu */}
-        <path d="M 40,126 C 46,120 54,112 65,106"
-          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
-          style={{ transition: "stroke 0.15s ease" }} />
-        {/* Pravé predlaktie – organická krivka z prava dolu */}
-        <path d="M 120,126 C 114,120 106,112 95,106"
-          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
-          style={{ transition: "stroke 0.15s ease" }} />
-
-        {/* Ľavý bok dlane (vertikálna strana) */}
-        <path d="M 65,106 L 65,93"
-          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
-          style={{ transition: "stroke 0.15s ease" }} />
-        {/* Pravý bok dlane (vertikálna strana) */}
-        <path d="M 95,106 L 95,93"
-          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
-          style={{ transition: "stroke 0.15s ease" }} />
-
-        {/* Spodok gripu – organický oblúk nadol (nie rovná čiara) */}
-        <path d="M 65,106 C 72,110 88,110 95,106"
-          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
-          style={{ transition: "stroke 0.15s ease" }} />
-
-        {/* 4 zaoblené prsty – každý je C-bezier oblúk (otvorený dole pri y=93) */}
-        {/* Prst 1 – malíček (najnižší, x≈66–72) */}
-        <path d="M 66,93 C 64,85 67,81 69.5,81 C 72,81 74,85 72,93"
-          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
-          style={{ transition: "stroke 0.15s ease" }} />
-        {/* Prst 2 – prsteník (x≈73–80) */}
-        <path d="M 73,93 C 71,84 74,79 77,79 C 80,79 82,84 80,93"
-          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
-          style={{ transition: "stroke 0.15s ease" }} />
-        {/* Prst 3 – prostredník (najvyšší, x≈81–88) */}
-        <path d="M 81,93 C 79,83 82,77 85,77 C 88,77 90,83 88,93"
-          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
-          style={{ transition: "stroke 0.15s ease" }} />
-        {/* Prst 4 – ukazovák (x≈89–95) */}
-        <path d="M 89,93 C 88,85 91,81 93,81 C 95,81 96,85 95,93"
-          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
-          style={{ transition: "stroke 0.15s ease" }} />
-
-        {/* Ľavý palec – oblúk od ľavého boku dlane smerom hore-vľavo */}
-        <path d="M 65,100 C 57,95 56,86 62,81 C 63.5,79.5 65.5,80.5 65.5,83"
-          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
-          style={{ transition: "stroke 0.15s ease" }} />
-        {/* Pravý palec – oblúk od pravého boku dlane smerom hore-vpravo */}
-        <path d="M 95,100 C 103,95 104,86 98,81 C 96.5,79.5 94.5,80.5 94.5,83"
-          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
-          style={{ transition: "stroke 0.15s ease" }} />
-
-        {/* ── PLUS ZNAMIENKO – vpravo hore, nad pravým zápästím ── */}
-        <line x1="113" y1="72" x2="113" y2="80"
-          stroke={handColor} strokeWidth="2" strokeLinecap="round"
-          style={{ transition: "stroke 0.15s ease" }} />
-        <line x1="109" y1="76" x2="117" y2="76"
-          stroke={handColor} strokeWidth="2" strokeLinecap="round"
-          style={{ transition: "stroke 0.15s ease" }} />
       </svg>
+
+      {/* Handshake ikona (Lucide) – centrovaná v hexagóne */}
+      <div style={{
+        position: "absolute",
+        top: 0, left: 0, right: 0, bottom: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingBottom: 10,
+      }}>
+        <Handshake
+          size={56}
+          strokeWidth={1.5}
+          color={handColor}
+          style={{ transition: "color 0.15s ease" }}
+        />
+      </div>
+
+      {/* Plus znamienko – vpravo hore nad pravým zápästím */}
+      <div style={{
+        position: "absolute",
+        top: 52,
+        right: 28,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}>
+        <Plus
+          size={14}
+          strokeWidth={2.5}
+          color={handColor}
+          style={{ transition: "color 0.15s ease" }}
+        />
+      </div>
     </button>
   );
 }
