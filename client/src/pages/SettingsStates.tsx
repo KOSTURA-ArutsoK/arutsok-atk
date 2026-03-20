@@ -312,11 +312,13 @@ function CountryPickerDialog({
   open,
   onOpenChange,
   continents,
+  existingIsoCodes,
   onSelect,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   continents: { id: number; name: string; code: string }[];
+  existingIsoCodes?: string[];
   onSelect: (c: WC, continentId: number) => void;
 }) {
   const [pickerContinent, setPickerContinent] = useState("all");
@@ -418,24 +420,27 @@ function CountryPickerDialog({
               <div className="divide-y divide-border">
                 {filtered.map(c => {
                   const cid = continents.find(cont => cont.name === c.continent)?.id ?? 1;
+                  const alreadyAdded = existingIsoCodes?.some(code => code.toLowerCase() === c.iso.toLowerCase()) ?? false;
                   return (
                     <button
                       key={`${c.iso}-${c.dial}`}
                       type="button"
-                      className="flex items-center gap-3 w-full px-3 py-2 hover:bg-muted/50 transition-colors text-left"
+                      disabled={alreadyAdded}
+                      className={`flex items-center gap-3 w-full px-3 py-2 transition-colors text-left ${alreadyAdded ? "opacity-40 cursor-not-allowed" : "hover:bg-muted/50 cursor-pointer"}`}
                       data-testid={`picker-country-${c.iso}`}
-                      onClick={() => { onSelect(c, cid); onOpenChange(false); }}
+                      onClick={alreadyAdded ? undefined : () => { onSelect(c, cid); onOpenChange(false); }}
                     >
                       <img
                         src={`https://flagcdn.com/w20/${c.iso}.png`}
                         alt={c.name}
-                        className="w-6 h-4 object-cover rounded-sm shrink-0 border border-border/40"
+                        className={`w-6 h-4 object-cover rounded-sm shrink-0 border border-border/40 ${alreadyAdded ? "grayscale" : ""}`}
                         onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
                       />
-                      <span className="flex-1 text-sm font-medium">{c.name}</span>
+                      <span className={`flex-1 text-sm font-medium ${alreadyAdded ? "line-through text-muted-foreground" : ""}`}>{c.name}</span>
                       <span className="text-xs text-muted-foreground font-mono shrink-0">+{c.dial}</span>
                       <span className="text-xs text-muted-foreground shrink-0 w-10 text-right">{c.currency}</span>
                       <span className="text-xs text-muted-foreground shrink-0 w-28 text-right hidden sm:block">{c.continent}</span>
+                      {alreadyAdded && <span className="text-[10px] text-muted-foreground shrink-0 ml-1">✓ pridaný</span>}
                     </button>
                   );
                 })}
@@ -455,11 +460,13 @@ function StateFormDialog({
   onOpenChange,
   editingState,
   initialCountry,
+  existingIsoCodes,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingState: State | null;
   initialCountry?: { c: WC; cid: number } | null;
+  existingIsoCodes?: string[];
 }) {
   const { toast } = useToast();
   const timerRef = useRef<number>(0);
@@ -546,6 +553,7 @@ function StateFormDialog({
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         continents={continents ?? []}
+        existingIsoCodes={existingIsoCodes}
         onSelect={handleCountrySelect}
       />
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1216,6 +1224,7 @@ export default function SettingsStates() {
         open={addPickerOpen}
         onOpenChange={setAddPickerOpen}
         continents={continents ?? []}
+        existingIsoCodes={(allStates || []).map(s => s.code)}
         onSelect={(c, cid) => {
           setAddInitialCountry({ c, cid });
           setAddPickerOpen(false);
@@ -1229,6 +1238,7 @@ export default function SettingsStates() {
         onOpenChange={(open) => { setFormOpen(open); if (!open) setAddInitialCountry(null); }}
         editingState={editingState}
         initialCountry={editingState ? null : addInitialCountry}
+        existingIsoCodes={(allStates || []).map(s => s.code)}
       />
 
       <FlagUploadDialog
