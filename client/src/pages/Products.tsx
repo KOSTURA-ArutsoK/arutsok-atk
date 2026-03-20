@@ -932,7 +932,7 @@ export default function Products() {
             <Badge variant="secondary">{activeProducts.length}</Badge>
             <HelpIcon text="Katalog produktov v hierarchii Sektor > Sekcia > Produkt. Produkty obsahuju panely s parametrami." side="right" />
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Správa produktov, parametrov a nastavení globálneho katalógu.</p>
+          <p className="text-sm text-muted-foreground mt-1">Správa produktov</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <SmartFilterBar filter={tableFilter} />
