@@ -708,6 +708,32 @@ export async function registerRoutes(
         }
         if (repairedPartners > 0) console.log(`[SEED] Backfilled myCompanyId for ${repairedPartners} partners from contracts`);
       }
+
+      // Repair: partners with STILL null myCompanyId (no contracts) → assign to first active company
+      {
+        const [defaultCompany] = await db.select({ id: myCompanies.id })
+          .from(myCompanies)
+          .where(isNull(myCompanies.deletedAt))
+          .orderBy(myCompanies.id)
+          .limit(1);
+        if (defaultCompany) {
+          const stillWithout = await db.select({ id: partners.id })
+            .from(partners)
+            .where(and(
+              isNull(partners.myCompanyId),
+              or(eq(partners.isDeleted, false), isNull(partners.isDeleted))
+            ));
+          if (stillWithout.length > 0) {
+            await db.update(partners)
+              .set({ myCompanyId: defaultCompany.id })
+              .where(and(
+                isNull(partners.myCompanyId),
+                or(eq(partners.isDeleted, false), isNull(partners.isDeleted))
+              ));
+            console.log(`[SEED] Assigned ${stillWithout.length} contractless partner(s) to default company ${defaultCompany.id}`);
+          }
+        }
+      }
     } catch (err) {
       console.error("[SEED] Master Root / CZ deactivation error:", err);
     }
