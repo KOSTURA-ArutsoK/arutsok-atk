@@ -24,8 +24,8 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
         title="Pridať nový štát"
         style={{
           position: "relative",
-          width: 200,
-          height: 200,
+          width: 160,
+          height: 160,
           background: "none",
           border: "none",
           padding: 0,
@@ -37,8 +37,8 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
         }}
       >
         <svg
-          width="200"
-          height="200"
+          width="160"
+          height="160"
           viewBox="0 0 160 160"
           fill="none"
           style={{ position: "absolute", top: 0, left: 0, overflow: "visible" }}
