@@ -15,6 +15,7 @@ import type { CompanyLogoHistory, Division } from "@shared/schema";
 interface BusinessActivity {
   text: string;
   since?: string;
+  until?: string;
 }
 
 interface RegistryShareholder {
@@ -553,7 +554,7 @@ function CompanyFormDialog({
   const [newActivityText, setNewActivityText] = useState("");
   const [newActivitySince, setNewActivitySince] = useState("");
   const [editingActivityIdx, setEditingActivityIdx] = useState<number | null>(null);
-  const [editingActivityValues, setEditingActivityValues] = useState<{ text: string; since: string }>({ text: "", since: "" });
+  const [editingActivityValues, setEditingActivityValues] = useState<{ text: string; since: string; until: string }>({ text: "", since: "", until: "" });
   const [corrSameAsHQ, setCorrSameAsHQ] = useState(false);
   const [branches, setBranches] = useState<BranchEntry[]>([]);
   const [addingBranch, setAddingBranch] = useState(false);
@@ -1359,9 +1360,10 @@ function CompanyFormDialog({
                             className="mt-0.5 shrink-0"
                           />
                           <span className="text-muted-foreground flex-1">{act.text}</span>
-                          {act.since && (
-                            <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">od {act.since}</span>
-                          )}
+                          <span className="flex gap-2 shrink-0">
+                            {act.since && <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">od {act.since}</span>}
+                            {act.until && <span className="text-xs text-red-400 whitespace-nowrap font-mono">do {act.until}</span>}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -1400,7 +1402,7 @@ function CompanyFormDialog({
                                 onChange={e => setEditingActivityValues(v => ({ ...v, text: e.target.value }))}
                                 data-testid={`input-edit-activity-text-${idx}`}
                               />
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <label className="text-xs text-muted-foreground whitespace-nowrap">Od:</label>
                                 <input
                                   type="text"
@@ -1410,6 +1412,15 @@ function CompanyFormDialog({
                                   onChange={e => setEditingActivityValues(v => ({ ...v, since: e.target.value }))}
                                   data-testid={`input-edit-activity-since-${idx}`}
                                 />
+                                <label className="text-xs text-red-400 whitespace-nowrap">Do:</label>
+                                <input
+                                  type="text"
+                                  className="w-28 rounded-md border border-input bg-background px-2 py-1 text-xs font-mono text-red-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                  placeholder="DD.MM.RRRR"
+                                  value={editingActivityValues.until}
+                                  onChange={e => setEditingActivityValues(v => ({ ...v, until: e.target.value }))}
+                                  data-testid={`input-edit-activity-until-${idx}`}
+                                />
                                 <div className="flex gap-1 ml-auto">
                                   <Button
                                     type="button" size="sm" variant="outline"
@@ -1417,7 +1428,7 @@ function CompanyFormDialog({
                                     data-testid={`button-save-activity-${idx}`}
                                     onClick={() => {
                                       if (!editingActivityValues.text.trim()) return;
-                                      setLocalActivities(prev => prev.map((a, i) => i === idx ? { text: editingActivityValues.text.trim(), since: editingActivityValues.since || undefined } : a));
+                                      setLocalActivities(prev => prev.map((a, i) => i === idx ? { text: editingActivityValues.text.trim(), since: editingActivityValues.since || undefined, until: editingActivityValues.until || undefined } : a));
                                       setEditingActivityIdx(null);
                                     }}
                                   >Uložiť</Button>
@@ -1434,16 +1445,17 @@ function CompanyFormDialog({
                             <div className="flex items-start gap-2">
                               <div className="flex-1 min-w-0">
                                 <p className="text-foreground break-words">{act.text}</p>
-                                {act.since && (
-                                  <p className="text-xs text-muted-foreground mt-0.5 font-mono">od {act.since}</p>
-                                )}
+                                <div className="flex gap-3 mt-0.5">
+                                  {act.since && <p className="text-xs text-muted-foreground font-mono">od {act.since}</p>}
+                                  {act.until && <p className="text-xs text-red-400 font-mono">do {act.until}</p>}
+                                </div>
                               </div>
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5">
                                 <Button
                                   type="button" variant="ghost" size="sm"
                                   className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
                                   data-testid={`button-edit-activity-${idx}`}
-                                  onClick={() => { setEditingActivityIdx(idx); setEditingActivityValues({ text: act.text, since: act.since || "" }); }}
+                                  onClick={() => { setEditingActivityIdx(idx); setEditingActivityValues({ text: act.text, since: act.since || "", until: act.until || "" }); }}
                                 >
                                   <Pencil className="w-3 h-3" />
                                 </Button>

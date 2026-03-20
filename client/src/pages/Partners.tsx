@@ -122,6 +122,7 @@ interface BranchEntry {
 interface BusinessActivity {
   text: string;
   since?: string;
+  until?: string;
 }
 
 interface RegistryLookupResponse {
@@ -1772,7 +1773,10 @@ function PartnerUnifiedDialog({
                             data-testid={`checkbox-orsr-activity-${idx}`}
                           />
                           <label htmlFor={`orsr-act-${idx}`} className="flex-1 cursor-pointer leading-relaxed text-foreground">{act.text}</label>
-                          {act.since && <span className="text-xs text-muted-foreground font-mono shrink-0">od {act.since}</span>}
+                          <span className="flex gap-2 shrink-0">
+                            {act.since && <span className="text-xs text-muted-foreground font-mono">od {act.since}</span>}
+                            {act.until && <span className="text-xs text-red-400 font-mono">do {act.until}</span>}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -1786,11 +1790,9 @@ function PartnerUnifiedDialog({
                   </div>
                 )}
 
-                {!registryLoading && !registryResult && localActivities.length === 0 && (
+                {!registryLoading && !registryResult && localActivities.length === 0 && !(form.getValues("ico") && watchedSubjectType === "po") && (
                   <div className="rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground" data-testid="text-activities-empty">
-                    {form.getValues("ico") && watchedSubjectType === "po"
-                      ? "Predmety podnikania neboli nájdené v ORSR registri."
-                      : "Zadajte IČO a typ PO v záložke Základné údaje pre načítanie predmetov podnikania z ORSR, alebo pridajte manuálne."}
+                    Zadajte IČO a typ PO v záložke Základné údaje pre načítanie predmetov podnikania z ORSR, alebo pridajte manuálne.
                   </div>
                 )}
 
@@ -1806,7 +1808,10 @@ function PartnerUnifiedDialog({
                         <div key={idx} className="flex items-start gap-2 px-3 py-2 text-sm group" data-testid={`activity-row-${idx}`}>
                           <div className="flex-1 min-w-0">
                             <p className="text-foreground break-words">{act.text}</p>
-                            {act.since && <p className="text-xs text-muted-foreground mt-0.5 font-mono">od {act.since}</p>}
+                            <div className="flex gap-3 mt-0.5">
+                              {act.since && <p className="text-xs text-muted-foreground font-mono">od {act.since}</p>}
+                              {act.until && <p className="text-xs text-red-400 font-mono">do {act.until}</p>}
+                            </div>
                           </div>
                           <Button
                             type="button"

@@ -4,6 +4,7 @@ import * as iconv from "iconv-lite";
 export interface BusinessActivity {
   text: string;
   since?: string;
+  until?: string;
 }
 
 export interface Shareholder {
@@ -474,25 +475,33 @@ export async function lookupOrsrByIco(ico: string): Promise<RegistryLookupResult
       if (label !== "Predmet činnosti" && label !== "Predmety podnikania" && label !== "Predmet podnikania") return;
       const allSpans = valueTd.find("span.ra, span.ro");
       let currentText = "";
+      let pendingSince = "";
+      let pendingUntil = "";
+      const flushCurrent = () => {
+        if (!currentText) return;
+        const act: BusinessActivity = { text: currentText };
+        if (pendingSince) act.since = pendingSince;
+        if (pendingUntil) act.until = pendingUntil;
+        businessActivities.push(act);
+        currentText = "";
+        pendingSince = "";
+        pendingUntil = "";
+      };
       allSpans.each((_, span) => {
         const txt = cleanText($(span).text());
         if (!txt) return;
-        const dateMatch = txt.match(/^\(od:\s*(\d{2}\.\d{2}\.\d{4})\)/);
-        if (dateMatch) {
-          if (currentText) {
-            businessActivities.push({ text: currentText, since: dateMatch[1] });
-            currentText = "";
-          }
-        } else if (!txt.startsWith("(do:") && !txt.includes("icon_")) {
-          if (currentText) {
-            businessActivities.push({ text: currentText });
-          }
+        const odMatch = txt.match(/^\(od:\s*(\d{2}\.\d{2}\.\d{4})\)/);
+        const doMatch = txt.match(/^\(do:\s*(\d{2}\.\d{2}\.\d{4})\)/);
+        if (odMatch) {
+          pendingSince = odMatch[1];
+        } else if (doMatch) {
+          pendingUntil = doMatch[1];
+        } else if (!txt.includes("icon_")) {
+          flushCurrent();
           currentText = txt;
         }
       });
-      if (currentText) {
-        businessActivities.push({ text: currentText });
-      }
+      flushCurrent();
     });
 
     let shareCapital = "";
