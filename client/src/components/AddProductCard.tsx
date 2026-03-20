@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Network } from "lucide-react";
+import { Plus } from "lucide-react";
 
 interface AddProductCardProps {
   onClick: () => void;
@@ -84,15 +84,13 @@ export function AddProductCard({ onClick }: AddProductCardProps) {
           gap: 9,
         }}>
           <div style={{ position: "relative", display: "inline-flex" }}>
-            <Network
-              size={36}
-              strokeWidth={1.4}
-              style={{
-                color: "#b8d0f0",
-                filter: `drop-shadow(0 0 8px rgba(255,191,0,${isActive ? 0.95 : 0.55}))`,
-                transition: "filter 0.15s ease",
-              }}
-            />
+            <span style={{
+              fontSize: 38,
+              lineHeight: 1,
+              filter: `sepia(1) saturate(8) hue-rotate(8deg) brightness(1.2) drop-shadow(0 0 8px rgba(255,191,0,${isActive ? 0.95 : 0.55}))`,
+              transition: "filter 0.15s ease",
+              display: "block",
+            }}>🌀</span>
             <Plus
               size={14}
               strokeWidth={2.5}
