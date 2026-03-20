@@ -223,7 +223,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
   const isActive = hovered || pressed;
 
   return (
-    <div className="flex items-center justify-center w-full py-2">
+    <div className="flex items-center justify-center w-full -mt-3 pb-1">
       <button
         type="button"
         onClick={onClick}
@@ -235,8 +235,8 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
         title="Pridať nového partnera"
         style={{
           position: "relative",
-          width: 160,
-          height: 185,
+          width: 200,
+          height: 230,
           background: "none",
           border: "none",
           padding: 0,
@@ -251,8 +251,8 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
         }}
       >
         <svg
-          width="160"
-          height="185"
+          width="200"
+          height="230"
           viewBox="0 0 160 180"
           fill="none"
           style={{ position: "absolute", top: 0, left: 0 }}
