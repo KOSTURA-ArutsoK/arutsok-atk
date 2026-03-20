@@ -33,6 +33,13 @@ async function linkSubjectToCompanyInNetwork(officerSubjectId: number, activeCom
     .orderBy(subjects.id)
     .limit(1);
   if (!companySubj) return;
+
+  // If the officer IS the first (company representative) subject, link it to root directly
+  if (companySubj.id === officerSubjectId) {
+    await ensureCompanyLinkedToRoot(activeCompanyId);
+    return;
+  }
+
   const [existing] = await db.select({ id: networkLinks.id }).from(networkLinks)
     .where(and(
       eq(networkLinks.subjectId, officerSubjectId),
@@ -43,6 +50,42 @@ async function linkSubjectToCompanyInNetwork(officerSubjectId: number, activeCom
     await db.insert(networkLinks).values({
       subjectId: officerSubjectId,
       guarantorSubjectId: companySubj.id,
+      linkType: 'active',
+      phase: 'klient',
+    });
+  }
+  // Ensure the company representative subject is linked to root
+  await ensureCompanyLinkedToRoot(activeCompanyId);
+}
+
+async function ensureCompanyLinkedToRoot(companyId: number) {
+  // Find root subject
+  const [rootSubj] = await db.select({ id: subjects.id })
+    .from(subjects)
+    .where(and(eq(subjects.uid, ROOT_SYSTEM_UID), isNull(subjects.deletedAt)))
+    .limit(1);
+  if (!rootSubj) return;
+
+  // Find the first (oldest) subject representing this company
+  const [companySubj] = await db.select({ id: subjects.id })
+    .from(subjects)
+    .where(and(eq(subjects.myCompanyId, companyId), isNull(subjects.deletedAt)))
+    .orderBy(subjects.id)
+    .limit(1);
+  if (!companySubj) return;
+  if (companySubj.id === rootSubj.id) return;
+
+  // Check if already linked to root
+  const [existing] = await db.select({ id: networkLinks.id }).from(networkLinks)
+    .where(and(
+      eq(networkLinks.subjectId, companySubj.id),
+      eq(networkLinks.guarantorSubjectId, rootSubj.id),
+      eq(networkLinks.isActive, true)
+    )).limit(1);
+  if (!existing) {
+    await db.insert(networkLinks).values({
+      subjectId: companySubj.id,
+      guarantorSubjectId: rootSubj.id,
       linkType: 'active',
       phase: 'klient',
     });
@@ -528,6 +571,36 @@ export async function registerRoutes(
       if (rootSubj && rootSubj.type !== 'system') {
         await db.update(subjects).set({ type: 'system' }).where(eq(subjects.id, rootSubj.id));
         console.log(`[SEED] Root subject (UID ${ROOT_SYSTEM_UID}) type changed from '${rootSubj.type}' to 'system'`);
+      }
+
+      // Repair: ensure each company's first subject is linked to root
+      if (rootSubj) {
+        const allCompanies = await db.select({ id: myCompanies.id }).from(myCompanies);
+        let repaired = 0;
+        for (const mc of allCompanies) {
+          const [companySubj] = await db.select({ id: subjects.id })
+            .from(subjects)
+            .where(and(eq(subjects.myCompanyId, mc.id), isNull(subjects.deletedAt)))
+            .orderBy(subjects.id)
+            .limit(1);
+          if (!companySubj || companySubj.id === rootSubj.id) continue;
+          const [existingLink] = await db.select({ id: networkLinks.id }).from(networkLinks)
+            .where(and(
+              eq(networkLinks.subjectId, companySubj.id),
+              eq(networkLinks.guarantorSubjectId, rootSubj.id),
+              eq(networkLinks.isActive, true)
+            )).limit(1);
+          if (!existingLink) {
+            await db.insert(networkLinks).values({
+              subjectId: companySubj.id,
+              guarantorSubjectId: rootSubj.id,
+              linkType: 'active',
+              phase: 'klient',
+            });
+            repaired++;
+          }
+        }
+        if (repaired > 0) console.log(`[SEED] Repaired ${repaired} company→root network links`);
       }
     } catch (err) {
       console.error("[SEED] Master Root / CZ deactivation error:", err);
