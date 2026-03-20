@@ -246,8 +246,8 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           transition: "transform 0.15s ease, filter 0.15s ease",
           transform: pressed ? "scale(0.96)" : hovered ? "scale(1.05)" : "scale(1)",
           filter: isActive
-            ? "drop-shadow(0 0 16px rgba(245,158,11,0.65))"
-            : "drop-shadow(0 0 4px rgba(245,158,11,0.18))",
+            ? "drop-shadow(0 0 18px rgba(245,158,11,0.75))"
+            : "drop-shadow(0 0 12px rgba(245,158,11,0.45))",
         }}
       >
         <svg
