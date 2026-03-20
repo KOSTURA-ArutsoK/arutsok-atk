@@ -1201,17 +1201,6 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/hierarchy/states", isAuthenticated, async (req, res) => {
-    try {
-      const continentId = req.query.continentId ? Number(req.query.continentId) : undefined;
-      const result = await storage.getStates(continentId);
-      res.json(result);
-    } catch (err) {
-      console.error("Get states error:", err);
-      res.status(500).json({ message: "Internal error" });
-    }
-  });
-
   app.post("/api/hierarchy/states", isAuthenticated, async (req: any, res) => {
     try {
       const created = await storage.createState(req.body);

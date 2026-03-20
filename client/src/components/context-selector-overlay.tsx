@@ -130,7 +130,7 @@ export function ContextSelectorOverlay({
             Vyberte štát
           </h2>
           <div className="flex flex-wrap items-start justify-center gap-10 max-w-3xl px-6">
-            {[...states].sort((a, b) => a.name.localeCompare(b.name, "sk")).map(s => {
+            {[...new Map(states.map(s => [s.id, s])).values()].sort((a, b) => a.name.localeCompare(b.name, "sk")).map(s => {
               return (
                 <button
                   key={s.id}
