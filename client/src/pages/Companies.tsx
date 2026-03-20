@@ -552,6 +552,8 @@ function CompanyFormDialog({
   const [localActivities, setLocalActivities] = useState<BusinessActivity[]>([]);
   const [newActivityText, setNewActivityText] = useState("");
   const [newActivitySince, setNewActivitySince] = useState("");
+  const [editingActivityIdx, setEditingActivityIdx] = useState<number | null>(null);
+  const [editingActivityValues, setEditingActivityValues] = useState<{ text: string; since: string }>({ text: "", since: "" });
   const [corrSameAsHQ, setCorrSameAsHQ] = useState(false);
   const [branches, setBranches] = useState<BranchEntry[]>([]);
   const [addingBranch, setAddingBranch] = useState(false);
@@ -1373,9 +1375,9 @@ function CompanyFormDialog({
                   </div>
                 )}
 
-                {!registryLoading && !registryResult && localActivities.length === 0 && (
+                {!registryLoading && !registryResult && localActivities.length === 0 && !form.getValues("ico") && (
                   <div className="rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground" data-testid="text-activities-empty">
-                    {form.getValues("ico") ? "Predmety podnikania neboli nájdené v ORSR registri." : "Zadajte IČO v záložke Základné údaje pre načítanie predmetov podnikania z ORSR."}
+                    Zadajte IČO v záložke Základné údaje pre načítanie predmetov podnikania z ORSR.
                   </div>
                 )}
 
@@ -1389,23 +1391,73 @@ function CompanyFormDialog({
                     </div>
                     <div className="divide-y divide-border max-h-64 overflow-y-auto">
                       {localActivities.map((act, idx) => (
-                        <div key={idx} className="flex items-start gap-2 px-3 py-2 text-sm group" data-testid={`activity-row-${idx}`}>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-foreground break-words">{act.text}</p>
-                            {act.since && (
-                              <p className="text-xs text-muted-foreground mt-0.5 font-mono">od {act.since}</p>
-                            )}
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5"
-                            data-testid={`button-delete-activity-${idx}`}
-                            onClick={() => setLocalActivities(prev => prev.filter((_, i) => i !== idx))}
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </Button>
+                        <div key={idx} className="px-3 py-2 text-sm group" data-testid={`activity-row-${idx}`}>
+                          {editingActivityIdx === idx ? (
+                            <div className="space-y-2">
+                              <textarea
+                                className="w-full min-h-[60px] resize-y rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                value={editingActivityValues.text}
+                                onChange={e => setEditingActivityValues(v => ({ ...v, text: e.target.value }))}
+                                data-testid={`input-edit-activity-text-${idx}`}
+                              />
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs text-muted-foreground whitespace-nowrap">Od:</label>
+                                <input
+                                  type="text"
+                                  className="w-28 rounded-md border border-input bg-background px-2 py-1 text-xs font-mono focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                  placeholder="DD.MM.RRRR"
+                                  value={editingActivityValues.since}
+                                  onChange={e => setEditingActivityValues(v => ({ ...v, since: e.target.value }))}
+                                  data-testid={`input-edit-activity-since-${idx}`}
+                                />
+                                <div className="flex gap-1 ml-auto">
+                                  <Button
+                                    type="button" size="sm" variant="outline"
+                                    className="h-6 px-2 text-xs"
+                                    data-testid={`button-save-activity-${idx}`}
+                                    onClick={() => {
+                                      if (!editingActivityValues.text.trim()) return;
+                                      setLocalActivities(prev => prev.map((a, i) => i === idx ? { text: editingActivityValues.text.trim(), since: editingActivityValues.since || undefined } : a));
+                                      setEditingActivityIdx(null);
+                                    }}
+                                  >Uložiť</Button>
+                                  <Button
+                                    type="button" size="sm" variant="ghost"
+                                    className="h-6 px-2 text-xs"
+                                    data-testid={`button-cancel-edit-activity-${idx}`}
+                                    onClick={() => setEditingActivityIdx(null)}
+                                  >Zrušiť</Button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-start gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-foreground break-words">{act.text}</p>
+                                {act.since && (
+                                  <p className="text-xs text-muted-foreground mt-0.5 font-mono">od {act.since}</p>
+                                )}
+                              </div>
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5">
+                                <Button
+                                  type="button" variant="ghost" size="sm"
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                                  data-testid={`button-edit-activity-${idx}`}
+                                  onClick={() => { setEditingActivityIdx(idx); setEditingActivityValues({ text: act.text, since: act.since || "" }); }}
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  type="button" variant="ghost" size="sm"
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                                  data-testid={`button-delete-activity-${idx}`}
+                                  onClick={() => setLocalActivities(prev => prev.filter((_, i) => i !== idx))}
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
