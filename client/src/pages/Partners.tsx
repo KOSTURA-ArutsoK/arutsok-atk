@@ -265,47 +265,70 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           style={{ transition: "fill 0.15s ease" }}
         />
 
-        {/* ── HANDSHAKE (Gold/Amber, line-art) ──
-            Anatomia:
-            • Ľavé predlaktie: M 38,127 → (64,105)
-            • Pravé predlaktie: M 122,127 → (96,105)
-            • Grip blok: obdĺžnik 64..96 × 88..105
-            • 4 zaoblené prsty (pravá ruka, na vrchu) nad y=88
-            • Ľavý palec (vľavo od gripu) a pravý palec (vpravo)
+        {/* ── HANDSHAKE (Gold/Amber, organický line-art) ──
+            Obe ruky sa stretávajú v strede (pohľad spredu).
+            Pravá ruka je navrchu – viditeľné 4 zaoblené prsty.
+            Oba palce sú viditeľné po stranách.
+            ŽIADNE rovné línie ani obdĺžniky.
         */}
 
-        {/* Ľavé predlaktie */}
-        <path d="M 38,127 L 64,105" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
-        {/* Pravé predlaktie */}
-        <path d="M 122,127 L 96,105" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
+        {/* Ľavé predlaktie – organická krivka z ľava dolu */}
+        <path d="M 40,126 C 46,120 54,112 65,106"
+          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
+          style={{ transition: "stroke 0.15s ease" }} />
+        {/* Pravé predlaktie – organická krivka z prava dolu */}
+        <path d="M 120,126 C 114,120 106,112 95,106"
+          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
+          style={{ transition: "stroke 0.15s ease" }} />
 
-        {/* Ľavý bok gripu */}
-        <path d="M 64,105 L 64,88" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
-        {/* Pravý bok gripu */}
-        <path d="M 96,105 L 96,88" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
-        {/* Spodná linia gripu */}
-        <path d="M 64,105 L 96,105" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
-        {/* Horná linia gripu (kde sedia prsty) */}
-        <path d="M 64,88 L 96,88" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
+        {/* Ľavý bok dlane (vertikálna strana) */}
+        <path d="M 65,106 L 65,93"
+          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
+          style={{ transition: "stroke 0.15s ease" }} />
+        {/* Pravý bok dlane (vertikálna strana) */}
+        <path d="M 95,106 L 95,93"
+          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
+          style={{ transition: "stroke 0.15s ease" }} />
 
-        {/* 4 zaoblené prsty nad gripom (od ľavého okraja, každý ~8px) */}
-        {/* Prst 1 (malíček) x≈64..72 */}
-        <path d="M 65,88 C 64,81 67,77 69,77 C 71,77 74,81 73,88" stroke={handColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "stroke 0.15s ease" }} />
-        {/* Prst 2 (prsteník) x≈73..80 */}
-        <path d="M 74,88 C 73,80 76,76 78,76 C 80,76 83,80 82,88" stroke={handColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "stroke 0.15s ease" }} />
-        {/* Prst 3 (prostredník) x≈82..89 */}
-        <path d="M 83,88 C 82,79 85,75 87,75 C 89,75 92,79 91,88" stroke={handColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "stroke 0.15s ease" }} />
-        {/* Prst 4 (ukazovák) x≈91..96 */}
-        <path d="M 92,88 C 91,81 93,78 95,78 C 97,78 97,82 96,88" stroke={handColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "stroke 0.15s ease" }} />
+        {/* Spodok gripu – organický oblúk nadol (nie rovná čiara) */}
+        <path d="M 65,106 C 72,110 88,110 95,106"
+          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
+          style={{ transition: "stroke 0.15s ease" }} />
 
-        {/* Ľavý palec (oblúk od ľavého boku gripu smerom hore-vľavo) */}
-        <path d="M 64,97 C 57,93 56,83 63,81" stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none" style={{ transition: "stroke 0.15s ease" }} />
-        {/* Pravý palec (oblúk od pravého boku gripu smerom hore-vpravo) */}
-        <path d="M 96,97 C 103,93 104,83 97,81" stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none" style={{ transition: "stroke 0.15s ease" }} />
+        {/* 4 zaoblené prsty – každý je C-bezier oblúk (otvorený dole pri y=93) */}
+        {/* Prst 1 – malíček (najnižší, x≈66–72) */}
+        <path d="M 66,93 C 64,85 67,81 69.5,81 C 72,81 74,85 72,93"
+          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
+          style={{ transition: "stroke 0.15s ease" }} />
+        {/* Prst 2 – prsteník (x≈73–80) */}
+        <path d="M 73,93 C 71,84 74,79 77,79 C 80,79 82,84 80,93"
+          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
+          style={{ transition: "stroke 0.15s ease" }} />
+        {/* Prst 3 – prostredník (najvyšší, x≈81–88) */}
+        <path d="M 81,93 C 79,83 82,77 85,77 C 88,77 90,83 88,93"
+          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
+          style={{ transition: "stroke 0.15s ease" }} />
+        {/* Prst 4 – ukazovák (x≈89–95) */}
+        <path d="M 89,93 C 88,85 91,81 93,81 C 95,81 96,85 95,93"
+          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
+          style={{ transition: "stroke 0.15s ease" }} />
 
-        {/* ── PLUS ZNAMIENKO (vpravo hore, nad pravým zápästím) ── */}
-        <line x1="112" y1="70" x2="112" y2="80" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
-        <line x1="107" y1="75" x2="117" y2="75" stroke={handColor} strokeWidth="2" strokeLinecap="round" style={{ transition: "stroke 0.15s ease" }} />
+        {/* Ľavý palec – oblúk od ľavého boku dlane smerom hore-vľavo */}
+        <path d="M 65,100 C 57,95 56,86 62,81 C 63.5,79.5 65.5,80.5 65.5,83"
+          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
+          style={{ transition: "stroke 0.15s ease" }} />
+        {/* Pravý palec – oblúk od pravého boku dlane smerom hore-vpravo */}
+        <path d="M 95,100 C 103,95 104,86 98,81 C 96.5,79.5 94.5,80.5 94.5,83"
+          stroke={handColor} strokeWidth="2" strokeLinecap="round" fill="none"
+          style={{ transition: "stroke 0.15s ease" }} />
+
+        {/* ── PLUS ZNAMIENKO – vpravo hore, nad pravým zápästím ── */}
+        <line x1="113" y1="72" x2="113" y2="80"
+          stroke={handColor} strokeWidth="2" strokeLinecap="round"
+          style={{ transition: "stroke 0.15s ease" }} />
+        <line x1="109" y1="76" x2="117" y2="76"
+          stroke={handColor} strokeWidth="2" strokeLinecap="round"
+          style={{ transition: "stroke 0.15s ease" }} />
       </svg>
     </button>
   );
