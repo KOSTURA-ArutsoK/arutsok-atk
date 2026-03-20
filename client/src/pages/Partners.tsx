@@ -266,7 +266,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           {/* Podsvietenie — jantárové v kľude, zlaté pri hoveri */}
           <path
             d={hexPath}
-            fill={isActive ? "rgba(255,191,0,0.82)" : "rgba(245,158,11,0.68)"}
+            fill={isActive ? "rgba(255,210,0,0.88)" : "rgba(255,110,0,0.72)"}
             filter="url(#amberGlow)"
             style={{ transition: "fill 0.2s ease" }}
           />
