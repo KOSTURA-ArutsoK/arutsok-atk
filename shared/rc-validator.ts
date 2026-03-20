@@ -22,9 +22,10 @@ export function validateSlovakRC(rc: string | null | undefined): RCValidationRes
 
   let year: number;
   if (cleaned.length === 9) {
-    year = 1900 + yy;
-    if (year >= 1954) {
-      return { valid: false, error: "9-miestne RČ je povolené len pre ročníky pred 1954" };
+    if (yy >= 54) {
+      year = 1900 + yy;
+    } else {
+      year = 2000 + yy;
     }
   } else {
     if (yy >= 54) {
