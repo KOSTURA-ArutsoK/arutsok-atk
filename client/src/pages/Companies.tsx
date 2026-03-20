@@ -605,7 +605,7 @@ function CompanyFormDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      subjectType: "",
+      subjectType: undefined,
       code: "",
       ico: "",
       dic: "",
@@ -663,7 +663,7 @@ function CompanyFormDialog({
         }
         form.reset({
           name: editingCompany.name,
-          subjectType: (editingCompany as any).subjectType || "",
+          subjectType: (editingCompany as any).subjectType || undefined,
           code: editingCompany.code,
           ico: editingCompany.ico || "",
           dic: editingCompany.dic || "",
@@ -1013,7 +1013,7 @@ function CompanyFormDialog({
                 <FormField control={form.control} name="subjectType" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Typ subjektu</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <Select onValueChange={field.onChange} value={field.value || undefined}>
                       <FormControl>
                         <SelectTrigger data-testid="select-subject-type">
                           <SelectValue placeholder="Vyberte typ subjektu" />

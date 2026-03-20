@@ -618,7 +618,7 @@ function PartnerUnifiedDialog({
     defaultValues: {
       name: "",
       code: "",
-      subjectType: "",
+      subjectType: undefined,
       specialization: "",
       ico: "",
       dic: "",
@@ -663,7 +663,7 @@ function PartnerUnifiedDialog({
         form.reset({
           name: editingPartner.name,
           code: editingPartner.code || "",
-          subjectType: ep.subjectType || "",
+          subjectType: ep.subjectType || undefined,
           specialization: editingPartner.specialization || "",
           ico: editingPartner.ico || "",
           dic: editingPartner.dic || "",
@@ -713,7 +713,7 @@ function PartnerUnifiedDialog({
         form.reset({
           name: "",
           code: "",
-          subjectType: "",
+          subjectType: undefined,
           specialization: "",
           ico: "",
           dic: "",
@@ -1170,7 +1170,7 @@ function PartnerUnifiedDialog({
                 <FormField control={form.control} name="subjectType" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Typ subjektu</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <Select onValueChange={field.onChange} value={field.value || undefined}>
                       <FormControl>
                         <SelectTrigger data-testid="select-partner-subject-type">
                           <SelectValue placeholder="Vyberte typ subjektu" />
