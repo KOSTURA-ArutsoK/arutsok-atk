@@ -113,7 +113,7 @@ export function AddCompanyCard({ onClick }: AddCompanyCardProps) {
             display: "block",
             width: "100%",
           }}>
-            Pridať spoločnosť
+            Pridať<br />spoločnosť
           </span>
         </div>
       </button>
