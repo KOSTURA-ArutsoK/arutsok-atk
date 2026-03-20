@@ -207,6 +207,97 @@ function PartnerHexAvatar({ logo, name, onClick }: { logo?: string; name: string
   );
 }
 
+function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  const hexPath = "M 80,15 L 145,52 L 145,128 L 80,165 L 15,128 L 15,52 Z";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      data-testid="button-add-partner"
+      style={{
+        position: "relative",
+        width: 160,
+        height: 180,
+        background: "none",
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
+        outline: "none",
+        userSelect: "none",
+        transition: "transform 0.2s ease, filter 0.2s ease",
+        transform: hovered ? "scale(1.05)" : "scale(1)",
+        filter: hovered ? "drop-shadow(0 0 14px rgba(56,189,248,0.55))" : "none",
+      }}
+    >
+      <svg
+        width="160"
+        height="180"
+        viewBox="0 0 160 180"
+        style={{ position: "absolute", top: 0, left: 0, display: "block" }}
+      >
+        <path
+          d={hexPath}
+          fill={hovered ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)"}
+          stroke={hovered ? "rgba(56,189,248,0.8)" : "rgba(255,255,255,0.10)"}
+          strokeWidth="1.5"
+          style={{ transition: "fill 0.2s ease, stroke 0.2s ease" }}
+        />
+      </svg>
+      <div style={{
+        position: "absolute",
+        top: 50,
+        left: 0,
+        right: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}>
+        <svg
+          width="30"
+          height="30"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={hovered ? "rgba(56,189,248,1)" : "rgba(255,255,255,0.65)"}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ transition: "stroke 0.2s ease" }}
+        >
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </div>
+      <div style={{
+        position: "absolute",
+        top: 88,
+        left: 22,
+        right: 22,
+        bottom: 18,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+      }}>
+        <span style={{
+          fontFamily: "sans-serif",
+          fontSize: 11,
+          fontWeight: 600,
+          color: hovered ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.65)",
+          textAlign: "center",
+          lineHeight: 1.35,
+          wordBreak: "break-word",
+          transition: "color 0.2s ease",
+        }}>
+          Pridať nového partnera
+        </span>
+      </div>
+    </button>
+  );
+}
+
 // ─── Table Config ────────────────────────────────────────────────────────────
 
 const PARTNER_COLUMNS: ColumnDef[] = [
@@ -2367,10 +2458,7 @@ export default function Partners() {
           <SmartFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
           {canCreateRecords(appUser) && (
-            <Button onClick={openCreate} data-testid="button-add-partner">
-              <Plus className="w-4 h-4 mr-2" />
-              Pridať nového partnera
-            </Button>
+            <AddPartnerHexButton onClick={openCreate} />
           )}
         </div>
       </div>
