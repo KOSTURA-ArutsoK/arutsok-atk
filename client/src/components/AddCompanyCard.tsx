@@ -12,7 +12,7 @@ export function AddCompanyCard({ onClick }: AddCompanyCardProps) {
   const isActive = hovered || pressed;
 
   return (
-    <div className="flex items-center justify-center w-full py-4">
+    <div className="flex items-center justify-center w-full" style={{ marginTop: -20, paddingBottom: 4 }}>
       <button
         type="button"
         data-testid="button-add-company-card"
@@ -25,8 +25,8 @@ export function AddCompanyCard({ onClick }: AddCompanyCardProps) {
         onTouchEnd={() => setPressed(false)}
         style={{
           position: "relative",
-          width: 200,
-          height: 230,
+          width: 170,
+          height: 195,
           background: "none",
           border: "none",
           padding: 0,
@@ -38,8 +38,8 @@ export function AddCompanyCard({ onClick }: AddCompanyCardProps) {
         }}
       >
         <svg
-          width="200"
-          height="230"
+          width="170"
+          height="195"
           viewBox="0 0 160 180"
           fill="none"
           style={{ position: "absolute", top: 0, left: 0, overflow: "visible" }}
