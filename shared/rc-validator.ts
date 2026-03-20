@@ -22,12 +22,11 @@ export function validateSlovakRC(rc: string | null | undefined): RCValidationRes
 
   let year: number;
   if (cleaned.length === 9) {
-    if (yy >= 54) {
-      year = 1900 + yy;
-    } else {
-      year = 2000 + yy;
-    }
+    // 9-ciferné RČ sa vydávali výhradne pre osoby narodené pred rokom 1954 — vždy 1900+yy
+    year = 1900 + yy;
   } else {
+    // 10-ciferné RČ: yy 54–99 → narodení 1954–1999; yy 00–53 → narodení 2000–2053
+    // Výnimka: yy 40–53 môžu byť staré RČ pridelené po roku 1954 pre ľudí narodených 1940–1953
     if (yy >= 54) {
       year = 1900 + yy;
     } else {
@@ -66,15 +65,20 @@ export function validateSlovakRC(rc: string | null | undefined): RCValidationRes
   }
 
   if (cleaned.length === 10) {
-    const rcNum = parseInt(cleaned, 10);
-    if (rcNum % 11 !== 0) {
-      const first9 = parseInt(cleaned.substring(0, 9), 10);
-      const remainder = first9 % 11;
-      const lastDigit = parseInt(cleaned[9], 10);
-      if (remainder === 10 && lastDigit === 0) {
-        // valid
-      } else {
-        return { valid: false, error: "Kontrolná číslica (MOD11) nesedí" };
+    // MOD11 sa zaviedol pre nové RČ vydávané po roku 1954.
+    // Pre starých ľudí (yy 40-53 v 10-cif. formáte) môžu existovať RČ bez platného MOD11
+    // — buď narodení 1940–1953 (dostali RČ neskôr), alebo pre born 1985+ vždy kontrolujeme.
+    // Preskočíme MOD11 pre yy v rozsahu 40–53 (= rok 1940–1953 alebo veľmi vzdálená budúcnosť).
+    const skipMod11 = (yy >= 40 && yy < 54) || (yy >= 54 && year < 1985);
+    if (!skipMod11) {
+      const rcNum = parseInt(cleaned, 10);
+      if (rcNum % 11 !== 0) {
+        const first9 = parseInt(cleaned.substring(0, 9), 10);
+        const remainder = first9 % 11;
+        const lastDigit = parseInt(cleaned[9], 10);
+        if (!(remainder === 10 && lastDigit === 0)) {
+          return { valid: false, error: "Kontrolná číslica (MOD11) nesedí" };
+        }
       }
     }
   }
