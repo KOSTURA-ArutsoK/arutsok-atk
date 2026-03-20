@@ -8160,7 +8160,7 @@ export default function Contracts() {
                             data-testid={`button-approve-sprievodka-${group.inventoryId}`}
                           >
                             {approveSprievodkaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
-                            Potvrdiť príjem zmluv v centrále
+                            Odoslať sprievodku do centrály
                           </Button>
                         </div>
                         <div id={`expanded-wrapper-${group.inventoryId}`} style={{ display: isExpanded ? 'block' : 'none' }}>
