@@ -324,7 +324,7 @@ function ProductFormDialog({
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="rounded border border-border p-3 space-y-2">
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium">Pre koho je produkt určený</label>
                 <span className="text-xs text-muted-foreground">(ak nevyberiete, produkt je povolený pre všetky typy)</span>
