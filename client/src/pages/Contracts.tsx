@@ -2670,16 +2670,6 @@ export default function Contracts() {
     enabled: isEvidencia,
   });
 
-  useEffect(() => {
-    if (!acceptedContracts) return;
-    setCentralAcceptedIds(prev => {
-      const allIds = acceptedContracts.filter(c => !c.isDeleted).map(c => c.id);
-      const next = new Set(prev);
-      allIds.forEach(id => { if (!next.has(id)) next.add(id); });
-      return next;
-    });
-  }, [acceptedContracts]);
-
   const { data: archivedContracts, isLoading: isLoadingArchived } = useQuery<Contract[]>({
     queryKey: ["/api/contracts/archived"],
     enabled: isEvidencia,
