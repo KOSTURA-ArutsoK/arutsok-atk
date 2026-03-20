@@ -15,7 +15,7 @@ export function AddProductCard({ onClick }: AddProductCardProps) {
   const isActive = hovered || pressed;
 
   return (
-    <div className="flex items-center justify-center w-full" style={{ marginTop: -12, paddingBottom: 4 }}>
+    <div className="flex items-center justify-center w-full" style={{ marginTop: -28, paddingBottom: 4 }}>
       <button
         type="button"
         data-testid="button-add-product-card"
