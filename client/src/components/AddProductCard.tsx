@@ -67,7 +67,7 @@ export function AddProductCard({ onClick }: AddProductCardProps) {
           <path
             d={OCTAGON_PATH}
             fill="url(#octGradProduct)"
-            stroke={isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)"}
+            stroke={isActive ? "rgba(255,191,0,1.0)" : "rgba(255,191,0,0.85)"}
             strokeWidth="2"
             style={{ transition: "stroke 0.15s ease" }}
           />
