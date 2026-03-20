@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, isAuthenticated } from "./auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory } from "@shared/schema";
 import type { DocEntry } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
@@ -682,6 +682,31 @@ export async function registerRoutes(
         }
         if (repairedNodes > 0 || repairedLinks > 0)
           console.log(`[SEED] Network repair: ${repairedNodes} company nodes linked to root, ${repairedLinks} officer links fixed`);
+      }
+
+      // Repair: backfill partners.myCompanyId from partnerContracts (first contract per partner)
+      {
+        const partnersWithoutCompany = await db.select({ id: partners.id })
+          .from(partners)
+          .where(and(
+            isNull(partners.myCompanyId),
+            or(eq(partners.isDeleted, false), isNull(partners.isDeleted))
+          ));
+        let repairedPartners = 0;
+        for (const p of partnersWithoutCompany) {
+          const [firstContract] = await db.select({ companyId: partnerContracts.companyId })
+            .from(partnerContracts)
+            .where(eq(partnerContracts.partnerId, p.id))
+            .orderBy(partnerContracts.id)
+            .limit(1);
+          if (firstContract?.companyId) {
+            await db.update(partners)
+              .set({ myCompanyId: firstContract.companyId })
+              .where(eq(partners.id, p.id));
+            repairedPartners++;
+          }
+        }
+        if (repairedPartners > 0) console.log(`[SEED] Backfilled myCompanyId for ${repairedPartners} partners from contracts`);
       }
     } catch (err) {
       console.error("[SEED] Master Root / CZ deactivation error:", err);
@@ -2190,10 +2215,11 @@ export async function registerRoutes(
     res.json(partner);
   });
 
-  app.post(api.partners.create.path, isAuthenticated, async (req, res) => {
+  app.post(api.partners.create.path, isAuthenticated, async (req: any, res) => {
     try {
       const input = api.partners.create.input.parse(req.body);
-      const { partner: created, matchedSubject } = await storage.createPartner(input);
+      const activeCompanyId = req.appUser?.activeCompanyId ?? null;
+      const { partner: created, matchedSubject } = await storage.createPartner({ ...input, myCompanyId: activeCompanyId });
       await logAudit(req, { action: "CREATE", module: "partneri", entityId: created.id, entityName: created.name, newData: input });
       res.status(201).json({ ...created, matchedSubject: matchedSubject ?? null });
     } catch (err) {
@@ -19350,12 +19376,13 @@ export async function registerRoutes(
         name: myCompanies.name,
       }).from(myCompanies).where(isNull(myCompanies.deletedAt));
 
-      // ALL partners
+      // ALL partners (with myCompanyId to place them in the tree)
       const allPartnersRaw = await db.select({
         id: partners.id,
         uid: partners.uid,
         name: partners.name,
         specialization: partners.specialization,
+        myCompanyId: partners.myCompanyId,
       }).from(partners).where(
         or(eq(partners.isDeleted, false), isNull(partners.isDeleted))
       );
@@ -19403,7 +19430,35 @@ export async function registerRoutes(
         lifecycleStatus: null,
         isActive: true,
         isOfficer: false,
+        myCompanyId: (p as any).myCompanyId ?? null,
       }));
+
+      // Build map: myCompanyId → real company node subject id
+      const companyNodeByMyCompanyId = new Map<number, number>();
+      for (const s of allSubjectsRaw) {
+        if (s.type === 'mycompany' && s.myCompanyId != null) {
+          companyNodeByMyCompanyId.set(s.myCompanyId, s.id);
+        }
+      }
+
+      // Virtual links: partner → company node (for partners with myCompanyId)
+      let virtualLinkId = -1;
+      const virtualPartnerLinks: any[] = [];
+      for (const p of allPartnersRaw) {
+        const pMyCompanyId = (p as any).myCompanyId as number | null;
+        if (!pMyCompanyId) continue;
+        const companyNodeId = companyNodeByMyCompanyId.get(pMyCompanyId);
+        if (!companyNodeId) continue;
+        virtualPartnerLinks.push({
+          id: virtualLinkId--,
+          subjectId: -(10000 + p.id),
+          guarantorSubjectId: companyNodeId,
+          linkType: 'active',
+          phase: 'klient',
+          isActive: true,
+          isVirtual: true,
+        });
+      }
 
       const allSubjects = [
         ...allSubjectsRaw.map(s => ({ ...s, isOfficer: officerSubjectIds.has(s.id) })),
@@ -19413,7 +19468,7 @@ export async function registerRoutes(
 
       res.json({
         root: rootSubject,
-        links: allLinks,
+        links: [...allLinks, ...virtualPartnerLinks],
         subjects: allSubjects,
         officerSubjectIds: Array.from(officerSubjectIds),
       });

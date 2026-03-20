@@ -160,6 +160,7 @@ export type InsertCompanyOfficerMandate = z.infer<typeof insertCompanyOfficerMan
 export const partners = pgTable("partners", {
   id: serial("id").primaryKey(),
   uid: text("uid"),
+  myCompanyId: integer("my_company_id").references(() => myCompanies.id),
   name: text("name").notNull(),
   code: text("code"),
   specialization: text("specialization"),
