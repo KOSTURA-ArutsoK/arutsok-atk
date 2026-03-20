@@ -98,7 +98,7 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
               style={{
                 position: "absolute",
                 top: -6,
-                right: -9,
+                right: -2,
                 color: "#FFBF00",
                 filter: "drop-shadow(0 0 5px #FFBF00)",
               }}
