@@ -75,12 +75,12 @@ export function AddProductCard({ onClick }: AddProductCardProps) {
 
         <div style={{
           position: "absolute",
-          top: 0, left: 0, right: 0, bottom: 0,
+          top: 36, left: 0, right: 0,
+          height: 132,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          paddingTop: 15,
           gap: 9,
         }}>
           <div style={{ position: "relative", display: "inline-flex" }}>
