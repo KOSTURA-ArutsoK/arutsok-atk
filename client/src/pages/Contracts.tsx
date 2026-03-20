@@ -3444,7 +3444,7 @@ export default function Contracts() {
     };
     return (
       <div className="overflow-auto max-h-[65vh]">
-        <table className="w-full text-xs border-separate border-spacing-0" style={{ minWidth: 1400 }}>
+        <table className="w-full text-xs border-separate border-spacing-0" style={{ minWidth: 1750 }}>
           <thead className="sticky top-0 z-20 bg-card border-b border-border">
             <tr className="bg-muted/50">
               {showCheckbox && <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b sticky left-0 bg-card z-30 w-8">
@@ -3466,19 +3466,22 @@ export default function Contracts() {
               <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Dát. uzatv.</th>
               <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap" title={NAVRH_LABEL_FULL}>{NAVRH_LABEL_SHORT}</th>
               <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Č. zmluvy</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Typ</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">RČ/IČO</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Firma</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Tit.</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Meno</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Priezvisko</th>
-              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Tit.</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">G: Typ</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">H: RČ</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">I: Tit.pred</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">J: Meno</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">K: Priezvisko</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">L: Tit.za</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">M: IČO</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">N: Firma</th>
               <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Šp. UID</th>
               <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">Šp%</th>
               <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">O1 UID</th>
               <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">O1%</th>
               <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">O2 UID</th>
               <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">O2%</th>
+              <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">O3 UID</th>
+              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">O3%</th>
               {showActions && <th className="px-2 py-1.5 text-right font-medium text-muted-foreground border-b whitespace-nowrap">Akcie</th>}
             </tr>
           </thead>
@@ -3491,6 +3494,7 @@ export default function Contracts() {
               const { specialist, recommenders } = getContractDistData(contract.id);
               const r1 = recommenders[0];
               const r2 = recommenders[1];
+              const r3 = recommenders[2];
               const isSelected = showCheckbox && selectedIds.includes(contract.id);
               const isIncomplete = !!(contract as any).incompleteData;
               // Kontrola skutočných hodnôt buniek (nie stale DB reason)
@@ -3501,6 +3505,8 @@ export default function Contracts() {
               const hasNumber = !!(contract.proposalNumber || contract.insuranceContractNumber || (contract as any).contractNumber);
               // Typ subjektu — z priradeného subjektu alebo z importedRawData (keď subjekt nie je ešte priradený)
               const importRaw = (contract as any).importedRawData || {};
+              const rcOnly = sub?.birthNumber || importRaw.rodne_cislo || null;
+              const icoOnly = (sub as any)?.ico || importRaw.ico || null;
               const resolvedSubjType = sub?.type || importRaw["subjectType"] || importRaw["typ_subjektu"] || null;
               const isFO = resolvedSubjType === "person" || resolvedSubjType === "szco";
               const isPO = resolvedSubjType === "company" || resolvedSubjType === "organization";
@@ -3509,7 +3515,7 @@ export default function Contracts() {
               const hasPriezvisko = !!(sub?.lastName);
               const hasNazovFirmy = !!(sub?.companyName);
               // hasRcIco — iba z priradeného subjektu (čo sa zobrazuje v bunke)
-              const hasRcIco = !!rcIco;
+              const hasRcIco = !!rcOnly;
               // Trojuholník = povinné pole je prázdne (bez ohľadu na isIncomplete flag)
               const warnPartner = !hasPartner;
               const warnProduct = !hasProduct;
@@ -3523,6 +3529,7 @@ export default function Contracts() {
               const specPct = parseFloat(specialist?.percentage || "0") || 0;
               const r1Pct = parseFloat(r1?.percentage || "0") || 0;
               const r2Pct = parseFloat(r2?.percentage || "0") || 0;
+              const r3Pct = parseFloat(r3?.percentage || "0") || 0;
               const allRecPct = recommenders.reduce((sum: number, r: any) => sum + (parseFloat(r.percentage || "0") || 0), 0);
               const allPct = specPct + allRecPct;
               const warnSpecialist = !specialist;
@@ -3611,16 +3618,10 @@ export default function Contracts() {
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      {warnRcIco && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba RČ / IČO</TooltipContent></Tooltip>}
+                      {warnRcIco && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba RČ</TooltipContent></Tooltip>}
                       {isUserRecommender && isFO
-                        ? (rcIco ? <span className="text-muted-foreground/70 italic text-[10px]">nar. {rcToBirthDateStr(rcIco)}</span> : "—")
-                        : (rcIco || "—")}
-                    </span>
-                  </td>
-                  <td className="px-2 py-1.5 whitespace-nowrap" title={sub?.companyName || undefined}>
-                    <span className="flex items-center gap-1">
-                      {warnNazov && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba názov firmy</TooltipContent></Tooltip>}
-                      {sub?.companyName || "—"}
+                        ? (rcOnly ? <span className="text-muted-foreground/70 italic text-[10px]">nar. {rcToBirthDateStr(rcOnly)}</span> : "—")
+                        : (rcOnly || "—")}
                     </span>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{sub?.titleBefore || "—"}</td>
@@ -3637,6 +3638,13 @@ export default function Contracts() {
                     </span>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{sub?.titleAfter || "—"}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap text-muted-foreground">{icoOnly || "—"}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap" title={sub?.companyName || undefined}>
+                    <span className="flex items-center gap-1">
+                      {warnNazov && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba názov firmy</TooltipContent></Tooltip>}
+                      {sub?.companyName || "—"}
+                    </span>
+                  </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">
                     <span className="flex items-center gap-1">
                       {warnSpecialist && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba špecialist</TooltipContent></Tooltip>}
@@ -3684,24 +3692,30 @@ export default function Contracts() {
                           <TooltipContent className="text-xs">{resolveUidName(r2.uid)}</TooltipContent>
                         </Tooltip>
                       ) : "—"}
-                      {recommenders.length > 2 && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="text-[10px] text-muted-foreground cursor-default font-mono">(+{recommenders.length - 2})</span>
-                          </TooltipTrigger>
-                          <TooltipContent className="text-xs">
-                            {recommenders.slice(2).map((r: any, i: number) => (
-                              <div key={i}>{formatUid(r.uid)} — {parseFloat(r.percentage || "0").toFixed(0)}%</div>
-                            ))}
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
                     </span>
                   </td>
                   <td className="px-2 py-1.5 text-center whitespace-nowrap">
                     <span className="flex items-center justify-center gap-1">
                       {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {allPct.toFixed(0)}%)</TooltipContent></Tooltip>}
                       {r2 ? <span className="text-amber-300">{r2Pct.toFixed(0)}%</span> : "—"}
+                    </span>
+                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    <span className="flex items-center gap-1">
+                      {r3 ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-amber-200 cursor-default">{formatUid(r3.uid)}</span>
+                          </TooltipTrigger>
+                          <TooltipContent className="text-xs">{resolveUidName(r3.uid)}</TooltipContent>
+                        </Tooltip>
+                      ) : "—"}
+                    </span>
+                  </td>
+                  <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                    <span className="flex items-center justify-center gap-1">
+                      {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {allPct.toFixed(0)}%)</TooltipContent></Tooltip>}
+                      {r3 ? <span className="text-amber-200">{r3Pct.toFixed(0)}%</span> : "—"}
                     </span>
                   </td>
                   {showActions && (
@@ -3830,24 +3844,35 @@ export default function Contracts() {
             <TableHead sortKey="partnerId" sortDirection={sk === "partnerId" ? sd : null} onSort={rs}>Partner</TableHead>
             <TableHead sortKey="productId" sortDirection={sk === "productId" ? sd : null} onSort={rs}>Produkt</TableHead>
             <TableHead sortKey="proposalNumber" sortDirection={sk === "proposalNumber" ? sd : null} onSort={rs} title={NAVRH_LABEL_FULL}>{NAVRH_LABEL_SHORT}</TableHead>
-            {earlyPhase && <TableHead className="whitespace-nowrap text-xs">D: Číslo zmluvy</TableHead>}
+            {earlyPhase && <TableHead className="whitespace-nowrap text-xs">F: Číslo zmluvy</TableHead>}
             {!earlyPhase && !hideContractNumbers && <TableHead>Číslo zmluvy</TableHead>}
-            <TableHead className="whitespace-nowrap text-xs">{earlyPhase ? "E: " : ""}Typ subjektu</TableHead>
+            <TableHead className="whitespace-nowrap text-xs">{earlyPhase ? "G: " : ""}Typ subjektu</TableHead>
             {earlyPhase ? (
               <>
-                <TableHead className="whitespace-nowrap text-xs">F: RČ / IČO</TableHead>
-                <TableHead className="whitespace-nowrap text-xs">G: Názov firmy</TableHead>
-                <TableHead className="whitespace-nowrap text-xs">H: Titul pred</TableHead>
-                <TableHead className="whitespace-nowrap text-xs">I: Meno</TableHead>
-                <TableHead className="whitespace-nowrap text-xs">J: Priezvisko</TableHead>
-                <TableHead className="whitespace-nowrap text-xs">K: Titul za</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">H: RČ</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">I: Tit.pred</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">J: Meno</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">K: Priezvisko</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">L: Tit.za</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">M: IČO</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">N: Firma</TableHead>
                 <TableHead className="whitespace-nowrap text-xs">O+P: Špecialist (UID %)</TableHead>
                 <TableHead className="whitespace-nowrap text-xs">Q+R: Odporúčateľ 1 (UID %)</TableHead>
                 <TableHead className="whitespace-nowrap text-xs">S+T: Odporúčateľ 2 (UID %)</TableHead>
                 <TableHead className="whitespace-nowrap text-xs">U+V: Odporúčateľ 3 (UID %)</TableHead>
               </>
             ) : (
-              <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Subjekt</TableHead>
+              <>
+                <TableHead sortKey="subjectId" sortDirection={sk === "subjectId" ? sd : null} onSort={rs}>Subjekt</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">Šp. UID</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">Šp%</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">O1 UID</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">O1%</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">O2 UID</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">O2%</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">O3 UID</TableHead>
+                <TableHead className="whitespace-nowrap text-xs">O3%</TableHead>
+              </>
             )}
             <TableHead className="text-center w-[60px]">🗂️</TableHead>
             {showTimer && <TableHead>Zostáva dní</TableHead>}
@@ -3859,6 +3884,8 @@ export default function Contracts() {
             const sub = subjects?.find(s => s.id === contract.subjectId);
             const subjectType = sub?.type === "person" ? "FO" : sub?.type === "szco" ? "SZČO" : sub?.type === "company" ? "PO" : "—";
             const subjectFullName = sub ? [sub.titleBefore, sub.firstName, sub.lastName, sub.titleAfter].filter(Boolean).join(" ") || sub.companyName || "—" : "—";
+            const { specialist: rowSpec, recommenders: rowRecs } = getContractDistData(contract.id);
+            const rowR1 = rowRecs[0]; const rowR2 = rowRecs[1]; const rowR3 = rowRecs[2];
             const isIncomplete = !!(contract as any).incompleteData;
             const incompleteReason = (contract as any).incompleteDataReason || "";
             const needsNameConfirm = !!(contract as any).needsManualVerification;
@@ -3976,15 +4003,16 @@ export default function Contracts() {
                   const meno = sub?.firstName || raw.meno || null;
                   const priezvisko = sub?.lastName || raw.priezvisko || null;
                   const titulZa = sub?.titleAfter || raw.titul_za || null;
+                  const rcEarlyOnly = sub?.birthNumber || raw.rodne_cislo || null;
+                  const icoEarlyOnly = (sub as any)?.ico || raw.ico || null;
                   return (
                     <>
                       <TableCell className="text-xs font-mono py-1 whitespace-nowrap" data-testid={`text-subject-rcico-${contract.id}`}>
                         <span className="flex items-center gap-1">
-                          {rcIco || <span className="text-muted-foreground/40">—</span>}
-                          {isIncomplete && (fieldMissing("rodné") || fieldMissing("ičo")) && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba RČ / IČO</TooltipContent></Tooltip>}
+                          {rcEarlyOnly || <span className="text-muted-foreground/40">—</span>}
+                          {isIncomplete && fieldMissing("rodné") && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba RČ</TooltipContent></Tooltip>}
                         </span>
                       </TableCell>
-                      <TableCell className="text-xs py-1 whitespace-nowrap" title={nazovFirmy || ""}>{nazovFirmy || <span className="text-muted-foreground/40">—</span>}</TableCell>
                       <TableCell className="text-xs py-1">{titulPred || <span className="text-muted-foreground/40">—</span>}</TableCell>
                       <TableCell className="text-xs py-1" data-testid={`text-subject-firstname-${contract.id}`}>
                         <span className="flex items-center gap-1">
@@ -4001,6 +4029,13 @@ export default function Contracts() {
                       </TableCell>
                       <TableCell className="text-xs py-1">{titulZa || <span className="text-muted-foreground/40">—</span>}</TableCell>
                       <TableCell className="text-xs font-mono py-1 whitespace-nowrap">
+                        <span className="flex items-center gap-1">
+                          {icoEarlyOnly || <span className="text-muted-foreground/40">—</span>}
+                          {isIncomplete && fieldMissing("ičo") && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba IČO</TooltipContent></Tooltip>}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs py-1 whitespace-nowrap" title={nazovFirmy || ""}>{nazovFirmy || <span className="text-muted-foreground/40">—</span>}</TableCell>
+                      <TableCell className="text-xs font-mono py-1 whitespace-nowrap">
                         {raw.specialista ? <span className="text-muted-foreground">{formatUid(raw.specialista)}{raw.specialista_podiel != null && raw.specialista_podiel !== "" ? <span className="text-primary font-semibold"> ({raw.specialista_podiel}%)</span> : ""}</span> : <span className="text-muted-foreground/30">—</span>}
                       </TableCell>
                       <TableCell className="text-xs font-mono py-1 whitespace-nowrap">
@@ -4015,6 +4050,7 @@ export default function Contracts() {
                     </>
                   );
                 })() : (
+                  <>
                   <TableCell className="text-sm py-1" data-testid={`text-subject-name-${contract.id}`}>
                     <span className="flex items-center gap-1 flex-wrap">
                       <span>{subjectFullName}</span>
@@ -4045,6 +4081,31 @@ export default function Contracts() {
                       )}
                     </span>
                   </TableCell>
+                  <TableCell className="text-xs font-mono py-1 whitespace-nowrap">
+                    {rowSpec ? <Tooltip><TooltipTrigger asChild><span className="text-primary cursor-default">{formatUid(rowSpec.uid)}</span></TooltipTrigger><TooltipContent className="text-xs">{resolveUidName(rowSpec.uid)}</TooltipContent></Tooltip> : <span className="text-muted-foreground/30">—</span>}
+                  </TableCell>
+                  <TableCell className="text-xs text-center py-1 whitespace-nowrap">
+                    {rowSpec ? <span className="text-emerald-500">{parseFloat(rowSpec.percentage || "0").toFixed(0)}%</span> : <span className="text-muted-foreground/30">—</span>}
+                  </TableCell>
+                  <TableCell className="text-xs font-mono py-1 whitespace-nowrap">
+                    {rowR1 ? <Tooltip><TooltipTrigger asChild><span className="text-amber-400 cursor-default">{formatUid(rowR1.uid)}</span></TooltipTrigger><TooltipContent className="text-xs">{resolveUidName(rowR1.uid)}</TooltipContent></Tooltip> : <span className="text-muted-foreground/30">—</span>}
+                  </TableCell>
+                  <TableCell className="text-xs text-center py-1 whitespace-nowrap">
+                    {rowR1 ? <span className="text-amber-400">{parseFloat(rowR1.percentage || "0").toFixed(0)}%</span> : <span className="text-muted-foreground/30">—</span>}
+                  </TableCell>
+                  <TableCell className="text-xs font-mono py-1 whitespace-nowrap">
+                    {rowR2 ? <Tooltip><TooltipTrigger asChild><span className="text-amber-300 cursor-default">{formatUid(rowR2.uid)}</span></TooltipTrigger><TooltipContent className="text-xs">{resolveUidName(rowR2.uid)}</TooltipContent></Tooltip> : <span className="text-muted-foreground/30">—</span>}
+                  </TableCell>
+                  <TableCell className="text-xs text-center py-1 whitespace-nowrap">
+                    {rowR2 ? <span className="text-amber-300">{parseFloat(rowR2.percentage || "0").toFixed(0)}%</span> : <span className="text-muted-foreground/30">—</span>}
+                  </TableCell>
+                  <TableCell className="text-xs font-mono py-1 whitespace-nowrap">
+                    {rowR3 ? <Tooltip><TooltipTrigger asChild><span className="text-amber-200 cursor-default">{formatUid(rowR3.uid)}</span></TooltipTrigger><TooltipContent className="text-xs">{resolveUidName(rowR3.uid)}</TooltipContent></Tooltip> : <span className="text-muted-foreground/30">—</span>}
+                  </TableCell>
+                  <TableCell className="text-xs text-center py-1 whitespace-nowrap">
+                    {rowR3 ? <span className="text-amber-200">{parseFloat(rowR3.percentage || "0").toFixed(0)}%</span> : <span className="text-muted-foreground/30">—</span>}
+                  </TableCell>
+                  </>
                 )}
                 {Array.isArray(contract.documents) && contract.documents.length > 0 && (
                   <TableCell className="py-1 text-center" data-testid={`text-docs-count-${contract.id}`}>
