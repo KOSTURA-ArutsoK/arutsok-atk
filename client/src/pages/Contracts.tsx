@@ -2735,7 +2735,7 @@ export default function Contracts() {
     queryKey: ["/api/contract-templates"],
   });
   const { data: allStates } = useStates();
-  const { data: allRewardDist = [] } = useQuery<any[]>({ queryKey: ["/api/reward-distributions"], enabled: isEvidencia });
+  const { data: allRewardDist = [] } = useQuery<any[]>({ queryKey: ["/api/reward-distributions"] });
 
   const lookupSubjectByUid = (uid: string): { found: boolean; label: string } => {
     if (!uid.trim()) return { found: false, label: "" };
@@ -7571,6 +7571,14 @@ export default function Contracts() {
             {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && !preSelectFirstName && !preSelectLastName && (
               <div className="flex items-center gap-2 px-3 py-2 rounded border border-amber-500/30 bg-amber-500/10">
                 <span className="text-xs text-amber-400" data-testid="text-preselect-no-fo-readonly">Nemáme informácie o FO vlastníkovi</span>
+              </div>
+            )}
+
+            {preSelectSubjectId && preSelectSubjectType === "person" && (preSelectFirstName || preSelectLastName) && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded border border-border/40 bg-muted/20">
+                <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span className="text-xs text-muted-foreground">Meno:</span>
+                <span className="text-sm font-medium" data-testid="text-preselect-person-name-readonly">{[preSelectTitleBefore, preSelectFirstName, preSelectLastName, preSelectTitleAfter].filter(Boolean).join(" ")}</span>
               </div>
             )}
 
