@@ -2261,6 +2261,8 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
   disabled?: boolean;
   subjectId?: number;
 }) {
+  const { data: allStates } = useStates();
+  const { data: appUser } = useAppUser();
   const [nameWarning, setNameWarning] = useState<string | null>(null);
   const [titleWarning, setTitleWarning] = useState<string | null>(null);
   const [rcFieldError, setRcFieldError] = useState<string | null>(null);
