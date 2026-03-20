@@ -27,8 +27,8 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
         onTouchEnd={() => setPressed(false)}
         style={{
           position: "relative",
-          width: 200,
-          height: 230,
+          width: 175,
+          height: 205,
           background: "none",
           border: "none",
           padding: 0,
@@ -40,8 +40,8 @@ export function AddDivisionCard({ onClick }: AddDivisionCardProps) {
         }}
       >
         <svg
-          width="200"
-          height="175"
+          width="175"
+          height="153"
           viewBox="0 0 160 140"
           fill="none"
           style={{ position: "absolute", top: 10, left: 0, overflow: "visible" }}
