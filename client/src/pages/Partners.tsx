@@ -231,7 +231,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
   const ex = 6, ey = 8;
 
   return (
-    <div className="flex items-center justify-center w-full py-4">
+    <div className="flex items-center justify-center w-full -mt-2 pb-1">
       <button
         type="button"
         onClick={onClick}
