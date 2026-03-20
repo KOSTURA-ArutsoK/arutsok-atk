@@ -1,109 +1,122 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Globe, Plus } from "lucide-react";
 
 interface AddStateButtonProps {
   onClick: () => void;
 }
 
-function useDarkMode() {
-  const [isDark, setIsDark] = useState(() =>
-    document.documentElement.classList.contains("dark")
-  );
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setIsDark(document.documentElement.classList.contains("dark"));
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-  return isDark;
-}
-
 export function AddStateButton({ onClick }: AddStateButtonProps) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
-  const isDark = useDarkMode();
 
-  const theme = isDark
-    ? {
-        bg: "linear-gradient(145deg, #0a1f3d, #1a3f80)",
-        shadowRest: "10px 10px 20px #060f20, -10px -10px 20px #204898",
-        shadowPressed: "inset 5px 5px 10px #060f20, inset -3px -3px 8px #204898",
-        textColor: "#b8d0f0",
-        globeOpacity: 0.65,
-      }
-    : {
-        bg: "linear-gradient(145deg, #aac8e8, #d8eafa)",
-        shadowRest: "10px 10px 20px #88a8cc, -10px -10px 20px #ffffff",
-        shadowPressed: "inset 5px 5px 10px #88a8cc, inset -3px -3px 8px #ffffff",
-        textColor: "#1a3f70",
-        globeOpacity: 0.6,
-      };
+  const isActive = hovered || pressed;
 
   return (
-    <div className="flex flex-col items-center justify-center w-full py-6">
+    <div className="flex items-center justify-center w-full" style={{ marginTop: 0, paddingBottom: 4 }}>
       <button
         type="button"
-        data-testid="button-add-state"
         onClick={onClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => { setHovered(false); setPressed(false); }}
         onMouseDown={() => setPressed(true)}
         onMouseUp={() => setPressed(false)}
-        onTouchStart={() => setPressed(true)}
-        onTouchEnd={() => setPressed(false)}
+        data-testid="button-add-state"
+        title="Pridať nový štát"
         style={{
-          width: 140,
-          height: 140,
-          borderRadius: "50%",
-          background: theme.bg,
-          boxShadow: (hovered || pressed) ? theme.shadowPressed : theme.shadowRest,
+          position: "relative",
+          width: 200,
+          height: 200,
+          background: "none",
           border: "none",
+          padding: 0,
           cursor: "pointer",
+          outline: "none",
+          userSelect: "none",
+          transition: "transform 0.15s ease",
+          transform: pressed ? "scale(0.96)" : hovered ? "scale(1.05)" : "scale(1)",
+        }}
+      >
+        <svg
+          width="200"
+          height="200"
+          viewBox="0 0 160 160"
+          fill="none"
+          style={{ position: "absolute", top: 0, left: 0, overflow: "visible" }}
+        >
+          <defs>
+            <filter id="stateGlow" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="16" result="blur" />
+            </filter>
+            <linearGradient id="circleGradState" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#0a1f3d" />
+              <stop offset="100%" stopColor="#1a3f80" />
+            </linearGradient>
+          </defs>
+          {/* Podsvietenie — sky-modrá v kľude, zlatá pri hoveri */}
+          <circle
+            cx="80"
+            cy="80"
+            r="68"
+            fill={isActive ? "rgba(255,210,0,1.0)" : "rgba(56,189,248,0.50)"}
+            filter="url(#stateGlow)"
+            style={{ transition: "fill 0.2s ease" }}
+          />
+          {/* Hlavný kruh */}
+          <circle
+            cx="80"
+            cy="80"
+            r="68"
+            fill="url(#circleGradState)"
+            stroke={isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)"}
+            strokeWidth="1.8"
+            style={{ transition: "stroke 0.15s ease" }}
+          />
+        </svg>
+
+        <div style={{
+          position: "absolute",
+          top: 0, left: 0, right: 0, bottom: 0,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: 6,
-          transition: "box-shadow 0.12s ease",
-          outline: "none",
-          userSelect: "none",
-        }}
-      >
-        <div style={{ position: "relative", display: "inline-flex" }}>
-          <Globe
-            style={{
-              width: 36,
-              height: 36,
-              color: "#FFBF00",
-              filter: `drop-shadow(0 0 6px rgba(255,191,0,${theme.globeOpacity}))`,
-            }}
-          />
-          <Plus
-            size={14}
-            strokeWidth={2.5}
-            style={{
-              position: "absolute",
-              top: -6,
-              right: -9,
-              color: "#FFBF00",
-              filter: "drop-shadow(0 0 5px #FFBF00)",
-            }}
-          />
-        </div>
-        <span
-          style={{
+          gap: 9,
+        }}>
+          <div style={{ position: "relative", display: "inline-flex" }}>
+            <Globe
+              size={46}
+              strokeWidth={1.4}
+              style={{
+                color: "#FFBF00",
+                filter: `drop-shadow(0 0 8px rgba(255,191,0,${isActive ? 0.95 : 0.55}))`,
+                transition: "filter 0.15s ease",
+                display: "block",
+              }}
+            />
+            <Plus
+              size={14}
+              strokeWidth={2.5}
+              style={{
+                position: "absolute",
+                top: -6,
+                right: -9,
+                color: "#FFBF00",
+                filter: "drop-shadow(0 0 5px #FFBF00)",
+              }}
+            />
+          </div>
+          <span style={{
             fontFamily: "sans-serif",
             fontSize: 11,
             fontWeight: 800,
-            color: theme.textColor,
+            color: "#b8d0f0",
             letterSpacing: "0.04em",
             textAlign: "center",
             lineHeight: 1.2,
-          }}
-        >
-          Pridať štát
-        </span>
+          }}>
+            Pridať štát
+          </span>
+        </div>
       </button>
     </div>
   );
