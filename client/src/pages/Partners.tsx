@@ -2495,7 +2495,7 @@ export default function Partners() {
         <AddPartnerHexButton onClick={openCreate} />
       )}
 
-      <Card style={{ marginTop: -10 }}>
+      <Card style={{ marginTop: -5 }}>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
