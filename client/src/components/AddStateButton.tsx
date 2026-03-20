@@ -52,12 +52,12 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
               <stop offset="100%" stopColor="#1a3f80" />
             </linearGradient>
           </defs>
-          {/* Podsvietenie — sky-modrá v kľude, zlatá pri hoveri */}
+          {/* Podsvietenie — sky-modrá v kľude, krikľavo zelená pri hoveri */}
           <circle
             cx="80"
             cy="80"
             r="68"
-            fill={isActive ? "rgba(255,210,0,1.0)" : "rgba(56,189,248,0.50)"}
+            fill={isActive ? "rgba(57,255,20,1.0)" : "rgba(56,189,248,0.50)"}
             filter="url(#stateGlow)"
             style={{ transition: "fill 0.2s ease" }}
           />
@@ -67,7 +67,7 @@ export function AddStateButton({ onClick }: AddStateButtonProps) {
             cy="80"
             r="68"
             fill="url(#circleGradState)"
-            stroke={isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)"}
+            stroke={isActive ? "rgba(57,255,20,0.70)" : "rgba(245,158,11,0.35)"}
             strokeWidth="1.8"
             style={{ transition: "stroke 0.15s ease" }}
           />
