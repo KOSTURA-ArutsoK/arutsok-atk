@@ -6564,83 +6564,128 @@ export default function Contracts() {
             </div>
 
             <div style={{ display: preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length > 0 ? 'block' : 'none' }}>
-              <div className="border rounded-md max-h-[200px] overflow-y-auto" data-testid="list-preselect-subjects">
+              <div className="border rounded-md max-h-[260px] overflow-y-auto" data-testid="list-preselect-subjects">
                 {preSelectFilteredSubjects.map(s => {
-                  const displayName = s.type === "company" || s.type === "organization" || s.type === "state"
-                    ? (s.companyName || "Bez nazvu")
-                    : s.type === "szco"
-                    ? `${s.companyName || ""} - ${s.firstName || ""} ${s.lastName || ""}`.trim()
-                    : `${s.firstName || ""} ${s.lastName || ""}`.trim() || "Bez mena";
-                  const typeLabel = s.type === "person" ? "FO" : s.type === "company" ? "PO" : s.type === "szco" ? "SZČO" : s.type === "organization" ? "ORG" : s.type === "state" ? "ŠTÁT" : s.type;
-                  const identifier = s.type === "company" ? ((s as any).ico || "") : s.type === "szco" ? ((s.details as any)?.ico || s.birthNumber || "") : (s.birthNumber || "");
                   const isSelected = preSelectSubjectId === s.id.toString();
-                  return (
-                    <div
-                      key={s.id}
-                      tabIndex={0}
-                      className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b last:border-b-0 hover-elevate ${isSelected ? "bg-primary/10" : ""} focus:bg-primary/10 focus:outline-none`}
-                      onClick={() => {
-                        setPreSelectSubjectId(s.id.toString());
-                        setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state");
-                        setPreSelectTitleBefore((s as any).titleBefore || "");
-                        setPreSelectFirstName(s.firstName || "");
-                        setPreSelectLastName(s.lastName || "");
-                        setPreSelectTitleAfter((s as any).titleAfter || "");
-                        setPreSelectBusinessName(s.companyName || "");
-                        setPreSelectIco((s.details as any)?.ico || "");
-                        setPreSelectBirthNumber(s.birthNumber || "");
-                        setPreSelectShowNameFields(true);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Backspace" || e.key === "Enter") {
-                          e.preventDefault();
-                          setPreSelectSubjectId(s.id.toString());
-                          setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state");
-                          setPreSelectTitleBefore((s as any).titleBefore || "");
-                          setPreSelectFirstName(s.firstName || "");
-                          setPreSelectLastName(s.lastName || "");
-                          setPreSelectTitleAfter((s as any).titleAfter || "");
-                          setPreSelectBusinessName(s.companyName || "");
-                          setPreSelectIco((s.details as any)?.ico || "");
-                          setPreSelectBirthNumber(s.birthNumber || "");
-                          setPreSelectShowNameFields(true);
-                          setTimeout(() => {
-                            const sType = s.type as string;
-                            if (sType === "szco" || sType === "company" || sType === "organization") {
-                              const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
-                              if (el) { el.focus(); return; }
-                            }
-                            const el = document.querySelector('[data-testid="input-preselect-title-before"]') as HTMLElement;
-                            if (el) { el.focus(); return; }
-                            refStep2Confirm.current?.focus();
-                          }, 80);
-                        } else if (e.key === "ArrowDown") {
-                          e.preventDefault();
-                          const next = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement;
-                          if (next) next.focus();
-                        } else if (e.key === "ArrowUp") {
-                          e.preventDefault();
-                          const prev = (e.currentTarget as HTMLElement).previousElementSibling as HTMLElement;
-                          if (prev) prev.focus();
-                          else refSearchInput.current?.focus();
-                        } else if (e.key === "Escape") {
-                          e.preventDefault();
-                          refSearchInput.current?.focus();
-                        }
-                      }}
-                      data-testid={`row-preselect-subject-${s.id}`}
-                    >
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? "border-primary" : "border-muted-foreground/40"}`}>
-                        <div style={{ display: isSelected ? 'block' : 'none' }} className="w-2 h-2 rounded-full bg-primary" />
+                  const doSelect = (focusNext?: boolean) => {
+                    setPreSelectSubjectId(s.id.toString());
+                    setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state");
+                    setPreSelectTitleBefore((s as any).titleBefore || "");
+                    setPreSelectFirstName(s.firstName || "");
+                    setPreSelectLastName(s.lastName || "");
+                    setPreSelectTitleAfter((s as any).titleAfter || "");
+                    setPreSelectBusinessName(s.companyName || "");
+                    setPreSelectIco((s.details as any)?.ico || (s as any)?.ico || "");
+                    setPreSelectBirthNumber(s.birthNumber || "");
+                    setPreSelectShowNameFields(true);
+                    if (focusNext) setTimeout(() => {
+                      const sType = s.type as string;
+                      if (sType === "szco" || sType === "company" || sType === "organization" || sType === "state") {
+                        const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
+                        if (el) { el.focus(); return; }
+                      }
+                      const el = document.querySelector('[data-testid="input-preselect-title-before"]') as HTMLElement;
+                      if (el) { el.focus(); return; }
+                      refStep2Confirm.current?.focus();
+                    }, 80);
+                  };
+                  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+                    if (e.key === "Backspace" || e.key === "Enter") { e.preventDefault(); doSelect(true); }
+                    else if (e.key === "ArrowDown") { e.preventDefault(); const next = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement; if (next) next.focus(); }
+                    else if (e.key === "ArrowUp") { e.preventDefault(); const prev = (e.currentTarget as HTMLElement).previousElementSibling as HTMLElement; if (prev) prev.focus(); else refSearchInput.current?.focus(); }
+                    else if (e.key === "Escape") { e.preventDefault(); refSearchInput.current?.focus(); }
+                  };
+                  const radioBtn = (
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? "border-primary" : "border-muted-foreground/40"}`}>
+                      <div style={{ display: isSelected ? 'block' : 'none' }} className="w-2 h-2 rounded-full bg-primary" />
+                    </div>
+                  );
+                  // SZČO — two separate bubbles: SZČO company + FO person
+                  if (s.type === "szco") {
+                    const ico = (s.details as any)?.ico || (s as any)?.ico || "";
+                    const personName = `${(s as any).titleBefore ? (s as any).titleBefore + " " : ""}${s.firstName || ""} ${s.lastName || ""}${(s as any).titleAfter ? " " + (s as any).titleAfter : ""}`.trim();
+                    const hasPersonInfo = !!(s.firstName || s.lastName);
+                    return (
+                      <div key={s.id} data-testid={`row-preselect-subject-${s.id}`}>
+                        <div tabIndex={0} className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b hover-elevate ${isSelected ? "bg-primary/10" : ""} focus:bg-primary/10 focus:outline-none`} onClick={() => doSelect()} onKeyDown={handleKeyDown}>
+                          {radioBtn}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm" data-testid={`text-preselect-subject-name-${s.id}`}>{s.companyName || "Bez názvu živnosti"}</span>
+                              <Badge variant="outline" className="text-[10px] px-1.5 border-amber-500/50 text-amber-400 flex-shrink-0">SZČO</Badge>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span className="font-mono">{formatUid(s.uid)}</span>
+                              {ico && <span>IČO: {ico}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        {hasPersonInfo && (
+                          <div className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b hover-elevate pl-8 ${isSelected ? "bg-primary/10" : "bg-blue-500/5"} focus:bg-primary/10 focus:outline-none`} onClick={() => doSelect()} tabIndex={-1}>
+                            <div className="w-3 h-3 flex items-center justify-center flex-shrink-0"><User className="w-3 h-3 text-blue-400" /></div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">{personName || "—"}</span>
+                                <Badge variant="outline" className="text-[10px] px-1.5 border-blue-500/50 text-blue-400 flex-shrink-0">FO</Badge>
+                              </div>
+                              {s.birthNumber && <div className="text-xs text-muted-foreground">RČ: {s.birthNumber}</div>}
+                            </div>
+                          </div>
+                        )}
                       </div>
+                    );
+                  }
+                  // Company/Organization/State — two bubbles if person info exists
+                  if (s.type === "company" || s.type === "organization" || s.type === "state") {
+                    const ico = (s as any)?.ico || (s.details as any)?.ico || "";
+                    const typeLabel = s.type === "company" ? "PO" : s.type === "organization" ? "TS" : "VS";
+                    const typeBadgeClass = s.type === "company" ? "border-purple-500/50 text-purple-400" : s.type === "organization" ? "border-green-500/50 text-green-400" : "border-cyan-500/50 text-cyan-400";
+                    const personName = `${(s as any).titleBefore ? (s as any).titleBefore + " " : ""}${s.firstName || ""} ${s.lastName || ""}${(s as any).titleAfter ? " " + (s as any).titleAfter : ""}`.trim();
+                    const hasPersonInfo = !!(s.firstName || s.lastName);
+                    return (
+                      <div key={s.id} data-testid={`row-preselect-subject-${s.id}`}>
+                        <div tabIndex={0} className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b hover-elevate ${isSelected ? "bg-primary/10" : ""} focus:bg-primary/10 focus:outline-none`} onClick={() => doSelect()} onKeyDown={handleKeyDown}>
+                          {radioBtn}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm" data-testid={`text-preselect-subject-name-${s.id}`}>{s.companyName || "Bez názvu"}</span>
+                              <Badge variant="outline" className={`text-[10px] px-1.5 flex-shrink-0 ${typeBadgeClass}`}>{typeLabel}</Badge>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span className="font-mono">{formatUid(s.uid)}</span>
+                              {ico && <span>IČO: {ico}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        {hasPersonInfo && (
+                          <div className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b hover-elevate pl-8 ${isSelected ? "bg-primary/10" : "bg-blue-500/5"} focus:bg-primary/10 focus:outline-none`} onClick={() => doSelect()} tabIndex={-1}>
+                            <div className="w-3 h-3 flex items-center justify-center flex-shrink-0"><User className="w-3 h-3 text-blue-400" /></div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">{personName}</span>
+                                <Badge variant="outline" className="text-[10px] px-1.5 border-blue-500/50 text-blue-400 flex-shrink-0">FO</Badge>
+                              </div>
+                              {s.birthNumber && <div className="text-xs text-muted-foreground">RČ: {s.birthNumber}</div>}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  // FO/person — one bubble (unchanged)
+                  const displayName = `${s.firstName || ""} ${s.lastName || ""}`.trim() || "Bez mena";
+                  const identifier = s.birthNumber || "";
+                  return (
+                    <div key={s.id} tabIndex={0} className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b last:border-b-0 hover-elevate ${isSelected ? "bg-primary/10" : ""} focus:bg-primary/10 focus:outline-none`} onClick={() => doSelect()} onKeyDown={handleKeyDown} data-testid={`row-preselect-subject-${s.id}`}>
+                      {radioBtn}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-sm" data-testid={`text-preselect-subject-name-${s.id}`}>{displayName}</span>
-                          <Badge variant="outline" className="text-[10px] px-1.5 flex-shrink-0" data-testid={`badge-preselect-subject-type-${s.id}`}>{typeLabel}</Badge>
+                          <Badge variant="outline" className="text-[10px] px-1.5 border-blue-500/50 text-blue-400 flex-shrink-0">FO</Badge>
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span className="font-mono">{formatUid(s.uid)}</span>
-                          <span style={{ display: identifier ? 'inline' : 'none' }}>{s.type === "company" || s.type === "szco" ? "ICO" : "RC"}: {identifier}</span>
+                          {identifier && <span>RČ: {identifier}</span>}
                         </div>
                       </div>
                     </div>
@@ -6663,7 +6708,6 @@ export default function Contracts() {
                   value={preSelectBusinessName}
                   onChange={(e) => {
                     setPreSelectBusinessName(e.target.value);
-                    setPreSelectShowFoSearch(false);
                     setPreSelectNoFoInfo(false);
                     setPreSelectFoSearch("");
                     setPreSelectShowNameFields(false);
@@ -6680,9 +6724,6 @@ export default function Contracts() {
                     if (e.key === "Enter") {
                       e.preventDefault();
                       if (preSelectBusinessName.trim()) {
-                        setPreSelectShowFoSearch(true);
-                        setPreSelectNoFoInfo(false);
-                        setPreSelectFoSearch("");
                         setTimeout(() => {
                           const el = document.querySelector('[data-testid="input-preselect-fo-search"]') as HTMLElement;
                           if (el) el.focus();
@@ -6704,8 +6745,8 @@ export default function Contracts() {
               </div>
               )}
 
-              {/* FO search — po zadaní názvu živnosti/org/inštitúcie */}
-              {preSelectShowFoSearch && (preSelectSubjectType === "szco" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && (
+              {/* FO search — vždy viditeľné pre szco/company/org/state */}
+              {(preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && !preSelectSubjectId && (
                 <div className="space-y-1.5">
                   {/* Mini type indicator — len FO */}
                   <div className="relative w-full flex p-0.5 bg-muted/40 rounded border border-border/60">
