@@ -28,8 +28,8 @@ export function AddProductCard({ onClick }: AddProductCardProps) {
         onTouchEnd={() => setPressed(false)}
         style={{
           position: "relative",
-          width: 210,
-          height: 240,
+          width: 222,
+          height: 254,
           background: "none",
           border: "none",
           padding: 0,
@@ -41,8 +41,8 @@ export function AddProductCard({ onClick }: AddProductCardProps) {
         }}
       >
         <svg
-          width="210"
-          height="184"
+          width="222"
+          height="194"
           viewBox="0 0 160 140"
           fill="none"
           style={{ position: "absolute", top: 10, left: 0, overflow: "visible" }}
@@ -75,8 +75,8 @@ export function AddProductCard({ onClick }: AddProductCardProps) {
 
         <div style={{
           position: "absolute",
-          top: 36, left: 0, right: 0,
-          height: 132,
+          top: 38, left: 0, right: 0,
+          height: 139,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
