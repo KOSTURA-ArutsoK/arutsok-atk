@@ -263,12 +263,12 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
               <stop offset="100%" stopColor="#1a3f80" />
             </linearGradient>
           </defs>
-          {/* Jantárové podsvietenie — SVG filter, vždy viditeľný */}
+          {/* Podsvietenie — jantárové v kľude, zlaté pri hoveri */}
           <path
             d={hexPath}
-            fill={isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.48)"}
+            fill={isActive ? "rgba(255,191,0,0.75)" : "rgba(245,158,11,0.48)"}
             filter="url(#amberGlow)"
-            style={{ transition: "fill 0.15s ease" }}
+            style={{ transition: "fill 0.2s ease" }}
           />
           {/* Hlavný hexagón */}
           <path
