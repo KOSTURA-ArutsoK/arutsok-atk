@@ -6213,7 +6213,7 @@ export default function Contracts() {
                     return (
                       <div
                         key={idx}
-                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors ${checked ? "bg-red-500/10" : "hover:bg-muted/40"}`}
+                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
                         onClick={() => toggleReq(idx)}
                         data-testid={`row-docchecklist-req-${idx}`}
                       >
@@ -6221,11 +6221,11 @@ export default function Contracts() {
                           checked={checked}
                           onCheckedChange={() => toggleReq(idx)}
                           onClick={e => e.stopPropagation()}
-                          className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
+                          className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
                           data-testid={`checkbox-docchecklist-req-${idx}`}
                         />
-                        <FileText className={`w-3.5 h-3.5 shrink-0 ${checked ? "text-red-400" : "text-muted-foreground"}`} />
-                        <span className={`text-sm ${checked ? "line-through text-muted-foreground" : ""}`}>{doc}</span>
+                        <FileText className={`w-3.5 h-3.5 shrink-0 ${checked ? "text-green-400" : "text-muted-foreground"}`} />
+                        <span className="text-sm">{doc}</span>
                       </div>
                     );
                   })}
@@ -6257,7 +6257,7 @@ export default function Contracts() {
                     return (
                       <div
                         key={idx}
-                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors ${checked ? "bg-blue-500/10" : "hover:bg-muted/40"}`}
+                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
                         onClick={() => toggleOpt(idx)}
                         data-testid={`row-docchecklist-opt-${idx}`}
                       >
@@ -6265,11 +6265,11 @@ export default function Contracts() {
                           checked={checked}
                           onCheckedChange={() => toggleOpt(idx)}
                           onClick={e => e.stopPropagation()}
-                          className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                          className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
                           data-testid={`checkbox-docchecklist-opt-${idx}`}
                         />
-                        <FileText className={`w-3.5 h-3.5 shrink-0 ${checked ? "text-blue-400" : "text-muted-foreground"}`} />
-                        <span className={`text-sm ${checked ? "line-through text-muted-foreground" : ""}`}>{doc}</span>
+                        <FileText className={`w-3.5 h-3.5 shrink-0 ${checked ? "text-green-400" : "text-muted-foreground"}`} />
+                        <span className="text-sm">{doc}</span>
                       </div>
                     );
                   })}
@@ -6283,7 +6283,7 @@ export default function Contracts() {
                     return (
                       <div
                         key={idx}
-                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors ${checked ? "bg-blue-500/10" : "hover:bg-muted/40"}`}
+                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
                         onClick={() => toggleExtra(idx)}
                         data-testid={`row-docchecklist-extra-${idx}`}
                       >
@@ -6291,11 +6291,11 @@ export default function Contracts() {
                           checked={checked}
                           onCheckedChange={() => toggleExtra(idx)}
                           onClick={e => e.stopPropagation()}
-                          className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                          className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
                           data-testid={`checkbox-docchecklist-extra-${idx}`}
                         />
-                        <FileText className={`w-3.5 h-3.5 shrink-0 ${checked ? "text-blue-400" : "text-muted-foreground"}`} />
-                        <span className={`text-sm ${checked ? "line-through text-muted-foreground" : ""}`}>{doc}</span>
+                        <FileText className={`w-3.5 h-3.5 shrink-0 ${checked ? "text-green-400" : "text-muted-foreground"}`} />
+                        <span className="text-sm">{doc}</span>
                         <button
                           type="button"
                           className="ml-auto text-muted-foreground hover:text-destructive"
