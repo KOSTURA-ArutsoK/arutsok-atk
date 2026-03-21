@@ -396,6 +396,7 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, se
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/nbs-partner-reports"] });
       toast({ title: "Výkaz uložený" });
+      setSelectedPartnerId(null);
     },
     onError: (err: any) => {
       toast({ title: "Chyba pri ukladaní", description: err.message, variant: "destructive" });
