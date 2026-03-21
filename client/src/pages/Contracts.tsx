@@ -2306,6 +2306,7 @@ export default function Contracts() {
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [sprievodkaDialogOpen, setSprievodkaDialogOpen] = useState(false);
+  const [sprievodkaPrinted, setSprievodkaPrinted] = useState(false);
   const [rerouteSelectedIds, setRerouteSelectedIds] = useState<number[]>([]);
   const [rerouteDialogOpen, setRerouteDialogOpen] = useState(false);
   const [rerouteSource, setRerouteSource] = useState<"neprijate" | "archiv" | "spracovanie" | null>(null);
@@ -8934,7 +8935,7 @@ export default function Contracts() {
         })()}
 
 
-        <Dialog open={sprievodkaDialogOpen} onOpenChange={setSprievodkaDialogOpen}>
+        <Dialog open={sprievodkaDialogOpen} onOpenChange={(o) => { setSprievodkaDialogOpen(o); if (!o) setSprievodkaPrinted(false); }}>
           <DialogContent size="sm">
             <DialogHeader>
               <DialogTitle data-testid="text-sprievodka-dialog-title">Odoslať zmluvy</DialogTitle>
@@ -8946,11 +8947,27 @@ export default function Contracts() {
               <p className="text-xs font-medium text-red-400" data-testid="text-sprievodka-order-note">
                 Zmluvy budú na sprievodke zoradené podľa poradia, v akom ich označíte.
               </p>
+              <div className={`flex items-center gap-3 px-3 py-2.5 rounded-md border ${sprievodkaPrinted ? "border-green-600/40 bg-green-600/10" : "border-orange-500/40 bg-orange-500/10"}`}>
+                <Printer className={`w-4 h-4 shrink-0 ${sprievodkaPrinted ? "text-green-500" : "text-orange-400"}`} />
+                <p className={`text-xs flex-1 ${sprievodkaPrinted ? "text-green-400" : "text-orange-300"}`}>
+                  {sprievodkaPrinted ? "Sprievodka bola vytlačená. Môžete odoslať." : "Pred odoslaním je potrebné vytlačiť sprievodku."}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => { window.print(); setSprievodkaPrinted(true); }}
+                  className={sprievodkaPrinted ? "bg-green-600 hover:bg-green-700 text-white border-transparent" : "btn-blink-orange"}
+                  data-testid="button-sprievodka-print"
+                >
+                  <Printer className="w-3.5 h-3.5 mr-1.5" />
+                  {sprievodkaPrinted ? "Vytlačené" : "Tlačiť sprievodku"}
+                </Button>
+              </div>
               <div className="flex items-center justify-end gap-3 flex-wrap">
-                <Button variant="outline" onClick={() => setSprievodkaDialogOpen(false)} data-testid="button-sprievodka-cancel">
+                <Button type="button" variant="outline" onClick={() => { setSprievodkaDialogOpen(false); setSprievodkaPrinted(false); }} data-testid="button-sprievodka-cancel">
                   Zrušiť
                 </Button>
-                <Button onClick={handleDispatch} disabled={isDispatching} data-testid="button-sprievodka-confirm">
+                <Button type="button" onClick={handleDispatch} disabled={isDispatching || !sprievodkaPrinted} data-testid="button-sprievodka-confirm">
                   {isDispatching ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Odosielam...</>) : (<><Send className="w-4 h-4 mr-2" />Odoslať</>)}
                 </Button>
               </div>

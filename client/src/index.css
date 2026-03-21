@@ -403,3 +403,13 @@ body[style*="overflow:hidden"] main {
   animation: importedFieldFlash 1.8s ease-out forwards;
   border-radius: calc(var(--radius) - 2px);
 }
+
+@keyframes blinkOrange {
+  0%, 100% { background-color: hsl(25 95% 48%); box-shadow: 0 0 0 3px hsl(25 95% 48% / 0.4); color: white; }
+  50% { background-color: hsl(25 95% 32%); box-shadow: 0 0 0 6px hsl(25 95% 48% / 0.08); color: white; }
+}
+.btn-blink-orange {
+  animation: blinkOrange 0.85s ease-in-out infinite;
+  color: white !important;
+  border-color: transparent !important;
+}
