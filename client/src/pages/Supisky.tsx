@@ -75,13 +75,6 @@ function SupiskaFormDialog({
   const [productId, setProductId] = useState("");
   const [formStartTime] = useState(() => Date.now());
 
-  const { data: partners = [] } = useQuery<any[]>({ queryKey: ["/api/partners"], enabled: open && !editing });
-  const { data: products = [] } = useQuery<any[]>({ queryKey: ["/api/products"], enabled: open && !editing });
-
-  const filteredProducts = partnerId
-    ? products.filter((p: any) => String(p.partnerId) === partnerId)
-    : products;
-
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/supisky", data),
     onSuccess: () => {
@@ -102,13 +95,20 @@ function SupiskaFormDialog({
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat supisku", variant: "destructive" }),
   });
 
+  const { data: partners = [] } = useQuery<any[]>({ queryKey: ["/api/partners"], enabled: open });
+  const { data: products = [] } = useQuery<any[]>({ queryKey: ["/api/products"], enabled: open });
+
+  const filteredProducts = partnerId
+    ? products.filter((p: any) => String(p.partnerId) === partnerId)
+    : products;
+
   useEffect(() => {
     if (open) {
       if (editing) {
         setName(editing.name || "");
         setNotes(editing.notes || "");
-        setPartnerId("");
-        setProductId("");
+        setPartnerId((editing as any).partnerId ? String((editing as any).partnerId) : "");
+        setProductId((editing as any).productId ? String((editing as any).productId) : "");
       } else {
         setName("");
         setNotes("");
@@ -121,16 +121,17 @@ function SupiskaFormDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const processingTimeSec = Math.round((Date.now() - formStartTime) / 1000);
+    const payload = {
+      name,
+      notes,
+      processingTimeSec,
+      partnerId: partnerId ? Number(partnerId) : null,
+      productId: productId ? Number(productId) : null,
+    };
     if (editing) {
-      updateMutation.mutate({ name, notes, processingTimeSec });
+      updateMutation.mutate(payload);
     } else {
-      createMutation.mutate({
-        name,
-        notes,
-        processingTimeSec,
-        partnerId: partnerId ? Number(partnerId) : null,
-        productId: productId ? Number(productId) : null,
-      });
+      createMutation.mutate(payload);
     }
   };
 
@@ -138,11 +139,11 @@ function SupiskaFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="md">
         <DialogHeader>
-          <DialogTitle>{editing ? "Upravit supisku" : "Nova supiska"}</DialogTitle>
+          <DialogTitle>{editing ? "Upraviť súpisku" : "Nová súpiska"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 p-2">
           <div>
-            <label className="text-sm font-medium text-muted-foreground">Nazov</label>
+            <label className="text-sm font-medium text-muted-foreground">Názov</label>
             <Input
               value={name}
               onChange={e => setName(e.target.value)}
@@ -150,38 +151,34 @@ function SupiskaFormDialog({
               required
             />
           </div>
-          {!editing && (
-            <>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Partner <span className="text-muted-foreground/50">(pre kód súpisky)</span></label>
-                <Select value={partnerId} onValueChange={v => { setPartnerId(v); setProductId(""); }}>
-                  <SelectTrigger data-testid="select-supiska-partner">
-                    <SelectValue placeholder="— bez partnera —" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {partners.map((p: any) => (
-                      <SelectItem key={p.id} value={String(p.id)}>{p.name}{p.code ? ` (${p.code})` : ""}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Produkt <span className="text-muted-foreground/50">(pre kód súpisky)</span></label>
-                <Select value={productId} onValueChange={setProductId} disabled={!partnerId}>
-                  <SelectTrigger data-testid="select-supiska-product">
-                    <SelectValue placeholder={partnerId ? "— vyberte produkt —" : "— najprv vyberte partnera —"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredProducts.map((p: any) => (
-                      <SelectItem key={p.id} value={String(p.id)}>{p.displayName || p.name}{p.code ? ` (${p.code})` : ""}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
           <div>
-            <label className="text-sm font-medium text-muted-foreground">Poznamky</label>
+            <label className="text-sm font-medium text-muted-foreground">Partner <span className="text-muted-foreground/50">(pre kód súpisky)</span></label>
+            <Select value={partnerId} onValueChange={v => { setPartnerId(v); setProductId(""); }}>
+              <SelectTrigger data-testid="select-supiska-partner">
+                <SelectValue placeholder="— bez partnera —" />
+              </SelectTrigger>
+              <SelectContent>
+                {partners.map((p: any) => (
+                  <SelectItem key={p.id} value={String(p.id)}>{p.name}{p.code ? ` (${p.code})` : ""}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">Produkt <span className="text-muted-foreground/50">(pre kód súpisky)</span></label>
+            <Select value={productId} onValueChange={setProductId} disabled={!partnerId}>
+              <SelectTrigger data-testid="select-supiska-product">
+                <SelectValue placeholder={partnerId ? "— vyberte produkt —" : "— najprv vyberte partnera —"} />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredProducts.map((p: any) => (
+                  <SelectItem key={p.id} value={String(p.id)}>{p.displayName || p.name}{p.code ? ` (${p.code})` : ""}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">Poznámky</label>
             <Textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
@@ -190,7 +187,7 @@ function SupiskaFormDialog({
             />
           </div>
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Zrusit</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Zrušiť</Button>
             <ProcessingSaveButton
               isPending={createMutation.isPending || updateMutation.isPending}
               type="submit"

@@ -8252,6 +8252,17 @@ export async function registerRoutes(
         input.sentBy = null;
       }
 
+      // Regenerate supiskaCode if partner or product changed
+      const newPartnerId = input.partnerId !== undefined ? (input.partnerId ? Number(input.partnerId) : null) : ((old as any).partnerId || null);
+      const newProductId = input.productId !== undefined ? (input.productId ? Number(input.productId) : null) : ((old as any).productId || null);
+      const resolvedStateId = (old as any).stateId || getEnforcedStateId(req) || null;
+      const resolvedCompanyId = (old as any).companyId || appUser?.activeCompanyId || null;
+      if (newPartnerId && newProductId) {
+        input.supiskaCode = await storage.generateSupiskaCode(resolvedStateId, resolvedCompanyId, newPartnerId, newProductId);
+      }
+      if (newPartnerId !== undefined) input.partnerId = newPartnerId;
+      if (newProductId !== undefined) input.productId = newProductId;
+
       const updated = await storage.updateSupiska(Number(req.params.id), input);
       await logAudit(req, { action: "UPDATE", module: "supisky", entityId: updated.id, oldData: old, newData: input });
       res.json(updated);
