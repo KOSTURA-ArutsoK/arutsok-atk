@@ -2601,6 +2601,21 @@ export async function registerRoutes(
     }
   });
 
+  // === PARTNER NBS SECTORS ===
+  app.patch("/api/partners/:id/nbs-sectors", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { nbsSectors } = req.body;
+      if (!Array.isArray(nbsSectors)) return res.status(400).json({ message: "nbsSectors must be an array" });
+      const [updated] = await db.update(partners).set({ nbsSectors }).where(eq(partners.id, id)).returning();
+      if (!updated) return res.status(404).json({ message: "Partner nenájdený" });
+      res.json(updated);
+    } catch (err) {
+      console.error("Partner nbs-sectors error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   // === SECTOR PRODUCT LIFECYCLE STATUS ===
   app.patch("/api/sector-products/:id/lifecycle-status", isAuthenticated, async (req: any, res) => {
     try {

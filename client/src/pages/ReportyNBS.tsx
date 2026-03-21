@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Loader2, ChevronLeft, FileBarChart, Archive, ChevronDown, ChevronUp, FileText, HelpCircle, Save, BarChart3, X } from "lucide-react";
+import { Loader2, ChevronLeft, FileBarChart, Archive, ChevronDown, ChevronUp, FileText, HelpCircle, Save, BarChart3, X, Settings2, Check } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from "recharts";
 import {
   Dialog,
@@ -182,10 +182,117 @@ function NumField({ label, value, onChange, testId }: { label: string; value: nu
   );
 }
 
-function getPartnerCategory(partner: any): "PaZ" | "SDS" {
-  const spec = (partner.specialization || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  if (spec === "dochodok" || spec === "sds") return "SDS";
-  return "PaZ";
+const NBS_SECTORS = [
+  { key: "PaZ", label: "Poistenie a zaistenie", color: "text-blue-700 dark:text-blue-400", bg: "bg-blue-500/10 border-blue-400/30" },
+  { key: "DSS", label: "Dôchodková správcovská spoločnosť", color: "text-purple-700 dark:text-purple-400", bg: "bg-purple-500/10 border-purple-400/30" },
+  { key: "DDS", label: "Doplnkové dôchodkové sporenie", color: "text-amber-700 dark:text-amber-400", bg: "bg-amber-500/10 border-amber-400/30" },
+  { key: "KT", label: "Kapitálové trhy", color: "text-green-700 dark:text-green-400", bg: "bg-green-500/10 border-green-400/30" },
+] as const;
+
+type NbsSectorKey = typeof NBS_SECTORS[number]["key"];
+
+function NbsPartnerSettingsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  const { toast } = useToast();
+  const { data: partners, isLoading } = usePartners();
+  const [localSectors, setLocalSectors] = useState<Record<number, string[]>>({});
+  const [saving, setSaving] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (open && partners) {
+      const init: Record<number, string[]> = {};
+      for (const p of partners) {
+        if (!p.isDeleted) init[p.id] = (p as any).nbsSectors || [];
+      }
+      setLocalSectors(init);
+    }
+  }, [open, partners]);
+
+  const activePartners = (partners || []).filter((p: any) => !p.isDeleted).sort((a: any, b: any) => a.name.localeCompare(b.name, "sk"));
+
+  async function toggleSector(partnerId: number, sector: string) {
+    const current = localSectors[partnerId] || [];
+    const next = current.includes(sector) ? current.filter(s => s !== sector) : [...current, sector];
+    setLocalSectors(prev => ({ ...prev, [partnerId]: next }));
+    setSaving(prev => new Set([...prev, partnerId]));
+    try {
+      await fetch(`/api/partners/${partnerId}/nbs-sectors`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ nbsSectors: next }),
+      });
+    } catch {
+      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
+    } finally {
+      setSaving(prev => { const n = new Set(prev); n.delete(partnerId); return n; });
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col" data-testid="dialog-nbs-partner-settings">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings2 className="w-5 h-5 text-primary" />
+            Nastavenie partnerov pre NBS
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            Vyberte, do ktorých NBS sektorov patrí každý partner. Partner môže patriť do viacerých sektorov.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex gap-2 flex-wrap mb-1">
+          {NBS_SECTORS.map(s => (
+            <span key={s.key} className={`text-[10px] font-bold px-2 py-0.5 rounded border ${s.bg} ${s.color}`}>{s.key} — {s.label}</span>
+          ))}
+        </div>
+
+        <div className="overflow-y-auto flex-1 border rounded-lg divide-y">
+          {isLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
+          ) : activePartners.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">Žiadni partneri</p>
+          ) : activePartners.map((p: any) => {
+            const sectors = localSectors[p.id] || [];
+            const isSaving = saving.has(p.id);
+            return (
+              <div key={p.id} className="flex items-center gap-3 px-4 py-2.5" data-testid={`nbs-settings-row-${p.id}`}>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium truncate block">{p.name}</span>
+                  {sectors.length === 0 && (
+                    <span className="text-[10px] text-muted-foreground italic">Nezaradený do NBS reportu</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {NBS_SECTORS.map(sec => {
+                    const active = sectors.includes(sec.key);
+                    return (
+                      <button
+                        key={sec.key}
+                        type="button"
+                        onClick={() => toggleSector(p.id, sec.key)}
+                        disabled={isSaving}
+                        data-testid={`nbs-sector-toggle-${p.id}-${sec.key}`}
+                        className={`text-[10px] font-bold px-2 py-1 rounded border transition-all select-none ${active ? `${sec.bg} ${sec.color} border-opacity-60` : "border-border text-muted-foreground/40 bg-transparent hover:bg-muted/30"}`}
+                        title={sec.label}
+                      >
+                        {active && <Check className="w-3 h-3 inline mr-0.5" />}{sec.key}
+                      </button>
+                    );
+                  })}
+                  {isSaving && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)} data-testid="btn-close-nbs-settings">Zatvoriť</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, initialPartnerId }: {
@@ -208,8 +315,11 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, in
   }, [open, initialPartnerId]);
 
   const activePartners = (partners || []).filter((p: any) => !p.isDeleted);
-  const pazPartners = activePartners.filter((p: any) => getPartnerCategory(p) === "PaZ");
-  const sdsPartners = activePartners.filter((p: any) => getPartnerCategory(p) === "SDS");
+  const nbsPartners = activePartners.filter((p: any) => (p.nbsSectors || []).length > 0);
+  const partnersByNbsSector = NBS_SECTORS.map(sec => ({
+    sector: sec,
+    partners: nbsPartners.filter((p: any) => (p.nbsSectors || []).includes(sec.key)),
+  })).filter(g => g.partners.length > 0);
   const partnerName = activePartners.find((p: any) => p.id === selectedPartnerId)?.name || "";
 
   const { data: allPeriodReports } = useQuery<any[]>({
@@ -468,11 +578,11 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, in
                 </div>
               ) : (
                 <>
-                  {renderPartnerList("PaZ — Poistenie a zaistenie", pazPartners, "group-paz")}
-                  {renderPartnerList("SDS — Starobné dôchodkové sporenie", sdsPartners, "group-sds")}
-                  {pazPartners.length === 0 && sdsPartners.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">Žiadni aktívni partneri</p>
-                  )}
+                  {partnersByNbsSector.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Žiadni partneri zaradení do NBS reportu. Nastavte partnerov cez tlačidlo „Nastavenie NBS partnerov".</p>
+                  ) : partnersByNbsSector.map(g => (
+                    renderPartnerList(`${g.sector.key} — ${g.sector.label}`, g.partners, `group-${g.sector.key.toLowerCase()}`)
+                  ))}
                 </>
               )}
             </div>
@@ -527,6 +637,7 @@ export default function ReportyNBS() {
   const [partnerReportPeriod, setPartnerReportPeriod] = useState<{ key: string; label: string }>({ key: "", label: "" });
   const [partnerReportInitialId, setPartnerReportInitialId] = useState<number | null>(null);
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
+  const [nbsSettingsOpen, setNbsSettingsOpen] = useState(false);
 
   const { data: reports, isLoading } = useQuery<NbsReport[]>({
     queryKey: ["/api/nbs-reports", selectedYear],
@@ -583,10 +694,22 @@ export default function ReportyNBS() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6" data-testid="page-reporty-nbs">
-      <div className="flex items-center gap-3">
-        <FileBarChart className="w-6 h-6 text-primary" />
-        <h1 className="text-2xl font-bold">Reporty pre NBS</h1>
-        <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-400/50">Špecial</Badge>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <FileBarChart className="w-6 h-6 text-primary" />
+          <h1 className="text-2xl font-bold">Reporty pre NBS</h1>
+          <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-400/50">Špecial</Badge>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
+          onClick={() => setNbsSettingsOpen(true)}
+          data-testid="btn-nbs-settings"
+        >
+          <Settings2 className="w-4 h-4" />
+          Nastavenie NBS partnerov
+        </Button>
       </div>
 
       {!selectedYear ? (
@@ -733,6 +856,8 @@ export default function ReportyNBS() {
       )}
 
       <NbsAnalyticsChart />
+
+      <NbsPartnerSettingsDialog open={nbsSettingsOpen} onOpenChange={setNbsSettingsOpen} />
     </div>
   );
 }
@@ -749,8 +874,11 @@ function PeriodBubble({ period, report, year, isExpanded, onToggle, onStatusClic
 }) {
   const { data: partners, isLoading: partnersLoading } = usePartners();
   const activePartners = (partners || []).filter((p: any) => !p.isDeleted);
-  const pazPartners = activePartners.filter((p: any) => getPartnerCategory(p) === "PaZ");
-  const sdsPartners = activePartners.filter((p: any) => getPartnerCategory(p) === "SDS");
+  const nbsPartnersInBubble = activePartners.filter((p: any) => (p.nbsSectors || []).length > 0);
+  const partnersByNbsSectorInBubble = NBS_SECTORS.map(sec => ({
+    sector: sec,
+    partners: nbsPartnersInBubble.filter((p: any) => (p.nbsSectors || []).includes(sec.key)),
+  })).filter(g => g.partners.length > 0);
 
   const { data: periodReports } = useQuery<any[]>({
     queryKey: ["/api/nbs-partner-reports", "list", year, period.key],
@@ -971,11 +1099,11 @@ function PeriodBubble({ period, report, year, isExpanded, onToggle, onStatusClic
               </div>
             ) : (
               <>
-                {renderPartnerGroup("PaZ — Poistenie a zaistenie", pazPartners, `period-group-paz-${period.key}`)}
-                {renderPartnerGroup("SDS — Starobné dôchodkové sporenie", sdsPartners, `period-group-sds-${period.key}`)}
-                {pazPartners.length === 0 && sdsPartners.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">Žiadni aktívni partneri</p>
-                )}
+                {partnersByNbsSectorInBubble.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-2">Žiadni partneri zaradení do NBS reportu</p>
+                ) : partnersByNbsSectorInBubble.map(g => (
+                  renderPartnerGroup(`${g.sector.key} — ${g.sector.label}`, g.partners, `period-group-${g.sector.key.toLowerCase()}-${period.key}`)
+                ))}
                 {renderTotals()}
               </>
             )}

@@ -199,6 +199,7 @@ export const partners = pgTable("partners", {
   statusStartDate: timestamp("status_start_date"),
   statusEndDate: timestamp("status_end_date"),
   processingTimeSec: integer("processing_time_sec").default(0),
+  nbsSectors: text("nbs_sectors").array(),
   isDeleted: boolean("is_deleted").default(false),
   deletedBy: text("deleted_by"),
   deletedAt: timestamp("deleted_at"),
