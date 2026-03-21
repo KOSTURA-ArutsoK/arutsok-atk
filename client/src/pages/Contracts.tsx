@@ -2282,6 +2282,11 @@ export default function Contracts() {
   const [viewingContract, setViewingContract] = useState<Contract | null>(null);
   const [nahratieViewContract, setNahratieViewContract] = useState<Contract | null>(null);
   const [docChecklistContract, setDocChecklistContract] = useState<Contract | null>(null);
+  const [docChecklistCheckedReq, setDocChecklistCheckedReq] = useState<Set<number>>(new Set());
+  const [docChecklistCheckedOpt, setDocChecklistCheckedOpt] = useState<Set<number>>(new Set());
+  const [docChecklistExtraOpt, setDocChecklistExtraOpt] = useState<string[]>([]);
+  const [docChecklistCheckedExtra, setDocChecklistCheckedExtra] = useState<Set<number>>(new Set());
+  const [docChecklistNewOpt, setDocChecklistNewOpt] = useState("");
 
   const [filterStatusId, setFilterStatusId] = useState<string>("all");
   const [filterStatusIds, setFilterStatusIds] = useState<number[]>([]);
@@ -3579,6 +3584,11 @@ export default function Contracts() {
                     else if (nahratieView && !isSelected) {
                       const docs = getProductDocsForContract(contract);
                       if (docs.required.length > 0 || docs.optional.length > 0) {
+                        setDocChecklistCheckedReq(new Set());
+                        setDocChecklistCheckedOpt(new Set());
+                        setDocChecklistExtraOpt([]);
+                        setDocChecklistCheckedExtra(new Set());
+                        setDocChecklistNewOpt("");
                         setDocChecklistContract(contract);
                       } else {
                         setSelectedIds(prev => [...prev, contract.id]);
@@ -6146,10 +6156,33 @@ export default function Contracts() {
     const docs = getProductDocsForContract(c);
     const partnerName = partners?.find(p => p.id === c.partnerId)?.name || "—";
     const productName = getProductName(c);
+    const allRequiredChecked = docs.required.length === 0 || docs.required.every((_: string, idx: number) => docChecklistCheckedReq.has(idx));
     const confirmAndSelect = () => {
       setSelectedIds(prev => prev.includes(c.id) ? prev : [...prev, c.id]);
       setDocChecklistContract(null);
     };
+    const toggleReq = (idx: number) => setDocChecklistCheckedReq(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      return next;
+    });
+    const toggleOpt = (idx: number) => setDocChecklistCheckedOpt(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      return next;
+    });
+    const toggleExtra = (idx: number) => setDocChecklistCheckedExtra(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      return next;
+    });
+    const addExtraOpt = () => {
+      const name = docChecklistNewOpt.trim();
+      if (!name) return;
+      setDocChecklistExtraOpt(prev => [...prev, name]);
+      setDocChecklistNewOpt("");
+    };
+    const totalOptCount = docs.optional.length + docChecklistExtraOpt.length;
     return (
       <Dialog open={!!docChecklistContract} onOpenChange={(o) => { if (!o) setDocChecklistContract(null); }}>
         <DialogContent size="sm" data-testid="dialog-doc-checklist">
@@ -6167,44 +6200,134 @@ export default function Contracts() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-red-400">Povinné dokumenty</span>
-                {docs.required.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 font-semibold">{docs.required.length}</span>}
+                {docs.required.length > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 font-semibold">
+                    {docChecklistCheckedReq.size}/{docs.required.length}
+                  </span>
+                )}
               </div>
               {docs.required.length > 0 ? (
                 <div className="border border-red-500/20 rounded-md divide-y divide-border">
-                  {docs.required.map((doc: string, idx: number) => (
-                    <div key={idx} className="flex items-center gap-2 px-3 py-2" data-testid={`text-docchecklist-req-${idx}`}>
-                      <FileText className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                      <span className="text-sm">{doc}</span>
-                    </div>
-                  ))}
+                  {docs.required.map((doc: string, idx: number) => {
+                    const checked = docChecklistCheckedReq.has(idx);
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors ${checked ? "bg-red-500/10" : "hover:bg-muted/40"}`}
+                        onClick={() => toggleReq(idx)}
+                        data-testid={`row-docchecklist-req-${idx}`}
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={() => toggleReq(idx)}
+                          onClick={e => e.stopPropagation()}
+                          className="data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500"
+                          data-testid={`checkbox-docchecklist-req-${idx}`}
+                        />
+                        <FileText className={`w-3.5 h-3.5 shrink-0 ${checked ? "text-red-400" : "text-muted-foreground"}`} />
+                        <span className={`text-sm ${checked ? "line-through text-muted-foreground" : ""}`}>{doc}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground italic">Žiadne povinné dokumenty nie sú definované.</p>
+              )}
+              {docs.required.length > 0 && !allRequiredChecked && (
+                <p className="text-xs text-red-400 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  Zaškrtnite všetky povinné dokumenty pre pokračovanie.
+                </p>
               )}
             </div>
             {/* NEPOVINNÉ */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-blue-400">Nepovinné dokumenty</span>
-                {docs.optional.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-semibold">{docs.optional.length}</span>}
+                {totalOptCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-semibold">
+                    {docChecklistCheckedOpt.size + docChecklistCheckedExtra.size}/{totalOptCount}
+                  </span>
+                )}
               </div>
-              {docs.optional.length > 0 ? (
+              {docs.optional.length > 0 && (
                 <div className="border border-blue-500/20 rounded-md divide-y divide-border">
-                  {docs.optional.map((doc: string, idx: number) => (
-                    <div key={idx} className="flex items-center gap-2 px-3 py-2" data-testid={`text-docchecklist-opt-${idx}`}>
-                      <FileText className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                      <span className="text-sm">{doc}</span>
-                    </div>
-                  ))}
+                  {docs.optional.map((doc: string, idx: number) => {
+                    const checked = docChecklistCheckedOpt.has(idx);
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors ${checked ? "bg-blue-500/10" : "hover:bg-muted/40"}`}
+                        onClick={() => toggleOpt(idx)}
+                        data-testid={`row-docchecklist-opt-${idx}`}
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={() => toggleOpt(idx)}
+                          onClick={e => e.stopPropagation()}
+                          className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                          data-testid={`checkbox-docchecklist-opt-${idx}`}
+                        />
+                        <FileText className={`w-3.5 h-3.5 shrink-0 ${checked ? "text-blue-400" : "text-muted-foreground"}`} />
+                        <span className={`text-sm ${checked ? "line-through text-muted-foreground" : ""}`}>{doc}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-              ) : (
-                <p className="text-xs text-muted-foreground italic">Žiadne nepovinné dokumenty nie sú definované.</p>
               )}
+              {/* Extra (ad-hoc) optional docs */}
+              {docChecklistExtraOpt.length > 0 && (
+                <div className={`${docs.optional.length > 0 ? "border-t border-dashed" : "border border-blue-500/20 rounded-md divide-y divide-border"}`}>
+                  {docChecklistExtraOpt.map((doc: string, idx: number) => {
+                    const checked = docChecklistCheckedExtra.has(idx);
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors ${checked ? "bg-blue-500/10" : "hover:bg-muted/40"}`}
+                        onClick={() => toggleExtra(idx)}
+                        data-testid={`row-docchecklist-extra-${idx}`}
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={() => toggleExtra(idx)}
+                          onClick={e => e.stopPropagation()}
+                          className="data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                          data-testid={`checkbox-docchecklist-extra-${idx}`}
+                        />
+                        <FileText className={`w-3.5 h-3.5 shrink-0 ${checked ? "text-blue-400" : "text-muted-foreground"}`} />
+                        <span className={`text-sm ${checked ? "line-through text-muted-foreground" : ""}`}>{doc}</span>
+                        <button
+                          type="button"
+                          className="ml-auto text-muted-foreground hover:text-destructive"
+                          onClick={e => { e.stopPropagation(); setDocChecklistExtraOpt(prev => prev.filter((_, i) => i !== idx)); setDocChecklistCheckedExtra(prev => { const next = new Set(prev); next.delete(idx); return next; }); }}
+                          data-testid={`button-docchecklist-remove-extra-${idx}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {/* Add extra optional doc */}
+              <div className="flex gap-2 pt-1">
+                <Input
+                  value={docChecklistNewOpt}
+                  onChange={e => setDocChecklistNewOpt(e.target.value)}
+                  placeholder="Pridať nepovinný dokument..."
+                  className="h-8 text-xs"
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addExtraOpt(); } }}
+                  data-testid="input-docchecklist-new-opt"
+                />
+                <Button size="sm" variant="outline" className="h-8 px-2" onClick={addExtraOpt} disabled={!docChecklistNewOpt.trim()} data-testid="button-docchecklist-add-opt">
+                  <Plus className="w-3.5 h-3.5" />
+                </Button>
+              </div>
             </div>
           </div>
           <DialogFooter className="px-6 pb-6 pt-2">
             <Button variant="outline" onClick={() => setDocChecklistContract(null)} data-testid="button-docchecklist-cancel">Zrušiť</Button>
-            <Button onClick={confirmAndSelect} data-testid="button-docchecklist-confirm">Zaradiť do sprievodky</Button>
+            <Button onClick={confirmAndSelect} disabled={!allRequiredChecked} data-testid="button-docchecklist-confirm">Zaradiť do sprievodky</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
