@@ -6278,7 +6278,7 @@ export default function Contracts() {
                 </div>
                 <div className="flex divide-x">
                   {/* Stĺpce 1–2: zadané údaje */}
-                  <div className="flex-1 px-4 py-3 grid grid-cols-[160px_1fr] gap-x-3">
+                  <div className="flex-1 px-4 py-3 grid grid-cols-[180px_1fr] gap-x-4">
                     <Row label="Typ subjektu" value={sub ? typSubjLabel : <span className="italic text-muted-foreground">Nepriradený</span>} />
                     {sub && (sub.type === "person" || sub.type === "szco") && (
                       <>
