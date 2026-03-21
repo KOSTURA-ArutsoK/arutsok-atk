@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Loader2, ChevronLeft, FileBarChart, Archive, ChevronDown, ChevronUp, FileText, HelpCircle, Save, BarChart3, X, Settings2, Check } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from "recharts";
 import {
@@ -133,8 +134,8 @@ const DEFAULT_PAZ_DATA = {
 };
 
 const DEFAULT_PU_DATA = {
-  byvanie: { count: 0, refinancing: 0 },
-  spotrebitelske: { count: 0, refinancing: 0 },
+  byvanie: { count: 0, refinancing: false },
+  spotrebitelske: { count: 0, refinancing: false },
   ostatne: { count: 0 },
   prevzate: { count: 0 },
   objem: { byvanie: 0, spotrebitelske: 0, ostatne: 0 },
@@ -674,20 +675,41 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, se
 
           <div>
             <p className="text-xs font-medium mb-2">Bývanie</p>
-            <div className="grid grid-cols-2 gap-3 items-end">
-              <NumField label="Počet" value={formData.byvanie?.count ?? 0} onChange={v => updateNested("byvanie", "count", v)} testId="input-pu-byvanie-count" />
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-muted-foreground font-medium">Refinančný príznak (ks)</label>
-                <NumField label="z toho Refinančné" value={formData.byvanie?.refinancing ?? 0} onChange={v => updateNested("byvanie", "refinancing", v)} testId="input-pu-byvanie-ref" />
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <NumField label="Počet" value={formData.byvanie?.count ?? 0} onChange={v => updateNested("byvanie", "count", v)} testId="input-pu-byvanie-count" />
+              </div>
+              <div className="flex flex-col gap-1 shrink-0">
+                <label className="text-[10px] text-muted-foreground font-medium">Refinančný príznak</label>
+                <div className="flex items-center gap-2 h-8">
+                  <Switch
+                    checked={!!formData.byvanie?.refinancing}
+                    onCheckedChange={v => setFormData((prev: any) => ({ ...prev, byvanie: { ...prev.byvanie, refinancing: v } }))}
+                    data-testid="toggle-pu-byvanie-ref"
+                  />
+                  <span className="text-xs text-muted-foreground">{formData.byvanie?.refinancing ? "Áno" : "Nie"}</span>
+                </div>
               </div>
             </div>
           </div>
 
           <div>
             <p className="text-xs font-medium mb-2">Spotrebiteľské</p>
-            <div className="grid grid-cols-2 gap-3 items-end">
-              <NumField label="Počet" value={formData.spotrebitelske?.count ?? 0} onChange={v => updateNested("spotrebitelske", "count", v)} testId="input-pu-spot-count" />
-              <NumField label="z toho Refinančné" value={formData.spotrebitelske?.refinancing ?? 0} onChange={v => updateNested("spotrebitelske", "refinancing", v)} testId="input-pu-spot-ref" />
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <NumField label="Počet" value={formData.spotrebitelske?.count ?? 0} onChange={v => updateNested("spotrebitelske", "count", v)} testId="input-pu-spot-count" />
+              </div>
+              <div className="flex flex-col gap-1 shrink-0">
+                <label className="text-[10px] text-muted-foreground font-medium">Refinančný príznak</label>
+                <div className="flex items-center gap-2 h-8">
+                  <Switch
+                    checked={!!formData.spotrebitelske?.refinancing}
+                    onCheckedChange={v => setFormData((prev: any) => ({ ...prev, spotrebitelske: { ...prev.spotrebitelske, refinancing: v } }))}
+                    data-testid="toggle-pu-spot-ref"
+                  />
+                  <span className="text-xs text-muted-foreground">{formData.spotrebitelske?.refinancing ? "Áno" : "Nie"}</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -757,14 +779,17 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, se
             <div className="text-center">Prev.</div>
             <div className="text-center">Zruš.</div>
           </div>
-          {accountTypes.map(({ key, label }) => (
-            <div key={key} className="grid grid-cols-4 gap-3 items-end">
-              <label className="text-xs font-medium self-center">{label}</label>
-              <NumField label="" value={(formData as any)[key]?.sprostredkovane ?? 0} onChange={v => updateNested(key, "sprostredkovane", v)} testId={`input-pv-${key}-spr`} />
-              <NumField label="" value={(formData as any)[key]?.prevzate ?? 0} onChange={v => updateNested(key, "prevzate", v)} testId={`input-pv-${key}-prev`} />
-              <NumField label="" value={(formData as any)[key]?.zrusene ?? 0} onChange={v => updateNested(key, "zrusene", v)} testId={`input-pv-${key}-zru`} />
-            </div>
-          ))}
+          {accountTypes.map(({ key, label }) => {
+            const row = formData[key] ?? {};
+            return (
+              <div key={key} className="grid grid-cols-4 gap-3 items-end">
+                <label className="text-xs font-medium self-center">{label}</label>
+                <NumField label="" value={row.sprostredkovane ?? 0} onChange={v => updateNested(key, "sprostredkovane", v)} testId={`input-pv-${key}-spr`} />
+                <NumField label="" value={row.prevzate ?? 0} onChange={v => updateNested(key, "prevzate", v)} testId={`input-pv-${key}-prev`} />
+                <NumField label="" value={row.zrusene ?? 0} onChange={v => updateNested(key, "zrusene", v)} testId={`input-pv-${key}-zru`} />
+              </div>
+            );
+          })}
         </div>
 
         {renderFinancialFlows()}
@@ -1369,7 +1394,9 @@ const NBS_CHART_PARAMS: { key: string; label: string; section: string; path: str
   { key: "cancelledNonPayment_life", label: "Nezaplatené §801 — Životné", section: "III", path: "cancelledNonPayment.life" },
   { key: "cancelledNonPayment_nonLife", label: "Nezaplatené §801 — Neživotné", section: "III", path: "cancelledNonPayment.nonLife" },
   { key: "cancelledNonPayment_reinsurance", label: "Nezaplatené §801 — Zaistenie", section: "III", path: "cancelledNonPayment.reinsurance" },
-  { key: "cancelledWithdrawal_count", label: "Odstúpenie §802a", section: "III", path: "cancelledWithdrawal.count" },
+  { key: "cancelledWithdrawal_life", label: "Odstúpenie §802a — Životné", section: "III", path: "cancelledWithdrawal.life" },
+  { key: "cancelledWithdrawal_nonLife", label: "Odstúpenie §802a — Neživotné", section: "III", path: "cancelledWithdrawal.nonLife" },
+  { key: "cancelledWithdrawal_reinsurance", label: "Odstúpenie §802a — Zaistenie", section: "III", path: "cancelledWithdrawal.reinsurance" },
   { key: "commissionPositive", label: "Kladné finančné toky (€)", section: "IV", path: "commissionPositive" },
   { key: "commissionNegative", label: "Záporné finančné toky (€)", section: "IV", path: "commissionNegative" },
   { key: "commissionOffsetPositive", label: "Započítané kladné (€)", section: "IV", path: "commissionOffsetPositive" },
