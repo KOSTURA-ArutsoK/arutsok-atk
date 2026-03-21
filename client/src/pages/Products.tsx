@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import DOMPurify from "dompurify";
 import { AddProductCard } from "@/components/AddProductCard";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -104,6 +104,61 @@ function useCommissions(productId: number | null) {
   });
 }
 
+function DocBubble({ color, label, docs, setDocs, inputValue, setInputValue, placeholder, testIdPrefix }: {
+  color: "red" | "blue";
+  label: string;
+  docs: string[];
+  setDocs: React.Dispatch<React.SetStateAction<string[]>>;
+  inputValue: string;
+  setInputValue: (v: string) => void;
+  placeholder: string;
+  testIdPrefix: string;
+}) {
+  const c = color === "red"
+    ? { border: "border-red-500/25", bg: "bg-red-500/5", text: "text-red-400", badge: "bg-red-500/20 text-red-400", listBorder: "border-red-500/20", dash: "border-dashed border-red-500/20" }
+    : { border: "border-blue-500/25", bg: "bg-blue-500/5", text: "text-blue-400", badge: "bg-blue-500/20 text-blue-400", listBorder: "border-blue-500/20", dash: "border-dashed border-blue-500/20" };
+  const add = () => { if (inputValue.trim()) { setDocs(prev => [...prev, inputValue.trim()]); setInputValue(""); } };
+  return (
+    <div className={`rounded-lg border ${c.border} ${c.bg} p-4 space-y-3`}>
+      <div className="flex items-center gap-2">
+        <span className={`text-xs font-semibold uppercase tracking-wide ${c.text}`}>{label}</span>
+        {docs.length > 0 && <span className={`text-[10px] px-1.5 py-0.5 rounded ${c.badge} font-semibold`}>{docs.length}</span>}
+      </div>
+      <div className="flex gap-2">
+        <Input
+          value={inputValue}
+          onChange={e => setInputValue(e.target.value)}
+          placeholder={placeholder}
+          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+          data-testid={`input-doc-${testIdPrefix}`}
+        />
+        <Button size="sm" onClick={add} disabled={!inputValue.trim()} data-testid={`button-add-doc-${testIdPrefix}`}>
+          <Plus className="w-4 h-4 mr-1" />Pridať
+        </Button>
+      </div>
+      {docs.length > 0 ? (
+        <div className={`rounded-md border ${c.listBorder} divide-y divide-border bg-card`}>
+          {docs.map((doc, idx) => (
+            <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className={`w-3.5 h-3.5 ${c.text} flex-shrink-0`} />
+                <span className="text-sm truncate" data-testid={`text-doc-${testIdPrefix}-${idx}`}>{doc}</span>
+              </div>
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDocs(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-doc-${testIdPrefix}-${idx}`}>
+                <Trash2 className="w-3 h-3 text-destructive" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={`rounded-md border ${c.dash} p-3 text-center`}>
+          <p className="text-xs text-muted-foreground">Žiadne dokumenty.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProductFormDialog({
   open,
   onOpenChange,
@@ -129,8 +184,17 @@ function ProductFormDialog({
   const [activeTab, setActiveTab] = useState<"info" | "dokumentacia">("info");
   const [requiredDocuments, setRequiredDocuments] = useState<string[]>([]);
   const [optionalDocuments, setOptionalDocuments] = useState<string[]>([]);
+  const [requiredDocumentsReceived, setRequiredDocumentsReceived] = useState<string[]>([]);
+  const [optionalDocumentsReceived, setOptionalDocumentsReceived] = useState<string[]>([]);
+  const [requiredDocumentsPartner, setRequiredDocumentsPartner] = useState<string[]>([]);
+  const [optionalDocumentsPartner, setOptionalDocumentsPartner] = useState<string[]>([]);
   const [newDocName, setNewDocName] = useState("");
   const [newOptDocName, setNewOptDocName] = useState("");
+  const [newDocReceivedName, setNewDocReceivedName] = useState("");
+  const [newOptDocReceivedName, setNewOptDocReceivedName] = useState("");
+  const [newDocPartnerName, setNewDocPartnerName] = useState("");
+  const [newOptDocPartnerName, setNewOptDocPartnerName] = useState("");
+  const [docSection, setDocSection] = useState<"central" | "received" | "partner">("central");
 
   const { data: allParameters } = useQuery<Parameter[]>({
     queryKey: ["/api/parameters"],
@@ -194,6 +258,10 @@ function ProductFormDialog({
         setNotesHtml(editingProduct.notes || "");
         setRequiredDocuments((editingProduct as any).requiredDocuments || []);
         setOptionalDocuments((editingProduct as any).optionalDocuments || []);
+        setRequiredDocumentsReceived((editingProduct as any).requiredDocumentsReceived || []);
+        setOptionalDocumentsReceived((editingProduct as any).optionalDocumentsReceived || []);
+        setRequiredDocumentsPartner((editingProduct as any).requiredDocumentsPartner || []);
+        setOptionalDocumentsPartner((editingProduct as any).optionalDocumentsPartner || []);
       } else {
         setPartnerId("");
         setCode("");
@@ -204,7 +272,12 @@ function ProductFormDialog({
         setNotesHtml("");
         setRequiredDocuments([]);
         setOptionalDocuments([]);
+        setRequiredDocumentsReceived([]);
+        setOptionalDocumentsReceived([]);
+        setRequiredDocumentsPartner([]);
+        setOptionalDocumentsPartner([]);
       }
+      setDocSection("central");
     }
   }, [open, editingProduct]);
 
@@ -230,6 +303,10 @@ function ProductFormDialog({
       notes: notesHtml,
       requiredDocuments,
       optionalDocuments,
+      requiredDocumentsReceived,
+      optionalDocumentsReceived,
+      requiredDocumentsPartner,
+      optionalDocumentsPartner,
       processingTimeSec,
       dynamicParams: Object.keys(paramValues).length > 0 ? paramValues : undefined,
     };
@@ -269,8 +346,8 @@ function ProductFormDialog({
           >
             <FileText className="w-3.5 h-3.5" />
             Dokumentacia
-            <span style={{ display: (requiredDocuments.length + optionalDocuments.length) > 0 ? 'inline' : 'none' }}>
-              <Badge variant="secondary" className="text-[10px] px-1.5 ml-0.5">{requiredDocuments.length + optionalDocuments.length}</Badge>
+            <span style={{ display: (requiredDocuments.length + optionalDocuments.length + requiredDocumentsReceived.length + optionalDocumentsReceived.length + requiredDocumentsPartner.length + optionalDocumentsPartner.length) > 0 ? 'inline' : 'none' }}>
+              <Badge variant="secondary" className="text-[10px] px-1.5 ml-0.5">{requiredDocuments.length + optionalDocuments.length + requiredDocumentsReceived.length + optionalDocumentsReceived.length + requiredDocumentsPartner.length + optionalDocumentsPartner.length}</Badge>
             </span>
           </button>
         </div>
@@ -481,97 +558,49 @@ function ProductFormDialog({
 
         <div style={{ display: activeTab === "dokumentacia" ? 'block' : 'none' }}>
           <div className="space-y-4">
-            {/* POPIS */}
+            {/* 3 SUB-SEKCIE — horizontálna navigácia */}
+            <div className="flex gap-1 p-1 rounded-lg bg-muted/50 border border-border">
+              {([
+                { key: "central", label: "Pri odovzdaní do centrály", count: requiredDocuments.length + optionalDocuments.length },
+                { key: "received", label: "Prijatá centrálou", count: requiredDocumentsReceived.length + optionalDocumentsReceived.length },
+                { key: "partner", label: "Odovzdaná partnerovi", count: requiredDocumentsPartner.length + optionalDocumentsPartner.length },
+              ] as const).map(s => (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => setDocSection(s.key)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${docSection === s.key ? 'bg-background text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'}`}
+                  data-testid={`tab-doc-section-${s.key}`}
+                >
+                  {s.label}
+                  {s.count > 0 && <span className="text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground font-semibold">{s.count}</span>}
+                </button>
+              ))}
+            </div>
+
+            {/* Popis aktívnej sekcie */}
             <div className="flex items-start gap-2.5 rounded-md border border-border bg-muted/40 px-3 py-2.5">
               <FileText className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Definujte zoznam dokumentov, ktoré PFA odovzdá pri vytváraní sprievodky pre tento produkt.
-                <span className="text-red-400 font-medium"> Povinné</span> dokumenty musí PFA zaškrtnúť všetky pred zaradením zmluvy do sprievodky.
-                <span className="text-blue-400 font-medium"> Nepovinné</span> dokumenty sú len odporúčané — ich zaškrtnutie nie je podmienkou.
+                {docSection === "central" && <>Dokumenty, ktoré PFA odovzdá <strong className="text-foreground">pri odovzdávaní zmluvy do centrály</strong> — musia byť zaškrtnuté pred zaradením do sprievodky.</>}
+                {docSection === "received" && <>Dokumenty, ktoré centrála <strong className="text-foreground">akceptuje a prijíma</strong> od PFA — kontrolný zoznam prijatej dokumentácie.</>}
+                {docSection === "partner" && <>Dokumenty, ktoré PFA <strong className="text-foreground">odovzdá obchodnému partnerovi</strong> (poisťovni, banke alebo inému subjektu) po uzavretí zmluvy.</>}
+                {" "}<span className="text-red-400 font-medium">Povinné</span> dokumenty musia byť zaškrtnuté. <span className="text-blue-400 font-medium">Nepovinné</span> sú len odporúčané.
               </p>
             </div>
 
-            {/* POVINNÉ DOKUMENTY — bublina */}
-            <div className="rounded-lg border border-red-500/25 bg-red-500/5 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-red-400">Povinné dokumenty</span>
-                {requiredDocuments.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-semibold">{requiredDocuments.length}</span>}
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  value={newDocName}
-                  onChange={e => setNewDocName(e.target.value)}
-                  placeholder="Názov povinného dokumentu (napr. Kópia OP)"
-                  onKeyDown={e => {
-                    if (e.key === "Enter") { e.preventDefault(); if (newDocName.trim()) { setRequiredDocuments(prev => [...prev, newDocName.trim()]); setNewDocName(""); } }
-                  }}
-                  data-testid="input-new-document-name"
-                />
-                <Button size="sm" onClick={() => { if (newDocName.trim()) { setRequiredDocuments(prev => [...prev, newDocName.trim()]); setNewDocName(""); } }} disabled={!newDocName.trim()} data-testid="button-add-document">
-                  <Plus className="w-4 h-4 mr-1" />Pridať
-                </Button>
-              </div>
-              {requiredDocuments.length > 0 ? (
-                <div className="rounded-md border border-red-500/20 divide-y divide-border bg-card">
-                  {requiredDocuments.map((doc, idx) => (
-                    <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-                        <span className="text-sm truncate" data-testid={`text-document-name-${idx}`}>{doc}</span>
-                      </div>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setRequiredDocuments(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-document-${idx}`}>
-                        <Trash2 className="w-3 h-3 text-destructive" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-md border border-dashed border-red-500/20 p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Žiadne povinné dokumenty.</p>
-                </div>
-              )}
-            </div>
-
-            {/* NEPOVINNÉ DOKUMENTY — bublina */}
-            <div className="rounded-lg border border-blue-500/25 bg-blue-500/5 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-blue-400">Nepovinné dokumenty</span>
-                {optionalDocuments.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-semibold">{optionalDocuments.length}</span>}
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  value={newOptDocName}
-                  onChange={e => setNewOptDocName(e.target.value)}
-                  placeholder="Názov nepovinného dokumentu (napr. Súhlas so spracovaním)"
-                  onKeyDown={e => {
-                    if (e.key === "Enter") { e.preventDefault(); if (newOptDocName.trim()) { setOptionalDocuments(prev => [...prev, newOptDocName.trim()]); setNewOptDocName(""); } }
-                  }}
-                  data-testid="input-new-opt-document-name"
-                />
-                <Button size="sm" onClick={() => { if (newOptDocName.trim()) { setOptionalDocuments(prev => [...prev, newOptDocName.trim()]); setNewOptDocName(""); } }} disabled={!newOptDocName.trim()} data-testid="button-add-opt-document">
-                  <Plus className="w-4 h-4 mr-1" />Pridať
-                </Button>
-              </div>
-              {optionalDocuments.length > 0 ? (
-                <div className="rounded-md border border-blue-500/20 divide-y divide-border bg-card">
-                  {optionalDocuments.map((doc, idx) => (
-                    <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
-                        <span className="text-sm truncate" data-testid={`text-opt-document-name-${idx}`}>{doc}</span>
-                      </div>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setOptionalDocuments(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-opt-document-${idx}`}>
-                        <Trash2 className="w-3 h-3 text-destructive" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-md border border-dashed border-blue-500/20 p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Žiadne nepovinné dokumenty.</p>
-                </div>
-              )}
-            </div>
+            {docSection === "central" && <>
+              <DocBubble color="red" label="Povinné dokumenty" docs={requiredDocuments} setDocs={setRequiredDocuments} inputValue={newDocName} setInputValue={setNewDocName} placeholder="Názov povinného dokumentu (napr. Kópia OP)" testIdPrefix="central-req" />
+              <DocBubble color="blue" label="Nepovinné dokumenty" docs={optionalDocuments} setDocs={setOptionalDocuments} inputValue={newOptDocName} setInputValue={setNewOptDocName} placeholder="Názov nepovinného dokumentu (napr. Súhlas so spracovaním)" testIdPrefix="central-opt" />
+            </>}
+            {docSection === "received" && <>
+              <DocBubble color="red" label="Povinné dokumenty" docs={requiredDocumentsReceived} setDocs={setRequiredDocumentsReceived} inputValue={newDocReceivedName} setInputValue={setNewDocReceivedName} placeholder="Názov povinného dokumentu" testIdPrefix="received-req" />
+              <DocBubble color="blue" label="Nepovinné dokumenty" docs={optionalDocumentsReceived} setDocs={setOptionalDocumentsReceived} inputValue={newOptDocReceivedName} setInputValue={setNewOptDocReceivedName} placeholder="Názov nepovinného dokumentu" testIdPrefix="received-opt" />
+            </>}
+            {docSection === "partner" && <>
+              <DocBubble color="red" label="Povinné dokumenty" docs={requiredDocumentsPartner} setDocs={setRequiredDocumentsPartner} inputValue={newDocPartnerName} setInputValue={setNewDocPartnerName} placeholder="Názov povinného dokumentu" testIdPrefix="partner-req" />
+              <DocBubble color="blue" label="Nepovinné dokumenty" docs={optionalDocumentsPartner} setDocs={setOptionalDocumentsPartner} inputValue={newOptDocPartnerName} setInputValue={setNewOptDocPartnerName} placeholder="Názov nepovinného dokumentu" testIdPrefix="partner-opt" />
+            </>}
           </div>
         </div>
         <ProcessingSaveButton isPending={isPending} />
