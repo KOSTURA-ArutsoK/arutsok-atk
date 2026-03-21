@@ -3684,12 +3684,15 @@ export default function Contracts() {
               const warnNegativeProposal = !!(contract.proposalNumber && contract.proposalNumber.trim().startsWith('-'));
               const effectivelyIncomplete = isIncomplete || warnPartner || warnProduct || warnContractType || warnSignedDate || warnNumber || warnSpecialist || warnSumNot100 || warnRcIco || warnMeno || warnPriezvisko || warnNazov || warnNegativeProposal;
               const isRerouteSelected = showRerouteCheckbox && rerouteSelectedIds.includes(contract.id);
+              const hasSprPartialDocs = !isSelected && !isRerouteSelected && !!docChecklistPartialState[contract.id];
               const rowBg = effectivelyIncomplete
                 ? "bg-red-500/10 border-l-2 border-l-red-500"
                 : isRerouteSelected
                 ? "bg-primary/10 border-l-2 border-l-primary"
                 : isSelected
                 ? "bg-primary/10 border-l-2 border-l-primary"
+                : hasSprPartialDocs
+                ? "bg-amber-500/15 hover:bg-amber-500/20 border-l-2 border-l-amber-500"
                 : "";
               const handleRowClick = logViewFn
                 ? () => logViewFn(contract)
