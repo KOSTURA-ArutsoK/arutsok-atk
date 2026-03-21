@@ -256,8 +256,8 @@ function NbsPartnerSettingsDialog({ open, onOpenChange }: { open: boolean; onOpe
           </p>
           <div className="grid grid-cols-2 gap-x-6 gap-y-1">
             {NBS_SECTORS.map(s => (
-              <div key={s.key} className="flex items-start gap-2">
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 mt-0.5 ${s.bg} ${s.color}`}>{s.key}</span>
+              <div key={s.key} className="flex items-center gap-2">
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${s.bg} ${s.color}`}>{s.key}</span>
                 <span className="text-[11px] text-muted-foreground leading-tight">
                   <span className="font-medium text-foreground">{s.label}:</span> {s.sublabel}.
                 </span>
