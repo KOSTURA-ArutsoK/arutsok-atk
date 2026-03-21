@@ -183,10 +183,12 @@ function NumField({ label, value, onChange, testId }: { label: string; value: nu
 }
 
 const NBS_SECTORS = [
-  { key: "PaZ", label: "Poistenie a zaistenie", color: "text-blue-700 dark:text-blue-400", bg: "bg-blue-500/10 border-blue-400/30" },
-  { key: "DSS", label: "Dôchodková správcovská spoločnosť", color: "text-purple-700 dark:text-purple-400", bg: "bg-purple-500/10 border-purple-400/30" },
-  { key: "DDS", label: "Doplnkové dôchodkové sporenie", color: "text-amber-700 dark:text-amber-400", bg: "bg-amber-500/10 border-amber-400/30" },
-  { key: "KT", label: "Kapitálové trhy", color: "text-green-700 dark:text-green-400", bg: "bg-green-500/10 border-green-400/30" },
+  { key: "PV",  label: "Prijímanie vkladov",              sublabel: "Bankové činnosti a vklady",                color: "text-sky-700 dark:text-sky-400",    bg: "bg-sky-500/10 border-sky-400/30" },
+  { key: "PU",  label: "Poskytovanie úverov",             sublabel: "Úvery a úverové produkty",                 color: "text-indigo-700 dark:text-indigo-400", bg: "bg-indigo-500/10 border-indigo-400/30" },
+  { key: "PaZ", label: "Poistenie alebo zaistenie",       sublabel: "Poisťovacie činnosti",                     color: "text-blue-700 dark:text-blue-400",  bg: "bg-blue-500/10 border-blue-400/30" },
+  { key: "KT",  label: "Kapitálový trh",                  sublabel: "Investičné služby a cenné papiere",         color: "text-green-700 dark:text-green-400",bg: "bg-green-500/10 border-green-400/30" },
+  { key: "DDS", label: "Doplnkové dôchodkové sporenie",   sublabel: "Tretí pilier",                             color: "text-amber-700 dark:text-amber-400",bg: "bg-amber-500/10 border-amber-400/30" },
+  { key: "SDS", label: "Starobné dôchodkové sporenie",    sublabel: "Druhý pilier",                             color: "text-purple-700 dark:text-purple-400", bg: "bg-purple-500/10 border-purple-400/30" },
 ] as const;
 
 type NbsSectorKey = typeof NBS_SECTORS[number]["key"];
@@ -230,61 +232,80 @@ function NbsPartnerSettingsDialog({ open, onOpenChange }: { open: boolean; onOpe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col" data-testid="dialog-nbs-partner-settings">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-nbs-partner-settings">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="w-5 h-5 text-primary" />
-            Nastavenie partnerov pre NBS
+            Nastavenie partnerov pre Výkaz NBS
           </DialogTitle>
-          <DialogDescription className="text-xs">
-            Vyberte, do ktorých NBS sektorov patrí každý partner. Partner môže patriť do viacerých sektorov.
-          </DialogDescription>
         </DialogHeader>
 
-        <div className="flex gap-2 flex-wrap mb-1">
-          {NBS_SECTORS.map(s => (
-            <span key={s.key} className={`text-[10px] font-bold px-2 py-0.5 rounded border ${s.bg} ${s.color}`}>{s.key} — {s.label}</span>
-          ))}
+        <div className="border rounded-lg p-3 bg-muted/30 shrink-0">
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            Kľúčové sektory finančného trhu pod dohľadom NBS:
+          </p>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+            {NBS_SECTORS.map(s => (
+              <div key={s.key} className="flex items-start gap-2">
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 mt-0.5 ${s.bg} ${s.color}`}>{s.key}</span>
+                <span className="text-[11px] text-muted-foreground leading-tight">
+                  <span className="font-medium text-foreground">{s.label}:</span> {s.sublabel}.
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="overflow-y-auto flex-1 border rounded-lg divide-y">
+        <div className="overflow-auto flex-1 border rounded-lg">
           {isLoading ? (
             <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
           ) : activePartners.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">Žiadni partneri</p>
-          ) : activePartners.map((p: any) => {
-            const sectors = localSectors[p.id] || [];
-            const isSaving = saving.has(p.id);
-            return (
-              <div key={p.id} className="flex items-center gap-3 px-4 py-2.5" data-testid={`nbs-settings-row-${p.id}`}>
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium truncate block">{p.name}</span>
-                  {sectors.length === 0 && (
-                    <span className="text-[10px] text-muted-foreground italic">Nezaradený do NBS reportu</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {NBS_SECTORS.map(sec => {
-                    const active = sectors.includes(sec.key);
-                    return (
-                      <button
-                        key={sec.key}
-                        type="button"
-                        onClick={() => toggleSector(p.id, sec.key)}
-                        disabled={isSaving}
-                        data-testid={`nbs-sector-toggle-${p.id}-${sec.key}`}
-                        className={`text-[10px] font-bold px-2 py-1 rounded border transition-all select-none ${active ? `${sec.bg} ${sec.color} border-opacity-60` : "border-border text-muted-foreground/40 bg-transparent hover:bg-muted/30"}`}
-                        title={sec.label}
-                      >
-                        {active && <Check className="w-3 h-3 inline mr-0.5" />}{sec.key}
-                      </button>
-                    );
-                  })}
-                  {isSaving && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
-                </div>
-              </div>
-            );
-          })}
+          ) : (
+            <table className="w-full text-sm border-collapse">
+              <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
+                <tr>
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground border-b border-border">Názov partnera</th>
+                  {NBS_SECTORS.map(s => (
+                    <th key={s.key} className={`px-3 py-2.5 text-center text-xs font-bold border-b border-border ${s.color}`}>{s.key}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {activePartners.map((p: any) => {
+                  const sectors = localSectors[p.id] || [];
+                  const isSaving = saving.has(p.id);
+                  return (
+                    <tr key={p.id} className="hover:bg-muted/30 transition-colors" data-testid={`nbs-settings-row-${p.id}`}>
+                      <td className="px-4 py-2 font-medium text-sm">
+                        <div className="flex items-center gap-2">
+                          {p.name}
+                          {isSaving && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground shrink-0" />}
+                        </div>
+                      </td>
+                      {NBS_SECTORS.map(sec => {
+                        const active = sectors.includes(sec.key);
+                        return (
+                          <td key={sec.key} className="px-3 py-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => toggleSector(p.id, sec.key)}
+                              disabled={isSaving}
+                              data-testid={`nbs-sector-toggle-${p.id}-${sec.key}`}
+                              title={`${sec.label} — ${sec.sublabel}`}
+                              className={`w-7 h-7 rounded border flex items-center justify-center mx-auto transition-all ${active ? `${sec.bg} ${sec.color}` : "border-border bg-transparent hover:bg-muted/40"}`}
+                            >
+                              {active && <Check className="w-3.5 h-3.5" />}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <DialogFooter>
