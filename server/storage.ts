@@ -162,6 +162,7 @@ export interface IStorage {
   updateDivision(id: number, data: Partial<InsertDivision>): Promise<Division>;
   deleteDivision(id: number): Promise<void>;
   getCompanyDivisions(companyId: number): Promise<(CompanyDivision & { division: Division })[]>;
+  getAllCompanyDivisions(): Promise<{ id: number; companyId: number; divisionId: number }[]>;
   addCompanyDivision(companyId: number, divisionId: number): Promise<CompanyDivision>;
   removeCompanyDivision(id: number): Promise<void>;
   getDivisionCompanies(divisionId: number): Promise<(CompanyDivision & { company: MyCompany })[]>;
@@ -811,6 +812,14 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(divisions, eq(companyDivisions.divisionId, divisions.id))
       .where(eq(companyDivisions.companyId, companyId));
     return rows.map(r => ({ ...r, division: r.division })) as any;
+  }
+
+  async getAllCompanyDivisions(): Promise<{ id: number; companyId: number; divisionId: number }[]> {
+    return await db.select({
+      id: companyDivisions.id,
+      companyId: companyDivisions.companyId,
+      divisionId: companyDivisions.divisionId,
+    }).from(companyDivisions);
   }
 
   async addCompanyDivision(companyId: number, divisionId: number): Promise<CompanyDivision> {

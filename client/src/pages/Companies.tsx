@@ -2730,13 +2730,24 @@ function CompanyDivisionsTab({ companyId }: { companyId: number | null }) {
     enabled: !!companyId,
   });
 
+  const { data: allAssignments } = useQuery<{ id: number; companyId: number; divisionId: number }[]>({
+    queryKey: ["/api/company-divisions"],
+    enabled: !!companyId,
+  });
+
   const linkedDivisionIds = (companyDivisions || []).map((cd: any) => cd.division?.id || cd.divisionId);
-  const availableDivisions = (allDivisions || []).filter(d => d.isActive && !linkedDivisionIds.includes(d.id));
+  const assignedElsewhereDivisionIds = (allAssignments || [])
+    .filter(a => a.companyId !== companyId)
+    .map(a => a.divisionId);
+  const availableDivisions = (allDivisions || []).filter(
+    d => d.isActive && !linkedDivisionIds.includes(d.id) && !assignedElsewhereDivisionIds.includes(d.id)
+  );
 
   const addMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/companies/${companyId}/divisions`, { divisionId: parseInt(selectedDivisionId) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/companies/${companyId}/divisions`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company-divisions"] });
       toast({ title: "Uspech", description: "Divizia priradena" });
       setSelectedDivisionId("");
     },
@@ -2747,6 +2758,7 @@ function CompanyDivisionsTab({ companyId }: { companyId: number | null }) {
     mutationFn: (linkId: number) => apiRequest("DELETE", `/api/company-divisions/${linkId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/companies/${companyId}/divisions`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/company-divisions"] });
       toast({ title: "Uspech", description: "Prepojenie odstranene" });
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odstranit prepojenie", variant: "destructive" }),

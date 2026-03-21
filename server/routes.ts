@@ -1453,6 +1453,12 @@ export async function registerRoutes(
     } catch (err) { res.status(500).json({ message: String(err) }); }
   });
 
+  app.get("/api/company-divisions", isAuthenticated, async (_req, res) => {
+    try {
+      res.json(await storage.getAllCompanyDivisions());
+    } catch (err) { res.status(500).json({ message: String(err) }); }
+  });
+
   app.get("/api/companies/:id/divisions", isAuthenticated, async (req, res) => {
     try {
       res.json(await storage.getCompanyDivisions(Number(req.params.id)));
