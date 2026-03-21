@@ -6179,7 +6179,11 @@ export default function Contracts() {
     const addExtraOpt = () => {
       const name = docChecklistNewOpt.trim();
       if (!name) return;
-      setDocChecklistExtraOpt(prev => [...prev, name]);
+      setDocChecklistExtraOpt(prev => {
+        const newIdx = prev.length;
+        setDocChecklistCheckedExtra(prevChecked => new Set([...prevChecked, newIdx]));
+        return [...prev, name];
+      });
       setDocChecklistNewOpt("");
     };
     const totalOptCount = docs.optional.length + docChecklistExtraOpt.length;
