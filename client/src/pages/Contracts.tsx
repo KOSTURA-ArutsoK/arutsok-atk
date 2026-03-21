@@ -6100,7 +6100,7 @@ export default function Contracts() {
     const linkedFoForSub = sub?.linkedFoId ? subjects?.find(s => s.id === sub.linkedFoId) : undefined;
     const subjectHasName = !sub ? false :
       sub.type === "person" ? !!(sub.firstName?.trim() && sub.lastName?.trim()) :
-      (sub.type === "szco" || sub.type === "company" || sub.type === "organization") ? !!(sub.companyName?.trim() || linkedFoForSub?.firstName?.trim()) :
+      (sub.type === "szco" || sub.type === "company" || sub.type === "organization") ? !!(sub.companyName?.trim() || (linkedFoForSub?.firstName?.trim() && linkedFoForSub?.lastName?.trim())) :
       true;
     const step2Ok = !!(contract.subjectId) && subjectHasName;
     const step3Ok = !!(existingSpec?.uid);
