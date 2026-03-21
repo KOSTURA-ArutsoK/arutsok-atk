@@ -280,7 +280,7 @@ function CollapsibleMenu({
 }
 
 function MojeUlohyMenuItem({ location }: { location: string }) {
-  const { data: taskCount } = useQuery<{ count: number; nonCalendarCount: number; upcomingEventsCount: number; todayEventsCount: number; nbsAlert?: { show: boolean; daysLeft: number } }>({
+  const { data: taskCount } = useQuery<{ count: number; nonCalendarCount: number; upcomingEventsCount: number; todayEventsCount: number; nbsAlert?: { show: boolean; daysLeft: number }; unprocessedAcceptedSprievodkyCount?: number }>({
     queryKey: ["/api/my-tasks/count"],
     refetchInterval: 30000,
   });
@@ -300,6 +300,8 @@ function MojeUlohyMenuItem({ location }: { location: string }) {
     else { nbsColorClass = "text-blue-400 font-bold"; }
   }
 
+  const unprocessedSprievodky = taskCount?.unprocessedAcceptedSprievodkyCount || 0;
+
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
@@ -310,10 +312,15 @@ function MojeUlohyMenuItem({ location }: { location: string }) {
         <Link href="/moje-ulohy">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className="w-4 h-4 shrink-0" fill="currentColor"><path d="M160-200h640v-80H160v80Zm160-240h80v-120q0-33 23.5-56.5T480-640v-80q-66 0-113 47t-47 113v120Zm160 160Zm-200-80h400v-200q0-83-58.5-141.5T480-760q-83 0-141.5 58.5T280-560v200ZM160-120q-33 0-56.5-23.5T80-200v-80q0-33 23.5-56.5T160-360h40v-200q0-117 81.5-198.5T480-840q117 0 198.5 81.5T760-560v200h40q33 0 56.5 23.5T880-280v80q0 33-23.5 56.5T800-120H160Zm320-240Z"/></svg>
           <span>Moje úlohy</span>
-          <span className="flex-1 text-center">
+          <span className="flex-1 text-center flex gap-1 justify-center">
             {nbsAlert?.show && (
               <span className={`${nbsFontSize} ${nbsColorClass}`} data-testid="badge-nbs-alert">
                 NBS !
+              </span>
+            )}
+            {unprocessedSprievodky > 0 && (
+              <span className="text-[10px] text-orange-400 font-bold animate-pulse" data-testid="badge-unprocessed-sprievodky">
+                SPR !
               </span>
             )}
           </span>

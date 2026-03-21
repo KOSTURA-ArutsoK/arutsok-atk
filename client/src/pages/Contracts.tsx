@@ -8527,6 +8527,19 @@ export default function Contracts() {
                 <div className="divide-y">
                   {acceptedBySprievodka.map(group => ({ ...group, contracts: filterBySearch(group.contracts) })).filter(g => g.contracts.length > 0).map(group => {
                     const isExpanded = expandedSprievodky.has(group.inventoryId + 200000);
+
+                    const archiveCountdown = (() => {
+                      const dates = group.contracts
+                        .map(c => (c as any).acceptedAt ? new Date((c as any).acceptedAt).getTime() : null)
+                        .filter(Boolean) as number[];
+                      if (dates.length === 0) return null;
+                      const earliest = Math.min(...dates);
+                      const daysElapsed = Math.floor((Date.now() - earliest) / (1000 * 60 * 60 * 24));
+                      if (daysElapsed < 14) return null;
+                      const daysLeft = 50 - daysElapsed;
+                      return { daysLeft: Math.max(0, daysLeft), daysElapsed };
+                    })();
+
                     return (
                       <div key={group.inventoryId} data-testid={`accepted-sprievodka-group-${group.inventoryId}`}>
                         <div
@@ -8550,6 +8563,15 @@ export default function Contracts() {
                               </span>
                             )}
                           </span>
+                          {archiveCountdown && (
+                            <span
+                              className={`text-xs font-bold px-2 py-0.5 rounded border ${archiveCountdown.daysLeft <= 7 ? "text-red-400 border-red-500/50 bg-red-500/10 animate-pulse" : archiveCountdown.daysLeft <= 14 ? "text-orange-400 border-orange-500/50 bg-orange-500/10" : "text-yellow-400 border-yellow-500/50 bg-yellow-500/10"}`}
+                              title={`Sprievodka prijatá pred ${archiveCountdown.daysElapsed} dňami. Automatická archivácia po 50 dňoch.`}
+                              data-testid={`badge-archive-countdown-${group.inventoryId}`}
+                            >
+                              {archiveCountdown.daysLeft === 0 ? "Archivácia dnes!" : `${archiveCountdown.daysLeft}d do archivácie`}
+                            </span>
+                          )}
                           <Badge variant="outline" data-testid={`badge-accepted-sprievodka-count-${group.inventoryId}`}>
                             {group.contracts.length} {group.contracts.length === 1 ? "zmluva" : group.contracts.length < 5 ? "zmluvy" : "zmluv"}
                           </Badge>

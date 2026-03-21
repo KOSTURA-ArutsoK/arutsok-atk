@@ -18077,6 +18077,40 @@ export async function registerRoutes(
     processAutoAdultTransitions().catch(err => console.error("[AUTO ADULT TRANSITION CRON ERROR]", err));
   }, 60 * 60 * 1000);
 
+  // === AUTO-ARCHIVE ACCEPTED SPRIEVODKY (50 days → phase 4) ===
+  async function autoArchiveExpiredAcceptedContracts() {
+    try {
+      const cutoff = new Date(Date.now() - 50 * 24 * 60 * 60 * 1000);
+      const expired = await db.select({ id: contracts.id })
+        .from(contracts)
+        .where(and(
+          eq(contracts.lifecyclePhase, 5),
+          eq(contracts.isDeleted, false),
+          lte(contracts.acceptedAt, cutoff)
+        ));
+      if (expired.length === 0) return;
+      const expiredIds = expired.map(c => c.id);
+      await db.update(contracts)
+        .set({ lifecyclePhase: 4, updatedAt: new Date() })
+        .where(inArray(contracts.id, expiredIds));
+      await db.insert(contractLifecycleHistory).values(expiredIds.map(id => ({
+        contractId: id,
+        oldPhase: 5,
+        newPhase: 4,
+        changedBy: null,
+        note: "Automatická archivácia po 50 dňoch bez spracovania",
+        createdAt: new Date(),
+      })));
+      console.log(`[AUTO ARCHIVE SPRIEVODKY] Archived ${expiredIds.length} contract(s) to phase 4`);
+    } catch (err) {
+      console.error("[AUTO ARCHIVE SPRIEVODKY ERROR]", err);
+    }
+  }
+  autoArchiveExpiredAcceptedContracts().catch(err => console.error("[AUTO ARCHIVE SPRIEVODKY INIT ERROR]", err));
+  setInterval(() => {
+    autoArchiveExpiredAcceptedContracts().catch(err => console.error("[AUTO ARCHIVE SPRIEVODKY CRON ERROR]", err));
+  }, 6 * 60 * 60 * 1000);
+
 
   app.get("/api/maturity-alerts", isAuthenticated, async (req, res) => {
     try {
@@ -20702,12 +20736,26 @@ export async function registerRoutes(
 
       const nonCalendarCount = transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount + companiesWithoutOfficersCount + nbsReportCount;
 
+      let unprocessedAcceptedSprievodkyCount = 0;
+      if (isAdmin(appUser)) {
+        const cutoff14 = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+        const expiring = await db.select({ id: contracts.id })
+          .from(contracts)
+          .where(and(
+            eq(contracts.lifecyclePhase, 5),
+            eq(contracts.isDeleted, false),
+            lte(contracts.acceptedAt, cutoff14)
+          ));
+        unprocessedAcceptedSprievodkyCount = expiring.length;
+      }
+
       res.json({
         count: nonCalendarCount > 0 ? nonCalendarCount : todayEventsCount,
         nonCalendarCount,
         upcomingEventsCount,
         todayEventsCount,
         nbsAlert,
+        unprocessedAcceptedSprievodkyCount,
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });
