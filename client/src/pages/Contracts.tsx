@@ -9179,7 +9179,7 @@ export default function Contracts() {
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
               ) : filteredRejected.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-neprijate">Ziadne neprijate zmluvy</p>
-              ) : renderSprievodkaFullTable(sortedRejected, { nahratieView: true, showRerouteCheckbox: true, showActions: true, testIdPrefix: "row-neprijate" })}
+              ) : renderSprievodkaFullTable(sortedRejected, { nahratieView: true, showRerouteCheckbox: true, showActions: true, alwaysIncompleteEdit: true, testIdPrefix: "row-neprijate" })}
             </CardContent>
           </Card>
         </div>
