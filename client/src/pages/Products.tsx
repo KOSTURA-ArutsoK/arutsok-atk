@@ -322,7 +322,7 @@ function ProductFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent size="md">
+      <DialogContent size={activeTab === "dokumentacia" ? "xl" : "md"}>
         <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-product-dialog-title">
@@ -557,50 +557,45 @@ function ProductFormDialog({
         </div>
 
         <div style={{ display: activeTab === "dokumentacia" ? 'block' : 'none' }}>
-          <div className="space-y-4">
-            {/* 3 SUB-SEKCIE — horizontálna navigácia */}
-            <div className="flex gap-1 p-1 rounded-lg bg-muted/50 border border-border">
-              {([
-                { key: "central", label: "Pri odovzdaní do centrály", count: requiredDocuments.length + optionalDocuments.length },
-                { key: "received", label: "Prijatá centrálou", count: requiredDocumentsReceived.length + optionalDocumentsReceived.length },
-                { key: "partner", label: "Odovzdaná partnerovi", count: requiredDocumentsPartner.length + optionalDocumentsPartner.length },
-              ] as const).map(s => (
-                <button
-                  key={s.key}
-                  type="button"
-                  onClick={() => setDocSection(s.key)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${docSection === s.key ? 'bg-background text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'}`}
-                  data-testid={`tab-doc-section-${s.key}`}
-                >
-                  {s.label}
-                  {s.count > 0 && <span className="text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground font-semibold">{s.count}</span>}
-                </button>
-              ))}
+          <div className="grid grid-cols-3 gap-4">
+            {/* STĹPEC 1 — Pri odovzdaní do centrály */}
+            <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center gap-2 pb-1 border-b border-border/60">
+                <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-foreground">Pri odovzdaní do centrály</span>
+                {(requiredDocuments.length + optionalDocuments.length) > 0 && (
+                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-semibold">{requiredDocuments.length + optionalDocuments.length}</span>
+                )}
+              </div>
+              <DocBubble color="red" label="Povinné" docs={requiredDocuments} setDocs={setRequiredDocuments} inputValue={newDocName} setInputValue={setNewDocName} placeholder="Povinný dokument..." testIdPrefix="central-req" />
+              <DocBubble color="blue" label="Nepovinné" docs={optionalDocuments} setDocs={setOptionalDocuments} inputValue={newOptDocName} setInputValue={setNewOptDocName} placeholder="Nepovinný dokument..." testIdPrefix="central-opt" />
             </div>
 
-            {/* Popis aktívnej sekcie */}
-            <div className="flex items-start gap-2.5 rounded-md border border-border bg-muted/40 px-3 py-2.5">
-              <FileText className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {docSection === "central" && <>Dokumenty, ktoré PFA odovzdá <strong className="text-foreground">pri odovzdávaní zmluvy do centrály</strong> — musia byť zaškrtnuté pred zaradením do sprievodky.</>}
-                {docSection === "received" && <>Dokumenty, ktoré centrála <strong className="text-foreground">akceptuje a prijíma</strong> od PFA — kontrolný zoznam prijatej dokumentácie.</>}
-                {docSection === "partner" && <>Dokumenty, ktoré PFA <strong className="text-foreground">odovzdá obchodnému partnerovi</strong> (poisťovni, banke alebo inému subjektu) po uzavretí zmluvy.</>}
-                {" "}<span className="text-red-400 font-medium">Povinné</span> dokumenty musia byť zaškrtnuté. <span className="text-blue-400 font-medium">Nepovinné</span> sú len odporúčané.
-              </p>
+            {/* STĹPEC 2 — Prijatá centrálou */}
+            <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center gap-2 pb-1 border-b border-border/60">
+                <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-foreground">Prijatá centrálou</span>
+                {(requiredDocumentsReceived.length + optionalDocumentsReceived.length) > 0 && (
+                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-semibold">{requiredDocumentsReceived.length + optionalDocumentsReceived.length}</span>
+                )}
+              </div>
+              <DocBubble color="red" label="Povinné" docs={requiredDocumentsReceived} setDocs={setRequiredDocumentsReceived} inputValue={newDocReceivedName} setInputValue={setNewDocReceivedName} placeholder="Povinný dokument..." testIdPrefix="received-req" />
+              <DocBubble color="blue" label="Nepovinné" docs={optionalDocumentsReceived} setDocs={setOptionalDocumentsReceived} inputValue={newOptDocReceivedName} setInputValue={setNewOptDocReceivedName} placeholder="Nepovinný dokument..." testIdPrefix="received-opt" />
             </div>
 
-            {docSection === "central" && <>
-              <DocBubble color="red" label="Povinné dokumenty" docs={requiredDocuments} setDocs={setRequiredDocuments} inputValue={newDocName} setInputValue={setNewDocName} placeholder="Názov povinného dokumentu (napr. Kópia OP)" testIdPrefix="central-req" />
-              <DocBubble color="blue" label="Nepovinné dokumenty" docs={optionalDocuments} setDocs={setOptionalDocuments} inputValue={newOptDocName} setInputValue={setNewOptDocName} placeholder="Názov nepovinného dokumentu (napr. Súhlas so spracovaním)" testIdPrefix="central-opt" />
-            </>}
-            {docSection === "received" && <>
-              <DocBubble color="red" label="Povinné dokumenty" docs={requiredDocumentsReceived} setDocs={setRequiredDocumentsReceived} inputValue={newDocReceivedName} setInputValue={setNewDocReceivedName} placeholder="Názov povinného dokumentu" testIdPrefix="received-req" />
-              <DocBubble color="blue" label="Nepovinné dokumenty" docs={optionalDocumentsReceived} setDocs={setOptionalDocumentsReceived} inputValue={newOptDocReceivedName} setInputValue={setNewOptDocReceivedName} placeholder="Názov nepovinného dokumentu" testIdPrefix="received-opt" />
-            </>}
-            {docSection === "partner" && <>
-              <DocBubble color="red" label="Povinné dokumenty" docs={requiredDocumentsPartner} setDocs={setRequiredDocumentsPartner} inputValue={newDocPartnerName} setInputValue={setNewDocPartnerName} placeholder="Názov povinného dokumentu" testIdPrefix="partner-req" />
-              <DocBubble color="blue" label="Nepovinné dokumenty" docs={optionalDocumentsPartner} setDocs={setOptionalDocumentsPartner} inputValue={newOptDocPartnerName} setInputValue={setNewOptDocPartnerName} placeholder="Názov nepovinného dokumentu" testIdPrefix="partner-opt" />
-            </>}
+            {/* STĹPEC 3 — Odovzdaná obchodnému partnerovi */}
+            <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center gap-2 pb-1 border-b border-border/60">
+                <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-foreground">Odovzdaná partnerovi</span>
+                {(requiredDocumentsPartner.length + optionalDocumentsPartner.length) > 0 && (
+                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-semibold">{requiredDocumentsPartner.length + optionalDocumentsPartner.length}</span>
+                )}
+              </div>
+              <DocBubble color="red" label="Povinné" docs={requiredDocumentsPartner} setDocs={setRequiredDocumentsPartner} inputValue={newDocPartnerName} setInputValue={setNewDocPartnerName} placeholder="Povinný dokument..." testIdPrefix="partner-req" />
+              <DocBubble color="blue" label="Nepovinné" docs={optionalDocumentsPartner} setDocs={setOptionalDocumentsPartner} inputValue={newOptDocPartnerName} setInputValue={setNewOptDocPartnerName} placeholder="Nepovinný dokument..." testIdPrefix="partner-opt" />
+            </div>
           </div>
         </div>
         <ProcessingSaveButton isPending={isPending} />
