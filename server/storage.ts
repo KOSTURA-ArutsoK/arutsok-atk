@@ -4008,7 +4008,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNbsReportsByYear(year: number): Promise<NbsReportStatus[]> {
-    return await db.select().from(nbsReportStatuses).where(eq(nbsReportStatuses.year, year));
+    const sectorRows = await db.select().from(nbsReportStatuses)
+      .where(and(eq(nbsReportStatuses.year, year), isNotNull(nbsReportStatuses.sector)));
+    return sectorRows;
   }
 
   async upsertNbsReport(data: InsertNbsReportStatus): Promise<NbsReportStatus> {
@@ -4022,13 +4024,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async initNbsReportsForYear(year: number, updatedBy: string): Promise<NbsReportStatus[]> {
-    const existing = await this.getNbsReportsByYear(year);
-    if (existing.length > 0) return existing;
     const periods = ['1q', '2q', '3q', '4q', 'annual'];
+    const sectors = ['PaZ', 'PV', 'PU', 'KT', 'DDS', 'SDS'];
     const results: NbsReportStatus[] = [];
     for (const period of periods) {
-      const [report] = await db.insert(nbsReportStatuses).values({ year, period, status: 'not_sent', updatedBy }).returning();
-      results.push(report);
+      for (const sector of sectors) {
+        const [report] = await db.insert(nbsReportStatuses).values({ year, period, sector, status: 'not_sent', updatedBy }).returning();
+        results.push(report);
+      }
     }
     return results;
   }

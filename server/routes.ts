@@ -11169,9 +11169,11 @@ export async function registerRoutes(
       if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Len admin" });
       const year = Number(req.query.year);
       const period = String(req.query.period || "");
+      const sector = req.query.sector ? String(req.query.sector) : null;
       if (!year || !period) return res.status(400).json({ message: "year a period su povinne" });
-      const reports = await db.select().from(nbsPartnerReports)
-        .where(and(eq(nbsPartnerReports.year, year), eq(nbsPartnerReports.period, period)));
+      const conditions = [eq(nbsPartnerReports.year, year), eq(nbsPartnerReports.period, period)];
+      if (sector) conditions.push(eq(nbsPartnerReports.sector, sector));
+      const reports = await db.select().from(nbsPartnerReports).where(and(...conditions));
       res.json(reports);
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });
@@ -11183,9 +11185,11 @@ export async function registerRoutes(
       if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Len admin" });
       const year = Number(req.query.year);
       const period = String(req.query.period || "");
+      const sector = req.query.sector ? String(req.query.sector) : null;
       if (!year || !period) return res.status(400).json({ message: "year a period su povinne" });
-      const reports = await db.select().from(nbsPartnerReports)
-        .where(and(eq(nbsPartnerReports.year, year), eq(nbsPartnerReports.period, period)));
+      const totConditions = [eq(nbsPartnerReports.year, year), eq(nbsPartnerReports.period, period)];
+      if (sector) totConditions.push(eq(nbsPartnerReports.sector, sector));
+      const reports = await db.select().from(nbsPartnerReports).where(and(...totConditions));
 
       const totals: any = {
         newContracts: { life: 0, nonLife: 0, reinsurance: 0 },
@@ -11311,13 +11315,15 @@ export async function registerRoutes(
       const partnerId = Number(req.params.partnerId);
       const year = Number(req.query.year);
       const period = String(req.query.period || "");
+      const sector = req.query.sector ? String(req.query.sector) : null;
       if (!year || !period) return res.status(400).json({ message: "year a period su povinne" });
-      const [report] = await db.select().from(nbsPartnerReports)
-        .where(and(
-          eq(nbsPartnerReports.partnerId, partnerId),
-          eq(nbsPartnerReports.year, year),
-          eq(nbsPartnerReports.period, period)
-        )).limit(1);
+      const conds = [
+        eq(nbsPartnerReports.partnerId, partnerId),
+        eq(nbsPartnerReports.year, year),
+        eq(nbsPartnerReports.period, period),
+      ];
+      if (sector) conds.push(eq(nbsPartnerReports.sector, sector));
+      const [report] = await db.select().from(nbsPartnerReports).where(and(...conds)).limit(1);
       res.json(report || null);
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });
@@ -11328,18 +11334,20 @@ export async function registerRoutes(
     try {
       if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Len admin" });
       const partnerId = Number(req.params.partnerId);
-      const { year, period, data } = req.body;
+      const { year, period, sector, data } = req.body;
       if (!year || !period || !data || typeof data !== "object") return res.status(400).json({ message: "year, period a data su povinne" });
       const validPeriods = ["1q", "2q", "3q", "4q", "annual"];
       if (!validPeriods.includes(period)) return res.status(400).json({ message: "Neplatne obdobie" });
       const username = req.appUser?.username || "system";
 
-      const [existing] = await db.select().from(nbsPartnerReports)
-        .where(and(
-          eq(nbsPartnerReports.partnerId, partnerId),
-          eq(nbsPartnerReports.year, year),
-          eq(nbsPartnerReports.period, period)
-        )).limit(1);
+      const upsertConds = [
+        eq(nbsPartnerReports.partnerId, partnerId),
+        eq(nbsPartnerReports.year, year),
+        eq(nbsPartnerReports.period, period),
+      ];
+      if (sector) upsertConds.push(eq(nbsPartnerReports.sector, sector));
+
+      const [existing] = await db.select().from(nbsPartnerReports).where(and(...upsertConds)).limit(1);
 
       let result;
       if (existing) {
@@ -11349,11 +11357,11 @@ export async function registerRoutes(
           .returning();
       } else {
         [result] = await db.insert(nbsPartnerReports)
-          .values({ partnerId, year, period, data, updatedBy: username })
+          .values({ partnerId, year, period, sector: sector || null, data, updatedBy: username })
           .returning();
       }
 
-      await logAudit(req, { action: existing ? "UPDATE" : "CREATE", module: "NBS Partner Report", entityId: result.id, newData: { partnerId, year, period, data } });
+      await logAudit(req, { action: existing ? "UPDATE" : "CREATE", module: "NBS Partner Report", entityId: result.id, newData: { partnerId, year, period, sector, data } });
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba" });

@@ -29,6 +29,7 @@ interface NbsReport {
   id: number;
   year: number;
   period: string;
+  sector: string | null;
   status: string;
   sentDate: string | null;
   updatedBy: string | null;
@@ -326,12 +327,13 @@ function NbsPartnerSettingsDialog({ open, onOpenChange }: { open: boolean; onOpe
   );
 }
 
-function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, initialPartnerId }: {
+function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, sector, initialPartnerId }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   year: number;
   period: string;
   periodLabel: string;
+  sector: string;
   initialPartnerId?: number | null;
 }) {
   const { toast } = useToast();
@@ -346,17 +348,14 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, in
   }, [open, initialPartnerId]);
 
   const activePartners = (partners || []).filter((p: any) => !p.isDeleted);
-  const nbsPartners = activePartners.filter((p: any) => (p.nbsSectors || []).length > 0);
-  const partnersByNbsSector = NBS_SECTORS.map(sec => ({
-    sector: sec,
-    partners: nbsPartners.filter((p: any) => (p.nbsSectors || []).includes(sec.key)),
-  })).filter(g => g.partners.length > 0);
+  const sectorPartners = activePartners.filter((p: any) => (p.nbsSectors || []).includes(sector));
+  const sectorMeta = NBS_SECTORS.find(s => s.key === sector);
   const partnerName = activePartners.find((p: any) => p.id === selectedPartnerId)?.name || "";
 
   const { data: allPeriodReports } = useQuery<any[]>({
-    queryKey: ["/api/nbs-partner-reports", "list", year, period],
+    queryKey: ["/api/nbs-partner-reports", "list", year, period, sector],
     queryFn: async () => {
-      const r = await fetch(`/api/nbs-partner-reports?year=${year}&period=${period}`, { credentials: "include" });
+      const r = await fetch(`/api/nbs-partner-reports?year=${year}&period=${period}&sector=${sector}`, { credentials: "include" });
       return r.ok ? r.json() : [];
     },
     enabled: open,
@@ -364,10 +363,10 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, in
   const savedPartnerIds = new Set((allPeriodReports || []).map((r: any) => r.partnerId));
 
   const { data: existingReport, isLoading: loadingReport } = useQuery({
-    queryKey: ["/api/nbs-partner-reports", selectedPartnerId, year, period],
+    queryKey: ["/api/nbs-partner-reports", selectedPartnerId, year, period, sector],
     queryFn: async () => {
       if (!selectedPartnerId) return null;
-      const res = await fetch(`/api/nbs-partner-reports/${selectedPartnerId}?year=${year}&period=${period}`, { credentials: "include" });
+      const res = await fetch(`/api/nbs-partner-reports/${selectedPartnerId}?year=${year}&period=${period}&sector=${sector}`, { credentials: "include" });
       if (!res.ok) return null;
       return res.json();
     },
@@ -392,7 +391,7 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, in
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPartnerId) throw new Error("Vyberte partnera");
-      await apiRequest("PUT", `/api/nbs-partner-reports/${selectedPartnerId}`, { year, period, data: formData });
+      await apiRequest("PUT", `/api/nbs-partner-reports/${selectedPartnerId}`, { year, period, sector, data: formData });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/nbs-partner-reports"] });
@@ -412,33 +411,6 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, in
 
   function updateFlat(field: string, value: number) {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
-  }
-
-  function renderPartnerList(groupLabel: string, groupPartners: any[], groupTestId: string, listKey?: string) {
-    if (groupPartners.length === 0) return null;
-    return (
-      <div key={listKey} className="space-y-2" data-testid={groupTestId}>
-        <h3 className="text-sm font-bold text-muted-foreground">{groupLabel}</h3>
-        <div className="space-y-1">
-          {groupPartners.map((p: any) => {
-            const hasSaved = savedPartnerIds.has(p.id);
-            return (
-              <div
-                key={p.id}
-                className={`flex items-center justify-between px-3 py-2 rounded border cursor-pointer transition-all hover:bg-accent ${hasSaved ? "border-green-500/50 bg-green-50 dark:bg-green-950/20" : "border-border"}`}
-                onClick={() => setSelectedPartnerId(p.id)}
-                data-testid={`partner-row-${p.id}`}
-              >
-                <span className="text-sm font-medium">{p.name}</span>
-                {hasSaved && (
-                  <Badge variant="secondary" className="text-[9px] px-1.5 h-4 bg-green-600 text-white">Vyplnené</Badge>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
   }
 
   function renderForm() {
@@ -602,19 +574,39 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, in
 
         <div className="space-y-6">
           {!selectedPartnerId ? (
-            <div className="space-y-4">
+            <div className="space-y-3">
+              {sectorMeta && (
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded border text-xs font-semibold ${sectorMeta.bg} ${sectorMeta.color}`}>
+                  <span className="font-bold">{sectorMeta.key}</span>
+                  <span>{sectorMeta.label}</span>
+                  <span className="text-muted-foreground font-normal">— {sectorMeta.sublabel}</span>
+                </div>
+              )}
               {partnersLoading ? (
                 <div className="flex justify-center py-4">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
+              ) : sectorPartners.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Žiadni partneri zaradení do sektora {sector}. Nastavte partnerov cez tlačidlo „Nastavenie NBS partnerov".</p>
               ) : (
-                <>
-                  {partnersByNbsSector.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">Žiadni partneri zaradení do NBS reportu. Nastavte partnerov cez tlačidlo „Nastavenie NBS partnerov".</p>
-                  ) : partnersByNbsSector.map(g =>
-                    renderPartnerList(`${g.sector.key} — ${g.sector.label}`, g.partners, `group-${g.sector.key.toLowerCase()}`, g.sector.key)
-                  )}
-                </>
+                <div className="space-y-1">
+                  {sectorPartners.map((p: any) => {
+                    const hasSaved = savedPartnerIds.has(p.id);
+                    return (
+                      <div
+                        key={p.id}
+                        className={`flex items-center justify-between px-3 py-2 rounded border cursor-pointer transition-all hover:bg-accent ${hasSaved ? "border-green-500/50 bg-green-50 dark:bg-green-950/20" : "border-border"}`}
+                        onClick={() => setSelectedPartnerId(p.id)}
+                        data-testid={`partner-row-${p.id}`}
+                      >
+                        <span className="text-sm font-medium">{p.name}</span>
+                        {hasSaved && (
+                          <Badge variant="secondary" className="text-[9px] px-1.5 h-4 bg-green-600 text-white">Vyplnené</Badge>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           ) : loadingReport ? (
@@ -669,6 +661,7 @@ export default function ReportyNBS() {
   const [partnerReportInitialId, setPartnerReportInitialId] = useState<number | null>(null);
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
   const [nbsSettingsOpen, setNbsSettingsOpen] = useState(false);
+  const [partnerReportSector, setPartnerReportSector] = useState<string>("");
 
   const { data: reports, isLoading } = useQuery<NbsReport[]>({
     queryKey: ["/api/nbs-reports", selectedYear],
@@ -721,7 +714,7 @@ export default function ReportyNBS() {
     setConfirmUnsendReport(null);
   }
 
-  const reportMap = new Map((reports || []).map(r => [r.period, r]));
+  const reportMap = new Map((reports || []).map(r => [`${r.period}-${r.sector}`, r]));
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6" data-testid="page-reporty-nbs">
@@ -798,11 +791,11 @@ export default function ReportyNBS() {
             <h2 className="text-xl font-bold">{selectedYear}</h2>
             {reports && (
               <Badge variant="outline" className={
-                reports.length === 5 && reports.every(r => r.status === "sent")
+                reports.length > 0 && reports.every(r => r.status === "sent")
                   ? "border-green-500 text-green-400"
                   : "border-blue-500 text-blue-400"
               }>
-                {reports.filter(r => r.status === "sent").length}/5 odoslaných
+                {reports.filter(r => r.status === "sent").length}/{reports.length} odoslaných
               </Badge>
             )}
           </div>
@@ -814,23 +807,29 @@ export default function ReportyNBS() {
           ) : (
             <div className="space-y-3">
               {PERIODS.map(p => {
-                const report = reportMap.get(p.key);
-                if (!report) return null;
+                const sectorReportsMap = new Map<string, NbsReport>(
+                  NBS_SECTORS.map(s => {
+                    const r = reportMap.get(`${p.key}-${s.key}`);
+                    return [s.key, r!];
+                  }).filter(([, r]) => !!r)
+                );
+                if (sectorReportsMap.size === 0) return null;
                 const isExpanded = expandedPeriod === p.key;
 
                 return (
                   <PeriodBubble
                     key={p.key}
                     period={p}
-                    report={report}
+                    sectorReports={sectorReportsMap}
                     year={selectedYear}
                     isExpanded={isExpanded}
                     onToggle={() => setExpandedPeriod(isExpanded ? null : p.key)}
-                    onStatusClick={() => handleStatusClick(report)}
+                    onSectorStatusClick={(report) => handleStatusClick(report)}
                     statusPending={updateMutation.isPending}
-                    onOpenPartnerForm={(partnerId) => {
+                    onOpenPartnerForm={(partnerId, sector) => {
                       setPartnerReportPeriod({ key: p.key, label: p.label });
                       setPartnerReportInitialId(partnerId);
+                      setPartnerReportSector(sector);
                       setPartnerReportOpen(true);
                     }}
                   />
@@ -878,10 +877,11 @@ export default function ReportyNBS() {
       {selectedYear && (
         <PartnerReportDialog
           open={partnerReportOpen}
-          onOpenChange={(o) => { setPartnerReportOpen(o); if (!o) setPartnerReportInitialId(null); }}
+          onOpenChange={(o) => { setPartnerReportOpen(o); if (!o) { setPartnerReportInitialId(null); setPartnerReportSector(""); } }}
           year={selectedYear}
           period={partnerReportPeriod.key}
           periodLabel={partnerReportPeriod.label}
+          sector={partnerReportSector}
           initialPartnerId={partnerReportInitialId}
         />
       )}
@@ -893,23 +893,24 @@ export default function ReportyNBS() {
   );
 }
 
-function PeriodBubble({ period, report, year, isExpanded, onToggle, onStatusClick, statusPending, onOpenPartnerForm }: {
+function PeriodBubble({ period, sectorReports, year, isExpanded, onToggle, onSectorStatusClick, statusPending, onOpenPartnerForm }: {
   period: { key: string; label: string };
-  report: NbsReport;
+  sectorReports: Map<string, NbsReport>;
   year: number;
   isExpanded: boolean;
   onToggle: () => void;
-  onStatusClick: () => void;
+  onSectorStatusClick: (report: NbsReport) => void;
   statusPending: boolean;
-  onOpenPartnerForm: (partnerId: number) => void;
+  onOpenPartnerForm: (partnerId: number, sector: string) => void;
 }) {
   const { data: partners, isLoading: partnersLoading } = usePartners();
   const activePartners = (partners || []).filter((p: any) => !p.isDeleted);
-  const nbsPartnersInBubble = activePartners.filter((p: any) => (p.nbsSectors || []).length > 0);
-  const partnersByNbsSectorInBubble = NBS_SECTORS.map(sec => ({
+
+  const activeSectors = NBS_SECTORS.map(sec => ({
     sector: sec,
-    partners: nbsPartnersInBubble.filter((p: any) => (p.nbsSectors || []).includes(sec.key)),
-  })).filter(g => g.partners.length > 0);
+    report: sectorReports.get(sec.key),
+    partners: activePartners.filter((p: any) => (p.nbsSectors || []).includes(sec.key)),
+  })).filter(g => g.partners.length > 0 && g.report);
 
   const { data: periodReports } = useQuery<any[]>({
     queryKey: ["/api/nbs-partner-reports", "list", year, period.key],
@@ -919,166 +920,15 @@ function PeriodBubble({ period, report, year, isExpanded, onToggle, onStatusClic
     },
     enabled: isExpanded,
   });
-  const savedPartnerIds = new Set((periodReports || []).map((r: any) => r.partnerId));
-  const savedCount = savedPartnerIds.size;
-
-  const { data: totalsData } = useQuery<{ totals: any; partnerCount: number }>({
-    queryKey: ["/api/nbs-partner-reports", "totals", year, period.key],
-    queryFn: async () => {
-      const r = await fetch(`/api/nbs-partner-reports/totals?year=${year}&period=${period.key}`, { credentials: "include" });
-      return r.ok ? r.json() : { totals: null, partnerCount: 0 };
-    },
-    enabled: isExpanded,
-  });
 
   const deadline = getDeadline(period.key, year);
   const daysLeft = getDaysRemaining(deadline);
-  const colorClass = getColorByDeadline(deadline, report.status);
-  const statusBtnColor = getStatusButtonColor(report.status);
 
-  function renderPartnerGroup(label: string, groupPartners: any[], testId: string, groupKey?: string) {
-    if (groupPartners.length === 0) return null;
-    return (
-      <div key={groupKey} className="space-y-1" data-testid={testId}>
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{label}</p>
-        {groupPartners.map((p: any) => {
-          const hasSaved = savedPartnerIds.has(p.id);
-          return (
-            <div
-              key={p.id}
-              className={`flex items-center justify-between px-3 py-1.5 rounded border cursor-pointer transition-all hover:bg-accent ${hasSaved ? "border-green-500/50 bg-green-50 dark:bg-green-950/20" : "border-border"}`}
-              onClick={(e) => { e.stopPropagation(); onOpenPartnerForm(p.id); }}
-              data-testid={`period-partner-${period.key}-${p.id}`}
-            >
-              <span className="text-xs font-medium">{p.name}</span>
-              {hasSaved && (
-                <Badge variant="secondary" className="text-[8px] px-1 h-3.5 bg-green-600 text-white">Vyplnené</Badge>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  function TotalVal({ label, value, suffix }: { label: string; value: number; suffix?: string }) {
-    return (
-      <div className="flex flex-col gap-0.5">
-        <span className="text-[9px] text-muted-foreground">{label}</span>
-        <span className="text-xs font-bold">{suffix ? `${value.toLocaleString("sk-SK")} ${suffix}` : value.toLocaleString("sk-SK")}</span>
-      </div>
-    );
-  }
-
-  function renderTotals() {
-    if (!totalsData?.totals || totalsData.partnerCount === 0) return null;
-    const t = totalsData.totals;
-
-    return (
-      <div className="border-t border-dashed pt-3 mt-3 space-y-3" data-testid={`totals-${period.key}`}>
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Celkom pre NBS ({totalsData.partnerCount} výkazov)</p>
-
-        <div className="border rounded p-3 space-y-2 bg-muted/30">
-          <p className="text-[10px] font-bold">I. POČET ZMLÚV (ks)</p>
-          <div className="space-y-1.5">
-            <p className="text-[9px] text-muted-foreground">Nové zmluvy</p>
-            <div className="grid grid-cols-3 gap-2">
-              <TotalVal label="Životné" value={t.newContracts?.life || 0} />
-              <TotalVal label="Neživotné" value={t.newContracts?.nonLife || 0} />
-              <TotalVal label="Zaistenie" value={t.newContracts?.reinsurance || 0} />
-            </div>
-            <p className="text-[9px] text-muted-foreground">Dodatky k zmluvám</p>
-            <div className="grid grid-cols-2 gap-2">
-              <TotalVal label="Životné" value={t.amendments?.life || 0} />
-              <TotalVal label="Neživotné" value={t.amendments?.nonLife || 0} />
-            </div>
-            <p className="text-[9px] text-muted-foreground">Skupinové zmluvy</p>
-            <div className="grid grid-cols-2 gap-2">
-              <TotalVal label="Životné" value={t.groupContracts?.life || 0} />
-              <TotalVal label="Neživotné" value={t.groupContracts?.nonLife || 0} />
-            </div>
-            <p className="text-[9px] text-muted-foreground">Prevzaté zmluvy</p>
-            <div className="grid grid-cols-2 gap-2">
-              <TotalVal label="Životné" value={t.takenContracts?.life || 0} />
-              <TotalVal label="Neživotné" value={t.takenContracts?.nonLife || 0} />
-            </div>
-          </div>
-        </div>
-
-        <div className="border rounded p-3 space-y-2 bg-muted/30">
-          <p className="text-[10px] font-bold">II. OBJEM ROČNÉHO POISTNÉHO (EUR s daňou/odvodom)</p>
-          <div className="space-y-1.5">
-            <p className="text-[9px] text-muted-foreground">Nové zmluvy</p>
-            <div className="grid grid-cols-3 gap-2">
-              <TotalVal label="Životné" value={t.premiumNew?.life || 0} suffix="€" />
-              <TotalVal label="Neživotné" value={t.premiumNew?.nonLife || 0} suffix="€" />
-              <TotalVal label="Zaistenie" value={t.premiumNew?.reinsurance || 0} suffix="€" />
-            </div>
-            <p className="text-[9px] text-muted-foreground">Skupinové zmluvy</p>
-            <div className="grid grid-cols-2 gap-2">
-              <TotalVal label="Životné" value={t.premiumGroup?.life || 0} suffix="€" />
-              <TotalVal label="Neživotné" value={t.premiumGroup?.nonLife || 0} suffix="€" />
-            </div>
-            <p className="text-[9px] text-muted-foreground">Prevzaté zmluvy</p>
-            <div className="grid grid-cols-2 gap-2">
-              <TotalVal label="Životné" value={t.premiumTaken?.life || 0} suffix="€" />
-              <TotalVal label="Neživotné" value={t.premiumTaken?.nonLife || 0} suffix="€" />
-            </div>
-          </div>
-        </div>
-
-        <div className="border rounded p-3 space-y-2 bg-muted/30">
-          <p className="text-[10px] font-bold">III. ZRUŠENÉ ZMLUVY (ks)</p>
-          <div className="space-y-1.5">
-            <p className="text-[9px] text-muted-foreground">Výpoveďou do 3 rokov (§ 800)</p>
-            <div className="grid grid-cols-3 gap-2">
-              <TotalVal label="Životné" value={t.cancelledNotice?.life || 0} />
-              <TotalVal label="Neživotné" value={t.cancelledNotice?.nonLife || 0} />
-              <TotalVal label="Zaistenie" value={t.cancelledNotice?.reinsurance || 0} />
-            </div>
-            <p className="text-[9px] text-muted-foreground">Nezaplatením do 3 mesiacov (§ 801)</p>
-            <div className="grid grid-cols-3 gap-2">
-              <TotalVal label="Životné" value={t.cancelledNonPayment?.life || 0} />
-              <TotalVal label="Neživotné" value={t.cancelledNonPayment?.nonLife || 0} />
-              <TotalVal label="Zaistenie" value={t.cancelledNonPayment?.reinsurance || 0} />
-            </div>
-            <p className="text-[9px] text-muted-foreground">Odstúpením do 30 dní (§ 802a)</p>
-            <div className="grid grid-cols-1 gap-2 max-w-[120px]">
-              <TotalVal label="Počet" value={t.cancelledWithdrawal?.count || 0} />
-            </div>
-          </div>
-        </div>
-
-        <div className="border rounded p-3 space-y-2 bg-muted/30">
-          <p className="text-[10px] font-bold">IV. FINANČNÉ TOKY — PROVÍZIE (EUR)</p>
-          <div className="grid grid-cols-2 gap-2">
-            <TotalVal label="Kladné finančné toky" value={t.commissionPositive || 0} suffix="€" />
-            <TotalVal label="Záporné finančné toky" value={t.commissionNegative || 0} suffix="€" />
-            <TotalVal label="Započítané KLADNÉ" value={t.commissionOffsetPositive || 0} suffix="€" />
-            <TotalVal label="Započítané ZÁPORNÉ" value={t.commissionOffsetNegative || 0} suffix="€" />
-          </div>
-        </div>
-
-        <div className="border rounded p-3 space-y-2 bg-muted/30">
-          <p className="text-[10px] font-bold">V. PERSONÁLNE ČLENENIE</p>
-          <div className="space-y-1.5">
-            <p className="text-[9px] text-muted-foreground">Počet PFA podľa výkonu</p>
-            <div className="grid grid-cols-3 gap-2">
-              <TotalVal label="0 zmlúv" value={t.pfaByPerformance?.zero || 0} />
-              <TotalVal label="1-10 zmlúv" value={t.pfaByPerformance?.low || 0} />
-              <TotalVal label="11 a viac" value={t.pfaByPerformance?.high || 0} />
-            </div>
-            <p className="text-[9px] text-muted-foreground">Počet zamestnancov podľa výkonu</p>
-            <div className="grid grid-cols-3 gap-2">
-              <TotalVal label="0 zmlúv" value={t.employeesByPerformance?.zero || 0} />
-              <TotalVal label="1-10 zmlúv" value={t.employeesByPerformance?.low || 0} />
-              <TotalVal label="11 a viac" value={t.employeesByPerformance?.high || 0} />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const sectorReportsList = Array.from(sectorReports.values());
+  const sentCount = sectorReportsList.filter(r => r.status === "sent").length;
+  const allSent = activeSectors.length > 0 && activeSectors.every(g => g.report?.status === "sent");
+  const overallStatus = allSent ? "sent" : sectorReportsList.some(r => r.status === "checked") ? "checked" : "not_sent";
+  const colorClass = getColorByDeadline(deadline, overallStatus);
 
   return (
     <Card className={`border-2 transition-all ${colorClass}`} data-testid={`period-card-${period.key}`}>
@@ -1094,49 +944,84 @@ function PeriodBubble({ period, report, year, isExpanded, onToggle, onStatusClic
               <h3 className="text-base font-bold">{period.label}</h3>
               <p className="text-[10px] text-muted-foreground">
                 Termín: {formatDeadlineSlovak(deadline)}
-                {report.status === "sent" && report.sentDate && ` · Odoslané: ${report.sentDate}`}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {savedCount > 0 && (
-              <Badge variant="secondary" className="text-[9px] px-1.5 h-4 bg-green-600 text-white">{savedCount} výkazov</Badge>
+            {sentCount > 0 && (
+              <Badge variant="secondary" className={`text-[9px] px-1.5 h-4 ${allSent ? "bg-green-600 text-white" : "bg-blue-600 text-white"}`}>
+                {sentCount}/{sectorReports.size} sekt. odoslaných
+              </Badge>
             )}
-            {report.status !== "sent" && (
+            {!allSent && (
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                 daysLeft <= 14 ? "bg-red-600 text-white" : daysLeft <= 30 ? "bg-orange-500 text-white" : "bg-blue-600 text-white"
               }`} data-testid={`days-left-${period.key}`}>
                 {daysLeft > 0 ? `${daysLeft} dní` : `${Math.abs(daysLeft)} dní po termíne`}
               </span>
             )}
-            <Button
-              size="sm"
-              className={`text-xs px-3 py-1 h-7 ${statusBtnColor}`}
-              onClick={(e) => { e.stopPropagation(); onStatusClick(); }}
-              disabled={statusPending}
-              data-testid={`btn-status-${period.key}`}
-            >
-              {statusPending ? <Loader2 className="w-3 h-3 animate-spin" /> : getStatusLabel(report.status)}
-            </Button>
           </div>
         </div>
 
         {isExpanded && (
-          <div className="px-5 pb-4 pt-1 border-t space-y-3">
+          <div className="px-5 pb-4 pt-1 border-t space-y-4">
             {partnersLoading ? (
               <div className="flex justify-center py-3">
                 <Loader2 className="w-5 h-5 animate-spin text-primary" />
               </div>
+            ) : activeSectors.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-2">Žiadni partneri zaradení do NBS reportu. Nastavte partnerov cez tlačidlo „Nastavenie NBS partnerov".</p>
             ) : (
-              <>
-                {partnersByNbsSectorInBubble.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-2">Žiadni partneri zaradení do NBS reportu</p>
-                ) : partnersByNbsSectorInBubble.map(g =>
-                  renderPartnerGroup(`${g.sector.key} — ${g.sector.label}`, g.partners, `period-group-${g.sector.key.toLowerCase()}-${period.key}`, g.sector.key)
-                )}
-                {renderTotals()}
-              </>
+              activeSectors.map(({ sector: sec, report: secReport, partners: secPartners }) => {
+                if (!secReport) return null;
+                const sectorSavedIds = new Set((periodReports || []).filter((r: any) => r.sector === sec.key).map((r: any) => r.partnerId));
+                const secSavedCount = sectorSavedIds.size;
+                const statusBtnColor = getStatusButtonColor(secReport.status);
+                return (
+                  <div key={sec.key} className={`rounded-lg border p-3 space-y-2 ${sec.bg}`} data-testid={`sector-section-${sec.key}-${period.key}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${sec.bg} ${sec.color}`}>{sec.key}</span>
+                        <span className={`text-xs font-semibold ${sec.color}`}>{sec.label}</span>
+                        {secSavedCount > 0 && (
+                          <Badge variant="secondary" className="text-[8px] px-1 h-3.5 bg-green-600 text-white">{secSavedCount} výkazov</Badge>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        className={`text-xs px-2.5 py-1 h-6 ${statusBtnColor}`}
+                        onClick={(e) => { e.stopPropagation(); onSectorStatusClick(secReport); }}
+                        disabled={statusPending}
+                        data-testid={`btn-status-${period.key}-${sec.key}`}
+                      >
+                        {statusPending ? <Loader2 className="w-3 h-3 animate-spin" /> : getStatusLabel(secReport.status)}
+                      </Button>
+                    </div>
+                    {secReport.status === "sent" && secReport.sentDate && (
+                      <p className="text-[9px] text-muted-foreground">Odoslané: {secReport.sentDate}</p>
+                    )}
+                    <div className="space-y-1">
+                      {secPartners.map((p: any) => {
+                        const hasSaved = sectorSavedIds.has(p.id);
+                        return (
+                          <div
+                            key={p.id}
+                            className={`flex items-center justify-between px-2.5 py-1.5 rounded border cursor-pointer transition-all hover:bg-accent/50 ${hasSaved ? "border-green-500/50 bg-green-50/80 dark:bg-green-950/30" : "border-border/60 bg-background/60"}`}
+                            onClick={(e) => { e.stopPropagation(); onOpenPartnerForm(p.id, sec.key); }}
+                            data-testid={`period-partner-${period.key}-${sec.key}-${p.id}`}
+                          >
+                            <span className="text-xs font-medium">{p.name}</span>
+                            {hasSaved && (
+                              <Badge variant="secondary" className="text-[8px] px-1 h-3.5 bg-green-600 text-white">Vyplnené</Badge>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         )}
