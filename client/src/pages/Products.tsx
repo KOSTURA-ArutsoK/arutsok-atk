@@ -138,7 +138,7 @@ function DocBubble({ color, label, docs, setDocs, inputValue, setInputValue, pla
           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
           data-testid={`input-doc-${testIdPrefix}`}
         />
-        <Button size="sm" onClick={add} disabled={!inputValue.trim()} data-testid={`button-add-doc-${testIdPrefix}`}>
+        <Button type="button" size="sm" onClick={add} disabled={!inputValue.trim()} data-testid={`button-add-doc-${testIdPrefix}`}>
           <Plus className="w-4 h-4 mr-1" />Pridať
         </Button>
       </div>
@@ -153,6 +153,7 @@ function DocBubble({ color, label, docs, setDocs, inputValue, setInputValue, pla
               <div className="flex items-center gap-1 shrink-0">
                 {copyTargets && copyTargets.length > 0 && (
                   <Button
+                    type="button"
                     size="icon" variant="ghost" className="h-7 w-7"
                     title="Skopírovať do ostatných stĺpcov"
                     onClick={() => copyDoc(doc)}
@@ -161,7 +162,7 @@ function DocBubble({ color, label, docs, setDocs, inputValue, setInputValue, pla
                     <Copy className="w-3 h-3 text-muted-foreground" />
                   </Button>
                 )}
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDocs(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-doc-${testIdPrefix}-${idx}`}>
+                <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDocs(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-doc-${testIdPrefix}-${idx}`}>
                   <Trash2 className="w-3 h-3 text-destructive" />
                 </Button>
               </div>
