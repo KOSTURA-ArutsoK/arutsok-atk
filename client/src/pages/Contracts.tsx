@@ -6176,6 +6176,18 @@ export default function Contracts() {
       if (next.has(idx)) next.delete(idx); else next.add(idx);
       return next;
     });
+    const focusNextRow = (e: React.KeyboardEvent) => {
+      const allRows = Array.from(document.querySelectorAll<HTMLElement>("[data-docchecklist-row]"));
+      const idx = allRows.indexOf(e.currentTarget as HTMLElement);
+      if (idx >= 0 && idx < allRows.length - 1) allRows[idx + 1].focus();
+    };
+    const handleRowKey = (e: React.KeyboardEvent, toggle: () => void) => {
+      if (e.key === "Enter" || e.key === "Backspace") {
+        e.preventDefault();
+        toggle();
+        focusNextRow(e);
+      }
+    };
     const addExtraOpt = () => {
       const name = docChecklistNewOpt.trim();
       if (!name) return;
@@ -6219,8 +6231,11 @@ export default function Contracts() {
                     return (
                       <div
                         key={idx}
-                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
+                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors focus:outline-none focus:ring-1 focus:ring-primary/50 ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
+                        tabIndex={0}
+                        data-docchecklist-row
                         onClick={() => toggleReq(idx)}
+                        onKeyDown={e => handleRowKey(e, () => toggleReq(idx))}
                         data-testid={`row-docchecklist-req-${idx}`}
                       >
                         <Checkbox
@@ -6263,8 +6278,11 @@ export default function Contracts() {
                     return (
                       <div
                         key={idx}
-                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
+                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors focus:outline-none focus:ring-1 focus:ring-primary/50 ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
+                        tabIndex={0}
+                        data-docchecklist-row
                         onClick={() => toggleOpt(idx)}
+                        onKeyDown={e => handleRowKey(e, () => toggleOpt(idx))}
                         data-testid={`row-docchecklist-opt-${idx}`}
                       >
                         <Checkbox
@@ -6289,8 +6307,11 @@ export default function Contracts() {
                     return (
                       <div
                         key={idx}
-                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
+                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors focus:outline-none focus:ring-1 focus:ring-primary/50 ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
+                        tabIndex={0}
+                        data-docchecklist-row
                         onClick={() => toggleExtra(idx)}
+                        onKeyDown={e => handleRowKey(e, () => toggleExtra(idx))}
                         data-testid={`row-docchecklist-extra-${idx}`}
                       >
                         <Checkbox
