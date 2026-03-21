@@ -4272,8 +4272,9 @@ export default function Contracts() {
                   const rcIco = sub ? (sub.type === "person" ? sub.birthNumber : sub.type === "szco" ? ((contract as any).szcoIco || sub.birthNumber) : (sub as any).ico) : (raw.rc_ico || null);
                   const nazovFirmy = sub?.companyName || raw.nazov_firmy || null;
                   const titulPred = sub?.titleBefore || raw.titul_pred || null;
-                  const meno = sub?.firstName || raw.meno || null;
-                  const priezvisko = sub?.lastName || raw.priezvisko || null;
+                  const subLinkedFo = sub?.linkedFoId ? subjects?.find((s: any) => s.id === sub.linkedFoId) : undefined;
+                  const meno = sub?.firstName || subLinkedFo?.firstName || raw.meno || null;
+                  const priezvisko = sub?.lastName || subLinkedFo?.lastName || raw.priezvisko || null;
                   const titulZa = sub?.titleAfter || raw.titul_za || null;
                   const rcEarlyOnly = sub?.birthNumber || raw.rodne_cislo || null;
                   const icoEarlyOnly = (sub as any)?.ico || raw.ico || null;
@@ -6096,9 +6097,10 @@ export default function Contracts() {
     const step1Ok = !!(contract.partnerId) && !!(contract.productId) &&
       !!((contract.proposalNumber || "").trim() || (contract.contractNumber || "").trim()) &&
       !!existingSignedDate;
+    const linkedFoForSub = sub?.linkedFoId ? subjects?.find(s => s.id === sub.linkedFoId) : undefined;
     const subjectHasName = !sub ? false :
       sub.type === "person" ? !!(sub.firstName?.trim() && sub.lastName?.trim()) :
-      (sub.type === "szco" || sub.type === "company" || sub.type === "organization") ? !!(sub.companyName?.trim()) :
+      (sub.type === "szco" || sub.type === "company" || sub.type === "organization") ? !!(sub.companyName?.trim() || linkedFoForSub?.firstName?.trim()) :
       true;
     const step2Ok = !!(contract.subjectId) && subjectHasName;
     const step3Ok = !!(existingSpec?.uid);

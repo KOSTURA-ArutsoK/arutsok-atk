@@ -8397,11 +8397,15 @@ export async function registerRoutes(
 
       for (const c of contractList) {
         const subject = subjects.find(s => s.id === c.subjectId);
+        const linkedFo = subject?.linkedFoId ? subjects.find(s => s.id === subject.linkedFoId) : undefined;
         const partner = partnersData.find(p => p.id === c.partnerId);
         const product = productsData.find(p => p.id === c.productId);
+        const clientName = subject
+          ? (subject.companyName || `${subject.firstName || linkedFo?.firstName || ""} ${subject.lastName || linkedFo?.lastName || ""}`.trim())
+          : "";
         sheet.addRow({
           globalNumber: (c as any).globalNumber || c.id.toString(),
-          clientName: subject ? `${subject.firstName || ""} ${subject.lastName || ""}`.trim() : "",
+          clientName,
           partner: partner?.name || "",
           product: product?.name || "",
           contractNumber: (c as any).contractNumber || (c as any).uid || "",
@@ -8438,11 +8442,15 @@ export async function registerRoutes(
       const headers = ["Cislo kontraktu", "Meno klienta", "Partner", "Produkt", "Cislo zmluvy", "Suma poistneho", "Dátum uzatvorenia"];
       const rows = contractList.map(c => {
         const subject = subjects.find(s => s.id === c.subjectId);
+        const linkedFo = subject?.linkedFoId ? subjects.find(s => s.id === subject.linkedFoId) : undefined;
         const partner = partnersData.find(p => p.id === c.partnerId);
         const product = productsData.find(p => p.id === c.productId);
+        const csvClientName = subject
+          ? (subject.companyName || `${subject.firstName || linkedFo?.firstName || ""} ${subject.lastName || linkedFo?.lastName || ""}`.trim())
+          : "";
         return [
           (c as any).globalNumber?.toString() || c.id.toString(),
-          subject ? `${subject.firstName || ""} ${subject.lastName || ""}`.trim() : "",
+          csvClientName,
           partner?.name || "",
           product?.name || "",
           (c as any).contractNumber || (c as any).uid || "",

@@ -302,7 +302,11 @@ function AddContractsDialog({
                 ) : (
                   sortedEligible.map((c: any) => {
                     const subject = subjects.find((s: any) => s.id === c.subjectId);
+                    const subjectLinkedFo = subject?.linkedFoId ? subjects.find((s: any) => s.id === subject.linkedFoId) : undefined;
                     const partner = partners.find((p: any) => p.id === c.partnerId);
+                    const clientName = subject
+                      ? (subject.companyName || `${subject.firstName || subjectLinkedFo?.firstName || ""} ${subject.lastName || subjectLinkedFo?.lastName || ""}`.trim())
+                      : "";
                     return (
                       <TableRow key={c.id} data-testid={`row-eligible-${c.id}`}>
                         <TableCell>
@@ -314,7 +318,7 @@ function AddContractsDialog({
                         </TableCell>
                         <TableCell className="font-mono text-sm">{c.globalNumber || c.id}</TableCell>
                         <TableCell>
-                          {subject ? `${subject.firstName || ""} ${subject.lastName || ""}`.trim() : ""}
+                          {clientName}
                         </TableCell>
                         <TableCell>{partner?.name || ""}</TableCell>
                       </TableRow>
