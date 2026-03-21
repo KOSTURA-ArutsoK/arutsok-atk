@@ -400,7 +400,8 @@ import type { State, StateFlagHistory } from "@shared/schema";
 const STATE_COLUMNS: ColumnDef[] = [
   { key: "id", label: "ID" },
   { key: "name", label: "Nazov" },
-  { key: "code", label: "Skratka" },
+  { key: "code", label: "Tel. predvoľba" },
+  { key: "subjectCode", label: "Kód subjektov" },
   { key: "currency", label: "Mena" },
   { key: "continentId", label: "Kontinent" },
   { key: "flagUrl", label: "Vlajka" },
@@ -615,6 +616,7 @@ function StateFormDialog({
   const [currency, setCurrency] = useState("EUR");
   const [currencyName, setCurrencyName] = useState("Euro");
   const [currencySubunit, setCurrencySubunit] = useState("1 euro = 100 centov");
+  const [subjectCode, setSubjectCode] = useState("");
   const [continentId, setContinentId] = useState("1");
   const [flagUrl, setFlagUrl] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -653,6 +655,7 @@ function StateFormDialog({
         setCurrency(cur);
         setCurrencyName((editingState as any).currencyName || CURRENCY_INFO[cur]?.name || "");
         setCurrencySubunit((editingState as any).currencySubunit || CURRENCY_INFO[cur]?.subunit || "");
+        setSubjectCode((editingState as any).subjectCode || editingState.code || "");
         setContinentId(editingState.continentId.toString());
         setFlagUrl(editingState.flagUrl ?? null);
       } else if (initialCountry) {
@@ -662,12 +665,14 @@ function StateFormDialog({
         setCurrency(cur);
         setCurrencyName(CURRENCY_INFO[cur]?.name || "");
         setCurrencySubunit(CURRENCY_INFO[cur]?.subunit || "");
+        setSubjectCode(initialCountry.c.dial);
         setContinentId(initialCountry.cid.toString());
         setFlagUrl(`https://flagcdn.com/w160/${initialCountry.c.iso}.png`);
       } else {
         setName(""); setCode(""); setCurrency("EUR");
         setCurrencyName(CURRENCY_INFO["EUR"]?.name || "Euro");
         setCurrencySubunit(CURRENCY_INFO["EUR"]?.subunit || "1 euro = 100 centov");
+        setSubjectCode("");
         setContinentId("1"); setFlagUrl(null);
       }
     }
@@ -679,6 +684,7 @@ function StateFormDialog({
     setCurrency(c.currency);
     setCurrencyName(CURRENCY_INFO[c.currency]?.name || "");
     setCurrencySubunit(CURRENCY_INFO[c.currency]?.subunit || "");
+    setSubjectCode(c.dial);
     setContinentId(cid.toString());
     setFlagUrl(`https://flagcdn.com/w160/${c.iso}.png`);
   }
@@ -698,7 +704,7 @@ function StateFormDialog({
       return;
     }
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
-    const payload = { name, code, currency, currencyName, currencySubunit, continentId: parseInt(continentId), flagUrl, processingTimeSec };
+    const payload = { name, code, currency, currencyName, currencySubunit, subjectCode, continentId: parseInt(continentId), flagUrl, processingTimeSec };
 
     if (editingState) {
       updateMutation.mutate(payload);
@@ -787,6 +793,21 @@ function StateFormDialog({
               />
             </div>
 
+            {/* Kód pre subjekty */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Kód pre subjekty</label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground select-none">+</span>
+                <Input
+                  value={subjectCode}
+                  onChange={(e) => setSubjectCode(e.target.value.replace(/\D/g, ""))}
+                  placeholder="napr. 421"
+                  data-testid="input-state-subject-code"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Predpona (prefix), ktorá sa zobrazuje pred číslom subjektu v tomto štáte. Predvolene sa doplní z telefónnej predvoľby, ale môžete ju zmeniť.</p>
+            </div>
+
             {/* Mena */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Mena</label>
@@ -822,7 +843,6 @@ function StateFormDialog({
                 <img src={flagUrl} alt={name} className="w-10 h-7 object-cover rounded border border-border/50" />
                 <div className="text-sm">
                   <p className="font-medium">{name}</p>
-                  <p className="text-xs text-muted-foreground font-mono">{flagUrl}</p>
                 </div>
                 <Button type="button" variant="ghost" size="icon" className="ml-auto h-7 w-7" onClick={() => setFlagUrl(null)}>
                   <X className="w-3.5 h-3.5" />
@@ -1240,6 +1260,7 @@ export default function SettingsStates() {
     columnVisibility.isVisible("id"),
     columnVisibility.isVisible("name"),
     columnVisibility.isVisible("code"),
+    columnVisibility.isVisible("subjectCode"),
     columnVisibility.isVisible("currency"),
     columnVisibility.isVisible("continentId"),
     columnVisibility.isVisible("flagUrl"),
@@ -1251,6 +1272,13 @@ export default function SettingsStates() {
         {columnVisibility.isVisible("id") && <TableCell><Badge variant="outline">{state.id}</Badge></TableCell>}
         {columnVisibility.isVisible("name") && <TableCell className="font-medium pl-7" data-testid={`text-state-name-${state.id}`}>{state.name}</TableCell>}
         {columnVisibility.isVisible("code") && <TableCell data-testid={`text-state-code-${state.id}`}>{state.code}</TableCell>}
+        {columnVisibility.isVisible("subjectCode") && (
+          <TableCell data-testid={`text-state-subject-code-${state.id}`}>
+            {(state as any).subjectCode
+              ? <span className="font-mono text-sm text-muted-foreground">+{(state as any).subjectCode}</span>
+              : <span className="text-xs text-muted-foreground/40">—</span>}
+          </TableCell>
+        )}
         {columnVisibility.isVisible("currency") && (
           <TableCell data-testid={`text-state-currency-${state.id}`}>
             <div className="flex items-center gap-2">
@@ -1311,7 +1339,8 @@ export default function SettingsStates() {
                 <TableRow>
                   {columnVisibility.isVisible("id") && <TableHead>ID</TableHead>}
                   {columnVisibility.isVisible("name") && <TableHead>Nazov</TableHead>}
-                  {columnVisibility.isVisible("code") && <TableHead>Skratka</TableHead>}
+                  {columnVisibility.isVisible("code") && <TableHead>Tel. predvoľba</TableHead>}
+                  {columnVisibility.isVisible("subjectCode") && <TableHead>Kód subjektov</TableHead>}
                   {columnVisibility.isVisible("currency") && <TableHead>Mena</TableHead>}
                   {columnVisibility.isVisible("continentId") && <TableHead>Kontinent</TableHead>}
                   {columnVisibility.isVisible("flagUrl") && <TableHead>Vlajka</TableHead>}
