@@ -6247,6 +6247,7 @@ export default function Contracts() {
                           checked={checked}
                           onCheckedChange={() => toggleReq(idx)}
                           onClick={e => e.stopPropagation()}
+                          tabIndex={-1}
                           className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
                           data-testid={`checkbox-docchecklist-req-${idx}`}
                         />
@@ -6294,6 +6295,7 @@ export default function Contracts() {
                           checked={checked}
                           onCheckedChange={() => toggleOpt(idx)}
                           onClick={e => e.stopPropagation()}
+                          tabIndex={-1}
                           className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
                           data-testid={`checkbox-docchecklist-opt-${idx}`}
                         />
@@ -6323,6 +6325,7 @@ export default function Contracts() {
                           checked={checked}
                           onCheckedChange={() => toggleExtra(idx)}
                           onClick={e => e.stopPropagation()}
+                          tabIndex={-1}
                           className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
                           data-testid={`checkbox-docchecklist-extra-${idx}`}
                         />
