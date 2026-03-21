@@ -3793,6 +3793,43 @@ export default function Contracts() {
   const activeArchived = archivedContracts?.filter(c => !c.isDeleted) || [];
   const activeRejected = rejectedContracts?.filter(c => !c.isDeleted) || [];
 
+  const allPhaseContracts = useMemo(() => {
+    const seen = new Set<number>();
+    const result: Contract[] = [];
+    const addAll = (arr: Contract[]) => {
+      for (const c of arr) {
+        if (!seen.has(c.id)) { seen.add(c.id); result.push(c); }
+      }
+    };
+    addAll(activeContracts);
+    addAll(activeDispatched);
+    addAll(activeRejected);
+    addAll(activeArchived);
+    addAll(activeAccepted);
+    addAll(phase6Contracts);
+    addAll(phase7Contracts);
+    addAll(phase8Contracts);
+    addAll(phase9Contracts);
+    addAll(phase10Contracts);
+    return result;
+  }, [activeContracts, activeDispatched, activeRejected, activeArchived, activeAccepted, phase6Contracts, phase7Contracts, phase8Contracts, phase9Contracts, phase10Contracts]);
+
+  function getPhaseInfo(phase: number | null): { label: string; color: string; folderId: number } {
+    switch(phase) {
+      case 1: return { label: "Nahratie", color: "text-amber-500 bg-amber-500/15", folderId: 1 };
+      case 2: return { label: "Odoslané", color: "text-blue-500 bg-blue-500/15", folderId: 2 };
+      case 3: return { label: "Neprijaté", color: "text-red-500 bg-red-500/15", folderId: 3 };
+      case 4: return { label: "Archív", color: "text-zinc-400 bg-zinc-400/15", folderId: 4 };
+      case 5: return { label: "Prijaté", color: "text-green-500 bg-green-500/15", folderId: 5 };
+      case 6: return { label: "Roztriedenie", color: "text-yellow-500 bg-yellow-500/15", folderId: 6 };
+      case 7: return { label: "Intervencie", color: "text-orange-500 bg-orange-500/15", folderId: 7 };
+      case 8: return { label: "Kontrola", color: "text-emerald-500 bg-emerald-500/15", folderId: 8 };
+      case 9: return { label: "Odoslať partnerovi", color: "text-indigo-500 bg-indigo-500/15", folderId: 9 };
+      case 10: return { label: "Potvrdenie", color: "text-yellow-400 bg-yellow-400/15", folderId: 10 };
+      default: return { label: "Fáza " + (phase ?? "?"), color: "text-muted-foreground bg-muted", folderId: 1 };
+    }
+  }
+
   const folderDefs: FolderDef[] = [
     { id: 1, label: "Nahratie a vytvorenie sprievodky", icon: PenSparkIcon, color: "text-amber-500", bgColor: "bg-amber-500/15", count: contractsTotal || activeContracts.length, tooltip: "Zmluva bola nahratá do systému a čaká na zaradenie do sprievodky a odoslanie na centrálu partnera." },
     { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length, tooltip: "Zmluvy, ktoré boli vrátené s výhradami od obchodného partnera alebo centrály. Vyžadujú opravu a opätovné odoslanie." },
@@ -3822,16 +3859,37 @@ export default function Contracts() {
     return c ? isContractEffectivelyIncomplete(c) : false;
   });
 
-  function filterBySearch(list: Contract[]) {
-    if (!searchQuery.trim()) return list;
-    const q = searchQuery.toLowerCase();
-    return list.filter(c =>
+  function contractMatchesSearch(c: Contract, q: string): boolean {
+    if (!q) return true;
+    const raw = (c as any).importedRawData || {};
+    const sub = subjects?.find(s => s.id === c.subjectId);
+    const subIco = (sub as any)?.details?.ico || (sub as any)?.ico || raw.ico || "";
+    const subBn = sub?.birthNumber || raw.rodne_cislo || raw.rc_ico || "";
+    const subUid = sub?.uid || "";
+    const subCompany = sub?.companyName || raw.nazov_firmy || "";
+    const signedDateStr = c.signedDate ? new Date(c.signedDate).toLocaleDateString("sk-SK") : "";
+    const specUid = (c as any).specialistaUid || "";
+    return (
       (c.contractNumber || "").toLowerCase().includes(q) ||
+      (c.proposalNumber || "").toLowerCase().includes(q) ||
       (c.globalNumber ? String(c.globalNumber) : "").includes(q) ||
+      (c.contractType || "").toLowerCase().includes(q) ||
+      signedDateStr.includes(q) ||
       getSubjectDisplayName(c.subjectId).toLowerCase().includes(q) ||
+      subCompany.toLowerCase().includes(q) ||
+      subBn.replace(/\s/g, "").includes(q.replace(/\s/g, "")) ||
+      subIco.replace(/\s/g, "").includes(q.replace(/\s/g, "")) ||
+      subUid.replace(/\s/g, "").includes(q.replace(/\s/g, "")) ||
+      specUid.replace(/\s/g, "").includes(q.replace(/\s/g, "")) ||
       getPartnerName(c).toLowerCase().includes(q) ||
       getProductName(c).toLowerCase().includes(q)
     );
+  }
+
+  function filterBySearch(list: Contract[]) {
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase().trim();
+    return list.filter(c => contractMatchesSearch(c, q));
   }
 
   function renderContractTable(list: Contract[], options?: { showCheckbox?: boolean; showOrder?: boolean; showStatus?: boolean; showRegistration?: boolean; showActions?: boolean; showTimer?: boolean; showRerouteCheckbox?: boolean; checkboxOnly?: boolean; hideContractNumbers?: boolean; earlyPhase?: boolean; sortState?: { sortKey: string | null; sortDirection: "asc" | "desc" | null; requestSort: (key: string) => void } }) {
@@ -8315,7 +8373,7 @@ export default function Contracts() {
             <Input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Hladať zmluvy (číslo, klient, partner, produkt...)"
+              placeholder="Hľadať naprieč všetkými bublinkami (č. zmluvy, RČ, IČO, klient, partner, produkt, typ, dátum...)"
               className="pl-9"
               data-testid="input-search-contracts"
             />
@@ -8324,6 +8382,84 @@ export default function Contracts() {
           <ColumnManager columnVisibility={evidenciaColumnVisibility} />
           <ColumnManager columnVisibility={sprievodkaColumnVisibility} />
         </div>
+
+        {searchQuery.trim() && (() => {
+          const q = searchQuery.toLowerCase().trim();
+          const globalResults = allPhaseContracts.filter(c => contractMatchesSearch(c, q));
+          return (
+            <Card className="border-primary/40 bg-primary/5">
+              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-primary/20">
+                <Search className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold text-primary">Globálne výsledky hľadania</span>
+                <span className="ml-1 text-xs text-muted-foreground">— nájdené <span className="font-bold text-foreground">{globalResults.length}</span> zmluv naprieč všetkými 10 bublinkami</span>
+                <button
+                  className="ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setSearchQuery("")}
+                  data-testid="button-clear-global-search"
+                >
+                  Zrušiť hľadanie ✕
+                </button>
+              </div>
+              {globalResults.length === 0 ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">Žiadne zmluvy nezodpovedajú hľadanému výrazu.</div>
+              ) : (
+                <div className="relative overflow-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+                  <Table stickyHeader>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="whitespace-nowrap">Bublinka</TableHead>
+                        <TableHead className="whitespace-nowrap">Č. zmluvy</TableHead>
+                        <TableHead className="whitespace-nowrap">Č. návrhu</TableHead>
+                        <TableHead>Klient</TableHead>
+                        <TableHead>Partner</TableHead>
+                        <TableHead>Produkt</TableHead>
+                        <TableHead className="whitespace-nowrap">Typ zmluvy</TableHead>
+                        <TableHead className="whitespace-nowrap">Dátum podpisu</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {globalResults.map(c => {
+                        const phase = c.lifecyclePhase ?? 1;
+                        const phaseInfo = getPhaseInfo(phase);
+                        return (
+                          <TableRow
+                            key={c.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            data-testid={`row-global-search-${c.id}`}
+                            onClick={() => {
+                              setActiveFolder(phaseInfo.folderId);
+                              setRerouteSelectedIds([]);
+                              setSearchQuery("");
+                              setTimeout(() => {
+                                const el = document.getElementById(`folder-${phaseInfo.folderId}-wrapper`);
+                                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                              }, 100);
+                            }}
+                          >
+                            <TableCell>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${phaseInfo.color}`}>
+                                {phaseInfo.label}
+                              </span>
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">{c.contractNumber || <span className="text-muted-foreground/40">—</span>}</TableCell>
+                            <TableCell className="font-mono text-xs">{c.proposalNumber || <span className="text-muted-foreground/40">—</span>}</TableCell>
+                            <TableCell className="text-sm">{getSubjectDisplayName(c.subjectId)}</TableCell>
+                            <TableCell className="text-sm">{getPartnerName(c)}</TableCell>
+                            <TableCell className="text-sm">{getProductName(c)}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{c.contractType || <span className="text-muted-foreground/40">—</span>}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                              {c.signedDate ? new Date(c.signedDate).toLocaleDateString("sk-SK") : <span className="text-muted-foreground/40">—</span>}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </Card>
+          );
+        })()}
 
         <WorkflowDiagram
           folderDefs={visibleFolderDefs}
