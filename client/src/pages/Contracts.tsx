@@ -6469,8 +6469,8 @@ export default function Contracts() {
             <div className="grid grid-cols-2 gap-2 items-end">
               <div className="space-y-1">
                 <label className="text-xs font-medium flex items-center gap-1 min-h-[1.25rem]">Vyberte partnera {isFieldMissing("partner") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
-                <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); }}>
-                  <SelectTrigger ref={refPartnerTrigger} className={isFieldMissing("partner") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-partner">
+                <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); setTimeout(() => refProductTrigger.current?.focus(), 80); }}>
+                  <SelectTrigger ref={refPartnerTrigger} className={isFieldMissing("partner") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-partner" onKeyDown={(e) => { if (e.key === "Enter" && preSelectPartnerId) { e.preventDefault(); setTimeout(() => refProductTrigger.current?.focus(), 50); } }}>
                     <SelectValue placeholder="Vyberte partnera" />
                   </SelectTrigger>
                   <SelectContent>
@@ -6482,8 +6482,8 @@ export default function Contracts() {
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium flex items-center gap-1 min-h-[1.25rem]">Vyberte produkt {isFieldMissing("product") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
-                <Select value={preSelectProductId} onValueChange={(v) => { setPreSelectProductId(v); }} open={preSelectProductOpen} onOpenChange={setPreSelectProductOpen} disabled={!preSelectPartnerId}>
-                  <SelectTrigger ref={refProductTrigger} className={isFieldMissing("product") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-product" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); setPreSelectProductOpen(prev => !prev); } }}>
+                <Select value={preSelectProductId} onValueChange={(v) => { setPreSelectProductId(v); setTimeout(() => refContractTypeTrigger.current?.focus(), 80); }} open={preSelectProductOpen} onOpenChange={setPreSelectProductOpen} disabled={!preSelectPartnerId}>
+                  <SelectTrigger ref={refProductTrigger} className={isFieldMissing("product") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-product" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (preSelectProductId && !preSelectProductOpen) { setTimeout(() => refContractTypeTrigger.current?.focus(), 50); } else { setPreSelectProductOpen(prev => !prev); } } }}>
                     <SelectValue placeholder={preSelectPartnerId ? "Vyberte produkt" : "Najprv vyberte partnera"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -6500,8 +6500,8 @@ export default function Contracts() {
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <label className="text-xs font-medium flex items-center gap-1">Typ zmluvy * {isFieldMissing("contract-type") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
-                <Select value={preSelectContractType} onValueChange={setPreSelectContractType} open={preSelectContractTypeOpen} onOpenChange={setPreSelectContractTypeOpen}>
-                  <SelectTrigger ref={refContractTypeTrigger} className={isFieldMissing("contract-type") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-contract-type" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); setPreSelectContractTypeOpen(prev => !prev); } }}>
+                <Select value={preSelectContractType} onValueChange={(v) => { setPreSelectContractType(v); setTimeout(() => refSignedDay.current?.focus(), 80); }} open={preSelectContractTypeOpen} onOpenChange={setPreSelectContractTypeOpen}>
+                  <SelectTrigger ref={refContractTypeTrigger} className={isFieldMissing("contract-type") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-contract-type" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (preSelectContractType && !preSelectContractTypeOpen) { setTimeout(() => refSignedDay.current?.focus(), 50); } else { setPreSelectContractTypeOpen(prev => !prev); } } }}>
                     <SelectValue placeholder="Vyberte typ zmluvy" />
                   </SelectTrigger>
                   <SelectContent>
