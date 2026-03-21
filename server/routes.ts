@@ -8197,11 +8197,19 @@ export async function registerRoutes(
       const appUser = req.appUser;
       const enforcedState = getEnforcedStateId(req);
       const supId = await storage.generateSupiskaId();
+      const resolvedStateId = enforcedState || req.body.stateId || null;
+      const resolvedCompanyId = appUser?.activeCompanyId || req.body.companyId || null;
+      const partnerId = req.body.partnerId ? Number(req.body.partnerId) : null;
+      const productId = req.body.productId ? Number(req.body.productId) : null;
+      const supiskaCode = await storage.generateSupiskaCode(resolvedStateId, resolvedCompanyId, partnerId, productId);
       const data = {
         ...req.body,
         supId,
-        stateId: enforcedState || req.body.stateId,
-        companyId: appUser?.activeCompanyId || req.body.companyId,
+        stateId: resolvedStateId,
+        companyId: resolvedCompanyId,
+        partnerId,
+        productId,
+        supiskaCode,
         createdBy: appUser?.username || "system",
         createdByUserId: appUser?.id,
       };

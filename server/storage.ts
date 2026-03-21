@@ -486,6 +486,7 @@ export interface IStorage {
   updateSupiska(id: number, data: Partial<InsertSupiska>): Promise<Supiska>;
   deleteSupiska(id: number): Promise<void>;
   generateSupiskaId(): Promise<string>;
+  generateSupiskaCode(stateId: number | null, companyId: number | null, partnerId: number | null, productId: number | null): Promise<string | null>;
   getSupiskaContracts(supiskaId: number): Promise<SupiskaContract[]>;
   addContractsToSupiska(supiskaId: number, contractIds: number[]): Promise<number>;
   removeContractFromSupiska(supiskaId: number, contractId: number): Promise<void>;
@@ -3587,6 +3588,28 @@ export class DatabaseStorage implements IStorage {
     `);
     const count = Number(result.rows[0]?.cnt ?? 0) + 1;
     return `SUP-${year}-${String(count).padStart(4, '0')}`;
+  }
+
+  async generateSupiskaCode(stateId: number | null, companyId: number | null, partnerId: number | null, productId: number | null): Promise<string | null> {
+    if (!stateId || !companyId || !partnerId || !productId) return null;
+    const [stateRow] = await db.select().from(states).where(eq(states.id, stateId));
+    const [companyRow] = await db.select().from(myCompanies).where(eq(myCompanies.id, companyId));
+    const [partnerRow] = await db.select().from(partners).where(eq(partners.id, partnerId));
+    const [productRow] = await db.select().from(products).where(eq(products.id, productId));
+    if (!stateRow || !companyRow || !partnerRow || !productRow) return null;
+    const year = new Date().getFullYear();
+    const result = await db.execute(sql`
+      SELECT COUNT(*)::int as cnt FROM supisky
+      WHERE state_id = ${stateId} AND company_id = ${companyId}
+        AND partner_id = ${partnerId} AND product_id = ${productId}
+        AND EXTRACT(YEAR FROM created_at) = ${year}
+    `);
+    const seqNum = Number(result.rows[0]?.cnt ?? 0) + 1;
+    const stateCode = stateRow.code || "??";
+    const companyCode = companyRow.code || "??";
+    const partnerCode = partnerRow.code || partnerRow.name.substring(0, 8).toUpperCase();
+    const productCode = productRow.code || productRow.name.substring(0, 8).toUpperCase();
+    return `${stateCode} - ${companyCode} - ${partnerCode} - ${productCode} - ${year} - ${seqNum}`;
   }
 
   async getSupiskaContracts(supiskaId: number): Promise<SupiskaContract[]> {

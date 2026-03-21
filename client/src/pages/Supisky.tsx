@@ -10,7 +10,8 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { Supiska } from "@shared/schema";
-import { Plus, Printer, Loader2, Send, Undo2, FileSpreadsheet, FileDown, Lock, X, ChevronDown, Search } from "lucide-react";
+import { Plus, Printer, Loader2, Send, Undo2, FileSpreadsheet, FileDown, Lock, X, ChevronDown, Search, Hash } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -70,7 +71,16 @@ function SupiskaFormDialog({
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
+  const [partnerId, setPartnerId] = useState("");
+  const [productId, setProductId] = useState("");
   const [formStartTime] = useState(() => Date.now());
+
+  const { data: partners = [] } = useQuery<any[]>({ queryKey: ["/api/partners"], enabled: open && !editing });
+  const { data: products = [] } = useQuery<any[]>({ queryKey: ["/api/products"], enabled: open && !editing });
+
+  const filteredProducts = partnerId
+    ? products.filter((p: any) => String(p.partnerId) === partnerId)
+    : products;
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/supisky", data),
@@ -97,9 +107,13 @@ function SupiskaFormDialog({
       if (editing) {
         setName(editing.name || "");
         setNotes(editing.notes || "");
+        setPartnerId("");
+        setProductId("");
       } else {
         setName("");
         setNotes("");
+        setPartnerId("");
+        setProductId("");
       }
     }
   }, [open, editing]);
@@ -107,11 +121,16 @@ function SupiskaFormDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const processingTimeSec = Math.round((Date.now() - formStartTime) / 1000);
-    const data = { name, notes, processingTimeSec };
     if (editing) {
-      updateMutation.mutate(data);
+      updateMutation.mutate({ name, notes, processingTimeSec });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate({
+        name,
+        notes,
+        processingTimeSec,
+        partnerId: partnerId ? Number(partnerId) : null,
+        productId: productId ? Number(productId) : null,
+      });
     }
   };
 
@@ -131,13 +150,43 @@ function SupiskaFormDialog({
               required
             />
           </div>
+          {!editing && (
+            <>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Partner <span className="text-muted-foreground/50">(pre kód súpisky)</span></label>
+                <Select value={partnerId} onValueChange={v => { setPartnerId(v); setProductId(""); }}>
+                  <SelectTrigger data-testid="select-supiska-partner">
+                    <SelectValue placeholder="— bez partnera —" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {partners.map((p: any) => (
+                      <SelectItem key={p.id} value={String(p.id)}>{p.name}{p.code ? ` (${p.code})` : ""}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Produkt <span className="text-muted-foreground/50">(pre kód súpisky)</span></label>
+                <Select value={productId} onValueChange={setProductId} disabled={!partnerId}>
+                  <SelectTrigger data-testid="select-supiska-product">
+                    <SelectValue placeholder={partnerId ? "— vyberte produkt —" : "— najprv vyberte partnera —"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredProducts.map((p: any) => (
+                      <SelectItem key={p.id} value={String(p.id)}>{p.displayName || p.name}{p.code ? ` (${p.code})` : ""}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
           <div>
             <label className="text-sm font-medium text-muted-foreground">Poznamky</label>
             <Textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
               data-testid="input-supiska-notes"
-              rows={4}
+              rows={3}
             />
           </div>
           <div className="flex justify-end gap-2 pt-4">
@@ -612,6 +661,12 @@ export default function SupiskyPage() {
                       {columnVisibility.isVisible("supId") && (
                         <span className="font-mono text-xs text-muted-foreground" data-testid={`text-supiska-supid-${s.id}`}>
                           {s.supId}
+                        </span>
+                      )}
+                      {(s as any).supiskaCode && (
+                        <span className="inline-flex items-center gap-1 font-mono text-[10px] px-1.5 py-0.5 rounded border border-blue-500/40 bg-blue-500/10 text-blue-400 whitespace-nowrap" data-testid={`text-supiska-code-${s.id}`}>
+                          <Hash className="w-2.5 h-2.5" />
+                          {(s as any).supiskaCode}
                         </span>
                       )}
                       {columnVisibility.isVisible("createdAt") && s.createdAt && (

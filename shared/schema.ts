@@ -998,10 +998,13 @@ export const contractParameterValues = pgTable("contract_parameter_values", {
 export const supisky = pgTable("supisky", {
   id: serial("id").primaryKey(),
   supId: text("sup_id").notNull().unique(),
+  supiskaCode: text("supiska_code"),
   name: text("name").notNull(),
   status: text("status").notNull().default("Nova"),
   stateId: integer("state_id").references(() => states.id),
   companyId: integer("company_id").references(() => myCompanies.id),
+  partnerId: integer("partner_id").references(() => partners.id),
+  productId: integer("product_id").references(() => products.id),
   createdBy: text("created_by"),
   createdByUserId: integer("created_by_user_id"),
   sentAt: timestamp("sent_at"),
