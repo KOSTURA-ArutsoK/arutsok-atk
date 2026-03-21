@@ -10704,6 +10704,21 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/products/:id/documents", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const product = await storage.getProduct(id);
+      if (!product) return res.status(404).json({ message: "Product not found" });
+      res.json({
+        required: (product as any).requiredDocuments || [],
+        optional: (product as any).optionalDocuments || [],
+      });
+    } catch (err) {
+      console.error("Get product documents error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   app.put("/api/products/:id/parameters", isAuthenticated, async (req: any, res) => {
     try {
       const id = Number(req.params.id);

@@ -128,7 +128,9 @@ function ProductFormDialog({
   const [paramValues, setParamValues] = useState<Record<number, string>>({});
   const [activeTab, setActiveTab] = useState<"info" | "dokumentacia">("info");
   const [requiredDocuments, setRequiredDocuments] = useState<string[]>([]);
+  const [optionalDocuments, setOptionalDocuments] = useState<string[]>([]);
   const [newDocName, setNewDocName] = useState("");
+  const [newOptDocName, setNewOptDocName] = useState("");
 
   const { data: allParameters } = useQuery<Parameter[]>({
     queryKey: ["/api/parameters"],
@@ -191,6 +193,7 @@ function ProductFormDialog({
         setAllowedSubjectTypes((editingProduct as any).allowedSubjectTypes || []);
         setNotesHtml(editingProduct.notes || "");
         setRequiredDocuments((editingProduct as any).requiredDocuments || []);
+        setOptionalDocuments((editingProduct as any).optionalDocuments || []);
       } else {
         setPartnerId("");
         setCode("");
@@ -200,6 +203,7 @@ function ProductFormDialog({
         setAllowedSubjectTypes([]);
         setNotesHtml("");
         setRequiredDocuments([]);
+        setOptionalDocuments([]);
       }
     }
   }, [open, editingProduct]);
@@ -225,6 +229,7 @@ function ProductFormDialog({
       allowedSubjectTypes,
       notes: notesHtml,
       requiredDocuments,
+      optionalDocuments,
       processingTimeSec,
       dynamicParams: Object.keys(paramValues).length > 0 ? paramValues : undefined,
     };
@@ -264,8 +269,8 @@ function ProductFormDialog({
           >
             <FileText className="w-3.5 h-3.5" />
             Dokumentacia
-            <span style={{ display: requiredDocuments.length > 0 ? 'inline' : 'none' }}>
-              <Badge variant="secondary" className="text-[10px] px-1.5 ml-0.5">{requiredDocuments.length}</Badge>
+            <span style={{ display: (requiredDocuments.length + optionalDocuments.length) > 0 ? 'inline' : 'none' }}>
+              <Badge variant="secondary" className="text-[10px] px-1.5 ml-0.5">{requiredDocuments.length + optionalDocuments.length}</Badge>
             </span>
           </button>
         </div>
@@ -475,67 +480,89 @@ function ProductFormDialog({
         </div>
 
         <div style={{ display: activeTab === "dokumentacia" ? 'block' : 'none' }}>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Definujte povinne dokumenty, ktore musi PFA odovzdat pri vytvoreni zmluvy s tymto produktom.
-            </p>
-
-            <div className="flex gap-2">
-              <Input
-                value={newDocName}
-                onChange={e => setNewDocName(e.target.value)}
-                placeholder="Nazov dokumentu (napr. Kopia OP)"
-                onKeyDown={e => {
-                  if (e.key === "Enter" && newDocName.trim()) {
-                    setRequiredDocuments(prev => [...prev, newDocName.trim()]);
-                    setNewDocName("");
-                  }
-                }}
-                data-testid="input-new-document-name"
-              />
-              <Button
-                size="sm"
-                onClick={() => {
-                  if (newDocName.trim()) {
-                    setRequiredDocuments(prev => [...prev, newDocName.trim()]);
-                    setNewDocName("");
-                  }
-                }}
-                disabled={!newDocName.trim()}
-                data-testid="button-add-document"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Pridat
-              </Button>
-            </div>
-
-            <div style={{ display: requiredDocuments.length > 0 ? 'block' : 'none' }}>
-              <div className="border rounded-md divide-y">
-                {requiredDocuments.map((doc, idx) => (
-                  <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                      <span className="text-sm truncate" data-testid={`text-document-name-${idx}`}>{doc}</span>
+          <div className="space-y-6">
+            {/* POVINNÉ DOKUMENTY */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-red-400">Povinné dokumenty</span>
+                {requiredDocuments.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 font-semibold">{requiredDocuments.length}</span>}
+              </div>
+              <p className="text-xs text-muted-foreground">Dokumenty, ktoré musí PFA povinne odovzdať pri vytvorení zmluvy s týmto produktom.</p>
+              <div className="flex gap-2">
+                <Input
+                  value={newDocName}
+                  onChange={e => setNewDocName(e.target.value)}
+                  placeholder="Názov povinného dokumentu (napr. Kópia OP)"
+                  onKeyDown={e => {
+                    if (e.key === "Enter") { e.preventDefault(); if (newDocName.trim()) { setRequiredDocuments(prev => [...prev, newDocName.trim()]); setNewDocName(""); } }
+                  }}
+                  data-testid="input-new-document-name"
+                />
+                <Button size="sm" onClick={() => { if (newDocName.trim()) { setRequiredDocuments(prev => [...prev, newDocName.trim()]); setNewDocName(""); } }} disabled={!newDocName.trim()} data-testid="button-add-document">
+                  <Plus className="w-4 h-4 mr-1" />Pridať
+                </Button>
+              </div>
+              {requiredDocuments.length > 0 ? (
+                <div className="border border-red-500/20 rounded-md divide-y divide-border">
+                  {requiredDocuments.map((doc, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="w-4 h-4 text-red-400 flex-shrink-0" />
+                        <span className="text-sm truncate" data-testid={`text-document-name-${idx}`}>{doc}</span>
+                      </div>
+                      <Button size="icon" variant="ghost" onClick={() => setRequiredDocuments(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-document-${idx}`}>
+                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      </Button>
                     </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => setRequiredDocuments(prev => prev.filter((_, i) => i !== idx))}
-                      data-testid={`button-remove-document-${idx}`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="border border-dashed rounded-md p-4 text-center">
+                  <p className="text-xs text-muted-foreground">Žiadne povinné dokumenty.</p>
+                </div>
+              )}
             </div>
 
-            <div style={{ display: requiredDocuments.length === 0 ? 'block' : 'none' }}>
-              <div className="border rounded-md p-6 text-center">
-                <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Zatial neboli definovane ziadne povinne dokumenty.</p>
-                <p className="text-xs text-muted-foreground mt-1">Pridajte nazvy dokumentov pomocou pola vyssie.</p>
+            {/* NEPOVINNÉ DOKUMENTY */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-blue-400">Nepovinné dokumenty</span>
+                {optionalDocuments.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-semibold">{optionalDocuments.length}</span>}
               </div>
+              <p className="text-xs text-muted-foreground">Dokumenty, ktoré PFA môže, ale nemusí priložiť k zmluve.</p>
+              <div className="flex gap-2">
+                <Input
+                  value={newOptDocName}
+                  onChange={e => setNewOptDocName(e.target.value)}
+                  placeholder="Názov nepovinného dokumentu (napr. Súhlas so spracovaním)"
+                  onKeyDown={e => {
+                    if (e.key === "Enter") { e.preventDefault(); if (newOptDocName.trim()) { setOptionalDocuments(prev => [...prev, newOptDocName.trim()]); setNewOptDocName(""); } }
+                  }}
+                  data-testid="input-new-opt-document-name"
+                />
+                <Button size="sm" onClick={() => { if (newOptDocName.trim()) { setOptionalDocuments(prev => [...prev, newOptDocName.trim()]); setNewOptDocName(""); } }} disabled={!newOptDocName.trim()} data-testid="button-add-opt-document">
+                  <Plus className="w-4 h-4 mr-1" />Pridať
+                </Button>
+              </div>
+              {optionalDocuments.length > 0 ? (
+                <div className="border border-blue-500/20 rounded-md divide-y divide-border">
+                  {optionalDocuments.map((doc, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                        <span className="text-sm truncate" data-testid={`text-opt-document-name-${idx}`}>{doc}</span>
+                      </div>
+                      <Button size="icon" variant="ghost" onClick={() => setOptionalDocuments(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-opt-document-${idx}`}>
+                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="border border-dashed rounded-md p-4 text-center">
+                  <p className="text-xs text-muted-foreground">Žiadne nepovinné dokumenty.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

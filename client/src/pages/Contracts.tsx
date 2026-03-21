@@ -2281,6 +2281,7 @@ export default function Contracts() {
   const [deletingContract, setDeletingContract] = useState<Contract | null>(null);
   const [viewingContract, setViewingContract] = useState<Contract | null>(null);
   const [nahratieViewContract, setNahratieViewContract] = useState<Contract | null>(null);
+  const [docChecklistContract, setDocChecklistContract] = useState<Contract | null>(null);
 
   const [filterStatusId, setFilterStatusId] = useState<string>("all");
   const [filterStatusIds, setFilterStatusIds] = useState<number[]>([]);
@@ -3425,6 +3426,18 @@ export default function Contracts() {
     return isIncomplete || warnPartner || warnProduct || warnContractType || warnSignedDate || warnNumber || warnSpecialist || warnSumNot100 || warnRcIco2 || warnMeno2 || warnPriezvisko2 || warnNazov2 || warnNegProposal;
   }
 
+  function getProductDocsForContract(contract: Contract): { required: string[]; optional: string[] } {
+    let product = products?.find((p: any) => p.id === contract.productId);
+    if (!product && contract.sectorProductId) {
+      const sp = allSectorProducts?.find((sp: any) => sp.id === contract.sectorProductId);
+      if (sp) product = products?.find((p: any) => p.id === (sp as any).productId);
+    }
+    return {
+      required: (product as any)?.requiredDocuments || [],
+      optional: (product as any)?.optionalDocuments || [],
+    };
+  }
+
   function renderSprievodkaFullTable(
     contractsList: Contract[],
     opts: {
@@ -3563,7 +3576,16 @@ export default function Contracts() {
                 : showCheckbox
                 ? () => {
                     if (effectivelyIncomplete) { openIncompleteEdit(contract); }
-                    else { setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]); }
+                    else if (nahratieView && !isSelected) {
+                      const docs = getProductDocsForContract(contract);
+                      if (docs.required.length > 0 || docs.optional.length > 0) {
+                        setDocChecklistContract(contract);
+                      } else {
+                        setSelectedIds(prev => [...prev, contract.id]);
+                      }
+                    } else {
+                      setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]);
+                    }
                   }
                 : undefined;
               return (
@@ -6113,6 +6135,77 @@ export default function Contracts() {
               </div>
             </div>
           </DialogScrollContent>
+        </DialogContent>
+      </Dialog>
+    );
+  })();
+
+  const docChecklistDialog = (() => {
+    const c = docChecklistContract;
+    if (!c) return null;
+    const docs = getProductDocsForContract(c);
+    const partnerName = partners?.find(p => p.id === c.partnerId)?.name || "—";
+    const productName = getProductName(c);
+    const confirmAndSelect = () => {
+      setSelectedIds(prev => prev.includes(c.id) ? prev : [...prev, c.id]);
+      setDocChecklistContract(null);
+    };
+    return (
+      <Dialog open={!!docChecklistContract} onOpenChange={(o) => { if (!o) setDocChecklistContract(null); }}>
+        <DialogContent size="sm" data-testid="dialog-doc-checklist">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle data-testid="text-docchecklist-title" className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-primary" />
+              Dokumentácia k zmluve
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              <span className="font-medium text-foreground">{productName}</span> — {partnerName}
+            </p>
+          </DialogHeader>
+          <div className="px-6 pb-2 space-y-4">
+            {/* POVINNÉ */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-red-400">Povinné dokumenty</span>
+                {docs.required.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 font-semibold">{docs.required.length}</span>}
+              </div>
+              {docs.required.length > 0 ? (
+                <div className="border border-red-500/20 rounded-md divide-y divide-border">
+                  {docs.required.map((doc: string, idx: number) => (
+                    <div key={idx} className="flex items-center gap-2 px-3 py-2" data-testid={`text-docchecklist-req-${idx}`}>
+                      <FileText className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                      <span className="text-sm">{doc}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">Žiadne povinné dokumenty nie sú definované.</p>
+              )}
+            </div>
+            {/* NEPOVINNÉ */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-blue-400">Nepovinné dokumenty</span>
+                {docs.optional.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-semibold">{docs.optional.length}</span>}
+              </div>
+              {docs.optional.length > 0 ? (
+                <div className="border border-blue-500/20 rounded-md divide-y divide-border">
+                  {docs.optional.map((doc: string, idx: number) => (
+                    <div key={idx} className="flex items-center gap-2 px-3 py-2" data-testid={`text-docchecklist-opt-${idx}`}>
+                      <FileText className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                      <span className="text-sm">{doc}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">Žiadne nepovinné dokumenty nie sú definované.</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="px-6 pb-6 pt-2">
+            <Button variant="outline" onClick={() => setDocChecklistContract(null)} data-testid="button-docchecklist-cancel">Zrušiť</Button>
+            <Button onClick={confirmAndSelect} data-testid="button-docchecklist-confirm">Zaradiť do sprievodky</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     );
@@ -9478,6 +9571,7 @@ export default function Contracts() {
           states={allStates || []}
         />
         {nahratieViewDialog}
+        {docChecklistDialog}
         {importDialog}
       </div>
     );
@@ -9745,6 +9839,7 @@ export default function Contracts() {
         states={allStates || []}
       />
       {nahratieViewDialog}
+      {docChecklistDialog}
       {importDialog}
 
       <Dialog open={bulkDateDialogOpen} onOpenChange={setBulkDateDialogOpen}>

@@ -422,6 +422,7 @@ export const products = pgTable("products", {
   allowedSubjectTypes: text("allowed_subject_types").array(),
   notes: text("notes"),
   requiredDocuments: jsonb("required_documents").$type<string[]>().default([]),
+  optionalDocuments: jsonb("optional_documents").$type<string[]>().default([]),
   isDeleted: boolean("is_deleted").default(false),
   deletedBy: text("deleted_by"),
   deletedAt: timestamp("deleted_at"),
