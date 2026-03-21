@@ -6004,38 +6004,40 @@ export default function Contracts() {
 
     // --- Krok 2: subjekt ---
     const sub = subjects?.find(s => s.id === contract.subjectId);
+    const importRaw = (contract as any).importedRawData || {};
     if (sub) {
+      const linkedFo = sub.linkedFoId ? subjects?.find(s => s.id === sub.linkedFoId) : undefined;
       setPreSelectSubjectId(String(sub.id));
       setPreSelectSubjectType(sub.type as "person" | "company" | "szco" | "organization" | "state");
-      setPreSelectFirstName(sub.firstName || "");
-      setPreSelectLastName(sub.lastName || "");
-      setPreSelectTitleBefore(sub.titleBefore || "");
-      setPreSelectTitleAfter(sub.titleAfter || "");
-      setPreSelectBirthNumber(sub.birthNumber || "");
+      setPreSelectFirstName(sub.firstName || linkedFo?.firstName || "");
+      setPreSelectLastName(sub.lastName || linkedFo?.lastName || "");
+      setPreSelectTitleBefore(sub.titleBefore || linkedFo?.titleBefore || "");
+      setPreSelectTitleAfter(sub.titleAfter || linkedFo?.titleAfter || "");
+      setPreSelectBirthNumber(sub.birthNumber || linkedFo?.birthNumber || "");
       setPreSelectBusinessName(sub.companyName || "");
       const subIco = (sub.details as any)?.ico || "";
       setPreSelectIco(subIco);
       // Naplniť vyhľadávacie pole identifikátorom subjektu
       if (sub.type === "person") {
-        setPreSelectSubjectSearch(sub.birthNumber || `${sub.firstName || ""} ${sub.lastName || ""}`.trim());
+        setPreSelectSubjectSearch(sub.birthNumber || linkedFo?.birthNumber || `${sub.firstName || ""} ${sub.lastName || ""}`.trim());
       } else {
         setPreSelectSubjectSearch(subIco || sub.companyName || `${sub.firstName || ""} ${sub.lastName || ""}`.trim());
       }
       // Pre SZČO/org/štát — zobraziť FO osobu ak existuje
-      if ((sub.type === "szco" || sub.type === "organization" || sub.type === "state") && (sub.firstName || sub.lastName)) {
+      if ((sub.type === "szco" || sub.type === "organization" || sub.type === "state") && (sub.firstName || sub.lastName || linkedFo?.firstName || linkedFo?.lastName)) {
         setPreSelectShowNameFields(true);
       }
     } else {
       setPreSelectSubjectId("");
       setPreSelectSubjectType("person");
-      setPreSelectFirstName("");
-      setPreSelectLastName("");
-      setPreSelectTitleBefore("");
-      setPreSelectTitleAfter("");
-      setPreSelectBirthNumber("");
-      setPreSelectBusinessName("");
-      setPreSelectIco("");
-      setPreSelectSubjectSearch("");
+      setPreSelectFirstName(importRaw.meno || "");
+      setPreSelectLastName(importRaw.priezvisko || "");
+      setPreSelectTitleBefore(importRaw.titul_pred || "");
+      setPreSelectTitleAfter(importRaw.titul_za || "");
+      setPreSelectBirthNumber(importRaw.rodne_cislo || importRaw.rc_ico || "");
+      setPreSelectBusinessName(importRaw.nazov_firmy || "");
+      setPreSelectIco(importRaw.ico || "");
+      setPreSelectSubjectSearch(importRaw.rodne_cislo || importRaw.rc_ico || importRaw.ico || importRaw.nazov_firmy || `${importRaw.meno || ""} ${importRaw.priezvisko || ""}`.trim() || "");
     }
     setPreSelectClientTypeId("");
 
