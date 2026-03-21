@@ -6853,8 +6853,14 @@ export default function Contracts() {
                     if (next >= 0) {
                       const val = subOpts[next].val;
                       setPreSelectSubjectType(val);
-                      if (val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); }
-                      setPreSelectShowNameFields(false); setPreSelectFoSearch(""); setPreSelectShowFoSearch(false); setPreSelectNoFoInfo(false); setPreSelectBirthNumber(""); setPreSelectSearchHint(null);
+                      setPreSelectFoSearch(""); setPreSelectShowFoSearch(false); setPreSelectNoFoInfo(false); setPreSelectSearchHint(null);
+                      if (val === "person") {
+                        setPreSelectBusinessName(""); setPreSelectIco(""); setPreSelectSubjectId("");
+                        const hasPersonalData = !!(preSelectFirstName || preSelectLastName || preSelectBirthNumber);
+                        setPreSelectShowNameFields(hasPersonalData);
+                      } else {
+                        setPreSelectShowNameFields(false); setPreSelectBirthNumber("");
+                      }
                       const btns = (e.currentTarget.closest('[role="radiogroup"]') as HTMLElement)?.querySelectorAll('button[role="radio"]');
                       (btns?.[next] as HTMLElement)?.focus();
                     }
@@ -6870,15 +6876,21 @@ export default function Contracts() {
                             className={`relative z-10 flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs font-medium rounded transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground/80"}`}
                             onClick={() => {
                               setPreSelectSubjectType(opt.val);
-                              if (opt.val === "person") { setPreSelectBusinessName(""); setPreSelectIco(""); }
-                              setPreSelectShowNameFields(false);
                               setPreSelectFoSearch(""); setPreSelectShowFoSearch(false); setPreSelectNoFoInfo(false);
-                              setPreSelectBirthNumber(""); setPreSelectSearchHint(null); setPreSelectIcoLookup(null); setPreSelectIcoFormatError(null);
-                              if (opt.val === "organization" || opt.val === "state") {
-                                setTimeout(() => {
-                                  const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
-                                  if (el) el.focus();
-                                }, 60);
+                              setPreSelectSearchHint(null); setPreSelectIcoLookup(null); setPreSelectIcoFormatError(null);
+                              if (opt.val === "person") {
+                                setPreSelectBusinessName(""); setPreSelectIco(""); setPreSelectSubjectId("");
+                                const hasPersonalData = !!(preSelectFirstName || preSelectLastName || preSelectBirthNumber);
+                                setPreSelectShowNameFields(hasPersonalData);
+                              } else {
+                                setPreSelectShowNameFields(false);
+                                setPreSelectBirthNumber("");
+                                if (opt.val === "organization" || opt.val === "state") {
+                                  setTimeout(() => {
+                                    const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
+                                    if (el) el.focus();
+                                  }, 60);
+                                }
                               }
                             }}
                             onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : opt.val === "organization" ? "org" : opt.val === "state" ? "stat" : "po"}`}
