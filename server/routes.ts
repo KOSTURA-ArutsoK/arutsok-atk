@@ -2262,6 +2262,18 @@ export async function registerRoutes(
   app.get(api.partners.list.path, isAuthenticated, async (req: any, res) => {
     const includeDeleted = req.query.includeDeleted === 'true';
     const stateId = getEnforcedStateId(req);
+    const filterCompanyId = req.query.companyId ? Number(req.query.companyId) : null;
+    if (filterCompanyId) {
+      const linked = await db.select({ partnerId: partnerCompanyLinks.partnerId })
+        .from(partnerCompanyLinks)
+        .where(eq(partnerCompanyLinks.myCompanyId, filterCompanyId));
+      const linkedIds = linked.map(l => l.partnerId);
+      if (!linkedIds.length) return res.json([]);
+      const conds: any[] = [inArray(partners.id, linkedIds)];
+      if (!includeDeleted) conds.push(eq(partners.isDeleted, false));
+      if (stateId) conds.push(eq(partners.stateId, stateId));
+      return res.json(await db.select().from(partners).where(and(...conds)).orderBy(asc(partners.name)));
+    }
     res.json(await storage.getPartners(includeDeleted, stateId || undefined));
   });
 
@@ -11170,9 +11182,18 @@ export async function registerRoutes(
       const year = Number(req.query.year);
       const period = String(req.query.period || "");
       const sector = req.query.sector ? String(req.query.sector) : null;
+      const filterCompanyId = req.query.companyId ? Number(req.query.companyId) : null;
       if (!year || !period) return res.status(400).json({ message: "year a period su povinne" });
-      const conditions = [eq(nbsPartnerReports.year, year), eq(nbsPartnerReports.period, period)];
+      const conditions: any[] = [eq(nbsPartnerReports.year, year), eq(nbsPartnerReports.period, period)];
       if (sector) conditions.push(eq(nbsPartnerReports.sector, sector));
+      if (filterCompanyId) {
+        const linked = await db.select({ partnerId: partnerCompanyLinks.partnerId })
+          .from(partnerCompanyLinks)
+          .where(eq(partnerCompanyLinks.myCompanyId, filterCompanyId));
+        const linkedIds = linked.map(l => l.partnerId);
+        if (!linkedIds.length) return res.json([]);
+        conditions.push(inArray(nbsPartnerReports.partnerId, linkedIds));
+      }
       const reports = await db.select().from(nbsPartnerReports).where(and(...conditions));
       res.json(reports);
     } catch (err: any) {
@@ -11263,12 +11284,24 @@ export async function registerRoutes(
       const years = yearsParam.split(",").map(Number).filter(n => !isNaN(n));
       const periods = periodsParam.split(",").filter(Boolean);
       if (!years.length || !periods.length) return res.status(400).json({ message: "Neplatne years alebo periods" });
+      const filterCompanyId = req.query.companyId ? Number(req.query.companyId) : null;
+      let companyPartnerIds: number[] | null = null;
+      if (filterCompanyId) {
+        const linked = await db.select({ partnerId: partnerCompanyLinks.partnerId })
+          .from(partnerCompanyLinks)
+          .where(eq(partnerCompanyLinks.myCompanyId, filterCompanyId));
+        companyPartnerIds = linked.map(l => l.partnerId);
+      }
 
       const result: any[] = [];
       for (const year of years) {
         for (const period of periods) {
-          const reports = await db.select().from(nbsPartnerReports)
-            .where(and(eq(nbsPartnerReports.year, year), eq(nbsPartnerReports.period, period)));
+          const conds: any[] = [eq(nbsPartnerReports.year, year), eq(nbsPartnerReports.period, period)];
+          if (companyPartnerIds !== null) {
+            if (!companyPartnerIds.length) { result.push({ year, period, totals: {}, partnerCount: 0 }); continue; }
+            conds.push(inArray(nbsPartnerReports.partnerId, companyPartnerIds));
+          }
+          const reports = await db.select().from(nbsPartnerReports).where(and(...conds));
           const totals: any = {
             newContracts: { life: 0, nonLife: 0, reinsurance: 0 },
             amendments: { life: 0, nonLife: 0 },

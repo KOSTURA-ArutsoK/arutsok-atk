@@ -412,7 +412,22 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, se
   initialPartnerId?: number | null;
 }) {
   const { toast } = useToast();
-  const { data: partners, isLoading: partnersLoading } = usePartners();
+  const { data: appUser } = useAppUser();
+  const activeCompanyId: number | null = (appUser as any)?.activeCompanyId || null;
+  const { data: companies } = useQuery<any[]>({ queryKey: ["/api/my-companies"] });
+  const activeCompany = (companies || []).find((c: any) => c.id === activeCompanyId) || null;
+  const activeCompanyUid: string | null = activeCompany?.uid || null;
+
+  const { data: partners, isLoading: partnersLoading } = useQuery<any[]>({
+    queryKey: ["/api/partners", activeCompanyId ? `company-${activeCompanyId}` : "all"],
+    queryFn: async () => {
+      const url = activeCompanyId ? `/api/partners?companyId=${activeCompanyId}` : "/api/partners";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch partners");
+      return res.json();
+    },
+  });
+
   const [selectedPartnerId, setSelectedPartnerId] = useState<number | null>(null);
   const [formData, setFormData] = useState<any>(() => getDefaultDataForSector(sector));
 
@@ -422,15 +437,25 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, se
     }
   }, [open, initialPartnerId]);
 
+  useEffect(() => {
+    if (!open) return;
+    if (selectedPartnerId !== null) {
+      onOpenChange(false);
+      toast({ title: "Kontext zmenený — dáta boli aktualizované." });
+    }
+  }, [activeCompanyId]);
+
   const activePartners = (partners || []).filter((p: any) => !p.isDeleted);
   const sectorPartners = activePartners.filter((p: any) => (p.nbsSectors || []).includes(sector));
   const sectorMeta = NBS_SECTORS.find(s => s.key === sector);
   const partnerName = activePartners.find((p: any) => p.id === selectedPartnerId)?.name || "";
 
   const { data: allPeriodReports } = useQuery<any[]>({
-    queryKey: ["/api/nbs-partner-reports", "list", year, period, sector],
+    queryKey: ["/api/nbs-partner-reports", "list", year, period, sector, activeCompanyId],
     queryFn: async () => {
-      const r = await fetch(`/api/nbs-partner-reports?year=${year}&period=${period}&sector=${sector}`, { credentials: "include" });
+      const params = new URLSearchParams({ year: String(year), period, sector });
+      if (activeCompanyId) params.set("companyId", String(activeCompanyId));
+      const r = await fetch(`/api/nbs-partner-reports?${params}`, { credentials: "include" });
       return r.ok ? r.json() : [];
     },
     enabled: open,
@@ -471,7 +496,15 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, se
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPartnerId) throw new Error("Vyberte partnera");
-      await apiRequest("PUT", `/api/nbs-partner-reports/${selectedPartnerId}`, { year, period, sector, data: formData });
+      const auditedData = {
+        ...formData,
+        _audit: {
+          companyId: activeCompanyId,
+          companyUid: activeCompanyUid,
+          savedAt: new Date().toISOString(),
+        },
+      };
+      await apiRequest("PUT", `/api/nbs-partner-reports/${selectedPartnerId}`, { year, period, sector, data: auditedData });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/nbs-partner-reports"] });
@@ -913,13 +946,22 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, se
             <FileText className="w-5 h-5" />
             Výkaz partnerov — {periodLabel} {year}
           </DialogTitle>
-          <DialogDescription>
-            {selectedPartnerId ? `Partner: ${partnerName}` : "Vyberte partnera zo zoznamu"}
+          <DialogDescription className="flex flex-col gap-0.5">
+            <span>{selectedPartnerId ? `Partner: ${partnerName}` : "Vyberte partnera zo zoznamu"}</span>
+            {activeCompany && (
+              <span className="text-[10px] font-mono text-muted-foreground/70">
+                Kontext: {activeCompany.name}{activeCompanyUid ? ` · UID ${activeCompanyUid}` : ""}
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          {!selectedPartnerId ? (
+          {!activeCompanyId ? (
+            <div className="flex items-center gap-2 px-4 py-3 rounded border border-yellow-500/40 bg-yellow-50/30 dark:bg-yellow-950/20 text-sm text-yellow-700 dark:text-yellow-400">
+              <span>Nie je vybraná spoločnosť. Vyberte spoločnosť v hornej lište pre zobrazenie partnerov.</span>
+            </div>
+          ) : !selectedPartnerId ? (
             <div className="space-y-3">
               {sectorMeta && (
                 <div className={`flex items-center gap-2 px-3 py-1.5 rounded border text-xs font-semibold ${sectorMeta.bg} ${sectorMeta.color}`}>
@@ -1249,7 +1291,17 @@ function PeriodBubble({ period, sectorReports, year, isExpanded, onToggle, onSec
   statusPending: boolean;
   onOpenPartnerForm: (partnerId: number, sector: string) => void;
 }) {
-  const { data: partners, isLoading: partnersLoading } = usePartners();
+  const { data: appUser } = useAppUser();
+  const activeCompanyId: number | null = (appUser as any)?.activeCompanyId || null;
+  const { data: partners, isLoading: partnersLoading } = useQuery<any[]>({
+    queryKey: ["/api/partners", activeCompanyId ? `company-${activeCompanyId}` : "all"],
+    queryFn: async () => {
+      const url = activeCompanyId ? `/api/partners?companyId=${activeCompanyId}` : "/api/partners";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch partners");
+      return res.json();
+    },
+  });
   const activePartners = (partners || []).filter((p: any) => !p.isDeleted);
 
   const activeSectors = NBS_SECTORS.map(sec => ({
@@ -1259,9 +1311,11 @@ function PeriodBubble({ period, sectorReports, year, isExpanded, onToggle, onSec
   })).filter(g => g.partners.length > 0 && g.report);
 
   const { data: periodReports } = useQuery<any[]>({
-    queryKey: ["/api/nbs-partner-reports", "list", year, period.key],
+    queryKey: ["/api/nbs-partner-reports", "list", year, period.key, activeCompanyId],
     queryFn: async () => {
-      const r = await fetch(`/api/nbs-partner-reports?year=${year}&period=${period.key}`, { credentials: "include" });
+      const params = new URLSearchParams({ year: String(year), period: period.key });
+      if (activeCompanyId) params.set("companyId", String(activeCompanyId));
+      const r = await fetch(`/api/nbs-partner-reports?${params}`, { credentials: "include" });
       return r.ok ? r.json() : [];
     },
     enabled: isExpanded,
@@ -1484,9 +1538,11 @@ function NbsAnalyticsChart() {
   const periodsStr = [...selectedPeriods].sort((a, b) => periodOrder.indexOf(a) - periodOrder.indexOf(b)).join(",");
 
   const { data: chartData, isLoading } = useQuery<any[]>({
-    queryKey: ["/api/nbs-partner-reports/chart-data", yearsStr, periodsStr],
+    queryKey: ["/api/nbs-partner-reports/chart-data", yearsStr, periodsStr, companyId],
     queryFn: async () => {
-      const res = await fetch(`/api/nbs-partner-reports/chart-data?years=${yearsStr}&periods=${periodsStr}`, { credentials: "include" });
+      const params = new URLSearchParams({ years: yearsStr, periods: periodsStr });
+      if (companyId) params.set("companyId", String(companyId));
+      const res = await fetch(`/api/nbs-partner-reports/chart-data?${params}`, { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
