@@ -6380,9 +6380,9 @@ export default function Contracts() {
               </div>
             </div>
           </div>
-          <DialogFooter className="px-6 pb-6 pt-2">
-            <Button variant="destructive" onClick={clearAndDeselect} data-testid="button-docchecklist-clear">Zmazať zaškrtnuté položky</Button>
-            <Button className="px-6" onClick={confirmAndSelect} disabled={!allRequiredChecked} data-testid="button-docchecklist-confirm" data-docchecklist-confirm>Zaradiť dokumenty do sprievodky</Button>
+          <DialogFooter className="px-6 pb-6 pt-2 flex-col gap-2 sm:flex-col">
+            <Button onClick={confirmAndSelect} disabled={!allRequiredChecked} data-testid="button-docchecklist-confirm" data-docchecklist-confirm className="w-full">Zaradiť dokumenty do sprievodky</Button>
+            <Button variant="destructive" onClick={clearAndDeselect} data-testid="button-docchecklist-clear" className="w-full">Zmazať zaškrtnuté položky</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
