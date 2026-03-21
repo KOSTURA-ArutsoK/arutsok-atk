@@ -1281,16 +1281,11 @@ export default function SettingsStates() {
         )}
         {columnVisibility.isVisible("currency") && (
           <TableCell data-testid={`text-state-currency-${state.id}`}>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="font-mono">{(state as any).currency || "EUR"}</Badge>
-              {((state as any).currencyName || (state as any).currencySubunit) && (
-                <div className="text-xs text-muted-foreground leading-tight">
-                  {(state as any).currencyName && <span className="font-medium text-foreground">{(state as any).currencyName}</span>}
-                  {(state as any).currencyName && (state as any).currencySubunit && <span className="mx-1">·</span>}
-                  {(state as any).currencySubunit && <span>{(state as any).currencySubunit}</span>}
-                </div>
-              )}
-            </div>
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap flex-nowrap">
+              <Badge variant="outline" className="font-mono shrink-0">{(state as any).currency || "EUR"}</Badge>
+              {(state as any).currencyName && <span className="text-xs font-medium text-foreground">{(state as any).currencyName}</span>}
+              {(state as any).currencySubunit && <span className="text-xs text-muted-foreground">· {(state as any).currencySubunit}</span>}
+            </span>
           </TableCell>
         )}
         {columnVisibility.isVisible("continentId") && <TableCell className="text-muted-foreground text-xs">{continents?.find(c => c.id === state.continentId)?.name || state.continentId}</TableCell>}
