@@ -6179,7 +6179,12 @@ export default function Contracts() {
     const focusNextRow = (e: React.KeyboardEvent) => {
       const allRows = Array.from(document.querySelectorAll<HTMLElement>("[data-docchecklist-row]"));
       const idx = allRows.indexOf(e.currentTarget as HTMLElement);
-      if (idx >= 0 && idx < allRows.length - 1) allRows[idx + 1].focus();
+      if (idx >= 0 && idx < allRows.length - 1) {
+        allRows[idx + 1].focus();
+      } else {
+        const confirmBtn = document.querySelector<HTMLElement>("[data-docchecklist-confirm]");
+        confirmBtn?.focus();
+      }
     };
     const handleRowKey = (e: React.KeyboardEvent, toggle: () => void) => {
       if (e.key === "Enter" || e.key === "Backspace") {
@@ -6356,7 +6361,7 @@ export default function Contracts() {
           </div>
           <DialogFooter className="px-6 pb-6 pt-2">
             <Button variant="outline" onClick={() => setDocChecklistContract(null)} data-testid="button-docchecklist-cancel">Zrušiť</Button>
-            <Button onClick={confirmAndSelect} disabled={!allRequiredChecked} data-testid="button-docchecklist-confirm">Zaradiť do sprievodky</Button>
+            <Button onClick={confirmAndSelect} disabled={!allRequiredChecked} data-testid="button-docchecklist-confirm" data-docchecklist-confirm>Zaradiť do sprievodky</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
