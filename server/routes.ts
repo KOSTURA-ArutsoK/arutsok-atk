@@ -7410,6 +7410,7 @@ export async function registerRoutes(
 
           let resolvedSubjectId: number | null = null;
           let resolvedAuthorizedPersonId: number | null = null;
+          let resolvedSubjectName: string = "";
 
           const isFirmType = subjectType === "szco" || subjectType === "company" || subjectType === "organization";
 
@@ -7514,16 +7515,21 @@ export async function registerRoutes(
                   if (phone) updateFields.phone = phone;
                   await db.update(subjects).set(updateFields).where(eq(subjects.id, dupCheck.id));
                   console.log(`[IMPORT] Subjekt RC ${rc} (id=${dupCheck.id}) — doplnené meno: ${firstName} ${lastName}`);
-                } else if (dupCheck.name && (email || phone)) {
-                  // Subject already has a name — still fill in missing email/phone if provided
-                  const [existingFull] = await db.select({ email: subjects.email, phone: subjects.phone }).from(subjects).where(eq(subjects.id, dupCheck.id)).limit(1);
-                  const contactUpdate: Record<string, any> = {};
-                  if (email && !existingFull?.email) contactUpdate.email = email;
-                  if (phone && !existingFull?.phone) contactUpdate.phone = phone;
-                  if (Object.keys(contactUpdate).length > 0) {
-                    await db.update(subjects).set(contactUpdate).where(eq(subjects.id, dupCheck.id));
+                  resolvedSubjectName = `${firstName || ""} ${lastName || ""}`.trim();
+                } else if (dupCheck.name) {
+                  resolvedSubjectName = dupCheck.name;
+                  if (email || phone) {
+                    // Subject already has a name — still fill in missing email/phone if provided
+                    const [existingFull] = await db.select({ email: subjects.email, phone: subjects.phone }).from(subjects).where(eq(subjects.id, dupCheck.id)).limit(1);
+                    const contactUpdate: Record<string, any> = {};
+                    if (email && !existingFull?.email) contactUpdate.email = email;
+                    if (phone && !existingFull?.phone) contactUpdate.phone = phone;
+                    if (Object.keys(contactUpdate).length > 0) {
+                      await db.update(subjects).set(contactUpdate).where(eq(subjects.id, dupCheck.id));
+                    }
                   }
                 }
+                // if dupCheck has no name AND Excel has no name → resolvedSubjectName stays "" → flagged as incomplete below
               } else {
                 // New subject: require firstName + lastName (+ RC already confirmed above)
                 // RC validation error is a WARNING only — person is created with RC anyway
@@ -7543,6 +7549,7 @@ export async function registerRoutes(
                       registeredByUserId: appUser?.id || null,
                     });
                     resolvedSubjectId = newSubj.id;
+                    resolvedSubjectName = `${firstName} ${lastName}`.trim();
                   } catch (subjectErr: any) {
                     console.error(`[IMPORT] Chyba pri vytváraní subjektu pre riadok ${rowNum}:`, subjectErr.message);
                   }
@@ -7575,6 +7582,10 @@ export async function registerRoutes(
               if (!ico) missingFields.push("IČO");
               if (!companyName) missingFields.push("Názov firmy");
             }
+          } else if (subjectType === "person" && !resolvedSubjectName) {
+            // Subject was found by RC but has no name (and Excel had none either) — flag as incomplete
+            missingFields.push("Meno");
+            missingFields.push("Priezvisko");
           }
           // For firm types, authorized person (štatutár/oprávnená osoba) is required
           if (isFirmType && !resolvedAuthorizedPersonId) {
