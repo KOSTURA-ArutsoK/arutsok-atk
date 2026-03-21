@@ -183,9 +183,9 @@ function NumField({ label, value, onChange, testId }: { label: string; value: nu
 }
 
 const NBS_SECTORS = [
+  { key: "PaZ", label: "Poistenie alebo zaistenie",       sublabel: "Poisťovacie činnosti",                     color: "text-blue-700 dark:text-blue-400",  bg: "bg-blue-500/10 border-blue-400/30" },
   { key: "PV",  label: "Prijímanie vkladov",              sublabel: "Bankové činnosti a vklady",                color: "text-sky-700 dark:text-sky-400",    bg: "bg-sky-500/10 border-sky-400/30" },
   { key: "PU",  label: "Poskytovanie úverov",             sublabel: "Úvery a úverové produkty",                 color: "text-indigo-700 dark:text-indigo-400", bg: "bg-indigo-500/10 border-indigo-400/30" },
-  { key: "PaZ", label: "Poistenie alebo zaistenie",       sublabel: "Poisťovacie činnosti",                     color: "text-blue-700 dark:text-blue-400",  bg: "bg-blue-500/10 border-blue-400/30" },
   { key: "KT",  label: "Kapitálový trh",                  sublabel: "Investičné služby a cenné papiere",         color: "text-green-700 dark:text-green-400",bg: "bg-green-500/10 border-green-400/30" },
   { key: "DDS", label: "Doplnkové dôchodkové sporenie",   sublabel: "Tretí pilier",                             color: "text-amber-700 dark:text-amber-400",bg: "bg-amber-500/10 border-amber-400/30" },
   { key: "SDS", label: "Starobné dôchodkové sporenie",    sublabel: "Druhý pilier",                             color: "text-purple-700 dark:text-purple-400", bg: "bg-purple-500/10 border-purple-400/30" },
@@ -241,7 +241,7 @@ function NbsPartnerSettingsDialog({ open, onOpenChange }: { open: boolean; onOpe
         </DialogHeader>
 
         <div className="border rounded-lg p-3 bg-muted/30 shrink-0">
-          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-2 mb-3 border-b border-border/50">
             Kľúčové sektory finančného trhu pod dohľadom NBS:
           </p>
           <div className="grid grid-cols-2 gap-x-6 gap-y-1">
