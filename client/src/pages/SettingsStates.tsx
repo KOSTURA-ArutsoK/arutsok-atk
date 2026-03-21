@@ -13,6 +13,146 @@ import { Plus, Pencil, Trash2, Clock, Upload, Image, Globe, ChevronDown, Chevron
 import { AddStateButton } from "@/components/AddStateButton";
 
 interface WC { name: string; iso: string; dial: string; currency: string; continent: string; }
+const CURRENCY_INFO: Record<string, { name: string; subunit: string }> = {
+  EUR: { name: "Euro", subunit: "1 euro = 100 centov" },
+  ALL: { name: "Albánsky lek", subunit: "1 lek = 100 qindarkë" },
+  BYN: { name: "Bieloruský rubeľ", subunit: "1 rubeľ = 100 kopejok" },
+  BAM: { name: "Konvertibilná marka", subunit: "1 marka = 100 feningov" },
+  BGN: { name: "Bulharský lev", subunit: "1 lev = 100 stotiniek" },
+  HUF: { name: "Maďarský forint", subunit: "1 forint = 100 fillér" },
+  ISK: { name: "Islandská koruna", subunit: "1 koruna = 100 aurar" },
+  CZK: { name: "Česká koruna", subunit: "1 koruna = 100 halierov" },
+  DKK: { name: "Dánska koruna", subunit: "1 koruna = 100 øre" },
+  MDL: { name: "Moldavský leu", subunit: "1 leu = 100 bani" },
+  MKD: { name: "Macedónsky denár", subunit: "1 denár = 100 deni" },
+  NOK: { name: "Nórska koruna", subunit: "1 koruna = 100 øre" },
+  PLN: { name: "Poľský zlotý", subunit: "1 zlotý = 100 groszy" },
+  RON: { name: "Rumunský leu", subunit: "1 leu = 100 bani" },
+  RUB: { name: "Ruský rubeľ", subunit: "1 rubeľ = 100 kopejok" },
+  RSD: { name: "Srbský dinár", subunit: "1 dinár = 100 para" },
+  SEK: { name: "Švédska koruna", subunit: "1 koruna = 100 öre" },
+  CHF: { name: "Švajčiarsky frank", subunit: "1 frank = 100 rappenov" },
+  UAH: { name: "Ukrajinská hryvna", subunit: "1 hryvna = 100 kopijok" },
+  GBP: { name: "Britská libra", subunit: "1 libra = 100 pencí" },
+  USD: { name: "Americký dolár", subunit: "1 dolár = 100 centov" },
+  CAD: { name: "Kanadský dolár", subunit: "1 dolár = 100 centov" },
+  AUD: { name: "Austrálsky dolár", subunit: "1 dolár = 100 centov" },
+  NZD: { name: "Novozélandský dolár", subunit: "1 dolár = 100 centov" },
+  SGD: { name: "Singapurský dolár", subunit: "1 dolár = 100 centov" },
+  XCD: { name: "Východokaribský dolár", subunit: "1 dolár = 100 centov" },
+  BSD: { name: "Bahamský dolár", subunit: "1 dolár = 100 centov" },
+  BBD: { name: "Barbadoský dolár", subunit: "1 dolár = 100 centov" },
+  BZD: { name: "Belizský dolár", subunit: "1 dolár = 100 centov" },
+  JMD: { name: "Jamajský dolár", subunit: "1 dolár = 100 centov" },
+  TTD: { name: "Trinidadský dolár", subunit: "1 dolár = 100 centov" },
+  MXN: { name: "Mexické peso", subunit: "1 peso = 100 centavos" },
+  CRC: { name: "Kostarický colón", subunit: "1 colón = 100 céntimos" },
+  CUP: { name: "Kubánske peso", subunit: "1 peso = 100 centavos" },
+  DOP: { name: "Dominikánske peso", subunit: "1 peso = 100 centavos" },
+  GTQ: { name: "Guatemalský quetzal", subunit: "1 quetzal = 100 centavos" },
+  HTG: { name: "Haitské gourde", subunit: "1 gourde = 100 centimes" },
+  HNL: { name: "Honduraská lempira", subunit: "1 lempira = 100 centavos" },
+  NIO: { name: "Nikaragujská córdoba", subunit: "1 córdoba = 100 centavos" },
+  PAB: { name: "Panamský balboa", subunit: "1 balboa = 100 centésimos" },
+  ARS: { name: "Argentínske peso", subunit: "1 peso = 100 centavos" },
+  BOB: { name: "Bolívijský boliviano", subunit: "1 boliviano = 100 centavos" },
+  BRL: { name: "Brazílsky real", subunit: "1 real = 100 centavos" },
+  CLP: { name: "Čilské peso", subunit: "1 peso = 100 centavos" },
+  COP: { name: "Kolumbijské peso", subunit: "1 peso = 100 centavos" },
+  GYD: { name: "Guyanský dolár", subunit: "1 dolár = 100 centov" },
+  PYG: { name: "Paraguajský guaraní", subunit: "1 guaraní = 100 céntimos" },
+  PEN: { name: "Peruánsky sol", subunit: "1 sol = 100 céntimos" },
+  SRD: { name: "Surinamský dolár", subunit: "1 dolár = 100 centov" },
+  UYU: { name: "Uruguajské peso", subunit: "1 peso = 100 centésimos" },
+  JPY: { name: "Japonský jen", subunit: "1 jen = 100 sen" },
+  CNY: { name: "Čínsky jüan", subunit: "1 jüan = 10 jiao = 100 fen" },
+  KRW: { name: "Juhokórejský won", subunit: "1 won = 100 jeon" },
+  KPW: { name: "Severokórejský won", subunit: "1 won = 100 chon" },
+  INR: { name: "Indická rupia", subunit: "1 rupia = 100 paisa" },
+  PKR: { name: "Pakistanská rupia", subunit: "1 rupia = 100 paisa" },
+  BDT: { name: "Bangladéšska taka", subunit: "1 taka = 100 paisa" },
+  IDR: { name: "Indonézska rupia", subunit: "1 rupia = 100 sen" },
+  MYR: { name: "Malajský ringgit", subunit: "1 ringgit = 100 sen" },
+  PHP: { name: "Filipínske peso", subunit: "1 peso = 100 sentimos" },
+  THB: { name: "Thajský baht", subunit: "1 baht = 100 satang" },
+  VND: { name: "Vietnamský dong", subunit: "1 dong = 10 hao" },
+  TRY: { name: "Turecká lira", subunit: "1 lira = 100 kuruš" },
+  SAR: { name: "Saudskoarabský riyal", subunit: "1 riyal = 100 halalov" },
+  AED: { name: "Dirham SAE", subunit: "1 dirham = 100 fils" },
+  QAR: { name: "Katarský rial", subunit: "1 rial = 100 dirhamov" },
+  KWD: { name: "Kuvajtský dinár", subunit: "1 dinár = 1000 fils" },
+  BHD: { name: "Bahrajnský dinár", subunit: "1 dinár = 1000 fils" },
+  IQD: { name: "Iracký dinár", subunit: "1 dinár = 1000 fils" },
+  IRR: { name: "Iránsky rial", subunit: "1 rial = 100 dinár" },
+  ILS: { name: "Izraelský nový šekel", subunit: "1 šekel = 100 agorot" },
+  JOD: { name: "Jordánsky dinár", subunit: "1 dinár = 100 piastrov" },
+  LBP: { name: "Libanonská libra", subunit: "1 libra = 100 piastrov" },
+  SYP: { name: "Sýrska libra", subunit: "1 libra = 100 piastrov" },
+  YER: { name: "Jemenský rial", subunit: "1 rial = 100 fils" },
+  AFN: { name: "Afganský afghání", subunit: "1 afghání = 100 puls" },
+  AMD: { name: "Arménsky dram", subunit: "1 dram = 100 luma" },
+  AZN: { name: "Azerbajdžanský manat", subunit: "1 manat = 100 qəpik" },
+  GEL: { name: "Gruzínsky lari", subunit: "1 lari = 100 tetri" },
+  KZT: { name: "Kazašský tenge", subunit: "1 tenge = 100 tiyin" },
+  KGS: { name: "Kirgizský som", subunit: "1 som = 100 tyiyn" },
+  TJS: { name: "Tadžický somoni", subunit: "1 somoni = 100 diramov" },
+  TMT: { name: "Turkménsky manat", subunit: "1 manat = 100 teňňe" },
+  UZS: { name: "Uzbecký sum", subunit: "1 sum = 100 tiyin" },
+  NPR: { name: "Nepálska rupia", subunit: "1 rupia = 100 paisa" },
+  BTN: { name: "Bhutánsky ngultrum", subunit: "1 ngultrum = 100 chetrum" },
+  MVR: { name: "Maledivská rufiyaa", subunit: "1 rufiyaa = 100 laari" },
+  LKR: { name: "Srílančanska rupia", subunit: "1 rupia = 100 cents" },
+  MNT: { name: "Mongolský tögrög", subunit: "1 tögrög = 100 möngö" },
+  MMK: { name: "Mjanmarský kyat", subunit: "1 kyat = 100 pya" },
+  LAK: { name: "Laoský kip", subunit: "1 kip = 100 att" },
+  KHR: { name: "Kambodžský riel", subunit: "1 riel = 100 sen" },
+  TWD: { name: "Taiwanský nový dolár", subunit: "1 dolár = 100 centov" },
+  ZAR: { name: "Juhoafrický rand", subunit: "1 rand = 100 centov" },
+  NGN: { name: "Nigérijská naira", subunit: "1 naira = 100 kobos" },
+  KES: { name: "Kenský šiling", subunit: "1 šiling = 100 centov" },
+  GHS: { name: "Ghanský cedis", subunit: "1 cedis = 100 pesewas" },
+  ETB: { name: "Etiópsky birr", subunit: "1 birr = 100 centimov" },
+  DZD: { name: "Alžírsky dinár", subunit: "1 dinár = 100 centimov" },
+  MAD: { name: "Marocký dirham", subunit: "1 dirham = 100 centimov" },
+  TND: { name: "Tuniský dinár", subunit: "1 dinár = 1000 millimov" },
+  LYD: { name: "Líbyjský dinár", subunit: "1 dinár = 1000 dirhamov" },
+  EGP: { name: "Egyptská libra", subunit: "1 libra = 100 piastrov" },
+  SDG: { name: "Sudánska libra", subunit: "1 libra = 100 piastrov" },
+  SSP: { name: "Juhosudánska libra", subunit: "1 libra = 100 piastrov" },
+  TZS: { name: "Tanzánsky šiling", subunit: "1 šiling = 100 centov" },
+  UGX: { name: "Ugandský šiling", subunit: "1 šiling = 100 centov" },
+  RWF: { name: "Rwandský frank", subunit: "1 frank = 100 centimov" },
+  AOA: { name: "Angolská kwanza", subunit: "1 kwanza = 100 cêntimos" },
+  MZN: { name: "Mozambický metical", subunit: "1 metical = 100 centavos" },
+  ZMW: { name: "Zambijská kwacha", subunit: "1 kwacha = 100 ngwee" },
+  ZWL: { name: "Zimbabwský dolár", subunit: "1 dolár = 100 centov" },
+  BIF: { name: "Burundský frank", subunit: "1 frank = 100 centimov" },
+  CDF: { name: "Konžský frank", subunit: "1 frank = 100 centimov" },
+  XAF: { name: "Stredoafrický frank CFA", subunit: "1 frank = 100 centimov" },
+  XOF: { name: "Západoafrický frank CFA", subunit: "1 frank = 100 centimov" },
+  GMD: { name: "Gambijský dalasi", subunit: "1 dalasi = 100 bututs" },
+  GNF: { name: "Guinejský frank", subunit: "1 frank = 100 centimov" },
+  SLL: { name: "Sierra Leonean leone", subunit: "1 leone = 100 centov" },
+  LRD: { name: "Libérijský dolár", subunit: "1 dolár = 100 centov" },
+  CVE: { name: "Kapverdské escudo", subunit: "1 escudo = 100 centavos" },
+  STN: { name: "Svätotomášske dobra", subunit: "1 dobra = 100 cêntimos" },
+  KMF: { name: "Komorský frank", subunit: "1 frank = 100 centimov" },
+  DJF: { name: "Džibutský frank", subunit: "1 frank = 100 centimov" },
+  SOS: { name: "Somálsky šiling", subunit: "1 šiling = 100 centov" },
+  ERN: { name: "Eritrejská nakfa", subunit: "1 nakfa = 100 centov" },
+  MWK: { name: "Malawijská kwacha", subunit: "1 kwacha = 100 tambala" },
+  MGA: { name: "Madagaskarský ariary", subunit: "1 ariary = 5 iraimbilanja" },
+  MRU: { name: "Mauritánska ouguiya", subunit: "1 ouguiya = 5 khoum" },
+  MUR: { name: "Maurícijská rupia", subunit: "1 rupia = 100 centov" },
+  NAD: { name: "Namíbijský dolár", subunit: "1 dolár = 100 centov" },
+  LSL: { name: "Lesotský loti", subunit: "1 loti = 100 sente" },
+  SCR: { name: "Seychelská rupia", subunit: "1 rupia = 100 centov" },
+  FJD: { name: "Fidžijský dolár", subunit: "1 dolár = 100 centov" },
+  PGK: { name: "Papua-novogvinajská kina", subunit: "1 kina = 100 toea" },
+  WST: { name: "Samojská tala", subunit: "1 tala = 100 sene" },
+  SBD: { name: "Šalamúnsky dolár", subunit: "1 dolár = 100 centov" },
+  TOP: { name: "Tonžská paʻanga", subunit: "1 paʻanga = 100 seniti" },
+};
 const WORLD_COUNTRIES: WC[] = [
   // Europa
   { name: "Albánsko", iso: "al", dial: "355", currency: "ALL", continent: "Europa" },
@@ -473,6 +613,8 @@ function StateFormDialog({
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [currency, setCurrency] = useState("EUR");
+  const [currencyName, setCurrencyName] = useState("Euro");
+  const [currencySubunit, setCurrencySubunit] = useState("1 euro = 100 centov");
   const [continentId, setContinentId] = useState("1");
   const [flagUrl, setFlagUrl] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -507,17 +649,26 @@ function StateFormDialog({
       if (editingState) {
         setName(editingState.name);
         setCode(editingState.code);
-        setCurrency((editingState as any).currency || "EUR");
+        const cur = (editingState as any).currency || "EUR";
+        setCurrency(cur);
+        setCurrencyName((editingState as any).currencyName || CURRENCY_INFO[cur]?.name || "");
+        setCurrencySubunit((editingState as any).currencySubunit || CURRENCY_INFO[cur]?.subunit || "");
         setContinentId(editingState.continentId.toString());
         setFlagUrl(editingState.flagUrl ?? null);
       } else if (initialCountry) {
+        const cur = initialCountry.c.currency;
         setName(initialCountry.c.name);
         setCode(initialCountry.c.dial);
-        setCurrency(initialCountry.c.currency);
+        setCurrency(cur);
+        setCurrencyName(CURRENCY_INFO[cur]?.name || "");
+        setCurrencySubunit(CURRENCY_INFO[cur]?.subunit || "");
         setContinentId(initialCountry.cid.toString());
         setFlagUrl(`https://flagcdn.com/w160/${initialCountry.c.iso}.png`);
       } else {
-        setName(""); setCode(""); setCurrency("EUR"); setContinentId("1"); setFlagUrl(null);
+        setName(""); setCode(""); setCurrency("EUR");
+        setCurrencyName(CURRENCY_INFO["EUR"]?.name || "Euro");
+        setCurrencySubunit(CURRENCY_INFO["EUR"]?.subunit || "1 euro = 100 centov");
+        setContinentId("1"); setFlagUrl(null);
       }
     }
   }, [open, editingState, initialCountry]);
@@ -526,8 +677,19 @@ function StateFormDialog({
     setName(c.name);
     setCode(c.dial);
     setCurrency(c.currency);
+    setCurrencyName(CURRENCY_INFO[c.currency]?.name || "");
+    setCurrencySubunit(CURRENCY_INFO[c.currency]?.subunit || "");
     setContinentId(cid.toString());
     setFlagUrl(`https://flagcdn.com/w160/${c.iso}.png`);
+  }
+
+  function handleCurrencyCodeChange(val: string) {
+    const upper = val.toUpperCase().slice(0, 3);
+    setCurrency(upper);
+    if (CURRENCY_INFO[upper]) {
+      setCurrencyName(CURRENCY_INFO[upper].name);
+      setCurrencySubunit(CURRENCY_INFO[upper].subunit);
+    }
   }
 
   function handleSubmit() {
@@ -536,7 +698,7 @@ function StateFormDialog({
       return;
     }
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
-    const payload = { name, code, currency, continentId: parseInt(continentId), flagUrl, processingTimeSec };
+    const payload = { name, code, currency, currencyName, currencySubunit, continentId: parseInt(continentId), flagUrl, processingTimeSec };
 
     if (editingState) {
       updateMutation.mutate(payload);
@@ -628,13 +790,30 @@ function StateFormDialog({
             {/* Mena */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Mena</label>
+              <div className="flex gap-2">
+                <Input
+                  value={currency}
+                  onChange={(e) => handleCurrencyCodeChange(e.target.value)}
+                  placeholder="EUR"
+                  maxLength={3}
+                  className="w-20 font-mono uppercase"
+                  data-testid="input-state-currency"
+                />
+                <Input
+                  value={currencyName}
+                  onChange={(e) => setCurrencyName(e.target.value)}
+                  placeholder="napr. Euro"
+                  className="flex-1"
+                  data-testid="input-state-currency-name"
+                />
+              </div>
               <Input
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                placeholder="napr. EUR"
-                maxLength={3}
-                data-testid="input-state-currency"
+                value={currencySubunit}
+                onChange={(e) => setCurrencySubunit(e.target.value)}
+                placeholder="napr. 1 euro = 100 centov"
+                data-testid="input-state-currency-subunit"
               />
+              <p className="text-xs text-muted-foreground">Skratka meny (3 znaky), celý názov a delenie jednotky</p>
             </div>
 
             {/* Vlajka preview */}
@@ -1072,7 +1251,20 @@ export default function SettingsStates() {
         {columnVisibility.isVisible("id") && <TableCell><Badge variant="outline">{state.id}</Badge></TableCell>}
         {columnVisibility.isVisible("name") && <TableCell className="font-medium pl-7" data-testid={`text-state-name-${state.id}`}>{state.name}</TableCell>}
         {columnVisibility.isVisible("code") && <TableCell data-testid={`text-state-code-${state.id}`}>{state.code}</TableCell>}
-        {columnVisibility.isVisible("currency") && <TableCell data-testid={`text-state-currency-${state.id}`}><Badge variant="outline">{(state as any).currency || "EUR"}</Badge></TableCell>}
+        {columnVisibility.isVisible("currency") && (
+          <TableCell data-testid={`text-state-currency-${state.id}`}>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="font-mono">{(state as any).currency || "EUR"}</Badge>
+              {((state as any).currencyName || (state as any).currencySubunit) && (
+                <div className="text-xs text-muted-foreground leading-tight">
+                  {(state as any).currencyName && <span className="font-medium text-foreground">{(state as any).currencyName}</span>}
+                  {(state as any).currencyName && (state as any).currencySubunit && <span className="mx-1">·</span>}
+                  {(state as any).currencySubunit && <span>{(state as any).currencySubunit}</span>}
+                </div>
+              )}
+            </div>
+          </TableCell>
+        )}
         {columnVisibility.isVisible("continentId") && <TableCell className="text-muted-foreground text-xs">{continents?.find(c => c.id === state.continentId)?.name || state.continentId}</TableCell>}
         {columnVisibility.isVisible("flagUrl") && <TableCell><FlagImage src={state.flagUrl} alt={state.name} code={state.code} className="h-6 object-contain" /></TableCell>}
         <TableCell className="text-right">

@@ -46,6 +46,8 @@ export const states = pgTable("states", {
   name: text("name").notNull(),
   code: text("code").notNull(),
   currency: text("currency").default("EUR"),
+  currencyName: text("currency_name"),
+  currencySubunit: text("currency_subunit"),
   flagUrl: text("flag_url"),
   isActive: boolean("is_active").default(true),
 });
