@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import type { Product, CommissionScheme, Partner, Parameter, ProductParameter, MyCompany } from "@shared/schema";
-import { Plus, Pencil, Eye, Package, Loader2, HelpCircle, Trash2, FileText } from "lucide-react";
+import { Plus, Pencil, Eye, Package, Loader2, HelpCircle, Trash2, FileText, Copy } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
@@ -104,7 +104,7 @@ function useCommissions(productId: number | null) {
   });
 }
 
-function DocBubble({ color, label, docs, setDocs, inputValue, setInputValue, placeholder, testIdPrefix }: {
+function DocBubble({ color, label, docs, setDocs, inputValue, setInputValue, placeholder, testIdPrefix, copyTargets }: {
   color: "red" | "blue";
   label: string;
   docs: string[];
@@ -113,11 +113,17 @@ function DocBubble({ color, label, docs, setDocs, inputValue, setInputValue, pla
   setInputValue: (v: string) => void;
   placeholder: string;
   testIdPrefix: string;
+  copyTargets?: Array<React.Dispatch<React.SetStateAction<string[]>>>;
 }) {
   const c = color === "red"
     ? { border: "border-red-500/25", bg: "bg-red-500/5", text: "text-red-400", badge: "bg-red-500/20 text-red-400", listBorder: "border-red-500/20", dash: "border-dashed border-red-500/20" }
     : { border: "border-blue-500/25", bg: "bg-blue-500/5", text: "text-blue-400", badge: "bg-blue-500/20 text-blue-400", listBorder: "border-blue-500/20", dash: "border-dashed border-blue-500/20" };
   const add = () => { if (inputValue.trim()) { setDocs(prev => [...prev, inputValue.trim()]); setInputValue(""); } };
+  const copyDoc = (doc: string) => {
+    copyTargets?.forEach(setter => {
+      setter(prev => prev.includes(doc) ? prev : [...prev, doc]);
+    });
+  };
   return (
     <div className={`rounded-lg border ${c.border} ${c.bg} p-4 space-y-3`}>
       <div className="flex items-center gap-2">
@@ -144,9 +150,21 @@ function DocBubble({ color, label, docs, setDocs, inputValue, setInputValue, pla
                 <FileText className={`w-3.5 h-3.5 ${c.text} flex-shrink-0`} />
                 <span className="text-sm truncate" data-testid={`text-doc-${testIdPrefix}-${idx}`}>{doc}</span>
               </div>
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDocs(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-doc-${testIdPrefix}-${idx}`}>
-                <Trash2 className="w-3 h-3 text-destructive" />
-              </Button>
+              <div className="flex items-center gap-1 shrink-0">
+                {copyTargets && copyTargets.length > 0 && (
+                  <Button
+                    size="icon" variant="ghost" className="h-7 w-7"
+                    title="Skopírovať do ostatných stĺpcov"
+                    onClick={() => copyDoc(doc)}
+                    data-testid={`button-copy-doc-${testIdPrefix}-${idx}`}
+                  >
+                    <Copy className="w-3 h-3 text-muted-foreground" />
+                  </Button>
+                )}
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDocs(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-doc-${testIdPrefix}-${idx}`}>
+                  <Trash2 className="w-3 h-3 text-destructive" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>
@@ -559,42 +577,45 @@ function ProductFormDialog({
         <div style={{ display: activeTab === "dokumentacia" ? 'block' : 'none' }}>
           <div className="grid grid-cols-3 gap-4">
             {/* STĹPEC 1 — Pri odovzdaní do centrály */}
-            <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
-              <div className="flex items-center gap-2 pb-1 border-b border-border/60">
-                <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="text-xs font-semibold uppercase tracking-wide text-foreground">Pri odovzdaní do centrály</span>
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 space-y-3">
+              <div className="flex items-center gap-2 pb-1 border-b border-amber-500/20">
+                <FileText className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-amber-300">Pri odovzdaní do centrály</span>
                 {(requiredDocuments.length + optionalDocuments.length) > 0 && (
-                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-semibold">{requiredDocuments.length + optionalDocuments.length}</span>
+                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">{requiredDocuments.length + optionalDocuments.length}</span>
                 )}
               </div>
-              <DocBubble color="red" label="Povinné" docs={requiredDocuments} setDocs={setRequiredDocuments} inputValue={newDocName} setInputValue={setNewDocName} placeholder="Povinný dokument..." testIdPrefix="central-req" />
-              <DocBubble color="blue" label="Nepovinné" docs={optionalDocuments} setDocs={setOptionalDocuments} inputValue={newOptDocName} setInputValue={setNewOptDocName} placeholder="Nepovinný dokument..." testIdPrefix="central-opt" />
+              <p className="text-[11px] text-muted-foreground leading-relaxed">Dokumenty, ktoré PFA <strong className="text-foreground/70">odovzdá do centrály</strong> spolu so zmluvou — zaraďujú sa do sprievodky a musia byť skompletizované pred odoslaním.</p>
+              <DocBubble color="red" label="Povinné" docs={requiredDocuments} setDocs={setRequiredDocuments} inputValue={newDocName} setInputValue={setNewDocName} placeholder="Povinný dokument..." testIdPrefix="central-req" copyTargets={[setRequiredDocumentsReceived, setRequiredDocumentsPartner]} />
+              <DocBubble color="blue" label="Nepovinné" docs={optionalDocuments} setDocs={setOptionalDocuments} inputValue={newOptDocName} setInputValue={setNewOptDocName} placeholder="Nepovinný dokument..." testIdPrefix="central-opt" copyTargets={[setOptionalDocumentsReceived, setOptionalDocumentsPartner]} />
             </div>
 
             {/* STĹPEC 2 — Prijatá centrálou */}
-            <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
-              <div className="flex items-center gap-2 pb-1 border-b border-border/60">
-                <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="text-xs font-semibold uppercase tracking-wide text-foreground">Prijatá centrálou</span>
+            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4 space-y-3">
+              <div className="flex items-center gap-2 pb-1 border-b border-emerald-500/20">
+                <FileText className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-emerald-300">Prijatá centrálou</span>
                 {(requiredDocumentsReceived.length + optionalDocumentsReceived.length) > 0 && (
-                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-semibold">{requiredDocumentsReceived.length + optionalDocumentsReceived.length}</span>
+                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">{requiredDocumentsReceived.length + optionalDocumentsReceived.length}</span>
                 )}
               </div>
-              <DocBubble color="red" label="Povinné" docs={requiredDocumentsReceived} setDocs={setRequiredDocumentsReceived} inputValue={newDocReceivedName} setInputValue={setNewDocReceivedName} placeholder="Povinný dokument..." testIdPrefix="received-req" />
-              <DocBubble color="blue" label="Nepovinné" docs={optionalDocumentsReceived} setDocs={setOptionalDocumentsReceived} inputValue={newOptDocReceivedName} setInputValue={setNewOptDocReceivedName} placeholder="Nepovinný dokument..." testIdPrefix="received-opt" />
+              <p className="text-[11px] text-muted-foreground leading-relaxed">Dokumenty, ktoré centrála <strong className="text-foreground/70">akceptuje a eviduje</strong> po prijatí zmluvy — kontrolný zoznam pre backoffice pri spracovaní.</p>
+              <DocBubble color="red" label="Povinné" docs={requiredDocumentsReceived} setDocs={setRequiredDocumentsReceived} inputValue={newDocReceivedName} setInputValue={setNewDocReceivedName} placeholder="Povinný dokument..." testIdPrefix="received-req" copyTargets={[setRequiredDocuments, setRequiredDocumentsPartner]} />
+              <DocBubble color="blue" label="Nepovinné" docs={optionalDocumentsReceived} setDocs={setOptionalDocumentsReceived} inputValue={newOptDocReceivedName} setInputValue={setNewOptDocReceivedName} placeholder="Nepovinný dokument..." testIdPrefix="received-opt" copyTargets={[setOptionalDocuments, setOptionalDocumentsPartner]} />
             </div>
 
             {/* STĹPEC 3 — Odovzdaná obchodnému partnerovi */}
-            <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
-              <div className="flex items-center gap-2 pb-1 border-b border-border/60">
-                <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="text-xs font-semibold uppercase tracking-wide text-foreground">Odovzdaná partnerovi</span>
+            <div className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-4 space-y-3">
+              <div className="flex items-center gap-2 pb-1 border-b border-violet-500/20">
+                <FileText className="w-4 h-4 text-violet-400 shrink-0" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-violet-300">Odovzdaná partnerovi</span>
                 {(requiredDocumentsPartner.length + optionalDocumentsPartner.length) > 0 && (
-                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-semibold">{requiredDocumentsPartner.length + optionalDocumentsPartner.length}</span>
+                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-semibold">{requiredDocumentsPartner.length + optionalDocumentsPartner.length}</span>
                 )}
               </div>
-              <DocBubble color="red" label="Povinné" docs={requiredDocumentsPartner} setDocs={setRequiredDocumentsPartner} inputValue={newDocPartnerName} setInputValue={setNewDocPartnerName} placeholder="Povinný dokument..." testIdPrefix="partner-req" />
-              <DocBubble color="blue" label="Nepovinné" docs={optionalDocumentsPartner} setDocs={setOptionalDocumentsPartner} inputValue={newOptDocPartnerName} setInputValue={setNewOptDocPartnerName} placeholder="Nepovinný dokument..." testIdPrefix="partner-opt" />
+              <p className="text-[11px] text-muted-foreground leading-relaxed">Dokumenty, ktoré PFA <strong className="text-foreground/70">odovzdá obchodnému partnerovi</strong> (poisťovňa, banka, fond) po uzavretí zmluvy — potvrdenia a kópie pre partnera.</p>
+              <DocBubble color="red" label="Povinné" docs={requiredDocumentsPartner} setDocs={setRequiredDocumentsPartner} inputValue={newDocPartnerName} setInputValue={setNewDocPartnerName} placeholder="Povinný dokument..." testIdPrefix="partner-req" copyTargets={[setRequiredDocuments, setRequiredDocumentsReceived]} />
+              <DocBubble color="blue" label="Nepovinné" docs={optionalDocumentsPartner} setDocs={setOptionalDocumentsPartner} inputValue={newOptDocPartnerName} setInputValue={setNewOptDocPartnerName} placeholder="Nepovinný dokument..." testIdPrefix="partner-opt" copyTargets={[setOptionalDocuments, setOptionalDocumentsReceived]} />
             </div>
           </div>
         </div>
