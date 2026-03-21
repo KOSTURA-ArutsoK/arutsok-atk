@@ -756,10 +756,10 @@ export default function Reports() {
               <CardContent className="pt-4 pb-3">
                 <div className="flex items-center gap-2 mb-1">
                   <AlertTriangle className="w-4 h-4 text-red-500" />
-                  <span className="text-xs text-red-400">Storno Analýza</span>
+                  <span className="text-xs text-red-600 dark:text-red-400">Storno Analýza</span>
                 </div>
-                <div className="text-xl font-black tabular-nums text-red-400" data-testid="text-storno-amount">{formatCurrency(kpi.stornoAmount)}</div>
-                <div className="text-xs text-red-400/70 mt-0.5" data-testid="text-storno-count">{kpi.stornoCount} storno zmlúv</div>
+                <div className="text-xl font-black tabular-nums text-red-600 dark:text-red-400" data-testid="text-storno-amount">{formatCurrency(kpi.stornoAmount)}</div>
+                <div className="text-xs text-red-600/70 dark:text-red-400/70 mt-0.5" data-testid="text-storno-count">{kpi.stornoCount} storno zmlúv</div>
               </CardContent>
             </Card>
             <Card className="border-emerald-600/50" data-testid="kpi-cross-sell">
@@ -768,7 +768,7 @@ export default function Reports() {
                   <ShoppingCart className="w-4 h-4 text-emerald-500" />
                   <span className="text-xs text-muted-foreground">Cross-sell potenciál</span>
                 </div>
-                <div className="text-xl font-black tabular-nums text-emerald-400" data-testid="text-cross-sell">{kpi.crossSellPotential}</div>
+                <div className="text-xl font-black tabular-nums text-emerald-600 dark:text-emerald-400" data-testid="text-cross-sell">{kpi.crossSellPotential}</div>
                 <div className="text-xs text-muted-foreground mt-0.5">3+ zmluvy bez života</div>
               </CardContent>
             </Card>
@@ -892,7 +892,7 @@ export default function Reports() {
                     <Input placeholder="Hľadať meno, ŠPZ, číslo zmluvy..." value={searchText} onChange={e => setSearchText(e.target.value)} className="pl-9 h-9 text-sm" data-testid="input-fulltext-search" />
                   </div>
                   {selectedMonth && (
-                    <Badge variant="outline" className="text-xs gap-1 cursor-pointer border-amber-500 text-amber-400" onClick={() => setSelectedMonth(null)} data-testid="badge-table-month-filter">
+                    <Badge variant="outline" className="text-xs gap-1 cursor-pointer border-amber-500 text-amber-700 dark:text-amber-400" onClick={() => setSelectedMonth(null)} data-testid="badge-table-month-filter">
                       Mesiac: {formatMonthLabel(selectedMonth)}
                       <X className="w-3 h-3" />
                     </Badge>
@@ -919,7 +919,7 @@ export default function Reports() {
                           <td className="px-3 py-2 font-mono text-xs">{r.globalNumber || r.contractUid}</td>
                           <td className="px-3 py-2">
                             {r.clientName}
-                            {r.listStatus === "cerveny" && <Badge variant="outline" className="ml-1 text-[9px] border-red-500 text-red-400">ČZ</Badge>}
+                            {r.listStatus === "cerveny" && <Badge variant="outline" className="ml-1 text-[9px] border-red-500 text-red-700 dark:text-red-400">ČZ</Badge>}
                           </td>
                           <td className="px-3 py-2 text-xs">{r.contractType || "-"}</td>
                           <td className="px-3 py-2 font-mono text-xs">{r.licensePlate || "-"}</td>

@@ -4048,7 +4048,7 @@ export default function Contracts() {
                           <span className="inline-flex"><Checkbox disabled checked={false} data-testid={`checkbox-contract-${contract.id}`} /></span>
                         </TooltipTrigger>
                         <TooltipContent side="right" className="max-w-[250px] text-xs">
-                          <p className="font-semibold text-red-400 mb-0.5">Neúplná zmluva</p>
+                          <p className="font-semibold text-red-700 dark:text-red-400 mb-0.5">Neúplná zmluva</p>
                           <p>{incompleteReason}</p>
                           <p className="mt-0.5 text-muted-foreground">Doplňte chýbajúce údaje pred zaradením na sprievodku.</p>
                         </TooltipContent>
@@ -4082,16 +4082,16 @@ export default function Contracts() {
                       <Lock className="w-3 h-3 text-amber-500 shrink-0" style={{ display: contract.isLocked ? 'block' : 'none' }} />
                       {contract.contractNumber || "—"}
                       {(contract as any).contractType === "Nova" && (
-                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold bg-green-500/15 text-green-400 border border-green-500/30 whitespace-nowrap" data-testid={`badge-contract-type-${contract.id}`}>🟢 N</span>
+                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30 whitespace-nowrap" data-testid={`badge-contract-type-${contract.id}`}>🟢 N</span>
                       )}
                       {(contract as any).contractType === "Prestupova" && (
-                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30 whitespace-nowrap" data-testid={`badge-contract-type-${contract.id}`}>🔵 P</span>
+                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30 whitespace-nowrap" data-testid={`badge-contract-type-${contract.id}`}>🔵 P</span>
                       )}
                       {(contract as any).contractType === "Zmenova" && (
-                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold bg-yellow-500/15 text-yellow-400 border border-yellow-500/30 whitespace-nowrap" data-testid={`badge-contract-type-${contract.id}`}>🟡 Z</span>
+                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border border-yellow-500/30 whitespace-nowrap" data-testid={`badge-contract-type-${contract.id}`}>🟡 Z</span>
                       )}
                       {(contract as any).contractType === "Dodatok" && (
-                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/30 whitespace-nowrap" data-testid={`badge-contract-type-${contract.id}`}>🟠 D</span>
+                        <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-bold bg-orange-500/15 text-orange-700 dark:text-orange-400 border border-orange-500/30 whitespace-nowrap" data-testid={`badge-contract-type-${contract.id}`}>🟠 D</span>
                       )}
                       {(contract as any).isFirstContract && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-red-500/40 text-red-400 text-[10px] font-semibold whitespace-nowrap" data-testid={`badge-first-contract-${contract.id}`}>1. ZMLUVA</span>

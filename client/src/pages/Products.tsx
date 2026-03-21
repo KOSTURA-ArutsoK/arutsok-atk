@@ -116,8 +116,8 @@ function DocBubble({ color, label, docs, setDocs, inputValue, setInputValue, pla
   copyTargets?: Array<React.Dispatch<React.SetStateAction<string[]>>>;
 }) {
   const c = color === "red"
-    ? { border: "border-red-500/25", bg: "bg-red-500/5", text: "text-red-400", badge: "bg-red-500/20 text-red-400", listBorder: "border-red-500/20", dash: "border-dashed border-red-500/20" }
-    : { border: "border-blue-500/25", bg: "bg-blue-500/5", text: "text-blue-400", badge: "bg-blue-500/20 text-blue-400", listBorder: "border-blue-500/20", dash: "border-dashed border-blue-500/20" };
+    ? { border: "border-red-500/25", bg: "bg-red-500/5", text: "text-red-700 dark:text-red-400", badge: "bg-red-500/20 text-red-700 dark:text-red-400", listBorder: "border-red-500/20", dash: "border-dashed border-red-500/20" }
+    : { border: "border-blue-500/25", bg: "bg-blue-500/5", text: "text-blue-700 dark:text-blue-400", badge: "bg-blue-500/20 text-blue-700 dark:text-blue-400", listBorder: "border-blue-500/20", dash: "border-dashed border-blue-500/20" };
   const add = () => { if (inputValue.trim()) { setDocs(prev => [...prev, inputValue.trim()]); setInputValue(""); } };
   const copyDoc = (doc: string) => {
     copyTargets?.forEach(setter => {
@@ -461,7 +461,7 @@ function ProductFormDialog({
                 })}
               </div>
               {allowedSubjectTypes.length > 0 && (
-                <p className="text-xs text-amber-400 flex items-center gap-1">
+                <p className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1">
                   <span>⚠</span>
                   Produkt bude dostupný len pre: {allowedSubjectTypes.map(t => t === "person" ? "FO" : t === "szco" ? "SZČO" : t === "company" ? "PO" : t === "organization" ? "TS" : "VS").join(", ")}. Zmluvy s iným typom subjektu budú odmietnuté.
                 </p>
@@ -580,10 +580,10 @@ function ProductFormDialog({
             {/* STĹPEC 1 — Pri odovzdaní do centrály */}
             <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 space-y-3">
               <div className="flex items-center gap-2 pb-1 border-b border-amber-500/20">
-                <FileText className="w-4 h-4 text-amber-400 shrink-0" />
-                <span className="text-xs font-semibold uppercase tracking-wide text-amber-300">Pri odovzdaní do centrály</span>
+                <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">Pri odovzdaní do centrály</span>
                 {(requiredDocuments.length + optionalDocuments.length) > 0 && (
-                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">{requiredDocuments.length + optionalDocuments.length}</span>
+                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold">{requiredDocuments.length + optionalDocuments.length}</span>
                 )}
               </div>
               <p className="text-[11px] text-muted-foreground leading-relaxed">Dokumenty, ktoré špecialista <strong className="text-foreground/70">odovzdá do centrály</strong> spolu so zmluvou — zaraďujú sa do sprievodky a musia byť skompletizované pred odoslaním.</p>
@@ -594,10 +594,10 @@ function ProductFormDialog({
             {/* STĹPEC 2 — Prijatá centrálou */}
             <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-4 space-y-3">
               <div className="flex items-center gap-2 pb-1 border-b border-emerald-500/20">
-                <FileText className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span className="text-xs font-semibold uppercase tracking-wide text-emerald-300">Prijatá centrálou</span>
+                <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Prijatá centrálou</span>
                 {(requiredDocumentsReceived.length + optionalDocumentsReceived.length) > 0 && (
-                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">{requiredDocumentsReceived.length + optionalDocumentsReceived.length}</span>
+                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-semibold">{requiredDocumentsReceived.length + optionalDocumentsReceived.length}</span>
                 )}
               </div>
               <p className="text-[11px] text-muted-foreground leading-relaxed">Dokumenty, ktoré centrála <strong className="text-foreground/70">akceptuje a eviduje</strong> po prijatí zmluvy — kontrolný zoznam pre backoffice pri spracovaní.</p>
@@ -608,10 +608,10 @@ function ProductFormDialog({
             {/* STĹPEC 3 — Odovzdaná obchodnému partnerovi */}
             <div className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-4 space-y-3">
               <div className="flex items-center gap-2 pb-1 border-b border-violet-500/20">
-                <FileText className="w-4 h-4 text-violet-400 shrink-0" />
-                <span className="text-xs font-semibold uppercase tracking-wide text-violet-300">Odovzdaná partnerovi</span>
+                <FileText className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">Odovzdaná partnerovi</span>
                 {(requiredDocumentsPartner.length + optionalDocumentsPartner.length) > 0 && (
-                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-semibold">{requiredDocumentsPartner.length + optionalDocumentsPartner.length}</span>
+                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-700 dark:text-violet-300 font-semibold">{requiredDocumentsPartner.length + optionalDocumentsPartner.length}</span>
                 )}
               </div>
               <p className="text-[11px] text-muted-foreground leading-relaxed">Dokumenty, ktoré špecialista <strong className="text-foreground/70">odovzdá obchodnému partnerovi</strong> (poisťovňa, banka, fond) po uzavretí zmluvy — potvrdenia a kópie pre partnera.</p>

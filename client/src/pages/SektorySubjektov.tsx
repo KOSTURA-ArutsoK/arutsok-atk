@@ -31,17 +31,17 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  identita: "bg-blue-500/10 border-blue-500/20 text-blue-400",
-  legislativa: "bg-red-500/10 border-red-500/20 text-red-400",
-  rodina: "bg-pink-500/10 border-pink-500/20 text-pink-400",
-  financie: "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
-  reality: "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
-  profil: "bg-amber-500/10 border-amber-500/20 text-amber-400",
-  zdravotny: "bg-amber-500/10 border-amber-500/20 text-amber-400",
-  investicny: "bg-amber-500/10 border-amber-500/20 text-amber-400",
-  digitalna: "bg-cyan-500/10 border-cyan-500/20 text-cyan-400",
-  servis: "bg-slate-500/10 border-slate-500/20 text-slate-400",
-  relacie: "bg-violet-500/10 border-violet-500/20 text-violet-400",
+  identita: "bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400",
+  legislativa: "bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400",
+  rodina: "bg-pink-500/10 border-pink-500/20 text-pink-700 dark:text-pink-400",
+  financie: "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400",
+  reality: "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400",
+  profil: "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400",
+  zdravotny: "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400",
+  investicny: "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400",
+  digitalna: "bg-cyan-500/10 border-cyan-500/20 text-cyan-700 dark:text-cyan-400",
+  servis: "bg-slate-500/10 border-slate-500/20 text-slate-700 dark:text-slate-400",
+  relacie: "bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-400",
 };
 
 export default function SektorySubjektov() {
@@ -63,16 +63,16 @@ export default function SektorySubjektov() {
       <div className="flex items-center gap-3">
         <Database className="w-6 h-6 text-primary" />
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Sektory Subjektov</h1>
-        <sup className="text-[9px] text-blue-400 font-medium ml-1">(B)</sup>
+        <sup className="text-[9px] text-blue-600 dark:text-blue-400 font-medium ml-1">(B)</sup>
       </div>
 
       {mappings && mappings.length > 0 && (
         <Card className="border-blue-500/20 bg-blue-500/5" data-testid="unified-mapping-card">
           <CardHeader className="pb-2 pt-3 px-4">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Link2 className="w-4 h-4 text-blue-400" />
+              <Link2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               Prepojenie architektúry A ↔ B ↔ C
-              <Badge variant="outline" className="text-[8px] border-emerald-400/30 text-emerald-400 ml-auto">
+              <Badge variant="outline" className="text-[8px] border-emerald-500/30 text-emerald-700 dark:text-emerald-400 ml-auto">
                 {mappings.length} mapovaní
               </Badge>
             </CardTitle>
@@ -84,7 +84,7 @@ export default function SektorySubjektov() {
                   <div className="flex items-center gap-1.5 shrink-0 min-w-[140px]">
                     <Layers className="w-3.5 h-3.5 text-muted-foreground" />
                     <span className="text-xs font-medium">{sectorName}</span>
-                    <sup className="text-[8px] text-blue-400 font-medium">(A)</sup>
+                    <sup className="text-[8px] text-blue-600 dark:text-blue-400 font-medium">(A)</sup>
                   </div>
                   <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="flex flex-wrap gap-1">

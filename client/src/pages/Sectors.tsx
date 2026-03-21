@@ -650,7 +650,7 @@ function SectorProductFormDialog({
             </div>
           )}
           <div className="border border-amber-500/30 rounded p-3 space-y-3 bg-amber-500/5">
-            <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Dynamické lehoty životného cyklu</p>
+            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Dynamické lehoty životného cyklu</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">Dni do výhrady</label>
