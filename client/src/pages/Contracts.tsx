@@ -10,7 +10,7 @@ import { useSmartFilter } from "@/hooks/use-smart-filter";
 import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation, useSearch } from "wouter";
-import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer } from "@shared/schema";
+import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer, ImportLog } from "@shared/schema";
 import { validateSlovakICO } from "@shared/ico-validator";
 import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, AlertCircle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building, Building2, ArrowLeftRight, Info, Download, Landmark } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -2560,6 +2560,13 @@ export default function Contracts() {
   const [importNewRecommenderUid, setImportNewRecommenderUid] = useState("");
   const [importNewRecommenderPercentage, setImportNewRecommenderPercentage] = useState("");
   const [importRewardSaving, setImportRewardSaving] = useState(false);
+  const [importHistoryOpen, setImportHistoryOpen] = useState(false);
+  const [importHistorySelected, setImportHistorySelected] = useState<ImportLog | null>(null);
+
+  const { data: importLogs } = useQuery<ImportLog[]>({
+    queryKey: ["/api/import-logs"],
+    enabled: isAdmin(appUser),
+  });
 
   useEffect(() => {
     if (importStep === 2) {
@@ -3385,6 +3392,7 @@ export default function Contracts() {
       }
       setImportResult(data);
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/import-logs"] });
       const createdDetails = (data.details || []).filter((d: any) => d.contractId && (d.status === "ok" || d.status === "incomplete"));
       const createdIds = createdDetails.map((d: any) => d.contractId as number);
       setImportCreatedIds(createdIds);
@@ -5296,6 +5304,53 @@ export default function Contracts() {
             Rozumiem
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={importHistoryOpen} onOpenChange={setImportHistoryOpen}>
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col" data-testid="dialog-import-history">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <History className="w-4 h-4" />
+            História importov
+          </DialogTitle>
+        </DialogHeader>
+        <div className="overflow-y-auto flex-1 pr-1">
+          {!importLogs || importLogs.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">Žiadne záznamy o importoch.</p>
+          ) : (
+            <div className="space-y-2">
+              {importLogs.map(log => {
+                const rawResult = (log.rawData as any)?.[0];
+                const date = log.uploadedAt ? new Date(log.uploadedAt) : null;
+                return (
+                  <div key={log.id} className="border rounded-lg p-3 flex items-center justify-between gap-3 hover:bg-muted/30 transition-colors" data-testid={`row-import-log-${log.id}`}>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{log.fileName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {date ? date.toLocaleString("sk-SK") : "—"}
+                        {" · "}Celkom: {log.totalRows ?? 0}
+                        {" · "}<span className="text-green-500">OK: {log.successCount ?? 0}</span>
+                        {(log.errorCount ?? 0) > 0 && <> · <span className="text-destructive">Chyby: {log.errorCount}</span></>}
+                        {rawResult?.incomplete > 0 && <> · <span className="text-red-400">Neúplné: {rawResult.incomplete}</span></>}
+                        {rawResult?.duplicates > 0 && <> · <span className="text-yellow-500">Duplikáty: {rawResult.duplicates}</span></>}
+                      </p>
+                    </div>
+                    {rawResult && (
+                      <Button size="sm" variant="outline" onClick={() => {
+                        setImportResult(rawResult);
+                        setImportHistoryOpen(false);
+                        setImportSummaryOpen(true);
+                      }} data-testid={`button-show-import-log-${log.id}`}>
+                        Zobraziť výsledok
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
     </>
@@ -8762,6 +8817,11 @@ export default function Contracts() {
                   <Upload className="w-4 h-4 mr-2" />
                   Import z Excelu
                 </Button>
+                {isAdmin(appUser) && (
+                  <Button variant="ghost" size="icon" title="História importov" onClick={() => setImportHistoryOpen(true)} data-testid="button-import-history">
+                    <History className="w-4 h-4" />
+                  </Button>
+                )}
                 <Button onClick={handleOpenPreSelect} data-testid="button-create-contract">
                   <Plus className="w-4 h-4 mr-2" />
                   Pridat zmluvu

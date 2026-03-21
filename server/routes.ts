@@ -7742,7 +7742,7 @@ export async function registerRoutes(
         newData: { successCount, savedIncompleteCount, errorCount, duplicateCount: trueDuplicateCount, blockedNeprijateCount, blockedArchivCount, total: results.length },
       });
 
-      res.json({
+      const importResult = {
         total: results.length,
         success: successCount,
         errors: errorCount,
@@ -7751,10 +7751,38 @@ export async function registerRoutes(
         blockedNeprijate: blockedNeprijateCount,
         blockedArchiv: blockedArchivCount,
         details: results,
-      });
+      };
+
+      try {
+        await storage.createImportLog({
+          fileName,
+          userId: appUser?.id ?? null,
+          companyId: appUser?.activeCompanyId ?? null,
+          successCount: successCount + savedIncompleteCount,
+          errorCount,
+          totalRows: results.length,
+          rawData: [importResult] as any,
+          status: "completed",
+        });
+      } catch (logErr) {
+        console.error("Failed to save import log:", logErr);
+      }
+
+      res.json(importResult);
     } catch (err: any) {
       console.error("Excel/CSV import error:", err);
       res.status(500).json({ message: "Chyba pri importe: " + (err.message || "Neznáma chyba") });
+    }
+  });
+
+  app.get("/api/import-logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!appUser || !isAdmin(appUser)) return res.status(403).json({ message: "Nedostatočné oprávnenia" });
+      const logs = await storage.getImportLogs(appUser.activeCompanyId ?? undefined);
+      res.json(logs);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message || "Chyba" });
     }
   });
 
