@@ -6264,7 +6264,6 @@ export default function Contracts() {
                   <Row label="Dátum uzatvorenia" value={<span className="font-mono">{signedDateFmt}</span>} />
                   <Row label="Číslo návrhu" value={<span className="font-mono">{c.proposalNumber || "—"}</span>} />
                   <Row label="Číslo zmluvy" value={<span className="font-mono">{c.contractNumber || "—"}</span>} />
-                  <Row label="Číslo poistnej zmluvy" value={<span className="font-mono">{c.insuranceContractNumber || "—"}</span>} />
                 </div>
               </div>
               <div className="border rounded-md overflow-hidden">
