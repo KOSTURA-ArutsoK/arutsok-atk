@@ -404,12 +404,14 @@ body[style*="overflow:hidden"] main {
   border-radius: calc(var(--radius) - 2px);
 }
 
-@keyframes blinkOrange {
-  0%, 100% { background-color: hsl(25 95% 48%); box-shadow: 0 0 0 3px hsl(25 95% 48% / 0.4); color: white; }
-  50% { background-color: hsl(25 95% 32%); box-shadow: 0 0 0 6px hsl(25 95% 48% / 0.08); color: white; }
+@keyframes blinkOrangeBtn {
+  0%, 100% { background-color: hsl(25 95% 48%); box-shadow: 0 0 0 4px hsl(25 95% 48% / 0.45); }
+  50%       { background-color: hsl(25 60% 22%); box-shadow: 0 0 0 1px hsl(25 95% 48% / 0.1); }
 }
-.btn-blink-orange {
-  animation: blinkOrange 0.85s ease-in-out infinite;
-  color: white !important;
-  border-color: transparent !important;
+.btn-print-blink {
+  animation: blinkOrangeBtn 0.8s ease-in-out infinite;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  outline: none;
 }

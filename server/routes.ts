@@ -5178,8 +5178,11 @@ export async function registerRoutes(
 
   app.post("/api/contracts/move-to-processing", isAuthenticated, async (req: any, res) => {
     try {
-      const { contractIds } = req.body;
-      if (!Array.isArray(contractIds) || contractIds.length === 0) {
+      const { contractIds, rejectedIds: rejectedIdsCheck } = req.body;
+      if (!Array.isArray(contractIds)) {
+        return res.status(400).json({ message: "Neplatný formát dát" });
+      }
+      if (contractIds.length === 0 && (!Array.isArray(rejectedIdsCheck) || rejectedIdsCheck.length === 0)) {
         return res.status(400).json({ message: "Žiadne kontrakty na presun" });
       }
       const appUser = req.appUser;

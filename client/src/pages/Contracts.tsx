@@ -8949,21 +8949,23 @@ export default function Contracts() {
               <p className="text-xs font-medium text-red-400" data-testid="text-sprievodka-order-note">
                 Zmluvy budú na sprievodke zoradené podľa poradia, v akom ich označíte.
               </p>
-              <div className={`flex items-center gap-3 px-3 py-2.5 rounded-md border ${sprievodkaPrinted ? "border-green-600/40 bg-green-600/10" : "border-orange-500/40 bg-orange-500/10"}`}>
-                <Printer className={`w-4 h-4 shrink-0 ${sprievodkaPrinted ? "text-green-500" : "text-orange-400"}`} />
-                <p className={`text-xs flex-1 ${sprievodkaPrinted ? "text-green-400" : "text-orange-300"}`}>
-                  {sprievodkaPrinted ? "Sprievodka bola vytlačená. Môžete odoslať." : "Pred odoslaním je potrebné vytlačiť sprievodku."}
-                </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => { window.print(); setSprievodkaPrinted(true); }}
-                  className={sprievodkaPrinted ? "bg-green-600 hover:bg-green-700 text-white border-transparent" : "btn-blink-orange"}
-                  data-testid="button-sprievodka-print"
-                >
-                  <Printer className="w-3.5 h-3.5 mr-1.5" />
-                  {sprievodkaPrinted ? "Vytlačené" : "Tlačiť sprievodku"}
-                </Button>
+              <div className="flex justify-center py-1">
+                {sprievodkaPrinted ? (
+                  <div className="flex items-center gap-2 px-5 py-2.5 rounded-md bg-green-600/20 border border-green-600/60 text-green-400 text-sm font-medium" data-testid="button-sprievodka-print">
+                    <Printer className="w-4 h-4" />
+                    Sprievodka vytlačená ✓
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { window.print(); setSprievodkaPrinted(true); }}
+                    className="btn-print-blink flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-semibold"
+                    data-testid="button-sprievodka-print"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Tlačiť sprievodku
+                  </button>
+                )}
               </div>
               <div className="flex items-center justify-end gap-3 flex-wrap">
                 <Button type="button" variant="outline" onClick={() => { setSprievodkaDialogOpen(false); setSprievodkaPrinted(false); }} data-testid="button-sprievodka-cancel">
