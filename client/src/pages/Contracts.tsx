@@ -9306,6 +9306,7 @@ export default function Contracts() {
                             {renderSprievodkaFullTable(group.contracts, {
                               testIdPrefix: "row-accepted",
                               nahratieView: true,
+                              alwaysIncompleteEdit: true,
                               centralAcceptOpts: {
                                 acceptedIds: centralAcceptedIds,
                                 onToggle: (id) => setCentralAcceptedIds(prev => {
