@@ -9195,7 +9195,7 @@ export default function Contracts() {
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
               ) : filteredArchived.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-archiv">Ziadne archivovane zmluvy</p>
-              ) : renderSprievodkaFullTable(sortedArchived, { nahratieView: true, showRerouteCheckbox: true, showActions: false, testIdPrefix: "row-archiv" })}
+              ) : renderSprievodkaFullTable(sortedArchived, { nahratieView: true, showRerouteCheckbox: true, showActions: true, alwaysIncompleteEdit: true, testIdPrefix: "row-archiv" })}
             </CardContent>
             {rerouteSelectedIds.length > 0 && activeFolder === 4 && (
               <div className="flex items-center justify-between p-3 border-t bg-cyan-500/5">
