@@ -3496,6 +3496,7 @@ export default function Contracts() {
               <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">O2%</th>
               <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">O3 UID</th>
               <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">O3%</th>
+              <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b whitespace-nowrap">🗂️</th>
               {showActions && <th className="px-2 py-1.5 text-right font-medium text-muted-foreground border-b whitespace-nowrap">Akcie</th>}
             </tr>
           </thead>
@@ -3743,6 +3744,22 @@ export default function Contracts() {
                       {warnSumNot100 && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Súčet percent musí byť 100% (aktuálne {allPct.toFixed(0)}%)</TooltipContent></Tooltip>}
                       {r3 ? <span className="text-amber-200">{r3Pct.toFixed(0)}%</span> : "—"}
                     </span>
+                  </td>
+                  <td className="px-2 py-1.5 text-center whitespace-nowrap" data-testid={`text-docs-count-${contract.id}`}>
+                    {Array.isArray(contract.documents) && contract.documents.length > 0 ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold whitespace-nowrap">
+                            🗂️ {contract.documents.length}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-xs">
+                          {contract.documents.length} {contract.documents.length === 1 ? "nahraný dokument" : contract.documents.length < 5 ? "nahrané dokumenty" : "nahraných dokumentov"}
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <span className="text-muted-foreground/30">—</span>
+                    )}
                   </td>
                   {showActions && (
                     <td className="px-2 py-1.5 text-right" onClick={e => e.stopPropagation()}>
