@@ -586,7 +586,7 @@ function ProductFormDialog({
                   <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">{requiredDocuments.length + optionalDocuments.length}</span>
                 )}
               </div>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">Dokumenty, ktoré PFA <strong className="text-foreground/70">odovzdá do centrály</strong> spolu so zmluvou — zaraďujú sa do sprievodky a musia byť skompletizované pred odoslaním.</p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">Dokumenty, ktoré špecialista <strong className="text-foreground/70">odovzdá do centrály</strong> spolu so zmluvou — zaraďujú sa do sprievodky a musia byť skompletizované pred odoslaním.</p>
               <DocBubble color="red" label="Povinné" docs={requiredDocuments} setDocs={setRequiredDocuments} inputValue={newDocName} setInputValue={setNewDocName} placeholder="Povinný dokument..." testIdPrefix="central-req" copyTargets={[setRequiredDocumentsReceived, setRequiredDocumentsPartner]} />
               <DocBubble color="blue" label="Nepovinné" docs={optionalDocuments} setDocs={setOptionalDocuments} inputValue={newOptDocName} setInputValue={setNewOptDocName} placeholder="Nepovinný dokument..." testIdPrefix="central-opt" copyTargets={[setOptionalDocumentsReceived, setOptionalDocumentsPartner]} />
             </div>
@@ -614,7 +614,7 @@ function ProductFormDialog({
                   <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-semibold">{requiredDocumentsPartner.length + optionalDocumentsPartner.length}</span>
                 )}
               </div>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">Dokumenty, ktoré PFA <strong className="text-foreground/70">odovzdá obchodnému partnerovi</strong> (poisťovňa, banka, fond) po uzavretí zmluvy — potvrdenia a kópie pre partnera.</p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">Dokumenty, ktoré špecialista <strong className="text-foreground/70">odovzdá obchodnému partnerovi</strong> (poisťovňa, banka, fond) po uzavretí zmluvy — potvrdenia a kópie pre partnera.</p>
               <DocBubble color="red" label="Povinné" docs={requiredDocumentsPartner} setDocs={setRequiredDocumentsPartner} inputValue={newDocPartnerName} setInputValue={setNewDocPartnerName} placeholder="Povinný dokument..." testIdPrefix="partner-req" copyTargets={[setRequiredDocuments, setRequiredDocumentsReceived]} />
               <DocBubble color="blue" label="Nepovinné" docs={optionalDocumentsPartner} setDocs={setOptionalDocumentsPartner} inputValue={newOptDocPartnerName} setInputValue={setNewOptDocPartnerName} placeholder="Nepovinný dokument..." testIdPrefix="partner-opt" copyTargets={[setOptionalDocuments, setOptionalDocumentsReceived]} />
             </div>
