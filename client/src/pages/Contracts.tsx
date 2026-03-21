@@ -3498,6 +3498,7 @@ export default function Contracts() {
     const r2Pct = parseFloat(r2?.percentage || "0") || 0;
     const allDistPct = specPct + recommenders.reduce((sum: number, r: any) => sum + (parseFloat(r.percentage || "0") || 0), 0);
     const sub2 = subjects?.find(s => s.id === contract.subjectId);
+    const linkedFo2 = sub2?.linkedFoId ? subjects?.find(s => s.id === sub2.linkedFoId) : undefined;
     const importRaw2 = (contract as any).importedRawData || {};
     const resolvedSubjType2 = sub2?.type || importRaw2["subjectType"] || importRaw2["typ_subjektu"] || null;
     const isFO2 = resolvedSubjType2 === "person" || resolvedSubjType2 === "szco";
@@ -3511,8 +3512,10 @@ export default function Contracts() {
     const warnSpecialist = !specialist;
     const warnSumNot100 = !!specialist && Math.round(allDistPct) !== 100;
     const warnRcIco2 = isFO2 && !rcOnly2;
-    const warnMeno2 = isFO2 && !sub2?.firstName;
-    const warnPriezvisko2 = isFO2 && !sub2?.lastName;
+    const resolvedFirstName2 = sub2?.firstName || linkedFo2?.firstName || importRaw2.meno || "";
+    const resolvedLastName2 = sub2?.lastName || linkedFo2?.lastName || importRaw2.priezvisko || "";
+    const warnMeno2 = isFO2 && !resolvedFirstName2;
+    const warnPriezvisko2 = isFO2 && !resolvedLastName2;
     const warnNazov2 = isPO2 && !(sub2 as any)?.companyName;
     const warnNegProposal = !!(contract.proposalNumber && contract.proposalNumber.trim().startsWith('-'));
     return isIncomplete || warnPartner || warnProduct || warnContractType || warnSignedDate || warnNumber || warnSpecialist || warnSumNot100 || warnRcIco2 || warnMeno2 || warnPriezvisko2 || warnNazov2 || warnNegProposal;
@@ -3628,6 +3631,7 @@ export default function Contracts() {
           <tbody>
             {contractsList.map((contract, idx) => {
               const sub = subjects?.find(s => s.id === contract.subjectId);
+              const linkedFo = sub?.linkedFoId ? subjects?.find(s => s.id === sub.linkedFoId) : undefined;
               const typSubj = sub?.type === "person" ? "FO" : sub?.type === "szco" ? "SZČO" : sub?.type === "company" ? "PO" : sub?.type === "organization" ? "Org." : sub?.type === "state" ? "Štát" : "—";
               const typSubjColor = typSubj === "FO" ? "border-blue-500/50 text-blue-400" : typSubj === "SZČO" ? "border-amber-500/50 text-amber-400" : typSubj === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground";
               const rcIco = sub ? (sub.type === "person" ? sub.birthNumber : sub.type === "szco" ? (sub.birthNumber || (sub as any).ico) : (sub as any).ico) : null;
@@ -3650,9 +3654,11 @@ export default function Contracts() {
               const resolvedSubjType = sub?.type || importRaw["subjectType"] || importRaw["typ_subjektu"] || null;
               const isFO = resolvedSubjType === "person" || resolvedSubjType === "szco";
               const isPO = resolvedSubjType === "company" || resolvedSubjType === "organization";
-              // Hodnoty z priradeného subjektu (čo sa zobrazuje v bunkách)
-              const hasMeno = !!(sub?.firstName);
-              const hasPriezvisko = !!(sub?.lastName);
+              // Hodnoty z priradeného subjektu — rovnaká logika ako v editovacom dialógu (zohľadní linkedFo pre SZČO)
+              const resolvedFirstName = sub?.firstName || linkedFo?.firstName || importRaw.meno || "";
+              const resolvedLastName = sub?.lastName || linkedFo?.lastName || importRaw.priezvisko || "";
+              const hasMeno = !!resolvedFirstName;
+              const hasPriezvisko = !!resolvedLastName;
               const hasNazovFirmy = !!(sub?.companyName);
               // hasRcIco — iba z priradeného subjektu (čo sa zobrazuje v bunke)
               const hasRcIco = !!rcOnly;
@@ -3818,13 +3824,13 @@ export default function Contracts() {
                   <td className="px-2 py-1.5 whitespace-nowrap">
                     <span className="flex items-center gap-1">
                       {warnMeno && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba meno</TooltipContent></Tooltip>}
-                      {sub?.firstName || "—"}
+                      {resolvedFirstName || "—"}
                     </span>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">
                     <span className="flex items-center gap-1">
                       {warnPriezvisko && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3 h-3 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba priezvisko</TooltipContent></Tooltip>}
-                      {sub?.lastName || "—"}
+                      {resolvedLastName || "—"}
                     </span>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{sub?.titleAfter || "—"}</td>
