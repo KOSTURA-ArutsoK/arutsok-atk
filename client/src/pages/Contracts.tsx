@@ -7240,16 +7240,17 @@ export default function Contracts() {
                   <div className="border rounded-md max-h-[200px] overflow-y-auto" data-testid="list-preselect-subjects">
                     {preSelectFilteredSubjects.map(s => {
                       const isSelected = preSelectSubjectId === s.id.toString();
+                      const linkedFo = (s as any).linkedFoId ? subjects?.find((sub: any) => sub.id === (s as any).linkedFoId) : null;
                       const doSelect = (focusNext?: boolean) => {
                         setPreSelectSubjectId(s.id.toString());
                         setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state");
-                        setPreSelectTitleBefore((s as any).titleBefore || "");
-                        setPreSelectFirstName(s.firstName || "");
-                        setPreSelectLastName(s.lastName || "");
-                        setPreSelectTitleAfter((s as any).titleAfter || "");
+                        setPreSelectTitleBefore((s as any).titleBefore || (linkedFo as any)?.titleBefore || "");
+                        setPreSelectFirstName(s.firstName || linkedFo?.firstName || "");
+                        setPreSelectLastName(s.lastName || linkedFo?.lastName || "");
+                        setPreSelectTitleAfter((s as any).titleAfter || (linkedFo as any)?.titleAfter || "");
                         setPreSelectBusinessName(s.companyName || "");
                         setPreSelectIco((s.details as any)?.ico || (s as any)?.ico || "");
-                        setPreSelectBirthNumber(s.birthNumber || "");
+                        setPreSelectBirthNumber(s.birthNumber || linkedFo?.birthNumber || "");
                         setPreSelectShowNameFields(true);
                         if (focusNext) setTimeout(() => {
                           const sType = s.type as string;
@@ -7275,8 +7276,10 @@ export default function Contracts() {
                       );
                       if (s.type === "szco") {
                         const ico = (s.details as any)?.ico || (s as any)?.ico || "";
-                        const personName = `${(s as any).titleBefore ? (s as any).titleBefore + " " : ""}${s.firstName || ""} ${s.lastName || ""}${(s as any).titleAfter ? " " + (s as any).titleAfter : ""}`.trim();
-                        const hasPersonInfo = !!(s.firstName || s.lastName);
+                        const foSrc = (s.firstName || s.lastName) ? s : (linkedFo || s);
+                        const personName = `${(foSrc as any).titleBefore ? (foSrc as any).titleBefore + " " : ""}${foSrc.firstName || ""} ${foSrc.lastName || ""}${(foSrc as any).titleAfter ? " " + (foSrc as any).titleAfter : ""}`.trim();
+                        const hasPersonInfo = !!(s.firstName || s.lastName || linkedFo?.firstName || linkedFo?.lastName);
+                        const subPersonBirthNumber = s.birthNumber || linkedFo?.birthNumber || "";
                         return (
                           <div key={s.id} data-testid={`row-preselect-subject-${s.id}`}>
                             <div tabIndex={0} className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b hover-elevate ${isSelected ? "bg-primary/10" : ""} focus:bg-primary/10 focus:outline-none`} onClick={() => doSelect()} onKeyDown={handleKeyDown}>
@@ -7300,7 +7303,7 @@ export default function Contracts() {
                                     <span className="text-sm text-muted-foreground">{personName || "—"}</span>
                                     <Badge variant="outline" className="text-[10px] px-1.5 border-blue-500/50 text-blue-400 flex-shrink-0">FO</Badge>
                                   </div>
-                                  <div className={`text-xs text-muted-foreground ${s.birthNumber ? "" : "opacity-50"}`}>RČ: {s.birthNumber || "—"}</div>
+                                  <div className={`text-xs text-muted-foreground ${subPersonBirthNumber ? "" : "opacity-50"}`}>RČ: {subPersonBirthNumber || "—"}</div>
                                 </div>
                               </div>
                             )}
@@ -7311,8 +7314,10 @@ export default function Contracts() {
                         const ico = (s as any)?.ico || (s.details as any)?.ico || "";
                         const typeLabel = s.type === "company" ? "PO" : s.type === "organization" ? "TS" : "VS";
                         const typeBadgeClass = s.type === "company" ? "border-purple-500/50 text-purple-400" : s.type === "organization" ? "border-green-500/50 text-green-400" : "border-cyan-500/50 text-cyan-400";
-                        const personName = `${(s as any).titleBefore ? (s as any).titleBefore + " " : ""}${s.firstName || ""} ${s.lastName || ""}${(s as any).titleAfter ? " " + (s as any).titleAfter : ""}`.trim();
-                        const hasPersonInfo = !!(s.firstName || s.lastName);
+                        const foSrcC = (s.firstName || s.lastName) ? s : (linkedFo || s);
+                        const personName = `${(foSrcC as any).titleBefore ? (foSrcC as any).titleBefore + " " : ""}${foSrcC.firstName || ""} ${foSrcC.lastName || ""}${(foSrcC as any).titleAfter ? " " + (foSrcC as any).titleAfter : ""}`.trim();
+                        const hasPersonInfo = !!(s.firstName || s.lastName || linkedFo?.firstName || linkedFo?.lastName);
+                        const subPersonBirthNumberC = s.birthNumber || linkedFo?.birthNumber || "";
                         return (
                           <div key={s.id} data-testid={`row-preselect-subject-${s.id}`}>
                             <div tabIndex={0} className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b hover-elevate ${isSelected ? "bg-primary/10" : ""} focus:bg-primary/10 focus:outline-none`} onClick={() => doSelect()} onKeyDown={handleKeyDown}>
@@ -7336,15 +7341,15 @@ export default function Contracts() {
                                     <span className="text-sm text-muted-foreground">{personName}</span>
                                     <Badge variant="outline" className="text-[10px] px-1.5 border-blue-500/50 text-blue-400 flex-shrink-0">FO</Badge>
                                   </div>
-                                  <div className={`text-xs text-muted-foreground ${s.birthNumber ? "" : "opacity-50"}`}>RČ: {s.birthNumber || "—"}</div>
+                                  <div className={`text-xs text-muted-foreground ${subPersonBirthNumberC ? "" : "opacity-50"}`}>RČ: {subPersonBirthNumberC || "—"}</div>
                                 </div>
                               </div>
                             )}
                           </div>
                         );
                       }
-                      const displayName = `${s.firstName || ""} ${s.lastName || ""}`.trim() || "Bez mena";
-                      const identifier = s.birthNumber || "";
+                      const displayName = `${s.firstName || ""} ${s.lastName || ""}`.trim() || (linkedFo ? `${linkedFo.firstName || ""} ${linkedFo.lastName || ""}`.trim() : "") || "Bez mena";
+                      const identifier = s.birthNumber || linkedFo?.birthNumber || "";
                       return (
                         <div key={s.id} tabIndex={0} className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b last:border-b-0 hover-elevate ${isSelected ? "bg-primary/10" : ""} focus:bg-primary/10 focus:outline-none`} onClick={() => doSelect()} onKeyDown={handleKeyDown} data-testid={`row-preselect-subject-${s.id}`}>
                           {radioBtn}
@@ -7526,8 +7531,9 @@ export default function Contracts() {
                               <span className="font-medium text-sm" data-testid={`text-fo-subject-name-${s.id}`}>{foName}</span>
                               <Badge variant="outline" className="text-[10px] px-1.5 flex-shrink-0">FO</Badge>
                             </div>
-                            <div className="text-xs text-muted-foreground font-mono">
-                              {formatUid(s.uid)}{s.birthNumber ? ` · RČ: ${s.birthNumber}` : ""}
+                            <div className="text-xs text-muted-foreground font-mono flex items-center gap-2">
+                              <span>{formatUid(s.uid)}</span>
+                              <span className={s.birthNumber ? "" : "opacity-50"}>· RČ: {s.birthNumber || "—"}</span>
                             </div>
                           </div>
                         </div>
@@ -8001,16 +8007,17 @@ export default function Contracts() {
                   <div className="border rounded-md max-h-[200px] overflow-y-auto" data-testid="list-preselect-subjects">
                     {preSelectFilteredSubjects.map(s => {
                       const isSelected = preSelectSubjectId === s.id.toString();
+                      const linkedFo2 = (s as any).linkedFoId ? subjects?.find((sub: any) => sub.id === (s as any).linkedFoId) : null;
                       const doSelect = (focusNext?: boolean) => {
                         setPreSelectSubjectId(s.id.toString());
                         setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state");
-                        setPreSelectTitleBefore((s as any).titleBefore || "");
-                        setPreSelectFirstName(s.firstName || "");
-                        setPreSelectLastName(s.lastName || "");
-                        setPreSelectTitleAfter((s as any).titleAfter || "");
+                        setPreSelectTitleBefore((s as any).titleBefore || (linkedFo2 as any)?.titleBefore || "");
+                        setPreSelectFirstName(s.firstName || linkedFo2?.firstName || "");
+                        setPreSelectLastName(s.lastName || linkedFo2?.lastName || "");
+                        setPreSelectTitleAfter((s as any).titleAfter || (linkedFo2 as any)?.titleAfter || "");
                         setPreSelectBusinessName(s.companyName || "");
                         setPreSelectIco((s.details as any)?.ico || (s as any)?.ico || "");
-                        setPreSelectBirthNumber(s.birthNumber || "");
+                        setPreSelectBirthNumber(s.birthNumber || linkedFo2?.birthNumber || "");
                         setPreSelectShowNameFields(true);
                         if (focusNext) setTimeout(() => {
                           const el = document.querySelector('[data-testid="input-preselect-title-before"]') as HTMLElement;
@@ -8029,8 +8036,8 @@ export default function Contracts() {
                           <div style={{ display: isSelected ? 'block' : 'none' }} className="w-2 h-2 rounded-full bg-primary" />
                         </div>
                       );
-                      const displayName = `${s.firstName || ""} ${s.lastName || ""}`.trim() || "Bez mena";
-                      const identifier = s.birthNumber || "";
+                      const displayName = `${s.firstName || ""} ${s.lastName || ""}`.trim() || (linkedFo2 ? `${linkedFo2.firstName || ""} ${linkedFo2.lastName || ""}`.trim() : "") || "Bez mena";
+                      const identifier = s.birthNumber || linkedFo2?.birthNumber || "";
                       return (
                         <div key={s.id} tabIndex={0} className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-b last:border-b-0 hover-elevate ${isSelected ? "bg-primary/10" : ""} focus:bg-primary/10 focus:outline-none`} onClick={() => doSelect()} onKeyDown={handleKeyDown} data-testid={`row-preselect-subject-${s.id}`}>
                           {radioBtn}
