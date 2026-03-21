@@ -6300,14 +6300,16 @@ export default function Contracts() {
                         />
                         <FileText className={`w-3.5 h-3.5 shrink-0 ${checked ? "text-green-400" : "text-muted-foreground"}`} />
                         <span className="text-sm">{doc}</span>
-                        <button
-                          type="button"
-                          className="ml-auto text-muted-foreground hover:text-destructive"
-                          onClick={e => { e.stopPropagation(); setDocChecklistExtraOpt(prev => prev.filter((_, i) => i !== idx)); setDocChecklistCheckedExtra(prev => { const next = new Set(prev); next.delete(idx); return next; }); }}
-                          data-testid={`button-docchecklist-remove-extra-${idx}`}
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
+                        {!checked && (
+                          <button
+                            type="button"
+                            className="ml-auto text-muted-foreground hover:text-destructive"
+                            onClick={e => { e.stopPropagation(); setDocChecklistExtraOpt(prev => prev.filter((_, i) => i !== idx)); setDocChecklistCheckedExtra(prev => { const next = new Set(prev); next.delete(idx); return next; }); }}
+                            data-testid={`button-docchecklist-remove-extra-${idx}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
                       </div>
                     );
                   })}
