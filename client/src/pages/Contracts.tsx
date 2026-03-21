@@ -2843,6 +2843,7 @@ export default function Contracts() {
       invalidateContractCaches();
       toast({ title: "Uspech", description: "Zmluvy odoslane na schvalenie" });
       setSelectedIds([]);
+      setSprievodkaPrinted(false);
       setSprievodkaDialogOpen(false);
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odoslat zmluvy", variant: "destructive" }),
@@ -8321,7 +8322,7 @@ export default function Contracts() {
                       Zoznam obsahuje chybné riadky
                     </span>
                   )}
-                  <Button size="sm" onClick={() => setSprievodkaDialogOpen(true)} disabled={anyRedInFolder1} data-testid="button-dispatch">
+                  <Button size="sm" onClick={() => { setSprievodkaPrinted(false); setSprievodkaDialogOpen(true); }} disabled={anyRedInFolder1} data-testid="button-dispatch">
                     <Send className="w-3.5 h-3.5 mr-1.5" />
                     Vytvoriť sprievodku
                   </Button>
