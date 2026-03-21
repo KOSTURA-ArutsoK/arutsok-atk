@@ -198,16 +198,23 @@ function NbsPartnerSettingsDialog({ open, onOpenChange }: { open: boolean; onOpe
   const { data: partners, isLoading } = usePartners();
   const [localSectors, setLocalSectors] = useState<Record<number, string[]>>({});
   const [saving, setSaving] = useState<Set<number>>(new Set());
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (open && partners) {
+    if (!open) {
+      setInitialized(false);
+      setLocalSectors({});
+      return;
+    }
+    if (open && partners && !initialized) {
       const init: Record<number, string[]> = {};
       for (const p of partners) {
         if (!p.isDeleted) init[p.id] = (p as any).nbsSectors || [];
       }
       setLocalSectors(init);
+      setInitialized(true);
     }
-  }, [open, partners]);
+  }, [open, partners, initialized]);
 
   const activePartners = (partners || []).filter((p: any) => !p.isDeleted).sort((a: any, b: any) => a.name.localeCompare(b.name, "sk"));
 
@@ -217,13 +224,16 @@ function NbsPartnerSettingsDialog({ open, onOpenChange }: { open: boolean; onOpe
     setLocalSectors(prev => ({ ...prev, [partnerId]: next }));
     setSaving(prev => new Set([...prev, partnerId]));
     try {
-      await fetch(`/api/partners/${partnerId}/nbs-sectors`, {
+      const res = await fetch(`/api/partners/${partnerId}/nbs-sectors`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ nbsSectors: next }),
       });
+      if (!res.ok) throw new Error("Chyba");
+      queryClient.invalidateQueries({ queryKey: ["/api/partners"] });
     } catch {
+      setLocalSectors(prev => ({ ...prev, [partnerId]: current }));
       toast({ title: "Chyba pri ukladaní", variant: "destructive" });
     } finally {
       setSaving(prev => { const n = new Set(prev); n.delete(partnerId); return n; });
@@ -404,10 +414,10 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, in
     setFormData((prev: any) => ({ ...prev, [field]: value }));
   }
 
-  function renderPartnerList(groupLabel: string, groupPartners: any[], groupTestId: string) {
+  function renderPartnerList(groupLabel: string, groupPartners: any[], groupTestId: string, listKey?: string) {
     if (groupPartners.length === 0) return null;
     return (
-      <div className="space-y-2" data-testid={groupTestId}>
+      <div key={listKey} className="space-y-2" data-testid={groupTestId}>
         <h3 className="text-sm font-bold text-muted-foreground">{groupLabel}</h3>
         <div className="space-y-1">
           {groupPartners.map((p: any) => {
@@ -601,9 +611,9 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, in
                 <>
                   {partnersByNbsSector.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">Žiadni partneri zaradení do NBS reportu. Nastavte partnerov cez tlačidlo „Nastavenie NBS partnerov".</p>
-                  ) : partnersByNbsSector.map(g => (
-                    renderPartnerList(`${g.sector.key} — ${g.sector.label}`, g.partners, `group-${g.sector.key.toLowerCase()}`)
-                  ))}
+                  ) : partnersByNbsSector.map(g =>
+                    renderPartnerList(`${g.sector.key} — ${g.sector.label}`, g.partners, `group-${g.sector.key.toLowerCase()}`, g.sector.key)
+                  )}
                 </>
               )}
             </div>
@@ -926,10 +936,10 @@ function PeriodBubble({ period, report, year, isExpanded, onToggle, onStatusClic
   const colorClass = getColorByDeadline(deadline, report.status);
   const statusBtnColor = getStatusButtonColor(report.status);
 
-  function renderPartnerGroup(label: string, groupPartners: any[], testId: string) {
+  function renderPartnerGroup(label: string, groupPartners: any[], testId: string, groupKey?: string) {
     if (groupPartners.length === 0) return null;
     return (
-      <div className="space-y-1" data-testid={testId}>
+      <div key={groupKey} className="space-y-1" data-testid={testId}>
         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{label}</p>
         {groupPartners.map((p: any) => {
           const hasSaved = savedPartnerIds.has(p.id);
@@ -1122,9 +1132,9 @@ function PeriodBubble({ period, report, year, isExpanded, onToggle, onStatusClic
               <>
                 {partnersByNbsSectorInBubble.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-2">Žiadni partneri zaradení do NBS reportu</p>
-                ) : partnersByNbsSectorInBubble.map(g => (
-                  renderPartnerGroup(`${g.sector.key} — ${g.sector.label}`, g.partners, `period-group-${g.sector.key.toLowerCase()}-${period.key}`)
-                ))}
+                ) : partnersByNbsSectorInBubble.map(g =>
+                  renderPartnerGroup(`${g.sector.key} — ${g.sector.label}`, g.partners, `period-group-${g.sector.key.toLowerCase()}-${period.key}`, g.sector.key)
+                )}
                 {renderTotals()}
               </>
             )}
