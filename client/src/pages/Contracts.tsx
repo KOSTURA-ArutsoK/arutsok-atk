@@ -6195,8 +6195,11 @@ export default function Contracts() {
               <FileText className="w-5 h-5 text-primary" />
               Dokumentácia k zmluve
             </DialogTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">{partnerName}</p>
-            <p className="text-sm font-semibold text-foreground">{productName}</p>
+            <p className="text-xs mt-0.5">
+              <span className="text-muted-foreground">{partnerName}</span>
+              <span className="text-muted-foreground mx-1">—</span>
+              <span className="font-semibold text-foreground">{productName}</span>
+            </p>
           </DialogHeader>
           <div className="px-6 pb-2 space-y-4">
             {/* POVINNÉ */}
