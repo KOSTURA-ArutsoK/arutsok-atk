@@ -240,7 +240,7 @@ function NbsPartnerSettingsDialog({ open, onOpenChange }: { open: boolean; onOpe
           </DialogTitle>
         </DialogHeader>
 
-        <div className="border rounded-lg p-3 bg-muted/30 shrink-0">
+        <div className="border rounded-lg p-3 bg-muted/30 shrink-0 mt-2">
           <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-2 mb-3 border-b border-border/50">
             Kľúčové sektory finančného trhu pod dohľadom NBS:
           </p>
