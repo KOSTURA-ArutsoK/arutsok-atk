@@ -8580,9 +8580,10 @@ export default function Contracts() {
                             const groupIds = group.contracts.map(c => c.id);
                             const acceptedCount = groupIds.filter(id => centralAcceptedIds.has(id)).length;
                             const rejectedCount = groupIds.length - acceptedCount;
+                            const hasInteraction = acceptedCount > 0;
                             return (
                               <div className="flex items-center gap-2">
-                                {rejectedCount > 0 && (
+                                {hasInteraction && rejectedCount > 0 && (
                                   <span className="text-xs text-red-400 font-medium" data-testid={`text-rejected-count-${group.inventoryId}`}>
                                     {rejectedCount}× výhrady
                                   </span>
