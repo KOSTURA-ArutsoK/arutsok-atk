@@ -7423,7 +7423,8 @@ export async function registerRoutes(
 
             // 1. Find or create authorized person (oprávnená osoba / štatutár) — H–L columns
             //    Identity key: RC + meno + priezvisko (+ tituly); RC is primary unique key
-            if (rc && !rcValidationError && firstName && lastName) {
+            //    RC validation error is a WARNING only — person is created with the RC anyway
+            if (rc && firstName && lastName) {
               const dupPerson = await storage.checkDuplicateSubjectOnly({ birthNumber: rc });
               if (dupPerson) {
                 resolvedAuthorizedPersonId = dupPerson.id;
@@ -7491,7 +7492,8 @@ export async function registerRoutes(
               if (dupCheck) {
                 resolvedSubjectId = dupCheck.id;
               } else {
-                const canCreatePerson = firstName && lastName && rc && !rcValidationError;
+                // RC validation error is a WARNING only — person is created with RC anyway
+                const canCreatePerson = firstName && lastName && rc;
                 if (canCreatePerson) {
                   try {
                     const newSubj = await storage.createSubjectNoUID({
@@ -7531,6 +7533,7 @@ export async function registerRoutes(
           if (!resolvedSubjectId) {
             if (subjectType === "person") {
               if (!rc) missingFields.push("Rodné číslo");
+              // Only flag name as missing when actually absent — not when RC validation failed
               if (!firstName) missingFields.push("Meno");
               if (!lastName) missingFields.push("Priezvisko");
             }
@@ -7542,6 +7545,7 @@ export async function registerRoutes(
           // For firm types, authorized person (štatutár/oprávnená osoba) is required
           if (isFirmType && !resolvedAuthorizedPersonId) {
             if (!rc) missingFields.push("RČ oprávnenej osoby");
+            // Only flag name as missing when actually absent — not when RC validation failed
             if (!firstName) missingFields.push("Meno oprávnenej osoby");
             if (!lastName) missingFields.push("Priezvisko oprávnenej osoby");
           }
