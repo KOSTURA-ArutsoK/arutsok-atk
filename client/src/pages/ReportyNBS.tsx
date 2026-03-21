@@ -1033,6 +1033,384 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, se
   );
 }
 
+// ─── SÚHRNNÝ VÝKAZ HELPERS ────────────────────────────────────────────────────
+
+function deepSumInto(target: any, source: any) {
+  if (!target || !source) return;
+  for (const key of Object.keys(target)) {
+    if (typeof target[key] === "number") {
+      target[key] += Number(source?.[key]) || 0;
+    } else if (target[key] !== null && typeof target[key] === "object") {
+      deepSumInto(target[key], source?.[key] || {});
+    }
+  }
+}
+
+function computeSectorTotals(reports: any[], sector: string): any {
+  const base = JSON.parse(JSON.stringify(getDefaultDataForSector(sector)));
+  for (const r of reports) {
+    deepSumInto(base, r.data || {});
+  }
+  return base;
+}
+
+function sv(v: number) { return v > 0 ? v.toLocaleString("sk-SK") : "–"; }
+function seur(v: number) { return v !== 0 ? `${v.toLocaleString("sk-SK")} €` : "–"; }
+function seurSigned(v: number) { if (v === 0) return "–"; return (v > 0 ? "+" : "") + v.toLocaleString("sk-SK") + " €"; }
+
+function SumRow({ label, sub, vals, cols = 1 }: { label: string; sub?: boolean; vals: (string | number)[]; cols?: number }) {
+  const formatted = vals.map(v => typeof v === "number" ? sv(v) : v);
+  return (
+    <tr className={sub ? "text-muted-foreground text-[11px]" : "font-medium text-xs"}>
+      <td className={`py-0.5 ${sub ? "pl-4" : ""}`}>{label}</td>
+      {formatted.map((v, i) => (
+        <td key={i} className="text-right tabular-nums py-0.5 px-1 whitespace-nowrap">{v}</td>
+      ))}
+      {formatted.length < cols && Array.from({ length: cols - formatted.length }).map((_, i) => (
+        <td key={`empty-${i}`} className="text-right py-0.5 px-1 text-muted-foreground">–</td>
+      ))}
+    </tr>
+  );
+}
+
+function SumSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/40 px-2 py-1 rounded mb-0.5">{title}</p>
+      <table className="w-full text-xs border-collapse">{children}</table>
+    </div>
+  );
+}
+
+function ThreeCols() {
+  return (
+    <thead>
+      <tr className="text-[9px] text-muted-foreground/70">
+        <th className="text-left py-0.5 w-full"></th>
+        <th className="text-right py-0.5 min-w-[70px] whitespace-nowrap px-1">Životné</th>
+        <th className="text-right py-0.5 min-w-[70px] whitespace-nowrap px-1">Neživotné</th>
+        <th className="text-right py-0.5 min-w-[70px] whitespace-nowrap px-1">Zaistenie</th>
+      </tr>
+    </thead>
+  );
+}
+
+function TwoCols({ a, b }: { a: string; b: string }) {
+  return (
+    <thead>
+      <tr className="text-[9px] text-muted-foreground/70">
+        <th className="text-left py-0.5 w-full"></th>
+        <th className="text-right py-0.5 min-w-[80px] whitespace-nowrap px-1">{a}</th>
+        <th className="text-right py-0.5 min-w-[80px] whitespace-nowrap px-1">{b}</th>
+      </tr>
+    </thead>
+  );
+}
+
+function CommonCommissions({ t }: { t: any }) {
+  return (
+    <SumSection title="IV. Finančné toky">
+      <tbody>
+        <SumRow label="Kladné toky" vals={[seur(t.commissionPositive)]} />
+        <SumRow label="Záporné toky" vals={[seur(t.commissionNegative)]} />
+        <SumRow label="Zápočet kladné" sub vals={[seur(t.commissionOffsetPositive)]} />
+        <SumRow label="Zápočet záporné" sub vals={[seur(t.commissionOffsetNegative)]} />
+      </tbody>
+    </SumSection>
+  );
+}
+
+function CommonPersonalne({ t }: { t: any }) {
+  const pfa = t.pfaByPerformance || {};
+  const emp = t.employeesByPerformance || {};
+  return (
+    <SumSection title="V. Personálne">
+      <tbody>
+        <SumRow label="PFA (0 / 1–10 / 11+)" vals={[`${sv(pfa.zero)} / ${sv(pfa.low)} / ${sv(pfa.high)}`]} />
+        <SumRow label="Zamestnanci (0 / 1–10 / 11+)" vals={[`${sv(emp.zero)} / ${sv(emp.low)} / ${sv(emp.high)}`]} />
+      </tbody>
+    </SumSection>
+  );
+}
+
+function SumPaZ({ t }: { t: any }) {
+  const pfa = t.pfaByPerformance || {};
+  const emp = t.employeesByPerformance || {};
+  const spo = t.sporitelsByPerformance || {};
+  return (
+    <div className="space-y-2">
+      <SumSection title="I. Počet zmlúv">
+        <ThreeCols />
+        <tbody>
+          <SumRow label="Nové zmluvy" vals={[t.newContracts?.life, t.newContracts?.nonLife, t.newContracts?.reinsurance]} cols={3} />
+          <SumRow label="Dodatky" sub vals={[t.amendments?.life, t.amendments?.nonLife, "–"]} cols={3} />
+          <SumRow label="Skupinové" sub vals={[t.groupContracts?.life, t.groupContracts?.nonLife, "–"]} cols={3} />
+          <SumRow label="Prevzaté" sub vals={[t.takenContracts?.life, t.takenContracts?.nonLife, "–"]} cols={3} />
+        </tbody>
+      </SumSection>
+      <SumSection title="II. Objem poistného (€)">
+        <ThreeCols />
+        <tbody>
+          <SumRow label="Nové zmluvy" vals={[seur(t.premiumNew?.life), seur(t.premiumNew?.nonLife), seur(t.premiumNew?.reinsurance)]} cols={3} />
+          <SumRow label="Skupinové" sub vals={[seur(t.premiumGroup?.life), seur(t.premiumGroup?.nonLife), "–"]} cols={3} />
+          <SumRow label="Prevzaté" sub vals={[seur(t.premiumTaken?.life), seur(t.premiumTaken?.nonLife), "–"]} cols={3} />
+        </tbody>
+      </SumSection>
+      <SumSection title="III. Zrušené zmluvy">
+        <ThreeCols />
+        <tbody>
+          <SumRow label="§800 — Výpoveď" vals={[t.cancelledNotice?.life, t.cancelledNotice?.nonLife, t.cancelledNotice?.reinsurance]} cols={3} />
+          <SumRow label="§801 — Nezaplatenie" sub vals={[t.cancelledNonPayment?.life, t.cancelledNonPayment?.nonLife, t.cancelledNonPayment?.reinsurance]} cols={3} />
+          <SumRow label="§802a — Odstúpenie" sub vals={[t.cancelledWithdrawal?.life, t.cancelledWithdrawal?.nonLife, t.cancelledWithdrawal?.reinsurance]} cols={3} />
+        </tbody>
+      </SumSection>
+      <SumSection title="IV. Finančné toky">
+        <tbody>
+          <SumRow label="Kladné toky" vals={[seur(t.commissionPositive)]} />
+          <SumRow label="Záporné toky" vals={[seur(t.commissionNegative)]} />
+          <SumRow label="Zápočet kladné" sub vals={[seur(t.commissionOffsetPositive)]} />
+          <SumRow label="Zápočet záporné" sub vals={[seur(t.commissionOffsetNegative)]} />
+        </tbody>
+      </SumSection>
+      <SumSection title="V. Personálne">
+        <tbody>
+          <SumRow label="PFA (0 / 1–10 / 11+)" vals={[`${sv(pfa.zero)} / ${sv(pfa.low)} / ${sv(pfa.high)}`]} />
+          <SumRow label="Zamestnanci (0 / 1–10 / 11+)" vals={[`${sv(emp.zero)} / ${sv(emp.low)} / ${sv(emp.high)}`]} />
+          {(spo.zero || spo.low || spo.mid || spo.high) ? (
+            <SumRow label="Sporiteľ (0/1-10/11-30/31+)" sub vals={[`${sv(spo.zero)} / ${sv(spo.low)} / ${sv(spo.mid)} / ${sv(spo.high)}`]} />
+          ) : null}
+        </tbody>
+      </SumSection>
+    </div>
+  );
+}
+
+function SumPU({ t }: { t: any }) {
+  return (
+    <div className="space-y-2">
+      <SumSection title="I. Počet zmlúv">
+        <TwoCols a="Počet" b="Objem (€)" />
+        <tbody>
+          <SumRow label="Bývanie" vals={[t.byvanie?.count, seur(t.objem?.byvanie)]} />
+          <SumRow label="Spotrebiteľské" sub vals={[t.spotrebitelske?.count, seur(t.objem?.spotrebitelske)]} />
+          <SumRow label="Ostatné" sub vals={[t.ostatne?.count, seur(t.objem?.ostatne)]} />
+          <SumRow label="Prevzaté" sub vals={[t.prevzate?.count, "–"]} />
+        </tbody>
+      </SumSection>
+      <SumSection title="II. Zrušenie / odstúpenie">
+        <tbody>
+          <SumRow label="Storná celkom" vals={[sv(t.stornoTotal)]} />
+          <SumRow label="Odstúpenie do 14 dní" sub vals={[sv(t.odstupenie14dni)]} />
+        </tbody>
+      </SumSection>
+      <CommonCommissions t={t} />
+      <CommonPersonalne t={t} />
+    </div>
+  );
+}
+
+function SumPV({ t }: { t: any }) {
+  const types = [
+    { key: "bezne", label: "Bežné" },
+    { key: "vkladove", label: "Vkladové" },
+    { key: "stavebne", label: "Stavebné" },
+    { key: "ine", label: "Iné" },
+  ] as const;
+  return (
+    <div className="space-y-2">
+      <SumSection title="I. Vkladové produkty">
+        <thead>
+          <tr className="text-[9px] text-muted-foreground/70">
+            <th className="text-left py-0.5 w-full"></th>
+            <th className="text-right py-0.5 min-w-[70px] px-1">Sprostred.</th>
+            <th className="text-right py-0.5 min-w-[70px] px-1">Prevzaté</th>
+            <th className="text-right py-0.5 min-w-[70px] px-1">Zrušené</th>
+          </tr>
+        </thead>
+        <tbody>
+          {types.map(({ key, label }) => (
+            <SumRow key={key} label={label} vals={[t[key]?.sprostredkovane, t[key]?.prevzate, t[key]?.zrusene]} cols={3} />
+          ))}
+        </tbody>
+      </SumSection>
+      <CommonCommissions t={t} />
+      <CommonPersonalne t={t} />
+    </div>
+  );
+}
+
+function SumKT({ t }: { t: any }) {
+  return (
+    <div className="space-y-2">
+      <SumSection title="I. Finančné nástroje">
+        <tbody>
+          <SumRow label="Poradenstvo" vals={[sv(t.poradenstvo?.count)]} />
+          <SumRow label="UCITS" sub vals={[sv(t.ucits?.count)]} />
+          <SumRow label="Non-UCITS" sub vals={[sv(t.nonUcits?.count)]} />
+          <SumRow label="Iné nástroje" sub vals={[sv(t.ineNastroje?.count)]} />
+          <SumRow label="Prevzaté" sub vals={[sv(t.prevzate?.count)]} />
+          <SumRow label="Zrušené" sub vals={[sv(t.zrusene?.count)]} />
+          {t.pleniaOdKlientov > 0 && <SumRow label="Splnomocnenia od klientov" sub vals={[sv(t.pleniaOdKlientov)]} />}
+        </tbody>
+      </SumSection>
+      <CommonCommissions t={t} />
+      <CommonPersonalne t={t} />
+    </div>
+  );
+}
+
+function SumDDS({ t }: { t: any }) {
+  return (
+    <div className="space-y-2">
+      <SumSection title="I. Zmluvy">
+        <tbody>
+          <SumRow label="Sprostredkované" vals={[sv(t.sprostredkovane)]} />
+          <SumRow label="Prevzaté" sub vals={[sv(t.prevzate)]} />
+          <SumRow label="Zrušené" sub vals={[sv(t.zrusene)]} />
+        </tbody>
+      </SumSection>
+      <CommonCommissions t={t} />
+      <CommonPersonalne t={t} />
+    </div>
+  );
+}
+
+function renderSectorSummary(sector: string, totals: any) {
+  switch (sector) {
+    case "PaZ": return <SumPaZ t={totals} />;
+    case "PU":  return <SumPU t={totals} />;
+    case "PV":  return <SumPV t={totals} />;
+    case "KT":  return <SumKT t={totals} />;
+    case "DDS": return <SumDDS t={totals} />;
+    case "SDS": return <SumDDS t={totals} />;
+    default:    return null;
+  }
+}
+
+function NbsPeriodSummaryDialog({
+  open, onOpenChange, year, period, periodLabel,
+}: {
+  open: boolean; onOpenChange: (o: boolean) => void; year: number; period: string; periodLabel: string;
+}) {
+  const { data: appUser } = useAppUser();
+  const activeCompanyId: number | null = (appUser as any)?.activeCompanyId || null;
+
+  const { data: allReports, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/nbs-partner-reports", "summary", year, period, activeCompanyId],
+    queryFn: async () => {
+      if (!activeCompanyId) return [];
+      const params = new URLSearchParams({ year: String(year), period, companyId: String(activeCompanyId) });
+      const r = await fetch(`/api/nbs-partner-reports?${params}`, { credentials: "include" });
+      return r.ok ? r.json() : [];
+    },
+    enabled: open && !!activeCompanyId,
+  });
+
+  const { data: partnersList } = useQuery<any[]>({
+    queryKey: ["/api/partners", "summary-scope", activeCompanyId],
+    queryFn: async () => {
+      if (!activeCompanyId) return [];
+      const r = await fetch(`/api/partners?companyId=${activeCompanyId}`, { credentials: "include" });
+      return r.ok ? r.json() : [];
+    },
+    enabled: open && !!activeCompanyId,
+  });
+
+  const activePartners = (partnersList || []).filter((p: any) => !p.isDeleted);
+
+  const sectorData = NBS_SECTORS.map(sec => {
+    const sectorPartners = activePartners.filter((p: any) => (p.nbsSectors || []).includes(sec.key));
+    const sectorReports = (allReports || []).filter((r: any) => r.sector === sec.key);
+    if (sectorPartners.length === 0) return null;
+    const totals = computeSectorTotals(sectorReports, sec.key);
+    return { sec, sectorPartners, sectorReports, totals };
+  }).filter(Boolean) as { sec: typeof NBS_SECTORS[number]; sectorPartners: any[]; sectorReports: any[]; totals: any }[];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-nbs-summary">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-primary" />
+            Súhrnný výkaz — {periodLabel} {year}
+          </DialogTitle>
+          <DialogDescription>
+            Agregované hodnoty za všetkých partnerov vo vybranej spoločnosti pre každý sektor.
+          </DialogDescription>
+        </DialogHeader>
+
+        {!activeCompanyId ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            Nie je zvolená spoločnosť. Vyberte spoločnosť na hornej lište.
+          </div>
+        ) : isLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          </div>
+        ) : sectorData.length === 0 ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            Žiadni partneri nie sú zaradení do NBS reportu pre túto spoločnosť.
+          </div>
+        ) : (
+          <div className="space-y-4 pb-2">
+            {sectorData.map(({ sec, sectorPartners, sectorReports, totals }) => {
+              const fillCount = sectorReports.length;
+              const totalCount = sectorPartners.length;
+              const fillPct = totalCount > 0 ? Math.round((fillCount / totalCount) * 100) : 0;
+              return (
+                <div
+                  key={sec.key}
+                  className={`rounded-lg border p-4 space-y-3 ${sec.bg}`}
+                  data-testid={`summary-sector-${sec.key}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${sec.bg} ${sec.color}`}>{sec.key}</span>
+                      <span className={`text-sm font-bold ${sec.color}`}>{sec.label}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${fillCount === totalCount ? "bg-green-600 text-white" : fillCount > 0 ? "bg-orange-500 text-white" : "bg-red-600 text-white"}`}>
+                        {fillCount}/{totalCount} vyplnilo ({fillPct}%)
+                      </span>
+                    </div>
+                  </div>
+
+                  {fillCount === 0 ? (
+                    <p className="text-xs text-muted-foreground">Žiadny partner zatiaľ nevyplnil výkaz pre tento sektor.</p>
+                  ) : (
+                    renderSectorSummary(sec.key, totals)
+                  )}
+
+                  {fillCount < totalCount && (
+                    <div className="pt-1 border-t border-dashed">
+                      <p className="text-[10px] text-muted-foreground font-medium">Nevyplnení partneri:</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {sectorPartners
+                          .filter((p: any) => !sectorReports.find((r: any) => r.partnerId === p.id))
+                          .map((p: any) => (
+                            <span key={p.id} className="text-[10px] px-1.5 py-0.5 rounded border border-red-400/40 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400">
+                              {p.name}
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} data-testid="btn-close-summary">Zavrieť</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── END SÚHRNNÝ VÝKAZ ────────────────────────────────────────────────────────
+
 export default function ReportyNBS() {
   const { toast } = useToast();
   const now = new Date();
@@ -1055,6 +1433,7 @@ export default function ReportyNBS() {
   const [expandedPeriod, setExpandedPeriod] = useState<string | null>(null);
   const [nbsSettingsOpen, setNbsSettingsOpen] = useState(false);
   const [partnerReportSector, setPartnerReportSector] = useState<string>("");
+  const [summaryPeriod, setSummaryPeriod] = useState<{ key: string; label: string } | null>(null);
 
   const { data: reports, isLoading } = useQuery<NbsReport[]>({
     queryKey: ["/api/nbs-reports", selectedYear],
@@ -1225,6 +1604,7 @@ export default function ReportyNBS() {
                       setPartnerReportSector(sector);
                       setPartnerReportOpen(true);
                     }}
+                    onOpenSummary={() => setSummaryPeriod({ key: p.key, label: p.label })}
                   />
                 );
               })}
@@ -1282,11 +1662,21 @@ export default function ReportyNBS() {
       <NbsAnalyticsChart />
 
       <NbsPartnerSettingsDialog open={nbsSettingsOpen} onOpenChange={setNbsSettingsOpen} />
+
+      {selectedYear && summaryPeriod && (
+        <NbsPeriodSummaryDialog
+          open={!!summaryPeriod}
+          onOpenChange={(o) => { if (!o) setSummaryPeriod(null); }}
+          year={selectedYear}
+          period={summaryPeriod.key}
+          periodLabel={summaryPeriod.label}
+        />
+      )}
     </div>
   );
 }
 
-function PeriodBubble({ period, sectorReports, year, isExpanded, onToggle, onSectorStatusClick, statusPending, onOpenPartnerForm }: {
+function PeriodBubble({ period, sectorReports, year, isExpanded, onToggle, onSectorStatusClick, statusPending, onOpenPartnerForm, onOpenSummary }: {
   period: { key: string; label: string };
   sectorReports: Map<string, NbsReport>;
   year: number;
@@ -1295,6 +1685,7 @@ function PeriodBubble({ period, sectorReports, year, isExpanded, onToggle, onSec
   onSectorStatusClick: (report: NbsReport) => void;
   statusPending: boolean;
   onOpenPartnerForm: (partnerId: number, sector: string) => void;
+  onOpenSummary?: () => void;
 }) {
   const { data: appUser } = useAppUser();
   const activeCompanyId: number | null = (appUser as any)?.activeCompanyId || null;
@@ -1358,6 +1749,18 @@ function PeriodBubble({ period, sectorReports, year, isExpanded, onToggle, onSec
               <Badge variant="secondary" className={`text-[9px] px-1.5 h-4 ${allSent ? "bg-green-600 text-white" : "bg-blue-600 text-white"}`}>
                 {sentCount}/{sectorReports.size} sekt. odoslaných
               </Badge>
+            )}
+            {onOpenSummary && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-[10px] px-2 py-0.5 h-6 gap-1 border-primary/40 text-primary hover:bg-primary/10"
+                onClick={(e) => { e.stopPropagation(); onOpenSummary(); }}
+                data-testid={`btn-summary-${period.key}`}
+              >
+                <FileText className="w-3 h-3" />
+                Súhrnný výkaz
+              </Button>
             )}
             {!allSent && (
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
