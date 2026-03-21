@@ -835,7 +835,14 @@ function ContractFormDialog({
                     const res = await fetch(`/api/contracts/check-duplicate?contractNumber=${encodeURIComponent(contractNumber.trim())}`, { credentials: "include" });
                     const data = await res.json();
                     if (data.exists) {
-                      setDuplicateWarning(data.subjectName ? `Zmluva s tymto cislom uz existuje pre klienta ${data.subjectName}` : "Zmluva s tymto cislom uz existuje");
+                      const phase = data.lifecyclePhase;
+                      if (phase === 3) {
+                        setDuplicateWarning(`⛔ BLOKOVANÉ — Zmluva č. ${contractNumber.trim()} sa nachádza v „Neprijaté zmluvy – výhrady". Nie je možné ju nahrať. Opravte výhrady cez záložku Neprijaté.`);
+                      } else if (phase === 4) {
+                        setDuplicateWarning(`⛔ BLOKOVANÉ — Zmluva č. ${contractNumber.trim()} sa nachádza v „Archív zmlúv (s výhradami)". Zmluvy v archíve nemožno opätovne nahrať.`);
+                      } else {
+                        setDuplicateWarning(data.subjectName ? `Zmluva s tymto cislom uz existuje pre klienta ${data.subjectName}` : "Zmluva s tymto cislom uz existuje");
+                      }
                     }
                   } catch {}
                 }}
@@ -2908,33 +2915,19 @@ export default function Contracts() {
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa presmerovať zmluvy", variant: "destructive" }),
   });
 
-  const createSprievodkaFromObjMutation = useMutation({
+  const markFixedFromObjMutation = useMutation({
     mutationFn: async (contractIds: number[]) => {
-      const res = await apiRequest("POST", "/api/contract-inventories/reroute-objections", { contractIds });
+      const res = await apiRequest("POST", "/api/contracts/mark-fixed-from-objections", { contractIds });
       return res.json();
     },
     onSuccess: (data: any) => {
       invalidateContractCaches();
       queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories/summary"] });
-      toast({ title: "Úspech", description: `Vytvorená nová sprievodka č. ${data.sequenceNumber} s ${data.rerouted} zmluvami` });
+      toast({ title: "Opravené", description: `${data.fixed ?? 0} zmluv vrátených do Nahratie a vytvorenie sprievodky` });
       setRerouteSelectedIds([]);
     },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť novú sprievodku", variant: "destructive" }),
-  });
-
-  const sendToCentralMutation = useMutation({
-    mutationFn: async (contractIds: number[]) => {
-      const res = await apiRequest("POST", "/api/contracts/send-to-central", { contractIds });
-      return res.json();
-    },
-    onSuccess: (data: any) => {
-      invalidateContractCaches();
-      queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories/summary"] });
-      toast({ title: "Odoslané do centrály", description: `Odoslaných: ${data.sent} zmlúv` });
-      setRerouteSelectedIds([]);
-    },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa odoslať zmluvy do centrály", variant: "destructive" }),
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa označiť zmluvy ako opravené", variant: "destructive" }),
   });
 
   const moveToProcessingMutation = useMutation({
@@ -4961,6 +4954,34 @@ export default function Contracts() {
                 </p>
               </div>
             )}
+            {(() => {
+              const blockedNeprijate = (importResult.details || []).filter((r: any) => r.status === "blocked_neprijate");
+              const blockedArchiv = (importResult.details || []).filter((r: any) => r.status === "blocked_archiv");
+              return (
+                <>
+                  {blockedNeprijate.length > 0 && (
+                    <div className="border border-red-500/40 rounded p-2 bg-red-500/8">
+                      <p className="text-xs text-red-400 flex items-center gap-1">
+                        <XCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span className="font-semibold">
+                          {blockedNeprijate.length} {blockedNeprijate.length === 1 ? "zmluva" : "zmluvy"} ZABLOKOVANÉ — nachádza sa v <strong>Neprijaté zmluvy – výhrady</strong>. Opravte výhrady cez záložku Neprijaté, potom ich môžete opätovne spracovať.
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                  {blockedArchiv.length > 0 && (
+                    <div className="border border-orange-500/40 rounded p-2 bg-orange-500/8">
+                      <p className="text-xs text-orange-400 flex items-center gap-1">
+                        <Archive className="w-3.5 h-3.5 shrink-0" />
+                        <span className="font-semibold">
+                          {blockedArchiv.length} {blockedArchiv.length === 1 ? "zmluva" : "zmluvy"} ZABLOKOVANÉ — nachádza sa v <strong>Archív zmlúv (s výhradami)</strong>. Zmluvy v archíve nemožno opätovne nahrať, pokiaľ nie sú vymazané po uplynutí doby.
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             {(importResult.nameConfirmationNeeded || 0) > 0 && (
               <div className="border border-orange-500/30 rounded p-2 bg-orange-500/5">
@@ -5003,10 +5024,13 @@ export default function Contracts() {
                       const isErr = row.status === "error";
                       const isInc = row.status === "incomplete";
                       const isDup = row.status === "duplicate";
+                      const isBlockedNeprijate = row.status === "blocked_neprijate";
+                      const isBlockedArchiv = row.status === "blocked_archiv";
+                      const isAnyBlocked = isDup || isBlockedNeprijate || isBlockedArchiv;
                       const hasRcError = !!row.rcCritical;
                       const hasIcoError = !!row.icoCritical;
                       return (
-                        <TableRow key={i} className={isErr ? "bg-destructive/5" : (hasRcError || hasIcoError) ? "bg-red-500/10" : isInc ? "bg-red-500/5" : isDup ? "bg-yellow-500/5" : ""} data-testid={`row-import-result-${i}`}>
+                        <TableRow key={i} className={isErr ? "bg-destructive/5" : (hasRcError || hasIcoError) ? "bg-red-500/10" : isInc ? "bg-red-500/5" : isBlockedNeprijate ? "bg-red-600/10" : isBlockedArchiv ? "bg-orange-500/10" : isDup ? "bg-yellow-500/5" : ""} data-testid={`row-import-result-${i}`}>
                           <TableCell className="text-xs text-muted-foreground sticky left-0 bg-inherit">{row.row ?? i + 2}</TableCell>
                           <TableCell className="sticky left-8 bg-inherit">
                             {isErr ? (
@@ -5023,6 +5047,10 @@ export default function Contracts() {
                               </span>
                             ) : isInc ? (
                               <span title={row.incompleteFields?.join(", ")}><AlertTriangle className="w-4 h-4 text-red-500" /></span>
+                            ) : isBlockedNeprijate ? (
+                              <span title={`Blokované – zmluva č. ${row.duplicateNumber} sa nachádza v Neprijaté zmluvy – výhrady`}><XCircle className="w-4 h-4 text-red-500" /></span>
+                            ) : isBlockedArchiv ? (
+                              <span title={`Blokované – zmluva č. ${row.duplicateNumber} sa nachádza v Archív zmlúv (s výhradami)`}><Archive className="w-4 h-4 text-orange-500" /></span>
                             ) : isDup ? (
                               <span title={`Duplikát: ${row.duplicateNumber}`}><AlertTriangle className="w-4 h-4 text-yellow-500" /></span>
                             ) : (
@@ -8445,38 +8473,22 @@ export default function Contracts() {
               </div>
             )}
             {rerouteSelectedIds.length > 0 && activeFolder === 3 && (
-              <div className="flex items-center justify-between gap-2 p-3 border-b bg-blue-500/10 flex-wrap">
+              <div className="flex items-center justify-between gap-2 p-3 border-b bg-amber-500/10 flex-wrap">
                 <span className="text-sm text-muted-foreground">Vybraných zmlúv: <span className="font-bold text-foreground">{rerouteSelectedIds.length}</span></span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="default"
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                    disabled={createSprievodkaFromObjMutation.isPending}
-                    onClick={() => createSprievodkaFromObjMutation.mutate(rerouteSelectedIds)}
-                    data-testid="button-create-sprievodka-from-objections"
-                  >
-                    {createSprievodkaFromObjMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <Plus className="w-4 h-4 mr-2" />
-                    )}
-                    Vytvoriť novú sprievodku z výhrad ({rerouteSelectedIds.length})
-                  </Button>
-                  <Button
-                    variant="default"
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                    disabled={sendToCentralMutation.isPending}
-                    onClick={() => sendToCentralMutation.mutate(rerouteSelectedIds)}
-                    data-testid="button-send-to-central"
-                  >
-                    {sendToCentralMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4 mr-2" />
-                    )}
-                    Schváliť a odoslať sprievodku do centrály ({rerouteSelectedIds.length})
-                  </Button>
-                </div>
+                <Button
+                  variant="default"
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                  disabled={markFixedFromObjMutation.isPending}
+                  onClick={() => markFixedFromObjMutation.mutate(rerouteSelectedIds)}
+                  data-testid="button-mark-fixed-from-objections"
+                >
+                  {markFixedFromObjMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                  )}
+                  Opravená zmluva dokončená ({rerouteSelectedIds.length})
+                </Button>
               </div>
             )}
             <CardContent className="p-0">

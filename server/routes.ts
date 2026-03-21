@@ -5076,6 +5076,37 @@ export async function registerRoutes(
   });
 
   // === OPV OPRAVY: BULK REROUTE (preserves original slip_id/inventoryId) ===
+  app.post("/api/contracts/mark-fixed-from-objections", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractIds } = req.body;
+      if (!Array.isArray(contractIds) || contractIds.length === 0) {
+        return res.status(400).json({ message: "Žiadne zmluvy na spracovanie" });
+      }
+      const ids = contractIds.map(Number).filter(Boolean);
+      const count = await storage.markContractFixedFromObjections(ids);
+      for (const cid of ids) {
+        try {
+          const c = await storage.getContract(cid);
+          await storage.createContractLifecycleHistory({
+            contractId: cid,
+            fromPhase: 3,
+            toPhase: 0,
+            note: "Opravená zmluva – vrátená do Nahratie a vytvorenie sprievodky",
+            changedByUserId: req.appUser?.id ?? null,
+            changedAt: new Date(),
+            entityName: c?.contractNumber || c?.proposalNumber || `ID ${cid}`,
+            oldData: { lifecyclePhase: 3 },
+            newData: { lifecyclePhase: 0 },
+          });
+        } catch (_) {}
+      }
+      return res.json({ fixed: count });
+    } catch (err) {
+      console.error("[mark-fixed-from-objections]", err);
+      return res.status(500).json({ message: "Interná chyba servera" });
+    }
+  });
+
   app.post("/api/contracts/bulk-reroute", isAuthenticated, async (req: any, res) => {
     try {
       const { contractIds, targetPhase, sourceFolder } = req.body;
@@ -6559,7 +6590,7 @@ export async function registerRoutes(
           }
         }
       }
-      res.json({ exists: result.exists, subjectName: result.subjectName });
+      res.json({ exists: result.exists, subjectName: result.subjectName, lifecyclePhase: result.contract?.lifecyclePhase ?? null });
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }
@@ -7162,8 +7193,8 @@ export async function registerRoutes(
       const allPartners = await storage.getPartners();
       const allProducts = await storage.getProducts();
 
-      // Preload existing contract/proposal numbers for duplicate detection (lean query)
-      const { proposalNumbers: existingProposalNumbers, contractNumbers: existingContractNumbers } = await storage.getContractNumbers(appUser?.activeCompanyId || undefined);
+      // Preload existing contract/proposal numbers for duplicate detection (with phase info)
+      const { proposalNumbers: existingProposalNumbers, contractNumbers: existingContractNumbers } = await storage.getContractNumbersWithPhase(appUser?.activeCompanyId || undefined);
 
       // Determine UID prefix from active state code (e.g. 421 for SK, 420 for CZ)
       let importUidPrefix = '421';
@@ -7274,15 +7305,28 @@ export async function registerRoutes(
           const resolvedContractType = VALID_CONTRACT_TYPES[normalizedTyp] || (rawTypZmluvy ? null : null);
 
           // Duplicate check — skip row if contract/proposal number already exists
+          // Uses phase-aware Map; soft-deleted contracts (isDeleted=true) do NOT block re-import
           const pnTrim = cisloNavrhu?.trim();
           const cnTrim = cisloZmluvy?.trim();
-          const duplicateNumber = (pnTrim && existingProposalNumbers.has(pnTrim)) ? pnTrim : (cnTrim && existingContractNumbers.has(cnTrim)) ? cnTrim : null;
-          if (duplicateNumber) {
+          const pnEntry = pnTrim ? existingProposalNumbers.get(pnTrim) : null;
+          const cnEntry = cnTrim ? existingContractNumbers.get(cnTrim) : null;
+          // Only block if non-deleted existing record found
+          const dupEntry = (pnEntry && !pnEntry.isDeleted) ? { number: pnTrim!, phase: pnEntry.phase } :
+                           (cnEntry && !cnEntry.isDeleted) ? { number: cnTrim!, phase: cnEntry.phase } : null;
+          if (dupEntry) {
             duplicateCount++;
+            const PHASE_LABELS: Record<number, string> = {
+              3: "Neprijaté zmluvy – výhrady",
+              4: "Archív zmlúv (s výhradami)",
+            };
+            const phaseLabel = dupEntry.phase !== null ? PHASE_LABELS[dupEntry.phase] : null;
+            const dupStatus = dupEntry.phase === 3 ? "blocked_neprijate" : dupEntry.phase === 4 ? "blocked_archiv" : "duplicate";
             results.push({
               row: rowNum,
-              status: "duplicate",
-              duplicateNumber,
+              status: dupStatus,
+              duplicateNumber: dupEntry.number,
+              duplicatePhase: dupEntry.phase,
+              duplicatePhaseLabel: phaseLabel,
               rawData: {
                 partner: rowData["partner"] || rowData["partner_name"] || null,
                 produkt: rowData["produkt"] || rowData["product"] || rowData["product_name"] || null,
@@ -7656,12 +7700,15 @@ export async function registerRoutes(
       const successCount = results.filter(r => r.status === "ok").length;
       const savedIncompleteCount = results.filter(r => r.status === "incomplete").length;
       const errorCount = results.filter(r => r.status === "error").length;
+      const trueDuplicateCount = results.filter(r => r.status === "duplicate").length;
+      const blockedNeprijateCount = results.filter(r => r.status === "blocked_neprijate").length;
+      const blockedArchivCount = results.filter(r => r.status === "blocked_archiv").length;
 
       await logAudit(req, {
         action: "IMPORT",
         module: "zmluvy",
-        entityName: `Import ${fileName}: ${successCount} úspešných, ${savedIncompleteCount} neúplných, ${errorCount} chýb, ${duplicateCount} duplicít`,
-        newData: { successCount, savedIncompleteCount, errorCount, duplicateCount, total: results.length },
+        entityName: `Import ${fileName}: ${successCount} úspešných, ${savedIncompleteCount} neúplných, ${errorCount} chýb, ${trueDuplicateCount} duplicít, ${blockedNeprijateCount} blok.neprijate, ${blockedArchivCount} blok.archiv`,
+        newData: { successCount, savedIncompleteCount, errorCount, duplicateCount: trueDuplicateCount, blockedNeprijateCount, blockedArchivCount, total: results.length },
       });
 
       res.json({
@@ -7669,7 +7716,9 @@ export async function registerRoutes(
         success: successCount,
         errors: errorCount,
         incomplete: incompleteCount,
-        duplicates: duplicateCount,
+        duplicates: trueDuplicateCount,
+        blockedNeprijate: blockedNeprijateCount,
+        blockedArchiv: blockedArchivCount,
         details: results,
       });
     } catch (err: any) {

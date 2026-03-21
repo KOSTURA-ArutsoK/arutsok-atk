@@ -408,6 +408,8 @@ export interface IStorage {
   // Contracts
   getContracts(filters?: { stateId?: number; statusId?: number; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<Contract[]>;
   getContractNumbers(companyId?: number): Promise<{ proposalNumbers: Set<string>; contractNumbers: Set<string> }>;
+  getContractNumbersWithPhase(companyId?: number): Promise<{ proposalNumbers: Map<string, { phase: number | null; isDeleted: boolean }>; contractNumbers: Map<string, { phase: number | null; isDeleted: boolean }> }>;
+  markContractFixedFromObjections(contractIds: number[]): Promise<number>;
   getContractsPaginated(filters?: { stateId?: number; statusId?: number; statusIds?: number[]; needsManualVerification?: boolean; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; processedOnly?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<{ data: Contract[]; total: number }>;
   getDispatchedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
   getSystemContractStatus(): Promise<ContractStatus | undefined>;
@@ -2956,6 +2958,47 @@ export class DatabaseStorage implements IStorage {
     const proposalNumbers = new Set<string>(rows.filter(r => r.proposalNumber).map(r => r.proposalNumber!.trim()));
     const contractNumbers = new Set<string>(rows.filter(r => r.contractNumber).map(r => r.contractNumber!.trim()));
     return { proposalNumbers, contractNumbers };
+  }
+
+  async getContractNumbersWithPhase(companyId?: number): Promise<{ proposalNumbers: Map<string, { phase: number | null; isDeleted: boolean }>; contractNumbers: Map<string, { phase: number | null; isDeleted: boolean }> }> {
+    const conditions: any[] = [];
+    if (companyId) conditions.push(eq(contracts.companyId, companyId));
+    const rows = await db
+      .select({ proposalNumber: contracts.proposalNumber, contractNumber: contracts.contractNumber, lifecyclePhase: contracts.lifecyclePhase, isDeleted: contracts.isDeleted })
+      .from(contracts)
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
+    const proposalNumbers = new Map<string, { phase: number | null; isDeleted: boolean }>();
+    const contractNumbers = new Map<string, { phase: number | null; isDeleted: boolean }>();
+    for (const row of rows) {
+      const entry = { phase: row.lifecyclePhase ?? null, isDeleted: row.isDeleted ?? false };
+      if (row.proposalNumber?.trim()) {
+        const key = row.proposalNumber.trim();
+        const existing = proposalNumbers.get(key);
+        if (!existing || (!entry.isDeleted && existing.isDeleted)) proposalNumbers.set(key, entry);
+      }
+      if (row.contractNumber?.trim()) {
+        const key = row.contractNumber.trim();
+        const existing = contractNumbers.get(key);
+        if (!existing || (!entry.isDeleted && existing.isDeleted)) contractNumbers.set(key, entry);
+      }
+    }
+    return { proposalNumbers, contractNumbers };
+  }
+
+  async markContractFixedFromObjections(contractIds: number[]): Promise<number> {
+    if (contractIds.length === 0) return 0;
+    const result = await db
+      .update(contracts)
+      .set({
+        lifecyclePhase: 0,
+        inventoryId: null,
+        dispatchedAt: null,
+        acceptedAt: null,
+        objectionEnteredAt: null,
+        updatedAt: new Date(),
+      })
+      .where(and(inArray(contracts.id, contractIds), eq(contracts.lifecyclePhase, 3)));
+    return (result as any).rowCount ?? contractIds.length;
   }
 
   async getContractsPaginated(filters?: { stateId?: number; statusId?: number; statusIds?: number[]; needsManualVerification?: boolean; inventoryId?: number; templateId?: number; includeDeleted?: boolean; unprocessed?: boolean; processedOnly?: boolean; dispatched?: boolean; companyId?: number; limit?: number; offset?: number }): Promise<{ data: Contract[]; total: number }> {
