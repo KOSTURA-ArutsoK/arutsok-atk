@@ -5678,13 +5678,8 @@ export default function Contracts() {
       }
 
       setPreSelectCreatedContractId(savedContractId);
-      if (preSelectEditingContractId) {
-        setPreSelectSaving(false);
-        setPreSelectOpen(false);
-      } else {
-        setPreSelectStep(4);
-        setPreSelectSaving(false);
-      }
+      setPreSelectStep(4);
+      setPreSelectSaving(false);
     } catch (err: any) {
       toast({ title: "Chyba", description: err.message || "Nepodarilo sa zapisat zmluvu", variant: "destructive" });
     } finally {
@@ -8376,7 +8371,7 @@ export default function Contracts() {
         {preSelectStep === 4 && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Zmluva bola úspešne zapísaná. Teraz môžete nahrať dokumenty (PDF, obrázky, skeny občianskeho preukazu a pod.).
+              {preSelectEditingContractId ? "Zmluva bola uložená." : "Zmluva bola úspešne zapísaná."}{" "}Môžete nahrať dokumenty (PDF, obrázky, skeny občianskeho preukazu a pod.).
             </p>
             {(() => {
               const allContracts = contractsPage?.data || [];
