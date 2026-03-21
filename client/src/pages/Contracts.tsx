@@ -2288,6 +2288,7 @@ export default function Contracts() {
   const [docChecklistCheckedExtra, setDocChecklistCheckedExtra] = useState<Set<number>>(new Set());
   const [docChecklistNewOpt, setDocChecklistNewOpt] = useState("");
   const [docChecklistSavedState, setDocChecklistSavedState] = useState<Record<number, { req: number[], opt: number[], extra: string[], checkedExtra: number[] }>>({});
+  const [docChecklistPartialState, setDocChecklistPartialState] = useState<Record<number, { req: number[], opt: number[], extra: string[], checkedExtra: number[] }>>({});
 
   const [filterStatusId, setFilterStatusId] = useState<string>("all");
   const [filterStatusIds, setFilterStatusIds] = useState<number[]>([]);
@@ -3705,11 +3706,13 @@ export default function Contracts() {
                       const docs = getProductDocsForContract(contract);
                       if (docs.required.length > 0 || docs.optional.length > 0) {
                         const saved = docChecklistSavedState[contract.id];
-                        if (saved) {
-                          setDocChecklistCheckedReq(new Set(saved.req));
-                          setDocChecklistCheckedOpt(new Set(saved.opt));
-                          setDocChecklistExtraOpt(saved.extra);
-                          setDocChecklistCheckedExtra(new Set(saved.checkedExtra));
+                        const partial = docChecklistPartialState[contract.id];
+                        const initDoc = saved || partial;
+                        if (initDoc) {
+                          setDocChecklistCheckedReq(new Set(initDoc.req));
+                          setDocChecklistCheckedOpt(new Set(initDoc.opt));
+                          setDocChecklistExtraOpt(initDoc.extra);
+                          setDocChecklistCheckedExtra(new Set(initDoc.checkedExtra));
                         } else {
                           setDocChecklistCheckedReq(new Set());
                           setDocChecklistCheckedOpt(new Set());
@@ -4176,7 +4179,8 @@ export default function Contracts() {
               9: "[&>td]:bg-indigo-500/25 hover:[&>td]:bg-indigo-500/30 border-l-2 border-l-indigo-500",
               10: "[&>td]:bg-yellow-500/25 hover:[&>td]:bg-yellow-500/30 border-l-2 border-l-yellow-500",
             } as Record<number, string>)[(contract as any).lifecyclePhase] || "[&>td]:bg-blue-500/25 hover:[&>td]:bg-blue-500/30 border-l-2 border-l-blue-500") : null;
-            const rowClass = isRowSelected ? phaseSelectedClass! : isIncomplete ? "bg-red-500/15 hover:bg-red-500/20 border-l-2 border-l-red-500" : (needsNameConfirm && !isIncomplete) ? "bg-orange-500/8 hover:bg-orange-500/15 border-l-2 border-l-orange-500" : "";
+            const hasPartialDocs = !isRowSelected && !!docChecklistPartialState[contract.id];
+            const rowClass = isRowSelected ? phaseSelectedClass! : isIncomplete ? "bg-red-500/15 hover:bg-red-500/20 border-l-2 border-l-red-500" : hasPartialDocs ? "bg-amber-500/15 hover:bg-amber-500/20 border-l-2 border-l-amber-500" : (needsNameConfirm && !isIncomplete) ? "bg-orange-500/8 hover:bg-orange-500/15 border-l-2 border-l-orange-500" : "";
             return (
               <TableRow key={contract.id} data-testid={`row-evidencia-${contract.id}`} className={rowClass} onRowClick={() => { if (needsNameConfirm && !checkboxOnly) { setNameConfirmContract(contract); setNameConfirmOpen(true); return; } if (showRerouteCheckbox) { toggleRerouteSelect(contract.id); } else if (checkboxOnly && showCheckbox) { if (earlyPhase && isIncomplete) { openIncompleteEdit(contract); } else if (earlyPhase && !isIncomplete) { toggleSelect(contract.id); } else if (!isIncomplete) { toggleSelect(contract.id); } } else if (!checkboxOnly) { if (earlyPhase || isIncomplete) { openIncompleteEdit(contract); } else { openEdit(contract); } } }}>
                 {showCheckbox && (
@@ -6389,11 +6393,13 @@ export default function Contracts() {
           checkedExtra: Array.from(docChecklistCheckedExtra),
         }
       }));
+      setDocChecklistPartialState(prev => { const next = { ...prev }; delete next[c.id]; return next; });
       setSelectedIds(prev => prev.includes(c.id) ? prev : [...prev, c.id]);
       setDocChecklistContract(null);
     };
     const clearAndDeselect = () => {
       setDocChecklistSavedState(prev => { const next = { ...prev }; delete next[c.id]; return next; });
+      setDocChecklistPartialState(prev => { const next = { ...prev }; delete next[c.id]; return next; });
       setSelectedIds(prev => prev.filter(id => id !== c.id));
       setDocChecklistContract(null);
     };
@@ -6441,7 +6447,25 @@ export default function Contracts() {
     };
     const totalOptCount = docs.optional.length + docChecklistExtraOpt.length;
     return (
-      <Dialog open={!!docChecklistContract} onOpenChange={(o) => { if (!o) setDocChecklistContract(null); }}>
+      <Dialog open={!!docChecklistContract} onOpenChange={(o) => {
+        if (!o) {
+          const hasAnyChecked = docChecklistCheckedReq.size > 0 || docChecklistCheckedOpt.size > 0 || docChecklistCheckedExtra.size > 0;
+          if (c && hasAnyChecked && !docChecklistSavedState[c.id]) {
+            setDocChecklistPartialState(prev => ({
+              ...prev,
+              [c.id]: {
+                req: Array.from(docChecklistCheckedReq),
+                opt: Array.from(docChecklistCheckedOpt),
+                extra: docChecklistExtraOpt,
+                checkedExtra: Array.from(docChecklistCheckedExtra),
+              }
+            }));
+          } else if (c && !hasAnyChecked) {
+            setDocChecklistPartialState(prev => { const next = { ...prev }; delete next[c.id]; return next; });
+          }
+          setDocChecklistContract(null);
+        }
+      }}>
         <DialogContent size="sm" data-testid="dialog-doc-checklist">
           <DialogHeader className="px-6 pt-6 pb-2">
             <DialogTitle data-testid="text-docchecklist-title" className="flex items-center gap-2">
