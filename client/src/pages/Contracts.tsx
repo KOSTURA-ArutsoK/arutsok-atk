@@ -2458,6 +2458,7 @@ export default function Contracts() {
   const refStep3Confirm = useRef<HTMLButtonElement>(null);
   const refStep4Skip = useRef<HTMLButtonElement>(null);
   const refStep4Upload = useRef<HTMLButtonElement>(null);
+  const refStep4Container = useRef<HTMLDivElement>(null);
   const refAddRecommenderBtn = useRef<HTMLButtonElement>(null);
   const refNewRecommenderUid = useRef<HTMLInputElement>(null);
   const refNewRecommenderPct = useRef<HTMLInputElement>(null);
@@ -5701,6 +5702,7 @@ export default function Contracts() {
       setPreSelectCreatedContractId(savedContractId);
       setPreSelectStep(4);
       setPreSelectSaving(false);
+      setTimeout(() => refStep4Container.current?.focus(), 80);
     } catch (err: any) {
       toast({ title: "Chyba", description: err.message || "Nepodarilo sa zapisat zmluvu", variant: "destructive" });
     } finally {
@@ -8390,7 +8392,17 @@ export default function Contracts() {
         )}
 
         {preSelectStep === 4 && (
-          <div className="space-y-4">
+          <div
+            ref={refStep4Container}
+            className="space-y-4 outline-none"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && document.activeElement !== refStep4Skip.current) {
+                e.preventDefault();
+                refStep4Skip.current?.focus();
+              }
+            }}
+          >
             <p className="text-sm text-muted-foreground">
               {preSelectEditingContractId ? "Zmluva bola uložená." : "Zmluva bola úspešne zapísaná."}{" "}Môžete nahrať dokumenty (PDF, obrázky, skeny občianskeho preukazu a pod.).
             </p>
@@ -8484,7 +8496,7 @@ export default function Contracts() {
             )}
 
             <div className="flex justify-between gap-2">
-              <Button ref={refStep4Skip} variant="outline" tabIndex={-1} onClick={handlePreSelectSkipUpload} onKeyDown={e => { if (e.key === "Tab") { e.preventDefault(); refStep4Upload.current?.focus(); } }} data-testid="button-preselect-skip-upload">
+              <Button ref={refStep4Skip} variant="outline" tabIndex={0} onClick={handlePreSelectSkipUpload} onKeyDown={e => { if (e.key === "Tab") { e.preventDefault(); refStep4Upload.current?.focus(); } }} data-testid="button-preselect-skip-upload">
                 Preskočiť
               </Button>
               <Button
