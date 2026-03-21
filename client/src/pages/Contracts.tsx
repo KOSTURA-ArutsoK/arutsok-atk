@@ -3583,9 +3583,16 @@ export default function Contracts() {
                   checked={contractsList.filter(c => !isContractEffectivelyIncomplete(c)).length > 0 && contractsList.filter(c => !isContractEffectivelyIncomplete(c)).every(c => selectedIds.includes(c.id))}
                   onCheckedChange={() => {
                     const selectable = contractsList.filter(c => !isContractEffectivelyIncomplete(c));
-                    const allSel = selectable.every(c => selectedIds.includes(c.id));
-                    if (allSel) setSelectedIds(prev => prev.filter(id => !selectable.find(c => c.id === id)));
-                    else setSelectedIds(prev => [...new Set([...prev, ...selectable.map(c => c.id)])]);
+                    const directlySelectable = nahratieView
+                      ? selectable.filter(c => {
+                          const d = getProductDocsForContract(c);
+                          const hasDocs = d.required.length > 0 || d.optional.length > 0;
+                          return !hasDocs || !!docChecklistSavedState[c.id];
+                        })
+                      : selectable;
+                    const allSel = directlySelectable.length > 0 && directlySelectable.every(c => selectedIds.includes(c.id));
+                    if (allSel) setSelectedIds(prev => prev.filter(id => !directlySelectable.find(c => c.id === id)));
+                    else setSelectedIds(prev => [...new Set([...prev, ...directlySelectable.map(c => c.id)])]);
                   }}
                   data-testid="checkbox-spr-select-all"
                 />
