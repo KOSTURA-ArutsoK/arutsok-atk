@@ -1060,7 +1060,7 @@ export default function Products() {
                             <Pencil className="w-4 h-4" />
                           </Button>
                         )}
-                        {canDeleteRecords(appUser) && (
+                        {canDeleteRecords(appUser) && (product as any).contractsCount === 0 && (
                           <ConditionalDelete canDelete={true} onClick={() => handleDelete(product)} testId={`button-delete-product-${product.id}`} />
                         )}
                       </div>

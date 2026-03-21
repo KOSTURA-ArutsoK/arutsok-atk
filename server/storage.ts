@@ -1951,8 +1951,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProducts(includeDeleted?: boolean) {
-    if (includeDeleted) return await db.select().from(products);
-    return await db.select().from(products).where(eq(products.isDeleted, false));
+    const productList = includeDeleted
+      ? await db.select().from(products)
+      : await db.select().from(products).where(eq(products.isDeleted, false));
+    const countRows = await db.execute(
+      sql`SELECT product_id, COUNT(*) as cnt FROM contracts WHERE product_id IS NOT NULL AND is_deleted = false GROUP BY product_id`
+    );
+    const countMap: Record<number, number> = {};
+    for (const row of countRows.rows) {
+      countMap[Number(row.product_id)] = Number(row.cnt);
+    }
+    return productList.map(p => ({ ...p, contractsCount: countMap[p.id] || 0 }));
   }
 
   async getProduct(id: number) {
