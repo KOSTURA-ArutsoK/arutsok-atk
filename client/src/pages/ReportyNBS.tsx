@@ -450,7 +450,12 @@ function PartnerReportDialog({ open, onOpenChange, year, period, periodLabel, se
 
   useEffect(() => {
     if (existingReport?.data) {
-      setFormData({ ...getDefaultDataForSector(sector), ...existingReport.data });
+      let loaded = existingReport.data;
+      if (sector === "PaZ" && loaded.cancelledWithdrawal && typeof loaded.cancelledWithdrawal.count === "number" && loaded.cancelledWithdrawal.life === undefined) {
+        const legacyCount = loaded.cancelledWithdrawal.count;
+        loaded = { ...loaded, cancelledWithdrawal: { life: legacyCount, nonLife: 0, reinsurance: 0 } };
+      }
+      setFormData({ ...getDefaultDataForSector(sector), ...loaded });
     } else if (selectedPartnerId) {
       setFormData(getDefaultDataForSector(sector));
     }
