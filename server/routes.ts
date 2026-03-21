@@ -7424,16 +7424,25 @@ export async function registerRoutes(
             // 1. Find or create authorized person (oprávnená osoba / štatutár) — H–L columns
             //    Identity key: RC + meno + priezvisko (+ tituly); RC is primary unique key
             //    RC validation error is a WARNING only — person is created with the RC anyway
-            if (rc && firstName && lastName) {
+            if (rc) {
               const dupPerson = await storage.checkDuplicateSubjectOnly({ birthNumber: rc });
               if (dupPerson) {
                 resolvedAuthorizedPersonId = dupPerson.id;
-                // Name verification: RC is authoritative in Slovakia; log mismatch for audit
-                if (!dupPerson.name.toLowerCase().includes(firstName.toLowerCase()) ||
-                    !dupPerson.name.toLowerCase().includes(lastName.toLowerCase())) {
+                // UPDATE: fill in missing name data from import if existing subject has none
+                if (!dupPerson.name && (firstName || lastName)) {
+                  const updateFields: Record<string, any> = {};
+                  if (firstName) updateFields.firstName = firstName;
+                  if (lastName) updateFields.lastName = lastName;
+                  if (titleBefore) updateFields.titleBefore = titleBefore;
+                  if (titleAfter) updateFields.titleAfter = titleAfter;
+                  await db.update(subjects).set(updateFields).where(eq(subjects.id, dupPerson.id));
+                  console.log(`[IMPORT] Oprávnená osoba RC ${rc} (id=${dupPerson.id}) — doplnené meno: ${firstName} ${lastName}`);
+                } else if (dupPerson.name && firstName && lastName &&
+                    (!dupPerson.name.toLowerCase().includes(firstName.toLowerCase()) ||
+                     !dupPerson.name.toLowerCase().includes(lastName.toLowerCase()))) {
                   console.log(`[IMPORT] RC match (${rc}) name mismatch: import="${firstName} ${lastName}" stored="${dupPerson.name}" row=${rowNum} — using existing`);
                 }
-              } else {
+              } else if (firstName || lastName) {
                 try {
                   const newPerson = await storage.createSubjectNoUID({
                     type: "person",
@@ -7457,8 +7466,11 @@ export async function registerRoutes(
               const dupCompany = await storage.checkDuplicateSubjectOnly({ ico });
               if (dupCompany) {
                 resolvedSubjectId = dupCompany.id;
-                // Name verification: IČO is authoritative; log mismatch for audit
-                if (companyName && dupCompany.name &&
+                // UPDATE: fill in missing company name from import if existing subject has none
+                if (!dupCompany.name && companyName) {
+                  await db.update(subjects).set({ companyName }).where(eq(subjects.id, dupCompany.id));
+                  console.log(`[IMPORT] Firma IČO ${ico} (id=${dupCompany.id}) — doplnený názov: ${companyName}`);
+                } else if (dupCompany.name && companyName &&
                     normalizeName(companyName) !== normalizeName(dupCompany.name)) {
                   console.log(`[IMPORT] IČO match (${ico}) name mismatch: import="${companyName}" stored="${dupCompany.name}" row=${rowNum} — using existing`);
                 }
@@ -7491,10 +7503,31 @@ export async function registerRoutes(
               const dupCheck = await storage.checkDuplicateSubjectOnly({ birthNumber: rc });
               if (dupCheck) {
                 resolvedSubjectId = dupCheck.id;
+                // UPDATE: fill in missing name/contact data from import if existing subject has none
+                if (!dupCheck.name && (firstName || lastName)) {
+                  const updateFields: Record<string, any> = {};
+                  if (firstName) updateFields.firstName = firstName;
+                  if (lastName) updateFields.lastName = lastName;
+                  if (titleBefore) updateFields.titleBefore = titleBefore;
+                  if (titleAfter) updateFields.titleAfter = titleAfter;
+                  if (email) updateFields.email = email;
+                  if (phone) updateFields.phone = phone;
+                  await db.update(subjects).set(updateFields).where(eq(subjects.id, dupCheck.id));
+                  console.log(`[IMPORT] Subjekt RC ${rc} (id=${dupCheck.id}) — doplnené meno: ${firstName} ${lastName}`);
+                } else if (dupCheck.name && (email || phone)) {
+                  // Subject already has a name — still fill in missing email/phone if provided
+                  const [existingFull] = await db.select({ email: subjects.email, phone: subjects.phone }).from(subjects).where(eq(subjects.id, dupCheck.id)).limit(1);
+                  const contactUpdate: Record<string, any> = {};
+                  if (email && !existingFull?.email) contactUpdate.email = email;
+                  if (phone && !existingFull?.phone) contactUpdate.phone = phone;
+                  if (Object.keys(contactUpdate).length > 0) {
+                    await db.update(subjects).set(contactUpdate).where(eq(subjects.id, dupCheck.id));
+                  }
+                }
               } else {
+                // New subject: require firstName + lastName (+ RC already confirmed above)
                 // RC validation error is a WARNING only — person is created with RC anyway
-                const canCreatePerson = firstName && lastName && rc;
-                if (canCreatePerson) {
+                if (firstName && lastName) {
                   try {
                     const newSubj = await storage.createSubjectNoUID({
                       type: "person",
@@ -7514,6 +7547,7 @@ export async function registerRoutes(
                     console.error(`[IMPORT] Chyba pri vytváraní subjektu pre riadok ${rowNum}:`, subjectErr.message);
                   }
                 }
+                // If firstName/lastName missing → resolvedSubjectId stays null → contract marked incomplete
               }
             }
           }
