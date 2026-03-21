@@ -2800,8 +2800,22 @@ export default function Contracts() {
     if (!sd) fields.push({ step: 1, fieldId: "signed-date" });
     if (!nv.trim() && !(preSelectNumberType === "both" && nv2.trim())) fields.push({ step: 1, fieldId: "number" });
     if (preSelectNumberType === "both" && !nv2.trim()) fields.push({ step: 1, fieldId: "number2" });
-    const valid = overrides?.isValid !== undefined ? overrides.isValid : preSelectIsValid;
-    if (!valid) fields.push({ step: 2, fieldId: "subject" });
+    if (!preSelectSubjectId) {
+      fields.push({ step: 2, fieldId: "subject" });
+    } else {
+      if (preSelectSubjectType === "person") {
+        if (!preSelectFirstName.trim()) fields.push({ step: 2, fieldId: "firstName" });
+        if (!preSelectLastName.trim()) fields.push({ step: 2, fieldId: "lastName" });
+      } else if (preSelectSubjectType === "szco") {
+        if (!preSelectBusinessName.trim()) fields.push({ step: 2, fieldId: "businessName" });
+        if (!preSelectNoFoInfo) {
+          if (!preSelectFirstName.trim()) fields.push({ step: 2, fieldId: "firstName" });
+          if (!preSelectLastName.trim()) fields.push({ step: 2, fieldId: "lastName" });
+        }
+      } else if (preSelectSubjectType === "company" || preSelectSubjectType === "organization") {
+        if (!preSelectBusinessName.trim()) fields.push({ step: 2, fieldId: "businessName" });
+      }
+    }
     const specUid = overrides?.specialistUid !== undefined ? overrides.specialistUid : preSelectSpecialistUid;
     if (!specUid.trim() || !lookupSubjectByUid(specUid).found) fields.push({ step: 3, fieldId: "specialist-uid" });
     return fields;
@@ -2816,6 +2830,9 @@ export default function Contracts() {
       "number": () => refNumberInput.current?.focus(),
       "number2": () => (document.querySelector('[data-testid="input-preselect-contract-number"]') as HTMLElement)?.focus(),
       "subject": () => refSearchInput.current?.focus(),
+      "firstName": () => refFirstNameInput.current?.focus(),
+      "lastName": () => refLastNameInput.current?.focus(),
+      "businessName": () => (document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement)?.focus(),
       "specialist-uid": () => refPreSelectSpecialistUid.current?.focus(),
     };
     map[fieldId]?.();
@@ -5416,9 +5433,15 @@ export default function Contracts() {
     if (!preSelectOpen || !preSelectEditingContractId) return;
     const fields = getGlobalIncompleteFields();
     if (fields.length === 0) return;
-    const first = fields.find(f => f.step === preSelectStep);
-    if (!first) return;
-    const t = setTimeout(() => focusGlobalField(first.fieldId), 350);
+    const first = fields[0];
+    const t = setTimeout(() => {
+      if (first.step !== preSelectStep) {
+        setPreSelectStep(first.step);
+        setTimeout(() => focusGlobalField(first.fieldId), 300);
+      } else {
+        focusGlobalField(first.fieldId);
+      }
+    }, 350);
     return () => clearTimeout(t);
   }, [preSelectOpen, preSelectEditingContractId]);
 
@@ -5714,6 +5737,26 @@ export default function Contracts() {
     try {
       let finalSubjectId = preSelectSubjectId ? parseInt(preSelectSubjectId) : null;
       let newlyCreatedSubjectId: number | null = null;
+
+      // When editing an existing subject that was missing name — update it in DB
+      if (finalSubjectId && preSelectEditingContractId) {
+        const existingSubject = subjects?.find(s => s.id === finalSubjectId);
+        if (existingSubject) {
+          const nameUpdateNeeded =
+            (preSelectSubjectType === "person" || preSelectSubjectType === "szco") &&
+            (preSelectFirstName.trim() || preSelectLastName.trim()) &&
+            (!existingSubject.firstName?.trim() || !existingSubject.lastName?.trim());
+          if (nameUpdateNeeded) {
+            await apiRequest("PATCH", `/api/subjects/${finalSubjectId}`, {
+              firstName: preSelectFirstName.trim() || null,
+              lastName: preSelectLastName.trim() || null,
+              titleBefore: preSelectTitleBefore.trim() || null,
+              titleAfter: preSelectTitleAfter.trim() || null,
+            });
+            queryClient.invalidateQueries({ queryKey: ["/api/subjects"] });
+          }
+        }
+      }
 
       if (!finalSubjectId) {
         const subjectData: Record<string, any> = {
@@ -6032,7 +6075,11 @@ export default function Contracts() {
     const step1Ok = !!(contract.partnerId) && !!(contract.productId) &&
       !!((contract.proposalNumber || "").trim() || (contract.contractNumber || "").trim()) &&
       !!existingSignedDate;
-    const step2Ok = !!(contract.subjectId);
+    const subjectHasName = !sub ? false :
+      sub.type === "person" ? !!(sub.firstName?.trim() && sub.lastName?.trim()) :
+      (sub.type === "szco" || sub.type === "company" || sub.type === "organization") ? !!(sub.companyName?.trim()) :
+      true;
+    const step2Ok = !!(contract.subjectId) && subjectHasName;
     const step3Ok = !!(existingSpec?.uid);
     // Krok 4 (dokumenty) je voliteľný — neotvára sa ako chybový krok automaticky
     const startStep: 1 | 2 | 3 | 4 = forceStep ?? (!step1Ok ? 1 : !step2Ok ? 2 : !step3Ok ? 3 : 1);
@@ -8118,6 +8165,30 @@ export default function Contracts() {
                 <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <span className="text-xs text-muted-foreground">Meno:</span>
                 <span className="text-sm font-medium" data-testid="text-preselect-person-name-readonly">{[preSelectTitleBefore, preSelectFirstName, preSelectLastName, preSelectTitleAfter].filter(Boolean).join(" ")}</span>
+              </div>
+            )}
+
+            {preSelectSubjectId && preSelectSubjectType === "person" && !preSelectFirstName && !preSelectLastName && (
+              <div className="space-y-2 border border-red-500/40 bg-red-500/5 rounded-md p-3">
+                <p className="text-xs text-red-400 font-medium flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Chýba meno klienta — doplňte ho:</p>
+                <div className="grid grid-cols-4 gap-2 items-end">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium">Titul pred</label>
+                    <Input value={preSelectTitleBefore} onChange={e => setPreSelectTitleBefore(e.target.value)} placeholder="napr. Ing." className="h-8 text-sm" data-testid="input-preselect-title-before-person" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium flex items-center gap-1">Meno <span className="text-red-400">*</span></label>
+                    <Input ref={refFirstNameInput} value={preSelectFirstName} onChange={e => setPreSelectFirstName(e.target.value)} placeholder="Meno" className="h-8 text-sm border-red-500/50" onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); refLastNameInput.current?.focus(); } }} data-testid="input-preselect-first-name" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium flex items-center gap-1">Priezvisko <span className="text-red-400">*</span></label>
+                    <Input ref={refLastNameInput} value={preSelectLastName} onChange={e => setPreSelectLastName(e.target.value)} placeholder="Priezvisko" className="h-8 text-sm border-red-500/50" onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); refStep2Confirm.current?.focus(); } }} data-testid="input-preselect-last-name" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium">Titul za</label>
+                    <Input value={preSelectTitleAfter} onChange={e => setPreSelectTitleAfter(e.target.value)} placeholder="napr. PhD." className="h-8 text-sm" data-testid="input-preselect-title-after-person" />
+                  </div>
+                </div>
               </div>
             )}
 
