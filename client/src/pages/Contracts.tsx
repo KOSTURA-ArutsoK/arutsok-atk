@@ -2287,6 +2287,7 @@ export default function Contracts() {
   const [docChecklistExtraOpt, setDocChecklistExtraOpt] = useState<string[]>([]);
   const [docChecklistCheckedExtra, setDocChecklistCheckedExtra] = useState<Set<number>>(new Set());
   const [docChecklistNewOpt, setDocChecklistNewOpt] = useState("");
+  const [docChecklistSavedState, setDocChecklistSavedState] = useState<Record<number, { req: number[], opt: number[], extra: string[], checkedExtra: number[] }>>({});
 
   const [filterStatusId, setFilterStatusId] = useState<string>("all");
   const [filterStatusIds, setFilterStatusIds] = useState<number[]>([]);
@@ -3581,17 +3582,25 @@ export default function Contracts() {
                 : showCheckbox
                 ? () => {
                     if (effectivelyIncomplete) { openIncompleteEdit(contract); }
-                    else if (nahratieView && !isSelected) {
+                    else if (nahratieView) {
                       const docs = getProductDocsForContract(contract);
                       if (docs.required.length > 0 || docs.optional.length > 0) {
-                        setDocChecklistCheckedReq(new Set());
-                        setDocChecklistCheckedOpt(new Set());
-                        setDocChecklistExtraOpt([]);
-                        setDocChecklistCheckedExtra(new Set());
+                        const saved = docChecklistSavedState[contract.id];
+                        if (saved) {
+                          setDocChecklistCheckedReq(new Set(saved.req));
+                          setDocChecklistCheckedOpt(new Set(saved.opt));
+                          setDocChecklistExtraOpt(saved.extra);
+                          setDocChecklistCheckedExtra(new Set(saved.checkedExtra));
+                        } else {
+                          setDocChecklistCheckedReq(new Set());
+                          setDocChecklistCheckedOpt(new Set());
+                          setDocChecklistExtraOpt([]);
+                          setDocChecklistCheckedExtra(new Set());
+                        }
                         setDocChecklistNewOpt("");
                         setDocChecklistContract(contract);
                       } else {
-                        setSelectedIds(prev => [...prev, contract.id]);
+                        if (!isSelected) setSelectedIds(prev => [...prev, contract.id]);
                       }
                     } else {
                       setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]);
@@ -6158,7 +6167,21 @@ export default function Contracts() {
     const productName = getProductName(c);
     const allRequiredChecked = docs.required.length === 0 || docs.required.every((_: string, idx: number) => docChecklistCheckedReq.has(idx));
     const confirmAndSelect = () => {
+      setDocChecklistSavedState(prev => ({
+        ...prev,
+        [c.id]: {
+          req: Array.from(docChecklistCheckedReq),
+          opt: Array.from(docChecklistCheckedOpt),
+          extra: docChecklistExtraOpt,
+          checkedExtra: Array.from(docChecklistCheckedExtra),
+        }
+      }));
       setSelectedIds(prev => prev.includes(c.id) ? prev : [...prev, c.id]);
+      setDocChecklistContract(null);
+    };
+    const clearAndDeselect = () => {
+      setDocChecklistSavedState(prev => { const next = { ...prev }; delete next[c.id]; return next; });
+      setSelectedIds(prev => prev.filter(id => id !== c.id));
       setDocChecklistContract(null);
     };
     const toggleReq = (idx: number) => setDocChecklistCheckedReq(prev => {
@@ -6363,7 +6386,7 @@ export default function Contracts() {
             </div>
           </div>
           <DialogFooter className="px-6 pb-6 pt-2">
-            <Button variant="outline" onClick={() => setDocChecklistContract(null)} data-testid="button-docchecklist-cancel">Zrušiť</Button>
+            <Button variant="destructive" onClick={clearAndDeselect} data-testid="button-docchecklist-clear">Zmazať zaškrtnuté položky</Button>
             <Button onClick={confirmAndSelect} disabled={!allRequiredChecked} data-testid="button-docchecklist-confirm" data-docchecklist-confirm>Zaradiť do sprievodky</Button>
           </DialogFooter>
         </DialogContent>
