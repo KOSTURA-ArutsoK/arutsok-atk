@@ -9131,7 +9131,7 @@ export default function Contracts() {
                         </div>
                         <div id={`expanded-wrapper-${group.inventoryId}`} style={{ display: isExpanded ? 'block' : 'none' }}>
                           <div className="border-t">
-                            {renderSprievodkaFullTable(group.contracts, { showOrder: true, testIdPrefix: "row-cakajuce", nahratieView: true })}
+                            {renderSprievodkaFullTable(group.contracts, { showOrder: true, testIdPrefix: "row-cakajuce", nahratieView: true, alwaysIncompleteEdit: true })}
                           </div>
                         </div>
                       </div>
