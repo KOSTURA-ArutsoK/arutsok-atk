@@ -620,7 +620,7 @@ function ProductFormDialog({
             </div>
           </div>
         </div>
-        <ProcessingSaveButton isPending={isPending} />
+        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
         </form>
       </DialogContent>
     </Dialog>
