@@ -2501,6 +2501,10 @@ export default function Contracts() {
   };
 
   const focusNextEmptyRequired = (currentFieldId: string) => {
+    if (preSelectEditingContractId) {
+      focusNextGlobalIncompleteField(currentFieldId);
+      return;
+    }
     const step = preSelectStep;
     const emptyFields = getEmptyRequiredFields(step);
     if (emptyFields.length === 0) {
@@ -2769,6 +2773,62 @@ export default function Contracts() {
       return { found: true, label: subj.companyName || "Bez nazvu" };
     }
     return { found: false, label: "Subjekt nenajdeny" };
+  };
+
+  const getGlobalIncompleteFields = (overrides?: {
+    partnerId?: string; productId?: string; contractType?: string;
+    signedDate?: string; numberValue?: string; numberValue2?: string;
+    isValid?: boolean; specialistUid?: string;
+  }): { step: 1 | 2 | 3; fieldId: string }[] => {
+    const fields: { step: 1 | 2 | 3; fieldId: string }[] = [];
+    const pId = overrides?.partnerId !== undefined ? overrides.partnerId : preSelectPartnerId;
+    const prId = overrides?.productId !== undefined ? overrides.productId : preSelectProductId;
+    const ct = overrides?.contractType !== undefined ? overrides.contractType : preSelectContractType;
+    const sd = overrides?.signedDate !== undefined ? overrides.signedDate : preSelectSignedDate;
+    const nv = overrides?.numberValue !== undefined ? overrides.numberValue : preSelectNumberValue;
+    const nv2 = overrides?.numberValue2 !== undefined ? overrides.numberValue2 : preSelectNumberValue2;
+    if (!pId) fields.push({ step: 1, fieldId: "partner" });
+    if (!prId) fields.push({ step: 1, fieldId: "product" });
+    if (!ct) fields.push({ step: 1, fieldId: "contract-type" });
+    if (!sd) fields.push({ step: 1, fieldId: "signed-date" });
+    if (!nv.trim() && !(preSelectNumberType === "both" && nv2.trim())) fields.push({ step: 1, fieldId: "number" });
+    if (preSelectNumberType === "both" && !nv2.trim()) fields.push({ step: 1, fieldId: "number2" });
+    const valid = overrides?.isValid !== undefined ? overrides.isValid : preSelectIsValid;
+    if (!valid) fields.push({ step: 2, fieldId: "subject" });
+    const specUid = overrides?.specialistUid !== undefined ? overrides.specialistUid : preSelectSpecialistUid;
+    if (!specUid.trim() || !lookupSubjectByUid(specUid).found) fields.push({ step: 3, fieldId: "specialist-uid" });
+    return fields;
+  };
+
+  const focusGlobalField = (fieldId: string) => {
+    const map: Record<string, () => void> = {
+      "partner": () => refPartnerTrigger.current?.focus(),
+      "product": () => refProductTrigger.current?.focus(),
+      "contract-type": () => refContractTypeTrigger.current?.focus(),
+      "signed-date": () => refSignedDay.current?.focus(),
+      "number": () => refNumberInput.current?.focus(),
+      "number2": () => (document.querySelector('[data-testid="input-preselect-contract-number"]') as HTMLElement)?.focus(),
+      "subject": () => refSearchInput.current?.focus(),
+      "specialist-uid": () => refPreSelectSpecialistUid.current?.focus(),
+    };
+    map[fieldId]?.();
+  };
+
+  const focusNextGlobalIncompleteField = (currentFieldId: string, overrides?: Parameters<typeof getGlobalIncompleteFields>[0]) => {
+    const all = getGlobalIncompleteFields(overrides);
+    const remaining = all.filter(f => f.fieldId !== currentFieldId);
+    if (remaining.length === 0) {
+      setPreSelectStep(3);
+      setTimeout(() => refStep3Confirm.current?.focus(), 150);
+      return;
+    }
+    const next = remaining[0];
+    if (next.step !== preSelectStep) {
+      setPreSelectStep(next.step);
+      setTimeout(() => focusGlobalField(next.fieldId), 200);
+    } else {
+      setTimeout(() => focusGlobalField(next.fieldId), 50);
+    }
   };
 
   const allContractIds = [
@@ -5288,13 +5348,24 @@ export default function Contracts() {
 
   useEffect(() => {
     if (preSelectStep === 2) {
+      if (preSelectEditingContractId) return;
       const t = setTimeout(() => {
         const activeRadio = document.querySelector('[data-testid="toggle-subject-type"] button[aria-checked="true"]') as HTMLElement;
         if (activeRadio) { activeRadio.focus(); } else { refSearchInput.current?.focus(); }
       }, 150);
       return () => clearTimeout(t);
     }
-  }, [preSelectStep]);
+  }, [preSelectStep, preSelectEditingContractId]);
+
+  useEffect(() => {
+    if (!preSelectOpen || !preSelectEditingContractId) return;
+    const fields = getGlobalIncompleteFields();
+    if (fields.length === 0) return;
+    const first = fields.find(f => f.step === preSelectStep);
+    if (!first) return;
+    const t = setTimeout(() => focusGlobalField(first.fieldId), 350);
+    return () => clearTimeout(t);
+  }, [preSelectOpen, preSelectEditingContractId]);
 
   useEffect(() => {
     const d = preSelectSignedDay;
@@ -6469,8 +6540,8 @@ export default function Contracts() {
             <div className="grid grid-cols-2 gap-2 items-end">
               <div className="space-y-1">
                 <label className="text-xs font-medium flex items-center gap-1 min-h-[1.25rem]">Vyberte partnera {isFieldMissing("partner") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
-                <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); setTimeout(() => refProductTrigger.current?.focus(), 80); }}>
-                  <SelectTrigger ref={refPartnerTrigger} className={isFieldMissing("partner") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-partner" onKeyDown={(e) => { if (e.key === "Enter" && preSelectPartnerId) { e.preventDefault(); setTimeout(() => refProductTrigger.current?.focus(), 50); } }}>
+                <Select value={preSelectPartnerId} onValueChange={(v) => { setPreSelectPartnerId(v); setPreSelectProductId(""); if (preSelectEditingContractId) { focusNextGlobalIncompleteField("partner", { partnerId: v, productId: "" }); } else { setTimeout(() => refProductTrigger.current?.focus(), 80); } }}>
+                  <SelectTrigger ref={refPartnerTrigger} className={isFieldMissing("partner") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-partner" onKeyDown={(e) => { if (e.key === "Enter" && preSelectPartnerId) { e.preventDefault(); if (preSelectEditingContractId) { focusNextGlobalIncompleteField("partner"); } else { setTimeout(() => refProductTrigger.current?.focus(), 50); } } }}>
                     <SelectValue placeholder="Vyberte partnera" />
                   </SelectTrigger>
                   <SelectContent>
@@ -6482,8 +6553,8 @@ export default function Contracts() {
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium flex items-center gap-1 min-h-[1.25rem]">Vyberte produkt {isFieldMissing("product") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
-                <Select value={preSelectProductId} onValueChange={(v) => { setPreSelectProductId(v); setTimeout(() => refContractTypeTrigger.current?.focus(), 80); }} open={preSelectProductOpen} onOpenChange={setPreSelectProductOpen} disabled={!preSelectPartnerId}>
-                  <SelectTrigger ref={refProductTrigger} className={isFieldMissing("product") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-product" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (preSelectProductId && !preSelectProductOpen) { setTimeout(() => refContractTypeTrigger.current?.focus(), 50); } else { setPreSelectProductOpen(prev => !prev); } } }}>
+                <Select value={preSelectProductId} onValueChange={(v) => { setPreSelectProductId(v); if (preSelectEditingContractId) { focusNextGlobalIncompleteField("product", { productId: v }); } else { setTimeout(() => refContractTypeTrigger.current?.focus(), 80); } }} open={preSelectProductOpen} onOpenChange={setPreSelectProductOpen} disabled={!preSelectPartnerId}>
+                  <SelectTrigger ref={refProductTrigger} className={isFieldMissing("product") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-product" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (preSelectProductId && !preSelectProductOpen) { if (preSelectEditingContractId) { focusNextGlobalIncompleteField("product"); } else { setTimeout(() => refContractTypeTrigger.current?.focus(), 50); } } else { setPreSelectProductOpen(prev => !prev); } } }}>
                     <SelectValue placeholder={preSelectPartnerId ? "Vyberte produkt" : "Najprv vyberte partnera"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -6500,8 +6571,8 @@ export default function Contracts() {
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <label className="text-xs font-medium flex items-center gap-1">Typ zmluvy * {isFieldMissing("contract-type") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
-                <Select value={preSelectContractType} onValueChange={(v) => { setPreSelectContractType(v); setTimeout(() => refSignedDay.current?.focus(), 80); }} open={preSelectContractTypeOpen} onOpenChange={setPreSelectContractTypeOpen}>
-                  <SelectTrigger ref={refContractTypeTrigger} className={isFieldMissing("contract-type") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-contract-type" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (preSelectContractType && !preSelectContractTypeOpen) { setTimeout(() => refSignedDay.current?.focus(), 50); } else { setPreSelectContractTypeOpen(prev => !prev); } } }}>
+                <Select value={preSelectContractType} onValueChange={(v) => { setPreSelectContractType(v); if (preSelectEditingContractId) { focusNextGlobalIncompleteField("contract-type", { contractType: v }); } else { setTimeout(() => refSignedDay.current?.focus(), 80); } }} open={preSelectContractTypeOpen} onOpenChange={setPreSelectContractTypeOpen}>
+                  <SelectTrigger ref={refContractTypeTrigger} className={isFieldMissing("contract-type") ? "border-red-500 ring-red-500/30" : ""} data-testid="select-preselect-contract-type" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (preSelectContractType && !preSelectContractTypeOpen) { if (preSelectEditingContractId) { focusNextGlobalIncompleteField("contract-type"); } else { setTimeout(() => refSignedDay.current?.focus(), 50); } } else { setPreSelectContractTypeOpen(prev => !prev); } } }}>
                     <SelectValue placeholder="Vyberte typ zmluvy" />
                   </SelectTrigger>
                   <SelectContent>
