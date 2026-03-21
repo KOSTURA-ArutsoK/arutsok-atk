@@ -7300,7 +7300,7 @@ export default function Contracts() {
                                     <span className="text-sm text-muted-foreground">{personName || "—"}</span>
                                     <Badge variant="outline" className="text-[10px] px-1.5 border-blue-500/50 text-blue-400 flex-shrink-0">FO</Badge>
                                   </div>
-                                  {s.birthNumber && <div className="text-xs text-muted-foreground">RČ: {s.birthNumber}</div>}
+                                  <div className={`text-xs text-muted-foreground ${s.birthNumber ? "" : "opacity-50"}`}>RČ: {s.birthNumber || "—"}</div>
                                 </div>
                               </div>
                             )}
@@ -7336,7 +7336,7 @@ export default function Contracts() {
                                     <span className="text-sm text-muted-foreground">{personName}</span>
                                     <Badge variant="outline" className="text-[10px] px-1.5 border-blue-500/50 text-blue-400 flex-shrink-0">FO</Badge>
                                   </div>
-                                  {s.birthNumber && <div className="text-xs text-muted-foreground">RČ: {s.birthNumber}</div>}
+                                  <div className={`text-xs text-muted-foreground ${s.birthNumber ? "" : "opacity-50"}`}>RČ: {s.birthNumber || "—"}</div>
                                 </div>
                               </div>
                             )}
@@ -7355,7 +7355,7 @@ export default function Contracts() {
                             </div>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground">
                               <span className="font-mono">{formatUid(s.uid)}</span>
-                              {identifier && <span>RČ: {identifier}</span>}
+                              <span className={identifier ? "" : "opacity-50"}>RČ: {identifier || "—"}</span>
                             </div>
                           </div>
                         </div>
@@ -8041,7 +8041,7 @@ export default function Contracts() {
                             </div>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground">
                               <span className="font-mono">{formatUid(s.uid)}</span>
-                              {identifier && <span>RČ: {identifier}</span>}
+                              <span className={identifier ? "" : "opacity-50"}>RČ: {identifier || "—"}</span>
                             </div>
                           </div>
                         </div>
