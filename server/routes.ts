@@ -20737,16 +20737,44 @@ export async function registerRoutes(
       const nonCalendarCount = transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount + companiesWithoutOfficersCount + nbsReportCount;
 
       let unprocessedAcceptedSprievodkyCount = 0;
-      if (isAdmin(appUser)) {
-        const cutoff14 = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-        const expiring = await db.select({ id: contracts.id })
-          .from(contracts)
-          .where(and(
-            eq(contracts.lifecyclePhase, 5),
-            eq(contracts.isDeleted, false),
-            lte(contracts.acceptedAt, cutoff14)
-          ));
-        unprocessedAcceptedSprievodkyCount = expiring.length;
+      const cutoff14 = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+      const expiringPhase5 = await db.select({
+        id: contracts.id,
+        specialistaUid: contracts.specialistaUid,
+        subjectId: contracts.subjectId,
+      })
+        .from(contracts)
+        .where(and(
+          eq(contracts.lifecyclePhase, 5),
+          eq(contracts.isDeleted, false),
+          lte(contracts.acceptedAt, cutoff14)
+        ));
+      if (expiringPhase5.length > 0) {
+        if (isAdmin(appUser)) {
+          unprocessedAcceptedSprievodkyCount = expiringPhase5.length;
+        } else if (appUser.linkedSubjectId) {
+          const lnkSub = await db.select({ uid: subjects.uid })
+            .from(subjects)
+            .where(eq(subjects.id, appUser.linkedSubjectId))
+            .limit(1);
+          const userSubjectUid = lnkSub[0]?.uid || null;
+          const userIdStr = String(appUser.linkedSubjectId);
+          const expiringContractIds = expiringPhase5.map(c => c.id);
+          const directlyLinked = expiringPhase5.filter(c =>
+            c.specialistaUid === userIdStr ||
+            (userSubjectUid && c.specialistaUid === userSubjectUid)
+          ).map(c => c.id);
+          const linkedSet = new Set(directlyLinked);
+          const uidCandidates = [userIdStr, ...(userSubjectUid ? [userSubjectUid] : [])];
+          const rewardRows = await db.select({ contractId: contractRewardDistributions.contractId })
+            .from(contractRewardDistributions)
+            .where(and(
+              inArray(contractRewardDistributions.contractId, expiringContractIds),
+              inArray(contractRewardDistributions.uid, uidCandidates)
+            ));
+          rewardRows.forEach(r => linkedSet.add(r.contractId));
+          unprocessedAcceptedSprievodkyCount = linkedSet.size;
+        }
       }
 
       res.json({
