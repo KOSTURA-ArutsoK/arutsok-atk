@@ -4276,7 +4276,7 @@ export default function Contracts() {
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
                       )}
-                      {canDeleteRecords(appUser) && (contract.lifecyclePhase || 0) < 5 && (
+                      {canDeleteRecords(appUser) && !!(contract as any).incompleteData && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}>
@@ -9683,7 +9683,7 @@ export default function Contracts() {
                               <Pencil className="w-3.5 h-3.5" />
                             </Button>
                           )}
-                          {canDeleteRecords(appUser) && (contract.lifecyclePhase || 0) < 5 && (
+                          {canDeleteRecords(appUser) && !!(contract as any).incompleteData && (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-${contract.id}`}>
