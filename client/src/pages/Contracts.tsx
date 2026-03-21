@@ -6236,25 +6236,25 @@ export default function Contracts() {
               <span className="font-semibold text-foreground">{productName}</span>
             </p>
           </DialogHeader>
-          <div className="px-6 pb-2 space-y-4">
-            {/* POVINNÉ */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-red-400">Povinné dokumenty</span>
+          <div className="px-6 pb-2 space-y-3">
+            {/* POVINNÉ — bublina */}
+            <div className="rounded-xl border border-red-400/30 bg-red-500/5 dark:bg-red-950/20 p-4 space-y-2">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-bold uppercase tracking-widest text-red-700 dark:text-red-400">Povinné dokumenty</span>
                 {docs.required.length > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 font-semibold">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-700 dark:text-red-400 font-semibold">
                     {docChecklistCheckedReq.size}/{docs.required.length}
                   </span>
                 )}
               </div>
               {docs.required.length > 0 ? (
-                <div className="border border-red-500/20 rounded-md divide-y divide-border">
+                <div className="rounded-lg border border-red-400/20 bg-background/60 divide-y divide-border overflow-hidden">
                   {docs.required.map((doc: string, idx: number) => {
                     const checked = docChecklistCheckedReq.has(idx);
                     return (
                       <div
                         key={idx}
-                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors focus:outline-none focus:ring-1 focus:ring-primary/50 ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
+                        className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none transition-colors focus:outline-none focus:ring-1 focus:ring-primary/50 ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
                         tabIndex={0}
                         data-docchecklist-row
                         onClick={() => toggleReq(idx)}
@@ -6279,30 +6279,30 @@ export default function Contracts() {
                 <p className="text-xs text-muted-foreground italic">Žiadne povinné dokumenty nie sú definované.</p>
               )}
               {docs.required.length > 0 && !allRequiredChecked && (
-                <p className="text-xs text-red-400 flex items-center gap-1">
+                <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 pt-1">
                   <AlertTriangle className="w-3 h-3" />
                   Zaškrtnite všetky povinné dokumenty pre pokračovanie.
                 </p>
               )}
             </div>
-            {/* NEPOVINNÉ */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-blue-400">Nepovinné dokumenty</span>
+            {/* NEPOVINNÉ — bublina */}
+            <div className="rounded-xl border border-blue-400/30 bg-blue-500/5 dark:bg-blue-950/20 p-4 space-y-2">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-bold uppercase tracking-widest text-blue-700 dark:text-blue-400">Nepovinné dokumenty</span>
                 {totalOptCount > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-semibold">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-700 dark:text-blue-400 font-semibold">
                     {docChecklistCheckedOpt.size + docChecklistCheckedExtra.size}/{totalOptCount}
                   </span>
                 )}
               </div>
               {docs.optional.length > 0 && (
-                <div className="border border-blue-500/20 rounded-md divide-y divide-border">
+                <div className="rounded-lg border border-blue-400/20 bg-background/60 divide-y divide-border overflow-hidden">
                   {docs.optional.map((doc: string, idx: number) => {
                     const checked = docChecklistCheckedOpt.has(idx);
                     return (
                       <div
                         key={idx}
-                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors focus:outline-none focus:ring-1 focus:ring-primary/50 ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
+                        className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none transition-colors focus:outline-none focus:ring-1 focus:ring-primary/50 ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
                         tabIndex={0}
                         data-docchecklist-row
                         onClick={() => toggleOpt(idx)}
@@ -6326,13 +6326,13 @@ export default function Contracts() {
               )}
               {/* Extra (ad-hoc) optional docs */}
               {docChecklistExtraOpt.length > 0 && (
-                <div className={`${docs.optional.length > 0 ? "border-t border-dashed" : "border border-blue-500/20 rounded-md divide-y divide-border"}`}>
+                <div className={`rounded-lg overflow-hidden ${docs.optional.length > 0 ? "border border-blue-400/20 bg-background/60 divide-y divide-border mt-1" : "border border-blue-400/20 bg-background/60 divide-y divide-border"}`}>
                   {docChecklistExtraOpt.map((doc: string, idx: number) => {
                     const checked = docChecklistCheckedExtra.has(idx);
                     return (
                       <div
                         key={idx}
-                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer select-none transition-colors focus:outline-none focus:ring-1 focus:ring-primary/50 ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
+                        className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none transition-colors focus:outline-none focus:ring-1 focus:ring-primary/50 ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
                         tabIndex={0}
                         data-docchecklist-row
                         onClick={() => toggleExtra(idx)}
