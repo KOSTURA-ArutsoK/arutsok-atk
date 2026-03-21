@@ -63,6 +63,7 @@ import {
   User,
   Plus,
   FileSignature,
+  Pill,
 } from "lucide-react";
 import {
   Sidebar,
@@ -830,17 +831,55 @@ export function AppSidebar() {
                 openMenuId={openMenuId}
                 setOpenMenuId={setOpenMenuId}
               />
-              <CollapsibleMenu
-                label="Subjekty"
-                icon={Users}
-                items={klientiItems}
-                location={location}
-                searchString={currentSearch}
-                testId="nav-menu-klienti"
-                menuId="klienti"
-                openMenuId={openMenuId}
-                setOpenMenuId={setOpenMenuId}
-              />
+              <Collapsible
+                open={openMenuId === "klienti"}
+                onOpenChange={(val) => setOpenMenuId(val ? "klienti" : null)}
+                className="group/collapsible"
+              >
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      data-testid="nav-menu-klienti"
+                      className={klientiItems.some(i => location === i.href) ? "text-sidebar-accent-foreground font-medium" : ""}
+                    >
+                      <Users className="w-4 h-4" />
+                      <span className="flex-1">Subjekty</span>
+                      <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${openMenuId === "klienti" ? "rotate-90" : ""}`} />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton
+                          asChild
+                          className="text-primary hover:text-primary border border-dashed border-primary/30 hover:border-primary/60"
+                          data-testid="nav-pridat-subjekt"
+                        >
+                          <Link href="/subjects?addNew=true">
+                            <Pill className="w-3.5 h-3.5" />
+                            <span className="text-[13px]">Pridať subjekt</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      {klientiItems.map(item => (
+                        <SidebarMenuSubItem key={item.href}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === item.href}
+                            data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                            className="py-1.5"
+                          >
+                            <Link href={item.href}>
+                              <item.icon className="w-4 h-4" />
+                              <span className="text-[13px]">{item.label}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
               <Collapsible
                 open={isZmluvyOpen}
                 onOpenChange={(val) => setOpenMenuId(val ? "zmluvy" : null)}
