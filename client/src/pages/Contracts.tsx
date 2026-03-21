@@ -3414,7 +3414,7 @@ export default function Contracts() {
     const resolvedSubjType2 = sub2?.type || importRaw2["subjectType"] || importRaw2["typ_subjektu"] || null;
     const isFO2 = resolvedSubjType2 === "person" || resolvedSubjType2 === "szco";
     const isPO2 = resolvedSubjType2 === "company" || resolvedSubjType2 === "organization";
-    const rcIco2 = sub2 ? (sub2.type === "person" ? sub2.birthNumber : sub2.type === "szco" ? (sub2.birthNumber || (sub2 as any).ico) : (sub2 as any).ico) : null;
+    const rcOnly2 = sub2?.birthNumber || importRaw2.rodne_cislo || null;
     const warnPartner = !hasPartner;
     const warnProduct = !hasProduct;
     const warnContractType = !(contract as any).contractType;
@@ -3422,7 +3422,7 @@ export default function Contracts() {
     const warnNumber = !hasNumber;
     const warnSpecialist = !specialist;
     const warnSumNot100 = !!specialist && Math.round(allDistPct) !== 100;
-    const warnRcIco2 = isFO2 && !rcIco2;
+    const warnRcIco2 = isFO2 && !rcOnly2;
     const warnMeno2 = isFO2 && !sub2?.firstName;
     const warnPriezvisko2 = isFO2 && !sub2?.lastName;
     const warnNazov2 = isPO2 && !(sub2 as any)?.companyName;
