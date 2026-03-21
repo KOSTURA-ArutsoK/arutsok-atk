@@ -3454,6 +3454,7 @@ export default function Contracts() {
       testIdPrefix?: string;
       alwaysIncompleteEdit?: boolean;
       nahratieView?: boolean;
+      showRerouteCheckbox?: boolean;
       centralAcceptOpts?: {
         acceptedIds: Set<number>;
         onToggle: (id: number) => void;
@@ -3461,7 +3462,7 @@ export default function Contracts() {
       };
     } = {}
   ) {
-    const { showCheckbox = false, showOrder = false, showActions = true, logViewFn, testIdPrefix = "row-spr", alwaysIncompleteEdit = false, nahratieView = false, centralAcceptOpts } = opts;
+    const { showCheckbox = false, showOrder = false, showActions = true, logViewFn, testIdPrefix = "row-spr", alwaysIncompleteEdit = false, nahratieView = false, showRerouteCheckbox = false, centralAcceptOpts } = opts;
     const contractTypeLabel: Record<string, string> = {
       Nova: "Nová", Prestupova: "Prestupová", Zmenova: "Zmenová", Dodatok: "Dodatok"
     };
@@ -3479,6 +3480,17 @@ export default function Contracts() {
                   />
                   <span className="text-[9px] leading-none text-green-500 font-semibold">✓</span>
                 </div>
+              </th>}
+              {showRerouteCheckbox && <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b sticky left-0 bg-card z-30 w-8">
+                <Checkbox
+                  checked={contractsList.length > 0 && contractsList.every(c => rerouteSelectedIds.includes(c.id))}
+                  onCheckedChange={() => {
+                    const allSel = contractsList.every(c => rerouteSelectedIds.includes(c.id));
+                    if (allSel) setRerouteSelectedIds(prev => prev.filter(id => !contractsList.find(c => c.id === id)));
+                    else setRerouteSelectedIds(prev => [...new Set([...prev, ...contractsList.map(c => c.id)])]);
+                  }}
+                  data-testid="checkbox-reroute-select-all"
+                />
               </th>}
               {showCheckbox && <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b sticky left-0 bg-card z-30 w-8">
                 <Checkbox
@@ -3621,6 +3633,15 @@ export default function Contracts() {
                         onCheckedChange={() => centralAcceptOpts.onToggle(contract.id)}
                         data-testid={`checkbox-central-accept-${contract.id}`}
                         className={centralAcceptOpts.acceptedIds.has(contract.id) ? "data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600" : ""}
+                      />
+                    </td>
+                  )}
+                  {showRerouteCheckbox && (
+                    <td className="px-2 py-1.5 sticky left-0 z-10 bg-card" onClick={e => e.stopPropagation()}>
+                      <Checkbox
+                        checked={rerouteSelectedIds.includes(contract.id)}
+                        onCheckedChange={() => toggleRerouteSelect(contract.id)}
+                        data-testid={`checkbox-reroute-spr-${contract.id}`}
                       />
                     </td>
                   )}
@@ -8920,7 +8941,7 @@ export default function Contracts() {
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
               ) : filteredRejected.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-neprijate">Ziadne neprijate zmluvy</p>
-              ) : renderContractTable(sortedRejected, { showStatus: true, showRegistration: true, showActions: true, showTimer: true, showRerouteCheckbox: true, sortState: { sortKey: skRej, sortDirection: sdRej, requestSort: rsRej } })}
+              ) : renderSprievodkaFullTable(sortedRejected, { nahratieView: true, showRerouteCheckbox: true, showActions: true, testIdPrefix: "row-neprijate" })}
             </CardContent>
           </Card>
         </div>
@@ -8936,7 +8957,7 @@ export default function Contracts() {
                 <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" /></div>
               ) : filteredArchived.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8" data-testid="text-no-archiv">Ziadne archivovane zmluvy</p>
-              ) : renderContractTable(sortedArchived, { showStatus: true, showRegistration: true, showActions: false, showRerouteCheckbox: true, sortState: { sortKey: skArch, sortDirection: sdArch, requestSort: rsArch } })}
+              ) : renderSprievodkaFullTable(sortedArchived, { nahratieView: true, showRerouteCheckbox: true, showActions: false, testIdPrefix: "row-archiv" })}
             </CardContent>
             {rerouteSelectedIds.length > 0 && activeFolder === 4 && (
               <div className="flex items-center justify-between p-3 border-t bg-cyan-500/5">
