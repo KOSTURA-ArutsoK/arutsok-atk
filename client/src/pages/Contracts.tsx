@@ -3563,6 +3563,8 @@ export default function Contracts() {
                 : "";
               const handleRowClick = logViewFn
                 ? () => logViewFn(contract)
+                : centralAcceptOpts
+                ? () => centralAcceptOpts.onToggle(contract.id)
                 : showCheckbox
                 ? () => {
                     if (effectivelyIncomplete) { openIncompleteEdit(contract); }
@@ -8565,7 +8567,7 @@ export default function Contracts() {
                                 <Button
                                   size="sm"
                                   className="bg-cyan-600 hover:bg-cyan-700 text-white"
-                                  disabled={moveToProcessingMutation.isPending || acceptedCount === 0}
+                                  disabled={moveToProcessingMutation.isPending || groupIds.length === 0}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     const rejected = groupIds.filter(id => !centralAcceptedIds.has(id));
