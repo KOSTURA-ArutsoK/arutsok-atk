@@ -1291,7 +1291,7 @@ export class DatabaseStorage implements IStorage {
           sql`LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${subjects.phone},''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '/', ''), '.', '')) ILIKE ${'%' + stripped + '%'}`,
           sql`LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${subjects.email},''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '/', ''), '.', '')) ILIKE ${'%' + stripped + '%'}`,
           sql`LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${subjects.iban},''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '/', ''), '.', '')) ILIKE ${'%' + stripped + '%'}`,
-          sql`LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${subjects.ico},''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '/', ''), '.', '')) ILIKE ${'%' + stripped + '%'}`
+          sql`LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${subjects.details}->>'ico',''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '/', ''), '.', '')) ILIKE ${'%' + stripped + '%'}`
         )
       );
     }

@@ -4746,11 +4746,29 @@ export default function Subjects() {
   const activeCompanyId = appUser?.activeCompanyId ?? undefined;
 
   const { data: subjects, isLoading } = useSubjects({
-    search: search || undefined,
     statusFilters: activeFilters.size > 0 ? Array.from(activeFilters) : undefined,
     activeCompanyId,
   });
-  const tableFilter = useSmartFilter(subjects || [], SUBJECTS_FILTER_COLUMNS, "subjects");
+  const searchFilteredSubjects = useMemo(() => {
+    if (!subjects) return [];
+    if (!search.trim()) return subjects;
+    const q = search.toLowerCase().trim().replace(/[\s\-\/]/g, "");
+    return subjects.filter((s: any) => {
+      const fullName = `${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""}`.toLowerCase();
+      const uid = (s.uid || "").replace(/\s/g, "");
+      const bn = (s.birthNumber || "").replace(/[\s\-\/]/g, "");
+      const det = (s.details || {}) as Record<string, any>;
+      const dynF = det.dynamicFields || {};
+      const ico = ((dynF.ico || det.ico || "").replace(/\s/g, "")).toLowerCase();
+      return fullName.includes(search.toLowerCase().trim())
+        || uid.includes(q)
+        || bn.includes(q)
+        || ico.includes(q)
+        || (s.email || "").toLowerCase().includes(search.toLowerCase().trim())
+        || (s.phone || "").replace(/\s/g, "").includes(q);
+    });
+  }, [subjects, search]);
+  const tableFilter = useSmartFilter(searchFilteredSubjects, SUBJECTS_FILTER_COLUMNS, "subjects");
   const cgnFiltered = useMemo(() => {
     if (!cgnFilterActive) return tableFilter.filteredData;
     return tableFilter.filteredData.filter((s: any) => {
@@ -4895,7 +4913,7 @@ export default function Subjects() {
             <div className="relative w-full sm:w-64 shrink-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Hladat podla mena alebo UID..."
+                placeholder="Meno, UID, RČ, IČO, email..."
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -5047,6 +5065,18 @@ export default function Subjects() {
                                 return null;
                               })()}
                             </span>
+                            {(() => {
+                              const isPersonType = subject.type === 'person' || subject.type === 'szco';
+                              const bn = subject.birthNumber;
+                              const icoVal = dynFields.ico || details.ico || "";
+                              if (isPersonType && bn) {
+                                return <span className="text-xs text-muted-foreground font-mono" data-testid={`text-rc-${subject.id}`}>RČ: {bn}</span>;
+                              }
+                              if (!isPersonType && icoVal) {
+                                return <span className="text-xs text-muted-foreground font-mono" data-testid={`text-ico-${subject.id}`}>IČO: {icoVal}</span>;
+                              }
+                              return null;
+                            })()}
                             {(() => {
                               const subTags = Array.isArray(details.tags) ? details.tags as string[] : [];
                               return subTags.length > 0 ? <SubjectTagBadges tags={subTags} /> : null;
