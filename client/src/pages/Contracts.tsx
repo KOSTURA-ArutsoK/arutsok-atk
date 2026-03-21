@@ -3541,6 +3541,7 @@ export default function Contracts() {
       alwaysIncompleteEdit?: boolean;
       nahratieView?: boolean;
       showRerouteCheckbox?: boolean;
+      rowClickIsView?: boolean;
       centralAcceptOpts?: {
         acceptedIds: Set<number>;
         onToggle: (id: number) => void;
@@ -3548,7 +3549,7 @@ export default function Contracts() {
       };
     } = {}
   ) {
-    const { showCheckbox = false, showOrder = false, showActions = true, logViewFn, testIdPrefix = "row-spr", alwaysIncompleteEdit = false, nahratieView = false, showRerouteCheckbox = false, centralAcceptOpts } = opts;
+    const { showCheckbox = false, showOrder = false, showActions = true, logViewFn, testIdPrefix = "row-spr", alwaysIncompleteEdit = false, nahratieView = false, showRerouteCheckbox = false, rowClickIsView = false, centralAcceptOpts } = opts;
     const contractTypeLabel: Record<string, string> = {
       Nova: "Nová", Prestupova: "Prestupová", Zmenova: "Zmenová", Dodatok: "Dodatok"
     };
@@ -3684,6 +3685,8 @@ export default function Contracts() {
                 ? () => logViewFn(contract)
                 : centralAcceptOpts
                 ? () => centralAcceptOpts.onToggle(contract.id)
+                : rowClickIsView
+                ? () => nahratieView ? setNahratieViewContract(contract) : openView(contract)
                 : showCheckbox
                 ? () => {
                     if (effectivelyIncomplete) { openIncompleteEdit(contract); }
@@ -3921,9 +3924,11 @@ export default function Contracts() {
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => (alwaysIncompleteEdit || isIncomplete) ? openIncompleteEdit(contract) : openEdit(contract)} data-testid={`button-edit-spr-${contract.id}`}>
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => nahratieView ? setNahratieViewContract(contract) : openView(contract)} data-testid={`button-view-spr-${contract.id}`}>
-                        <Eye className="w-3.5 h-3.5" />
-                      </Button>
+                      {!rowClickIsView && (
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => nahratieView ? setNahratieViewContract(contract) : openView(contract)} data-testid={`button-view-spr-${contract.id}`}>
+                          <Eye className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
                     </td>
                   )}
                 </tr>
@@ -9131,7 +9136,7 @@ export default function Contracts() {
                         </div>
                         <div id={`expanded-wrapper-${group.inventoryId}`} style={{ display: isExpanded ? 'block' : 'none' }}>
                           <div className="border-t">
-                            {renderSprievodkaFullTable(group.contracts, { showOrder: true, testIdPrefix: "row-cakajuce", nahratieView: true, alwaysIncompleteEdit: true })}
+                            {renderSprievodkaFullTable(group.contracts, { showOrder: true, testIdPrefix: "row-cakajuce", nahratieView: true, alwaysIncompleteEdit: true, rowClickIsView: true })}
                           </div>
                         </div>
                       </div>
