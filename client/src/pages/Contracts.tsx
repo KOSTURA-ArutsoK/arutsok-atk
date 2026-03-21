@@ -3676,8 +3676,11 @@ export default function Contracts() {
               const warnSumNot100 = !!specialist && Math.round(allPct) !== 100;
               const warnNegativeProposal = !!(contract.proposalNumber && contract.proposalNumber.trim().startsWith('-'));
               const effectivelyIncomplete = isIncomplete || warnPartner || warnProduct || warnContractType || warnSignedDate || warnNumber || warnSpecialist || warnSumNot100 || warnRcIco || warnMeno || warnPriezvisko || warnNazov || warnNegativeProposal;
+              const isRerouteSelected = showRerouteCheckbox && rerouteSelectedIds.includes(contract.id);
               const rowBg = effectivelyIncomplete
                 ? "bg-red-500/10 border-l-2 border-l-red-500"
+                : isRerouteSelected
+                ? "bg-primary/10 border-l-2 border-l-primary"
                 : isSelected
                 ? "bg-primary/10 border-l-2 border-l-primary"
                 : "";
@@ -3687,6 +3690,8 @@ export default function Contracts() {
                 ? () => centralAcceptOpts.onToggle(contract.id)
                 : rowClickIsView
                 ? () => nahratieView ? setNahratieViewContract(contract) : openView(contract)
+                : showRerouteCheckbox
+                ? () => toggleRerouteSelect(contract.id)
                 : showCheckbox
                 ? () => {
                     if (effectivelyIncomplete) { openIncompleteEdit(contract); }
