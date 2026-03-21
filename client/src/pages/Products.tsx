@@ -480,14 +480,23 @@ function ProductFormDialog({
         </div>
 
         <div style={{ display: activeTab === "dokumentacia" ? 'block' : 'none' }}>
-          <div className="space-y-6">
-            {/* POVINNÉ DOKUMENTY */}
-            <div className="space-y-3">
+          <div className="space-y-4">
+            {/* POPIS */}
+            <div className="flex items-start gap-2.5 rounded-md border border-border bg-muted/40 px-3 py-2.5">
+              <FileText className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Definujte zoznam dokumentov, ktoré PFA odovzdá pri vytváraní sprievodky pre tento produkt.
+                <span className="text-red-400 font-medium"> Povinné</span> dokumenty musí PFA zaškrtnúť všetky pred zaradením zmluvy do sprievodky.
+                <span className="text-blue-400 font-medium"> Nepovinné</span> dokumenty sú len odporúčané — ich zaškrtnutie nie je podmienkou.
+              </p>
+            </div>
+
+            {/* POVINNÉ DOKUMENTY — bublina */}
+            <div className="rounded-lg border border-red-500/25 bg-red-500/5 p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-red-400">Povinné dokumenty</span>
-                {requiredDocuments.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 font-semibold">{requiredDocuments.length}</span>}
+                {requiredDocuments.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-semibold">{requiredDocuments.length}</span>}
               </div>
-              <p className="text-xs text-muted-foreground">Dokumenty, ktoré musí PFA povinne odovzdať pri vytvorení zmluvy s týmto produktom.</p>
               <div className="flex gap-2">
                 <Input
                   value={newDocName}
@@ -503,33 +512,32 @@ function ProductFormDialog({
                 </Button>
               </div>
               {requiredDocuments.length > 0 ? (
-                <div className="border border-red-500/20 rounded-md divide-y divide-border">
+                <div className="rounded-md border border-red-500/20 divide-y divide-border bg-card">
                   {requiredDocuments.map((doc, idx) => (
                     <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="w-4 h-4 text-red-400 flex-shrink-0" />
+                        <FileText className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
                         <span className="text-sm truncate" data-testid={`text-document-name-${idx}`}>{doc}</span>
                       </div>
-                      <Button size="icon" variant="ghost" onClick={() => setRequiredDocuments(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-document-${idx}`}>
-                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setRequiredDocuments(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-document-${idx}`}>
+                        <Trash2 className="w-3 h-3 text-destructive" />
                       </Button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="border border-dashed rounded-md p-4 text-center">
+                <div className="rounded-md border border-dashed border-red-500/20 p-3 text-center">
                   <p className="text-xs text-muted-foreground">Žiadne povinné dokumenty.</p>
                 </div>
               )}
             </div>
 
-            {/* NEPOVINNÉ DOKUMENTY */}
-            <div className="space-y-3">
+            {/* NEPOVINNÉ DOKUMENTY — bublina */}
+            <div className="rounded-lg border border-blue-500/25 bg-blue-500/5 p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-blue-400">Nepovinné dokumenty</span>
-                {optionalDocuments.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-semibold">{optionalDocuments.length}</span>}
+                {optionalDocuments.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-semibold">{optionalDocuments.length}</span>}
               </div>
-              <p className="text-xs text-muted-foreground">Dokumenty, ktoré PFA môže, ale nemusí priložiť k zmluve.</p>
               <div className="flex gap-2">
                 <Input
                   value={newOptDocName}
@@ -545,21 +553,21 @@ function ProductFormDialog({
                 </Button>
               </div>
               {optionalDocuments.length > 0 ? (
-                <div className="border border-blue-500/20 rounded-md divide-y divide-border">
+                <div className="rounded-md border border-blue-500/20 divide-y divide-border bg-card">
                   {optionalDocuments.map((doc, idx) => (
                     <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                        <FileText className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
                         <span className="text-sm truncate" data-testid={`text-opt-document-name-${idx}`}>{doc}</span>
                       </div>
-                      <Button size="icon" variant="ghost" onClick={() => setOptionalDocuments(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-opt-document-${idx}`}>
-                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setOptionalDocuments(prev => prev.filter((_, i) => i !== idx))} data-testid={`button-remove-opt-document-${idx}`}>
+                        <Trash2 className="w-3 h-3 text-destructive" />
                       </Button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="border border-dashed rounded-md p-4 text-center">
+                <div className="rounded-md border border-dashed border-blue-500/20 p-3 text-center">
                   <p className="text-xs text-muted-foreground">Žiadne nepovinné dokumenty.</p>
                 </div>
               )}
