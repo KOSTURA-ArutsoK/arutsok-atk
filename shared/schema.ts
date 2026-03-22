@@ -2763,6 +2763,22 @@ export const insertBulkStatusImportRowSchema = createInsertSchema(bulkStatusImpo
 export type BulkStatusImportRow = typeof bulkStatusImportRows.$inferSelect;
 export type InsertBulkStatusImportRow = z.infer<typeof insertBulkStatusImportRowSchema>;
 
+// === SUBJECT CONTACTS (multi-contact per subject) ===
+export const subjectContacts = pgTable("subject_contacts", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id, { onDelete: "cascade" }),
+  type: text("type").notNull().$type<"phone" | "email">(),
+  value: text("value").notNull(),
+  label: text("label"),
+  isPrimary: boolean("is_primary").default(false),
+  order: integer("order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSubjectContactSchema = createInsertSchema(subjectContacts).omit({ id: true, createdAt: true });
+export type SubjectContact = typeof subjectContacts.$inferSelect;
+export type InsertSubjectContact = z.infer<typeof insertSubjectContactSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

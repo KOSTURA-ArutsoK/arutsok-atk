@@ -14032,6 +14032,97 @@ export async function registerRoutes(
     }
   });
 
+  // === SUBJECT CONTACTS (multi-contact) ===
+  app.get("/api/subjects/:id/contacts", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const contacts = await storage.getSubjectContacts(subjectId);
+      res.json(contacts);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/subjects/:id/contacts", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const { type, value, label, isPrimary, order } = req.body;
+      if (!type || !value) return res.status(400).json({ message: "Chýba type alebo value" });
+      const contact = await storage.createSubjectContact({ subjectId, type, value, label: label || null, isPrimary: isPrimary ?? false, order: order ?? 0 });
+      await logAudit(req, { action: "Vytvorenie", module: "Kontakty subjektu", entityId: contact.id, entityName: `${type}: ${value}` });
+      res.json(contact);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.patch("/api/subjects/:id/contacts/:contactId", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const contactId = Number(req.params.contactId);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const { value, label, isPrimary, order } = req.body;
+      const updated = await storage.updateSubjectContact(contactId, subjectId, { value, label, isPrimary, order });
+      await logAudit(req, { action: "Uprava", module: "Kontakty subjektu", entityId: contactId, entityName: `Kontakt subjektu ${subjectId}` });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.delete("/api/subjects/:id/contacts/:contactId", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      const contactId = Number(req.params.contactId);
+      if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      await storage.deleteSubjectContact(contactId, subjectId);
+      await logAudit(req, { action: "Zmazanie", module: "Kontakty subjektu", entityId: contactId, entityName: `Kontakt subjektu ${subjectId}` });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/subjects/contacts/migrate", isAuthenticated, async (req: any, res) => {
+    try {
+      if (req.appUser?.role !== "ADMIN" && req.appUser?.role !== "admin") return res.status(403).json({ message: "Iba ADMIN môže spustiť migráciu" });
+      const result = await storage.migrateSubjectContactsFromJsonb();
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === SUBJECT PARAMETERS SEARCH (server-side, semantic) ===
+  app.get("/api/subject-parameters/search", isAuthenticated, async (req: any, res) => {
+    try {
+      const q = (req.query.q as string || "").trim();
+      const clientTypeId = req.query.clientTypeId ? Number(req.query.clientTypeId) : null;
+      if (!q) return res.json([]);
+      const pattern = `%${q.toLowerCase()}%`;
+      const rows = await db.execute(sql`
+        SELECT DISTINCT sp.id, sp.field_key, sp.field_name, sp.field_type, sp.client_type_id,
+               sp.short_label, sp.section_code, sp.panel_code, sp.sort_order,
+               CASE WHEN LOWER(sp.field_name) LIKE ${pattern} OR LOWER(sp.field_key) LIKE ${pattern} THEN 1
+                    ELSE 2 END as match_rank
+        FROM subject_parameters sp
+        LEFT JOIN parameter_synonyms ps ON ps.parameter_id = sp.id
+        WHERE sp.is_active = true
+          AND (LOWER(sp.field_name) LIKE ${pattern} OR LOWER(sp.field_key) LIKE ${pattern}
+               OR LOWER(COALESCE(sp.short_label, '')) LIKE ${pattern}
+               OR LOWER(COALESCE(ps.synonym, '')) LIKE ${pattern})
+          ${clientTypeId ? sql`AND sp.client_type_id = ${clientTypeId}` : sql``}
+        ORDER BY match_rank, sp.field_name
+        LIMIT 20
+      `);
+      res.json((rows as any).rows || []);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get("/api/subjects/:id/address-inheritance-candidates", isAuthenticated, async (req: any, res) => {
     try {
       const subjectId = Number(req.params.id);

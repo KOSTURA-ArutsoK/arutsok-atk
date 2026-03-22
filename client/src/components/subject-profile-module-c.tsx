@@ -8,6 +8,8 @@ import { getCategoriesForClientType } from "@/lib/staticFieldDefs";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair } from "@/lib/document-validity";
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
 import { SubjectProfilePhoto } from "@/components/subject-profile-photo";
+import { SubjectContactsPanel } from "@/components/subject-contacts-panel";
+import { ExpiryBadge } from "@/components/expiry-badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1188,6 +1190,9 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id, "field-history"] });
       toast({ title: "Zmeny uložené", description: "Všetky zmeny boli úspešne zapísané do profilu." });
+      setTimeout(() => {
+        toast({ title: "🗄️ Trezor", description: "Pôvodné hodnoty boli archivované v Trezore.", duration: 3500 });
+      }, 600);
       setIsEditing(false);
       setEditReason("");
     },
@@ -1428,6 +1433,25 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
           </div>
         </CardContent>
       </Card>
+
+      {subject.id > 0 && (
+        <Card className="border border-border/50 bg-card/30" data-testid="subject-contacts-card">
+          <div
+            className="flex items-center gap-2 px-4 py-2.5 cursor-pointer select-none hover:bg-muted/20 transition-colors rounded-t-lg border-b border-border/30"
+            onClick={() => toggleSection("section-multi-kontakt")}
+            data-testid="section-toggle-contacts"
+          >
+            {expandedSections.includes("section-multi-kontakt") ? <ChevronDown className="w-4 h-4 text-primary shrink-0" /> : <ChevronRight className="w-4 h-4 text-primary shrink-0" />}
+            <Phone className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-xs font-semibold uppercase tracking-wide flex-1">Kontakty</span>
+          </div>
+          {expandedSections.includes("section-multi-kontakt") && (
+            <CardContent className="px-4 pb-3 pt-2">
+              <SubjectContactsPanel subjectId={subject.id} readonly={!isEditing} />
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       {isArchitectMode && (
         <div className="flex items-center justify-between p-2 rounded-md bg-amber-500/10 border border-amber-500/30" data-testid="architect-bar">
@@ -1693,9 +1717,18 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                               const depVal = dynamicValues[field.visibilityRule.dependsOn];
                                               if (!depVal || depVal !== field.visibilityRule.value) return null;
                                             }
+                                            const fieldVal = dynamicValues[field.key] || "";
+                                            if (!isEditing && !fieldVal) return null;
+                                            const fkLower = (field.key || "").toLowerCase();
+                                            const isExpiryField = field.fieldType === "date" && (fkLower.includes("platnost") || fkLower.includes("_do") || fkLower.includes("expir") || fkLower.includes("validit") || fkLower.endsWith("do"));
                                             return (
                                               <div key={field.id} className="min-w-0 relative">
                                                 <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} />
+                                                {isExpiryField && fieldVal && !isEditing && (
+                                                  <div className="mt-0.5">
+                                                    <ExpiryBadge date={fieldVal} />
+                                                  </div>
+                                                )}
                                               </div>
                                             );
                                           })}

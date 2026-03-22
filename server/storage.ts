@@ -138,6 +138,8 @@ import {
   type BusinessOpportunity, type InsertBusinessOpportunity,
   registrySnapshots,
   type RegistrySnapshot, type InsertRegistrySnapshot,
+  subjectContacts,
+  type SubjectContact, type InsertSubjectContact,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -1658,6 +1660,105 @@ export class DatabaseStorage implements IStorage {
     }).returning();
 
     return restoreLog;
+  }
+
+  // === SUBJECT CONTACTS ===
+  async getSubjectContacts(subjectId: number): Promise<SubjectContact[]> {
+    return db.select().from(subjectContacts)
+      .where(eq(subjectContacts.subjectId, subjectId))
+      .orderBy(subjectContacts.order, subjectContacts.createdAt);
+  }
+
+  async createSubjectContact(data: InsertSubjectContact): Promise<SubjectContact> {
+    if (data.isPrimary) {
+      await db.update(subjectContacts)
+        .set({ isPrimary: false })
+        .where(and(eq(subjectContacts.subjectId, data.subjectId), eq(subjectContacts.type, data.type)));
+    }
+    const [contact] = await db.insert(subjectContacts).values(data).returning();
+    await this._syncSubjectPrimaryContact(data.subjectId);
+    return contact;
+  }
+
+  async updateSubjectContact(id: number, subjectId: number, updates: Partial<InsertSubjectContact>): Promise<SubjectContact> {
+    if (updates.isPrimary) {
+      const existing = await db.select().from(subjectContacts).where(eq(subjectContacts.id, id));
+      if (existing[0]) {
+        await db.update(subjectContacts)
+          .set({ isPrimary: false })
+          .where(and(eq(subjectContacts.subjectId, subjectId), eq(subjectContacts.type, existing[0].type), ne(subjectContacts.id, id)));
+      }
+    }
+    const [updated] = await db.update(subjectContacts).set(updates).where(and(eq(subjectContacts.id, id), eq(subjectContacts.subjectId, subjectId))).returning();
+    await this._syncSubjectPrimaryContact(subjectId);
+    return updated;
+  }
+
+  async deleteSubjectContact(id: number, subjectId: number): Promise<void> {
+    const [deleted] = await db.delete(subjectContacts).where(and(eq(subjectContacts.id, id), eq(subjectContacts.subjectId, subjectId))).returning();
+    if (deleted?.isPrimary) {
+      const next = await db.select().from(subjectContacts)
+        .where(and(eq(subjectContacts.subjectId, subjectId), eq(subjectContacts.type, deleted.type)))
+        .orderBy(subjectContacts.order)
+        .limit(1);
+      if (next[0]) {
+        await db.update(subjectContacts).set({ isPrimary: true }).where(eq(subjectContacts.id, next[0].id));
+      }
+    }
+    await this._syncSubjectPrimaryContact(subjectId);
+  }
+
+  async _syncSubjectPrimaryContact(subjectId: number): Promise<void> {
+    const all = await db.select().from(subjectContacts).where(eq(subjectContacts.subjectId, subjectId));
+    const primaryPhone = all.find(c => c.type === "phone" && c.isPrimary)?.value ?? all.find(c => c.type === "phone")?.value ?? null;
+    const primaryEmail = all.find(c => c.type === "email" && c.isPrimary)?.value ?? all.find(c => c.type === "email")?.value ?? null;
+    const upd: Record<string, any> = {};
+    if (primaryPhone !== undefined) upd.phone = primaryPhone;
+    if (primaryEmail !== undefined) upd.email = primaryEmail;
+    if (Object.keys(upd).length > 0) {
+      await db.update(subjects).set(upd).where(eq(subjects.id, subjectId));
+    }
+  }
+
+  async migrateSubjectContactsFromJsonb(): Promise<{ migrated: number; skipped: number; errors: string[] }> {
+    const allSubjects = await db.select({ id: subjects.id, email: subjects.email, phone: subjects.phone, details: subjects.details }).from(subjects);
+    let migrated = 0, skipped = 0;
+    const errors: string[] = [];
+    for (const subj of allSubjects) {
+      try {
+        const details = (subj.details as any) || {};
+        const jsonContacts: any[] = details.dynamicFields?.contacts || [];
+        const existingCount = await db.select().from(subjectContacts).where(eq(subjectContacts.subjectId, subj.id));
+        if (existingCount.length > 0) { skipped++; continue; }
+        if (jsonContacts.length > 0) {
+          for (let i = 0; i < jsonContacts.length; i++) {
+            const c = jsonContacts[i];
+            if (!c.value) continue;
+            await db.insert(subjectContacts).values({
+              subjectId: subj.id,
+              type: c.type || "phone",
+              value: c.value,
+              label: c.label || null,
+              isPrimary: c.isPrimary ?? (i === 0),
+              order: i,
+            });
+          }
+          migrated++;
+        } else {
+          if (subj.phone) {
+            await db.insert(subjectContacts).values({ subjectId: subj.id, type: "phone", value: subj.phone, label: "Primárny", isPrimary: true, order: 0 });
+            migrated++;
+          }
+          if (subj.email) {
+            await db.insert(subjectContacts).values({ subjectId: subj.id, type: "email", value: subj.email, label: "Primárny", isPrimary: true, order: 0 });
+            if (!subj.phone) migrated++;
+          }
+        }
+      } catch (e: any) {
+        errors.push(`Subject ${subj.id}: ${e.message}`);
+      }
+    }
+    return { migrated, skipped, errors };
   }
 
   async getSubjectAddresses(subjectId: number): Promise<SubjectAddress[]> {

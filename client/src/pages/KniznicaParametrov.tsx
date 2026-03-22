@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAppUser } from "@/hooks/use-app-user";
+import { isAdmin } from "@/lib/utils";
 import {
   Library,
   Plus,
@@ -149,8 +151,12 @@ const FIELD_TYPE_OPTIONS = [
 
 export default function KniznicaParametrov() {
   const { toast } = useToast();
+  const { data: appUser } = useAppUser();
+  const userIsAdmin = isAdmin(appUser);
   const [activeTab, setActiveTab] = useState("templates");
   const [selectedClientType, setSelectedClientType] = useState<string>("all");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [editParam, setEditParam] = useState<SubjectParameter | null>(null);
   const [isParamDialogOpen, setIsParamDialogOpen] = useState(false);
@@ -495,9 +501,9 @@ export default function KniznicaParametrov() {
 
   const filteredParams = parameters.filter(p => {
     if (selectedClientType !== "all" && p.clientTypeId !== Number(selectedClientType)) return false;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      return p.label.toLowerCase().includes(q) || p.fieldKey.toLowerCase().includes(q);
+    if (debouncedSearchQuery) {
+      const q = debouncedSearchQuery.toLowerCase();
+      return p.label.toLowerCase().includes(q) || p.fieldKey.toLowerCase().includes(q) || (p.shortLabel || "").toLowerCase().includes(q);
     }
     return true;
   });
@@ -576,7 +582,11 @@ export default function KniznicaParametrov() {
               <Input
                 placeholder="Hľadať parameter..."
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                onChange={e => {
+                  setSearchQuery(e.target.value);
+                  if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                  searchDebounceRef.current = setTimeout(() => setDebouncedSearchQuery(e.target.value), 300);
+                }}
                 className="pl-9"
                 data-testid="input-search-params"
               />
@@ -590,16 +600,30 @@ export default function KniznicaParametrov() {
                 <SelectItem value="1">FO</SelectItem>
                 <SelectItem value="3">SZČO</SelectItem>
                 <SelectItem value="4">PO</SelectItem>
+                <SelectItem value="5">NS</SelectItem>
+                <SelectItem value="6">VS</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              size="sm"
-              onClick={() => { setEditParam(null); setIsParamDialogOpen(true); }}
-              data-testid="button-add-param"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Nový parameter
-            </Button>
+            {userIsAdmin ? (
+              <Button
+                size="sm"
+                onClick={() => { setEditParam(null); setIsParamDialogOpen(true); }}
+                data-testid="button-add-param"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Nový parameter
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => toast({ title: "Návrh parametra", description: "Funkcia návrhov parametrov bude dostupná čoskoro." })}
+                data-testid="button-suggest-param"
+              >
+                <Brain className="w-4 h-4 mr-1" />
+                Navrhnúť parameter
+              </Button>
+            )}
             {parameters.length === 0 && (
               <Button
                 size="sm"

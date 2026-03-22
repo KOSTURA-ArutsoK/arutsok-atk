@@ -1,0 +1,55 @@
+PRÍKAZ PRE AGENTA 4: Implementácia Jadra ATK (Verzia 2.0)
+Úloha 1: Inteligentný Multi-kontakt & UI Standard
+
+Backend: Uprav tabuľku subject_contacts. Pridaj stĺpce is_primary (bool), order (int) a label (text).
+
+UI: V paneli kontakt implementuj dynamické pridávanie polí.
+
+Pravidlo 1: Prvý vložený kontakt je automaticky is_primary.
+
+Pravidlo 2: Tlačidlá a polia musia dodržiavať Justified layout (zarovnanie do bloku) a hrúbku čiar 2px.
+
+Vizuál: Primárny kontakt má ikonu hviezdy s Gold/Amber fill (podľa HOLDING group pravidiel).
+
+Úloha 2: Automatická Archivácia & Tieňová História (Trezor)
+
+Princíp: V systéme ArutsoK je DELETE zakázaný. Implementuj tabuľku subject_values_history.
+
+Automatizácia: Pri zmene akejkoľvek hodnoty (Adresa, Zdravotný stav, atď.) sa pôvodná hodnota automaticky odsunie do histórie s časovou pečiatkou a ID používateľa.
+
+Notifikácia: Používateľovi sa zobrazí len tichá správa: "Pôvodný údaj bol archivovaný v Trezore."
+
+Výnimka (Overlay): Pri zmene štatutárov (osoby s podpisovým právom) v sektoroch NS (5) a VS (6) vynúť manuálne potvrdenie cez overlay (Bezpečnostná poistka).
+
+Úloha 3: Správa 817+ parametrov & Ochrana pred Duplicitami
+
+Lazy-Loading: V profile subjektu (View Mode) skry všetky polia, ktoré sú NULL. Zobrazuj len "živé" dáta.
+
+AI Search & Synonymá: Do editačného dialógu pridaj vyhľadávací riadok (Semantic Search).
+
+Hľadať musí aj v poli parameter_synonyms. (Ak zadám "Druh motora", musí ponúknuť "Typ motora").
+
+Dodrž pravidlo 5-násobného potvrdenia pre učenie nových synoným.
+
+Permission Gate: Tlačidlo [+] Vytvoriť nový parameter je dostupné IBA pre role: ADMIN. Bežný používateľ môže len navrhnúť nový parameter.
+
+Ochrana vzorky: Prísny zákaz prepisovania UID 421 000 000 000 002. Je to fixná konštanta pre vzorovú Fyzickú osobu (FO).
+
+Úloha 4: Vizuálny Semafor (90 dní)
+
+Implementuj vizuálnu kontrolu pre všetky polia typu date (platnosť OP, pasu, zmluvy).
+
+Zelená: > 90 dní.
+
+Vibrant Orange (2px outline): < 90 dní (Varovanie).
+
+Red (2px outline): Expirované (Riziko).
+
+🚀 Nasledujúce kroky (pre teba):
+Agent 4 teraz dostane tento kompletný balík. Keďže ide o hĺbkový zásah do logiky ukladania dát (Archivácia), navrhujem začať "Build here" postupne:
+
+Najprv Archivácia a História (aby sme mali istotu, že nič nezmažeme).
+
+Potom Multi-kontakt a Vyhľadávanie (aby sme upratali tých 817 polí).
+
+Nakoniec Semafor a VS/NS Overlay.
