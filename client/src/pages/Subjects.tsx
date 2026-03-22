@@ -2919,6 +2919,20 @@ function FullPageEditor({
                   setExistingSubjectBanner(null);
                   mutate({ ...pendingSubmitData, _forceCreate: true }, {
                     onSuccess: async (result: any) => {
+                      if (result?.id) {
+                        const validContacts = contacts.filter(c => c.value?.trim());
+                        let contactErrors = 0;
+                        for (let i = 0; i < validContacts.length; i++) {
+                          const c = validContacts[i];
+                          try {
+                            await apiRequest("POST", `/api/subjects/${result.id}/contacts`, {
+                              type: c.type, value: c.value.trim(), label: c.label || null,
+                              isPrimary: c.isPrimary ?? (i === 0), order: i,
+                            });
+                          } catch { contactErrors++; }
+                        }
+                        if (contactErrors > 0) console.warn(`[contacts] ${contactErrors} kontaktov sa nepodarilo uložiť pre subjekt ${result.id}`);
+                      }
                       if (result?.id && !isPerson) {
                         const snapshotData = pendingRegistrySnapshot || (szcoAresLookup?.found ? szcoAresLookup : null);
                         if (snapshotData) {
