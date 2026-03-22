@@ -38,6 +38,7 @@ export function useSetActiveContext() {
       queryClient.invalidateQueries({ queryKey: ["/api/supisky"] });
       queryClient.invalidateQueries({ queryKey: ["/api/commission-rates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/partners"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/sectors"] });
       queryClient.invalidateQueries({
         predicate: (query) => {

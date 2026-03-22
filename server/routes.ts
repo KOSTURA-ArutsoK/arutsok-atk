@@ -2262,7 +2262,7 @@ export async function registerRoutes(
   app.get(api.partners.list.path, isAuthenticated, async (req: any, res) => {
     const includeDeleted = req.query.includeDeleted === 'true';
     const stateId = getEnforcedStateId(req);
-    const filterCompanyId = req.query.companyId ? Number(req.query.companyId) : null;
+    const filterCompanyId = req.query.companyId ? Number(req.query.companyId) : (req.appUser?.activeCompanyId || null);
     if (filterCompanyId) {
       const linked = await db.select({ partnerId: partnerCompanyLinks.partnerId })
         .from(partnerCompanyLinks)
@@ -3610,7 +3610,16 @@ export async function registerRoutes(
   // === GLOBAL PRODUCT CATALOG ===
   app.get(api.products.list.path, isAuthenticated, async (req: any, res) => {
     const includeDeleted = req.query.includeDeleted === 'true';
-    res.json(await storage.getProducts(includeDeleted));
+    const stateId = getEnforcedStateId(req);
+    const filterCompanyId = req.query.companyId ? Number(req.query.companyId) : (req.appUser?.activeCompanyId || null);
+    const allProducts = await storage.getProducts(includeDeleted);
+    if (!filterCompanyId && !stateId) return res.json(allProducts);
+    const filtered = allProducts.filter(p => {
+      if (filterCompanyId && p.companyId !== filterCompanyId) return false;
+      if (stateId && p.stateId && p.stateId !== stateId) return false;
+      return true;
+    });
+    res.json(filtered);
   });
 
   app.get(api.products.get.path, isAuthenticated, async (req, res) => {
