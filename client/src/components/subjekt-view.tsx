@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatDateSlovak, formatUid, getDateSemaphore, getDateSemaphoreClasses, isSemaphoreDateField } from "@/lib/utils";
+import { formatDateSlovak, formatDateTimeSlovak, formatUid, getDateSemaphore, getDateSemaphoreClasses, isSemaphoreDateField } from "@/lib/utils";
 import { SubjectProfilePhoto } from "@/components/subject-profile-photo";
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
 
@@ -1267,9 +1267,7 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
                 <span className="text-sm text-foreground">
                   Naposledy prihlásený:{" "}
                   <span className="font-medium">
-                    {lastLoginAt.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\s/g, "")}
-                    {" "}
-                    {lastLoginAt.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" })}
+                    {formatDateTimeSlovak(lastLoginAt)}
                   </span>
                   <span className="ml-1.5 text-xs text-muted-foreground">({formatLoginRelative(lastLoginAt)})</span>
                 </span>
@@ -2043,7 +2041,7 @@ function SubjectDocumentationTab({
                 </div>
                 {latestDoc && (
                   <div className="mt-2 pt-2 border-t border-border/30 flex items-center gap-4 text-[10px] text-muted-foreground">
-                    <span>Posledná verzia: {new Date(latestDoc.generatedAt).toLocaleDateString("sk-SK")} {new Date(latestDoc.generatedAt).toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" })}</span>
+                    <span>Posledná verzia: {formatDateTimeSlovak(latestDoc.generatedAt)}</span>
                     <span>Používateľ: {latestDoc.generatedByUsername}</span>
                     <span className="font-mono">Audit: {latestDoc.auditCode}</span>
                     <span>{Math.round((latestDoc.fileSize || 0) / 1024)} KB</span>
@@ -2084,7 +2082,7 @@ function SubjectDocumentationTab({
                 return (
                   <TableRow key={doc.id}>
                     <TableCell className="text-xs">{cfg?.label || doc.docType}</TableCell>
-                    <TableCell className="text-xs">{new Date(doc.generatedAt).toLocaleDateString("sk-SK")} {new Date(doc.generatedAt).toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" })}</TableCell>
+                    <TableCell className="text-xs">{formatDateTimeSlovak(doc.generatedAt)}</TableCell>
                     <TableCell className="text-xs">{doc.generatedByUsername}</TableCell>
                     <TableCell className="text-xs font-mono">{doc.auditCode}</TableCell>
                     <TableCell className="text-xs">{Math.round((doc.fileSize || 0) / 1024)} KB</TableCell>

@@ -2259,7 +2259,7 @@ export default function ContractForm() {
                               <div className="text-sm font-medium truncate">{doc.name || `Dokument ${idx + 1}`}</div>
                               <div className="flex gap-2 text-[10px] text-muted-foreground">
                                 {doc.sourceStatusName && <span>Stav: {doc.sourceStatusName}</span>}
-                                {doc.uploadedAt && <span>{new Date(doc.uploadedAt).toLocaleDateString("sk-SK")}</span>}
+                                {doc.uploadedAt && <span>{formatDateSlovak(doc.uploadedAt)}</span>}
                                 {doc.fileSize && <span>{(doc.fileSize / 1024).toFixed(0)} KB</span>}
                               </div>
                             </div>
@@ -2828,7 +2828,7 @@ export default function ContractForm() {
                           <div className="grid grid-cols-3 gap-[clamp(0.5rem,1vw,1rem)]">
                             <CompactField label="Opečiatkované">
                               <div className="flex items-center h-9 px-3 border rounded-md bg-muted/50 text-sm cursor-default" data-testid="udaje-stamped">
-                                {existingContract?.stampedAt ? new Date(existingContract.stampedAt).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                                {existingContract?.stampedAt ? formatDateTimeSlovak(existingContract.stampedAt) : ""}
                               </div>
                             </CompactField>
                           </div>

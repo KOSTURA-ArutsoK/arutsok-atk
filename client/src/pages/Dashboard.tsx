@@ -28,7 +28,7 @@ import {
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { cn, formatUid } from "@/lib/utils";
+import { cn, formatDateTimeSlovak, formatUid } from "@/lib/utils";
 
 const WIDGET_KEYS = ["stats", "recent_subjects", "my_companies", "recent_partners", "recent_products", "audit_activity", "upcoming_events", "my_tasks", "red_list_recent", "black_list_recent"];
 
@@ -587,7 +587,7 @@ export default function Dashboard() {
                     <p className="font-medium truncate text-orange-300">{item.subjectName}</p>
                     <p className="text-xs text-muted-foreground font-mono">{formatUid(item.subjectUid)}</p>
                     <p className="text-xs text-muted-foreground">
-                      {item.resolvedAt ? new Date(item.resolvedAt).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                      {item.resolvedAt ? formatDateTimeSlovak(item.resolvedAt) : ""}
                       {item.resolvedByName ? ` — ${item.resolvedByName}` : ""}
                     </p>
                   </div>
@@ -621,7 +621,7 @@ export default function Dashboard() {
                     <p className="font-semibold truncate text-red-300">{item.subjectName}</p>
                     <p className="text-xs text-muted-foreground font-mono">{formatUid(item.subjectUid)}</p>
                     <p className="text-xs text-muted-foreground">
-                      {item.addedAt ? new Date(item.addedAt).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                      {item.addedAt ? formatDateTimeSlovak(item.addedAt) : ""}
                       {item.addedByName ? ` — ${item.addedByName}` : ""}
                     </p>
                     {item.reason && (
@@ -731,9 +731,7 @@ export default function Dashboard() {
                         <tr key={entry.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20" data-testid={`login-history-row-${entry.id}`}>
                           <td className="px-3 py-2 text-muted-foreground text-xs">{loginHistory.length - i}</td>
                           <td className="px-3 py-2 font-mono text-xs">
-                            {d.toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\s/g, "")}
-                            {" "}
-                            {d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                            {formatDateTimeSlovak(d)}
                           </td>
                           <td className="px-3 py-2 text-muted-foreground font-mono text-xs tabular-nums">
                             {formatDuration(entry.loginAt, entry.logoutAt)}

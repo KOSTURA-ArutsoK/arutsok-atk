@@ -2556,7 +2556,7 @@ export default function Companies() {
         {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-sm whitespace-nowrap">{company.uid ? formatUid(company.uid) : "-"}</TableCell>}
         {columnVisibility.isVisible("ico") && <TableCell className="font-mono text-sm">{company.ico || "-"}</TableCell>}
         {columnVisibility.isVisible("subjectType") && <TableCell className="text-sm">{(company as any).subjectType || "-"}</TableCell>}
-        {columnVisibility.isVisible("foundedDate") && <TableCell className="text-sm">{(company as any).foundedDate ? new Date((company as any).foundedDate).toLocaleDateString("sk-SK") : "-"}</TableCell>}
+        {columnVisibility.isVisible("foundedDate") && <TableCell className="text-sm">{formatDateSlovak((company as any).foundedDate)}</TableCell>}
         <TableCell>
           <div className="flex items-center gap-1">
             <Button type="button" size="icon" variant="ghost" onClick={() => setViewTarget(company)} data-testid={`button-view-${company.id}`}><Eye className="w-4 h-4" /></Button>

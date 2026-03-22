@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { formatDateTimeSlovak } from "@/lib/utils";
 import {
   Clock, UserPlus, Eye, Edit3, MessageSquare, Reply, Send, CheckCheck, BookOpen,
   Monitor, Smartphone, Tablet, ArrowRight, Loader2
@@ -26,23 +27,6 @@ const STATUS_CONFIG: Record<string, { label: string; icon: any; variant: "outlin
   precitane: { label: "Prečítané", icon: BookOpen, variant: "default" },
 };
 
-function formatTimeHHMMSS(date: string | Date | null): string {
-  if (!date) return "--:--:--";
-  const d = new Date(date);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
-}
-
-function formatTimeHHMM(date: string | Date | null): string {
-  if (!date) return "--:--";
-  const d = new Date(date);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
-function formatDateSlovak(date: string | Date | null): string {
-  if (!date) return "-";
-  const d = new Date(date);
-  return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
-}
 
 function DeviceIcon({ type }: { type: string | null }) {
   if (type === 'mobile') return <Smartphone className="w-3 h-3" />;
@@ -175,7 +159,7 @@ export function ActivityTimeline({ subjectId, contractId, compact = false }: Act
                     )}
                     <span className="text-xs text-muted-foreground ml-auto flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      {formatDateSlovak(event.createdAt)} {compact ? formatTimeHHMM(event.createdAt) : formatTimeHHMMSS(event.createdAt)}
+                      {formatDateTimeSlovak(event.createdAt)}
                     </span>
                   </div>
 

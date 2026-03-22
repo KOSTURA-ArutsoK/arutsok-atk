@@ -8,6 +8,10 @@ ArutsoK is a multi-tenant CRM and commission tracking system designed for financ
 - Slovak language throughout the application
 - Sharp borders, small border radius
 - Globálny Justified Layout: Všetky navigačné prvky, karty a menu zarovnané do bloku (vľavo aj vpravo). Flex-wrap, dynamické medzery, žiadny horizontálny scroll. TabsList: `flex flex-wrap h-auto gap-1 justify-between w-full`
+- **Globálny formát dátumov (POVINNÉ)**: Vždy používaj `formatDateSlovak` alebo `formatDateTimeSlovak` z `@/lib/utils`. NIKDY nepoužívaj `toLocaleDateString`, `toLocaleString` ani `toLocaleTimeString` priamo.
+  - Iba dátum: `dd.mm.rrrr` (napr. `22.03.2026`)
+  - Dátum + čas: `dd.mm.rrrr - hh:mm:ss` (napr. `22.03.2026 - 14:23:45`)
+  - Bez medzier okolo bodiek, bez iného formátu
 
 ## System Architecture
 The system employs a modern full-stack architecture prioritizing data integrity, security, and auditability. It features immutable historical records, soft deletion with audit trails, granular Role-Based Access Control (RBAC), and temporal validity managed through date fields. All entities are identified by unique 12-digit global identifiers.

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ImageLightbox } from "@/components/image-lightbox";
+import { formatDateTimeSlovak } from "@/lib/utils";
 
 interface SubjectPhoto {
   id: number;
@@ -29,10 +30,6 @@ interface SubjectProfilePhotoProps {
   showHistory?: boolean;
 }
 
-function formatDate(d: string | null) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-}
 
 function sourceLabel(s: string) {
   switch (s) {
@@ -380,8 +377,8 @@ export function SubjectProfilePhoto({ subjectId, size = "md", editable = false, 
                       )}
                     </div>
                     <div className="text-[11px] text-muted-foreground mt-1">
-                      Platná od: {formatDate(photo.validFrom)}
-                      {photo.validTo && ` do: ${formatDate(photo.validTo)}`}
+                      Platná od: {formatDateTimeSlovak(photo.validFrom)}
+                      {photo.validTo && ` do: ${formatDateTimeSlovak(photo.validTo)}`}
                     </div>
                   </div>
                   {!photo.isActive && (
