@@ -1877,12 +1877,13 @@ export async function registerRoutes(
             if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
           }
           const uid = await storage.generateNextGlobalUid(stateCode);
+          const resolvedStateId1 = await resolveSubjectStateId(req, companyId);
           const subjectData: any = {
             uid,
             type: 'person',
             firstName: firstName || null,
             lastName: lastName || null,
-            stateId: getEnforcedStateId(req) || null,
+            stateId: resolvedStateId1,
             myCompanyId: companyId,
             registeredByUserId: req.appUser?.id || null,
             registrationStatus: 'klient',
@@ -1997,12 +1998,13 @@ export async function registerRoutes(
                 if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
               }
               const uid = await storage.generateNextGlobalUid(stateCode);
+              const resolvedStateId2 = await resolveSubjectStateId(req, existingOfficer.companyId);
               newSubject = await storage.createSubject({
                 uid,
                 type: 'person' as any,
                 firstName: updated.firstName || null,
                 lastName: updated.lastName || null,
-                stateId: getEnforcedStateId(req) || null,
+                stateId: resolvedStateId2,
                 myCompanyId: existingOfficer.companyId || null,
                 registeredByUserId: req.appUser?.id || null,
                 registrationStatus: 'klient',
@@ -2197,13 +2199,14 @@ export async function registerRoutes(
       }
 
       const uid = await storage.generateNextGlobalUid(stateCode);
+      const resolvedStateId3 = await resolveSubjectStateId(req, officer.companyId);
 
       const subjectData: any = {
         uid,
         type: 'person',
         firstName,
         lastName,
-        stateId: getEnforcedStateId(req) || officer.stateId || null,
+        stateId: resolvedStateId3 || officer.stateId || null,
         myCompanyId: officer.companyId,
         registeredByUserId: req.appUser?.id || null,
         registrationStatus: 'klient',
@@ -2349,12 +2352,13 @@ export async function registerRoutes(
         await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: created.id, entityName: `${firstName} ${lastName}`, newData: { existingSubjectId: subject.id, existingUid: subject.uid } });
       } else {
         const uid = await storage.generateNextGlobalUid(stateCode);
+        const resolvedStateId4 = await resolveSubjectStateId(req, companyId);
         const subjectData: any = {
           uid,
           type: 'person',
           firstName,
           lastName,
-          stateId: getEnforcedStateId(req) || null,
+          stateId: resolvedStateId4,
           myCompanyId: companyId,
           registeredByUserId: req.appUser?.id || null,
           registrationStatus: 'klient',
@@ -4311,11 +4315,24 @@ export async function registerRoutes(
     }
   });
 
-  // === STATE ISOLATION HELPER ===
+  // === STATE ISOLATION HELPERS ===
   function getEnforcedStateId(req: any): number | undefined {
     const queryStateId = req.query.stateId ? parseInt(req.query.stateId as string) : undefined;
     const appUser = req.appUser;
     return queryStateId || appUser?.activeStateId || undefined;
+  }
+
+  // Resolves stateId for a new subject: active state first, then company's state.
+  // Ensures subjects always get a stateId when a company ownership is known.
+  async function resolveSubjectStateId(req: any, companyId: number | null | undefined): Promise<number | null> {
+    const fromEnforced = getEnforcedStateId(req);
+    if (fromEnforced) return fromEnforced;
+    if (!companyId) return null;
+    const [company] = await db.select({ stateId: myCompanies.stateId })
+      .from(myCompanies)
+      .where(eq(myCompanies.id, companyId))
+      .limit(1);
+    return company?.stateId ?? null;
   }
 
   // === CONTRACT STATUSES ===
