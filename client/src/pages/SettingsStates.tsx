@@ -11,6 +11,7 @@ import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibili
 import { ColumnManager } from "@/components/column-manager";
 import { Plus, Pencil, Trash2, Clock, Upload, Image, Globe, ChevronDown, ChevronRight, Download, Search, CheckCircle2, AlertCircle, Loader2, X } from "lucide-react";
 import { AddStateButton } from "@/components/AddStateButton";
+import { ConditionalDelete } from "@/components/conditional-delete";
 
 interface WC { name: string; iso: string; dial: string; currency: string; continent: string; }
 const CURRENCY_INFO: Record<string, { name: string; subunit: string }> = {
@@ -1295,12 +1296,11 @@ export default function SettingsStates() {
             <Button size="icon" variant="ghost" onClick={() => setFlagUploadState(state)} data-testid={`button-upload-flag-${state.id}`} title="Nahrat vlajku"><Image className="w-4 h-4" /></Button>
             <Button size="icon" variant="ghost" onClick={() => setFlagHistoryState(state)} data-testid={`button-flag-history-${state.id}`} title="Historia vlajok statu"><Clock className="w-4 h-4" /></Button>
             <Button size="icon" variant="ghost" onClick={() => { setEditingState(state); setFormOpen(true); }} data-testid={`button-edit-state-${state.id}`}><Pencil className="w-4 h-4" /></Button>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="icon" variant="ghost" onClick={() => setDeleteState(state)} data-testid={`button-delete-state-${state.id}`}><Trash2 className="w-4 h-4" /></Button>
-              </TooltipTrigger>
-              <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-            </Tooltip>
+            <ConditionalDelete
+              canDelete={((state as any).subjectsCount ?? 0) === 0 && ((state as any).companiesCount ?? 0) === 0 && ((state as any).partnersCount ?? 0) === 0}
+              onClick={() => setDeleteState(state)}
+              testId={`button-delete-state-${state.id}`}
+            />
           </div>
         </TableCell>
       </TableRow>

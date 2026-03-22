@@ -1257,7 +1257,22 @@ export async function registerRoutes(
 
   app.get(api.hierarchy.states.path, async (req, res) => {
     const continentId = req.query.continentId ? parseInt(req.query.continentId as string) : undefined;
-    res.json(await storage.getStates(continentId));
+    const allStates = await storage.getStates(continentId);
+    if (!allStates.length) return res.json([]);
+    const [subjRes, compRes, partRes] = await Promise.all([
+      db.execute(sql`SELECT state_id::int, COUNT(*)::int AS cnt FROM subjects WHERE is_active = true AND state_id IS NOT NULL GROUP BY state_id`),
+      db.execute(sql`SELECT state_id::int, COUNT(*)::int AS cnt FROM my_companies WHERE is_deleted = false AND state_id IS NOT NULL GROUP BY state_id`),
+      db.execute(sql`SELECT state_id::int, COUNT(*)::int AS cnt FROM partners WHERE is_deleted = false AND state_id IS NOT NULL GROUP BY state_id`),
+    ]);
+    const subjectCounts = new Map<number, number>(((subjRes as any).rows || []).map((r: any) => [r.state_id, r.cnt]));
+    const companyCounts = new Map<number, number>(((compRes as any).rows || []).map((r: any) => [r.state_id, r.cnt]));
+    const partnerCounts = new Map<number, number>(((partRes as any).rows || []).map((r: any) => [r.state_id, r.cnt]));
+    res.json(allStates.map(s => ({
+      ...s,
+      subjectsCount: subjectCounts.get(s.id) ?? 0,
+      companiesCount: companyCounts.get(s.id) ?? 0,
+      partnersCount: partnerCounts.get(s.id) ?? 0,
+    })));
   });
 
   app.post(api.hierarchy.createState.path, isAuthenticated, async (req, res) => {
@@ -1428,6 +1443,7 @@ export async function registerRoutes(
           ...d,
           companies: links.map(l => ({ id: l.company.id, name: l.company.name, code: (l.company as any).code || null })),
           contractCount,
+          companiesCount: links.length,
         };
       }));
       res.json(enriched);
@@ -1726,10 +1742,22 @@ export async function registerRoutes(
     const includeDeleted = req.query.includeDeleted === 'true';
     const stateId = req.query.stateId ? parseInt(req.query.stateId as string) : undefined;
     const companies = await storage.getMyCompanies(includeDeleted);
+    if (!companies.length) return res.json([]);
+    const [subjRes, officerRes] = await Promise.all([
+      db.execute(sql`SELECT my_company_id::int, COUNT(*)::int AS cnt FROM subjects WHERE is_active = true AND my_company_id IS NOT NULL GROUP BY my_company_id`),
+      db.execute(sql`SELECT company_id::int, COUNT(*)::int AS cnt FROM company_officers WHERE is_active = true GROUP BY company_id`),
+    ]);
+    const subjectCounts = new Map<number, number>(((subjRes as any).rows || []).map((r: any) => [r.my_company_id, r.cnt]));
+    const officerCounts = new Map<number, number>(((officerRes as any).rows || []).map((r: any) => [r.company_id, r.cnt]));
+    const enriched = companies.map(c => ({
+      ...c,
+      subjectsCount: subjectCounts.get(c.id) ?? 0,
+      officersCount: officerCounts.get(c.id) ?? 0,
+    }));
     if (stateId) {
-      res.json(companies.filter(c => c.stateId === stateId));
+      res.json(enriched.filter(c => c.stateId === stateId));
     } else {
-      res.json(companies);
+      res.json(enriched);
     }
   });
 
@@ -2410,6 +2438,7 @@ export async function registerRoutes(
     const includeDeleted = req.query.includeDeleted === 'true';
     const stateId = getEnforcedStateId(req);
     const filterCompanyId = req.query.companyId ? Number(req.query.companyId) : (req.appUser?.activeCompanyId || null);
+    let partnersList: any[];
     if (filterCompanyId) {
       const linked = await db.select({ partnerId: partnerCompanyLinks.partnerId })
         .from(partnerCompanyLinks)
@@ -2419,9 +2448,24 @@ export async function registerRoutes(
       const conds: any[] = [inArray(partners.id, linkedIds)];
       if (!includeDeleted) conds.push(eq(partners.isDeleted, false));
       if (stateId) conds.push(eq(partners.stateId, stateId));
-      return res.json(await db.select().from(partners).where(and(...conds)).orderBy(asc(partners.name)));
+      partnersList = await db.select().from(partners).where(and(...conds)).orderBy(asc(partners.name));
+    } else {
+      partnersList = await storage.getPartners(includeDeleted, stateId || undefined);
     }
-    res.json(await storage.getPartners(includeDeleted, stateId || undefined));
+    if (!partnersList.length) return res.json([]);
+    const [prodRes, partnerProdRes, contractRes] = await Promise.all([
+      db.execute(sql`SELECT partner_id::int, COUNT(*)::int AS cnt FROM products WHERE is_deleted = false AND partner_id IS NOT NULL GROUP BY partner_id`),
+      db.execute(sql`SELECT partner_id::int, COUNT(*)::int AS cnt FROM partner_products WHERE partner_id IS NOT NULL GROUP BY partner_id`),
+      db.execute(sql`SELECT partner_id::int, COUNT(*)::int AS cnt FROM partner_contracts WHERE partner_id IS NOT NULL GROUP BY partner_id`),
+    ]);
+    const productCounts = new Map<number, number>(((prodRes as any).rows || []).map((r: any) => [r.partner_id, r.cnt]));
+    const partnerProductCounts = new Map<number, number>(((partnerProdRes as any).rows || []).map((r: any) => [r.partner_id, r.cnt]));
+    const contractCounts = new Map<number, number>(((contractRes as any).rows || []).map((r: any) => [r.partner_id, r.cnt]));
+    res.json(partnersList.map(p => ({
+      ...p,
+      productsCount: (productCounts.get(p.id) ?? 0) + (partnerProductCounts.get(p.id) ?? 0),
+      contractsCount: contractCounts.get(p.id) ?? 0,
+    })));
   });
 
   // COUNT active partners — optional ?divisionId=X filters via sectors.partner_ids

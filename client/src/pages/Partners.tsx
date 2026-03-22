@@ -13,6 +13,7 @@ import {
   Phone, Mail, Camera, UserCog, UserPlus, Search, CheckCircle2, AlertCircle, Handshake,
 } from "lucide-react";
 import type { PartnerContract, DocEntry } from "@shared/schema";
+import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -2600,15 +2601,14 @@ export default function Partners() {
                             <Pencil className="w-4 h-4" />
                           </Button>
                         )}
-                        {canDeleteRecords(appUser) && !partner.uid && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button size="icon" variant="ghost" className="holding-chip-emoji" onClick={(e) => { e.stopPropagation(); setDeleteTarget(partner); }} data-testid={`button-delete-partner-${partner.id}`}>
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-                          </Tooltip>
+                        {canDeleteRecords(appUser) && (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <ConditionalDelete
+                              canDelete={!partner.uid && ((partner as any).productsCount ?? 0) === 0 && ((partner as any).contractsCount ?? 0) === 0}
+                              onClick={() => setDeleteTarget(partner)}
+                              testId={`button-delete-partner-${partner.id}`}
+                            />
+                          </div>
                         )}
                       </div>
                     </TableCell>

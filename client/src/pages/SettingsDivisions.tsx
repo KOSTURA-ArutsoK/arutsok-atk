@@ -9,6 +9,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { Pencil, Trash2, Smile, ChevronDown, ChevronRight, Building2 } from "lucide-react";
 import { AddDivisionCard } from "@/components/AddDivisionCard";
+import { ConditionalDelete } from "@/components/conditional-delete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -251,16 +252,12 @@ export default function SettingsDivisions() {
               </TooltipTrigger>
               <TooltipContent>Upraviť</TooltipContent>
             </Tooltip>
-            {((div as any).contractCount ?? 0) === 0 && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button type="button" size="icon" variant="ghost" onClick={() => setDeleteTarget(div)} data-testid={`button-delete-division-${div.id}`}>
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Vymazať</TooltipContent>
-              </Tooltip>
-            )}
+            <ConditionalDelete
+              canDelete={((div as any).contractCount ?? 0) === 0 && ((div as any).companiesCount ?? 0) === 0}
+              onClick={() => setDeleteTarget(div)}
+              testId={`button-delete-division-${div.id}`}
+              tooltipDelete="Vymazať"
+            />
           </div>
         </TableCell>
       </TableRow>

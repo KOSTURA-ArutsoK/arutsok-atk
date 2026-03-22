@@ -5,6 +5,7 @@ import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
 import { PhoneInput } from "@/components/phone-input";
 import { AddCompanyCard } from "@/components/AddCompanyCard";
+import { ConditionalDelete } from "@/components/conditional-delete";
 import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, ChevronRight, Phone, Mail, GitBranch, Info, UserCheck, UserPlus, Users, Camera, UserCog, Archive, Briefcase } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -2562,14 +2563,11 @@ export default function Companies() {
             <Button type="button" size="icon" variant="ghost" onClick={() => setViewTarget(company)} data-testid={`button-view-${company.id}`}><Eye className="w-4 h-4" /></Button>
             <Button type="button" size="icon" variant="ghost" onClick={() => setLogoHistoryTarget(company)} data-testid={`button-logo-history-${company.id}`} title="Historia log"><Image className="w-4 h-4" /></Button>
             <Button type="button" size="icon" variant="ghost" onClick={() => openEdit(company)} data-testid={`button-edit-${company.id}`}><Pencil className="w-4 h-4" /></Button>
-            {!company.uid && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button type="button" size="icon" variant="ghost" onClick={() => setDeleteTarget(company)} data-testid={`button-delete-${company.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                </TooltipTrigger>
-                <TooltipContent>Zmazať prázdny záznam</TooltipContent>
-              </Tooltip>
-            )}
+            <ConditionalDelete
+              canDelete={!company.uid && ((company as any).subjectsCount ?? 0) === 0 && ((company as any).officersCount ?? 0) === 0}
+              onClick={() => setDeleteTarget(company)}
+              testId={`button-delete-${company.id}`}
+            />
           </div>
         </TableCell>
       </TableRow>
