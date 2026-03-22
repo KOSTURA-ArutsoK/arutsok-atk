@@ -96,11 +96,14 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
 
   const sectionMap: Record<string, number> = {};
   if (onlyMissing) {
+    const existingSections = await db.select({ id: subjectParamSections.id, code: subjectParamSections.code }).from(subjectParamSections);
+    const existingSectionCodes = new Set(existingSections.map(s => s.code));
+    for (const s of existingSections) { sectionMap[s.code] = s.id; }
     for (const sec of STATIC_SECTIONS) {
-      await db.insert(subjectParamSections).values(sec as any).onConflictDoNothing();
+      if (existingSectionCodes.has(sec.code)) continue;
+      const [inserted] = await db.insert(subjectParamSections).values(sec as any).returning();
+      sectionMap[sec.code] = inserted.id;
     }
-    const allSections = await db.select({ id: subjectParamSections.id, code: subjectParamSections.code }).from(subjectParamSections);
-    for (const s of allSections) { sectionMap[s.code] = s.id; }
   } else {
     for (const sec of STATIC_SECTIONS) {
       const [inserted] = await db.insert(subjectParamSections).values(sec as any).returning();
@@ -675,11 +678,18 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
   const paramIdMap: Record<string, number> = {};
   const allInsertedParams: number[] = [];
 
+  let existingParamKeys: Set<string> = new Set();
+  if (onlyMissing) {
+    const existingParams = await db.select({ clientTypeId: subjectParameters.clientTypeId, fieldKey: subjectParameters.fieldKey }).from(subjectParameters);
+    existingParamKeys = new Set(existingParams.map(p => `${p.clientTypeId}:${p.fieldKey}`));
+  }
+
   for (const field of FIELDS) {
     const mapKey = `${field.clientTypeId}:${field.fieldKey}`;
+    if (onlyMissing && existingParamKeys.has(mapKey)) continue;
     const sectionId = field.sectionCode ? sectionMap[field.sectionCode] : null;
     const panelId = field.panelCode ? sectionMap[field.panelCode] : null;
-    const values = {
+    const [inserted] = await db.insert(subjectParameters).values({
       clientTypeId: field.clientTypeId,
       sectionId: sectionId || null,
       panelId: panelId || null,
@@ -702,18 +712,9 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
       sortOrder: field.sortOrder,
       rowNumber: field.rowNumber,
       widthPercent: field.widthPercent,
-    } as any;
-    if (onlyMissing) {
-      const rows = await db.insert(subjectParameters).values(values).onConflictDoNothing().returning({ id: subjectParameters.id });
-      if (rows.length > 0) {
-        allInsertedParams.push(rows[0].id);
-        paramIdMap[mapKey] = rows[0].id;
-      }
-    } else {
-      const [inserted] = await db.insert(subjectParameters).values(values).returning();
-      allInsertedParams.push(inserted.id);
-      paramIdMap[mapKey] = inserted.id;
-    }
+    } as any).returning();
+    allInsertedParams.push(inserted.id);
+    paramIdMap[mapKey] = inserted.id;
   }
 
   const SYNONYM_DEFS: Record<string, string[]> = {
