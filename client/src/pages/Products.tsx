@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import type { Product, CommissionScheme, Partner, Parameter, ProductParameter, MyCompany } from "@shared/schema";
-import { Plus, Pencil, Eye, Package, Loader2, HelpCircle, Trash2, FileText, Copy } from "lucide-react";
+import { Plus, Eye, Package, Loader2, HelpCircle, Trash2, FileText, Copy } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
@@ -59,22 +59,18 @@ import { HelpIcon } from "@/components/help-icon";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
 
 const PRODUCT_COLUMNS: ColumnDef[] = [
-  { key: "code", label: "Kod" },
-  { key: "name", label: "Nazov" },
-  { key: "displayName", label: "Zobrazovaci nazov" },
   { key: "partnerId", label: "Partner" },
-  { key: "companyId", label: "Spolocnost" },
-  { key: "stateId", label: "Stat" },
-  { key: "allowedSpecialists", label: "Povoleni specialisti" },
+  { key: "name", label: "Názov produktu" },
+  { key: "code", label: "Kód produktu" },
+  { key: "displayName", label: "Zobrazovací kód" },
+  { key: "allowedSpecialists", label: "Povolení specialisti" },
 ];
 
 const PRODUCT_FILTER_COLUMNS: SmartColumnDef[] = [
-  { key: "code", label: "Kod", type: "text" },
-  { key: "name", label: "Nazov", type: "text" },
-  { key: "displayName", label: "Zobrazovaci nazov", type: "text" },
   { key: "partnerId", label: "Partner", type: "number" },
-  { key: "companyId", label: "Spolocnost", type: "number" },
-  { key: "stateId", label: "Stat", type: "number" },
+  { key: "name", label: "Názov produktu", type: "text" },
+  { key: "code", label: "Kód produktu", type: "text" },
+  { key: "displayName", label: "Zobrazovací kód", type: "text" },
 ];
 
 const SPECIALIST_TYPES = ["NBS", "Zbrojny preukaz", "Reality", "Poistenie", "Dochodok", "Ine"];
@@ -1038,25 +1034,21 @@ export default function Products() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kod</TableHead>}
-                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Nazov</TableHead>}
-                  {columnVisibility.isVisible("displayName") && <TableHead sortKey="displayName" sortDirection={sortKey === "displayName" ? sortDirection : null} onSort={requestSort}>Zobrazovaci nazov</TableHead>}
                   {columnVisibility.isVisible("partnerId") && <TableHead sortKey="partnerId" sortDirection={sortKey === "partnerId" ? sortDirection : null} onSort={requestSort}>Partner</TableHead>}
-                  {columnVisibility.isVisible("companyId") && <TableHead sortKey="companyId" sortDirection={sortKey === "companyId" ? sortDirection : null} onSort={requestSort}>Spolocnost</TableHead>}
-                  {columnVisibility.isVisible("stateId") && <TableHead sortKey="stateId" sortDirection={sortKey === "stateId" ? sortDirection : null} onSort={requestSort}>Stat</TableHead>}
-                  {columnVisibility.isVisible("allowedSpecialists") && <TableHead>Povoleni specialisti</TableHead>}
+                  {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Názov produktu</TableHead>}
+                  {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kód produktu</TableHead>}
+                  {columnVisibility.isVisible("displayName") && <TableHead sortKey="displayName" sortDirection={sortKey === "displayName" ? sortDirection : null} onSort={requestSort}>Zobrazovací kód</TableHead>}
+                  {columnVisibility.isVisible("allowedSpecialists") && <TableHead>Povolení specialisti</TableHead>}
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedProducts.map(product => (
                   <TableRow key={product.id} data-testid={`row-product-${product.id}`} onRowClick={() => handleEdit(product)}>
-                    {columnVisibility.isVisible("code") && <TableCell className="font-mono text-xs">{product.code}</TableCell>}
-                    {columnVisibility.isVisible("name") && <TableCell className="font-medium">{product.name}</TableCell>}
-                    {columnVisibility.isVisible("displayName") && <TableCell className="text-sm text-muted-foreground">{product.displayName || "-"}</TableCell>}
                     {columnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(product.partnerId)}</TableCell>}
-                    {columnVisibility.isVisible("companyId") && <TableCell className="text-sm">{getCompanyName(product.companyId)}</TableCell>}
-                    {columnVisibility.isVisible("stateId") && <TableCell className="text-sm">{getStateName(product.stateId)}</TableCell>}
+                    {columnVisibility.isVisible("name") && <TableCell className="font-medium">{product.name}</TableCell>}
+                    {columnVisibility.isVisible("code") && <TableCell className="font-mono text-xs">{product.code}</TableCell>}
+                    {columnVisibility.isVisible("displayName") && <TableCell className="text-sm text-muted-foreground">{product.displayName || "-"}</TableCell>}
                     {columnVisibility.isVisible("allowedSpecialists") && <TableCell>
                       <div className="flex items-center gap-1 flex-wrap">
                         {product.allowedSpecialists && product.allowedSpecialists.length > 0
@@ -1069,14 +1061,9 @@ export default function Products() {
                     </TableCell>}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => setDetailProduct(product)} data-testid={`button-view-product-${product.id}`}>
+                        <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setDetailProduct(product); }} data-testid={`button-view-product-${product.id}`}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        {canEditRecords(appUser) && (
-                          <Button size="icon" variant="ghost" onClick={() => handleEdit(product)} data-testid={`button-edit-product-${product.id}`}>
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                        )}
                         {canDeleteRecords(appUser) && (product as any).contractsCount === 0 && (
                           <ConditionalDelete canDelete={true} onClick={() => handleDelete(product)} testId={`button-delete-product-${product.id}`} />
                         )}
