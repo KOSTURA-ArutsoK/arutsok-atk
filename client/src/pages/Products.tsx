@@ -83,8 +83,20 @@ function formatProcessingTime(seconds: number): string {
 }
 
 function useProducts() {
+  const { data: appUser } = useAppUser();
+  const companyId = appUser?.activeCompanyId ?? null;
+  const stateId = appUser?.activeStateId ?? null;
   return useQuery<Product[]>({
-    queryKey: ["/api/products"],
+    queryKey: ["/api/products", { companyId, stateId }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (companyId) params.set("companyId", String(companyId));
+      if (stateId) params.set("stateId", String(stateId));
+      const url = `/api/products${params.toString() ? `?${params}` : ""}`;
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch products");
+      return res.json();
+    },
   });
 }
 

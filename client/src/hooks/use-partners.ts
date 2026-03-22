@@ -2,12 +2,20 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Partner, InsertPartner, UpdatePartnerRequest, PartnerContact, PartnerProduct, CommunicationMatrixEntry } from "@shared/schema";
+import { useAppUser } from "@/hooks/use-app-user";
 
 export function usePartners() {
+  const { data: appUser } = useAppUser();
+  const companyId = appUser?.activeCompanyId ?? null;
+  const stateId = appUser?.activeStateId ?? null;
   return useQuery<Partner[]>({
-    queryKey: ["/api/partners"],
+    queryKey: ["/api/partners", { companyId, stateId }],
     queryFn: async () => {
-      const res = await fetch("/api/partners", { credentials: "include" });
+      const params = new URLSearchParams();
+      if (companyId) params.set("companyId", String(companyId));
+      if (stateId) params.set("stateId", String(stateId));
+      const url = `/api/partners${params.toString() ? `?${params}` : ""}`;
+      const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch partners");
       return res.json();
     },
