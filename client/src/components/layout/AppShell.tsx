@@ -182,6 +182,8 @@ function WelcomeModal({ open, onClose, firstName, onNavigate }: {
   );
 }
 
+let _welcomeShownForUserId: number | undefined = undefined;
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const { data: appUser } = useAppUser();
@@ -460,14 +462,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [appUser?.id]);
 
-  const prevUserIdRef = useRef<number | undefined>(undefined);
   useEffect(() => {
-    const prevId = prevUserIdRef.current;
     const currentId = appUser?.id;
-    if (!isClientUser && currentId && !prevId) {
+    if (!currentId) {
+      _welcomeShownForUserId = undefined;
+      return;
+    }
+    if (!isClientUser && _welcomeShownForUserId !== currentId) {
+      _welcomeShownForUserId = currentId;
       setWelcomeOpen(true);
     }
-    prevUserIdRef.current = currentId;
   }, [appUser?.id, isClientUser]);
 
   const securityWarningSpokenRef = useRef(false);
