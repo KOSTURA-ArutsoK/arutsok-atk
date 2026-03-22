@@ -1796,7 +1796,8 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                             const depVal = dynamicValues[field.visibilityRule.dependsOn];
                                             if (!depVal || depVal !== field.visibilityRule.value) return false;
                                           }
-                                          return !!(dynamicValues[field.key] || "");
+                                          const rawVal = dynamicValues[field.key];
+                                          return rawVal !== undefined && rawVal !== null && rawVal !== "";
                                         });
                                         if (!hasVisibleParam) return null;
                                       }
@@ -1826,8 +1827,9 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                               const depVal = dynamicValues[field.visibilityRule.dependsOn];
                                               if (!depVal || depVal !== field.visibilityRule.value) return null;
                                             }
-                                            const fieldVal = dynamicValues[field.key] || "";
-                                            if (!isEditing && !fieldVal) return null;
+                                            const rawFieldVal = dynamicValues[field.key];
+                                            const fieldVal = rawFieldVal ?? "";
+                                            if (!isEditing && (rawFieldVal === undefined || rawFieldVal === null || rawFieldVal === "")) return null;
                                             const fkLower = (field.key || "").toLowerCase();
                                             const isExpiryField = field.fieldType === "date" && (fkLower.includes("platnost") || fkLower.includes("_do") || fkLower.includes("expir") || fkLower.includes("validit") || fkLower.endsWith("do"));
                                             return (
