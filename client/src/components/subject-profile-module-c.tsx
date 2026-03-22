@@ -590,6 +590,30 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   const [transferParam, setTransferParam] = useState<{ paramId: number; paramLabel: string; currentPanelId: number } | null>(null);
   const [statutarConfirm, setStatutarConfirm] = useState<{ changes: StatutarChange[] } | null>(null);
   const editOriginalValues = useRef<Record<string, string>>({});
+  const archiveNotifyRef = useRef(false);
+
+  const ARCHIVE_TRIGGER_KEYS = useMemo(() => new Set([
+    "priezvisko",
+    "meno_organizacie",
+    "addr_trvaly_ulica", "addr_trvaly_supisneCislo", "addr_trvaly_orientacneCislo",
+    "addr_trvaly_obecMesto", "addr_trvaly_psc", "addr_trvaly_stat",
+    "addr_prechodny_ulica", "addr_prechodny_supisneCislo", "addr_prechodny_orientacneCislo",
+    "addr_prechodny_obecMesto", "addr_prechodny_psc", "addr_prechodny_stat",
+    "addr_korespondencna_ulica", "addr_korespondencna_supisneCislo", "addr_korespondencna_orientacneCislo",
+    "addr_korespondencna_obecMesto", "addr_korespondencna_psc", "addr_korespondencna_stat",
+    "addr_hlavna",
+    "tp_ulica", "tp_supisne", "tp_orientacne", "tp_psc", "tp_mesto", "tp_stat",
+    "ka_ulica", "ka_supisne", "ka_orientacne", "ka_psc", "ka_mesto", "ka_stat",
+    "koa_ulica", "koa_supisne", "koa_orientacne", "koa_psc", "koa_mesto", "koa_stat",
+    "sidlo_ulica", "sidlo_supisne", "sidlo_orientacne", "sidlo_psc", "sidlo_mesto", "sidlo_stat",
+  ]), []);
+
+  function checkArchiveTrigger(current: Record<string, string>, original: Record<string, string>): boolean {
+    for (const key of ARCHIVE_TRIGGER_KEYS) {
+      if ((current[key] || "") !== (original[key] || "")) return true;
+    }
+    return false;
+  }
 
   const clientTypeId = useMemo(() => {
     const ctId = (subject as any).clientTypeId;
@@ -1233,9 +1257,12 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id, "field-history"] });
       toast({ title: "Zmeny uložené", description: "Všetky zmeny boli úspešne zapísané do profilu." });
-      setTimeout(() => {
-        toast({ title: "🗄️ Trezor", description: "Pôvodné hodnoty boli archivované v Trezore.", duration: 3500 });
-      }, 600);
+      if (archiveNotifyRef.current) {
+        archiveNotifyRef.current = false;
+        setTimeout(() => {
+          toast({ title: "🗄️ Trezor", description: "Stará hodnota bola archivovaná.", duration: 3500 });
+        }, 600);
+      }
       setIsEditing(false);
       setEditReason("");
     },
@@ -1324,10 +1351,12 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                           }
                         }
                         if (changed.length > 0) {
+                          archiveNotifyRef.current = checkArchiveTrigger(dynamicValues, editOriginalValues.current);
                           setStatutarConfirm({ changes: changed });
                           return;
                         }
                       }
+                      archiveNotifyRef.current = checkArchiveTrigger(dynamicValues, editOriginalValues.current);
                       saveMutation.mutate();
                     }}
                     disabled={saveMutation.isPending}
