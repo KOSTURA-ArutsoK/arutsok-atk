@@ -9,7 +9,8 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock } from "lucide-react";
+import { useLocation } from "wouter";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, Users, Handshake, Package, FileText, ClipboardList } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { isAdmin as checkIsAdmin } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { ContextSelectorOverlay } from "@/components/context-selector-overlay";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +56,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(getSidebarDefault);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+  const [, navigate] = useLocation();
+
   const handleSidebarChange = useCallback((open: boolean) => {
     setSidebarOpen(open);
     try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(open)); } catch {}
@@ -314,6 +319,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       );
     }
   }, [appUser?.id]);
+
+  useEffect(() => {
+    if (!appUser?.id || isClientUser) return;
+    const key = `arutsok_welcome_shown_${appUser.id}`;
+    if (!sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, "1");
+      setWelcomeOpen(true);
+    }
+  }, [appUser?.id, isClientUser]);
 
   const securityWarningSpokenRef = useRef(false);
   useEffect(() => {
@@ -737,6 +751,44 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onClose={() => setContextOverlayOpen(false)}
       />
       {warningOverlay}
+
+      <Dialog open={welcomeOpen} onOpenChange={setWelcomeOpen}>
+        <DialogContent className="max-w-md p-0 overflow-hidden" style={{ border: "5px solid #ef4444", borderRadius: "12px" }} data-testid="dialog-welcome">
+          <DialogDescription className="sr-only">Uvítacie okno so zoznamom najdôležitejších úloh</DialogDescription>
+          <div className="bg-red-500 px-6 py-4">
+            <DialogTitle className="text-white text-lg font-bold">
+              Vitajte v systéme ArutsoK 👋
+            </DialogTitle>
+            <p className="text-red-100 text-sm mt-0.5">
+              {appUser?.firstName ? `Ahoj, ${appUser.firstName}!` : "Ahoj!"} Tu sú najdôležitejšie úlohy, kde môžete začať:
+            </p>
+          </div>
+          <div className="px-6 py-4 space-y-2">
+            {[
+              { icon: Users, label: "Pridať subjekt (klienta)", path: "/subjekty", color: "text-blue-600" },
+              { icon: Handshake, label: "Pridať partnera", path: "/partneri", color: "text-green-600" },
+              { icon: Package, label: "Katalóg produktov", path: "/katalog-produktov", color: "text-purple-600" },
+              { icon: FileText, label: "Evidencia zmlúv", path: "/evidencia-zmluv", color: "text-orange-600" },
+              { icon: ClipboardList, label: "Súpisky", path: "/supisky", color: "text-rose-600" },
+            ].map(({ icon: Icon, label, path, color }) => (
+              <button
+                key={path}
+                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors text-left group"
+                onClick={() => { setWelcomeOpen(false); navigate(path); }}
+                data-testid={`button-welcome-${path.replace("/", "")}`}
+              >
+                <Icon className={`w-5 h-5 flex-shrink-0 ${color}`} />
+                <span className="text-sm font-medium group-hover:text-foreground">{label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="px-6 pb-4 pt-1 border-t">
+            <Button variant="ghost" className="w-full text-muted-foreground" onClick={() => setWelcomeOpen(false)} data-testid="button-welcome-close">
+              Zavrieť
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }
