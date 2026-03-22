@@ -3070,7 +3070,7 @@ export async function registerRoutes(
 
     const enforcedState = getEnforcedStateId(req);
     if (enforcedState) {
-      allSubjects = allSubjects.filter((s: any) => s.stateId === enforcedState);
+      allSubjects = allSubjects.filter((s: any) => !s.stateId || s.stateId === enforcedState);
     }
 
     if (!isAdmin(appUser)) {

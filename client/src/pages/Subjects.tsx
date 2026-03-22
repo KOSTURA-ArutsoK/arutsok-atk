@@ -4696,7 +4696,6 @@ const SUBJECTS_COLUMNS: ColumnDef[] = [
   { key: "firstName", label: "Cele meno / Nazov" },
   { key: "ulica", label: "Ulica" },
   { key: "type", label: "Typ subjektu" },
-  { key: "managingCompany", label: "Spravujuca firma" },
 ];
 
 const REGISTRATION_STATUS_LABELS: Record<string, { label: string; variant: "secondary" | "default" | "outline"; className: string }> = {
@@ -4962,7 +4961,6 @@ export default function Subjects() {
                     {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Cele meno / Nazov</TableHead>}
                     {columnVisibility.isVisible("ulica") && <TableHead>Ulica</TableHead>}
                     {columnVisibility.isVisible("type") && <TableHead sortKey="type" sortDirection={sortKey === "type" ? sortDirection : null} onSort={requestSort}>Typ subjektu</TableHead>}
-                    {columnVisibility.isVisible("managingCompany") && <TableHead>Spravujuca firma</TableHead>}
                     <TableHead className="w-[100px]">Akcie</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -5000,8 +4998,6 @@ export default function Subjects() {
                       }
                       return subject.companyName || '-';
                     })();
-                    const managingCompanyName = (subject as any).companyName || companies?.find(c => c.id === subject.myCompanyId)?.name || '-';
-
                     return (
                       <TableRow key={subject.id} data-testid={`row-subject-${subject.id}`} className="align-middle" onRowClick={() => setViewTarget(subject)}>
                         <TableCell className="align-middle">
@@ -5089,9 +5085,6 @@ export default function Subjects() {
                             {subject.type === 'person' ? <User className="w-3 h-3 flex-shrink-0" /> : <Building2 className="w-3 h-3 flex-shrink-0" />}
                             <span>{clientTypeMatch?.code || subjectTypeCode}</span>
                           </div>
-                        </TableCell>}
-                        {columnVisibility.isVisible("managingCompany") && <TableCell className="text-muted-foreground text-sm align-middle" data-testid={`text-company-${subject.id}`}>
-                          {managingCompanyName}
                         </TableCell>}
                         <TableCell className="align-middle">
                           <div className="flex items-center gap-1">
