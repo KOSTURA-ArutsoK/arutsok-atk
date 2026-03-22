@@ -4040,7 +4040,8 @@ function FullPageEditor({
                   </div>
 
                   {typeFields && typeFields.length > 0 && (() => {
-                    const editorFieldGroups: Record<string, { section: any; fields: StaticField[] }[]> = {
+                    const typePanels = getPanelsForClientTypeId(editorClientTypeId);
+                    const editorFieldGroups: Record<string, { section: any; panelGroups: { panel: StaticPanel | null; fields: StaticField[] }[] }[]> = {
                       povinne: [], doplnkove: [], volitelne: [],
                     };
                     const sectionsSorted = [...(typeSections || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
@@ -4048,11 +4049,25 @@ function FullPageEditor({
                       const category = (section as any).folderCategory || "volitelne";
                       const sectionFields = (typeFields || [])
                         .filter(f => (f.sectionId || 0) === section.id)
-                        .filter(f => isFieldVisible(f))
+                        .filter(f => isFieldVisible(f));
+                      if (sectionFields.length === 0) continue;
+                      const sectionPanels = typePanels
+                        .filter(p => p.sectionId === section.id)
+                        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+                      const panelGroups: { panel: StaticPanel | null; fields: StaticField[] }[] = [];
+                      for (const panel of sectionPanels) {
+                        const panelFields = sectionFields
+                          .filter(f => f.panelId === panel.id)
+                          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                        if (panelFields.length > 0) panelGroups.push({ panel, fields: panelFields });
+                      }
+                      const noPanelFields = sectionFields
+                        .filter(f => !f.panelId || !sectionPanels.find(p => p.id === f.panelId))
                         .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-                      if (sectionFields.length > 0) {
+                      if (noPanelFields.length > 0) panelGroups.push({ panel: null, fields: noPanelFields });
+                      if (panelGroups.length > 0) {
                         if (!editorFieldGroups[category]) editorFieldGroups[category] = [];
-                        editorFieldGroups[category].push({ section, fields: sectionFields });
+                        editorFieldGroups[category].push({ section, panelGroups });
                       }
                     }
                     return (
@@ -4062,7 +4077,7 @@ function FullPageEditor({
                           {FOLDER_CATEGORY_ORDER.map(category => {
                             const Icon = FOLDER_CATEGORY_ICONS[category];
                             const groups = editorFieldGroups[category] || [];
-                            const totalFields = groups.reduce((acc, g) => acc + g.fields.length, 0);
+                            const totalFields = groups.reduce((acc, g) => acc + g.panelGroups.reduce((s, pg) => s + pg.fields.length, 0), 0);
                             if (totalFields === 0) return null;
                             return (
                               <AccordionItem key={category} value={category} className="border rounded-md px-3" data-testid={`editor-accordion-${category}`}>
@@ -4074,28 +4089,32 @@ function FullPageEditor({
                                   </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="pb-4">
-                                  <div className="space-y-2">
-                                    {groups.map(({ section, fields }) => (
-                                      <div key={section.id} className="space-y-2">
-                                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
-                                        <div className="flex flex-wrap gap-4 items-end">
-                                          {fields.map((field: StaticField) => {
-                                            const fk = field.fieldKey;
-                                            let wCls = "flex-1 min-w-[140px]";
-                                            if (fk === "titul_pred" || fk === "titul_za") wCls = "w-[100px] min-w-[80px] shrink-0";
-                                            else if (fk === "vek") wCls = "w-[80px] min-w-[60px] shrink-0";
-                                            else if (fk === "pohlavie") wCls = "w-[130px] min-w-[100px] shrink-0";
-                                            else if (fk === "datum_narodenia" || fk === "platnost_dokladu") wCls = "w-[160px] min-w-[140px] shrink-0";
-                                            else if (fk === "meno" || fk === "priezvisko" || fk === "rodne_priezvisko") wCls = "flex-1 min-w-[150px]";
-                                            return (
-                                              <div key={field.id} className={cn("min-w-0", wCls, flashingFields.has(field.fieldKey) && "field-imported-flash")}>
-                                                <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
-                                              </div>
-                                            );
-                                          })}
+                                  <div className="space-y-4">
+                                    {groups.flatMap(({ panelGroups }) =>
+                                      panelGroups.map(({ panel, fields }) => (
+                                        <div key={panel ? panel.id : "no-panel"} className="space-y-2">
+                                          {panel && (
+                                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{panel.name}</p>
+                                          )}
+                                          <div className="flex flex-wrap gap-4 items-end">
+                                            {fields.map((field: StaticField) => {
+                                              const fk = field.fieldKey;
+                                              let wCls = "flex-1 min-w-[140px]";
+                                              if (fk === "titul_pred" || fk === "titul_za") wCls = "w-[100px] min-w-[80px] shrink-0";
+                                              else if (fk === "vek") wCls = "w-[80px] min-w-[60px] shrink-0";
+                                              else if (fk === "pohlavie") wCls = "w-[130px] min-w-[100px] shrink-0";
+                                              else if (fk === "datum_narodenia" || fk === "platnost_dokladu") wCls = "w-[160px] min-w-[140px] shrink-0";
+                                              else if (fk === "meno" || fk === "priezvisko" || fk === "rodne_priezvisko") wCls = "flex-1 min-w-[150px]";
+                                              return (
+                                                <div key={field.id} className={cn("min-w-0", wCls, flashingFields.has(field.fieldKey) && "field-imported-flash")}>
+                                                  <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
                                         </div>
-                                      </div>
-                                    ))}
+                                      ))
+                                    )}
                                   </div>
                                 </AccordionContent>
                               </AccordionItem>
@@ -4349,6 +4368,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject; onClose: () 
             </div>
 
             {typeFields && typeFields.length > 0 && (() => {
+              const editTypePanels = getPanelsForClientTypeId(modalClientTypeId);
               const editFieldGroups: Record<string, { section: any; fields: StaticField[] }[]> = {
                 povinne: [], doplnkove: [], volitelne: [],
               };
@@ -4510,6 +4530,61 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject; onClose: () 
                                   : fields;
                                 if (filteredFields.length === 0) return null;
 
+                                const renderFieldRow = (rowFields: StaticField[], key: number | string) => (
+                                  <div key={key} className="flex flex-wrap gap-4 items-end">
+                                    {rowFields.map((field: StaticField) => {
+                                      const fk = field.fieldKey;
+                                      let wCls = "flex-1 min-w-[140px]";
+                                      if (fk === "titul_pred" || fk === "titul_za") wCls = "w-[100px] min-w-[80px] shrink-0";
+                                      else if (fk === "vek") wCls = "w-[80px] min-w-[60px] shrink-0";
+                                      else if (fk === "pohlavie") wCls = "w-[130px] min-w-[100px] shrink-0";
+                                      else if (fk === "datum_narodenia" || fk === "platnost_dokladu") wCls = "w-[160px] min-w-[140px] shrink-0";
+                                      else if (fk === "meno" || fk === "priezvisko" || fk === "rodne_priezvisko") wCls = "flex-1 min-w-[150px]";
+                                      return (
+                                        <div key={field.id} className={cn("min-w-0", wCls)}>
+                                          <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} subjectId={subject.id} />
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+
+                                if (!isPerson) {
+                                  const sectionPanels = editTypePanels
+                                    .filter(p => p.sectionId === section.id)
+                                    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+                                  const panelGroups: { panel: StaticPanel | null; fields: StaticField[] }[] = [];
+                                  for (const panel of sectionPanels) {
+                                    const pf = filteredFields.filter(f => f.panelId === panel.id).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                                    if (pf.length > 0) panelGroups.push({ panel, fields: pf });
+                                  }
+                                  const noPanelF = filteredFields.filter(f => !f.panelId || !sectionPanels.find(p => p.id === f.panelId)).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+                                  if (noPanelF.length > 0) panelGroups.push({ panel: null, fields: noPanelF });
+                                  return (
+                                    <div key={section.id} className="space-y-4">
+                                      {panelGroups.map(({ panel, fields: pf }) => {
+                                        const rows = new Map<number, StaticField[]>();
+                                        pf.forEach((f: StaticField) => {
+                                          const rn = (f as any).rowNumber ?? 0;
+                                          if (!rows.has(rn)) rows.set(rn, []);
+                                          rows.get(rn)!.push(f);
+                                        });
+                                        const sortedRowKeys = Array.from(rows.keys()).sort((a, b) => a - b);
+                                        return (
+                                          <div key={panel ? panel.id : "no-panel"} className="space-y-2">
+                                            {panel && (
+                                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{panel.name}</p>
+                                            )}
+                                            <div className="space-y-2">
+                                              {sortedRowKeys.map(rowNum => renderFieldRow(rows.get(rowNum)!, rowNum))}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                }
+
                                 const rows = new Map<number, StaticField[]>();
                                 filteredFields.forEach((f: StaticField) => {
                                   const rn = (f as any).rowNumber ?? 0;
@@ -4522,27 +4597,7 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject; onClose: () 
                                   <div key={section.id} className="space-y-3">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
                                     <div className="space-y-2">
-                                      {sortedRowKeys.map(rowNum => {
-                                        const rowFields = rows.get(rowNum)!;
-                                        return (
-                                          <div key={rowNum} className="flex flex-wrap gap-4 items-end">
-                                            {rowFields.map((field: StaticField) => {
-                                              const fk = field.fieldKey;
-                                              let wCls = "flex-1 min-w-[140px]";
-                                              if (fk === "titul_pred" || fk === "titul_za") wCls = "w-[100px] min-w-[80px] shrink-0";
-                                              else if (fk === "vek") wCls = "w-[80px] min-w-[60px] shrink-0";
-                                              else if (fk === "pohlavie") wCls = "w-[130px] min-w-[100px] shrink-0";
-                                              else if (fk === "datum_narodenia" || fk === "platnost_dokladu") wCls = "w-[160px] min-w-[140px] shrink-0";
-                                              else if (fk === "meno" || fk === "priezvisko" || fk === "rodne_priezvisko") wCls = "flex-1 min-w-[150px]";
-                                              return (
-                                                <div key={field.id} className={cn("min-w-0", wCls)}>
-                                                  <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} subjectId={subject.id} />
-                                                </div>
-                                              );
-                                            })}
-                                          </div>
-                                        );
-                                      })}
+                                      {sortedRowKeys.map(rowNum => renderFieldRow(rows.get(rowNum)!, rowNum))}
                                     </div>
                                   </div>
                                 );
