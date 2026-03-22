@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { subjectParamSections, subjectParameters, parameterSynonyms } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 type FieldSeed = {
   clientTypeId: number; sectionCode: string; panelCode: string | null; fieldKey: string; label: string;
@@ -94,6 +94,7 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     { clientTypeId: 4, name: "Flotila vozidiel", code: "po_flota", folderCategory: "doplnkove", sortOrder: 9, isPanel: true, gridColumns: 3 },
     { clientTypeId: 5, name: "POVINNÉ ÚDAJE", code: "ns_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
     { clientTypeId: 5, name: "DOPLNKOVÉ ÚDAJE", code: "ns_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 5, name: "VOLITEĽNÉ ÚDAJE", code: "ns_volitelne", folderCategory: "volitelne", sortOrder: 2, isPanel: false, gridColumns: 1 },
     { clientTypeId: 5, name: "INÉ ÚDAJE", code: "ns_ine", folderCategory: "ine", sortOrder: 3, isPanel: false, gridColumns: 1 },
     { clientTypeId: 5, name: "Subjekt NS", code: "ns_subjekt", folderCategory: "povinne", sortOrder: 0, isPanel: true, gridColumns: 2 },
     { clientTypeId: 5, name: "Sídlo organizácie", code: "ns_sidlo", folderCategory: "povinne", sortOrder: 1, isPanel: true, gridColumns: 4 },
@@ -105,6 +106,7 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     { clientTypeId: 5, name: "Profil organizácie", code: "ns_firemny", folderCategory: "doplnkove", sortOrder: 4, isPanel: true, gridColumns: 2 },
     { clientTypeId: 6, name: "POVINNÉ ÚDAJE", code: "vs_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
     { clientTypeId: 6, name: "DOPLNKOVÉ ÚDAJE", code: "vs_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 6, name: "VOLITEĽNÉ ÚDAJE", code: "vs_volitelne", folderCategory: "volitelne", sortOrder: 2, isPanel: false, gridColumns: 1 },
     { clientTypeId: 6, name: "INÉ ÚDAJE", code: "vs_ine", folderCategory: "ine", sortOrder: 3, isPanel: false, gridColumns: 1 },
     { clientTypeId: 6, name: "Subjekt VS", code: "vs_subjekt", folderCategory: "povinne", sortOrder: 0, isPanel: true, gridColumns: 2 },
     { clientTypeId: 6, name: "Sídlo inštitúcie", code: "vs_sidlo", folderCategory: "povinne", sortOrder: 1, isPanel: true, gridColumns: 4 },
@@ -777,7 +779,8 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     // ============================================================
     f(6, "vs_povinne", "vs_subjekt", "nazov_organizacie", "Názov inštitúcie", "short_text", 10, 0, 50, { isRequired: true, shortLabel: "Názov inšt." }),
     f(6, "vs_povinne", "vs_subjekt", "ico", "IČO", "short_text", 20, 0, 50, { isRequired: true }),
-    f(6, "vs_povinne", "vs_subjekt", "typ_organizacie", "Typ inštitúcie", "jedna_moznost", 30, 1, 100, { shortLabel: "Typ inšt.", options: ["Ministerstvo", "Ústredný orgán štátnej správy", "Krajský úrad", "Okresný úrad", "Obec / Mesto", "Magistrát", "Vyšší územný celok (VÚC)", "Štátna inštitúcia", "Štátna príspevková organizácia", "Rozpočtová organizácia", "Štátny podnik", "Verejnoprávna inštitúcia", "Iné"], defaultValue: "Štátna inštitúcia" }),
+    f(6, "vs_povinne", "vs_subjekt", "typ_institucie", "Typ inštitúcie", "jedna_moznost", 30, 1, 50, { shortLabel: "Typ inšt.", options: ["Ministerstvo", "Ústredný orgán štátnej správy", "Krajský úrad", "Okresný úrad", "Obec / Mesto", "Magistrát", "Vyšší územný celok (VÚC)", "Štátna inštitúcia", "Štátna príspevková organizácia", "Rozpočtová organizácia", "Štátny podnik", "Verejnoprávna inštitúcia", "Iné"], defaultValue: "Štátna inštitúcia" }),
+    f(6, "vs_povinne", "vs_subjekt", "uroven_verejnej_spravy", "Úroveň verejnej správy", "jedna_moznost", 40, 1, 50, { shortLabel: "Úroveň VS", options: ["Ústredná (štátna) správa", "Regionálna (VÚC)", "Miestna (obecná/mestská)", "Európska inštitúcia", "Iné"] }),
 
     // ============================================================
     // VS: Sídlo (vs_sidlo)
@@ -851,6 +854,15 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
   if (onlyMissing) {
     const existingParams = await db.select({ clientTypeId: subjectParameters.clientTypeId, fieldKey: subjectParameters.fieldKey }).from(subjectParameters);
     existingParamKeys = new Set(existingParams.map(p => `${p.clientTypeId}:${p.fieldKey}`));
+
+    if (existingParamKeys.has("6:typ_organizacie") && !existingParamKeys.has("6:typ_institucie")) {
+      await db.update(subjectParameters)
+        .set({ fieldKey: "typ_institucie", code: "p_typ_institucie" })
+        .where(and(eq(subjectParameters.clientTypeId, 6), eq(subjectParameters.fieldKey, "typ_organizacie")));
+      existingParamKeys.delete("6:typ_organizacie");
+      existingParamKeys.add("6:typ_institucie");
+      console.log("[SEED] Migrated VS typ_organizacie → typ_institucie");
+    }
   }
 
   for (const field of FIELDS) {

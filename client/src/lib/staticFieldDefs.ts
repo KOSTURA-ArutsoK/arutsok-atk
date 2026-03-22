@@ -682,6 +682,7 @@ export const PO_FIELDS: StaticField[] = [
 // =========================================================
 const NS_SECTION_POVINNE = 83;
 const NS_SECTION_DOPLNKOVE = 84;
+const NS_SECTION_VOLITELNE = 85;
 const NS_SECTION_INE = 86;
 
 const NS_PANEL_SUBJEKT = 110;
@@ -696,6 +697,7 @@ const NS_PANEL_FIREMNY = 117;
 export const NS_SECTIONS: StaticSection[] = [
   { id: NS_SECTION_POVINNE, clientTypeId: 5, name: "POVINNÉ ÚDAJE", folderCategory: "povinne", sortOrder: 0 },
   { id: NS_SECTION_DOPLNKOVE, clientTypeId: 5, name: "DOPLNKOVÉ ÚDAJE", folderCategory: "doplnkove", sortOrder: 1 },
+  { id: NS_SECTION_VOLITELNE, clientTypeId: 5, name: "VOLITEĽNÉ ÚDAJE", folderCategory: "volitelne", sortOrder: 2 },
   { id: NS_SECTION_INE, clientTypeId: 5, name: "INÉ ÚDAJE", folderCategory: "ine", sortOrder: 3 },
 ];
 
@@ -776,6 +778,7 @@ export const NS_FIELDS: StaticField[] = [
 // =========================================================
 const VS_SECTION_POVINNE = 87;
 const VS_SECTION_DOPLNKOVE = 88;
+const VS_SECTION_VOLITELNE = 89;
 const VS_SECTION_INE = 90;
 
 const VS_PANEL_SUBJEKT = 120;
@@ -790,6 +793,7 @@ const VS_PANEL_INST_PROFIL = 127;
 export const VS_SECTIONS: StaticSection[] = [
   { id: VS_SECTION_POVINNE, clientTypeId: 6, name: "POVINNÉ ÚDAJE", folderCategory: "povinne", sortOrder: 0 },
   { id: VS_SECTION_DOPLNKOVE, clientTypeId: 6, name: "DOPLNKOVÉ ÚDAJE", folderCategory: "doplnkove", sortOrder: 1 },
+  { id: VS_SECTION_VOLITELNE, clientTypeId: 6, name: "VOLITEĽNÉ ÚDAJE", folderCategory: "volitelne", sortOrder: 2 },
   { id: VS_SECTION_INE, clientTypeId: 6, name: "INÉ ÚDAJE", folderCategory: "ine", sortOrder: 3 },
 ];
 
@@ -808,7 +812,8 @@ export const VS_FIELDS: StaticField[] = [
   // === PANEL: Subjekt VS ===
   { id: 4001, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_SUBJEKT, fieldKey: "nazov_organizacie", label: "Názov inštitúcie", shortLabel: "Názov inšt.", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
   { id: 4002, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_SUBJEKT, fieldKey: "ico", label: "IČO", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
-  { id: 4003, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_SUBJEKT, fieldKey: "typ_organizacie", label: "Typ inštitúcie", shortLabel: "Typ inšt.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Ministerstvo", "Ústredný orgán štátnej správy", "Krajský úrad", "Okresný úrad", "Obec / Mesto", "Magistrát", "Vyšší územný celok (VÚC)", "Štátna inštitúcia", "Štátna príspevková organizácia", "Rozpočtová organizácia", "Štátny podnik", "Verejnoprávna inštitúcia", "Iné"], defaultValue: "Štátna inštitúcia", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 1, widthPercent: 100 },
+  { id: 4003, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_SUBJEKT, fieldKey: "typ_institucie", label: "Typ inštitúcie", shortLabel: "Typ inšt.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Ministerstvo", "Ústredný orgán štátnej správy", "Krajský úrad", "Okresný úrad", "Obec / Mesto", "Magistrát", "Vyšší územný celok (VÚC)", "Štátna inštitúcia", "Štátna príspevková organizácia", "Rozpočtová organizácia", "Štátny podnik", "Verejnoprávna inštitúcia", "Iné"], defaultValue: "Štátna inštitúcia", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 1, widthPercent: 50 },
+  { id: 4004, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_SUBJEKT, fieldKey: "uroven_verejnej_spravy", label: "Úroveň verejnej správy", shortLabel: "Úroveň VS", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Ústredná (štátna) správa", "Regionálna (VÚC)", "Miestna (obecná/mestská)", "Európska inštitúcia", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
 
   // === PANEL: Sídlo inštitúcie ===
   { id: 4010, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_SIDLO, fieldKey: "sidlo_ulica", label: "Ulica (sídlo)", shortLabel: "Ulica", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
