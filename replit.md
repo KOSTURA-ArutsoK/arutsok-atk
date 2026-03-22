@@ -12,6 +12,7 @@ ArutsoK is a multi-tenant CRM and commission tracking system designed for financ
   - Iba dátum: `dd.mm.rrrr` (napr. `22.03.2026`)
   - Dátum + čas: `dd.mm.rrrr - hh:mm:ss` (napr. `22.03.2026 - 14:23:45`)
   - Bez medzier okolo bodiek, bez iného formátu
+- **Globálny formát UID (POVINNÉ)**: Vždy používaj `formatUid` z `@/lib/utils` na zobrazenie UID. NIKDY nevytvárај vlastné formátovanie UID. Skupiny číslic sú oddelené úzkou nezlomiteľnou medzerou (`\u202F`) — číslo sa nikdy nezalomí na viacero riadkov.
 
 ## System Architecture
 The system employs a modern full-stack architecture prioritizing data integrity, security, and auditability. It features immutable historical records, soft deletion with audit trails, granular Role-Based Access Control (RBAC), and temporal validity managed through date fields. All entities are identified by unique 12-digit global identifiers.
