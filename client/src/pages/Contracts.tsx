@@ -2294,6 +2294,16 @@ export default function Contracts() {
     try { const r = localStorage.getItem("nahr_partialChecklist"); return r ? JSON.parse(r) : {}; } catch { return {}; }
   });
 
+  const [phase5DocContract, setPhase5DocContract] = useState<Contract | null>(null);
+  const [phase5DocCheckedReq, setPhase5DocCheckedReq] = useState<Set<number>>(new Set());
+  const [phase5DocCheckedOpt, setPhase5DocCheckedOpt] = useState<Set<number>>(new Set());
+  const [phase5DocExtraOpt, setPhase5DocExtraOpt] = useState<string[]>([]);
+  const [phase5DocCheckedExtra, setPhase5DocCheckedExtra] = useState<Set<number>>(new Set());
+  const [phase5DocNewOpt, setPhase5DocNewOpt] = useState("");
+  const [phase5DocSavedState, setPhase5DocSavedState] = useState<Record<number, { req: number[], opt: number[], extra: string[], checkedExtra: number[] }>>(() => {
+    try { const r = localStorage.getItem("nahr_phase5Checklist"); return r ? JSON.parse(r) : {}; } catch { return {}; }
+  });
+
   const [filterStatusId, setFilterStatusId] = useState<string>("all");
   const [filterStatusIds, setFilterStatusIds] = useState<number[]>([]);
   const [filterInventoryId, setFilterInventoryId] = useState<string>("all");
@@ -2331,6 +2341,7 @@ export default function Contracts() {
   const [rerouteSelectedIds, setRerouteSelectedIds] = useState<number[]>([]);
   useEffect(() => { try { localStorage.setItem("nahr_savedChecklist", JSON.stringify(docChecklistSavedState)); } catch {} }, [docChecklistSavedState]);
   useEffect(() => { try { localStorage.setItem("nahr_partialChecklist", JSON.stringify(docChecklistPartialState)); } catch {} }, [docChecklistPartialState]);
+  useEffect(() => { try { localStorage.setItem("nahr_phase5Checklist", JSON.stringify(phase5DocSavedState)); } catch {} }, [phase5DocSavedState]);
   const [rerouteDialogOpen, setRerouteDialogOpen] = useState(false);
   const [rerouteSource, setRerouteSource] = useState<"neprijate" | "archiv" | "spracovanie" | null>(null);
 
@@ -3542,6 +3553,18 @@ export default function Contracts() {
     };
   }
 
+  function getProductPartnerDocsForContract(contract: Contract): { required: string[]; optional: string[] } {
+    let product = products?.find((p: any) => p.id === contract.productId);
+    if (!product && contract.sectorProductId) {
+      const sp = allSectorProducts?.find((sp: any) => sp.id === contract.sectorProductId);
+      if (sp) product = products?.find((p: any) => p.id === (sp as any).productId);
+    }
+    return {
+      required: (product as any)?.requiredDocumentsPartner || [],
+      optional: (product as any)?.optionalDocumentsPartner || [],
+    };
+  }
+
   function renderSprievodkaFullTable(
     contractsList: Contract[],
     opts: {
@@ -3554,6 +3577,7 @@ export default function Contracts() {
       nahratieView?: boolean;
       showRerouteCheckbox?: boolean;
       rowClickIsView?: boolean;
+      onPartnerDocsClick?: (contract: Contract) => void;
       centralAcceptOpts?: {
         acceptedIds: Set<number>;
         onToggle: (id: number) => void;
@@ -3561,7 +3585,7 @@ export default function Contracts() {
       };
     } = {}
   ) {
-    const { showCheckbox = false, showOrder = false, showActions = true, logViewFn, testIdPrefix = "row-spr", alwaysIncompleteEdit = false, nahratieView = false, showRerouteCheckbox = false, rowClickIsView = false, centralAcceptOpts } = opts;
+    const { showCheckbox = false, showOrder = false, showActions = true, logViewFn, testIdPrefix = "row-spr", alwaysIncompleteEdit = false, nahratieView = false, showRerouteCheckbox = false, rowClickIsView = false, onPartnerDocsClick, centralAcceptOpts } = opts;
     const contractTypeLabel: Record<string, string> = {
       Nova: "Nová", Prestupova: "Prestupová", Zmenova: "Zmenová", Dodatok: "Dodatok"
     };
@@ -3711,6 +3735,8 @@ export default function Contracts() {
                 : "";
               const handleRowClick = logViewFn
                 ? () => logViewFn(contract)
+                : onPartnerDocsClick
+                ? () => onPartnerDocsClick(contract)
                 : centralAcceptOpts
                 ? () => centralAcceptOpts.onToggle(contract.id)
                 : rowClickIsView
@@ -6649,6 +6675,174 @@ export default function Contracts() {
     );
   })();
 
+  const phase5DocDialog = (() => {
+    const c = phase5DocContract;
+    if (!c) return null;
+    const docs = getProductPartnerDocsForContract(c);
+    const partnerName = partners?.find(p => p.id === c.partnerId)?.name || "—";
+    const productName = getProductName(c);
+    const allRequiredChecked = docs.required.length === 0 || docs.required.every((_: string, idx: number) => phase5DocCheckedReq.has(idx));
+    const totalOptCount = docs.optional.length + phase5DocExtraOpt.length;
+    const confirmDocs = () => {
+      setPhase5DocSavedState(prev => ({
+        ...prev,
+        [c.id]: {
+          req: Array.from(phase5DocCheckedReq),
+          opt: Array.from(phase5DocCheckedOpt),
+          extra: phase5DocExtraOpt,
+          checkedExtra: Array.from(phase5DocCheckedExtra),
+        }
+      }));
+      setPhase5DocContract(null);
+    };
+    const clearDocs = () => {
+      setPhase5DocSavedState(prev => { const next = { ...prev }; delete next[c.id]; return next; });
+      setPhase5DocContract(null);
+    };
+    const toggleReq = (idx: number) => setPhase5DocCheckedReq(prev => { const next = new Set(prev); if (next.has(idx)) next.delete(idx); else next.add(idx); return next; });
+    const toggleOpt = (idx: number) => setPhase5DocCheckedOpt(prev => { const next = new Set(prev); if (next.has(idx)) next.delete(idx); else next.add(idx); return next; });
+    const toggleExtra = (idx: number) => setPhase5DocCheckedExtra(prev => { const next = new Set(prev); if (next.has(idx)) next.delete(idx); else next.add(idx); return next; });
+    const focusNextRow = (e: React.KeyboardEvent) => {
+      const allRows = Array.from(document.querySelectorAll<HTMLElement>("[data-phase5doc-row]"));
+      const idx = allRows.indexOf(e.currentTarget as HTMLElement);
+      if (idx >= 0 && idx < allRows.length - 1) allRows[idx + 1].focus();
+      else document.querySelector<HTMLElement>("[data-phase5doc-confirm]")?.focus();
+    };
+    const handleRowKey = (e: React.KeyboardEvent, toggle: () => void) => {
+      if (e.key === "Enter" || e.key === "Backspace") { e.preventDefault(); toggle(); focusNextRow(e); }
+    };
+    const addExtraOpt = () => {
+      const name = phase5DocNewOpt.trim();
+      if (!name) return;
+      setPhase5DocExtraOpt(prev => {
+        const newIdx = prev.length;
+        setPhase5DocCheckedExtra(prevChecked => new Set([...prevChecked, newIdx]));
+        return [...prev, name];
+      });
+      setPhase5DocNewOpt("");
+    };
+    return (
+      <Dialog open={!!phase5DocContract} onOpenChange={(o) => { if (!o) setPhase5DocContract(null); }}>
+        <DialogContent size="sm" data-testid="dialog-phase5-doc-checklist">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheckDoubleIcon className="w-5 h-5 text-green-500" />
+              Dokumentácia prijatá centrálou
+            </DialogTitle>
+            <p className="text-xs mt-0.5">
+              <span className="text-muted-foreground">{partnerName}</span>
+              <span className="text-muted-foreground mx-1">—</span>
+              <span className="font-semibold text-foreground">{productName}</span>
+            </p>
+          </DialogHeader>
+          <div className="px-6 pb-2 space-y-3">
+            <div className="rounded-xl border border-red-400/30 bg-red-500/5 dark:bg-red-950/20 p-4 space-y-2">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-bold uppercase tracking-widest text-red-700 dark:text-red-400">Povinné dokumenty</span>
+                {docs.required.length > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-700 dark:text-red-400 font-semibold">
+                    {phase5DocCheckedReq.size}/{docs.required.length}
+                  </span>
+                )}
+              </div>
+              {docs.required.length > 0 ? (
+                <div className="rounded-lg border border-red-400/20 bg-background/60 divide-y divide-border overflow-hidden">
+                  {docs.required.map((doc: string, idx: number) => {
+                    const checked = phase5DocCheckedReq.has(idx);
+                    return (
+                      <div key={idx} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none transition-colors focus:outline-none focus:ring-1 focus:ring-primary/50 ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
+                        tabIndex={0} data-phase5doc-row
+                        onClick={() => toggleReq(idx)} onKeyDown={e => handleRowKey(e, () => toggleReq(idx))}
+                        data-testid={`row-phase5doc-req-${idx}`}>
+                        <Checkbox checked={checked} onCheckedChange={() => toggleReq(idx)} onClick={e => e.stopPropagation()} tabIndex={-1}
+                          className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600" data-testid={`checkbox-phase5doc-req-${idx}`} />
+                        <FileText className={`w-3.5 h-3.5 shrink-0 ${checked ? "text-green-400" : "text-muted-foreground"}`} />
+                        <span className="text-sm">{doc}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">Žiadne povinné dokumenty nie sú definované pre PRIJATÁ CENTRÁLOU.</p>
+              )}
+              {docs.required.length > 0 && !allRequiredChecked && (
+                <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 pt-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  Zaškrtnite všetky povinné dokumenty pre pokračovanie.
+                </p>
+              )}
+            </div>
+            <div className="rounded-xl border border-blue-400/30 bg-blue-500/5 dark:bg-blue-950/20 p-4 space-y-2">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-bold uppercase tracking-widest text-blue-700 dark:text-blue-400">Nepovinné dokumenty</span>
+                {totalOptCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-700 dark:text-blue-400 font-semibold">
+                    {phase5DocCheckedOpt.size + phase5DocCheckedExtra.size}/{totalOptCount}
+                  </span>
+                )}
+              </div>
+              {docs.optional.length > 0 ? (
+                <div className="rounded-lg border border-blue-400/20 bg-background/60 divide-y divide-border overflow-hidden">
+                  {docs.optional.map((doc: string, idx: number) => {
+                    const checked = phase5DocCheckedOpt.has(idx);
+                    return (
+                      <div key={idx} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none transition-colors focus:outline-none focus:ring-1 focus:ring-primary/50 ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
+                        tabIndex={0} data-phase5doc-row
+                        onClick={() => toggleOpt(idx)} onKeyDown={e => handleRowKey(e, () => toggleOpt(idx))}
+                        data-testid={`row-phase5doc-opt-${idx}`}>
+                        <Checkbox checked={checked} onCheckedChange={() => toggleOpt(idx)} onClick={e => e.stopPropagation()} tabIndex={-1}
+                          className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600" data-testid={`checkbox-phase5doc-opt-${idx}`} />
+                        <FileText className={`w-3.5 h-3.5 shrink-0 ${checked ? "text-green-400" : "text-muted-foreground"}`} />
+                        <span className="text-sm">{doc}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">Žiadne nepovinné dokumenty.</p>
+              )}
+              {phase5DocExtraOpt.length > 0 && (
+                <div className="rounded-lg border border-blue-400/20 bg-background/60 divide-y divide-border overflow-hidden mt-1">
+                  {phase5DocExtraOpt.map((doc: string, idx: number) => {
+                    const checked = phase5DocCheckedExtra.has(idx);
+                    return (
+                      <div key={idx} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none transition-colors focus:outline-none focus:ring-1 focus:ring-primary/50 ${checked ? "bg-green-500/15" : "hover:bg-muted/40"}`}
+                        tabIndex={0} data-phase5doc-row
+                        onClick={() => toggleExtra(idx)} onKeyDown={e => handleRowKey(e, () => toggleExtra(idx))}
+                        data-testid={`row-phase5doc-extra-${idx}`}>
+                        <Checkbox checked={checked} onCheckedChange={() => toggleExtra(idx)} onClick={e => e.stopPropagation()} tabIndex={-1}
+                          className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600" data-testid={`checkbox-phase5doc-extra-${idx}`} />
+                        <FileText className={`w-3.5 h-3.5 shrink-0 ${checked ? "text-green-400" : "text-muted-foreground"}`} />
+                        <span className="text-sm">{doc}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="flex items-center gap-2 pt-1">
+                <Input
+                  placeholder="Pridať vlastný dokument..."
+                  value={phase5DocNewOpt}
+                  onChange={e => setPhase5DocNewOpt(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addExtraOpt(); } }}
+                  data-testid="input-phase5doc-new-opt"
+                  className="h-8 text-sm"
+                />
+                <Button size="sm" variant="outline" className="h-8 px-2" onClick={addExtraOpt} disabled={!phase5DocNewOpt.trim()} data-testid="button-phase5doc-add-opt">
+                  <Plus className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="px-6 pb-6 pt-2 flex-col gap-2 sm:flex-col">
+            <Button onClick={confirmDocs} disabled={!allRequiredChecked} data-testid="button-phase5doc-confirm" data-phase5doc-confirm className="w-full bg-green-600 hover:bg-green-500 text-white border-green-600 disabled:bg-green-600/50 disabled:border-green-600/50">Potvrdiť dokumentáciu centrály</Button>
+            <Button variant="outline" onClick={clearDocs} data-testid="button-phase5doc-clear" className="w-full border-red-400 text-red-600 dark:text-red-400 hover:bg-red-500/10">Zmazať zaškrtnuté položky</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  })();
+
   const preSelectDialog = (
     <Dialog open={preSelectOpen} onOpenChange={(open) => { if (!open) resetPreSelectDialog(); else setPreSelectOpen(true); }}>
       <DialogContent size="xl" onCloseAutoFocus={(e) => e.preventDefault()} data-testid="dialog-pre-select-contract">
@@ -9366,6 +9560,22 @@ export default function Contracts() {
                               testIdPrefix: "row-accepted",
                               nahratieView: true,
                               alwaysIncompleteEdit: true,
+                              onPartnerDocsClick: (contract) => {
+                                const saved = phase5DocSavedState[contract.id];
+                                if (saved) {
+                                  setPhase5DocCheckedReq(new Set(saved.req));
+                                  setPhase5DocCheckedOpt(new Set(saved.opt));
+                                  setPhase5DocExtraOpt(saved.extra);
+                                  setPhase5DocCheckedExtra(new Set(saved.checkedExtra));
+                                } else {
+                                  setPhase5DocCheckedReq(new Set());
+                                  setPhase5DocCheckedOpt(new Set());
+                                  setPhase5DocExtraOpt([]);
+                                  setPhase5DocCheckedExtra(new Set());
+                                }
+                                setPhase5DocNewOpt("");
+                                setPhase5DocContract(contract);
+                              },
                               centralAcceptOpts: {
                                 acceptedIds: centralAcceptedIds,
                                 onToggle: (id) => setCentralAcceptedIds(prev => {
@@ -10069,6 +10279,7 @@ export default function Contracts() {
         />
         {nahratieViewDialog}
         {docChecklistDialog}
+        {phase5DocDialog}
         {importDialog}
       </div>
     );
@@ -10337,6 +10548,7 @@ export default function Contracts() {
       />
       {nahratieViewDialog}
       {docChecklistDialog}
+      {phase5DocDialog}
       {importDialog}
 
       <Dialog open={bulkDateDialogOpen} onOpenChange={setBulkDateDialogOpen}>
