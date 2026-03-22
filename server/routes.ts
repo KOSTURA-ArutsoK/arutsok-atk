@@ -7,7 +7,7 @@ import { z } from "zod";
 import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory } from "@shared/schema";
 import type { DocEntry } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
-import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
+import { seedSubjectParameters, syncSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
 import { eq, and, or, isNull, isNotNull, sql, inArray, desc, asc, gte, lte, lt } from "drizzle-orm";
@@ -17283,6 +17283,17 @@ export async function registerRoutes(
       res.json({ message: "Seeded successfully", count: afterCount.length });
     } catch (err: any) {
       console.error("[SEED PARAMS ERROR]", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  app.post("/api/admin/sync-subject-parameters", isAuthenticated, async (req, res) => {
+    try {
+      const result = await syncSubjectParameters();
+      const afterCount = await storage.getSubjectParameters();
+      res.json({ message: "Sync hotový", added: result.parametersCount, total: afterCount.length });
+    } catch (err: any) {
+      console.error("[SYNC PARAMS ERROR]", err);
       res.status(500).json({ message: err?.message || "Internal error" });
     }
   });

@@ -22,11 +22,13 @@ function f(clientTypeId: number, sectionCode: string, panelCode: string, fieldKe
   };
 }
 
-export async function seedSubjectParameters(): Promise<{ sectionsCount: number; parametersCount: number; synonymsCount: number }> {
-  const existing = await db.select({ id: subjectParameters.id }).from(subjectParameters).limit(1);
-  if (existing.length > 0) {
-    console.log("[SEED] Subject parameters already exist, skipping seed.");
-    return { sectionsCount: 0, parametersCount: 0, synonymsCount: 0 };
+async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ sectionsCount: number; parametersCount: number; synonymsCount: number }> {
+  if (!onlyMissing) {
+    const existing = await db.select({ id: subjectParameters.id }).from(subjectParameters).limit(1);
+    if (existing.length > 0) {
+      console.log("[SEED] Subject parameters already exist, skipping seed.");
+      return { sectionsCount: 0, parametersCount: 0, synonymsCount: 0 };
+    }
   }
 
   const STATIC_SECTIONS = [
@@ -93,9 +95,21 @@ export async function seedSubjectParameters(): Promise<{ sectionsCount: number; 
   ];
 
   const sectionMap: Record<string, number> = {};
-  for (const sec of STATIC_SECTIONS) {
-    const [inserted] = await db.insert(subjectParamSections).values(sec as any).returning();
-    sectionMap[sec.code] = inserted.id;
+  if (onlyMissing) {
+    const existingSections = await db.select({ id: subjectParamSections.id, code: subjectParamSections.code }).from(subjectParamSections);
+    for (const s of existingSections) { sectionMap[s.code] = s.id; }
+    const existingCodes = new Set(existingSections.map(s => s.code));
+    for (const sec of STATIC_SECTIONS) {
+      if (!existingCodes.has(sec.code)) {
+        const [inserted] = await db.insert(subjectParamSections).values(sec as any).returning();
+        sectionMap[sec.code] = inserted.id;
+      }
+    }
+  } else {
+    for (const sec of STATIC_SECTIONS) {
+      const [inserted] = await db.insert(subjectParamSections).values(sec as any).returning();
+      sectionMap[sec.code] = inserted.id;
+    }
   }
 
   const parentCodes: Record<string, string> = {
@@ -665,7 +679,15 @@ export async function seedSubjectParameters(): Promise<{ sectionsCount: number; 
   const paramIdMap: Record<string, number> = {};
   const allInsertedParams: number[] = [];
 
+  let existingParamKeys: Set<string> = new Set();
+  if (onlyMissing) {
+    const existingParams = await db.select({ clientTypeId: subjectParameters.clientTypeId, fieldKey: subjectParameters.fieldKey }).from(subjectParameters);
+    existingParamKeys = new Set(existingParams.map(p => `${p.clientTypeId}:${p.fieldKey}`));
+  }
+
   for (const field of FIELDS) {
+    const mapKey = `${field.clientTypeId}:${field.fieldKey}`;
+    if (onlyMissing && existingParamKeys.has(mapKey)) continue;
     const sectionId = field.sectionCode ? sectionMap[field.sectionCode] : null;
     const panelId = field.panelCode ? sectionMap[field.panelCode] : null;
     const [inserted] = await db.insert(subjectParameters).values({
@@ -693,7 +715,6 @@ export async function seedSubjectParameters(): Promise<{ sectionsCount: number; 
       widthPercent: field.widthPercent,
     } as any).returning();
     allInsertedParams.push(inserted.id);
-    const mapKey = `${field.clientTypeId}:${field.fieldKey}`;
     paramIdMap[mapKey] = inserted.id;
   }
 
@@ -756,13 +777,21 @@ export async function seedSubjectParameters(): Promise<{ sectionsCount: number; 
     synonymsCount += batch.length;
   }
 
-  console.log(`[SEED] Created ${STATIC_SECTIONS.length} sections, ${allInsertedParams.length} parameters, ${synonymsCount} synonyms`);
+  console.log(`[SEED] Synced params=${allInsertedParams.length}, synonyms=${synonymsCount}`);
 
   return {
-    sectionsCount: STATIC_SECTIONS.length,
+    sectionsCount: onlyMissing ? Object.keys(sectionMap).length : STATIC_SECTIONS.length,
     parametersCount: allInsertedParams.length,
     synonymsCount,
   };
+}
+
+export async function seedSubjectParameters(): Promise<{ sectionsCount: number; parametersCount: number; synonymsCount: number }> {
+  return _runSubjectParameterSync(false);
+}
+
+export async function syncSubjectParameters(): Promise<{ sectionsCount: number; parametersCount: number; synonymsCount: number }> {
+  return _runSubjectParameterSync(true);
 }
 
 export async function seedAssetPanels(): Promise<{ sectionsCount: number; parametersCount: number }> {

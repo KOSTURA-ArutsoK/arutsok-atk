@@ -24,6 +24,7 @@ import {
   ThumbsDown,
   Lock,
   Shield,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -359,6 +360,21 @@ export default function KniznicaParametrov() {
     },
   });
 
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/sync-subject-parameters");
+      return res as { message: string; added: number; total: number };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subject-parameters"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subject-param-sections"] });
+      toast({ title: data.added > 0 ? `Synchronizácia hotová – pridaných ${data.added} parametrov` : "Synchronizácia hotová – nič nechýbalo" });
+    },
+    onError: (err: Error) => {
+      toast({ title: err.message || "Chyba pri synchronizácii", variant: "destructive" });
+    },
+  });
+
   const addTemplateParamMutation = useMutation({
     mutationFn: async (data: { templateId: number; parameterId: number; validFrom?: string; validTo?: string }) => {
       await apiRequest("POST", "/api/subject-template-params", data);
@@ -594,6 +610,16 @@ export default function KniznicaParametrov() {
                 Naplniť knižnicu (304 parametrov)
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              data-testid="button-sync-params"
+            >
+              {syncMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+              Synchronizovať chýbajúce parametre
+            </Button>
           </div>
 
           {isLoading ? (
