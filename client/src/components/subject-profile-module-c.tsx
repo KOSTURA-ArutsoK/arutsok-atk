@@ -595,6 +595,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   const ARCHIVE_TRIGGER_KEYS = useMemo(() => new Set([
     "priezvisko",
     "meno_organizacie",
+    "adresa",
     "addr_trvaly_ulica", "addr_trvaly_supisneCislo", "addr_trvaly_orientacneCislo",
     "addr_trvaly_obecMesto", "addr_trvaly_psc", "addr_trvaly_stat",
     "addr_prechodny_ulica", "addr_prechodny_supisneCislo", "addr_prechodny_orientacneCislo",
