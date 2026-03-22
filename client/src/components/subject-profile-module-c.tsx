@@ -31,7 +31,7 @@ import {
   Loader2, Pencil, Save, X, Shield,
   ShieldCheck, ListPlus, Eye, ArrowUp, ArrowDown, Settings2, MoreHorizontal,
   Check, User, Phone, Star, Brain, Zap, Link2, Archive, CreditCard, Users,
-  ChevronDown, ChevronRight, GripVertical, FolderOpen, ArrowRightLeft,
+  ChevronDown, ChevronRight, GripVertical, FolderOpen, ArrowRight, ArrowRightLeft,
   AlertTriangle, Plus, Tag, TrendingUp, TrendingDown, Camera, Ban,
   Home, Briefcase, FileText, ThumbsUp, ThumbsDown, ExternalLink,
 } from "lucide-react";
