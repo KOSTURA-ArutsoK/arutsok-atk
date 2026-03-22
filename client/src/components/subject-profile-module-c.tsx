@@ -22,7 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogContent,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
@@ -576,11 +576,20 @@ function getHeatmapLabel(parameters: { fieldKey: string }[], fieldFreshness: Rec
   return null;
 }
 
+interface StatutarChange {
+  fieldKey: string;
+  label: string;
+  oldValue: string;
+  newValue: string;
+}
+
 export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editReason, setEditReason] = useState("");
   const [transferParam, setTransferParam] = useState<{ paramId: number; paramLabel: string; currentPanelId: number } | null>(null);
+  const [statutarConfirm, setStatutarConfirm] = useState<{ changes: StatutarChange[] } | null>(null);
+  const editOriginalValues = useRef<Record<string, string>>({});
 
   const clientTypeId = useMemo(() => {
     const ctId = (subject as any).clientTypeId;
@@ -1298,7 +1307,29 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => saveMutation.mutate()}
+                    onClick={() => {
+                      if (clientTypeId === 5 || clientTypeId === 6) {
+                        const STATUTAR_PREFIXES = ["statutar_meno_", "statutar_funkcia_", "statutar_rc_"];
+                        const changed: StatutarChange[] = [];
+                        for (const [key, newVal] of Object.entries(dynamicValues)) {
+                          if (!STATUTAR_PREFIXES.some(p => key.startsWith(p))) continue;
+                          const oldVal = editOriginalValues.current[key] || "";
+                          if ((newVal || "") !== oldVal) {
+                            changed.push({
+                              fieldKey: key,
+                              label: key.replace(/_/g, " "),
+                              oldValue: oldVal || "(prázdne)",
+                              newValue: newVal || "(prázdne)",
+                            });
+                          }
+                        }
+                        if (changed.length > 0) {
+                          setStatutarConfirm({ changes: changed });
+                          return;
+                        }
+                      }
+                      saveMutation.mutate();
+                    }}
                     disabled={saveMutation.isPending}
                     data-testid="btn-save-edit"
                   >
@@ -1310,7 +1341,10 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setIsEditing(true)}
+                  onClick={() => {
+                    editOriginalValues.current = { ...dynamicValues };
+                    setIsEditing(true);
+                  }}
                   title="Upraviť profil"
                   data-testid="btn-start-edit"
                 >
@@ -2350,6 +2384,49 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
           </Card>
         </div>
       )}
+
+      <AlertDialog open={!!statutarConfirm} onOpenChange={open => { if (!open) setStatutarConfirm(null); }}>
+        <AlertDialogContent className="border-red-500/30 bg-card max-w-lg" data-testid="dialog-statutar-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-400">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+              Zmena štatutárneho zástupcu
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              Mením údaje osoby s podpisovým právom. Táto akcia bude archivovaná. Naozaj chcete pokračovať?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {statutarConfirm && (
+            <div className="space-y-2 my-2">
+              {statutarConfirm.changes.map(ch => (
+                <div key={ch.fieldKey} className="rounded-md border border-border bg-muted/30 p-2.5 text-xs space-y-1" data-testid={`statutar-change-${ch.fieldKey}`}>
+                  <div className="font-semibold text-foreground capitalize">{ch.label}</div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-red-400 line-through font-mono">{ch.oldValue}</span>
+                    <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0" />
+                    <span className="text-emerald-400 font-semibold font-mono">{ch.newValue}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setStatutarConfirm(null)} data-testid="btn-statutar-cancel">
+              Zrušiť
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => {
+                setStatutarConfirm(null);
+                saveMutation.mutate();
+              }}
+              data-testid="btn-statutar-confirm"
+            >
+              Potvrdiť zmenu
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={showCgnAlert} onOpenChange={setShowCgnAlert}>
         <AlertDialogContent className="border-orange-500/30 bg-card">
