@@ -3111,17 +3111,14 @@ export async function registerRoutes(
 
     const linkedSubjectIds = new Set<number>();
     if (activeCompanyId) {
-      const officerRows = await db
-        .select({ subjectId: companyOfficers.subjectId })
-        .from(companyOfficers)
-        .where(and(eq(companyOfficers.companyId, activeCompanyId), isNotNull(companyOfficers.subjectId)));
-      for (const r of officerRows) { if (r.subjectId) linkedSubjectIds.add(r.subjectId); }
-
-      const contractRows = await db
-        .select({ subjectId: contracts.subjectId })
-        .from(contracts)
-        .where(and(eq(contracts.companyId, activeCompanyId), isNotNull(contracts.subjectId)));
-      for (const r of contractRows) { if (r.subjectId) linkedSubjectIds.add(r.subjectId); }
+      const linkedRows = await db.execute(sql`
+        SELECT subject_id FROM company_officers
+          WHERE company_id = ${activeCompanyId} AND subject_id IS NOT NULL
+        UNION
+        SELECT subject_id FROM contracts
+          WHERE company_id = ${activeCompanyId} AND subject_id IS NOT NULL
+      `);
+      for (const r of linkedRows.rows) { if (r.subject_id) linkedSubjectIds.add(r.subject_id as number); }
     }
 
     allSubjects = allSubjects.map((s: any) => ({
