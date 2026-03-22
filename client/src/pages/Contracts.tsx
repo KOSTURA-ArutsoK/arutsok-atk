@@ -2288,10 +2288,10 @@ export default function Contracts() {
   const [docChecklistCheckedExtra, setDocChecklistCheckedExtra] = useState<Set<number>>(new Set());
   const [docChecklistNewOpt, setDocChecklistNewOpt] = useState("");
   const [docChecklistSavedState, setDocChecklistSavedState] = useState<Record<number, { req: number[], opt: number[], extra: string[], checkedExtra: number[] }>>(() => {
-    try { const r = sessionStorage.getItem("nahr_savedChecklist"); return r ? JSON.parse(r) : {}; } catch { return {}; }
+    try { const r = localStorage.getItem("nahr_savedChecklist"); return r ? JSON.parse(r) : {}; } catch { return {}; }
   });
   const [docChecklistPartialState, setDocChecklistPartialState] = useState<Record<number, { req: number[], opt: number[], extra: string[], checkedExtra: number[] }>>(() => {
-    try { const r = sessionStorage.getItem("nahr_partialChecklist"); return r ? JSON.parse(r) : {}; } catch { return {}; }
+    try { const r = localStorage.getItem("nahr_partialChecklist"); return r ? JSON.parse(r) : {}; } catch { return {}; }
   });
 
   const [filterStatusId, setFilterStatusId] = useState<string>("all");
@@ -2324,13 +2324,13 @@ export default function Contracts() {
   }, [searchString, location]);
 
   const [selectedIds, setSelectedIds] = useState<number[]>(() => {
-    try { const r = sessionStorage.getItem("nahr_savedChecklist"); return r ? Object.keys(JSON.parse(r)).map(Number) : []; } catch { return []; }
+    try { const r = localStorage.getItem("nahr_savedChecklist"); return r ? Object.keys(JSON.parse(r)).map(Number) : []; } catch { return []; }
   });
   const [sprievodkaDialogOpen, setSprievodkaDialogOpen] = useState(false);
   const [sprievodkaPrinted, setSprievodkaPrinted] = useState(false);
   const [rerouteSelectedIds, setRerouteSelectedIds] = useState<number[]>([]);
-  useEffect(() => { try { sessionStorage.setItem("nahr_savedChecklist", JSON.stringify(docChecklistSavedState)); } catch {} }, [docChecklistSavedState]);
-  useEffect(() => { try { sessionStorage.setItem("nahr_partialChecklist", JSON.stringify(docChecklistPartialState)); } catch {} }, [docChecklistPartialState]);
+  useEffect(() => { try { localStorage.setItem("nahr_savedChecklist", JSON.stringify(docChecklistSavedState)); } catch {} }, [docChecklistSavedState]);
+  useEffect(() => { try { localStorage.setItem("nahr_partialChecklist", JSON.stringify(docChecklistPartialState)); } catch {} }, [docChecklistPartialState]);
   const [rerouteDialogOpen, setRerouteDialogOpen] = useState(false);
   const [rerouteSource, setRerouteSource] = useState<"neprijate" | "archiv" | "spracovanie" | null>(null);
 
