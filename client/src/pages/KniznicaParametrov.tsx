@@ -509,17 +509,37 @@ export default function KniznicaParametrov() {
     },
   });
 
-  const filteredParams = parameters.filter(p => {
-    if (selectedClientType !== "all" && p.clientTypeId !== Number(selectedClientType)) return false;
-    if (debouncedSearchQuery) {
-      const q = debouncedSearchQuery.toLowerCase();
-      const matchesDirect = p.label.toLowerCase().includes(q) || p.fieldKey.toLowerCase().includes(q) || (p.shortLabel || "").toLowerCase().includes(q);
-      if (matchesDirect) return true;
-      const paramSynonyms = synonymsByParamId[p.id] || [];
-      return paramSynonyms.some(syn => syn.includes(q));
-    }
-    return true;
-  });
+  const filteredParams = (() => {
+    const typeFiltered = parameters.filter(p =>
+      selectedClientType === "all" || p.clientTypeId === Number(selectedClientType)
+    );
+
+    if (!debouncedSearchQuery) return typeFiltered;
+
+    const q = debouncedSearchQuery.toLowerCase();
+
+    const scored = typeFiltered.flatMap(p => {
+      const label = p.label.toLowerCase();
+      const key = p.fieldKey.toLowerCase();
+      const short = (p.shortLabel || "").toLowerCase();
+      const syns = synonymsByParamId[p.id] || [];
+
+      let score = -1;
+      if (label === q || key === q || short === q) score = 0;
+      else if (label.startsWith(q) || key.startsWith(q) || short.startsWith(q)) score = 1;
+      else if (label.includes(q) || key.includes(q) || short.includes(q)) score = 2;
+      else if (syns.some(s => s === q)) score = 3;
+      else if (syns.some(s => s.startsWith(q))) score = 4;
+      else if (syns.some(s => s.includes(q))) score = 5;
+
+      if (score === -1) return [];
+      return [{ p, score }];
+    });
+
+    return scored
+      .sort((a, b) => a.score !== b.score ? a.score - b.score : (a.p.sortOrder || 0) - (b.p.sortOrder || 0))
+      .map(({ p }) => p);
+  })();
 
   const isDeletePending = deleteParamMutation.isPending || deleteSectionMutation.isPending || deleteTemplateMutation.isPending || unknownDeleteMutation.isPending;
 
