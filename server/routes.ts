@@ -2456,18 +2456,20 @@ export async function registerRoutes(
       partnersList = await storage.getPartners(includeDeleted, stateId || undefined);
     }
     if (!partnersList.length) return res.json([]);
-    const [prodRes, partnerProdRes, contractRes] = await Promise.all([
+    const [prodRes, partnerProdRes, partnerContractRes, contractRes] = await Promise.all([
       db.execute(sql`SELECT partner_id::int, COUNT(*)::int AS cnt FROM products WHERE is_deleted = false AND partner_id IS NOT NULL GROUP BY partner_id`),
       db.execute(sql`SELECT partner_id::int, COUNT(*)::int AS cnt FROM partner_products WHERE partner_id IS NOT NULL GROUP BY partner_id`),
       db.execute(sql`SELECT partner_id::int, COUNT(*)::int AS cnt FROM partner_contracts WHERE partner_id IS NOT NULL GROUP BY partner_id`),
+      db.execute(sql`SELECT partner_id::int, COUNT(*)::int AS cnt FROM contracts WHERE is_deleted = false AND partner_id IS NOT NULL GROUP BY partner_id`),
     ]);
     const productCounts = new Map<number, number>(((prodRes as any).rows || []).map((r: any) => [r.partner_id, r.cnt]));
     const partnerProductCounts = new Map<number, number>(((partnerProdRes as any).rows || []).map((r: any) => [r.partner_id, r.cnt]));
+    const partnerContractCounts = new Map<number, number>(((partnerContractRes as any).rows || []).map((r: any) => [r.partner_id, r.cnt]));
     const contractCounts = new Map<number, number>(((contractRes as any).rows || []).map((r: any) => [r.partner_id, r.cnt]));
     res.json(partnersList.map(p => ({
       ...p,
       productsCount: (productCounts.get(p.id) ?? 0) + (partnerProductCounts.get(p.id) ?? 0),
-      contractsCount: contractCounts.get(p.id) ?? 0,
+      contractsCount: (partnerContractCounts.get(p.id) ?? 0) + (contractCounts.get(p.id) ?? 0),
     })));
   });
 
