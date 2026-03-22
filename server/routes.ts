@@ -2077,6 +2077,17 @@ export async function registerRoutes(
         if (existing) return res.status(200).json({ alreadyRegistered: true, subject: existing });
       }
 
+      const cleanBnForCheck = bnRaw.replace(/\//g, '').replace(/\s/g, '').trim();
+      const encryptedForCheck = encryptField(cleanBnForCheck);
+      const existingByBn = await db.select().from(subjects).where(eq(subjects.birthNumber, encryptedForCheck));
+      if (existingByBn.length > 0) {
+        const existing = existingByBn[0];
+        await storage.updateCompanyOfficer(officerId, { subjectId: existing.id } as any);
+        await linkSubjectToCompanyInNetwork(existing.id, officer.companyId);
+        await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: officerId, entityName: `${officer.firstName || ''} ${officer.lastName || ''}`.trim(), newData: { existingSubjectId: existing.id, existingUid: existing.uid } });
+        return res.status(200).json({ alreadyRegistered: false, linked: true, subject: existing });
+      }
+
       let stateCode = '421';
       if (req.appUser?.activeStateId) {
         const st = await storage.getState(req.appUser.activeStateId);
