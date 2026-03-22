@@ -3553,6 +3553,18 @@ export default function Contracts() {
     };
   }
 
+  function getProductCentralDocsForContract(contract: Contract): { required: string[]; optional: string[] } {
+    let product = products?.find((p: any) => p.id === contract.productId);
+    if (!product && contract.sectorProductId) {
+      const sp = allSectorProducts?.find((sp: any) => sp.id === contract.sectorProductId);
+      if (sp) product = products?.find((p: any) => p.id === (sp as any).productId);
+    }
+    return {
+      required: (product as any)?.requiredDocumentsReceived || [],
+      optional: (product as any)?.optionalDocumentsReceived || [],
+    };
+  }
+
   function getProductPartnerDocsForContract(contract: Contract): { required: string[]; optional: string[] } {
     let product = products?.find((p: any) => p.id === contract.productId);
     if (!product && contract.sectorProductId) {
@@ -6710,7 +6722,7 @@ export default function Contracts() {
   const phase5DocDialog = (() => {
     const c = phase5DocContract;
     if (!c) return null;
-    const docs = getProductPartnerDocsForContract(c);
+    const docs = getProductCentralDocsForContract(c);
     const partnerName = partners?.find(p => p.id === c.partnerId)?.name || "—";
     const productName = getProductName(c);
     const allRequiredChecked = docs.required.length === 0 || docs.required.every((_: string, idx: number) => phase5DocCheckedReq.has(idx));
