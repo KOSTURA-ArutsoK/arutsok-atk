@@ -1046,9 +1046,9 @@ export default function Products() {
                 {sortedProducts.map(product => (
                   <TableRow key={product.id} data-testid={`row-product-${product.id}`} onRowClick={() => handleEdit(product)}>
                     {columnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(product.partnerId)}</TableCell>}
-                    {columnVisibility.isVisible("name") && <TableCell className="font-medium">{product.name}</TableCell>}
-                    {columnVisibility.isVisible("code") && <TableCell className="font-mono text-xs">{product.code}</TableCell>}
-                    {columnVisibility.isVisible("displayName") && <TableCell className="text-sm text-muted-foreground">{product.displayName || "-"}</TableCell>}
+                    {columnVisibility.isVisible("name") && <TableCell className="text-sm">{product.name}</TableCell>}
+                    {columnVisibility.isVisible("code") && <TableCell className="text-sm">{product.code}</TableCell>}
+                    {columnVisibility.isVisible("displayName") && <TableCell className="text-sm">{product.displayName || "-"}</TableCell>}
                     {columnVisibility.isVisible("allowedSpecialists") && <TableCell>
                       <div className="flex items-center gap-1 flex-wrap">
                         {product.allowedSpecialists && product.allowedSpecialists.length > 0
