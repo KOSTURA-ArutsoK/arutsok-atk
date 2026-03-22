@@ -16412,8 +16412,11 @@ export async function registerRoutes(
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
-  app.post("/api/subject-parameters", isAuthenticated, async (req, res) => {
+  app.post("/api/subject-parameters", isAuthenticated, async (req: any, res) => {
     try {
+      if (!req.appUser || !["admin", "superadmin", "prezident", "architekt"].includes(req.appUser.role)) {
+        return res.status(403).json({ message: "Nedostatočné oprávnenia – iba administrátori môžu vytvárať parametre" });
+      }
       const { label, fieldType, clientTypeId } = req.body;
       if (!label || !fieldType || !clientTypeId) return res.status(400).json({ message: "label, fieldType, clientTypeId required" });
       const fieldKey = req.body.fieldKey || generateAutoCode(label, "f_");
