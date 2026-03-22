@@ -3108,12 +3108,29 @@ export async function registerRoutes(
 
     const allCompanies = await storage.getMyCompanies();
     const companyMap = new Map(allCompanies.map(c => [c.id, c.name]));
+
+    const linkedSubjectIds = new Set<number>();
+    if (activeCompanyId) {
+      const officerRows = await db
+        .select({ subjectId: companyOfficers.subjectId })
+        .from(companyOfficers)
+        .where(and(eq(companyOfficers.companyId, activeCompanyId), isNotNull(companyOfficers.subjectId)));
+      for (const r of officerRows) { if (r.subjectId) linkedSubjectIds.add(r.subjectId); }
+
+      const contractRows = await db
+        .select({ subjectId: contracts.subjectId })
+        .from(contracts)
+        .where(and(eq(contracts.companyId, activeCompanyId), isNotNull(contracts.subjectId)));
+      for (const r of contractRows) { if (r.subjectId) linkedSubjectIds.add(r.subjectId); }
+    }
+
     allSubjects = allSubjects.map((s: any) => ({
       ...s,
       myCompanyName: companyMap.get(s.myCompanyId) || null,
       companyName: s.type === 'person'
         ? null
         : (s.companyName || null),
+      isLinkedToActiveCompany: activeCompanyId ? linkedSubjectIds.has(s.id) : false,
     }));
 
     const statusFiltersRaw = req.query.statusFilters as string | undefined;
@@ -3160,7 +3177,7 @@ export async function registerRoutes(
   function getSubjectStatusCategory(subject: any, activeCompanyId?: number): string {
     if (subject.isDeceased) return "deceased";
     if (!subject.isActive) return "inactive";
-    if (activeCompanyId && subject.myCompanyId !== activeCompanyId) return "other_company";
+    if (activeCompanyId && subject.myCompanyId !== activeCompanyId && !subject.isLinkedToActiveCompany) return "other_company";
     if ((subject.contractCount ?? 0) === 0) return "no_contract";
     return "active";
   }

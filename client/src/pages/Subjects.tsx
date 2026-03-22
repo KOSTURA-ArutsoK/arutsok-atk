@@ -4143,7 +4143,7 @@ const STATUS_CONFIG: Record<SubjectStatusCategory, { color: string; bgColor: str
 function getSubjectStatusCategory(subject: any, activeCompanyId?: number): SubjectStatusCategory {
   if ((subject as any).isDeceased) return "deceased";
   if (!subject.isActive) return "inactive";
-  if (activeCompanyId && subject.myCompanyId !== activeCompanyId) return "other_company";
+  if (activeCompanyId && subject.myCompanyId !== activeCompanyId && !(subject as any).isLinkedToActiveCompany) return "other_company";
   if ((subject.contractCount ?? 0) === 0) return "no_contract";
   return "active";
 }
