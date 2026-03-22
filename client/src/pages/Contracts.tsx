@@ -3978,15 +3978,17 @@ export default function Contracts() {
                     )}
                   </td>
                   {showActions && (
-                    <td className="px-2 py-1.5 text-right" onClick={e => e.stopPropagation()}>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => (alwaysIncompleteEdit || isIncomplete) ? openIncompleteEdit(contract) : openEdit(contract)} data-testid={`button-edit-spr-${contract.id}`}>
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      {!rowClickIsView && (
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => nahratieView ? setNahratieViewContract(contract) : openView(contract)} data-testid={`button-view-spr-${contract.id}`}>
-                          <Eye className="w-3.5 h-3.5" />
+                    <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-0.5 flex-nowrap">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => (alwaysIncompleteEdit || isIncomplete) ? openIncompleteEdit(contract) : openEdit(contract)} data-testid={`button-edit-spr-${contract.id}`}>
+                          <Pencil className="w-3.5 h-3.5" />
                         </Button>
-                      )}
+                        {!rowClickIsView && (
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => nahratieView ? setNahratieViewContract(contract) : openView(contract)} data-testid={`button-view-spr-${contract.id}`}>
+                            <Eye className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
