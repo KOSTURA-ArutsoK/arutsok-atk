@@ -1783,28 +1783,44 @@ export async function registerRoutes(
           await linkSubjectToCompanyInNetwork(existing.id, companyId);
           await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: officer.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { existingSubjectId: existing.id, existingUid: existing.uid } });
         } else {
-          let stateCode = '421';
-          if (req.appUser?.activeStateId) {
-            const st = await storage.getState(req.appUser.activeStateId);
-            if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
+          // Fallback: check by first+last name (case-insensitive) to catch same person with different RC input
+          const byName = firstName && lastName
+            ? await db.select().from(subjects).where(and(
+                eq(subjects.type, 'person'),
+                sql`LOWER(${subjects.firstName}) = LOWER(${firstName})`,
+                sql`LOWER(${subjects.lastName}) = LOWER(${lastName})`
+              )).limit(1)
+            : [];
+          if (byName.length > 0) {
+            subject = byName[0];
+            const syncPatch: Record<string, any> = { subjectId: subject.id };
+            await storage.updateCompanyOfficer(officer.id, syncPatch as any);
+            await linkSubjectToCompanyInNetwork(subject.id, companyId);
+            await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: officer.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { existingSubjectId: subject.id, existingUid: subject.uid, note: 'matched_by_name' } });
+          } else {
+            let stateCode = '421';
+            if (req.appUser?.activeStateId) {
+              const st = await storage.getState(req.appUser.activeStateId);
+              if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
+            }
+            const uid = await storage.generateNextGlobalUid(stateCode);
+            const subjectData: any = {
+              uid,
+              type: 'person',
+              firstName: firstName || null,
+              lastName: lastName || null,
+              stateId: req.appUser?.activeStateId || null,
+              myCompanyId: companyId,
+              registeredByUserId: req.appUser?.id || null,
+              registrationStatus: 'klient',
+              birthNumber: encrypted,
+              details: { source: 'manual_statutory', officerId: officer.id, officerType: type },
+            };
+            subject = await storage.createSubject(subjectData);
+            await storage.updateCompanyOfficer(officer.id, { subjectId: subject.id } as any);
+            await linkSubjectToCompanyInNetwork(subject.id, companyId);
+            await logAudit(req, { action: "CREATE", module: "subjekty", entityId: subject.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { uid } });
           }
-          const uid = await storage.generateNextGlobalUid(stateCode);
-          const subjectData: any = {
-            uid,
-            type: 'person',
-            firstName: firstName || null,
-            lastName: lastName || null,
-            stateId: req.appUser?.activeStateId || null,
-            myCompanyId: companyId,
-            registeredByUserId: req.appUser?.id || null,
-            registrationStatus: 'klient',
-            birthNumber: encrypted,
-            details: { source: 'manual_statutory', officerId: officer.id, officerType: type },
-          };
-          subject = await storage.createSubject(subjectData);
-          await storage.updateCompanyOfficer(officer.id, { subjectId: subject.id } as any);
-          await linkSubjectToCompanyInNetwork(subject.id, companyId);
-          await logAudit(req, { action: "CREATE", module: "subjekty", entityId: subject.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { uid } });
         }
       }
 
@@ -2088,6 +2104,24 @@ export async function registerRoutes(
         return res.status(200).json({ alreadyRegistered: false, linked: true, subject: existing });
       }
 
+      // Fallback: check by first+last name to catch same person with different RC input
+      const firstName = officer.firstName || '';
+      const lastName = officer.lastName || '';
+      if (firstName && lastName) {
+        const byName = await db.select().from(subjects).where(and(
+          eq(subjects.type, 'person'),
+          sql`LOWER(${subjects.firstName}) = LOWER(${firstName})`,
+          sql`LOWER(${subjects.lastName}) = LOWER(${lastName})`
+        )).limit(1);
+        if (byName.length > 0) {
+          const existing = byName[0];
+          await storage.updateCompanyOfficer(officerId, { subjectId: existing.id } as any);
+          await linkSubjectToCompanyInNetwork(existing.id, officer.companyId);
+          await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: officerId, entityName: `${firstName} ${lastName}`.trim(), newData: { existingSubjectId: existing.id, existingUid: existing.uid, note: 'matched_by_name' } });
+          return res.status(200).json({ alreadyRegistered: false, linked: true, subject: existing });
+        }
+      }
+
       let stateCode = '421';
       if (req.appUser?.activeStateId) {
         const st = await storage.getState(req.appUser.activeStateId);
@@ -2095,8 +2129,6 @@ export async function registerRoutes(
       }
 
       const uid = await storage.generateNextGlobalUid(stateCode);
-      const firstName = officer.firstName || '';
-      const lastName = officer.lastName || '';
 
       const subjectData: any = {
         uid,
@@ -2244,23 +2276,38 @@ export async function registerRoutes(
         await linkSubjectToCompanyInNetwork(subject.id, companyId);
         await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: created.id, entityName: `${firstName} ${lastName}`, newData: { existingSubjectId: subject.id, existingUid: subject.uid } });
       } else {
-        const uid = await storage.generateNextGlobalUid(stateCode);
-        const subjectData: any = {
-          uid,
-          type: 'person',
-          firstName,
-          lastName,
-          stateId: req.appUser?.activeStateId || null,
-          myCompanyId: companyId,
-          registeredByUserId: req.appUser?.id || null,
-          registrationStatus: 'klient',
-          details: { source: 'registry_statutory', officerId: created.id, officerType: role },
-          birthNumber: encryptedReg,
-        };
-        subject = await storage.createSubject(subjectData);
-        await storage.updateCompanyOfficer(created.id, { subjectId: subject.id } as any);
-        await linkSubjectToCompanyInNetwork(subject.id, companyId);
-        await logAudit(req, { action: "CREATE", module: "subjekty", entityId: subject.id, entityName: `${firstName} ${lastName} (Štatutár z registra – UID ${uid})`, newData: { uid, officerId: created.id, role } });
+        // Fallback: check by first+last name to catch same person with different RC input
+        const byName = firstName && lastName
+          ? await db.select().from(subjects).where(and(
+              eq(subjects.type, 'person'),
+              sql`LOWER(${subjects.firstName}) = LOWER(${firstName})`,
+              sql`LOWER(${subjects.lastName}) = LOWER(${lastName})`
+            )).limit(1)
+          : [];
+        if (byName.length > 0) {
+          subject = byName[0];
+          await db.update(companyOfficers).set({ subjectId: subject.id } as any).where(eq(companyOfficers.id, created.id));
+          await linkSubjectToCompanyInNetwork(subject.id, companyId);
+          await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: created.id, entityName: `${firstName} ${lastName}`, newData: { existingSubjectId: subject.id, existingUid: subject.uid, note: 'matched_by_name' } });
+        } else {
+          const uid = await storage.generateNextGlobalUid(stateCode);
+          const subjectData: any = {
+            uid,
+            type: 'person',
+            firstName,
+            lastName,
+            stateId: req.appUser?.activeStateId || null,
+            myCompanyId: companyId,
+            registeredByUserId: req.appUser?.id || null,
+            registrationStatus: 'klient',
+            details: { source: 'registry_statutory', officerId: created.id, officerType: role },
+            birthNumber: encryptedReg,
+          };
+          subject = await storage.createSubject(subjectData);
+          await storage.updateCompanyOfficer(created.id, { subjectId: subject.id } as any);
+          await linkSubjectToCompanyInNetwork(subject.id, companyId);
+          await logAudit(req, { action: "CREATE", module: "subjekty", entityId: subject.id, entityName: `${firstName} ${lastName} (Štatutár z registra – UID ${uid})`, newData: { uid, officerId: created.id, role } });
+        }
       }
 
       res.status(201).json({ officer: { ...created, subjectId: subject.id }, subject });
