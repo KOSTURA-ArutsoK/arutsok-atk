@@ -132,6 +132,7 @@ const zoznamZmluvChildren = [
 ];
 
 const zmluvySubItems = [
+  { href: "/contracts", icon: FileStack, label: "Všetky zmluvy", tooltip: "Prehľad všetkých zmlúv v systéme", roles: ["user", "agent", "admin", "superadmin", "prezident", "architekt"] },
   { href: "/contracts?view=moje", icon: Users, label: "Moje zmluvy", tooltip: "Zmluvy, kde ste poistencom alebo vlastníkom", roles: ["user", "agent", "admin", "superadmin", "prezident", "architekt"] },
   { href: "/contracts?view=portfolio", icon: Briefcase, label: "Klientske portfólio", tooltip: "Zoznam klientov a zmlúv, ktoré spravujete", roles: ["agent", "admin", "superadmin", "prezident", "architekt"] },
   { href: "/contracts?view=dokumentacia", icon: FileSignature, label: "Zmluvná dokumentácia", tooltip: "Zmluvy a dokumenty podpísané so spoločnosťou", roles: ["agent", "admin", "superadmin", "prezident", "architekt"] },
@@ -452,11 +453,11 @@ export function AppSidebar() {
   });
   const isZmluvyOpen = openMenuId === "zmluvy";
   const zmluvyInitialSub = (spracovanieZmluvChildren.some(i => i.href === location) || location === "/digitalne-zmluvy") ? "spracovanie"
-    : (location === "/contracts") ? "zoznam"
+    : (location === "/contracts") ? "zoznam-zmluv"
     : protokolyChildren.some(i => i.href === location) ? "protokoly"
     : importItems.some(i => i.href === location) ? "import"
     : nastaveniaSablonChildren.some(i => i.href === location) ? "sablony"
-    : location === "/contracts" ? "zoznam-zmluv" : null;
+    : null;
   const [zmluvySubId, setZmluvySubId] = useState<string | null>(zmluvyInitialSub);
 
   const userRole = appUser?.role || "user";
