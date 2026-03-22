@@ -2538,7 +2538,7 @@ export default function Companies() {
     return (
       <TableRow key={company.id} data-testid={`row-company-${company.id}`} onRowClick={() => openEdit(company)} className="border-l-[3px] border-l-border/40 bg-background hover:bg-muted/30">
         {columnVisibility.isVisible("name") && (
-          <TableCell className="pl-7">
+          <TableCell className="pl-7 text-sm">
             <div className="flex items-center gap-2.5">
               {logo?.url ? (
                 <div className="w-7 h-7 rounded border border-border bg-background flex-shrink-0 overflow-hidden flex items-center justify-center">
@@ -2553,10 +2553,10 @@ export default function Companies() {
             </div>
           </TableCell>
         )}
-        {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs whitespace-nowrap">{company.uid ? formatUid(company.uid) : "-"}</TableCell>}
-        {columnVisibility.isVisible("ico") && <TableCell className="font-mono text-xs">{company.ico || "-"}</TableCell>}
-        {columnVisibility.isVisible("city") && <TableCell>{company.city || "-"}</TableCell>}
-        {columnVisibility.isVisible("state") && <TableCell className="text-muted-foreground text-xs">{getStateName(company.stateId)}</TableCell>}
+        {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-sm whitespace-nowrap">{company.uid ? formatUid(company.uid) : "-"}</TableCell>}
+        {columnVisibility.isVisible("ico") && <TableCell className="font-mono text-sm">{company.ico || "-"}</TableCell>}
+        {columnVisibility.isVisible("city") && <TableCell className="text-sm">{company.city || "-"}</TableCell>}
+        {columnVisibility.isVisible("state") && <TableCell className="text-muted-foreground text-sm">{getStateName(company.stateId)}</TableCell>}
         <TableCell>
           <div className="flex items-center gap-1">
             <Button type="button" size="icon" variant="ghost" onClick={() => setViewTarget(company)} data-testid={`button-view-${company.id}`}><Eye className="w-4 h-4" /></Button>
