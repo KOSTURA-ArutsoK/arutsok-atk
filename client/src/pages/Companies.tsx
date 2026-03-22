@@ -169,8 +169,8 @@ const COMPANY_COLUMNS: ColumnDef[] = [
   { key: "name", label: "Názov" },
   { key: "uid", label: "UID" },
   { key: "ico", label: "IČO" },
-  { key: "city", label: "Mesto" },
-  { key: "state", label: "Štát" },
+  { key: "subjectType", label: "Typ subjektu" },
+  { key: "foundedDate", label: "Dátum založenia" },
 ];
 
 const COMPANY_FILTER_COLUMNS: SmartColumnDef[] = [
@@ -2555,8 +2555,8 @@ export default function Companies() {
         )}
         {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-sm whitespace-nowrap">{company.uid ? formatUid(company.uid) : "-"}</TableCell>}
         {columnVisibility.isVisible("ico") && <TableCell className="font-mono text-sm">{company.ico || "-"}</TableCell>}
-        {columnVisibility.isVisible("city") && <TableCell className="text-sm">{company.city || "-"}</TableCell>}
-        {columnVisibility.isVisible("state") && <TableCell className="text-muted-foreground text-sm">{getStateName(company.stateId)}</TableCell>}
+        {columnVisibility.isVisible("subjectType") && <TableCell className="text-sm">{(company as any).subjectType || "-"}</TableCell>}
+        {columnVisibility.isVisible("foundedDate") && <TableCell className="text-sm">{(company as any).foundedDate ? new Date((company as any).foundedDate).toLocaleDateString("sk-SK") : "-"}</TableCell>}
         <TableCell>
           <div className="flex items-center gap-1">
             <Button type="button" size="icon" variant="ghost" onClick={() => setViewTarget(company)} data-testid={`button-view-${company.id}`}><Eye className="w-4 h-4" /></Button>
