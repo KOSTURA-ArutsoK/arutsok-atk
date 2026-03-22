@@ -3584,6 +3584,11 @@ export async function registerRoutes(
           return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je rezervované pre vzorovú FO a nemôže byť pridelené inému subjektu.` });
         }
       }
+      // Block changing the UID of the sample FO away from its reserved value
+      if (original.uid === SAMPLE_FO_UID && input.uid && input.uid !== SAMPLE_FO_UID) {
+        return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je rezervované – vzorová FO nemôže zmeniť svoje UID.` });
+      }
+      // Block type change on the sample FO subject
       if (original.uid === SAMPLE_FO_UID && (input as any).type && (input as any).type !== "person") {
         return res.status(400).json({ message: `Vzorová FO s UID ${SAMPLE_FO_UID} nemôže zmeniť typ subjektu.` });
       }

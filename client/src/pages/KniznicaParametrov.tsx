@@ -408,7 +408,7 @@ export default function KniznicaParametrov() {
       toast({ title: "Návrh odoslaný", description: "Váš návrh parametra bol odoslaný administrátorom na schválenie." });
       setIsProposeDialogOpen(false);
       setProposeLabel("");
-      setProposeFieldType("text");
+      setProposeFieldType("short_text");
       setProposeReason("");
     },
     onError: (err: Error) => {
