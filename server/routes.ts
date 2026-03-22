@@ -1826,12 +1826,15 @@ export async function registerRoutes(
     try {
       const companyId = Number(req.params.companyId);
       if (isNaN(companyId)) return res.status(400).json({ message: "Neplatné ID firmy" });
-      const { type, titleBefore, firstName, lastName, titleAfter, city, birthNumber: bnRaw } = req.body;
+      const { type, titleBefore, firstName, lastName, titleAfter, city, birthNumber: bnRaw, ownerCompanyName: rawOwnerCompanyName, entityType } = req.body;
       if (!type) return res.status(400).json({ message: "Typ štatutára je povinný" });
 
-      // Validácia RČ ešte PRED vytvorením záznamu
+      const isPO = entityType === 'po' || (rawOwnerCompanyName && rawOwnerCompanyName.trim());
+      const ownerCompanyName = rawOwnerCompanyName?.trim() || null;
+
+      // Validácia RČ ešte PRED vytvorením záznamu (len pre FO)
       let cleanBnPre: string | null = null;
-      if (bnRaw && typeof bnRaw === 'string' && bnRaw.trim()) {
+      if (!isPO && bnRaw && typeof bnRaw === 'string' && bnRaw.trim()) {
         cleanBnPre = bnRaw.replace(/\//g, '').replace(/\s/g, '').trim();
         const rcCheck = validateRC(cleanBnPre);
         if (!rcCheck.valid) return res.status(400).json({ message: rcCheck.error });
@@ -1840,17 +1843,42 @@ export async function registerRoutes(
       const officer = await storage.createCompanyOfficer({
         companyId,
         type,
-        titleBefore: titleBefore || null,
-        firstName: firstName || null,
-        lastName: lastName || null,
-        titleAfter: titleAfter || null,
+        titleBefore: isPO ? null : (titleBefore || null),
+        firstName: isPO ? null : (firstName || null),
+        lastName: isPO ? null : (lastName || null),
+        titleAfter: isPO ? null : (titleAfter || null),
+        ownerCompanyName: isPO ? ownerCompanyName : null,
         city: city || null,
         isActive: true,
       });
-      await logAudit(req, { action: "CREATE", module: "spolocnosti", entityId: officer.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type });
+      await logAudit(req, { action: "CREATE", module: "spolocnosti", entityId: officer.id, entityName: isPO ? (ownerCompanyName || type) : (`${firstName || ""} ${lastName || ""}`.trim() || type) });
 
       let subject = null;
-      if (cleanBnPre) {
+
+      if (isPO && ownerCompanyName) {
+        // PO — právnická osoba / spoločnosť ako štatutár
+        let stateCode = '421';
+        if (req.appUser?.activeStateId) {
+          const st = await storage.getState(req.appUser.activeStateId);
+          if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
+        }
+        const uid = await storage.generateNextGlobalUid(stateCode);
+        const resolvedStateIdPO = await resolveSubjectStateId(req, companyId);
+        const subjectDataPO: any = {
+          uid,
+          type: 'company',
+          companyName: ownerCompanyName,
+          stateId: resolvedStateIdPO,
+          myCompanyId: companyId,
+          registeredByUserId: req.appUser?.id || null,
+          registrationStatus: 'klient',
+          details: { source: 'manual_statutory', officerId: officer.id, officerType: type },
+        };
+        subject = await storage.createSubject(subjectDataPO);
+        await storage.updateCompanyOfficer(officer.id, { subjectId: subject.id } as any);
+        await linkSubjectToCompanyInNetwork(subject.id, companyId);
+        await logAudit(req, { action: "CREATE", module: "subjekty", entityId: subject.id, entityName: ownerCompanyName, newData: { uid } });
+      } else if (cleanBnPre) {
         const cleanBn = cleanBnPre;
         // Vyhľadanie existujúceho subjektu cez dekryptovanie (SQL porovnanie nefunguje – náhodný IV)
         const existing = await findSubjectByBirthNumber(cleanBn);
