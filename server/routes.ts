@@ -68,6 +68,69 @@ async function getOrCreateCompanySubject(companyId: number): Promise<{ id: numbe
   return created || null;
 }
 
+// ── Validácia slovenského rodného čísla ───────────────────────────────────
+// 9 číslic → osoby narodené pred 1.1.1954 (bez kontroly mod 11)
+// 10 číslic → osoby narodené od 1.1.1954 vrátane (s kontrolou deliteľnosti 11)
+function validateRC(rc: string): { valid: boolean; error?: string } {
+  const clean = rc.replace(/\//g, '').replace(/\s/g, '').trim();
+  if (!/^\d{9,10}$/.test(clean)) {
+    return { valid: false, error: "Rodné číslo musí obsahovať 9 alebo 10 číslic (bez medzier a lomky)" };
+  }
+  const yy = parseInt(clean.substring(0, 2), 10);
+  const mmRaw = parseInt(clean.substring(2, 4), 10);
+  const dd = parseInt(clean.substring(4, 6), 10);
+
+  // Normalizácia mesiaca – ženy +50, alternatívne série +20/+70
+  let mmNorm = mmRaw;
+  if (mmRaw >= 71 && mmRaw <= 82) mmNorm = mmRaw - 70;
+  else if (mmRaw >= 51 && mmRaw <= 62) mmNorm = mmRaw - 50;
+  else if (mmRaw >= 21 && mmRaw <= 32) mmNorm = mmRaw - 20;
+  else if (mmRaw >= 1 && mmRaw <= 12) mmNorm = mmRaw;
+  else return { valid: false, error: "Rodné číslo obsahuje neplatný mesiac" };
+
+  if (dd < 1 || dd > 31) {
+    return { valid: false, error: "Rodné číslo obsahuje neplatný deň" };
+  }
+
+  let year: number;
+  if (clean.length === 9) {
+    year = 1900 + yy;
+    if (year >= 1954) {
+      return { valid: false, error: "9-ciferné rodné číslo je platné len pre osoby narodené pred rokom 1954" };
+    }
+  } else {
+    year = yy >= 54 ? 1900 + yy : 2000 + yy;
+    // Kontrola deliteľnosti 11 (s výnimkou: niektoré staré RČ majú zvyšok 10 → posledná cifra 0)
+    const num = parseInt(clean, 10);
+    if (num % 11 !== 0) {
+      return { valid: false, error: "Rodné číslo má nesprávny kontrolný súčet — skontrolujte, či ste zadali číslo správne" };
+    }
+  }
+
+  // Overenie platnosti dátumu
+  const testDate = new Date(year, mmNorm - 1, dd);
+  if (testDate.getFullYear() !== year || testDate.getMonth() !== mmNorm - 1 || testDate.getDate() !== dd) {
+    return { valid: false, error: "Rodné číslo obsahuje neplatný dátum narodenia" };
+  }
+
+  return { valid: true };
+}
+
+// ── Vyhľadanie subjektu podľa RČ cez dekryptovanie ───────────────────────
+// SQL porovnanie šifrovaných hodnôt NEFUNGUJE (náhodný IV → iný ciphertext pre rovnaký plaintext).
+// Načítame všetky subjekty s RČ a porovnávame dekryptované hodnoty v aplikácii.
+async function findSubjectByBirthNumber(cleanBn: string): Promise<typeof subjects.$inferSelect | null> {
+  const allWithBn = await db.select().from(subjects).where(sql`${subjects.birthNumber} IS NOT NULL`);
+  for (const s of allWithBn) {
+    if (!s.birthNumber) continue;
+    const decrypted = decryptField(s.birthNumber);
+    if (decrypted && decrypted.replace(/\//g, '').replace(/\s/g, '').trim() === cleanBn) {
+      return s;
+    }
+  }
+  return null;
+}
+
 async function linkSubjectToCompanyInNetwork(officerSubjectId: number, activeCompanyId: number | null) {
   if (!activeCompanyId) return;
 
@@ -1746,6 +1809,15 @@ export async function registerRoutes(
       if (isNaN(companyId)) return res.status(400).json({ message: "Neplatné ID firmy" });
       const { type, titleBefore, firstName, lastName, titleAfter, city, birthNumber: bnRaw } = req.body;
       if (!type) return res.status(400).json({ message: "Typ štatutára je povinný" });
+
+      // Validácia RČ ešte PRED vytvorením záznamu
+      let cleanBnPre: string | null = null;
+      if (bnRaw && typeof bnRaw === 'string' && bnRaw.trim()) {
+        cleanBnPre = bnRaw.replace(/\//g, '').replace(/\s/g, '').trim();
+        const rcCheck = validateRC(cleanBnPre);
+        if (!rcCheck.valid) return res.status(400).json({ message: rcCheck.error });
+      }
+
       const officer = await storage.createCompanyOfficer({
         companyId,
         type,
@@ -1759,15 +1831,12 @@ export async function registerRoutes(
       await logAudit(req, { action: "CREATE", module: "spolocnosti", entityId: officer.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type });
 
       let subject = null;
-      if (bnRaw && typeof bnRaw === 'string' && bnRaw.trim()) {
-        const cleanBn = bnRaw.replace(/\//g, '').replace(/\s/g, '').trim();
-        const encrypted = encryptField(cleanBn);
-        // Look for existing subject with same birth number to prevent duplicates
-        const allWithBn = await db.select().from(subjects).where(eq(subjects.birthNumber, encrypted));
-        const existing = allWithBn[0] || null;
+      if (cleanBnPre) {
+        const cleanBn = cleanBnPre;
+        // Vyhľadanie existujúceho subjektu cez dekryptovanie (SQL porovnanie nefunguje – náhodný IV)
+        const existing = await findSubjectByBirthNumber(cleanBn);
         if (existing) {
           subject = existing;
-          // Sync subject's data into the officer record
           const officerSyncFromSubject: Record<string, any> = { subjectId: existing.id };
           if (existing.firstName) officerSyncFromSubject.firstName = existing.firstName;
           if (existing.lastName) officerSyncFromSubject.lastName = existing.lastName;
@@ -1783,44 +1852,28 @@ export async function registerRoutes(
           await linkSubjectToCompanyInNetwork(existing.id, companyId);
           await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: officer.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { existingSubjectId: existing.id, existingUid: existing.uid } });
         } else {
-          // Fallback: check by first+last name (case-insensitive) to catch same person with different RC input
-          const byName = firstName && lastName
-            ? await db.select().from(subjects).where(and(
-                eq(subjects.type, 'person'),
-                sql`LOWER(${subjects.firstName}) = LOWER(${firstName})`,
-                sql`LOWER(${subjects.lastName}) = LOWER(${lastName})`
-              )).limit(1)
-            : [];
-          if (byName.length > 0) {
-            subject = byName[0];
-            const syncPatch: Record<string, any> = { subjectId: subject.id };
-            await storage.updateCompanyOfficer(officer.id, syncPatch as any);
-            await linkSubjectToCompanyInNetwork(subject.id, companyId);
-            await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: officer.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { existingSubjectId: subject.id, existingUid: subject.uid, note: 'matched_by_name' } });
-          } else {
-            let stateCode = '421';
-            if (req.appUser?.activeStateId) {
-              const st = await storage.getState(req.appUser.activeStateId);
-              if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
-            }
-            const uid = await storage.generateNextGlobalUid(stateCode);
-            const subjectData: any = {
-              uid,
-              type: 'person',
-              firstName: firstName || null,
-              lastName: lastName || null,
-              stateId: req.appUser?.activeStateId || null,
-              myCompanyId: companyId,
-              registeredByUserId: req.appUser?.id || null,
-              registrationStatus: 'klient',
-              birthNumber: encrypted,
-              details: { source: 'manual_statutory', officerId: officer.id, officerType: type },
-            };
-            subject = await storage.createSubject(subjectData);
-            await storage.updateCompanyOfficer(officer.id, { subjectId: subject.id } as any);
-            await linkSubjectToCompanyInNetwork(subject.id, companyId);
-            await logAudit(req, { action: "CREATE", module: "subjekty", entityId: subject.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { uid } });
+          let stateCode = '421';
+          if (req.appUser?.activeStateId) {
+            const st = await storage.getState(req.appUser.activeStateId);
+            if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
           }
+          const uid = await storage.generateNextGlobalUid(stateCode);
+          const subjectData: any = {
+            uid,
+            type: 'person',
+            firstName: firstName || null,
+            lastName: lastName || null,
+            stateId: req.appUser?.activeStateId || null,
+            myCompanyId: companyId,
+            registeredByUserId: req.appUser?.id || null,
+            registrationStatus: 'klient',
+            birthNumber: encryptField(cleanBn),
+            details: { source: 'manual_statutory', officerId: officer.id, officerType: type },
+          };
+          subject = await storage.createSubject(subjectData);
+          await storage.updateCompanyOfficer(officer.id, { subjectId: subject.id } as any);
+          await linkSubjectToCompanyInNetwork(subject.id, companyId);
+          await logAudit(req, { action: "CREATE", module: "subjekty", entityId: subject.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { uid } });
         }
       }
 
@@ -1873,6 +1926,11 @@ export async function registerRoutes(
       if (typeof bnRaw === 'string') {
         const cleanBn = bnRaw.replace(/\//g, '').replace(/\s/g, '').trim();
         if (cleanBn) {
+          // Validácia formátu RČ
+          const rcCheckPut = validateRC(cleanBn);
+          if (!rcCheckPut.valid) {
+            return res.status(400).json({ message: rcCheckPut.error });
+          }
           const encrypted = encryptField(cleanBn);
           if (updated.subjectId) {
             const [subjectForRc] = await db.select().from(subjects).where(eq(subjects.id, updated.subjectId));
@@ -1892,8 +1950,9 @@ export async function registerRoutes(
               });
             }
           } else {
-            // First check if subject with this birth number already exists
-            const existingWithBn = await db.select().from(subjects).where(eq(subjects.birthNumber, encrypted));
+            // Vyhľadanie existujúceho subjektu cez dekryptovanie (SQL porovnanie nefunguje – náhodný IV)
+            const existingWithBnFound = await findSubjectByBirthNumber(cleanBn);
+            const existingWithBn = existingWithBnFound ? [existingWithBnFound] : [];
             let newSubject: any;
             if (existingWithBn.length > 0) {
               newSubject = existingWithBn[0];
@@ -2094,33 +2153,23 @@ export async function registerRoutes(
       }
 
       const cleanBnForCheck = bnRaw.replace(/\//g, '').replace(/\s/g, '').trim();
-      const encryptedForCheck = encryptField(cleanBnForCheck);
-      const existingByBn = await db.select().from(subjects).where(eq(subjects.birthNumber, encryptedForCheck));
-      if (existingByBn.length > 0) {
-        const existing = existingByBn[0];
-        await storage.updateCompanyOfficer(officerId, { subjectId: existing.id } as any);
-        await linkSubjectToCompanyInNetwork(existing.id, officer.companyId);
-        await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: officerId, entityName: `${officer.firstName || ''} ${officer.lastName || ''}`.trim(), newData: { existingSubjectId: existing.id, existingUid: existing.uid } });
-        return res.status(200).json({ alreadyRegistered: false, linked: true, subject: existing });
+      // Validácia formátu RČ
+      const rcValidation = validateRC(cleanBnForCheck);
+      if (!rcValidation.valid) {
+        return res.status(400).json({ message: rcValidation.error });
       }
 
-      // Fallback: check by first+last name to catch same person with different RC input
+      // Vyhľadanie existujúceho subjektu cez dekryptovanie (SQL porovnanie nefunguje – náhodný IV)
+      const existingByBn = await findSubjectByBirthNumber(cleanBnForCheck);
+      if (existingByBn) {
+        await storage.updateCompanyOfficer(officerId, { subjectId: existingByBn.id } as any);
+        await linkSubjectToCompanyInNetwork(existingByBn.id, officer.companyId);
+        await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: officerId, entityName: `${officer.firstName || ''} ${officer.lastName || ''}`.trim(), newData: { existingSubjectId: existingByBn.id, existingUid: existingByBn.uid } });
+        return res.status(200).json({ alreadyRegistered: false, linked: true, subject: existingByBn });
+      }
+
       const firstName = officer.firstName || '';
       const lastName = officer.lastName || '';
-      if (firstName && lastName) {
-        const byName = await db.select().from(subjects).where(and(
-          eq(subjects.type, 'person'),
-          sql`LOWER(${subjects.firstName}) = LOWER(${firstName})`,
-          sql`LOWER(${subjects.lastName}) = LOWER(${lastName})`
-        )).limit(1);
-        if (byName.length > 0) {
-          const existing = byName[0];
-          await storage.updateCompanyOfficer(officerId, { subjectId: existing.id } as any);
-          await linkSubjectToCompanyInNetwork(existing.id, officer.companyId);
-          await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: officerId, entityName: `${firstName} ${lastName}`.trim(), newData: { existingSubjectId: existing.id, existingUid: existing.uid, note: 'matched_by_name' } });
-          return res.status(200).json({ alreadyRegistered: false, linked: true, subject: existing });
-        }
-      }
 
       let stateCode = '421';
       if (req.appUser?.activeStateId) {
@@ -2140,7 +2189,7 @@ export async function registerRoutes(
         registeredByUserId: req.appUser?.id || null,
         registrationStatus: 'klient',
         details: { source: 'statutory_registration', officerId: officer.id, officerType: officer.type },
-        birthNumber: encryptField(bnRaw.replace(/\//g, '').replace(/\s/g, '').trim()),
+        birthNumber: encryptField(cleanBnForCheck),
       };
 
       const created = await storage.createSubject(subjectData);
@@ -2254,13 +2303,17 @@ export async function registerRoutes(
       }
 
       const cleanBnReg = bnRaw.replace(/\//g, '').replace(/\s/g, '').trim();
-      const encryptedReg = encryptField(cleanBnReg);
-      // Check for existing subject to prevent duplicates
-      const existingByBn = await db.select().from(subjects).where(eq(subjects.birthNumber, encryptedReg));
+      // Validácia formátu RČ
+      const rcValidReg = validateRC(cleanBnReg);
+      if (!rcValidReg.valid) {
+        await storage.deleteCompanyOfficer(created.id);
+        return res.status(400).json({ message: rcValidReg.error });
+      }
+      // Vyhľadanie existujúceho subjektu cez dekryptovanie (SQL porovnanie nefunguje – náhodný IV)
+      const existingByBnReg = await findSubjectByBirthNumber(cleanBnReg);
       let subject: any;
-      if (existingByBn.length > 0) {
-        subject = existingByBn[0];
-        // Sync subject's data back into officer record
+      if (existingByBnReg) {
+        subject = existingByBnReg;
         const officerPatch: Record<string, any> = { subjectId: subject.id };
         if (subject.firstName) officerPatch.firstName = subject.firstName;
         if (subject.lastName) officerPatch.lastName = subject.lastName;
@@ -2276,38 +2329,23 @@ export async function registerRoutes(
         await linkSubjectToCompanyInNetwork(subject.id, companyId);
         await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: created.id, entityName: `${firstName} ${lastName}`, newData: { existingSubjectId: subject.id, existingUid: subject.uid } });
       } else {
-        // Fallback: check by first+last name to catch same person with different RC input
-        const byName = firstName && lastName
-          ? await db.select().from(subjects).where(and(
-              eq(subjects.type, 'person'),
-              sql`LOWER(${subjects.firstName}) = LOWER(${firstName})`,
-              sql`LOWER(${subjects.lastName}) = LOWER(${lastName})`
-            )).limit(1)
-          : [];
-        if (byName.length > 0) {
-          subject = byName[0];
-          await db.update(companyOfficers).set({ subjectId: subject.id } as any).where(eq(companyOfficers.id, created.id));
-          await linkSubjectToCompanyInNetwork(subject.id, companyId);
-          await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: created.id, entityName: `${firstName} ${lastName}`, newData: { existingSubjectId: subject.id, existingUid: subject.uid, note: 'matched_by_name' } });
-        } else {
-          const uid = await storage.generateNextGlobalUid(stateCode);
-          const subjectData: any = {
-            uid,
-            type: 'person',
-            firstName,
-            lastName,
-            stateId: req.appUser?.activeStateId || null,
-            myCompanyId: companyId,
-            registeredByUserId: req.appUser?.id || null,
-            registrationStatus: 'klient',
-            details: { source: 'registry_statutory', officerId: created.id, officerType: role },
-            birthNumber: encryptedReg,
-          };
-          subject = await storage.createSubject(subjectData);
-          await storage.updateCompanyOfficer(created.id, { subjectId: subject.id } as any);
-          await linkSubjectToCompanyInNetwork(subject.id, companyId);
-          await logAudit(req, { action: "CREATE", module: "subjekty", entityId: subject.id, entityName: `${firstName} ${lastName} (Štatutár z registra – UID ${uid})`, newData: { uid, officerId: created.id, role } });
-        }
+        const uid = await storage.generateNextGlobalUid(stateCode);
+        const subjectData: any = {
+          uid,
+          type: 'person',
+          firstName,
+          lastName,
+          stateId: req.appUser?.activeStateId || null,
+          myCompanyId: companyId,
+          registeredByUserId: req.appUser?.id || null,
+          registrationStatus: 'klient',
+          details: { source: 'registry_statutory', officerId: created.id, officerType: role },
+          birthNumber: encryptField(cleanBnReg),
+        };
+        subject = await storage.createSubject(subjectData);
+        await storage.updateCompanyOfficer(created.id, { subjectId: subject.id } as any);
+        await linkSubjectToCompanyInNetwork(subject.id, companyId);
+        await logAudit(req, { action: "CREATE", module: "subjekty", entityId: subject.id, entityName: `${firstName} ${lastName} (Štatutár z registra – UID ${uid})`, newData: { uid, officerId: created.id, role } });
       }
 
       res.status(201).json({ officer: { ...created, subjectId: subject.id }, subject });
