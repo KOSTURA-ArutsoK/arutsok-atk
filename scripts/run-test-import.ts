@@ -57,13 +57,21 @@ function decryptField(ciphertext: string | null): string | null {
 
 async function getNextUid(): Promise<string> {
   const counterName = "uid_state_421";
-  const result = await db
-    .update(globalCounters)
-    .set({ currentValue: sql`${globalCounters.currentValue} + 1` })
-    .where(eq(globalCounters.counterName, counterName))
-    .returning();
-  const val = result[0].currentValue;
-  const digits = String(val).padStart(12, "0");
+  let val: number;
+  let retries = 0;
+  while (true) {
+    const result = await db
+      .update(globalCounters)
+      .set({ currentValue: sql`${globalCounters.currentValue} + 1` })
+      .where(eq(globalCounters.counterName, counterName))
+      .returning();
+    val = result[0].currentValue;
+    const normalized = `421${String(val).padStart(12, "0")}`;
+    // Preskočiť vyhradené UID pre vzorovú FO (SAMPLE_FO_UID)
+    if (normalized !== SAMPLE_FO_UID) break;
+    if (++retries > 100) throw new Error("Príliš veľa pokusov pri generovaní UID");
+  }
+  const digits = String(val!).padStart(12, "0");
   return `421 ${digits.replace(/(.{3})/g, "$1 ").trim()}`;
 }
 

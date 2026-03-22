@@ -101,12 +101,20 @@ function generateClientDetails(type: "person" | "company", city: string) {
 
 async function getNextUid(): Promise<{ uid: string; counter: number }> {
   const counterName = "uid_state_421";
-  const result = await db
-    .update(globalCounters)
-    .set({ currentValue: sql`${globalCounters.currentValue} + 1` })
-    .where(eq(globalCounters.counterName, counterName))
-    .returning();
-  const val = result[0].currentValue;
+  let val: number;
+  let retries = 0;
+  while (true) {
+    const result = await db
+      .update(globalCounters)
+      .set({ currentValue: sql`${globalCounters.currentValue} + 1` })
+      .where(eq(globalCounters.counterName, counterName))
+      .returning();
+    val = result[0].currentValue;
+    const normalized = `421${String(val).padStart(12, "0")}`;
+    // Preskočiť vyhradené UID pre vzorovú FO (SAMPLE_FO_UID)
+    if (normalized !== SAMPLE_FO_UID && ++retries <= 100) break;
+    if (retries > 100) throw new Error("Príliš veľa pokusov pri generovaní UID");
+  }
   const digits = String(val).padStart(12, "0");
   const formatted = `421 ${digits.replace(/(.{3})/g, "$1 ").trim()}`;
   return { uid: formatted, counter: val };

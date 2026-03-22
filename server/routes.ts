@@ -3440,6 +3440,11 @@ export async function registerRoutes(
 
       if (input.uid) input.uid = input.uid.replace(/\D/g, "");
 
+      // Guard: SAMPLE_FO_UID je vyhradené výhradne pre vzorovú FO – odmietni iné typy
+      if (input.uid && input.uid.replace(/\D/g, "") === SAMPLE_FO_UID && input.type !== "person") {
+        return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je vyhradené výhradne pre vzorovú fyzickú osobu.` });
+      }
+
       if (input.birthNumber && (input.type === "person" || input.type === "szco")) {
         const rcResult = validateSlovakRC(input.birthNumber);
         if (!rcResult.valid) {
@@ -3569,6 +3574,11 @@ export async function registerRoutes(
       const input = api.subjects.update.input.parse(req.body);
 
       if (input.uid) input.uid = input.uid.replace(/\D/g, "");
+
+      // Guard: SAMPLE_FO_UID je vyhradené výhradne pre vzorovú FO – odmietni priradenie inému typu
+      if (input.uid && input.uid.replace(/\D/g, "") === SAMPLE_FO_UID && original.type !== "person") {
+        return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je vyhradené výhradne pre vzorovú fyzickú osobu.` });
+      }
 
       if (!isAdmin) {
         delete input.birthNumber;

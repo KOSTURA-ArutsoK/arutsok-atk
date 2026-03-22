@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Users, Building2, ShieldAlert, TrendingUp, Briefcase, Package, History, Calendar, Clock, GripVertical, Pencil, Save, X, FileText, FileCheck, AlertCircle, Banknote, AlertTriangle, ArrowRight, Loader2, Ban, ClipboardCheck } from "lucide-react";
-import { ExpiryBadge, getExpiryStatus } from "@/components/expiry-badge";
+import { ExpiryBadge, getExpiryStatus, getDaysUntilExpiry, parseExpiryDate } from "@/components/expiry-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAppUser } from "@/hooks/use-app-user";
@@ -50,13 +50,10 @@ function getNearestDocExpiry(subject: Subject): string | null {
   for (const key of DOCUMENT_EXPIRY_KEYS) {
     const val = dyn[key];
     if (!val) continue;
-    const status = getExpiryStatus(val);
-    if (!status) continue;
-    const d = new Date(val);
-    if (isNaN(d.getTime())) continue;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const days = Math.ceil((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const parsed = parseExpiryDate(val);
+    if (!parsed) continue;
+    const days = getDaysUntilExpiry(val);
+    if (days === null) continue;
     if (nearestDays === null || days < nearestDays) {
       nearestDays = days;
       nearest = val;
