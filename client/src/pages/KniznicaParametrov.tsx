@@ -174,6 +174,10 @@ export default function KniznicaParametrov() {
   const [confirmedFields, setConfirmedFields] = useState<Set<number>>(new Set());
   const [rejectedFields, setRejectedFields] = useState<Set<number>>(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: "parameter" | "section" | "panel" | "template" | "unknown"; id: number; name: string } | null>(null);
+  const [isProposeDialogOpen, setIsProposeDialogOpen] = useState(false);
+  const [proposeLabel, setProposeLabel] = useState("");
+  const [proposeFieldType, setProposeFieldType] = useState("short_text");
+  const [proposeReason, setProposeReason] = useState("");
   
 
   const { data: sections = [], isLoading: sectionsLoading } = useQuery<SubjectParamSection[]>({
@@ -392,6 +396,23 @@ export default function KniznicaParametrov() {
     },
     onError: (err: Error) => {
       toast({ title: err.message || "Chyba pri synchronizácii", variant: "destructive" });
+    },
+  });
+
+  const proposeParameterMutation = useMutation({
+    mutationFn: async (data: { label: string; fieldType: string; reason: string }) => {
+      const res = await apiRequest("POST", "/api/parameter-proposals", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Návrh odoslaný", description: "Váš návrh parametra bol odoslaný administrátorom na schválenie." });
+      setIsProposeDialogOpen(false);
+      setProposeLabel("");
+      setProposeFieldType("text");
+      setProposeReason("");
+    },
+    onError: (err: Error) => {
+      toast({ title: err.message || "Chyba pri odosielaní návrhu", variant: "destructive" });
     },
   });
 
@@ -652,7 +673,7 @@ export default function KniznicaParametrov() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => toast({ title: "Návrh parametra", description: "Funkcia návrhov parametrov bude dostupná čoskoro." })}
+                onClick={() => setIsProposeDialogOpen(true)}
                 data-testid="button-suggest-param"
               >
                 <Brain className="w-4 h-4 mr-1" />
@@ -2766,6 +2787,62 @@ function UnknownFieldsTab({ sections, parameters, onDeleteConfirm }: { sections:
             >
               {assignMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
               Priradiť
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Proposal dialog for non-admin users */}
+      <Dialog open={isProposeDialogOpen} onOpenChange={setIsProposeDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Navrhnúť nový parameter</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="propose-label">Názov parametra *</Label>
+              <Input
+                id="propose-label"
+                data-testid="input-propose-label"
+                value={proposeLabel}
+                onChange={e => setProposeLabel(e.target.value)}
+                placeholder="napr. Dátum poslednej revízie"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="propose-field-type">Typ poľa *</Label>
+              <Select value={proposeFieldType} onValueChange={setProposeFieldType}>
+                <SelectTrigger id="propose-field-type" data-testid="select-propose-field-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FIELD_TYPE_OPTIONS.map(ft => (
+                    <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="propose-reason">Dôvod / popis použitia</Label>
+              <Textarea
+                id="propose-reason"
+                data-testid="textarea-propose-reason"
+                value={proposeReason}
+                onChange={e => setProposeReason(e.target.value)}
+                placeholder="Prečo je tento parameter potrebný a kde sa bude používať?"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsProposeDialogOpen(false)} data-testid="button-propose-cancel">Zrušiť</Button>
+            <Button
+              disabled={!proposeLabel.trim() || proposeParameterMutation.isPending}
+              data-testid="button-propose-submit"
+              onClick={() => proposeParameterMutation.mutate({ label: proposeLabel.trim(), fieldType: proposeFieldType, reason: proposeReason.trim() })}
+            >
+              {proposeParameterMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Brain className="w-4 h-4 mr-1" />}
+              Odoslať návrh
             </Button>
           </DialogFooter>
         </DialogContent>

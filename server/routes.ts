@@ -3440,9 +3440,10 @@ export async function registerRoutes(
 
       if (input.uid) input.uid = input.uid.replace(/\D/g, "");
 
-      // Guard: SAMPLE_FO_UID je vyhradené výhradne pre vzorovú FO – odmietni iné typy
-      if (input.uid && input.uid.replace(/\D/g, "") === SAMPLE_FO_UID && input.type !== "person") {
-        return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je vyhradené výhradne pre vzorovú fyzickú osobu.` });
+      // Guard: SAMPLE_FO_UID je rezervované výhradne pre existujúcu vzorovú FO.
+      // Žiadny nový subjekt NESMIE dostať toto UID – ani keď je person.
+      if (input.uid && input.uid.replace(/\D/g, "") === SAMPLE_FO_UID) {
+        return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je rezervované pre existujúcu vzorovú fyzickú osobu a nemôže byť pridelené novému subjektu.` });
       }
 
       if (input.birthNumber && (input.type === "person" || input.type === "szco")) {
@@ -3575,11 +3576,16 @@ export async function registerRoutes(
 
       if (input.uid) input.uid = input.uid.replace(/\D/g, "");
 
-      // Guard: SAMPLE_FO_UID je vyhradené výhradne pre vzorovú FO – odmietni priradenie inému typu
-      // Kontrolujeme efektívny výsledný typ (input.type ak je zadaný, inak original.type)
-      const effectiveType = (input as any).type ?? original.type;
-      if (input.uid && input.uid.replace(/\D/g, "") === SAMPLE_FO_UID && effectiveType !== "person") {
-        return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je vyhradené výhradne pre vzorovú fyzickú osobu.` });
+      // Guard: SAMPLE_FO_UID je rezervované výhradne pre vzorovú FO.
+      // Blokujeme: (1) priradenie tohto UID inému subjektu cez update, (2) zmenu typu vzorovej FO.
+      if (input.uid) {
+        const normalizedUid = input.uid.replace(/\D/g, "");
+        if (normalizedUid === SAMPLE_FO_UID && original.uid !== SAMPLE_FO_UID) {
+          return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je rezervované pre vzorovú FO a nemôže byť pridelené inému subjektu.` });
+        }
+      }
+      if (original.uid === SAMPLE_FO_UID && (input as any).type && (input as any).type !== "person") {
+        return res.status(400).json({ message: `Vzorová FO s UID ${SAMPLE_FO_UID} nemôže zmeniť typ subjektu.` });
       }
 
       if (!isAdmin) {
@@ -16428,6 +16434,55 @@ export async function registerRoutes(
       console.error("Error creating subject parameter:", err?.message || err);
       res.status(500).json({ message: "Internal error" });
     }
+  });
+
+  // === PARAMETER PROPOSALS (non-admin users suggest new parameters) ===
+  app.post("/api/parameter-proposals", isAuthenticated, async (req: any, res) => {
+    try {
+      const { label, fieldType, clientTypeId, reason } = req.body;
+      if (!label || !fieldType) return res.status(400).json({ message: "label a fieldType sú povinné" });
+      const proposal = await storage.createParameterProposal({
+        label,
+        fieldType,
+        clientTypeId: clientTypeId || null,
+        reason: reason || null,
+        status: "pending",
+        proposedByUserId: req.appUser?.id || null,
+        proposedByUsername: req.appUser?.username || null,
+        reviewedByUsername: null,
+        reviewNote: null,
+      });
+      res.json(proposal);
+    } catch (err: any) {
+      console.error("Error creating parameter proposal:", err?.message || err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/parameter-proposals", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.appUser || !["admin", "superadmin", "prezident", "architekt"].includes(req.appUser.role)) {
+        return res.status(403).json({ message: "Nedostatočné oprávnenia" });
+      }
+      const status = req.query.status as string | undefined;
+      const proposals = await storage.listParameterProposals(status);
+      res.json(proposals);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.patch("/api/parameter-proposals/:id/status", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!req.appUser || !["admin", "superadmin", "prezident", "architekt"].includes(req.appUser.role)) {
+        return res.status(403).json({ message: "Nedostatočné oprávnenia" });
+      }
+      const { status, reviewNote } = req.body;
+      if (!status) return res.status(400).json({ message: "status required" });
+      const updated = await storage.updateParameterProposalStatus(
+        Number(req.params.id), status, req.appUser.username, reviewNote
+      );
+      if (!updated) return res.status(404).json({ message: "Not found" });
+      res.json(updated);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
   app.post("/api/subject-parameters/batch-reorder", isAuthenticated, async (req, res) => {

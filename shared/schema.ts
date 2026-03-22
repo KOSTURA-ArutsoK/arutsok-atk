@@ -2779,6 +2779,26 @@ export const insertSubjectContactSchema = createInsertSchema(subjectContacts).om
 export type SubjectContact = typeof subjectContacts.$inferSelect;
 export type InsertSubjectContact = z.infer<typeof insertSubjectContactSchema>;
 
+// === PARAMETER PROPOSALS (non-admin users can suggest new parameters) ===
+export const parameterProposals = pgTable("parameter_proposals", {
+  id: serial("id").primaryKey(),
+  label: text("label").notNull(),
+  fieldType: text("field_type").notNull(),
+  clientTypeId: integer("client_type_id"),
+  reason: text("reason"),
+  status: text("status").notNull().default("pending"),
+  proposedByUserId: integer("proposed_by_user_id"),
+  proposedByUsername: text("proposed_by_username"),
+  reviewedByUsername: text("reviewed_by_username"),
+  reviewNote: text("review_note"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertParameterProposalSchema = createInsertSchema(parameterProposals).omit({ id: true, createdAt: true, updatedAt: true });
+export type ParameterProposal = typeof parameterProposals.$inferSelect;
+export type InsertParameterProposal = z.infer<typeof insertParameterProposalSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

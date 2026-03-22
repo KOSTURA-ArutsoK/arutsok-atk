@@ -140,6 +140,8 @@ import {
   type RegistrySnapshot, type InsertRegistrySnapshot,
   subjectContacts,
   type SubjectContact, type InsertSubjectContact,
+  parameterProposals,
+  type ParameterProposal, type InsertParameterProposal,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -703,6 +705,11 @@ export interface IStorage {
   addObjectDataSource(objectId: number, contractId: number, sectorProductId?: number, productName?: string, sectorName?: string, sectionName?: string, fields?: Record<string, string>): Promise<ObjectDataSource>;
   getObjectDataSources(objectId: number): Promise<ObjectDataSource[]>;
   syncObjectFromContract(contractId: number, subjectId: number): Promise<void>;
+
+  // Parameter proposals
+  createParameterProposal(data: InsertParameterProposal): Promise<ParameterProposal>;
+  listParameterProposals(status?: string): Promise<ParameterProposal[]>;
+  updateParameterProposalStatus(id: number, status: string, reviewedByUsername?: string, reviewNote?: string): Promise<ParameterProposal | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5346,6 +5353,28 @@ export class DatabaseStorage implements IStorage {
       section.length ? section[0].name : undefined,
       dataFields
     );
+  }
+
+  async createParameterProposal(data: InsertParameterProposal): Promise<ParameterProposal> {
+    const [row] = await db.insert(parameterProposals).values(data).returning();
+    return row;
+  }
+
+  async listParameterProposals(status?: string): Promise<ParameterProposal[]> {
+    if (status) {
+      return db.select().from(parameterProposals)
+        .where(eq(parameterProposals.status, status))
+        .orderBy(desc(parameterProposals.createdAt));
+    }
+    return db.select().from(parameterProposals).orderBy(desc(parameterProposals.createdAt));
+  }
+
+  async updateParameterProposalStatus(id: number, status: string, reviewedByUsername?: string, reviewNote?: string): Promise<ParameterProposal | undefined> {
+    const [row] = await db.update(parameterProposals)
+      .set({ status, reviewedByUsername: reviewedByUsername ?? null, reviewNote: reviewNote ?? null, updatedAt: new Date() })
+      .where(eq(parameterProposals.id, id))
+      .returning();
+    return row;
   }
 }
 
