@@ -3699,7 +3699,7 @@ export default function Contracts() {
                 : isSelected
                 ? "bg-primary/10 border-l-2 border-l-primary"
                 : hasSprPartialDocs
-                ? "bg-yellow-400/15 hover:bg-yellow-400/20 border-l-2 border-l-yellow-400"
+                ? "bg-yellow-200/15 hover:bg-yellow-200/20 border-l-2 border-l-yellow-200"
                 : "";
               const handleRowClick = logViewFn
                 ? () => logViewFn(contract)
