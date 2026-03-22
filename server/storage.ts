@@ -1670,12 +1670,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSubjectContact(data: InsertSubjectContact): Promise<SubjectContact> {
-    if (data.isPrimary) {
+    const existingOfType = await db.select({ id: subjectContacts.id }).from(subjectContacts)
+      .where(and(eq(subjectContacts.subjectId, data.subjectId), eq(subjectContacts.type, data.type)));
+    const isFirst = existingOfType.length === 0;
+    const effectiveIsPrimary = isFirst ? true : (data.isPrimary ?? false);
+    if (effectiveIsPrimary) {
       await db.update(subjectContacts)
         .set({ isPrimary: false })
         .where(and(eq(subjectContacts.subjectId, data.subjectId), eq(subjectContacts.type, data.type)));
     }
-    const [contact] = await db.insert(subjectContacts).values(data).returning();
+    const [contact] = await db.insert(subjectContacts).values({ ...data, isPrimary: effectiveIsPrimary }).returning();
     await this._syncSubjectPrimaryContact(data.subjectId);
     return contact;
   }

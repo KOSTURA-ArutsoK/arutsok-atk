@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Subject } from "@shared/schema";
+import type { Subject, SubjectContact } from "@shared/schema";
 import { type StaticField, PHOTO_REQUIRED_FIELD_KEYS } from "@/lib/staticFieldDefs";
 import { getCategoriesForClientType } from "@/lib/staticFieldDefs";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair } from "@/lib/document-validity";
@@ -1094,10 +1094,33 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   });
   const hasEvidence = statusEvidenceList.length > 0 && isTerminated;
 
+  const { data: subjectContactsList = [] } = useQuery<SubjectContact[]>({
+    queryKey: ["/api/subjects", subject.id, "contacts"],
+    queryFn: async () => {
+      const res = await fetch(`/api/subjects/${subject.id}/contacts`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: subject.id > 0,
+  });
+
   const behaviorAlert = useMemo(() => hasBehaviorAlert(dynamicValues), [dynamicValues]);
   const displayName = useMemo(() => [subject.firstName, subject.lastName].filter(Boolean).join(" ") || subject.companyName || "", [subject.firstName, subject.lastName, subject.companyName]);
 
   const ageCategory = useMemo(() => computeAgeCategory(dynamicValues), [dynamicValues]);
+
+  useEffect(() => {
+    if (subjectContactsList.length === 0) return;
+    const primaryPhone = subjectContactsList.find(c => c.type === "phone" && c.isPrimary)?.value ?? subjectContactsList.find(c => c.type === "phone")?.value ?? null;
+    const primaryEmail = subjectContactsList.find(c => c.type === "email" && c.isPrimary)?.value ?? subjectContactsList.find(c => c.type === "email")?.value ?? null;
+    setDynamicValues(prev => {
+      const next = { ...prev };
+      if (primaryPhone !== null && prev.telefon !== primaryPhone) next.telefon = primaryPhone;
+      if (primaryEmail !== null && prev.email !== primaryEmail) next.email = primaryEmail;
+      if (next.telefon === prev.telefon && next.email === prev.email) return prev;
+      return next;
+    });
+  }, [subjectContactsList]);
 
   useEffect(() => {
     if (!ageCategory) return;
@@ -1161,8 +1184,19 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
 
       if (dynamicValues.meno) payload.firstName = dynamicValues.meno;
       if (dynamicValues.priezvisko) payload.lastName = dynamicValues.priezvisko;
-      if (dynamicValues.telefon) payload.phone = dynamicValues.telefon;
-      if (dynamicValues.email) payload.email = dynamicValues.email;
+
+      const primaryPhoneContact = subjectContactsList.find(c => c.type === "phone" && c.isPrimary) ?? subjectContactsList.find(c => c.type === "phone");
+      const primaryEmailContact = subjectContactsList.find(c => c.type === "email" && c.isPrimary) ?? subjectContactsList.find(c => c.type === "email");
+      if (primaryPhoneContact) {
+        payload.phone = primaryPhoneContact.value;
+      } else if (dynamicValues.telefon) {
+        payload.phone = dynamicValues.telefon;
+      }
+      if (primaryEmailContact) {
+        payload.email = primaryEmailContact.value;
+      } else if (dynamicValues.email) {
+        payload.email = dynamicValues.email;
+      }
 
       const existingDetails = (subject.details || {}) as Record<string, any>;
       payload.details = {

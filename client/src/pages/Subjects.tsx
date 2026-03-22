@@ -2835,6 +2835,21 @@ function FullPageEditor({
           setPendingSubmitData(submitData);
           return;
         }
+        if (createdSubject?.id) {
+          const validContacts = contacts.filter(c => c.value?.trim());
+          for (let i = 0; i < validContacts.length; i++) {
+            const c = validContacts[i];
+            try {
+              await apiRequest("POST", `/api/subjects/${createdSubject.id}/contacts`, {
+                type: c.type,
+                value: c.value.trim(),
+                label: c.label || null,
+                isPrimary: c.isPrimary ?? (i === 0),
+                order: i,
+              });
+            } catch {}
+          }
+        }
         if (createdSubject?.id && !isPerson) {
           const snapshotData = initialData.aresData || pendingRegistrySnapshot || (szcoAresLookup?.found ? szcoAresLookup : null);
           const snapshotSource = snapshotData?.source || "ORSR";
