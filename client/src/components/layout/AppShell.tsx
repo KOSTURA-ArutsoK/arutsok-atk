@@ -320,13 +320,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [appUser?.id]);
 
+  const prevUserIdRef = useRef<number | undefined>(undefined);
   useEffect(() => {
-    if (!appUser?.id || isClientUser) return;
-    const key = `arutsok_welcome_shown_${appUser.id}`;
-    if (!sessionStorage.getItem(key)) {
-      sessionStorage.setItem(key, "1");
+    const prevId = prevUserIdRef.current;
+    const currentId = appUser?.id;
+    if (!isClientUser && currentId && !prevId) {
       setWelcomeOpen(true);
     }
+    prevUserIdRef.current = currentId;
   }, [appUser?.id, isClientUser]);
 
   const securityWarningSpokenRef = useRef(false);
