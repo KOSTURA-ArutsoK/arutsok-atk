@@ -3697,9 +3697,9 @@ export default function Contracts() {
                 : isRerouteSelected
                 ? "bg-primary/10 border-l-2 border-l-primary"
                 : isSelected
-                ? "bg-primary/10 border-l-2 border-l-primary"
+                ? "bg-green-500/15 hover:bg-green-500/20 border-l-2 border-l-green-500"
                 : hasSprPartialDocs
-                ? "bg-yellow-200/15 hover:bg-yellow-200/20 border-l-2 border-l-yellow-200"
+                ? "bg-blue-500/15 hover:bg-blue-500/20 border-l-2 border-l-blue-500"
                 : "";
               const handleRowClick = logViewFn
                 ? () => logViewFn(contract)
@@ -3766,7 +3766,7 @@ export default function Contracts() {
                     </td>
                   )}
                   {showCheckbox && (
-                    <td className={`px-2 py-1.5 sticky left-0 z-10 bg-card ${isSelected ? "border-l-2 border-l-primary" : effectivelyIncomplete ? "border-l-2 border-l-red-500" : ""}`} onClick={e => e.stopPropagation()}>
+                    <td className={`px-2 py-1.5 sticky left-0 z-10 bg-card ${isSelected ? "border-l-2 border-l-green-500" : effectivelyIncomplete ? "border-l-2 border-l-red-500" : hasSprPartialDocs ? "border-l-2 border-l-blue-500" : ""}`} onClick={e => e.stopPropagation()}>
                       <Checkbox
                         checked={isSelected}
                         disabled={effectivelyIncomplete}
@@ -9084,7 +9084,7 @@ export default function Contracts() {
                       Zoznam obsahuje chybné riadky
                     </span>
                   )}
-                  <Button size="sm" onClick={() => { setSprievodkaPrinted(false); setSprievodkaDialogOpen(true); }} disabled={anyRedInFolder1} data-testid="button-dispatch">
+                  <Button size="sm" onClick={() => { setSprievodkaPrinted(false); setSprievodkaDialogOpen(true); }} disabled={anyRedInFolder1} data-testid="button-dispatch" className="bg-green-600 hover:bg-green-500 text-white border-green-600">
                     <Send className="w-3.5 h-3.5 mr-1.5" />
                     Vytvoriť sprievodku
                   </Button>
