@@ -2599,8 +2599,8 @@ export default function Companies() {
                 {columnVisibility.isVisible("name") && <TableHead>Názov</TableHead>}
                 {columnVisibility.isVisible("uid") && <TableHead className="whitespace-nowrap">UID</TableHead>}
                 {columnVisibility.isVisible("ico") && <TableHead>IČO</TableHead>}
-                {columnVisibility.isVisible("city") && <TableHead>Mesto</TableHead>}
-                {columnVisibility.isVisible("state") && <TableHead>Štát</TableHead>}
+                {columnVisibility.isVisible("subjectType") && <TableHead>Typ subjektu</TableHead>}
+                {columnVisibility.isVisible("foundedDate") && <TableHead>Dátum založenia</TableHead>}
                 <TableHead className="w-[160px]">Akcie</TableHead>
               </TableRow>
             </TableHeader>
