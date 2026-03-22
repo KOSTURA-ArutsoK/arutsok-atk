@@ -3633,7 +3633,17 @@ export default function Contracts() {
             {contractsList.map((contract, idx) => {
               const sub = subjects?.find(s => s.id === contract.subjectId);
               const linkedFo = sub?.linkedFoId ? subjects?.find(s => s.id === sub.linkedFoId) : undefined;
-              const typSubj = sub?.type === "person" ? "FO" : sub?.type === "szco" ? "SZČO" : sub?.type === "company" ? "PO" : sub?.type === "organization" ? "Org." : sub?.type === "state" ? "Štát" : "—";
+              // Typ subjektu — z priradeného subjektu alebo z importedRawData (keď subjekt nie je ešte priradený)
+              const importRaw = (contract as any).importedRawData || {};
+              const rawSubjTypeVal = importRaw["subjectType"] || importRaw["typ_subjektu"] || null;
+              const normalizedRawType = rawSubjTypeVal
+                ? (["FO", "fo"].includes(rawSubjTypeVal) ? "person"
+                  : ["SZČO", "szco", "SZCO"].includes(rawSubjTypeVal) ? "szco"
+                  : ["PO", "company"].includes(rawSubjTypeVal) ? "company"
+                  : rawSubjTypeVal)
+                : null;
+              const resolvedSubjType = sub?.type || normalizedRawType || null;
+              const typSubj = resolvedSubjType === "person" ? "FO" : resolvedSubjType === "szco" ? "SZČO" : resolvedSubjType === "company" ? "PO" : resolvedSubjType === "organization" ? "Org." : resolvedSubjType === "state" ? "Štát" : "—";
               const typSubjColor = typSubj === "FO" ? "border-blue-500/50 text-blue-400" : typSubj === "SZČO" ? "border-amber-500/50 text-amber-400" : typSubj === "PO" ? "border-purple-500/50 text-purple-400" : "border-muted text-muted-foreground";
               const rcIco = sub ? (sub.type === "person" ? sub.birthNumber : sub.type === "szco" ? (sub.birthNumber || (sub as any).ico) : (sub as any).ico) : null;
               const { specialist, recommenders } = getContractDistData(contract.id);
@@ -3648,11 +3658,8 @@ export default function Contracts() {
               const hasPartner = partnerName && partnerName !== "—";
               const hasProduct = productName && productName !== "—";
               const hasNumber = !!(contract.proposalNumber || contract.insuranceContractNumber || (contract as any).contractNumber);
-              // Typ subjektu — z priradeného subjektu alebo z importedRawData (keď subjekt nie je ešte priradený)
-              const importRaw = (contract as any).importedRawData || {};
               const rcOnly = sub?.birthNumber || importRaw.rodne_cislo || null;
               const icoOnly = (sub as any)?.ico || importRaw.ico || null;
-              const resolvedSubjType = sub?.type || importRaw["subjectType"] || importRaw["typ_subjektu"] || null;
               const isFO = resolvedSubjType === "person" || resolvedSubjType === "szco";
               const isPO = resolvedSubjType === "company" || resolvedSubjType === "organization";
               // Hodnoty z priradeného subjektu — rovnaká logika ako v editovacom dialógu (zohľadní linkedFo pre SZČO)
