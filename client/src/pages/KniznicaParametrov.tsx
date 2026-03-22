@@ -131,6 +131,8 @@ const CLIENT_TYPE_MAP: Record<number, string> = {
   1: "FO (Fyzická osoba)",
   3: "SZČO",
   4: "PO (Právnická osoba)",
+  5: "NS (Tretí sektor)",
+  6: "VS (Verejný sektor)",
 };
 
 const FIELD_TYPE_OPTIONS = [

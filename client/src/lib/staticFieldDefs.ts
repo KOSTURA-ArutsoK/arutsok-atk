@@ -677,11 +677,200 @@ export const PO_FIELDS: StaticField[] = [
   { id: 2070, clientTypeId: 4, sectionId: PO_SECTION_POVINNE, panelId: PO_PANEL_SPEC_SUBJEKT, fieldKey: "cirkevna_registracia", label: "Registrácia (cirkev)", shortLabel: "Cirkev. reg.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "typ_organizacie", value: "Cirkevná organizácia" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 110, rowNumber: 3, widthPercent: 33 },
 ];
 
+// =========================================================
+// NS (Tretí sektor – Neziskový sektor) clientTypeId = 5
+// =========================================================
+const NS_SECTION_POVINNE = 83;
+const NS_SECTION_DOPLNKOVE = 84;
+const NS_SECTION_INE = 86;
+
+const NS_PANEL_SUBJEKT = 110;
+const NS_PANEL_SIDLO = 111;
+const NS_PANEL_KONTAKT = 112;
+const NS_PANEL_AML = 115;
+const NS_PANEL_ZAKONNE = 113;
+const NS_PANEL_ZMLUVNE = 114;
+const NS_PANEL_STATUTARI = 116;
+const NS_PANEL_FIREMNY = 117;
+
+export const NS_SECTIONS: StaticSection[] = [
+  { id: NS_SECTION_POVINNE, clientTypeId: 5, name: "POVINNÉ ÚDAJE", folderCategory: "povinne", sortOrder: 0 },
+  { id: NS_SECTION_DOPLNKOVE, clientTypeId: 5, name: "DOPLNKOVÉ ÚDAJE", folderCategory: "doplnkove", sortOrder: 1 },
+  { id: NS_SECTION_INE, clientTypeId: 5, name: "INÉ ÚDAJE", folderCategory: "ine", sortOrder: 3 },
+];
+
+export const NS_PANELS: StaticPanel[] = [
+  { id: NS_PANEL_SUBJEKT, clientTypeId: 5, sectionId: NS_SECTION_POVINNE, name: "Subjekt NS", gridColumns: 2, sortOrder: 0 },
+  { id: NS_PANEL_SIDLO, clientTypeId: 5, sectionId: NS_SECTION_POVINNE, name: "Sídlo organizácie", gridColumns: 2, sortOrder: 1 },
+  { id: NS_PANEL_KONTAKT, clientTypeId: 5, sectionId: NS_SECTION_POVINNE, name: "Kontaktné údaje", gridColumns: 2, sortOrder: 2 },
+  { id: NS_PANEL_AML, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, name: "AML – KUV", gridColumns: 3, sortOrder: 0 },
+  { id: NS_PANEL_ZAKONNE, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, name: "Zákonné údaje", gridColumns: 2, sortOrder: 1 },
+  { id: NS_PANEL_ZMLUVNE, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, name: "Bankové údaje", gridColumns: 3, sortOrder: 2 },
+  { id: NS_PANEL_STATUTARI, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, name: "Štatutárni zástupcovia", gridColumns: 3, sortOrder: 3 },
+  { id: NS_PANEL_FIREMNY, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, name: "Profil organizácie", gridColumns: 2, sortOrder: 4 },
+];
+
+export const NS_FIELDS: StaticField[] = [
+  // === PANEL: Subjekt NS ===
+  { id: 3001, clientTypeId: 5, sectionId: NS_SECTION_POVINNE, panelId: NS_PANEL_SUBJEKT, fieldKey: "nazov_organizacie", label: "Názov organizácie", shortLabel: "Názov org.", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+  { id: 3002, clientTypeId: 5, sectionId: NS_SECTION_POVINNE, panelId: NS_PANEL_SUBJEKT, fieldKey: "ico", label: "IČO", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+  { id: 3003, clientTypeId: 5, sectionId: NS_SECTION_POVINNE, panelId: NS_PANEL_SUBJEKT, fieldKey: "typ_organizacie", label: "Typ organizácie", shortLabel: "Typ org.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Nadácia", "Nadačný fond", "Občianske združenie (OZ)", "Nezisková organizácia (NO)", "Neinvestičný fond", "Cirkevná organizácia", "Záujmové združenie právnických osôb", "Profesijná komora / Únia", "Politická strana / Hnutie", "Odborová organizácia", "Iné"], defaultValue: "Nezisková organizácia (NO)", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 1, widthPercent: 100 },
+
+  // === PANEL: Sídlo organizácie ===
+  { id: 3010, clientTypeId: 5, sectionId: NS_SECTION_POVINNE, panelId: NS_PANEL_SIDLO, fieldKey: "sidlo_ulica", label: "Ulica (sídlo)", shortLabel: "Ulica", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+  { id: 3011, clientTypeId: 5, sectionId: NS_SECTION_POVINNE, panelId: NS_PANEL_SIDLO, fieldKey: "sidlo_supisne", label: "Súpisné číslo", shortLabel: "Súpisné č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+  { id: 3012, clientTypeId: 5, sectionId: NS_SECTION_POVINNE, panelId: NS_PANEL_SIDLO, fieldKey: "sidlo_orientacne", label: "Orientačné číslo", shortLabel: "Orient. č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+  { id: 3013, clientTypeId: 5, sectionId: NS_SECTION_POVINNE, panelId: NS_PANEL_SIDLO, fieldKey: "sidlo_mesto", label: "Mesto/Obec", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+  { id: 3014, clientTypeId: 5, sectionId: NS_SECTION_POVINNE, panelId: NS_PANEL_SIDLO, fieldKey: "sidlo_psc", label: "PSČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 50, rowNumber: 1, widthPercent: 25 },
+  { id: 3015, clientTypeId: 5, sectionId: NS_SECTION_POVINNE, panelId: NS_PANEL_SIDLO, fieldKey: "sidlo_stat", label: "Štát", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 60, rowNumber: 1, widthPercent: 25 },
+
+  // === PANEL: Kontaktné údaje ===
+  { id: 3020, clientTypeId: 5, sectionId: NS_SECTION_POVINNE, panelId: NS_PANEL_KONTAKT, fieldKey: "telefon", label: "Telefónne číslo (primárne)", shortLabel: "Tel. číslo", fieldType: "phone", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+  { id: 3021, clientTypeId: 5, sectionId: NS_SECTION_POVINNE, panelId: NS_PANEL_KONTAKT, fieldKey: "email", label: "Email (primárny)", shortLabel: "Email", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+
+  // === PANEL: AML – KUV ===
+  { id: 3030, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_AML, fieldKey: "kuv_meno_1", label: "KUV 1 – Meno a priezvisko", shortLabel: "KUV 1 Meno", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+  { id: 3031, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_AML, fieldKey: "kuv_rc_1", label: "KUV 1 – Rodné číslo", shortLabel: "KUV 1 RČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+  { id: 3032, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_AML, fieldKey: "kuv_podiel_1", label: "KUV 1 – % podiel", shortLabel: "KUV 1 %", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "%", decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+  { id: 3033, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_AML, fieldKey: "kuv_meno_2", label: "KUV 2 – Meno a priezvisko", shortLabel: "KUV 2 Meno", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 40, rowNumber: 1, widthPercent: 40 },
+  { id: 3034, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_AML, fieldKey: "kuv_rc_2", label: "KUV 2 – Rodné číslo", shortLabel: "KUV 2 RČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 50, rowNumber: 1, widthPercent: 30 },
+  { id: 3035, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_AML, fieldKey: "kuv_podiel_2", label: "KUV 2 – % podiel", shortLabel: "KUV 2 %", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "%", decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 60, rowNumber: 1, widthPercent: 30 },
+  { id: 3036, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_AML, fieldKey: "kuv_meno_3", label: "KUV 3 – Meno a priezvisko", shortLabel: "KUV 3 Meno", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 70, rowNumber: 2, widthPercent: 40 },
+  { id: 3037, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_AML, fieldKey: "kuv_rc_3", label: "KUV 3 – Rodné číslo", shortLabel: "KUV 3 RČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 80, rowNumber: 2, widthPercent: 30 },
+  { id: 3038, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_AML, fieldKey: "kuv_podiel_3", label: "KUV 3 – % podiel", shortLabel: "KUV 3 %", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "%", decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 90, rowNumber: 2, widthPercent: 30 },
+
+  // === PANEL: Zákonné údaje ===
+  { id: 3040, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_ZAKONNE, fieldKey: "dic", label: "DIČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+  { id: 3041, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_ZAKONNE, fieldKey: "suhlas_gdpr", label: "Súhlas so spracovaním osobných údajov (GDPR)", shortLabel: "GDPR súhlas", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 30, rowNumber: 1, widthPercent: 50 },
+  { id: 3042, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_ZAKONNE, fieldKey: "suhlas_marketing", label: "Súhlas s marketingovou komunikáciou", shortLabel: "Marketing súhlas", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+  { id: 3043, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_ZAKONNE, fieldKey: "suhlas_tretie_strany", label: "Súhlas s poskytnutím údajov tretím stranám", shortLabel: "Tretie strany", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 50, rowNumber: 2, widthPercent: 50 },
+  { id: 3044, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_ZAKONNE, fieldKey: "suhlas_profilovanie", label: "Súhlas s automatizovaným profilovaním", shortLabel: "Profilovanie", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 60, rowNumber: 2, widthPercent: 50 },
+  { id: 3045, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_ZAKONNE, fieldKey: "poistna_povinnost", label: "Poistná povinnosť splnená", shortLabel: "Poistná pov.", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 70, rowNumber: 3, widthPercent: 50 },
+  { id: 3046, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_ZAKONNE, fieldKey: "overenie_totoznosti", label: "Overenie totožnosti vykonané", shortLabel: "Overenie totoži.", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 80, rowNumber: 3, widthPercent: 50 },
+
+  // === PANEL: Bankové údaje ===
+  { id: 3050, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_ZMLUVNE, fieldKey: "iban", label: "IBAN", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zmluvne", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+  { id: 3051, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_ZMLUVNE, fieldKey: "bic", label: "BIC/SWIFT", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zmluvne", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+  { id: 3052, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_ZMLUVNE, fieldKey: "cislo_uctu", label: "Číslo účtu", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zmluvne", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+
+  // === PANEL: Štatutárni zástupcovia ===
+  { id: 3060, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_STATUTARI, fieldKey: "statutar_meno_1", label: "Štatutár 1 – Meno a priezvisko", shortLabel: "Štatutár 1", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "pravne", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+  { id: 3061, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_STATUTARI, fieldKey: "statutar_funkcia_1", label: "Štatutár 1 – Funkcia", shortLabel: "Funkcia 1", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "pravne", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+  { id: 3062, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_STATUTARI, fieldKey: "statutar_rc_1", label: "Štatutár 1 – Rodné číslo", shortLabel: "Štatutár 1 RČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "pravne", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+  { id: 3063, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_STATUTARI, fieldKey: "statutar_meno_2", label: "Štatutár 2 – Meno a priezvisko", shortLabel: "Štatutár 2", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "pravne", sortOrder: 40, rowNumber: 1, widthPercent: 40 },
+  { id: 3064, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_STATUTARI, fieldKey: "statutar_funkcia_2", label: "Štatutár 2 – Funkcia", shortLabel: "Funkcia 2", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "pravne", sortOrder: 50, rowNumber: 1, widthPercent: 30 },
+  { id: 3065, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_STATUTARI, fieldKey: "statutar_rc_2", label: "Štatutár 2 – Rodné číslo", shortLabel: "Štatutár 2 RČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "pravne", sortOrder: 60, rowNumber: 1, widthPercent: 30 },
+
+  // === PANEL: Profil organizácie ===
+  { id: 3070, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_FIREMNY, fieldKey: "ucel_organizacie", label: "Účel organizácie / Poslanie", shortLabel: "Účel org.", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "firemny_profil", sortOrder: 10, rowNumber: 0, widthPercent: 100 },
+  { id: 3071, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_FIREMNY, fieldKey: "cislo_registracie_ns", label: "Číslo registrácie", shortLabel: "Č. registrácie", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "firemny_profil", sortOrder: 20, rowNumber: 1, widthPercent: 50 },
+  { id: 3072, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_FIREMNY, fieldKey: "datum_registracie_ns", label: "Dátum registrácie", shortLabel: "Dát. reg.", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "firemny_profil", sortOrder: 30, rowNumber: 1, widthPercent: 50 },
+  { id: 3073, clientTypeId: 5, sectionId: NS_SECTION_DOPLNKOVE, panelId: NS_PANEL_FIREMNY, fieldKey: "pocet_zamestnancov_ns", label: "Počet zamestnancov / dobrovoľníkov", shortLabel: "Zamestnanci", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 0, fieldCategory: "doplnkove", categoryCode: "firemny_profil", sortOrder: 40, rowNumber: 2, widthPercent: 50 },
+
+  // === INÉ ÚDAJE ===
+  { id: 3080, clientTypeId: 5, sectionId: NS_SECTION_INE, panelId: null, fieldKey: "poznamka_interna", label: "Interná poznámka", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 10, rowNumber: 0, widthPercent: 100 },
+];
+
+// =========================================================
+// VS (Verejný sektor) clientTypeId = 6
+// =========================================================
+const VS_SECTION_POVINNE = 87;
+const VS_SECTION_DOPLNKOVE = 88;
+const VS_SECTION_INE = 90;
+
+const VS_PANEL_SUBJEKT = 120;
+const VS_PANEL_SIDLO = 121;
+const VS_PANEL_KONTAKT = 122;
+const VS_PANEL_AML = 125;
+const VS_PANEL_ZAKONNE = 123;
+const VS_PANEL_ZMLUVNE = 124;
+const VS_PANEL_STATUTARI = 126;
+const VS_PANEL_INST_PROFIL = 127;
+
+export const VS_SECTIONS: StaticSection[] = [
+  { id: VS_SECTION_POVINNE, clientTypeId: 6, name: "POVINNÉ ÚDAJE", folderCategory: "povinne", sortOrder: 0 },
+  { id: VS_SECTION_DOPLNKOVE, clientTypeId: 6, name: "DOPLNKOVÉ ÚDAJE", folderCategory: "doplnkove", sortOrder: 1 },
+  { id: VS_SECTION_INE, clientTypeId: 6, name: "INÉ ÚDAJE", folderCategory: "ine", sortOrder: 3 },
+];
+
+export const VS_PANELS: StaticPanel[] = [
+  { id: VS_PANEL_SUBJEKT, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, name: "Subjekt VS", gridColumns: 2, sortOrder: 0 },
+  { id: VS_PANEL_SIDLO, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, name: "Sídlo inštitúcie", gridColumns: 2, sortOrder: 1 },
+  { id: VS_PANEL_KONTAKT, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, name: "Kontaktné údaje", gridColumns: 2, sortOrder: 2 },
+  { id: VS_PANEL_AML, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, name: "AML – KUV", gridColumns: 3, sortOrder: 0 },
+  { id: VS_PANEL_ZAKONNE, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, name: "Zákonné údaje", gridColumns: 2, sortOrder: 1 },
+  { id: VS_PANEL_ZMLUVNE, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, name: "Bankové údaje", gridColumns: 3, sortOrder: 2 },
+  { id: VS_PANEL_STATUTARI, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, name: "Štatutárni zástupcovia", gridColumns: 3, sortOrder: 3 },
+  { id: VS_PANEL_INST_PROFIL, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, name: "Inštitucionálny profil", gridColumns: 2, sortOrder: 4 },
+];
+
+export const VS_FIELDS: StaticField[] = [
+  // === PANEL: Subjekt VS ===
+  { id: 4001, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_SUBJEKT, fieldKey: "nazov_organizacie", label: "Názov inštitúcie", shortLabel: "Názov inšt.", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+  { id: 4002, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_SUBJEKT, fieldKey: "ico", label: "IČO", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+  { id: 4003, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_SUBJEKT, fieldKey: "typ_organizacie", label: "Typ inštitúcie", shortLabel: "Typ inšt.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Ministerstvo", "Ústredný orgán štátnej správy", "Krajský úrad", "Okresný úrad", "Obec / Mesto", "Magistrát", "Vyšší územný celok (VÚC)", "Štátna inštitúcia", "Štátna príspevková organizácia", "Rozpočtová organizácia", "Štátny podnik", "Verejnoprávna inštitúcia", "Iné"], defaultValue: "Štátna inštitúcia", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 1, widthPercent: 100 },
+
+  // === PANEL: Sídlo inštitúcie ===
+  { id: 4010, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_SIDLO, fieldKey: "sidlo_ulica", label: "Ulica (sídlo)", shortLabel: "Ulica", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+  { id: 4011, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_SIDLO, fieldKey: "sidlo_supisne", label: "Súpisné číslo", shortLabel: "Súpisné č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+  { id: 4012, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_SIDLO, fieldKey: "sidlo_orientacne", label: "Orientačné číslo", shortLabel: "Orient. č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+  { id: 4013, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_SIDLO, fieldKey: "sidlo_mesto", label: "Mesto/Obec", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+  { id: 4014, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_SIDLO, fieldKey: "sidlo_psc", label: "PSČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 50, rowNumber: 1, widthPercent: 25 },
+  { id: 4015, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_SIDLO, fieldKey: "sidlo_stat", label: "Štát", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 60, rowNumber: 1, widthPercent: 25 },
+
+  // === PANEL: Kontaktné údaje ===
+  { id: 4020, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_KONTAKT, fieldKey: "telefon", label: "Telefónne číslo (primárne)", shortLabel: "Tel. číslo", fieldType: "phone", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+  { id: 4021, clientTypeId: 6, sectionId: VS_SECTION_POVINNE, panelId: VS_PANEL_KONTAKT, fieldKey: "email", label: "Email (primárny)", shortLabel: "Email", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+
+  // === PANEL: AML – KUV ===
+  { id: 4030, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_AML, fieldKey: "kuv_meno_1", label: "KUV 1 – Meno a priezvisko", shortLabel: "KUV 1 Meno", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+  { id: 4031, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_AML, fieldKey: "kuv_rc_1", label: "KUV 1 – Rodné číslo", shortLabel: "KUV 1 RČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+  { id: 4032, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_AML, fieldKey: "kuv_podiel_1", label: "KUV 1 – % podiel", shortLabel: "KUV 1 %", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "%", decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+  { id: 4033, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_AML, fieldKey: "kuv_meno_2", label: "KUV 2 – Meno a priezvisko", shortLabel: "KUV 2 Meno", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 40, rowNumber: 1, widthPercent: 40 },
+  { id: 4034, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_AML, fieldKey: "kuv_rc_2", label: "KUV 2 – Rodné číslo", shortLabel: "KUV 2 RČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 50, rowNumber: 1, widthPercent: 30 },
+  { id: 4035, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_AML, fieldKey: "kuv_podiel_2", label: "KUV 2 – % podiel", shortLabel: "KUV 2 %", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "%", decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 60, rowNumber: 1, widthPercent: 30 },
+  { id: 4036, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_AML, fieldKey: "kuv_meno_3", label: "KUV 3 – Meno a priezvisko", shortLabel: "KUV 3 Meno", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 70, rowNumber: 2, widthPercent: 40 },
+  { id: 4037, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_AML, fieldKey: "kuv_rc_3", label: "KUV 3 – Rodné číslo", shortLabel: "KUV 3 RČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 80, rowNumber: 2, widthPercent: 30 },
+  { id: 4038, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_AML, fieldKey: "kuv_podiel_3", label: "KUV 3 – % podiel", shortLabel: "KUV 3 %", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "%", decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 90, rowNumber: 2, widthPercent: 30 },
+
+  // === PANEL: Zákonné údaje ===
+  { id: 4040, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_ZAKONNE, fieldKey: "dic", label: "DIČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+  { id: 4041, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_ZAKONNE, fieldKey: "suhlas_gdpr", label: "Súhlas so spracovaním osobných údajov (GDPR)", shortLabel: "GDPR súhlas", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 30, rowNumber: 1, widthPercent: 50 },
+  { id: 4042, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_ZAKONNE, fieldKey: "suhlas_marketing", label: "Súhlas s marketingovou komunikáciou", shortLabel: "Marketing súhlas", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+  { id: 4043, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_ZAKONNE, fieldKey: "suhlas_tretie_strany", label: "Súhlas s poskytnutím údajov tretím stranám", shortLabel: "Tretie strany", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 50, rowNumber: 2, widthPercent: 50 },
+  { id: 4044, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_ZAKONNE, fieldKey: "suhlas_profilovanie", label: "Súhlas s automatizovaným profilovaním", shortLabel: "Profilovanie", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 60, rowNumber: 2, widthPercent: 50 },
+  { id: 4045, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_ZAKONNE, fieldKey: "poistna_povinnost", label: "Poistná povinnosť splnená", shortLabel: "Poistná pov.", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 70, rowNumber: 3, widthPercent: 50 },
+  { id: 4046, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_ZAKONNE, fieldKey: "overenie_totoznosti", label: "Overenie totožnosti vykonané", shortLabel: "Overenie totoži.", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 80, rowNumber: 3, widthPercent: 50 },
+
+  // === PANEL: Bankové údaje ===
+  { id: 4050, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_ZMLUVNE, fieldKey: "iban", label: "IBAN", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zmluvne", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+  { id: 4051, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_ZMLUVNE, fieldKey: "bic", label: "BIC/SWIFT", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zmluvne", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+  { id: 4052, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_ZMLUVNE, fieldKey: "cislo_uctu", label: "Číslo účtu", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zmluvne", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+
+  // === PANEL: Štatutárni zástupcovia ===
+  { id: 4060, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_STATUTARI, fieldKey: "statutar_meno_1", label: "Štatutár 1 – Meno a priezvisko", shortLabel: "Štatutár 1", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "pravne", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+  { id: 4061, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_STATUTARI, fieldKey: "statutar_funkcia_1", label: "Štatutár 1 – Funkcia", shortLabel: "Funkcia 1", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "pravne", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+  { id: 4062, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_STATUTARI, fieldKey: "statutar_rc_1", label: "Štatutár 1 – Rodné číslo", shortLabel: "Štatutár 1 RČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "pravne", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+  { id: 4063, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_STATUTARI, fieldKey: "statutar_meno_2", label: "Štatutár 2 – Meno a priezvisko", shortLabel: "Štatutár 2", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "pravne", sortOrder: 40, rowNumber: 1, widthPercent: 40 },
+  { id: 4064, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_STATUTARI, fieldKey: "statutar_funkcia_2", label: "Štatutár 2 – Funkcia", shortLabel: "Funkcia 2", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "pravne", sortOrder: 50, rowNumber: 1, widthPercent: 30 },
+  { id: 4065, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_STATUTARI, fieldKey: "statutar_rc_2", label: "Štatutár 2 – Rodné číslo", shortLabel: "Štatutár 2 RČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "pravne", sortOrder: 60, rowNumber: 1, widthPercent: 30 },
+
+  // === PANEL: Inštitucionálny profil ===
+  { id: 4070, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_INST_PROFIL, fieldKey: "nadriadeny_organ", label: "Nadriadený orgán / Zriaďovateľ", shortLabel: "Nadr. orgán", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "firemny_profil", sortOrder: 10, rowNumber: 0, widthPercent: 100 },
+  { id: 4071, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_INST_PROFIL, fieldKey: "typ_financovania", label: "Typ financovania", shortLabel: "Typ financ.", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Rozpočtová organizácia", "Príspevková organizácia", "Iné"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "firemny_profil", sortOrder: 20, rowNumber: 1, widthPercent: 50 },
+  { id: 4072, clientTypeId: 6, sectionId: VS_SECTION_DOPLNKOVE, panelId: VS_PANEL_INST_PROFIL, fieldKey: "rozpoctova_kapitola_vs", label: "Rozpočtová kapitola", shortLabel: "Rozp. kap.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "firemny_profil", sortOrder: 30, rowNumber: 1, widthPercent: 50 },
+
+  // === INÉ ÚDAJE ===
+  { id: 4080, clientTypeId: 6, sectionId: VS_SECTION_INE, panelId: null, fieldKey: "poznamka_interna", label: "Interná poznámka", shortLabel: "Poznámka", fieldType: "long_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "ine", categoryCode: "ine", sortOrder: 10, rowNumber: 0, widthPercent: 100 },
+];
+
 export function getFieldsForType(clientType: string): StaticField[] {
   switch (clientType) {
     case "fo": return FO_FIELDS;
     case "szco": return SZCO_FIELDS;
     case "po": return PO_FIELDS;
+    case "ns": return NS_FIELDS;
+    case "vs": return VS_FIELDS;
     default: return FO_FIELDS;
   }
 }
@@ -691,6 +880,8 @@ export function getSectionsForType(clientType: string): StaticSection[] {
     case "fo": return FO_SECTIONS;
     case "szco": return SZCO_SECTIONS;
     case "po": return PO_SECTIONS;
+    case "ns": return NS_SECTIONS;
+    case "vs": return VS_SECTIONS;
     default: return FO_SECTIONS;
   }
 }
@@ -700,6 +891,8 @@ export function getPanelsForType(clientType: string): StaticPanel[] {
     case "fo": return FO_PANELS;
     case "szco": return SZCO_PANELS;
     case "po": return PO_PANELS;
+    case "ns": return NS_PANELS;
+    case "vs": return VS_PANELS;
     default: return FO_PANELS;
   }
 }
@@ -709,6 +902,8 @@ export function getFieldsForClientTypeId(clientTypeId: number): StaticField[] {
     case 1: return FO_FIELDS;
     case 3: return SZCO_FIELDS;
     case 4: return PO_FIELDS;
+    case 5: return NS_FIELDS;
+    case 6: return VS_FIELDS;
     default: return FO_FIELDS;
   }
 }
@@ -718,6 +913,8 @@ export function getSectionsForClientTypeId(clientTypeId: number): StaticSection[
     case 1: return FO_SECTIONS;
     case 3: return SZCO_SECTIONS;
     case 4: return PO_SECTIONS;
+    case 5: return NS_SECTIONS;
+    case 6: return VS_SECTIONS;
     default: return FO_SECTIONS;
   }
 }
@@ -727,6 +924,8 @@ export function getPanelsForClientTypeId(clientTypeId: number): StaticPanel[] {
     case 1: return FO_PANELS;
     case 3: return SZCO_PANELS;
     case 4: return PO_PANELS;
+    case 5: return NS_PANELS;
+    case 6: return VS_PANELS;
     default: return FO_PANELS;
   }
 }
@@ -775,11 +974,35 @@ const PO_CATEGORIES: SubjectCategory[] = [
   { key: "relacie", label: "Relácie", icon: "Link", color: "violet", panelIds: [] },
 ];
 
+const NS_CATEGORIES: SubjectCategory[] = [
+  { key: "identita", label: "Identita", icon: "User", color: "blue", panelIds: [110, 111] },
+  { key: "legislativa", label: "Legislatíva", icon: "Shield", color: "red", panelIds: [113, 115] },
+  { key: "rodina", label: "Rodina a vzťahy", icon: "Users", color: "pink", panelIds: [116] },
+  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [114] },
+  { key: "profil", label: "Profil a marketing", icon: "Star", color: "amber", panelIds: [117], includeIneFields: true },
+  { key: "digitalna", label: "Digitálna stopa", icon: "Phone", color: "cyan", panelIds: [112] },
+  { key: "servis", label: "Servis a archív", icon: "Archive", color: "slate", panelIds: [] },
+  { key: "relacie", label: "Relácie", icon: "Link", color: "violet", panelIds: [] },
+];
+
+const VS_CATEGORIES: SubjectCategory[] = [
+  { key: "identita", label: "Identita", icon: "User", color: "blue", panelIds: [120, 121] },
+  { key: "legislativa", label: "Legislatíva", icon: "Shield", color: "red", panelIds: [123, 125] },
+  { key: "rodina", label: "Rodina a vzťahy", icon: "Users", color: "pink", panelIds: [126] },
+  { key: "financie", label: "Financie a majetok", icon: "CreditCard", color: "emerald", panelIds: [124] },
+  { key: "profil", label: "Profil a marketing", icon: "Star", color: "amber", panelIds: [127], includeIneFields: true },
+  { key: "digitalna", label: "Digitálna stopa", icon: "Phone", color: "cyan", panelIds: [122] },
+  { key: "servis", label: "Servis a archív", icon: "Archive", color: "slate", panelIds: [] },
+  { key: "relacie", label: "Relácie", icon: "Link", color: "violet", panelIds: [] },
+];
+
 export function getCategoriesForClientType(clientTypeId: number): SubjectCategory[] {
   switch (clientTypeId) {
     case 1: return FO_CATEGORIES;
     case 3: return SZCO_CATEGORIES;
     case 4: return PO_CATEGORIES;
+    case 5: return NS_CATEGORIES;
+    case 6: return VS_CATEGORIES;
     default: return FO_CATEGORIES;
   }
 }

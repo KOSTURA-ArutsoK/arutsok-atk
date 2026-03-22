@@ -532,15 +532,20 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
   const isPerson = subject.type === 'person';
   const isSzco = subject.type === 'szco';
 
+  const isNs = subject.type === 'organization';
+  const isVs = subject.type === 'state';
+
   const clientType = clientTypes?.find(ct => {
     if (isSystem) return false;
-    if (subject.type === 'szco' && ct.code === 'SZCO') return true;
+    if (isSzco && ct.code === 'SZCO') return true;
     if (subject.type === 'company' && ct.code === 'PO') return true;
     if (isPerson && ct.code === 'FO') return true;
+    if (isNs && ct.code === 'NS') return true;
+    if (isVs && ct.code === 'VS') return true;
     return false;
   });
 
-  const clientTypeId = isSystem ? 4 : isSzco ? 3 : isPerson ? 1 : 4;
+  const clientTypeId = isSystem ? 4 : isSzco ? 3 : isPerson ? 1 : isNs ? 5 : isVs ? 6 : 4;
   const typeFields = getFieldsForClientTypeId(clientTypeId);
   const foTypeFields = getFieldsForClientTypeId(1);
   const typeSections = getSectionsForClientTypeId(clientTypeId);
@@ -591,7 +596,7 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
       <div className="flex flex-wrap gap-2">
         <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
           <span className="text-xs text-muted-foreground whitespace-nowrap">Typ:</span>
-          <span className="text-sm font-medium">{isSystem ? 'Systém' : isPerson ? 'FO' : isSzco ? 'SZCO' : 'PO'} - {isSystem ? 'Koreňový subjekt' : clientType?.name || subject.type}</span>
+          <span className="text-sm font-medium">{isSystem ? 'Systém' : isPerson ? 'FO' : isSzco ? 'SZCO' : isNs ? 'NS' : isVs ? 'VS' : 'PO'} - {isSystem ? 'Koreňový subjekt' : clientType?.name || subject.type}</span>
         </div>
         <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
           <span className="text-xs text-muted-foreground whitespace-nowrap">Firma:</span>
@@ -2679,7 +2684,7 @@ function FullPageEditor({
     }
   }, [isPerson, dynamicValues["rodne_cislo"], initialData.baseValue]);
 
-  const editorClientTypeId = clientType?.code === 'SZCO' ? 3 : (clientType?.code === 'PO' || clientType?.code === 'NS' || clientType?.code === 'VS') ? 4 : 1;
+  const editorClientTypeId = clientType?.code === 'SZCO' ? 3 : clientType?.code === 'PO' ? 4 : clientType?.code === 'NS' ? 5 : clientType?.code === 'VS' ? 6 : 1;
   const typeFields = getFieldsForClientTypeId(editorClientTypeId);
   const typeSections = getSectionsForClientTypeId(editorClientTypeId);
 
@@ -2698,7 +2703,7 @@ function FullPageEditor({
   const form = useForm<z.infer<typeof createSchema>>({
     resolver: zodResolver(createSchema),
     defaultValues: {
-      type: isPerson ? "person" : (clientType?.code === 'SZCO' ? "szco" : "company"),
+      type: isPerson ? "person" : (clientType?.code === 'SZCO' ? "szco" : clientType?.code === 'NS' ? "organization" : clientType?.code === 'VS' ? "state" : "company"),
       isActive: true,
       firstName: "",
       lastName: "",
@@ -2714,7 +2719,7 @@ function FullPageEditor({
   if (!formResetDone.current && clientType && state && appUser?.activeCompanyId) {
     formResetDone.current = true;
     form.reset({
-      type: isPerson ? "person" : (clientType?.code === 'SZCO' ? "szco" : "company"),
+      type: isPerson ? "person" : (clientType?.code === 'SZCO' ? "szco" : clientType?.code === 'NS' ? "organization" : clientType?.code === 'VS' ? "state" : "company"),
       isActive: true,
       firstName: "",
       lastName: "",
@@ -4191,15 +4196,20 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject; onClose: () 
   const details = (subject.details || {}) as Record<string, any>;
   const dynamicFields = details.dynamicFields || {};
 
+  const isNsType = subject.type === 'organization';
+  const isVsType = subject.type === 'state';
+
   const clientType = clientTypes?.find(ct => {
     if (isSystemType) return false;
     if (isSzco && ct.code === 'SZCO') return true;
     if (subject.type === 'company' && ct.code === 'PO') return true;
     if (isPerson && ct.code === 'FO') return true;
+    if (isNsType && ct.code === 'NS') return true;
+    if (isVsType && ct.code === 'VS') return true;
     return false;
   });
 
-  const modalClientTypeId = isSystemType ? 4 : isSzco ? 3 : subject.type === 'company' ? 4 : 1;
+  const modalClientTypeId = isSystemType ? 4 : isSzco ? 3 : subject.type === 'company' ? 4 : isNsType ? 5 : isVsType ? 6 : 1;
   const typeFields = getFieldsForClientTypeId(modalClientTypeId);
   const typeSections = getSectionsForClientTypeId(modalClientTypeId);
 

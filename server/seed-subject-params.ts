@@ -92,6 +92,28 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     { clientTypeId: 4, name: "Vozidlo", code: "po_auto", folderCategory: "doplnkove", sortOrder: 7, isPanel: true, gridColumns: 4 },
     { clientTypeId: 4, name: "Nehnuteľnosti", code: "po_nehnutelnosti", folderCategory: "doplnkove", sortOrder: 8, isPanel: true, gridColumns: 3 },
     { clientTypeId: 4, name: "Flotila vozidiel", code: "po_flota", folderCategory: "doplnkove", sortOrder: 9, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 5, name: "POVINNÉ ÚDAJE", code: "ns_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 5, name: "DOPLNKOVÉ ÚDAJE", code: "ns_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 5, name: "INÉ ÚDAJE", code: "ns_ine", folderCategory: "ine", sortOrder: 3, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 5, name: "Subjekt NS", code: "ns_subjekt", folderCategory: "povinne", sortOrder: 0, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 5, name: "Sídlo organizácie", code: "ns_sidlo", folderCategory: "povinne", sortOrder: 1, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 5, name: "Kontaktné údaje", code: "ns_kontakt", folderCategory: "povinne", sortOrder: 2, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 5, name: "AML – KUV", code: "ns_aml", folderCategory: "doplnkove", sortOrder: 0, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 5, name: "Zákonné údaje", code: "ns_zakonne", folderCategory: "doplnkove", sortOrder: 1, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 5, name: "Bankové údaje", code: "ns_zmluvne", folderCategory: "doplnkove", sortOrder: 2, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 5, name: "Štatutárni zástupcovia", code: "ns_statutari", folderCategory: "doplnkove", sortOrder: 3, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 5, name: "Profil organizácie", code: "ns_firemny", folderCategory: "doplnkove", sortOrder: 4, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 6, name: "POVINNÉ ÚDAJE", code: "vs_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 6, name: "DOPLNKOVÉ ÚDAJE", code: "vs_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 6, name: "INÉ ÚDAJE", code: "vs_ine", folderCategory: "ine", sortOrder: 3, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 6, name: "Subjekt VS", code: "vs_subjekt", folderCategory: "povinne", sortOrder: 0, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 6, name: "Sídlo inštitúcie", code: "vs_sidlo", folderCategory: "povinne", sortOrder: 1, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 6, name: "Kontaktné údaje", code: "vs_kontakt", folderCategory: "povinne", sortOrder: 2, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 6, name: "AML – KUV", code: "vs_aml", folderCategory: "doplnkove", sortOrder: 0, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 6, name: "Zákonné údaje", code: "vs_zakonne", folderCategory: "doplnkove", sortOrder: 1, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 6, name: "Bankové údaje", code: "vs_zmluvne", folderCategory: "doplnkove", sortOrder: 2, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 6, name: "Štatutárni zástupcovia", code: "vs_statutari", folderCategory: "doplnkove", sortOrder: 3, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 6, name: "Inštitucionálny profil", code: "vs_inst_profil", folderCategory: "doplnkove", sortOrder: 4, isPanel: true, gridColumns: 2 },
   ];
 
   const sectionMap: Record<string, number> = {};
@@ -124,6 +146,10 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     po_subjekt: "po_povinne", po_sidlo: "po_povinne", po_kontakt: "po_povinne",
     po_aml: "po_doplnkove", po_firemny: "po_doplnkove", po_zakonne: "po_doplnkove", po_zmluvne: "po_doplnkove", po_statutari: "po_doplnkove",
     po_poistenie_pzp: "po_doplnkove", po_poistenie_majetok: "po_doplnkove", po_auto: "po_doplnkove", po_nehnutelnosti: "po_doplnkove", po_flota: "po_doplnkove",
+    ns_subjekt: "ns_povinne", ns_sidlo: "ns_povinne", ns_kontakt: "ns_povinne",
+    ns_aml: "ns_doplnkove", ns_zakonne: "ns_doplnkove", ns_zmluvne: "ns_doplnkove", ns_statutari: "ns_doplnkove", ns_firemny: "ns_doplnkove",
+    vs_subjekt: "vs_povinne", vs_sidlo: "vs_povinne", vs_kontakt: "vs_povinne",
+    vs_aml: "vs_doplnkove", vs_zakonne: "vs_doplnkove", vs_zmluvne: "vs_doplnkove", vs_statutari: "vs_doplnkove", vs_inst_profil: "vs_doplnkove",
   };
 
   for (const [childCode, parentCode] of Object.entries(parentCodes)) {
@@ -673,6 +699,149 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     f(4, "po_doplnkove", "po_flota", "flota_poistovatel", "Poisťovateľ flotily", "short_text", 30, 0, 34, { categoryCode: "majetkove" }),
     f(4, "po_doplnkove", "po_flota", "flota_zmluva_od", "Zmluva platná od", "date", 40, 1, 50, { categoryCode: "majetkove" }),
     f(4, "po_doplnkove", "po_flota", "flota_zmluva_do", "Zmluva platná do", "date", 50, 1, 50, { categoryCode: "majetkove" }),
+
+    // ============================================================
+    // NS: Subjekt NS (ns_subjekt)
+    // ============================================================
+    f(5, "ns_povinne", "ns_subjekt", "nazov_organizacie", "Názov organizácie", "short_text", 10, 0, 50, { isRequired: true, shortLabel: "Názov org." }),
+    f(5, "ns_povinne", "ns_subjekt", "ico", "IČO", "short_text", 20, 0, 50, { isRequired: true }),
+    f(5, "ns_povinne", "ns_subjekt", "typ_organizacie", "Typ organizácie", "jedna_moznost", 30, 1, 100, { shortLabel: "Typ org.", options: ["Nadácia", "Nadačný fond", "Občianske združenie (OZ)", "Nezisková organizácia (NO)", "Neinvestičný fond", "Cirkevná organizácia", "Záujmové združenie právnických osôb", "Profesijná komora / Únia", "Politická strana / Hnutie", "Odborová organizácia", "Iné"], defaultValue: "Nezisková organizácia (NO)" }),
+
+    // ============================================================
+    // NS: Sídlo (ns_sidlo)
+    // ============================================================
+    f(5, "ns_povinne", "ns_sidlo", "sidlo_ulica", "Ulica (sídlo)", "short_text", 10, 0, 40, { isRequired: true, shortLabel: "Ulica" }),
+    f(5, "ns_povinne", "ns_sidlo", "sidlo_supisne", "Súpisné číslo", "short_text", 20, 0, 30, { shortLabel: "Súpisné č." }),
+    f(5, "ns_povinne", "ns_sidlo", "sidlo_orientacne", "Orientačné číslo", "short_text", 30, 0, 30, { shortLabel: "Orient. č." }),
+    f(5, "ns_povinne", "ns_sidlo", "sidlo_mesto", "Mesto/Obec", "short_text", 40, 1, 50, { isRequired: true }),
+    f(5, "ns_povinne", "ns_sidlo", "sidlo_psc", "PSČ", "short_text", 50, 1, 25, {}),
+    f(5, "ns_povinne", "ns_sidlo", "sidlo_stat", "Štát", "short_text", 60, 1, 25, {}),
+
+    // ============================================================
+    // NS: Kontakt (ns_kontakt)
+    // ============================================================
+    f(5, "ns_povinne", "ns_kontakt", "telefon", "Telefónne číslo (primárne)", "phone", 10, 0, 50, { shortLabel: "Tel. číslo" }),
+    f(5, "ns_povinne", "ns_kontakt", "email", "Email (primárny)", "short_text", 20, 0, 50, { shortLabel: "Email" }),
+
+    // ============================================================
+    // NS: AML (ns_aml)
+    // ============================================================
+    f(5, "ns_doplnkove", "ns_aml", "kuv_meno_1", "KUV 1 – Meno a priezvisko", "short_text", 10, 0, 40, { shortLabel: "KUV 1 Meno", categoryCode: "aml" }),
+    f(5, "ns_doplnkove", "ns_aml", "kuv_rc_1", "KUV 1 – Rodné číslo", "short_text", 20, 0, 30, { shortLabel: "KUV 1 RČ", categoryCode: "aml" }),
+    f(5, "ns_doplnkove", "ns_aml", "kuv_podiel_1", "KUV 1 – % podiel", "desatinne_cislo", 30, 0, 30, { shortLabel: "KUV 1 %", unit: "%", categoryCode: "aml" }),
+    f(5, "ns_doplnkove", "ns_aml", "kuv_meno_2", "KUV 2 – Meno a priezvisko", "short_text", 40, 1, 40, { shortLabel: "KUV 2 Meno", categoryCode: "aml" }),
+    f(5, "ns_doplnkove", "ns_aml", "kuv_rc_2", "KUV 2 – Rodné číslo", "short_text", 50, 1, 30, { shortLabel: "KUV 2 RČ", categoryCode: "aml" }),
+    f(5, "ns_doplnkove", "ns_aml", "kuv_podiel_2", "KUV 2 – % podiel", "desatinne_cislo", 60, 1, 30, { shortLabel: "KUV 2 %", unit: "%", categoryCode: "aml" }),
+    f(5, "ns_doplnkove", "ns_aml", "kuv_meno_3", "KUV 3 – Meno a priezvisko", "short_text", 70, 2, 40, { shortLabel: "KUV 3 Meno", categoryCode: "aml" }),
+    f(5, "ns_doplnkove", "ns_aml", "kuv_rc_3", "KUV 3 – Rodné číslo", "short_text", 80, 2, 30, { shortLabel: "KUV 3 RČ", categoryCode: "aml" }),
+    f(5, "ns_doplnkove", "ns_aml", "kuv_podiel_3", "KUV 3 – % podiel", "desatinne_cislo", 90, 2, 30, { shortLabel: "KUV 3 %", unit: "%", categoryCode: "aml" }),
+
+    // ============================================================
+    // NS: Zákonné (ns_zakonne)
+    // ============================================================
+    f(5, "ns_doplnkove", "ns_zakonne", "dic", "DIČ", "short_text", 10, 0, 50, { categoryCode: "zakonne" }),
+    f(5, "ns_doplnkove", "ns_zakonne", "suhlas_gdpr", "Súhlas so spracovaním osobných údajov (GDPR)", "switch", 30, 1, 50, { shortLabel: "GDPR súhlas", defaultValue: "false", categoryCode: "zakonne" }),
+    f(5, "ns_doplnkove", "ns_zakonne", "suhlas_marketing", "Súhlas s marketingovou komunikáciou", "switch", 40, 1, 50, { shortLabel: "Marketing súhlas", defaultValue: "false", categoryCode: "zakonne" }),
+    f(5, "ns_doplnkove", "ns_zakonne", "suhlas_tretie_strany", "Súhlas s poskytnutím údajov tretím stranám", "switch", 50, 2, 50, { shortLabel: "Tretie strany", defaultValue: "false", categoryCode: "zakonne" }),
+    f(5, "ns_doplnkove", "ns_zakonne", "suhlas_profilovanie", "Súhlas s automatizovaným profilovaním", "switch", 60, 2, 50, { shortLabel: "Profilovanie", defaultValue: "false", categoryCode: "zakonne" }),
+    f(5, "ns_doplnkove", "ns_zakonne", "poistna_povinnost", "Poistná povinnosť splnená", "switch", 70, 3, 50, { shortLabel: "Poistná pov.", defaultValue: "false", categoryCode: "zakonne" }),
+    f(5, "ns_doplnkove", "ns_zakonne", "overenie_totoznosti", "Overenie totožnosti vykonané", "switch", 80, 3, 50, { shortLabel: "Overenie totoži.", defaultValue: "false", categoryCode: "zakonne" }),
+
+    // ============================================================
+    // NS: Bankové (ns_zmluvne)
+    // ============================================================
+    f(5, "ns_doplnkove", "ns_zmluvne", "iban", "IBAN", "short_text", 10, 0, 40, { categoryCode: "zmluvne" }),
+    f(5, "ns_doplnkove", "ns_zmluvne", "bic", "BIC/SWIFT", "short_text", 20, 0, 30, { categoryCode: "zmluvne" }),
+    f(5, "ns_doplnkove", "ns_zmluvne", "cislo_uctu", "Číslo účtu", "short_text", 30, 0, 30, { categoryCode: "zmluvne" }),
+
+    // ============================================================
+    // NS: Štatutári (ns_statutari)
+    // ============================================================
+    f(5, "ns_doplnkove", "ns_statutari", "statutar_meno_1", "Štatutár 1 – Meno a priezvisko", "short_text", 10, 0, 40, { shortLabel: "Štatutár 1", categoryCode: "pravne" }),
+    f(5, "ns_doplnkove", "ns_statutari", "statutar_funkcia_1", "Štatutár 1 – Funkcia", "short_text", 20, 0, 30, { shortLabel: "Funkcia 1", categoryCode: "pravne" }),
+    f(5, "ns_doplnkove", "ns_statutari", "statutar_rc_1", "Štatutár 1 – Rodné číslo", "short_text", 30, 0, 30, { shortLabel: "Štatutár 1 RČ", categoryCode: "pravne" }),
+    f(5, "ns_doplnkove", "ns_statutari", "statutar_meno_2", "Štatutár 2 – Meno a priezvisko", "short_text", 40, 1, 40, { shortLabel: "Štatutár 2", categoryCode: "pravne" }),
+    f(5, "ns_doplnkove", "ns_statutari", "statutar_funkcia_2", "Štatutár 2 – Funkcia", "short_text", 50, 1, 30, { shortLabel: "Funkcia 2", categoryCode: "pravne" }),
+    f(5, "ns_doplnkove", "ns_statutari", "statutar_rc_2", "Štatutár 2 – Rodné číslo", "short_text", 60, 1, 30, { shortLabel: "Štatutár 2 RČ", categoryCode: "pravne" }),
+
+    // ============================================================
+    // NS: Profil organizácie (ns_firemny)
+    // ============================================================
+    f(5, "ns_doplnkove", "ns_firemny", "ucel_organizacie", "Účel organizácie / Poslanie", "long_text", 10, 0, 100, { shortLabel: "Účel org.", categoryCode: "firemny_profil" }),
+    f(5, "ns_doplnkove", "ns_firemny", "cislo_registracie_ns", "Číslo registrácie", "short_text", 20, 1, 50, { shortLabel: "Č. registrácie", categoryCode: "firemny_profil" }),
+    f(5, "ns_doplnkove", "ns_firemny", "datum_registracie_ns", "Dátum registrácie", "date", 30, 1, 50, { shortLabel: "Dát. reg.", categoryCode: "firemny_profil" }),
+    f(5, "ns_doplnkove", "ns_firemny", "pocet_zamestnancov_ns", "Počet zamestnancov / dobrovoľníkov", "number", 40, 2, 50, { shortLabel: "Zamestnanci", decimalPlaces: 0, categoryCode: "firemny_profil" }),
+
+    // ============================================================
+    // VS: Subjekt VS (vs_subjekt)
+    // ============================================================
+    f(6, "vs_povinne", "vs_subjekt", "nazov_organizacie", "Názov inštitúcie", "short_text", 10, 0, 50, { isRequired: true, shortLabel: "Názov inšt." }),
+    f(6, "vs_povinne", "vs_subjekt", "ico", "IČO", "short_text", 20, 0, 50, { isRequired: true }),
+    f(6, "vs_povinne", "vs_subjekt", "typ_organizacie", "Typ inštitúcie", "jedna_moznost", 30, 1, 100, { shortLabel: "Typ inšt.", options: ["Ministerstvo", "Ústredný orgán štátnej správy", "Krajský úrad", "Okresný úrad", "Obec / Mesto", "Magistrát", "Vyšší územný celok (VÚC)", "Štátna inštitúcia", "Štátna príspevková organizácia", "Rozpočtová organizácia", "Štátny podnik", "Verejnoprávna inštitúcia", "Iné"], defaultValue: "Štátna inštitúcia" }),
+
+    // ============================================================
+    // VS: Sídlo (vs_sidlo)
+    // ============================================================
+    f(6, "vs_povinne", "vs_sidlo", "sidlo_ulica", "Ulica (sídlo)", "short_text", 10, 0, 40, { isRequired: true, shortLabel: "Ulica" }),
+    f(6, "vs_povinne", "vs_sidlo", "sidlo_supisne", "Súpisné číslo", "short_text", 20, 0, 30, { shortLabel: "Súpisné č." }),
+    f(6, "vs_povinne", "vs_sidlo", "sidlo_orientacne", "Orientačné číslo", "short_text", 30, 0, 30, { shortLabel: "Orient. č." }),
+    f(6, "vs_povinne", "vs_sidlo", "sidlo_mesto", "Mesto/Obec", "short_text", 40, 1, 50, { isRequired: true }),
+    f(6, "vs_povinne", "vs_sidlo", "sidlo_psc", "PSČ", "short_text", 50, 1, 25, {}),
+    f(6, "vs_povinne", "vs_sidlo", "sidlo_stat", "Štát", "short_text", 60, 1, 25, {}),
+
+    // ============================================================
+    // VS: Kontakt (vs_kontakt)
+    // ============================================================
+    f(6, "vs_povinne", "vs_kontakt", "telefon", "Telefónne číslo (primárne)", "phone", 10, 0, 50, { shortLabel: "Tel. číslo" }),
+    f(6, "vs_povinne", "vs_kontakt", "email", "Email (primárny)", "short_text", 20, 0, 50, { shortLabel: "Email" }),
+
+    // ============================================================
+    // VS: AML (vs_aml)
+    // ============================================================
+    f(6, "vs_doplnkove", "vs_aml", "kuv_meno_1", "KUV 1 – Meno a priezvisko", "short_text", 10, 0, 40, { shortLabel: "KUV 1 Meno", categoryCode: "aml" }),
+    f(6, "vs_doplnkove", "vs_aml", "kuv_rc_1", "KUV 1 – Rodné číslo", "short_text", 20, 0, 30, { shortLabel: "KUV 1 RČ", categoryCode: "aml" }),
+    f(6, "vs_doplnkove", "vs_aml", "kuv_podiel_1", "KUV 1 – % podiel", "desatinne_cislo", 30, 0, 30, { shortLabel: "KUV 1 %", unit: "%", categoryCode: "aml" }),
+    f(6, "vs_doplnkove", "vs_aml", "kuv_meno_2", "KUV 2 – Meno a priezvisko", "short_text", 40, 1, 40, { shortLabel: "KUV 2 Meno", categoryCode: "aml" }),
+    f(6, "vs_doplnkove", "vs_aml", "kuv_rc_2", "KUV 2 – Rodné číslo", "short_text", 50, 1, 30, { shortLabel: "KUV 2 RČ", categoryCode: "aml" }),
+    f(6, "vs_doplnkove", "vs_aml", "kuv_podiel_2", "KUV 2 – % podiel", "desatinne_cislo", 60, 1, 30, { shortLabel: "KUV 2 %", unit: "%", categoryCode: "aml" }),
+    f(6, "vs_doplnkove", "vs_aml", "kuv_meno_3", "KUV 3 – Meno a priezvisko", "short_text", 70, 2, 40, { shortLabel: "KUV 3 Meno", categoryCode: "aml" }),
+    f(6, "vs_doplnkove", "vs_aml", "kuv_rc_3", "KUV 3 – Rodné číslo", "short_text", 80, 2, 30, { shortLabel: "KUV 3 RČ", categoryCode: "aml" }),
+    f(6, "vs_doplnkove", "vs_aml", "kuv_podiel_3", "KUV 3 – % podiel", "desatinne_cislo", 90, 2, 30, { shortLabel: "KUV 3 %", unit: "%", categoryCode: "aml" }),
+
+    // ============================================================
+    // VS: Zákonné (vs_zakonne)
+    // ============================================================
+    f(6, "vs_doplnkove", "vs_zakonne", "dic", "DIČ", "short_text", 10, 0, 50, { categoryCode: "zakonne" }),
+    f(6, "vs_doplnkove", "vs_zakonne", "suhlas_gdpr", "Súhlas so spracovaním osobných údajov (GDPR)", "switch", 30, 1, 50, { shortLabel: "GDPR súhlas", defaultValue: "false", categoryCode: "zakonne" }),
+    f(6, "vs_doplnkove", "vs_zakonne", "suhlas_marketing", "Súhlas s marketingovou komunikáciou", "switch", 40, 1, 50, { shortLabel: "Marketing súhlas", defaultValue: "false", categoryCode: "zakonne" }),
+    f(6, "vs_doplnkove", "vs_zakonne", "suhlas_tretie_strany", "Súhlas s poskytnutím údajov tretím stranám", "switch", 50, 2, 50, { shortLabel: "Tretie strany", defaultValue: "false", categoryCode: "zakonne" }),
+    f(6, "vs_doplnkove", "vs_zakonne", "suhlas_profilovanie", "Súhlas s automatizovaným profilovaním", "switch", 60, 2, 50, { shortLabel: "Profilovanie", defaultValue: "false", categoryCode: "zakonne" }),
+    f(6, "vs_doplnkove", "vs_zakonne", "poistna_povinnost", "Poistná povinnosť splnená", "switch", 70, 3, 50, { shortLabel: "Poistná pov.", defaultValue: "false", categoryCode: "zakonne" }),
+    f(6, "vs_doplnkove", "vs_zakonne", "overenie_totoznosti", "Overenie totožnosti vykonané", "switch", 80, 3, 50, { shortLabel: "Overenie totoži.", defaultValue: "false", categoryCode: "zakonne" }),
+
+    // ============================================================
+    // VS: Bankové (vs_zmluvne)
+    // ============================================================
+    f(6, "vs_doplnkove", "vs_zmluvne", "iban", "IBAN", "short_text", 10, 0, 40, { categoryCode: "zmluvne" }),
+    f(6, "vs_doplnkove", "vs_zmluvne", "bic", "BIC/SWIFT", "short_text", 20, 0, 30, { categoryCode: "zmluvne" }),
+    f(6, "vs_doplnkove", "vs_zmluvne", "cislo_uctu", "Číslo účtu", "short_text", 30, 0, 30, { categoryCode: "zmluvne" }),
+
+    // ============================================================
+    // VS: Štatutári (vs_statutari)
+    // ============================================================
+    f(6, "vs_doplnkove", "vs_statutari", "statutar_meno_1", "Štatutár 1 – Meno a priezvisko", "short_text", 10, 0, 40, { shortLabel: "Štatutár 1", categoryCode: "pravne" }),
+    f(6, "vs_doplnkove", "vs_statutari", "statutar_funkcia_1", "Štatutár 1 – Funkcia", "short_text", 20, 0, 30, { shortLabel: "Funkcia 1", categoryCode: "pravne" }),
+    f(6, "vs_doplnkove", "vs_statutari", "statutar_rc_1", "Štatutár 1 – Rodné číslo", "short_text", 30, 0, 30, { shortLabel: "Štatutár 1 RČ", categoryCode: "pravne" }),
+    f(6, "vs_doplnkove", "vs_statutari", "statutar_meno_2", "Štatutár 2 – Meno a priezvisko", "short_text", 40, 1, 40, { shortLabel: "Štatutár 2", categoryCode: "pravne" }),
+    f(6, "vs_doplnkove", "vs_statutari", "statutar_funkcia_2", "Štatutár 2 – Funkcia", "short_text", 50, 1, 30, { shortLabel: "Funkcia 2", categoryCode: "pravne" }),
+    f(6, "vs_doplnkove", "vs_statutari", "statutar_rc_2", "Štatutár 2 – Rodné číslo", "short_text", 60, 1, 30, { shortLabel: "Štatutár 2 RČ", categoryCode: "pravne" }),
+
+    // ============================================================
+    // VS: Inštitucionálny profil (vs_inst_profil)
+    // ============================================================
+    f(6, "vs_doplnkove", "vs_inst_profil", "nadriadeny_organ", "Nadriadený orgán / Zriaďovateľ", "short_text", 10, 0, 100, { shortLabel: "Nadr. orgán", categoryCode: "firemny_profil" }),
+    f(6, "vs_doplnkove", "vs_inst_profil", "typ_financovania", "Typ financovania", "jedna_moznost", 20, 1, 50, { shortLabel: "Typ financ.", options: ["Rozpočtová organizácia", "Príspevková organizácia", "Iné"], categoryCode: "firemny_profil" }),
+    f(6, "vs_doplnkove", "vs_inst_profil", "rozpoctova_kapitola_vs", "Rozpočtová kapitola", "short_text", 30, 1, 50, { shortLabel: "Rozp. kap.", categoryCode: "firemny_profil" }),
   ];
 
   const paramIdMap: Record<string, number> = {};
@@ -753,7 +922,7 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
   const synonymValues: { parameterId: number; synonym: string; language: string; source: string; confidence: number }[] = [];
 
   for (const [fieldKey, synonyms] of Object.entries(SYNONYM_DEFS)) {
-    const clientTypeIds = [1, 3, 4];
+    const clientTypeIds = [1, 3, 4, 5, 6];
     for (const ctId of clientTypeIds) {
       const paramId = paramIdMap[`${ctId}:${fieldKey}`];
       if (paramId) {
