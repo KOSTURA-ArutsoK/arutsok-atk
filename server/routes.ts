@@ -3576,7 +3576,9 @@ export async function registerRoutes(
       if (input.uid) input.uid = input.uid.replace(/\D/g, "");
 
       // Guard: SAMPLE_FO_UID je vyhradené výhradne pre vzorovú FO – odmietni priradenie inému typu
-      if (input.uid && input.uid.replace(/\D/g, "") === SAMPLE_FO_UID && original.type !== "person") {
+      // Kontrolujeme efektívny výsledný typ (input.type ak je zadaný, inak original.type)
+      const effectiveType = (input as any).type ?? original.type;
+      if (input.uid && input.uid.replace(/\D/g, "") === SAMPLE_FO_UID && effectiveType !== "person") {
         return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je vyhradené výhradne pre vzorovú fyzickú osobu.` });
       }
 
