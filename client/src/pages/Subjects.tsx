@@ -4090,9 +4090,9 @@ function FullPageEditor({
                                 </AccordionTrigger>
                                 <AccordionContent className="pb-4">
                                   <div className="space-y-4">
-                                    {groups.flatMap(({ panelGroups }) =>
-                                      panelGroups.map(({ panel, fields }) => (
-                                        <div key={panel ? panel.id : "no-panel"} className="space-y-2">
+                                    {groups.flatMap(({ section, panelGroups }) =>
+                                      panelGroups.map(({ panel, fields }, pi) => (
+                                        <div key={panel ? panel.id : `no-panel-${section.id}-${pi}`} className="space-y-2">
                                           {panel && (
                                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{panel.name}</p>
                                           )}
