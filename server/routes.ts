@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, isAuthenticated } from "./auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory } from "@shared/schema";
 import type { DocEntry } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, seedAssetPanels, seedEventAndEntityPanels } from "./seed-subject-params";
@@ -1259,19 +1259,22 @@ export async function registerRoutes(
     const continentId = req.query.continentId ? parseInt(req.query.continentId as string) : undefined;
     const allStates = await storage.getStates(continentId);
     if (!allStates.length) return res.json([]);
-    const [subjRes, compRes, partRes] = await Promise.all([
-      db.execute(sql`SELECT state_id::int, COUNT(*)::int AS cnt FROM subjects WHERE is_active = true AND state_id IS NOT NULL GROUP BY state_id`),
-      db.execute(sql`SELECT state_id::int, COUNT(*)::int AS cnt FROM my_companies WHERE is_deleted = false AND state_id IS NOT NULL GROUP BY state_id`),
-      db.execute(sql`SELECT state_id::int, COUNT(*)::int AS cnt FROM partners WHERE is_deleted = false AND state_id IS NOT NULL GROUP BY state_id`),
+    const [subjectRows, companyRows, partnerRows] = await Promise.all([
+      db.select({ stateId: subjects.stateId, cnt: sql<number>`count(*)::int` })
+        .from(subjects).where(and(eq(subjects.isActive, true), isNotNull(subjects.stateId))).groupBy(subjects.stateId),
+      db.select({ stateId: myCompanies.stateId, cnt: sql<number>`count(*)::int` })
+        .from(myCompanies).where(and(eq(myCompanies.isDeleted, false), isNotNull(myCompanies.stateId))).groupBy(myCompanies.stateId),
+      db.select({ stateId: partners.stateId, cnt: sql<number>`count(*)::int` })
+        .from(partners).where(and(eq(partners.isDeleted, false), isNotNull(partners.stateId))).groupBy(partners.stateId),
     ]);
-    const subjectCounts = new Map<number, number>(((subjRes as any).rows || []).map((r: any) => [r.state_id, r.cnt]));
-    const companyCounts = new Map<number, number>(((compRes as any).rows || []).map((r: any) => [r.state_id, r.cnt]));
-    const partnerCounts = new Map<number, number>(((partRes as any).rows || []).map((r: any) => [r.state_id, r.cnt]));
+    const subjectMap = new Map<number, number>(subjectRows.filter((r): r is { stateId: number; cnt: number } => r.stateId !== null).map(r => [r.stateId, r.cnt]));
+    const companyMap = new Map<number, number>(companyRows.filter((r): r is { stateId: number; cnt: number } => r.stateId !== null).map(r => [r.stateId, r.cnt]));
+    const partnerMap = new Map<number, number>(partnerRows.filter((r): r is { stateId: number; cnt: number } => r.stateId !== null).map(r => [r.stateId, r.cnt]));
     res.json(allStates.map(s => ({
       ...s,
-      subjectsCount: subjectCounts.get(s.id) ?? 0,
-      companiesCount: companyCounts.get(s.id) ?? 0,
-      partnersCount: partnerCounts.get(s.id) ?? 0,
+      subjectsCount: subjectMap.get(s.id) ?? 0,
+      companiesCount: companyMap.get(s.id) ?? 0,
+      partnersCount: partnerMap.get(s.id) ?? 0,
     })));
   });
 
@@ -1743,19 +1746,22 @@ export async function registerRoutes(
     const stateId = req.query.stateId ? parseInt(req.query.stateId as string) : undefined;
     const companies = await storage.getMyCompanies(includeDeleted);
     if (!companies.length) return res.json([]);
-    const [subjRes, officerRes, contractRes] = await Promise.all([
-      db.execute(sql`SELECT my_company_id::int, COUNT(*)::int AS cnt FROM subjects WHERE is_active = true AND my_company_id IS NOT NULL GROUP BY my_company_id`),
-      db.execute(sql`SELECT company_id::int, COUNT(*)::int AS cnt FROM company_officers WHERE is_active = true GROUP BY company_id`),
-      db.execute(sql`SELECT company_id::int, COUNT(*)::int AS cnt FROM contracts WHERE is_deleted = false AND company_id IS NOT NULL GROUP BY company_id`),
+    const [subjectRows, officerRows, contractRows] = await Promise.all([
+      db.select({ companyId: subjects.myCompanyId, cnt: sql<number>`count(*)::int` })
+        .from(subjects).where(and(eq(subjects.isActive, true), isNotNull(subjects.myCompanyId))).groupBy(subjects.myCompanyId),
+      db.select({ companyId: companyOfficers.companyId, cnt: sql<number>`count(*)::int` })
+        .from(companyOfficers).where(eq(companyOfficers.isActive, true)).groupBy(companyOfficers.companyId),
+      db.select({ companyId: contracts.companyId, cnt: sql<number>`count(*)::int` })
+        .from(contracts).where(and(eq(contracts.isDeleted, false), isNotNull(contracts.companyId))).groupBy(contracts.companyId),
     ]);
-    const subjectCounts = new Map<number, number>(((subjRes as any).rows || []).map((r: any) => [r.my_company_id, r.cnt]));
-    const officerCounts = new Map<number, number>(((officerRes as any).rows || []).map((r: any) => [r.company_id, r.cnt]));
-    const contractCounts = new Map<number, number>(((contractRes as any).rows || []).map((r: any) => [r.company_id, r.cnt]));
+    const subjectMap = new Map<number, number>(subjectRows.filter((r): r is { companyId: number; cnt: number } => r.companyId !== null).map(r => [r.companyId, r.cnt]));
+    const officerMap = new Map<number, number>(officerRows.map(r => [r.companyId, r.cnt]));
+    const contractMap = new Map<number, number>(contractRows.filter((r): r is { companyId: number; cnt: number } => r.companyId !== null).map(r => [r.companyId, r.cnt]));
     const enriched = companies.map(c => ({
       ...c,
-      subjectsCount: subjectCounts.get(c.id) ?? 0,
-      officersCount: officerCounts.get(c.id) ?? 0,
-      contractsCount: contractCounts.get(c.id) ?? 0,
+      subjectsCount: subjectMap.get(c.id) ?? 0,
+      officersCount: officerMap.get(c.id) ?? 0,
+      contractsCount: contractMap.get(c.id) ?? 0,
     }));
     if (stateId) {
       res.json(enriched.filter(c => c.stateId === stateId));
@@ -2441,7 +2447,7 @@ export async function registerRoutes(
     const includeDeleted = req.query.includeDeleted === 'true';
     const stateId = getEnforcedStateId(req);
     const filterCompanyId = req.query.companyId ? Number(req.query.companyId) : (req.appUser?.activeCompanyId || null);
-    let partnersList: any[];
+    let partnersList: (typeof partners.$inferSelect)[];
     if (filterCompanyId) {
       const linked = await db.select({ partnerId: partnerCompanyLinks.partnerId })
         .from(partnerCompanyLinks)
@@ -2456,20 +2462,24 @@ export async function registerRoutes(
       partnersList = await storage.getPartners(includeDeleted, stateId || undefined);
     }
     if (!partnersList.length) return res.json([]);
-    const [prodRes, partnerProdRes, partnerContractRes, contractRes] = await Promise.all([
-      db.execute(sql`SELECT partner_id::int, COUNT(*)::int AS cnt FROM products WHERE is_deleted = false AND partner_id IS NOT NULL GROUP BY partner_id`),
-      db.execute(sql`SELECT partner_id::int, COUNT(*)::int AS cnt FROM partner_products WHERE partner_id IS NOT NULL GROUP BY partner_id`),
-      db.execute(sql`SELECT partner_id::int, COUNT(*)::int AS cnt FROM partner_contracts WHERE partner_id IS NOT NULL GROUP BY partner_id`),
-      db.execute(sql`SELECT partner_id::int, COUNT(*)::int AS cnt FROM contracts WHERE is_deleted = false AND partner_id IS NOT NULL GROUP BY partner_id`),
+    const [productRows, partnerProductRows, partnerContractRows, contractRows] = await Promise.all([
+      db.select({ partnerId: products.partnerId, cnt: sql<number>`count(*)::int` })
+        .from(products).where(and(eq(products.isDeleted, false), isNotNull(products.partnerId))).groupBy(products.partnerId),
+      db.select({ partnerId: partnerProducts.partnerId, cnt: sql<number>`count(*)::int` })
+        .from(partnerProducts).groupBy(partnerProducts.partnerId),
+      db.select({ partnerId: partnerContracts.partnerId, cnt: sql<number>`count(*)::int` })
+        .from(partnerContracts).groupBy(partnerContracts.partnerId),
+      db.select({ partnerId: contracts.partnerId, cnt: sql<number>`count(*)::int` })
+        .from(contracts).where(and(eq(contracts.isDeleted, false), isNotNull(contracts.partnerId))).groupBy(contracts.partnerId),
     ]);
-    const productCounts = new Map<number, number>(((prodRes as any).rows || []).map((r: any) => [r.partner_id, r.cnt]));
-    const partnerProductCounts = new Map<number, number>(((partnerProdRes as any).rows || []).map((r: any) => [r.partner_id, r.cnt]));
-    const partnerContractCounts = new Map<number, number>(((partnerContractRes as any).rows || []).map((r: any) => [r.partner_id, r.cnt]));
-    const contractCounts = new Map<number, number>(((contractRes as any).rows || []).map((r: any) => [r.partner_id, r.cnt]));
+    const productMap = new Map<number, number>(productRows.filter((r): r is { partnerId: number; cnt: number } => r.partnerId !== null).map(r => [r.partnerId, r.cnt]));
+    const partnerProductMap = new Map<number, number>(partnerProductRows.map(r => [r.partnerId, r.cnt]));
+    const partnerContractMap = new Map<number, number>(partnerContractRows.map(r => [r.partnerId, r.cnt]));
+    const contractMap = new Map<number, number>(contractRows.filter((r): r is { partnerId: number; cnt: number } => r.partnerId !== null).map(r => [r.partnerId, r.cnt]));
     res.json(partnersList.map(p => ({
       ...p,
-      productsCount: (productCounts.get(p.id) ?? 0) + (partnerProductCounts.get(p.id) ?? 0),
-      contractsCount: (partnerContractCounts.get(p.id) ?? 0) + (contractCounts.get(p.id) ?? 0),
+      productsCount: (productMap.get(p.id) ?? 0) + (partnerProductMap.get(p.id) ?? 0),
+      contractsCount: (partnerContractMap.get(p.id) ?? 0) + (contractMap.get(p.id) ?? 0),
     })));
   });
 
