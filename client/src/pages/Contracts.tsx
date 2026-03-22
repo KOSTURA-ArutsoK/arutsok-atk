@@ -3805,7 +3805,37 @@ export default function Contracts() {
                         checked={isSelected}
                         disabled={effectivelyIncomplete}
                         onCheckedChange={() => {
-                          if (!effectivelyIncomplete) setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]);
+                          if (!effectivelyIncomplete) {
+                            if (nahratieView) {
+                              const docs = getProductDocsForContract(contract);
+                              if (docs.required.length > 0 || docs.optional.length > 0) {
+                                if (isSelected) {
+                                  setSelectedIds(prev => prev.filter(id => id !== contract.id));
+                                } else {
+                                  const saved = docChecklistSavedState[contract.id];
+                                  const partial = docChecklistPartialState[contract.id];
+                                  const initDoc = saved || partial;
+                                  if (initDoc) {
+                                    setDocChecklistCheckedReq(new Set(initDoc.req));
+                                    setDocChecklistCheckedOpt(new Set(initDoc.opt));
+                                    setDocChecklistExtraOpt(initDoc.extra);
+                                    setDocChecklistCheckedExtra(new Set(initDoc.checkedExtra));
+                                  } else {
+                                    setDocChecklistCheckedReq(new Set());
+                                    setDocChecklistCheckedOpt(new Set());
+                                    setDocChecklistExtraOpt([]);
+                                    setDocChecklistCheckedExtra(new Set());
+                                  }
+                                  setDocChecklistNewOpt("");
+                                  setDocChecklistContract(contract);
+                                }
+                              } else {
+                                setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]);
+                              }
+                            } else {
+                              setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]);
+                            }
+                          }
                         }}
                         data-testid={`checkbox-spr-${contract.id}`}
                       />
