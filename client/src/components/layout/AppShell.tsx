@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, Users, Handshake, Package, FileText, ClipboardList } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, CalendarDays, FileBarChart, ClipboardCheck, CheckCircle2, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { isAdmin as checkIsAdmin } from "@/lib/utils";
 
@@ -40,6 +40,146 @@ function getSidebarDefault(): boolean {
     if (stored !== null) return stored === "true";
   } catch {}
   return true;
+}
+
+function WelcomeModal({ open, onClose, firstName, onNavigate }: {
+  open: boolean;
+  onClose: () => void;
+  firstName?: string | null;
+  onNavigate: (path: string) => void;
+}) {
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ["/api/my-tasks"],
+    enabled: open,
+  });
+
+  type TaskItem = { icon: JSX.Element; label: string; badge?: string; badgeColor?: string; path: string; urgent?: boolean };
+  const items: TaskItem[] = [];
+
+  if (data) {
+    (data.nbsReportTasks ?? []).forEach((t: any) => {
+      const overdue = t.daysLeft < 0;
+      const urgent = t.daysLeft <= 14;
+      if (t.status !== "sent") {
+        const badge = overdue ? `po termíne` : t.daysLeft === 0 ? "dnes" : `${t.daysLeft} dní`;
+        items.push({
+          icon: <FileBarChart className={`w-4 h-4 flex-shrink-0 ${overdue ? "text-red-500" : urgent ? "text-orange-500" : "text-blue-500"}`} />,
+          label: `NBS report: ${t.periodLabel} ${t.year}`,
+          badge,
+          badgeColor: overdue ? "text-red-500" : urgent ? "text-orange-500" : "text-blue-500",
+          path: "/nbs-report",
+          urgent: overdue || urgent,
+        });
+      }
+    });
+
+    (data.companiesWithoutOfficers ?? []).forEach((c: any) => {
+      items.push({
+        icon: <Building2 className="w-4 h-4 flex-shrink-0 text-amber-500" />,
+        label: `Bez štatutára: ${c.name}`,
+        badge: "chýba",
+        badgeColor: "text-amber-500",
+        path: `/subjects/${c.id}`,
+        urgent: true,
+      });
+    });
+
+    (data.tasks ?? []).forEach((t: any) => {
+      items.push({
+        icon: <ClipboardCheck className="w-4 h-4 flex-shrink-0 text-purple-500" />,
+        label: `Prestup: krok ${t.currentStep?.step ?? "?"} — ${t.currentStep?.stepName ?? ""}`,
+        badge: "čaká",
+        badgeColor: "text-purple-500",
+        path: "/moje-ulohy",
+        urgent: true,
+      });
+    });
+
+    (data.interventions ?? []).forEach((c: any) => {
+      items.push({
+        icon: <AlertTriangle className="w-4 h-4 flex-shrink-0 text-orange-500" />,
+        label: `Intervencia: zmluva ${c.contractNumber || c.uid || c.id}`,
+        badge: "intervencia",
+        badgeColor: "text-orange-500",
+        path: `/contracts/${c.id}/edit`,
+        urgent: true,
+      });
+    });
+
+    (data.rejectedContracts ?? []).forEach((c: any) => {
+      items.push({
+        icon: <AlertTriangle className="w-4 h-4 flex-shrink-0 text-red-500" />,
+        label: `Zamietnutá zmluva: ${c.contractNumber || c.uid || c.id}`,
+        badge: "zamietnutá",
+        badgeColor: "text-red-500",
+        path: `/contracts/${c.id}/edit`,
+        urgent: true,
+      });
+    });
+
+    const today = new Date().toDateString();
+    (data.upcomingEvents ?? []).slice(0, 2).forEach((e: any) => {
+      const isToday = new Date(e.startDate).toDateString() === today;
+      items.push({
+        icon: <CalendarDays className={`w-4 h-4 flex-shrink-0 ${isToday ? "text-red-500" : "text-blue-400"}`} />,
+        label: e.title,
+        badge: isToday ? "dnes" : undefined,
+        badgeColor: "text-red-500",
+        path: "/kalendar",
+        urgent: isToday,
+      });
+    });
+  }
+
+  const sorted = [...items].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md p-0 overflow-hidden" style={{ border: "5px solid #ef4444", borderRadius: "12px" }} data-testid="dialog-welcome">
+        <DialogDescription className="sr-only">Uvítacie okno s najdôležitejšími úlohami</DialogDescription>
+        <div className="bg-red-500 px-6 py-4">
+          <DialogTitle className="text-white text-lg font-bold">Vitajte v systéme ArutsoK 👋</DialogTitle>
+          <p className="text-red-100 text-sm mt-0.5">
+            {firstName ? `Ahoj, ${firstName}!` : "Ahoj!"} Tu sú vaše najdôležitejšie úlohy:
+          </p>
+        </div>
+        <div className="px-6 py-4 space-y-1 max-h-80 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : sorted.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-6 text-center">
+              <CheckCircle2 className="w-8 h-8 text-green-500" />
+              <p className="text-sm font-medium text-green-600">Všetky úlohy splnené!</p>
+              <p className="text-xs text-muted-foreground">Momentálne nemáte žiadne čakajúce úlohy.</p>
+            </div>
+          ) : sorted.map((item, i) => (
+            <button
+              key={i}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left group"
+              onClick={() => onNavigate(item.path)}
+              data-testid={`button-welcome-task-${i}`}
+            >
+              {item.icon}
+              <span className="text-sm flex-1 min-w-0 truncate group-hover:text-foreground">{item.label}</span>
+              {item.badge && (
+                <span className={`text-xs font-semibold shrink-0 ${item.badgeColor}`}>{item.badge}</span>
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="px-6 pb-4 pt-1 border-t flex gap-2">
+          <Button variant="outline" className="flex-1 text-sm" onClick={() => onNavigate("/moje-ulohy")} data-testid="button-welcome-goto-tasks">
+            Moje úlohy
+          </Button>
+          <Button variant="ghost" className="flex-1 text-muted-foreground text-sm" onClick={onClose} data-testid="button-welcome-close">
+            Zavrieť
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -753,43 +893,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       />
       {warningOverlay}
 
-      <Dialog open={welcomeOpen} onOpenChange={setWelcomeOpen}>
-        <DialogContent className="max-w-md p-0 overflow-hidden" style={{ border: "5px solid #ef4444", borderRadius: "12px" }} data-testid="dialog-welcome">
-          <DialogDescription className="sr-only">Uvítacie okno so zoznamom najdôležitejších úloh</DialogDescription>
-          <div className="bg-red-500 px-6 py-4">
-            <DialogTitle className="text-white text-lg font-bold">
-              Vitajte v systéme ArutsoK 👋
-            </DialogTitle>
-            <p className="text-red-100 text-sm mt-0.5">
-              {appUser?.firstName ? `Ahoj, ${appUser.firstName}!` : "Ahoj!"} Tu sú najdôležitejšie úlohy, kde môžete začať:
-            </p>
-          </div>
-          <div className="px-6 py-4 space-y-2">
-            {[
-              { icon: Users, label: "Pridať subjekt (klienta)", path: "/subjekty", color: "text-blue-600" },
-              { icon: Handshake, label: "Pridať partnera", path: "/partneri", color: "text-green-600" },
-              { icon: Package, label: "Katalóg produktov", path: "/katalog-produktov", color: "text-purple-600" },
-              { icon: FileText, label: "Evidencia zmlúv", path: "/evidencia-zmluv", color: "text-orange-600" },
-              { icon: ClipboardList, label: "Súpisky", path: "/supisky", color: "text-rose-600" },
-            ].map(({ icon: Icon, label, path, color }) => (
-              <button
-                key={path}
-                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-muted transition-colors text-left group"
-                onClick={() => { setWelcomeOpen(false); navigate(path); }}
-                data-testid={`button-welcome-${path.replace("/", "")}`}
-              >
-                <Icon className={`w-5 h-5 flex-shrink-0 ${color}`} />
-                <span className="text-sm font-medium group-hover:text-foreground">{label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="px-6 pb-4 pt-1 border-t">
-            <Button variant="ghost" className="w-full text-muted-foreground" onClick={() => setWelcomeOpen(false)} data-testid="button-welcome-close">
-              Zavrieť
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <WelcomeModal
+        open={welcomeOpen}
+        onClose={() => setWelcomeOpen(false)}
+        firstName={appUser?.firstName}
+        onNavigate={(path) => { setWelcomeOpen(false); navigate(path); }}
+      />
     </SidebarProvider>
   );
 }
