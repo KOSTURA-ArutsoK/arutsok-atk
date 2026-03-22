@@ -13,6 +13,12 @@ import { Plus, Pencil, Trash2, Clock, Upload, Image, Globe, ChevronDown, Chevron
 import { AddStateButton } from "@/components/AddStateButton";
 import { ConditionalDelete } from "@/components/conditional-delete";
 
+interface StateWithCounts {
+  subjectsCount?: number;
+  companiesCount?: number;
+  partnersCount?: number;
+}
+
 interface WC { name: string; iso: string; dial: string; currency: string; continent: string; }
 const CURRENCY_INFO: Record<string, { name: string; subunit: string }> = {
   EUR: { name: "Euro", subunit: "1 euro = 100 centov" },
@@ -1297,7 +1303,7 @@ export default function SettingsStates() {
             <Button size="icon" variant="ghost" onClick={() => setFlagHistoryState(state)} data-testid={`button-flag-history-${state.id}`} title="Historia vlajok statu"><Clock className="w-4 h-4" /></Button>
             <Button size="icon" variant="ghost" onClick={() => { setEditingState(state); setFormOpen(true); }} data-testid={`button-edit-state-${state.id}`}><Pencil className="w-4 h-4" /></Button>
             <ConditionalDelete
-              canDelete={((state as any).subjectsCount ?? 0) === 0 && ((state as any).companiesCount ?? 0) === 0 && ((state as any).partnersCount ?? 0) === 0}
+              canDelete={((state as StateWithCounts).subjectsCount ?? 0) === 0 && ((state as StateWithCounts).companiesCount ?? 0) === 0 && ((state as StateWithCounts).partnersCount ?? 0) === 0}
               onClick={() => setDeleteState(state)}
               testId={`button-delete-state-${state.id}`}
             />

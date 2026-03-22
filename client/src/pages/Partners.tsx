@@ -58,7 +58,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPartnerSchema } from "@shared/schema";
 import type { Partner, InsertPartner } from "@shared/schema";
+
 import { z } from "zod";
+
+interface PartnerWithCounts extends Partner {
+  productsCount?: number;
+  contractsCount?: number;
+}
 import {
   Form,
   FormControl,
@@ -2604,7 +2610,7 @@ export default function Partners() {
                         {canDeleteRecords(appUser) && (
                           <div onClick={(e) => e.stopPropagation()}>
                             <ConditionalDelete
-                              canDelete={!partner.uid && ((partner as any).productsCount ?? 0) === 0 && ((partner as any).contractsCount ?? 0) === 0}
+                              canDelete={!partner.uid && ((partner as PartnerWithCounts).productsCount ?? 0) === 0 && ((partner as PartnerWithCounts).contractsCount ?? 0) === 0}
                               onClick={() => setDeleteTarget(partner)}
                               testId={`button-delete-partner-${partner.id}`}
                             />

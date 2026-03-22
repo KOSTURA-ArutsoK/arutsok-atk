@@ -13,6 +13,12 @@ import { formatDateSlovak, formatDateTimeSlovak, formatUid } from "@/lib/utils";
 import { useToast as useToastCompanyDiv } from "@/hooks/use-toast";
 import type { CompanyLogoHistory, Division } from "@shared/schema";
 
+interface CompanyWithCounts {
+  subjectsCount?: number;
+  officersCount?: number;
+  contractsCount?: number;
+}
+
 interface BusinessActivity {
   text: string;
   since?: string;
@@ -2564,7 +2570,7 @@ export default function Companies() {
             <Button type="button" size="icon" variant="ghost" onClick={() => setLogoHistoryTarget(company)} data-testid={`button-logo-history-${company.id}`} title="Historia log"><Image className="w-4 h-4" /></Button>
             <Button type="button" size="icon" variant="ghost" onClick={() => openEdit(company)} data-testid={`button-edit-${company.id}`}><Pencil className="w-4 h-4" /></Button>
             <ConditionalDelete
-              canDelete={!company.uid && ((company as any).subjectsCount ?? 0) === 0 && ((company as any).officersCount ?? 0) === 0}
+              canDelete={!company.uid && ((company as CompanyWithCounts).subjectsCount ?? 0) === 0 && ((company as CompanyWithCounts).officersCount ?? 0) === 0 && ((company as CompanyWithCounts).contractsCount ?? 0) === 0}
               onClick={() => setDeleteTarget(company)}
               testId={`button-delete-${company.id}`}
             />

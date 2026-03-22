@@ -43,6 +43,12 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Division } from "@shared/schema";
 
+interface DivisionWithCounts extends Division {
+  contractCount?: number;
+  companiesCount?: number;
+  companies?: { id: number; name: string; code: string | null }[];
+}
+
 const EMOJI_LIST = [
   "🏦","💼","📊","📈","📉","💰","💵","💳","🏧","💹",
   "🏠","🏡","🏢","🏣","🏤","🏥","🏛","🏨","🏩","🏪",
@@ -253,7 +259,7 @@ export default function SettingsDivisions() {
               <TooltipContent>Upraviť</TooltipContent>
             </Tooltip>
             <ConditionalDelete
-              canDelete={((div as any).contractCount ?? 0) === 0 && ((div as any).companiesCount ?? 0) === 0}
+              canDelete={((div as DivisionWithCounts).contractCount ?? 0) === 0 && ((div as DivisionWithCounts).companiesCount ?? 0) === 0}
               onClick={() => setDeleteTarget(div)}
               testId={`button-delete-division-${div.id}`}
               tooltipDelete="Vymazať"

@@ -1743,16 +1743,19 @@ export async function registerRoutes(
     const stateId = req.query.stateId ? parseInt(req.query.stateId as string) : undefined;
     const companies = await storage.getMyCompanies(includeDeleted);
     if (!companies.length) return res.json([]);
-    const [subjRes, officerRes] = await Promise.all([
+    const [subjRes, officerRes, contractRes] = await Promise.all([
       db.execute(sql`SELECT my_company_id::int, COUNT(*)::int AS cnt FROM subjects WHERE is_active = true AND my_company_id IS NOT NULL GROUP BY my_company_id`),
       db.execute(sql`SELECT company_id::int, COUNT(*)::int AS cnt FROM company_officers WHERE is_active = true GROUP BY company_id`),
+      db.execute(sql`SELECT company_id::int, COUNT(*)::int AS cnt FROM contracts WHERE is_deleted = false AND company_id IS NOT NULL GROUP BY company_id`),
     ]);
     const subjectCounts = new Map<number, number>(((subjRes as any).rows || []).map((r: any) => [r.my_company_id, r.cnt]));
     const officerCounts = new Map<number, number>(((officerRes as any).rows || []).map((r: any) => [r.company_id, r.cnt]));
+    const contractCounts = new Map<number, number>(((contractRes as any).rows || []).map((r: any) => [r.company_id, r.cnt]));
     const enriched = companies.map(c => ({
       ...c,
       subjectsCount: subjectCounts.get(c.id) ?? 0,
       officersCount: officerCounts.get(c.id) ?? 0,
+      contractsCount: contractCounts.get(c.id) ?? 0,
     }));
     if (stateId) {
       res.json(enriched.filter(c => c.stateId === stateId));
