@@ -3472,8 +3472,21 @@ export default function Contracts() {
     return "—";
   }
 
+  function getProductCode(contract: Contract) {
+    const spMatch = allSectorProducts?.find(p => p.id === contract.sectorProductId);
+    if (spMatch) return spMatch.abbreviation || spMatch.name || "—";
+    const prodMatch = products?.find(p => p.id === contract.productId);
+    if (prodMatch) return (prodMatch as any).code || prodMatch.name || "—";
+    return "—";
+  }
+
   function getPartnerName(contract: Contract) {
     return partners?.find(p => p.id === contract.partnerId)?.name || "-";
+  }
+
+  function getPartnerCode(contract: Contract) {
+    const p = partners?.find(p => p.id === contract.partnerId);
+    return (p as any)?.code || p?.name || "-";
   }
 
   function getContractDistData(contractId: number) {
@@ -3699,6 +3712,8 @@ export default function Contracts() {
               // Kontrola skutočných hodnôt buniek (nie stale DB reason)
               const partnerName = getPartnerName(contract);
               const productName = getProductName(contract);
+              const partnerCode = getPartnerCode(contract);
+              const productCode = getProductCode(contract);
               const hasPartner = partnerName && partnerName !== "—";
               const hasProduct = productName && productName !== "—";
               const hasNumber = !!(contract.proposalNumber || contract.insuranceContractNumber || (contract as any).contractNumber);
@@ -3864,13 +3879,13 @@ export default function Contracts() {
                   <td className="px-2 py-1.5 whitespace-nowrap" title={partnerName}>
                     <span className="flex items-center gap-1">
                       {warnPartner && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Partner</TooltipContent></Tooltip>}
-                      {partnerName}
+                      {partnerCode}
                     </span>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap" title={productName}>
                     <span className="flex items-center gap-1">
                       {warnProduct && <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 cursor-default" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Produkt</TooltipContent></Tooltip>}
-                      {productName}
+                      {productCode}
                     </span>
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">
@@ -4330,17 +4345,17 @@ export default function Contracts() {
                     </span>
                   </TableCell>
                 )}
-                <TableCell className="text-sm py-1">
+                <TableCell className="text-sm py-1" title={getPartnerName(contract)}>
                   <span className="flex items-center gap-1">
-                    {getPartnerName(contract)}
+                    {getPartnerCode(contract)}
                     {isIncomplete && fieldMissing("partner") && (
                       <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Partner</TooltipContent></Tooltip>
                     )}
                   </span>
                 </TableCell>
-                <TableCell className="text-sm py-1">
+                <TableCell className="text-sm py-1" title={getProductName(contract)}>
                   <span className="flex items-center gap-1">
-                    {getProductName(contract)}
+                    {getProductCode(contract)}
                     {isIncomplete && fieldMissing("produkt") && (
                       <Tooltip><TooltipTrigger asChild><AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" /></TooltipTrigger><TooltipContent className="text-xs">Chýba Produkt</TooltipContent></Tooltip>
                     )}
@@ -6470,6 +6485,8 @@ export default function Contracts() {
     const docs = getProductDocsForContract(c);
     const partnerName = partners?.find(p => p.id === c.partnerId)?.name || "—";
     const productName = getProductName(c);
+    const partnerCode = getPartnerCode(c);
+    const productCode = getProductCode(c);
     const allRequiredChecked = docs.required.length === 0 || docs.required.every((_: string, idx: number) => docChecklistCheckedReq.has(idx));
     const confirmAndSelect = () => {
       setDocChecklistSavedState(prev => ({
@@ -6561,9 +6578,9 @@ export default function Contracts() {
               Dokumentácia k zmluve
             </DialogTitle>
             <p className="text-xs mt-0.5">
-              <span className="text-muted-foreground">{partnerName}</span>
+              <span className="text-muted-foreground" title={partnerName}>{partnerCode}</span>
               <span className="text-muted-foreground mx-1">—</span>
-              <span className="font-semibold text-foreground">{productName}</span>
+              <span className="font-semibold text-foreground" title={productName}>{productCode}</span>
             </p>
           </DialogHeader>
           <div className="px-6 pb-2 space-y-3">
@@ -6725,6 +6742,8 @@ export default function Contracts() {
     const docs = getProductCentralDocsForContract(c);
     const partnerName = partners?.find(p => p.id === c.partnerId)?.name || "—";
     const productName = getProductName(c);
+    const partnerCode = getPartnerCode(c);
+    const productCode = getProductCode(c);
     const allRequiredChecked = docs.required.length === 0 || docs.required.every((_: string, idx: number) => phase5DocCheckedReq.has(idx));
     const totalOptCount = docs.optional.length + phase5DocExtraOpt.length;
     const confirmDocs = () => {
@@ -6774,9 +6793,9 @@ export default function Contracts() {
               Dokumentácia prijatá centrálou
             </DialogTitle>
             <p className="text-xs mt-0.5">
-              <span className="text-muted-foreground">{partnerName}</span>
+              <span className="text-muted-foreground" title={partnerName}>{partnerCode}</span>
               <span className="text-muted-foreground mx-1">—</span>
-              <span className="font-semibold text-foreground">{productName}</span>
+              <span className="font-semibold text-foreground" title={productName}>{productCode}</span>
             </p>
           </DialogHeader>
           <div className="px-6 pb-2 space-y-3">
@@ -9288,8 +9307,8 @@ export default function Contracts() {
                             <TableCell className="font-mono text-xs">{c.contractNumber || <span className="text-muted-foreground/40">—</span>}</TableCell>
                             <TableCell className="font-mono text-xs">{c.proposalNumber || <span className="text-muted-foreground/40">—</span>}</TableCell>
                             <TableCell className="text-sm">{getSubjectDisplayName(c.subjectId)}</TableCell>
-                            <TableCell className="text-sm">{getPartnerName(c)}</TableCell>
-                            <TableCell className="text-sm">{getProductName(c)}</TableCell>
+                            <TableCell className="text-sm" title={getPartnerName(c)}>{getPartnerCode(c)}</TableCell>
+                            <TableCell className="text-sm" title={getProductName(c)}>{getProductCode(c)}</TableCell>
                             <TableCell className="text-xs text-muted-foreground">{c.contractType || <span className="text-muted-foreground/40">—</span>}</TableCell>
                             <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                               {c.signedDate ? new Date(c.signedDate).toLocaleDateString("sk-SK") : <span className="text-muted-foreground/40">—</span>}
@@ -9780,8 +9799,8 @@ export default function Contracts() {
                                                   />
                                                 </td>
                                                 <td className="p-2 font-mono text-blue-500 font-bold">{contract.contractNumber || "—"}</td>
-                                                <td className="p-2">{getPartnerName(contract)}</td>
-                                                <td className="p-2">{getProductName(contract)}</td>
+                                                <td className="p-2" title={getPartnerName(contract)}>{getPartnerCode(contract)}</td>
+                                                <td className="p-2" title={getProductName(contract)}>{getProductCode(contract)}</td>
                                                 <td className="p-2 font-mono">{contract.proposalNumber || "—"}</td>
                                                 <td className="p-2 font-mono">{contract.insuranceContractNumber || "—"}</td>
                                                 <td className="p-2">
@@ -9940,8 +9959,8 @@ export default function Contracts() {
                                               {evidenciaColumnVisibility.isVisible("contractNumber") && <TableCell className="font-mono text-sm">{contract.contractNumber || "-"}</TableCell>}
                                               {evidenciaColumnVisibility.isVisible("proposalNumber") && <TableCell className="text-sm font-mono">{contract.proposalNumber || "-"}</TableCell>}
                                               {evidenciaColumnVisibility.isVisible("subjectId") && <TableCell className="text-sm">{getSubjectDisplay(contract.subjectId)}</TableCell>}
-                                              {evidenciaColumnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(contract)}</TableCell>}
-                                              {evidenciaColumnVisibility.isVisible("productId") && <TableCell className="text-sm">{getProductName(contract)}</TableCell>}
+                                              {evidenciaColumnVisibility.isVisible("partnerId") && <TableCell className="text-sm" title={getPartnerName(contract)}>{getPartnerCode(contract)}</TableCell>}
+                                              {evidenciaColumnVisibility.isVisible("productId") && <TableCell className="text-sm" title={getProductName(contract)}>{getProductCode(contract)}</TableCell>}
                                             </TableRow>
                                           ))}
                                         </TableBody>
@@ -10475,14 +10494,14 @@ export default function Contracts() {
                           <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/50">V procese</Badge>
                         )}
                       </TableCell>}
-                      {columnVisibility.isVisible("partnerId") && <TableCell className="text-sm py-1" data-testid={`text-contract-partner-${contract.id}`}>
-                        {getPartnerName(contract)}
+                      {columnVisibility.isVisible("partnerId") && <TableCell className="text-sm py-1" title={getPartnerName(contract)} data-testid={`text-contract-partner-${contract.id}`}>
+                        {getPartnerCode(contract)}
                       </TableCell>}
                       {columnVisibility.isVisible("subjectId") && <TableCell className="text-sm py-1" data-testid={`text-contract-subject-${contract.id}`}>
                         {getSubjectDisplay(contract.subjectId)}
                       </TableCell>}
-                      {columnVisibility.isVisible("productId") && <TableCell className="text-sm py-1" data-testid={`text-contract-product-${contract.id}`}>
-                        {getProductName(contract)}
+                      {columnVisibility.isVisible("productId") && <TableCell className="text-sm py-1" title={getProductName(contract)} data-testid={`text-contract-product-${contract.id}`}>
+                        {getProductCode(contract)}
                       </TableCell>}
                       {columnVisibility.isVisible("inventoryId") && <TableCell className="text-sm py-1" data-testid={`text-contract-inventory-${contract.id}`}>
                         {inventoryName}
