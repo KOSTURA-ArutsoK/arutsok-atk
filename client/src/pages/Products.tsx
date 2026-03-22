@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import DOMPurify from "dompurify";
 import { AddProductCard } from "@/components/AddProductCard";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -982,6 +982,62 @@ export default function Products() {
   const tableFilter = useSmartFilter(activeProducts, PRODUCT_FILTER_COLUMNS, "products");
   const { sortedData: sortedProducts, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
 
+  const { data: companyDivisions } = useQuery<{ id: number; companyId: number; divisionId: number; division: { id: number; name: string; emoji: string | null; code: string | null } }[]>({
+    queryKey: ["/api/companies", appUser?.activeCompanyId, "divisions"],
+    queryFn: async () => {
+      if (!appUser?.activeCompanyId) return [];
+      const res = await fetch(`/api/companies/${appUser.activeCompanyId}/divisions`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!appUser?.activeCompanyId,
+  });
+  const { data: sectors } = useQuery<{ id: number; divisionId: number | null; partnerIds: number[] }[]>({
+    queryKey: ["/api/sectors"],
+    queryFn: async () => {
+      const res = await fetch("/api/sectors", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const divisionList = useMemo(() => companyDivisions?.map(cd => cd.division) || [], [companyDivisions]);
+  const hasManyDivisions = divisionList.length >= 2;
+
+  const divisionPartnerMap = useMemo(() => {
+    const map = new Map<number, Set<number>>();
+    sectors?.forEach(s => {
+      if (s.divisionId && s.partnerIds?.length) {
+        if (!map.has(s.divisionId)) map.set(s.divisionId, new Set());
+        s.partnerIds.forEach(pid => map.get(s.divisionId!)!.add(pid));
+      }
+    });
+    return map;
+  }, [sectors]);
+
+  const groupedProducts = useMemo(() => {
+    if (!hasManyDivisions) return null;
+    const getProductDivisionId = (p: Product) => {
+      if (!p.partnerId) return null;
+      for (const [divId, pids] of divisionPartnerMap.entries()) {
+        if (pids.has(p.partnerId)) return divId;
+      }
+      return null;
+    };
+    const groups: Array<{ division: { id: number; name: string; emoji: string | null; code: string | null } | null; rows: typeof sortedProducts }> = [];
+    const assignedIds = new Set<number>();
+    for (const div of divisionList) {
+      const rows = sortedProducts.filter(p => getProductDivisionId(p) === div.id);
+      if (rows.length > 0) {
+        groups.push({ division: div, rows });
+        rows.forEach(p => assignedIds.add(p.id));
+      }
+    }
+    const unassigned = sortedProducts.filter(p => !assignedIds.has(p.id));
+    if (unassigned.length > 0) groups.push({ division: null, rows: unassigned });
+    return groups;
+  }, [hasManyDivisions, divisionList, divisionPartnerMap, sortedProducts]);
+
   function getPartnerName(id: number | null) {
     if (!id || !partners) return "-";
     return partners.find(p => p.id === id)?.name || "-";
@@ -1055,34 +1111,49 @@ export default function Products() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedProducts.map(product => (
-                  <TableRow key={product.id} data-testid={`row-product-${product.id}`} onRowClick={() => handleEdit(product)}>
-                    {columnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(product.partnerId)}</TableCell>}
-                    {columnVisibility.isVisible("name") && <TableCell className="text-sm">{product.name}</TableCell>}
-                    {columnVisibility.isVisible("code") && <TableCell className="text-sm">{product.code}</TableCell>}
-                    {columnVisibility.isVisible("displayName") && <TableCell className="text-sm">{product.displayName || "-"}</TableCell>}
-                    {columnVisibility.isVisible("allowedSpecialists") && <TableCell>
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {product.allowedSpecialists && product.allowedSpecialists.length > 0
-                          ? product.allowedSpecialists.map(s => (
-                              <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
-                            ))
-                          : <span className="text-xs text-muted-foreground">-</span>
-                        }
-                      </div>
-                    </TableCell>}
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setDetailProduct(product); }} data-testid={`button-view-product-${product.id}`}>
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        {canDeleteRecords(appUser) && (product as any).contractsCount === 0 && (
-                          <ConditionalDelete canDelete={true} onClick={() => handleDelete(product)} testId={`button-delete-product-${product.id}`} />
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {(() => {
+                  const renderProductRow = (product: Product) => (
+                    <TableRow key={product.id} data-testid={`row-product-${product.id}`} onRowClick={() => handleEdit(product)}>
+                      {columnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(product.partnerId)}</TableCell>}
+                      {columnVisibility.isVisible("name") && <TableCell className="text-sm">{product.name}</TableCell>}
+                      {columnVisibility.isVisible("code") && <TableCell className="text-sm">{product.code}</TableCell>}
+                      {columnVisibility.isVisible("displayName") && <TableCell className="text-sm">{product.displayName || "-"}</TableCell>}
+                      {columnVisibility.isVisible("allowedSpecialists") && <TableCell>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {product.allowedSpecialists && product.allowedSpecialists.length > 0
+                            ? product.allowedSpecialists.map(s => (
+                                <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
+                              ))
+                            : <span className="text-xs text-muted-foreground">-</span>
+                          }
+                        </div>
+                      </TableCell>}
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setDetailProduct(product); }} data-testid={`button-view-product-${product.id}`}>
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          {canDeleteRecords(appUser) && (product as any).contractsCount === 0 && (
+                            <ConditionalDelete canDelete={true} onClick={() => handleDelete(product)} testId={`button-delete-product-${product.id}`} />
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                  if (groupedProducts) {
+                    return groupedProducts.flatMap(group => [
+                      <TableRow key={`div-${group.division?.id ?? "none"}`} className="pointer-events-none">
+                        <TableCell colSpan={7} className="py-1.5 px-4 bg-muted/40 border-y">
+                          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            {group.division?.emoji ? `${group.division.emoji} ` : ""}{group.division?.name ?? "Bez divízie"}
+                          </span>
+                        </TableCell>
+                      </TableRow>,
+                      ...group.rows.map(renderProductRow),
+                    ]);
+                  }
+                  return sortedProducts.map(renderProductRow);
+                })()}
               </TableBody>
             </Table>
           )}

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { usePartners, useCreatePartner, useUpdatePartner, useDeletePartner, usePartnerContacts, usePartnerProducts, useCreatePartnerContact, useCreatePartnerProduct, useUpdatePartnerLifecycleStatus } from "@/hooks/use-partners";
@@ -2473,6 +2473,56 @@ export default function Partners() {
   const [editingPartnerId, setEditingPartnerId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Partner | null>(null);
 
+  const { data: companyDivisions } = useQuery<{ id: number; companyId: number; divisionId: number; division: { id: number; name: string; emoji: string | null; code: string | null } }[]>({
+    queryKey: ["/api/companies", appUser?.activeCompanyId, "divisions"],
+    queryFn: async () => {
+      if (!appUser?.activeCompanyId) return [];
+      const res = await fetch(`/api/companies/${appUser.activeCompanyId}/divisions`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!appUser?.activeCompanyId,
+  });
+  const { data: sectors } = useQuery<{ id: number; divisionId: number | null; partnerIds: number[] }[]>({
+    queryKey: ["/api/sectors"],
+    queryFn: async () => {
+      const res = await fetch("/api/sectors", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const divisionList = useMemo(() => companyDivisions?.map(cd => cd.division) || [], [companyDivisions]);
+  const hasManyDivisions = divisionList.length >= 2;
+
+  const divisionPartnerMap = useMemo(() => {
+    const map = new Map<number, Set<number>>();
+    sectors?.forEach(s => {
+      if (s.divisionId && s.partnerIds?.length) {
+        if (!map.has(s.divisionId)) map.set(s.divisionId, new Set());
+        s.partnerIds.forEach(pid => map.get(s.divisionId!)!.add(pid));
+      }
+    });
+    return map;
+  }, [sectors]);
+
+  const groupedPartners = useMemo(() => {
+    if (!hasManyDivisions) return null;
+    const groups: Array<{ division: { id: number; name: string; emoji: string | null; code: string | null } | null; rows: typeof sortedData }> = [];
+    const assignedIds = new Set<number>();
+    for (const div of divisionList) {
+      const pids = divisionPartnerMap.get(div.id) || new Set();
+      const rows = sortedData.filter(p => pids.has(p.id));
+      if (rows.length > 0) {
+        groups.push({ division: div, rows });
+        rows.forEach(p => assignedIds.add(p.id));
+      }
+    }
+    const unassigned = sortedData.filter(p => !assignedIds.has(p.id));
+    if (unassigned.length > 0) groups.push({ division: null, rows: unassigned });
+    return groups;
+  }, [hasManyDivisions, divisionList, divisionPartnerMap, sortedData]);
+
   function openCreate() {
     setEditingPartnerId(null);
     setDialogOpen(true);
@@ -2528,9 +2578,8 @@ export default function Partners() {
                   </TableCell>
                 </TableRow>
               )}
-              {sortedData.map(partner => {
-                const primaryLogo = (partner.logos as any[])?.find((l: any) => l.isPrimary && !l.isArchived);
-                return (
+              {(() => {
+                const renderPartnerRow = (partner: Partner) => (
                   <TableRow key={partner.id} data-testid={`row-partner-${partner.id}`} onRowClick={() => openPartner(partner)} className="h-12">
                     {columnVisibility.isVisible("uid") && <TableCell className="font-mono text-xs text-muted-foreground align-middle">{formatUid(partner.uid) || "-"}</TableCell>}
                     {columnVisibility.isVisible("name") && (
@@ -2547,26 +2596,14 @@ export default function Partners() {
                       <div className="flex items-center gap-1">
                         <LifecycleStatusIcon status={partner.lifecycleStatus} />
                         {canEditRecords(appUser) && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="holding-chip-emoji"
-                            onClick={(e) => { e.stopPropagation(); openPartner(partner); }}
-                            data-testid={`button-edit-partner-${partner.id}`}
-                          >
+                          <Button size="icon" variant="ghost" className="holding-chip-emoji" onClick={(e) => { e.stopPropagation(); openPartner(partner); }} data-testid={`button-edit-partner-${partner.id}`}>
                             <Pencil className="w-4 h-4" />
                           </Button>
                         )}
                         {canDeleteRecords(appUser) && !partner.uid && (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="holding-chip-emoji"
-                                onClick={(e) => { e.stopPropagation(); setDeleteTarget(partner); }}
-                                data-testid={`button-delete-partner-${partner.id}`}
-                              >
+                              <Button size="icon" variant="ghost" className="holding-chip-emoji" onClick={(e) => { e.stopPropagation(); setDeleteTarget(partner); }} data-testid={`button-delete-partner-${partner.id}`}>
                                 <Trash2 className="w-4 h-4 text-destructive" />
                               </Button>
                             </TooltipTrigger>
@@ -2577,7 +2614,20 @@ export default function Partners() {
                     </TableCell>
                   </TableRow>
                 );
-              })}
+                if (groupedPartners) {
+                  return groupedPartners.flatMap(group => [
+                    <TableRow key={`div-${group.division?.id ?? "none"}`} className="pointer-events-none">
+                      <TableCell colSpan={10} className="py-1.5 px-4 bg-muted/40 border-y">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          {group.division?.emoji ? `${group.division.emoji} ` : ""}{group.division?.name ?? "Bez divízie"}
+                        </span>
+                      </TableCell>
+                    </TableRow>,
+                    ...group.rows.map(renderPartnerRow),
+                  ]);
+                }
+                return sortedData.map(renderPartnerRow);
+              })()}
             </TableBody>
           </Table>
         </CardContent>
