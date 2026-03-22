@@ -1255,7 +1255,7 @@ export async function registerRoutes(
     res.json(await storage.getContinents());
   });
 
-  app.get(api.hierarchy.states.path, async (req, res) => {
+  app.get(api.hierarchy.states.path, isAuthenticated, async (req, res) => {
     const continentId = req.query.continentId ? parseInt(req.query.continentId as string) : undefined;
     const allStates = await storage.getStates(continentId);
     if (!allStates.length) return res.json([]);
