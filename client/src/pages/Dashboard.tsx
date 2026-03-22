@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Users, Building2, ShieldAlert, TrendingUp, Briefcase, Package, History, Calendar, Clock, GripVertical, Pencil, Save, X, FileText, FileCheck, AlertCircle, Banknote, AlertTriangle, ArrowRight, Loader2, Ban, ClipboardCheck } from "lucide-react";
+import { ExpiryBadge, getExpiryStatus } from "@/components/expiry-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAppUser } from "@/hooks/use-app-user";
@@ -31,6 +32,38 @@ import { CSS } from "@dnd-kit/utilities";
 import { cn, formatDateTimeSlovak, formatUid } from "@/lib/utils";
 
 const WIDGET_KEYS = ["stats", "recent_subjects", "my_companies", "recent_partners", "recent_products", "audit_activity", "upcoming_events", "my_tasks", "red_list_recent", "black_list_recent"];
+
+const DOCUMENT_EXPIRY_KEYS = [
+  "op_platnost",
+  "pas_platnost",
+  "vodic_platnost",
+  "pobyt_platnost",
+  "povolenie_platnost",
+  "prukaz_platnost",
+];
+
+function getNearestDocExpiry(subject: Subject): string | null {
+  const dyn = (subject as any)?.details?.dynamicFields as Record<string, string> | undefined;
+  if (!dyn) return null;
+  let nearest: string | null = null;
+  let nearestDays: number | null = null;
+  for (const key of DOCUMENT_EXPIRY_KEYS) {
+    const val = dyn[key];
+    if (!val) continue;
+    const status = getExpiryStatus(val);
+    if (!status) continue;
+    const d = new Date(val);
+    if (isNaN(d.getTime())) continue;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = Math.ceil((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (nearestDays === null || days < nearestDays) {
+      nearestDays = days;
+      nearest = val;
+    }
+  }
+  return nearest;
+}
 
 function SortableWidget({ id, isEditing, children }: { id: string; isEditing: boolean; children: React.ReactNode }) {
   const {
@@ -331,20 +364,26 @@ export default function Dashboard() {
         <CardContent>
           <div style={{ display: subjects && subjects.length > 0 ? 'block' : 'none' }}>
             <div className="space-y-3">
-              {(subjects || []).slice(0, 5).map(s => (
-                <div key={s.id} className="flex items-center gap-3 text-sm">
-                  <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
-                    {s.type === "person" ? "O" : "F"}
+              {(subjects || []).slice(0, 5).map(s => {
+                const docExpiry = getNearestDocExpiry(s);
+                return (
+                  <div key={s.id} className="flex items-center gap-3 text-sm" data-testid={`subject-row-${s.id}`}>
+                    <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
+                      {s.type === "person" ? "O" : "F"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        {s.type === "person" ? `${s.lastName}, ${s.firstName}` : s.companyName}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-mono whitespace-nowrap">{formatUid(s.uid)}</p>
+                    </div>
+                    {docExpiry && (
+                      <ExpiryBadge date={docExpiry} compact showIcon={false} className="text-[10px] shrink-0" />
+                    )}
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${s.isActive ? "bg-emerald-500" : "bg-red-500"}`} data-testid={`status-subject-${s.id}`} />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">
-                      {s.type === "person" ? `${s.lastName}, ${s.firstName}` : s.companyName}
-                    </p>
-                    <p className="text-xs text-muted-foreground font-mono whitespace-nowrap">{formatUid(s.uid)}</p>
-                  </div>
-                  <div className={`w-2 h-2 rounded-full ${s.isActive ? "bg-emerald-500" : "bg-red-500"}`} data-testid={`status-subject-${s.id}`} />
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
           <p className="text-sm text-muted-foreground py-6 text-center" style={{ display: subjects && subjects.length > 0 ? 'none' : 'block' }}>Ziadne subjekty</p>

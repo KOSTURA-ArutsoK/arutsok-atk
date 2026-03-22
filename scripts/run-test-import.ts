@@ -20,6 +20,10 @@ const { Pool } = pg;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const db = drizzle(pool);
 
+// UID vyhradené výhradne pre vzorovú Fyzickú Osobu (FO) v seed dátach.
+// NESMIE byť pridelené subjektom iného typu (NS=5, VS=6, mycompany, system).
+const SAMPLE_FO_UID = "421000000000002";
+
 function getEncryptionKey(): Buffer {
   const secret = process.env.SESSION_SECRET || "default-encryption-key-change-me";
   return crypto.createHash("sha256").update(secret).digest();

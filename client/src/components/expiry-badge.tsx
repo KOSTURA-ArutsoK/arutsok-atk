@@ -2,6 +2,8 @@ import { differenceInDays, parseISO, isValid } from "date-fns";
 import { AlertTriangle, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+export type ExpiryStatus = "ok" | "warning" | "critical" | "expired";
+
 interface ExpiryBadgeProps {
   date: string | null | undefined;
   className?: string;
@@ -9,7 +11,7 @@ interface ExpiryBadgeProps {
   compact?: boolean;
 }
 
-function parseDate(value: string | null | undefined): Date | null {
+export function parseExpiryDate(value: string | null | undefined): Date | null {
   if (!value) return null;
   const d = parseISO(value);
   if (isValid(d)) return d;
@@ -22,8 +24,25 @@ function parseDate(value: string | null | undefined): Date | null {
   return null;
 }
 
+export function getDaysUntilExpiry(value: string | null | undefined): number | null {
+  const parsed = parseExpiryDate(value);
+  if (!parsed) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return differenceInDays(parsed, today);
+}
+
+export function getExpiryStatus(value: string | null | undefined): ExpiryStatus | null {
+  const days = getDaysUntilExpiry(value);
+  if (days === null) return null;
+  if (days < 0) return "expired";
+  if (days <= 30) return "critical";
+  if (days <= 90) return "warning";
+  return "ok";
+}
+
 export function ExpiryBadge({ date, className, showIcon = true, compact = false }: ExpiryBadgeProps) {
-  const parsed = parseDate(date);
+  const parsed = parseExpiryDate(date);
   if (!parsed) return null;
 
   const today = new Date();

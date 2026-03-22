@@ -25,6 +25,11 @@ import { scanUploadedFile, scanMultipleFiles, sanitizeExcelWorkbook, checkClamAv
 
 const ROOT_SYSTEM_UID = "421000000000000";
 
+// UID vyhradené výhradne pre vzorovú Fyzickú Osobu (FO) v seed dátach.
+// Toto UID sa NIKDY nesmie prideliť subjektu iného typu (NS, VS, mycompany, system).
+// Akákoľvek operácia, ktorá by nastavila toto UID inému subjektu, musí byť odmietnutá.
+const SAMPLE_FO_UID = "421000000000002";
+
 // Returns (or creates) a dedicated company-node subject (type='mycompany') for the given myCompany.
 // This subject acts as the intermediate node: Root → CompanyNode → Officers
 async function getOrCreateCompanySubject(companyId: number): Promise<{ id: number } | null> {
