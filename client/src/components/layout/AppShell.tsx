@@ -254,7 +254,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const divRes = await apiRequest("POST", "/api/divisions", {
         name: companyName,
         code: companyName.substring(0, 10).toUpperCase(),
-        emoji: "🏢",
         isActive: true,
       });
       const newDiv = await divRes.json();
