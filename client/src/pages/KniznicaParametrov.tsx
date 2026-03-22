@@ -361,9 +361,9 @@ export default function KniznicaParametrov() {
   });
 
   const syncMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<{ message: string; added: number; total: number }> => {
       const res = await apiRequest("POST", "/api/admin/sync-subject-parameters");
-      return res as { message: string; added: number; total: number };
+      return res.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/subject-parameters"] });

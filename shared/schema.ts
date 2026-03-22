@@ -1821,7 +1821,7 @@ export const subjectParamSections = pgTable("subject_param_sections", {
   id: serial("id").primaryKey(),
   clientTypeId: integer("client_type_id").notNull(),
   name: text("name").notNull(),
-  code: text("code").notNull(),
+  code: text("code").notNull().unique(),
   folderCategory: text("folder_category").notNull(),
   sortOrder: integer("sort_order").default(0),
   isPanel: boolean("is_panel").default(false),
@@ -1864,7 +1864,9 @@ export const subjectParameters = pgTable("subject_parameters", {
   parameterScope: text("parameter_scope").notNull().default("subject"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (t) => ({
+  uniqClientTypeFieldKey: uniqueIndex("subject_parameters_client_type_field_key_uniq").on(t.clientTypeId, t.fieldKey),
+}));
 
 export const insertSubjectParameterSchema = createInsertSchema(subjectParameters).omit({ id: true, createdAt: true, updatedAt: true });
 export type SubjectParameter = typeof subjectParameters.$inferSelect;
