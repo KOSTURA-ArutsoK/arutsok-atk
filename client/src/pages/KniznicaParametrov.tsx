@@ -188,11 +188,13 @@ export default function KniznicaParametrov() {
     queryKey: ["/api/parameter-synonyms"],
   });
 
-  const synonymsByParamId = allSynonyms.reduce<Record<number, string[]>>((acc, s) => {
-    if (!acc[s.parameterId]) acc[s.parameterId] = [];
-    acc[s.parameterId].push(s.synonym.toLowerCase());
-    return acc;
-  }, {});
+  const synonymsByParamId = allSynonyms
+    .filter(s => s.status === "confirmed")
+    .reduce<Record<number, string[]>>((acc, s) => {
+      if (!acc[s.parameterId]) acc[s.parameterId] = [];
+      acc[s.parameterId].push(s.synonym.toLowerCase());
+      return acc;
+    }, {});
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery<SubjectTemplate[]>({
     queryKey: ["/api/subject-templates"],

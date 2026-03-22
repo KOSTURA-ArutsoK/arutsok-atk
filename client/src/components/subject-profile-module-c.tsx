@@ -1789,6 +1789,17 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                     </DndContext>
                                   ) : (
                                     filteredPanelNodes.map(({ panel, parameters }) => {
+                                      if (!isEditing) {
+                                        const hasVisibleParam = parameters.some(param => {
+                                          const field = dbParamToStaticField(param);
+                                          if (field.visibilityRule && field.visibilityRule.dependsOn) {
+                                            const depVal = dynamicValues[field.visibilityRule.dependsOn];
+                                            if (!depVal || depVal !== field.visibilityRule.value) return false;
+                                          }
+                                          return !!(dynamicValues[field.key] || "");
+                                        });
+                                        if (!hasVisibleParam) return null;
+                                      }
                                       const heatmapClass = getPanelHeatmapClass(parameters, fieldFreshness);
                                       const heatmapLabel = getHeatmapLabel(parameters, fieldFreshness);
                                       return (
