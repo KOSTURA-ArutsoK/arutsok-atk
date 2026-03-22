@@ -41,7 +41,7 @@ async function getOrCreateCompanySubject(companyId: number): Promise<{ id: numbe
   if (existing) return existing;
 
   // 2. Create a new dedicated subject for the company
-  const [mc] = await db.select({ id: myCompanies.id, name: myCompanies.name, uid: myCompanies.uid })
+  const [mc] = await db.select({ id: myCompanies.id, name: myCompanies.name, uid: myCompanies.uid, stateId: myCompanies.stateId })
     .from(myCompanies)
     .where(eq(myCompanies.id, companyId))
     .limit(1);
@@ -62,6 +62,7 @@ async function getOrCreateCompanySubject(companyId: number): Promise<{ id: numbe
     type: 'mycompany',
     companyName: mc.name,
     myCompanyId: companyId,
+    stateId: mc.stateId || null,
     isActive: true,
     registrationStatus: 'klient',
   } as any).returning({ id: subjects.id });
@@ -863,6 +864,24 @@ export async function registerRoutes(
           }
         }
         if (migrated > 0) console.log(`[SEED] Migrated ${migrated} partner(s) → partnerCompanyLinks`);
+      }
+
+      // Repair: backfill stateId for subjects with null stateId but with a myCompanyId
+      {
+        const nullStateSubjects = await db
+          .select({ id: subjects.id, myCompanyId: subjects.myCompanyId })
+          .from(subjects)
+          .where(and(isNull(subjects.stateId), isNotNull(subjects.myCompanyId), isNull(subjects.deletedAt)));
+        let backfilledSubjects = 0;
+        for (const s of nullStateSubjects) {
+          if (!s.myCompanyId) continue;
+          const [company] = await db.select({ stateId: myCompanies.stateId }).from(myCompanies).where(eq(myCompanies.id, s.myCompanyId)).limit(1);
+          if (company?.stateId) {
+            await db.update(subjects).set({ stateId: company.stateId }).where(eq(subjects.id, s.id));
+            backfilledSubjects++;
+          }
+        }
+        if (backfilledSubjects > 0) console.log(`[SEED] Backfilled stateId for ${backfilledSubjects} subject(s) from their company`);
       }
     } catch (err) {
       console.error("[SEED] Master Root / CZ deactivation error:", err);
@@ -1863,7 +1882,7 @@ export async function registerRoutes(
             type: 'person',
             firstName: firstName || null,
             lastName: lastName || null,
-            stateId: req.appUser?.activeStateId || null,
+            stateId: getEnforcedStateId(req) || null,
             myCompanyId: companyId,
             registeredByUserId: req.appUser?.id || null,
             registrationStatus: 'klient',
@@ -1983,7 +2002,7 @@ export async function registerRoutes(
                 type: 'person' as any,
                 firstName: updated.firstName || null,
                 lastName: updated.lastName || null,
-                stateId: req.appUser?.activeStateId || null,
+                stateId: getEnforcedStateId(req) || null,
                 myCompanyId: existingOfficer.companyId || null,
                 registeredByUserId: req.appUser?.id || null,
                 registrationStatus: 'klient',
@@ -2184,7 +2203,7 @@ export async function registerRoutes(
         type: 'person',
         firstName,
         lastName,
-        stateId: req.appUser?.activeStateId || officer.stateId || null,
+        stateId: getEnforcedStateId(req) || officer.stateId || null,
         myCompanyId: officer.companyId,
         registeredByUserId: req.appUser?.id || null,
         registrationStatus: 'klient',
@@ -2335,7 +2354,7 @@ export async function registerRoutes(
           type: 'person',
           firstName,
           lastName,
-          stateId: req.appUser?.activeStateId || null,
+          stateId: getEnforcedStateId(req) || null,
           myCompanyId: companyId,
           registeredByUserId: req.appUser?.id || null,
           registrationStatus: 'klient',
@@ -3070,7 +3089,7 @@ export async function registerRoutes(
 
     const enforcedState = getEnforcedStateId(req);
     if (enforcedState) {
-      allSubjects = allSubjects.filter((s: any) => !s.stateId || s.stateId === enforcedState);
+      allSubjects = allSubjects.filter((s: any) => s.stateId === enforcedState);
     }
 
     if (!isAdmin(appUser)) {
