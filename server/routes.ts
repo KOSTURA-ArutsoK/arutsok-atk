@@ -16485,6 +16485,20 @@ export async function registerRoutes(
     }
   });
 
+  // Parameter Synonyms – all (bulk, for client-side semantic search)
+  app.get("/api/parameter-synonyms", isAuthenticated, async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT id, parameter_id as "parameterId", synonym, language, source, status
+        FROM parameter_synonyms
+        ORDER BY parameter_id, id
+      `);
+      res.json(result.rows);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // Parameter Synonyms field-counts
   app.get("/api/parameter-synonyms/field-counts", isAuthenticated, async (req, res) => {
     try {

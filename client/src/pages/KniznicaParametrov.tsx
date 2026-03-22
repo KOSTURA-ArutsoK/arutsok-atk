@@ -184,6 +184,16 @@ export default function KniznicaParametrov() {
     queryKey: ["/api/subject-parameters"],
   });
 
+  const { data: allSynonyms = [] } = useQuery<{ id: number; parameterId: number; synonym: string; status: string }[]>({
+    queryKey: ["/api/parameter-synonyms"],
+  });
+
+  const synonymsByParamId = allSynonyms.reduce<Record<number, string[]>>((acc, s) => {
+    if (!acc[s.parameterId]) acc[s.parameterId] = [];
+    acc[s.parameterId].push(s.synonym.toLowerCase());
+    return acc;
+  }, {});
+
   const { data: templates = [], isLoading: templatesLoading } = useQuery<SubjectTemplate[]>({
     queryKey: ["/api/subject-templates"],
   });
@@ -503,7 +513,10 @@ export default function KniznicaParametrov() {
     if (selectedClientType !== "all" && p.clientTypeId !== Number(selectedClientType)) return false;
     if (debouncedSearchQuery) {
       const q = debouncedSearchQuery.toLowerCase();
-      return p.label.toLowerCase().includes(q) || p.fieldKey.toLowerCase().includes(q) || (p.shortLabel || "").toLowerCase().includes(q);
+      const matchesDirect = p.label.toLowerCase().includes(q) || p.fieldKey.toLowerCase().includes(q) || (p.shortLabel || "").toLowerCase().includes(q);
+      if (matchesDirect) return true;
+      const paramSynonyms = synonymsByParamId[p.id] || [];
+      return paramSynonyms.some(syn => syn.includes(q));
     }
     return true;
   });
