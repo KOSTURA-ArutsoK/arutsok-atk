@@ -203,6 +203,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [appUser, isClientUser, autoCreateDivisionForCompany, allStates]);
 
   const handleContextSelectState = useCallback((stateId: number) => {
+    if (stateId === appUser?.activeStateId) {
+      setPendingStateId(stateId);
+      setContextStep("company");
+      return;
+    }
     setPendingStateId(stateId);
     setActive.mutate({ activeStateId: stateId, activeCompanyId: null, activeDivisionId: null }, {
       onSuccess: () => {
@@ -212,7 +217,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         setPendingStateId(null);
       }
     });
-  }, [setActive]);
+  }, [setActive, appUser?.activeStateId]);
 
   const handleContextSelectCompany = useCallback(async (companyId: number) => {
     setPendingCompanyId(companyId);
