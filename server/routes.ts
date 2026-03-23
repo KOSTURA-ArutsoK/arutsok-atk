@@ -7063,6 +7063,44 @@ export async function registerRoutes(
     res.json({ ...contract, accessRole });
   });
 
+  async function captureSubjectSnapshot(subjectId: number): Promise<Record<string, any> | null> {
+    try {
+      const subject = await storage.getSubject(subjectId);
+      if (!subject) return null;
+      const [addresses, contacts, documents] = await Promise.all([
+        storage.getSubjectAddresses(subjectId),
+        storage.getSubjectContacts(subjectId),
+        storage.getSubjectDocuments(subjectId),
+      ]);
+      return {
+        id: subject.id,
+        uid: subject.uid,
+        type: subject.type,
+        firstName: subject.firstName,
+        lastName: subject.lastName,
+        companyName: subject.companyName,
+        birthNumber: subject.birthNumber,
+        titleBefore: subject.titleBefore,
+        titleAfter: subject.titleAfter,
+        email: subject.email,
+        phone: subject.phone,
+        details: subject.details,
+        registrationStatus: subject.registrationStatus,
+        isDeceased: subject.isDeceased,
+        lifecycleStatus: subject.lifecycleStatus,
+        clientTypeId: subject.clientTypeId,
+        stateId: subject.stateId,
+        addresses,
+        contacts,
+        documents,
+        capturedAt: new Date().toISOString(),
+      };
+    } catch (e) {
+      console.error("[SNAPSHOT] captureSubjectSnapshot error:", e);
+      return null;
+    }
+  }
+
   app.post(api.contractsApi.create.path, isAuthenticated, async (req: any, res) => {
     try {
       const migrationDates = req.body?._migrationDates;
@@ -7210,6 +7248,13 @@ export async function registerRoutes(
             await logAudit(req, { action: "UPDATE", module: "subjekty", entityId: input.subjectId, entityName: `${subj.firstName || ''} ${subj.lastName || subj.companyName || ''}`.trim(), oldData: { registrationStatus: oldStatus }, newData: { registrationStatus: 'klient' } });
           }
         } catch (e) { /* silent */ }
+
+        try {
+          const snapshot = await captureSubjectSnapshot(input.subjectId);
+          if (snapshot) {
+            await db.update(contracts).set({ subjectSnapshot: snapshot, subjectSnapshotAt: new Date() }).where(eq(contracts.id, created.id));
+          }
+        } catch (e) { console.error("[SNAPSHOT] Failed to capture on CREATE:", e); }
       }
 
       res.status(201).json(created);
@@ -7936,6 +7981,15 @@ export async function registerRoutes(
 
           const created = await storage.createContract(contractData);
 
+          if (resolvedSubjectId) {
+            try {
+              const snapshot = await captureSubjectSnapshot(resolvedSubjectId);
+              if (snapshot) {
+                await db.update(contracts).set({ subjectSnapshot: snapshot, subjectSnapshotAt: new Date() }).where(eq(contracts.id, created.id));
+              }
+            } catch (e) { console.error("[SNAPSHOT] Failed to capture on IMPORT:", e); }
+          }
+
           if (specialistaUid || odporucitelUid || odporucitel3Uid) {
             const distributions: { contractId: number; type: string; uid: string; percentage: string; sortOrder: number }[] = [];
             if (specialistaUid) {
@@ -8251,6 +8305,25 @@ export async function registerRoutes(
     try {
       res.json(await storage.getContractPasswords(Number(req.params.contractId)));
     } catch (err) {
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/contracts/:id/refresh-snapshot", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!isAdmin(appUser)) return res.status(403).json({ message: "Len admin" });
+      const contractId = Number(req.params.id);
+      const [contract] = await db.select({ id: contracts.id, subjectId: contracts.subjectId }).from(contracts).where(eq(contracts.id, contractId));
+      if (!contract) return res.status(404).json({ message: "Zmluva neexistuje" });
+      if (!contract.subjectId) return res.status(400).json({ message: "Zmluva nemá priradený subjekt" });
+      const snapshot = await captureSubjectSnapshot(contract.subjectId);
+      if (!snapshot) return res.status(500).json({ message: "Nepodarilo sa zachytiť snímku" });
+      await db.update(contracts).set({ subjectSnapshot: snapshot, subjectSnapshotAt: new Date() }).where(eq(contracts.id, contractId));
+      await logAudit(req, { action: "UPDATE", module: "zmluvy", entityId: contractId, entityName: `Refresh snapshot for contract ${contractId}`, newData: { snapshotRefreshed: true } });
+      res.json({ ok: true, capturedAt: snapshot.capturedAt });
+    } catch (err) {
+      console.error("[SNAPSHOT] refresh-snapshot error:", err);
       res.status(500).json({ message: "Internal error" });
     }
   });

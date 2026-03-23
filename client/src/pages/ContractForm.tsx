@@ -772,6 +772,250 @@ function StatusTabContent(props: StatusTabContentProps) {
   );
 }
 
+function SnapshotSubjectView({ snapshot, snapshotAt, appUserRole, contractId, liveSubject, onSnapshotRefreshed }: { snapshot: Record<string, any>; snapshotAt: string | null; appUserRole?: string; contractId?: number | null; liveSubject?: any | null; onSnapshotRefreshed?: () => void }) {
+  const details = (snapshot.details as any) || {};
+  const dynFields: Record<string, string> = details.dynamicFields || details || {};
+  const addresses: any[] = snapshot.addresses || [];
+  const contacts: any[] = snapshot.contacts || [];
+  const documents: any[] = snapshot.documents || [];
+
+  const getVal = (key: string): string => {
+    if (snapshot[key] !== undefined && snapshot[key] !== null) return String(snapshot[key]);
+    if (dynFields[key] !== undefined && dynFields[key] !== null) return String(dynFields[key]);
+    return "";
+  };
+
+  const isPersonType = ["person", "szco"].includes(snapshot.type || "");
+  const isCompanyType = ["company", "organization"].includes(snapshot.type || "");
+
+  const mainAddress = addresses.find((a: any) => a.isHlavna) || addresses[0] || null;
+  const primaryContact = contacts.find((c: any) => c.isPrimary) || contacts[0] || null;
+  const latestDoc = documents.length > 0 ? documents[documents.length - 1] : null;
+
+  const formatAddr = (a: any) => {
+    if (!a) return null;
+    const parts = [a.street, a.city, a.postalCode, a.country].filter(Boolean);
+    return parts.length > 0 ? parts.join(", ") : null;
+  };
+
+  const snapshotDate = snapshotAt ? formatDateTimeSlovak(snapshotAt) : null;
+  const capturedAt = snapshot.capturedAt ? formatDateTimeSlovak(snapshot.capturedAt) : snapshotDate;
+
+  const isAdmin = appUserRole === "admin" || appUserRole === "superadmin";
+  const { toast } = useToast();
+  const [refreshing, setRefreshing] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
+
+  const diffItems: { key: string; label: string; snapVal: string; liveVal: string }[] = useMemo(() => {
+    if (!liveSubject || !isAdmin) return [];
+    const compareFields: Array<{ key: string; label: string; snapFn: () => string; liveFn: () => string }> = [
+      { key: "firstName", label: "Meno", snapFn: () => snapshot.firstName || "", liveFn: () => liveSubject.firstName || "" },
+      { key: "lastName", label: "Priezvisko", snapFn: () => snapshot.lastName || "", liveFn: () => liveSubject.lastName || "" },
+      { key: "companyName", label: "Názov firmy", snapFn: () => snapshot.companyName || "", liveFn: () => liveSubject.companyName || "" },
+      { key: "email", label: "Email", snapFn: () => snapshot.email || "", liveFn: () => liveSubject.email || "" },
+      { key: "phone", label: "Telefón", snapFn: () => snapshot.phone || "", liveFn: () => liveSubject.phone || "" },
+      { key: "type", label: "Typ subjektu", snapFn: () => snapshot.type || "", liveFn: () => liveSubject.type || "" },
+    ];
+    return compareFields
+      .map(f => ({ key: f.key, label: f.label, snapVal: f.snapFn(), liveVal: f.liveFn() }))
+      .filter(d => d.snapVal !== d.liveVal);
+  }, [liveSubject, snapshot, isAdmin]);
+
+  async function handleRefreshSnapshot() {
+    if (!contractId) return;
+    setRefreshing(true);
+    try {
+      const res = await apiRequest("POST", `/api/contracts/${contractId}/refresh-snapshot`);
+      const data = await res.json();
+      toast({ title: "Snímka obnovená", description: `Zachytené: ${data.capturedAt ? formatDateTimeSlovak(data.capturedAt) : "teraz"}` });
+      if (onSnapshotRefreshed) onSnapshotRefreshed();
+    } catch (e: any) {
+      toast({ title: "Chyba", description: "Nepodarilo sa obnoviť snímku", variant: "destructive" });
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3" data-testid="snapshot-subject-view">
+      <div className="rounded-md border border-amber-700/50 bg-amber-950/20 px-3 py-2 flex items-center gap-2 flex-wrap" data-testid="snapshot-banner">
+        <History className="w-4 h-4 text-amber-400 shrink-0" />
+        <span className="text-xs font-semibold text-amber-300">Zmrazené dáta — snímka pri podpise zmluvy</span>
+        {capturedAt && (
+          <span className="text-[10px] text-amber-400/70" data-testid="snapshot-captured-at">Zachytené: {capturedAt}</span>
+        )}
+        {diffItems.length > 0 && (
+          <Badge variant="outline" className="text-[9px] border-orange-500/40 text-orange-400 cursor-pointer" onClick={() => setShowDiff(v => !v)} data-testid="badge-diff-changed">
+            {diffItems.length} zmien od snímky
+          </Badge>
+        )}
+        {isAdmin && contractId && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 text-[10px] text-amber-400/60 hover:text-amber-300 ml-auto"
+            onClick={handleRefreshSnapshot}
+            disabled={refreshing}
+            data-testid="button-refresh-snapshot"
+          >
+            {refreshing ? <Loader2 className="w-3 h-3 animate-spin" /> : <History className="w-3 h-3" />}
+            <span className="ml-1">Obnoviť snímku</span>
+          </Button>
+        )}
+      </div>
+
+      {isAdmin && showDiff && diffItems.length > 0 && (
+        <div className="rounded-md border border-orange-700/40 bg-orange-950/20 px-3 py-2 space-y-2" data-testid="snapshot-diff-panel">
+          <span className="text-[10px] font-semibold text-orange-300 uppercase tracking-wider">Zmeny v profile klienta od zachytenia snímky</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            {diffItems.map(d => (
+              <div key={d.key} className="text-xs rounded border border-orange-700/30 bg-orange-950/30 px-2 py-1" data-testid={`diff-field-${d.key}`}>
+                <span className="text-muted-foreground block">{d.label}</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="line-through text-red-400/80">{d.snapVal || "—"}</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="text-green-400">{d.liveVal || "—"}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+        {isPersonType && (
+          <>
+            <div className="flex flex-col gap-0.5 px-2 py-1.5 rounded border border-border/50 bg-muted/20" data-testid="snap-field-name">
+              <span className="text-[10px] text-muted-foreground">Meno a priezvisko</span>
+              <span className="text-sm font-medium">
+                {[snapshot.titleBefore, snapshot.firstName, snapshot.lastName, snapshot.titleAfter].filter(Boolean).join(" ") || "—"}
+              </span>
+            </div>
+            <div className="flex flex-col gap-0.5 px-2 py-1.5 rounded border border-border/50 bg-muted/20" data-testid="snap-field-type">
+              <span className="text-[10px] text-muted-foreground">Typ</span>
+              <span className="text-sm font-medium">{snapshot.type || "—"}</span>
+            </div>
+            <div className="flex flex-col gap-0.5 px-2 py-1.5 rounded border border-border/50 bg-muted/20" data-testid="snap-field-uid">
+              <span className="text-[10px] text-muted-foreground">UID</span>
+              <span className="text-sm font-mono">{snapshot.uid ? formatUid(snapshot.uid) : "—"}</span>
+            </div>
+            <div className="flex flex-col gap-0.5 px-2 py-1.5 rounded border border-border/50 bg-muted/20" data-testid="snap-field-rc">
+              <span className="text-[10px] text-muted-foreground">Rodné číslo</span>
+              <span className="text-sm font-medium">{"*".repeat(10)}</span>
+            </div>
+            <div className="flex flex-col gap-0.5 px-2 py-1.5 rounded border border-border/50 bg-muted/20" data-testid="snap-field-birth">
+              <span className="text-[10px] text-muted-foreground">Dátum narodenia</span>
+              <span className="text-sm font-medium">{getVal("datum_narodenia") ? formatDateSlovak(getVal("datum_narodenia")) : "—"}</span>
+            </div>
+          </>
+        )}
+        {isCompanyType && (
+          <>
+            <div className="flex flex-col gap-0.5 px-2 py-1.5 rounded border border-border/50 bg-muted/20 col-span-2" data-testid="snap-field-company">
+              <span className="text-[10px] text-muted-foreground">Názov spoločnosti</span>
+              <span className="text-sm font-medium">{snapshot.companyName || "—"}</span>
+            </div>
+            <div className="flex flex-col gap-0.5 px-2 py-1.5 rounded border border-border/50 bg-muted/20" data-testid="snap-field-uid">
+              <span className="text-[10px] text-muted-foreground">UID</span>
+              <span className="text-sm font-mono">{snapshot.uid ? formatUid(snapshot.uid) : "—"}</span>
+            </div>
+            <div className="flex flex-col gap-0.5 px-2 py-1.5 rounded border border-border/50 bg-muted/20" data-testid="snap-field-ico">
+              <span className="text-[10px] text-muted-foreground">IČO</span>
+              <span className="text-sm font-medium">{getVal("ico") || "—"}</span>
+            </div>
+            <div className="flex flex-col gap-0.5 px-2 py-1.5 rounded border border-border/50 bg-muted/20" data-testid="snap-field-dic">
+              <span className="text-[10px] text-muted-foreground">DIČ</span>
+              <span className="text-sm font-medium">{getVal("dic") || "—"}</span>
+            </div>
+          </>
+        )}
+        {snapshot.email && (
+          <div className="flex flex-col gap-0.5 px-2 py-1.5 rounded border border-border/50 bg-muted/20" data-testid="snap-field-email">
+            <span className="text-[10px] text-muted-foreground">Email</span>
+            <span className="text-sm font-medium truncate">{snapshot.email}</span>
+          </div>
+        )}
+        {snapshot.phone && (
+          <div className="flex flex-col gap-0.5 px-2 py-1.5 rounded border border-border/50 bg-muted/20" data-testid="snap-field-phone">
+            <span className="text-[10px] text-muted-foreground">Telefón</span>
+            <span className="text-sm font-medium">{formatPhone(snapshot.phone)}</span>
+          </div>
+        )}
+        {primaryContact && (
+          <div className="flex flex-col gap-0.5 px-2 py-1.5 rounded border border-border/50 bg-muted/20" data-testid="snap-field-primary-contact">
+            <span className="text-[10px] text-muted-foreground">Primárny kontakt</span>
+            <span className="text-sm font-medium">{primaryContact.value || "—"}</span>
+          </div>
+        )}
+        {mainAddress && (
+          <div className="flex flex-col gap-0.5 px-2 py-1.5 rounded border border-border/50 bg-muted/20 col-span-2" data-testid="snap-field-address">
+            <span className="text-[10px] text-muted-foreground">Adresa</span>
+            <span className="text-sm font-medium">{formatAddr(mainAddress) || "—"}</span>
+          </div>
+        )}
+      </div>
+
+      {contacts.length > 1 && (
+        <div className="space-y-1" data-testid="snap-contacts">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Kontakty ({contacts.length})</span>
+          <div className="flex flex-wrap gap-1.5">
+            {contacts.slice(0, 6).map((c: any, i: number) => (
+              <div key={i} className="text-xs px-2 py-0.5 rounded-full border border-border/40 bg-muted/20" data-testid={`snap-contact-${i}`}>
+                {c.label && <span className="text-muted-foreground mr-1">{c.label}:</span>}
+                {c.value}
+              </div>
+            ))}
+            {contacts.length > 6 && <span className="text-[10px] text-muted-foreground self-center">+{contacts.length - 6} ďalších</span>}
+          </div>
+        </div>
+      )}
+
+      {addresses.length > 1 && (
+        <div className="space-y-1" data-testid="snap-addresses">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Adresy ({addresses.length})</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            {addresses.slice(0, 4).map((a: any, i: number) => (
+              <div key={i} className="text-xs px-2 py-1 rounded border border-border/40 bg-muted/20" data-testid={`snap-address-${i}`}>
+                {a.isHlavna && <span className="text-[9px] text-emerald-400 mr-1 font-semibold">TP</span>}
+                {formatAddr(a) || "—"}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {latestDoc && (
+        <div className="space-y-1" data-testid="snap-documents">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Doklady ({documents.length})</span>
+          <div className="flex flex-wrap gap-1.5">
+            {documents.slice(0, 4).map((d: any, i: number) => (
+              <div key={i} className="text-xs px-2 py-1 rounded border border-border/40 bg-muted/20" data-testid={`snap-doc-${i}`}>
+                <span className="text-muted-foreground mr-1">{d.documentType || d.docType}:</span>
+                {d.documentNumber || d.docNumber || "—"}
+                {d.validUntil && <span className="text-muted-foreground ml-1">({formatDateSlovak(d.validUntil)})</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isAdmin && Object.keys(dynFields).length > 0 && (
+        <details className="text-[10px]" data-testid="snap-dynamic-fields-admin">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Dynamické polia — Admin pohľad ({Object.keys(dynFields).length})</summary>
+          <div className="mt-1.5 grid grid-cols-2 md:grid-cols-3 gap-1 max-h-40 overflow-y-auto">
+            {Object.entries(dynFields).slice(0, 30).map(([k, v]) => (
+              <div key={k} className="flex flex-col px-1.5 py-1 rounded border border-border/30 bg-muted/10" data-testid={`snap-dyn-${k}`}>
+                <span className="text-[9px] text-muted-foreground font-mono">{k}</span>
+                <span className="text-xs font-medium truncate">{String(v) || "—"}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
 export default function ContractForm() {
   const { data: appUser } = useAppUser();
   const { toast } = useToast();
@@ -1897,8 +2141,13 @@ export default function ContractForm() {
                 <Shield className="w-4 h-4 text-amber-400" />
                 <h2 className="text-sm font-semibold">Klientsky profil</h2>
                 <Badge variant="outline" className="text-[8px] px-1 py-0 border-amber-500/30 text-amber-400">Statický priečinok</Badge>
-                {selectedSubject && (
-                  <Badge variant="outline" className="text-[8px] px-1 py-0 border-cyan-500/30 text-cyan-400" data-testid="badge-stroj-casu">
+                {selectedSubject && existingContract?.subjectSnapshot && (
+                  <Badge variant="outline" className="text-[8px] px-1 py-0 border-amber-500/30 text-amber-400" data-testid="badge-stroj-casu">
+                    <History className="w-2.5 h-2.5 mr-0.5" /> Zmrazené dáta
+                  </Badge>
+                )}
+                {selectedSubject && !existingContract?.subjectSnapshot && (
+                  <Badge variant="outline" className="text-[8px] px-1 py-0 border-cyan-500/30 text-cyan-400" data-testid="badge-stroj-casu-live">
                     <History className="w-2.5 h-2.5 mr-0.5" /> Stroj času aktívny
                   </Badge>
                 )}
@@ -1949,7 +2198,27 @@ export default function ContractForm() {
                   Vyberte klienta z rozbaľovacieho zoznamu vyššie
                 </div>
               )}
-              {selectedSubject && <SubjektView subject={selectedSubject} />}
+              {selectedSubject && existingContract?.subjectSnapshot && (
+                <SnapshotSubjectView
+                  snapshot={existingContract.subjectSnapshot as Record<string, any>}
+                  snapshotAt={existingContract.subjectSnapshotAt ? String(existingContract.subjectSnapshotAt) : null}
+                  appUserRole={appUser?.role}
+                  contractId={contractId}
+                  liveSubject={selectedSubject}
+                  onSnapshotRefreshed={() => {
+                    queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
+                  }}
+                />
+              )}
+              {selectedSubject && !existingContract?.subjectSnapshot && (
+                <>
+                  <div className="rounded-md border border-yellow-700/40 bg-yellow-950/20 px-3 py-2 flex items-center gap-2" data-testid="no-snapshot-banner">
+                    <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" />
+                    <span className="text-xs text-yellow-300">Živé dáta — snímka nebola zachytená pri vytváraní zmluvy</span>
+                  </div>
+                  <SubjektView subject={selectedSubject} />
+                </>
+              )}
             </div>
           </div>
 

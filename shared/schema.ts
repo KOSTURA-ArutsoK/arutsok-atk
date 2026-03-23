@@ -938,6 +938,8 @@ export const contracts = pgTable("contracts", {
   deletedBy: text("deleted_by"),
   deletedAt: timestamp("deleted_at"),
   deletedFromIp: text("deleted_from_ip"),
+  subjectSnapshot: jsonb("subject_snapshot").$type<Record<string, any>>(),
+  subjectSnapshotAt: timestamp("subject_snapshot_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
