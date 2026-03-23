@@ -1,0 +1,80 @@
+ompletná mapa parametrov pre SVB (6. pilier - OS)
+Všetky tieto polia sa zobrazia iba vtedy, keď v prepínači zvolíš „Spoločenstvo vlastníkov bytov (SVB)“.
+
+PANEL 1: Základné údaje (os_povinne)
+
+Riadok 2: nazov_svb (Text, 50 %) | registracia_ou_svb (Text: Registrácia na Okresnom úrade, 50 %)
+
+Riadok 3: ico_svb (Text, 33 %) | dic_svb (Text, 33 %) | ic_dph_svb (Text, 34 %)
+
+Riadok 4: datum_vzniku_svb (Date, 50 %) | zmluva_o_spolocenstve_datum (Date: Zmluva o spoločenstve zo dňa, 50 %)
+
+PANEL 2: Údaje o bytovom dome (os_bytovy_dom)
+
+Riadok 1: katastralne_uzemie_svb (Text, 50 %) | cislo_lv_svb (Text: Číslo listu vlastníctva, 50 %)
+
+Riadok 2: pocet_bytov (Number, 33 %) | pocet_nebytovych_priestorov (Number, 33 %) | supisne_cisla_domu (Text: Súpisné čísla, 34 %)
+
+PANEL 3: Sídlo / Adresa bytového domu (os_sidlo)
+
+Riadok 1: ulica_svb (Text, 40 %) | supisne_cislo_svb (Text, 30 %) | orientacne_cislo_svb (Text, 30 %)
+
+Riadok 2: mesto_svb (Text, 50 %) | psc_svb (Text, 25 %) | stat_svb (Text, 25 %)
+
+PANEL 4: Kontaktné údaje (os_kontakt)
+
+Riadok 1: telefon_svb (Text, 50 %) | email_svb (Text, 50 %)
+
+Riadok 2: portal_vlastnikov (Text: Webový portál pre vlastníkov, 100 %)
+
+PANEL 5: Bankové spojenie (Fond prevádzky a údržby) (os_banka)
+
+Riadok 1: iban_svb (Text, 50 %) | swift_svb (Text, 50 %)
+
+Riadok 2: nazov_banky_svb (Text, 100 %)
+
+📥 Inštrukcia pre Agenta 4 (ATK321)
+Tento text skopíruj Agentovi 4. Je to priamy príkaz na naseedovanie týchto dát do Trezoru.
+
+Agent 4 (ATK321): Krok 3 - Kompletné parametre a Grid pre "SVB" v pilieri OS
+
+Pokračujeme v detailnom napĺňaní 6. piliera (OS). Tentokrát implementujeme subtyp Spoločenstvo vlastníkov bytov (SVB).
+
+Tvoja úloha:
+Pridaj do databázy (seedu) pre klientsky typ OS nasledujúce parametre. Musíš im nastaviť visibilityRule tak, aby sa zobrazili výhradne vtedy, keď je specifikacia_os nastavená na "Spoločenstvo vlastníkov bytov (SVB)".
+
+Záväzný Justified Grid (šírky riadkov):
+
+1. Sekcia os_povinne (pokračovanie od Riadku 2):
+
+Riadok 2: nazov_svb (50%) | registracia_ou_svb (50%)
+
+Riadok 3: ico_svb (33%) | dic_svb (33%) | ic_dph_svb (34%)
+
+Riadok 4: datum_vzniku_svb (50%) | zmluva_o_spolocenstve_datum (50%)
+
+2. Vytvor novú sekciu os_bytovy_dom (Údaje o bytovom dome):
+
+Riadok 0: katastralne_uzemie_svb (50%) | cislo_lv_svb (50%)
+
+Riadok 1: pocet_bytov (33%) | pocet_nebytovych_priestorov (33%) | supisne_cisla_domu (34%)
+
+3. Sekcia os_sidlo (Sídlo SVB):
+
+Riadok 0: ulica_svb (40%) | supisne_cislo_svb (30%) | orientacne_cislo_svb (30%)
+
+Riadok 1: mesto_svb (50%) | psc_svb (25%) | stat_svb (25%)
+
+4. Sekcia os_kontakt (Kontaktné údaje):
+
+Riadok 0: telefon_svb (50%) | email_svb (50%)
+
+Riadok 1: portal_vlastnikov (100%)
+
+5. Sekcia os_banka (Bankové spojenie):
+
+Riadok 0: iban_svb (50%) | swift_svb (50%)
+
+Riadok 1: nazov_banky_svb (100%)
+
+Technická poznámka: > Ak už sekcie ako os_sidlo existujú, len do nich pridaj tieto parametre s príslušným visibilityRule. Zabezpeč, aby sa pri prepnutí na SVB korektne aktivovali a pri iných voľbách zostali skryté (vrátane celých sekcií, ak sú prázdne). Spusti sync a potvrď mi výsledok.

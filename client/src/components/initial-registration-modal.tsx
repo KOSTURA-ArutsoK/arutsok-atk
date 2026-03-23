@@ -64,7 +64,8 @@ export function InitialRegistrationModal({
   const proceedBtnRef = useRef<HTMLButtonElement>(null);
 
   const selectedClientType = clientTypes?.find(ct => ct.code === selectedType);
-  const baseParamLabel = selectedClientType?.baseParameter === "ico" ? "ICO" : "Rodne cislo (RC)";
+  const isOs = selectedClientType?.code === "OS";
+  const baseParamLabel = isOs ? "Identifikátor" : selectedClientType?.baseParameter === "ico" ? "ICO" : "Rodne cislo (RC)";
 
   const performDuplicateCheck = useCallback(async (value: string, _paramType: string | undefined) => {
     if (!value.trim()) {
@@ -106,6 +107,7 @@ export function InitialRegistrationModal({
     }
     const isRc = selectedClientType?.baseParameter === "rc";
     const isIco = selectedClientType?.baseParameter === "ico";
+    const isOsType = selectedClientType?.code === "OS";
     if (isRc) {
       setIcoError(null);
       setAresLookup(null);
@@ -123,6 +125,20 @@ export function InitialRegistrationModal({
       }
       setRcError(null);
       performDuplicateCheck(baseValue, selectedClientType?.baseParameter);
+    } else if (isOsType) {
+      setRcError(null);
+      setIcoError(null);
+      setAresLookup(null);
+      if (baseValue.trim().length < 1) {
+        setDuplicateChecked(false);
+        return;
+      }
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      setDuplicateChecked(false);
+      debounceRef.current = setTimeout(() => {
+        performDuplicateCheck(baseValue, selectedClientType?.baseParameter);
+      }, 500);
+      return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
     } else if (isIco) {
       setRcError(null);
       const digitsOnly = baseValue.replace(/[\s\/-]/g, "");
@@ -217,7 +233,7 @@ export function InitialRegistrationModal({
             <div className="relative">
               <Input
                 ref={baseInputRef}
-                placeholder={selectedClientType?.baseParameter === "ico" ? "napr. 12345678" : "napr. 900101/1234"}
+                placeholder={isOs ? "Zadajte identifikátor (číslo registrácie / ID)..." : selectedClientType?.baseParameter === "ico" ? "napr. 12345678" : "napr. 900101/1234"}
                 value={baseValue}
                 onChange={(e) => {
                   setBaseValue(e.target.value);

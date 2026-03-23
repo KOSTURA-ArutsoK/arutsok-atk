@@ -102,6 +102,7 @@ function FullPageEditor({
 
   const clientType = clientTypes?.find(ct => ct.code === initialData.clientTypeCode);
   const isPerson = clientType?.baseParameter === "rc";
+  const isOsType = clientType?.code === 'OS';
   const state = allStates?.find(s => s.id === initialData.stateId);
 
   const isSzcoType = clientType?.code === 'SZCO';
@@ -1582,7 +1583,7 @@ function FullPageEditor({
                   )} />
 
                   <div>
-                    <Label className="text-xs text-muted-foreground">IČO</Label>
+                    <Label className="text-xs text-muted-foreground">{isOsType ? "Identifikátor" : "IČO"}</Label>
                     <Input value={initialData.baseValue} disabled className="mt-1" data-testid="input-ico-locked" />
                   </div>
 
@@ -1734,11 +1735,12 @@ function InitStep({ onProceed }: { onProceed: (data: InitialData) => void }) {
   const filteredTypes = (clientTypes || []).filter(ct => INIT_STEP_TYPE_CODES.includes(ct.code));
   const selectedClientType = filteredTypes.find(ct => ct.code === selectedType);
   const isRc = selectedClientType?.baseParameter === "rc";
+  const isOsSelected = selectedClientType?.code === "OS";
   const isActive = hovered || pressed;
 
   function handleProceed() {
     if (!selectedType) { setError("Vyberte typ subjektu"); return; }
-    if (!baseValue.trim()) { setError(isRc ? "Zadajte rodné číslo" : "Zadajte IČO"); return; }
+    if (!baseValue.trim()) { setError(isRc ? "Zadajte rodné číslo" : isOsSelected ? "Zadajte identifikátor" : "Zadajte IČO"); return; }
     const stateId = appUser?.activeStateId ?? 1;
     setError(null);
     onProceed({ clientTypeCode: selectedType, stateId, baseValue: baseValue.trim() });
@@ -1843,11 +1845,11 @@ function InitStep({ onProceed }: { onProceed: (data: InitialData) => void }) {
 
         {selectedType && (
           <div className="space-y-1.5">
-            <Label htmlFor="init-base">{isRc ? "Rodné číslo" : "IČO"}</Label>
+            <Label htmlFor="init-base">{isRc ? "Rodné číslo" : isOsSelected ? "Identifikátor" : "IČO"}</Label>
             <Input
               id="init-base"
               data-testid="input-base-value"
-              placeholder={isRc ? "napr. 900101/1234" : "napr. 12345678"}
+              placeholder={isRc ? "napr. 900101/1234" : isOsSelected ? "Zadajte identifikátor (číslo registrácie / ID)..." : "napr. 12345678"}
               value={baseValue}
               onChange={e => { setBaseValue(e.target.value); setError(null); }}
               onKeyDown={e => { if (e.key === "Enter") handleProceed(); }}

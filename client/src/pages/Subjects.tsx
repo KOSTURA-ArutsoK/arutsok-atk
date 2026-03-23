@@ -536,10 +536,13 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
 
   const isNs = subject.type === 'organization';
   const isVs = subject.type === 'state';
+  const osClientTypeId = clientTypes?.find(ct => ct.code === 'OS')?.id;
+  const isOs = !!(osClientTypeId && (subject as any).clientTypeId === osClientTypeId);
 
   const clientType = clientTypes?.find(ct => {
     if (isSystem) return false;
     if (isSzco && ct.code === 'SZCO') return true;
+    if (isOs && ct.code === 'OS') return true;
     if (subject.type === 'company' && ct.code === 'PO') return true;
     if (isPerson && ct.code === 'FO') return true;
     if (isNs && ct.code === 'NS') return true;
@@ -598,7 +601,7 @@ function SubjectDataTab({ subject }: { subject: Subject }) {
       <div className="flex flex-wrap gap-2">
         <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
           <span className="text-xs text-muted-foreground whitespace-nowrap">Typ:</span>
-          <span className="text-sm font-medium">{isSystem ? 'Systém' : isPerson ? 'FO' : isSzco ? 'SZCO' : isNs ? 'NS' : isVs ? 'VS' : 'PO'} - {isSystem ? 'Koreňový subjekt' : clientType?.name || subject.type}</span>
+          <span className="text-sm font-medium">{isSystem ? 'Systém' : isPerson ? 'FO' : isSzco ? 'SZCO' : isNs ? 'NS' : isVs ? 'VS' : isOs ? 'OS' : 'PO'} - {isSystem ? 'Koreňový subjekt' : clientType?.name || subject.type}</span>
         </div>
         <div className="h-10 flex items-center gap-2 px-3 rounded-md border border-border bg-muted/30">
           <span className="text-xs text-muted-foreground whitespace-nowrap">Firma:</span>
@@ -1916,10 +1919,13 @@ function SubjectEditModal({ subject, onClose }: { subject: Subject; onClose: () 
 
   const isNsType = subject.type === 'organization';
   const isVsType = subject.type === 'state';
+  const osClientTypeIdEdit = clientTypes?.find(ct => ct.code === 'OS')?.id;
+  const isOsType = !!(osClientTypeIdEdit && (subject as any).clientTypeId === osClientTypeIdEdit);
 
   const clientType = clientTypes?.find(ct => {
     if (isSystemType) return false;
     if (isSzco && ct.code === 'SZCO') return true;
+    if (isOsType && ct.code === 'OS') return true;
     if (subject.type === 'company' && ct.code === 'PO') return true;
     if (isPerson && ct.code === 'FO') return true;
     if (isNsType && ct.code === 'NS') return true;
@@ -2737,10 +2743,13 @@ export default function Subjects() {
                       }
                       return dynFields.sidlo_ulica || details.sidlo_ulica || '';
                     })() || '-';
+                    const osCtId = clientTypes?.find(ct => ct.code === 'OS')?.id;
+                    const isOsSubject = !!(osCtId && (subject as any).clientTypeId === osCtId);
                     const subjectTypeCode = (() => {
                       if (subject.type === 'system') return 'SYS';
                       if (subject.type === 'person') return 'FO';
                       if (subject.type === 'szco') return 'SZCO';
+                      if (isOsSubject) return 'OS';
                       if (subject.type === 'company') return 'PO';
                       return subject.type;
                     })();
@@ -2827,7 +2836,8 @@ export default function Subjects() {
                                 return <span className="text-xs text-muted-foreground font-mono" data-testid={`text-rc-${subject.id}`}>RČ: {bn}</span>;
                               }
                               if (!isPersonType && icoVal) {
-                                return <span className="text-xs text-muted-foreground font-mono" data-testid={`text-ico-${subject.id}`}>IČO: {icoVal}</span>;
+                                const prefix = isOsSubject ? "ID" : "IČO";
+                                return <span className="text-xs text-muted-foreground font-mono" data-testid={`text-ico-${subject.id}`}>{prefix}: {icoVal}</span>;
                               }
                               return null;
                             })()}
