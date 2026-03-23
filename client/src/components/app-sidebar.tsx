@@ -7,7 +7,7 @@ import { DataLinkaIcon } from "@/components/icons/data-linka-icon";
 import { ClientGroupsIcon } from "@/components/icons/client-groups-icon";
 import { StrukturaIcon } from "@/components/icons/struktura-icon";
 import { useQuery } from "@tanstack/react-query";
-import { isAdmin as checkIsAdmin } from "@/lib/utils";
+import { isAdmin as checkIsAdmin, canCreateSubjects } from "@/lib/utils";
 import type { CircleConfig, SidebarLinkSection, SidebarLink } from "@shared/schema";
 import {
   LayoutDashboard,
@@ -853,16 +853,18 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      <SidebarMenuSubItem key="pridat-subjekt">
-                        <SidebarMenuSubButton
-                          className="py-1.5 text-primary hover:text-primary"
-                          data-testid="nav-pridat-subjekt"
-                          onClick={() => setIsPridatSubjektOpen(true)}
-                        >
-                          <UserPlus className="w-4 h-4" />
-                          <span className="text-[13px]">Pridať subjekt</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
+                      {canCreateSubjects(appUser) && (
+                        <SidebarMenuSubItem key="pridat-subjekt">
+                          <SidebarMenuSubButton
+                            className="py-1.5 text-primary hover:text-primary"
+                            data-testid="nav-pridat-subjekt"
+                            onClick={() => setIsPridatSubjektOpen(true)}
+                          >
+                            <UserPlus className="w-4 h-4" />
+                            <span className="text-[13px]">Pridať subjekt</span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )}
                       {klientiItems.map(item => (
                         <SidebarMenuSubItem key={item.href}>
                           <SidebarMenuSubButton

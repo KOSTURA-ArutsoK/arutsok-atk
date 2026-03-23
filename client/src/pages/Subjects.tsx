@@ -2496,7 +2496,14 @@ const SUBJECTS_FILTER_COLUMNS: SmartColumnDef[] = [
 
 export default function Subjects() {
   const [search, setSearch] = useState("");
-  const [isInitModalOpen, setIsInitModalOpen] = useState(false);
+  const [isInitModalOpen, setIsInitModalOpen] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("addNew") === "true") {
+      window.history.replaceState({}, "", window.location.pathname);
+      return true;
+    }
+    return false;
+  });
   const [pendingOpenId] = useState<number | null>(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get("openId");
