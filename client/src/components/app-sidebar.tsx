@@ -63,7 +63,6 @@ import {
   User,
   Plus,
   FileSignature,
-  Pill,
 } from "lucide-react";
 import {
   Sidebar,
@@ -850,18 +849,6 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          className="text-primary hover:text-primary border border-dashed border-primary/30 hover:border-primary/60"
-                          data-testid="nav-pridat-subjekt"
-                        >
-                          <Link href="/subjects?addNew=true">
-                            <Pill className="w-3.5 h-3.5" />
-                            <span className="text-[13px]">Pridať subjekt</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
                       {klientiItems.map(item => (
                         <SidebarMenuSubItem key={item.href}>
                           <SidebarMenuSubButton

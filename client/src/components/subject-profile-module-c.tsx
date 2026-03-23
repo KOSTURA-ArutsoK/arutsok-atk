@@ -35,7 +35,6 @@ import {
   AlertTriangle, Plus, Tag, TrendingUp, TrendingDown, Camera, Ban,
   Home, Briefcase, FileText, ThumbsUp, ThumbsDown, ExternalLink,
 } from "lucide-react";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
   type DragEndEvent, type DragStartEvent, DragOverlay, useDroppable,
@@ -167,11 +166,14 @@ const LIFECYCLE_STATUS_OPTIONS = [
 
 const INT_COLUMNS = new Set(["continentId", "stateId", "myCompanyId"]);
 
-const CLIENT_TYPE_OPTIONS = [
-  { value: "person", label: "Fyzická osoba", short: "FO" },
-  { value: "szco", label: "SZČO", short: "SZČO" },
-  { value: "po", label: "Právnická osoba", short: "PO" },
-];
+const SUBJECT_TYPE_LABELS: Record<string, string> = {
+  person: "Fyzická osoba",
+  szco: "SZČO",
+  po: "Právnická osoba",
+  ns: "Nezisková organizácia",
+  vs: "Štátna inštitúcia",
+  company: "Spoločnosť",
+};
 
 interface ModuleCProps {
   subject: Subject;
@@ -624,11 +626,6 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     return 4;
   }, [subject]);
 
-  const [activeClientType, setActiveClientType] = useState<string>(subject.type);
-
-  useEffect(() => {
-    setActiveClientType(subject.type);
-  }, [subject.type]);
 
   const { data: synonymCounts } = useQuery<Record<string, number>>({
     queryKey: ["/api/parameter-synonyms/field-counts"],
@@ -1091,7 +1088,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   ];
 
   function getLayoutKey(fieldKey: string, sectionCategory: string = "povinne"): string {
-    return `${activeClientType}::${sectionCategory}::${fieldKey}`;
+    return `${subject.type}::${sectionCategory}::${fieldKey}`;
   }
 
   function getFieldLayout(fieldKey: string, sectionCategory: string = "povinne") {
@@ -1099,7 +1096,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   }
 
   function updateFieldLayout(fieldKey: string, sectionCategory: string, updates: Partial<{ sortOrder: number; widthClass: string; rowGroup: number }>) {
-    const key = `${activeClientType}::${sectionCategory}::${fieldKey}`;
+    const key = `${subject.type}::${sectionCategory}::${fieldKey}`;
     setFieldLayouts(prev => ({
       ...prev,
       [key]: {
@@ -1291,7 +1288,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       };
 
       if (subject.id === 0) {
-        payload.type = activeClientType || "person";
+        payload.type = subject.type || "person";
         payload.changeReason = editReason || "Vytvorenie cez Profil subjektu";
         const res = await apiRequest("POST", "/api/subjects", payload);
         return res;
@@ -1563,24 +1560,13 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
               <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
                 <span className="font-mono">{formatUid(subject.uid)}</span>
                 <span className="text-border">|</span>
-                <span>{CLIENT_TYPE_OPTIONS.find(o => o.value === activeClientType)?.label || "Fyzická osoba"}</span>
+                <span>{SUBJECT_TYPE_LABELS[subject.type] || subject.type}</span>
                 <span className="text-border">|</span>
                 <span className={cn("font-medium", subject.isActive ? "text-emerald-400" : "text-red-400")}>{subject.isActive ? "Aktívny" : "Neaktívny"}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-center pt-1">
-            <div className="inline-flex rounded-lg border-2 border-primary/30 shadow-md p-1 bg-muted/30" data-testid="toggle-client-type-wrapper">
-              <ToggleGroup type="single" value={activeClientType} onValueChange={(val) => { if (val) setActiveClientType(val); }} className="h-9" data-testid="toggle-client-type">
-                {CLIENT_TYPE_OPTIONS.map(opt => (
-                  <ToggleGroupItem key={opt.value} value={opt.value} className="h-9 px-8 text-sm font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm" data-testid={`toggle-type-${opt.value}`}>
-                    {opt.short}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-            </div>
-          </div>
         </CardContent>
       </Card>
 
