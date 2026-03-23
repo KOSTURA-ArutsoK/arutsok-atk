@@ -1928,8 +1928,8 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                                   if (isEmptyViewField) {
                                                     return (
                                                       <div key={field.id} className="min-w-0 relative px-1.5 pb-3" style={{ flex: `0 0 ${pct}%`, width: `${pct}%` }}>
-                                                        <p className="text-[10px] text-muted-foreground/30 font-medium leading-none mb-0.5 truncate">{field.label}</p>
-                                                        <span className="text-sm text-muted-foreground/25 select-none">–</span>
+                                                        <p className="text-[10px] text-muted-foreground/40 font-medium leading-none mb-0.5 truncate">{field.label}</p>
+                                                        <div className="min-h-[1.25rem]" />
                                                       </div>
                                                     );
                                                   }
