@@ -136,6 +136,8 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Sídlo v domovskej krajine", code: "os_sidlo_zahranicie", folderCategory: "povinne", sortOrder: 5, isPanel: true, gridColumns: 3 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Špecifiká zložky", code: "os_specifikacia_oz", folderCategory: "povinne", sortOrder: 6, isPanel: true, gridColumns: 1 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Detaily spolupráce", code: "os_konzorcium_detaily", folderCategory: "povinne", sortOrder: 7, isPanel: true, gridColumns: 2 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "Špecifiká urbariátu", code: "os_urbariat_detaily", folderCategory: "povinne", sortOrder: 8, isPanel: true, gridColumns: 2 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "Doplnkové informácie", code: "os_iny_detaily", folderCategory: "povinne", sortOrder: 9, isPanel: true, gridColumns: 1 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Rozšírené cirkevné údaje", code: "os_cirkev", folderCategory: "doplnkove", sortOrder: 0, isPanel: true, gridColumns: 2 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Bankové spojenie", code: "os_banka", folderCategory: "doplnkove", sortOrder: 1, isPanel: true, gridColumns: 3 },
     ] : []),
@@ -178,6 +180,7 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     os_subjekt: "os_povinne", os_sidlo: "os_povinne", os_kontakt: "os_povinne",
     os_riadenie: "os_povinne", os_bytovy_dom: "os_povinne", os_sidlo_zahranicie: "os_povinne",
     os_specifikacia_oz: "os_povinne", os_konzorcium_detaily: "os_povinne",
+    os_urbariat_detaily: "os_povinne", os_iny_detaily: "os_povinne",
     os_cirkev: "os_doplnkove", os_banka: "os_doplnkove",
   };
 
@@ -1096,6 +1099,86 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "iban_zdruzenia", "IBAN", "short_text", 410, 0, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "swift_zdruzenia", "SWIFT / BIC", "short_text", 420, 0, 50, { shortLabel: "SWIFT/BIC", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "nazov_banky_zdruzenia", "Názov banky", "short_text", 430, 1, 100, { shortLabel: "Banka", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+
+      // ============================================================
+      // OS: Pozemkové spoločenstvo (Urbariát) – os_subjekt rows 2–4 (sortOrders 510–570)
+      // R2: nazov_urbariatu(50) + registracia_ou_ps(50)
+      // R3: ico_ps(33) + dic_ps(33) + druh_ps(34, Enum)
+      // R4: datum_vzniku_ps(50, date) + kod_katastralneho_uzemia_ps(50)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "nazov_urbariatu", "Názov pozemkového spoločenstva", "short_text", 510, 2, 50, { shortLabel: "Názov urbariátu", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "registracia_ou_ps", "Číslo registrácie na Pozemkovom a lesnom odbore OÚ", "short_text", 520, 2, 50, { shortLabel: "Registrácia OÚ", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "ico_ps", "IČO urbariátu", "short_text", 530, 3, 33, { shortLabel: "IČO urbariátu", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "dic_ps", "DIČ urbariátu", "short_text", 540, 3, 33, { shortLabel: "DIČ urbariátu", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "druh_ps", "Druh spoločenstva", "jedna_moznost", 550, 3, 34, { shortLabel: "Druh", options: ["S právnou subjektivitou", "Bez právnej subjektivity"], visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "datum_vzniku_ps", "Dátum zápisu do registra", "date", 560, 4, 50, { shortLabel: "Dátum zápisu", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "kod_katastralneho_uzemia_ps", "Kód a názov katastrálneho územia", "short_text", 570, 4, 50, { shortLabel: "Katastrálne územie", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+
+      // ============================================================
+      // OS: Špecifiká urbariátu (os_urbariat_detaily) – Urbariát only
+      // R0: celkova_vymera_ps(50) + pocet_clenov_ps(50, number)
+      // R1: hlavny_druh_pozemkov(50, Enum) + prislusny_ou_ps(50)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_urbariat_detaily", "celkova_vymera_ps", "Celková výmera v ha", "short_text", 10, 0, 50, { shortLabel: "Výmera (ha)", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_urbariat_detaily", "pocet_clenov_ps", "Počet podielnikov / členov", "number", 20, 0, 50, { shortLabel: "Počet členov", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_urbariat_detaily", "hlavny_druh_pozemkov", "Hlavný druh pozemkov", "jedna_moznost", 30, 1, 50, { shortLabel: "Druh pozemkov", options: ["Lesné pozemky", "Poľnohospodárske pozemky", "Zmiešané"], visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_urbariat_detaily", "prislusny_ou_ps", "Príslušný okresný úrad", "short_text", 40, 1, 50, { shortLabel: "Okresný úrad", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+
+      // Pozemkové spoločenstvo (Urbariát): Sídlo – sortOrders 510–560
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "ulica_ps", "Ulica", "short_text", 510, 0, 40, { visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "supisne_cislo_ps", "Súpisné číslo", "short_text", 520, 0, 30, { shortLabel: "Súp. č.", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "orientacne_cislo_ps", "Orientačné číslo", "short_text", 530, 0, 30, { shortLabel: "Or. č.", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "mesto_ps", "Mesto", "short_text", 540, 1, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "psc_ps", "PSČ", "short_text", 550, 1, 25, { visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "stat_ps", "Štát", "short_text", 560, 1, 25, { visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+
+      // Pozemkové spoločenstvo (Urbariát): Kontaktné údaje – sortOrders 510–530
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "telefon_ps", "Telefón", "short_text", 510, 0, 50, { shortLabel: "Telefón", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "email_ps", "E-mail", "short_text", 520, 0, 50, { shortLabel: "E-mail", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "web_ps", "Webová stránka", "short_text", 530, 1, 100, { shortLabel: "Web", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+
+      // Pozemkové spoločenstvo (Urbariát): Bankové spojenie – sortOrders 510–530
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "iban_ps", "IBAN", "short_text", 510, 0, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "swift_ps", "SWIFT / BIC", "short_text", 520, 0, 50, { shortLabel: "SWIFT/BIC", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "nazov_banky_ps", "Názov banky", "short_text", 530, 1, 100, { shortLabel: "Banka", visibilityRule: { dependsOn: "specifikacia_os", value: "Pozemkové spoločenstvo (Urbariát)" } }),
+
+      // ============================================================
+      // OS: Iný špecifický subjekt – os_subjekt rows 2–4 (sortOrders 610–670)
+      // R2: nazov_subjektu_iny(50) + specifikacia_pravnej_formy(50)
+      // R3: identifikator_iny(33) + dic_iny(33) + ic_dph_iny(34)
+      // R4: datum_zaznamu_iny(50, date) + registracny_organ_iny(50)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "nazov_subjektu_iny", "Názov subjektu", "short_text", 610, 2, 50, { shortLabel: "Názov subjektu", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "specifikacia_pravnej_formy", "Opis právnej formy / typu", "short_text", 620, 2, 50, { shortLabel: "Právna forma", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "identifikator_iny", "Hlavný identifikátor / Číslo registrácie", "short_text", 630, 3, 33, { shortLabel: "Identifikátor", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "dic_iny", "DIČ", "short_text", 640, 3, 33, { shortLabel: "DIČ", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "ic_dph_iny", "IČ DPH", "short_text", 650, 3, 34, { shortLabel: "IČ DPH", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "datum_zaznamu_iny", "Dátum vzniku / registrácie", "date", 660, 4, 50, { shortLabel: "Dátum vzniku", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "registracny_organ_iny", "Názov registrového orgánu", "short_text", 670, 4, 50, { shortLabel: "Registrový orgán", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+
+      // ============================================================
+      // OS: Doplnkové informácie (os_iny_detaily) – Iný špecifický subjekt only
+      // R0: poznamka_k_subjektu(100, long_text)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_iny_detaily", "poznamka_k_subjektu", "Doplňujúce údaje o charaktere subjektu", "long_text", 10, 0, 100, { shortLabel: "Poznámka", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+
+      // Iný špecifický subjekt: Sídlo – sortOrders 610–660
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "ulica_iny", "Ulica", "short_text", 610, 0, 40, { visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "supisne_cislo_iny", "Súpisné číslo", "short_text", 620, 0, 30, { shortLabel: "Súp. č.", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "orientacne_cislo_iny", "Orientačné číslo", "short_text", 630, 0, 30, { shortLabel: "Or. č.", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "mesto_iny", "Mesto", "short_text", 640, 1, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "psc_iny", "PSČ", "short_text", 650, 1, 25, { visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "stat_iny", "Štát", "short_text", 660, 1, 25, { visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+
+      // Iný špecifický subjekt: Kontaktné údaje – sortOrders 610–630
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "telefon_iny", "Telefón", "short_text", 610, 0, 50, { shortLabel: "Telefón", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "email_iny", "E-mail", "short_text", 620, 0, 50, { shortLabel: "E-mail", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "web_iny", "Webová stránka", "short_text", 630, 1, 100, { shortLabel: "Web", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+
+      // Iný špecifický subjekt: Bankové spojenie – sortOrders 610–630
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "iban_iny", "IBAN", "short_text", 610, 0, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "swift_iny", "SWIFT / BIC", "short_text", 620, 0, 50, { shortLabel: "SWIFT/BIC", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "nazov_banky_iny", "Názov banky", "short_text", 630, 1, 100, { shortLabel: "Banka", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
     ] : []),
   ];
 
