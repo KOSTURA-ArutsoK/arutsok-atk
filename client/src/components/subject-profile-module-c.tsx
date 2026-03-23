@@ -1679,8 +1679,18 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                           const sectionKey = `section-${section.id}`;
                           const isSectionExpanded = expandedSections.includes(sectionKey);
                           const filteredPanelNodes = filterPanels(panelNodes);
+                          const isParamVisible = (p: { visibilityRule: unknown }) => {
+                            const vr = p.visibilityRule as { dependsOn: string; value: string } | null;
+                            if (!vr || !vr.dependsOn) return true;
+                            const depVal = dynamicValues[vr.dependsOn];
+                            return Boolean(depVal) && depVal === vr.value;
+                          };
+                          const visiblePanelNodes = isArchitectMode
+                            ? filteredPanelNodes
+                            : filteredPanelNodes.filter(({ parameters }) => parameters.some(isParamVisible));
                           const sectionParamCount = filteredPanelNodes.reduce((s, p) => s + p.parameters.length, 0);
                           if (sectionParamCount === 0) return null;
+                          if (!isArchitectMode && visiblePanelNodes.length === 0) return null;
 
                           return (
                             <Card key={section.id} className="border border-border/50 bg-muted/10 shadow-sm" data-testid={`section-card-${section.id}`}>
@@ -1732,19 +1742,9 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                               </div>
                               {isSectionExpanded && (
                                 <CardContent className="px-4 pb-4 pt-3 space-y-3">
-                                  {!isArchitectMode && filteredPanelNodes.filter(({ parameters }) => parameters.some(p => {
-                                    const vr = p.visibilityRule as { dependsOn: string; value: string } | null;
-                                    if (!vr || !vr.dependsOn) return true;
-                                    const depVal = dynamicValues[vr.dependsOn];
-                                    return Boolean(depVal) && depVal === vr.value;
-                                  })).length > 2 && (
+                                  {!isArchitectMode && visiblePanelNodes.length > 2 && (
                                     <div className="flex flex-wrap gap-1.5 pb-3 border-b border-border/20" data-testid="panel-nav-chips">
-                                      {filteredPanelNodes.filter(({ parameters }) => parameters.some(p => {
-                                        const vr = p.visibilityRule as { dependsOn: string; value: string } | null;
-                                        if (!vr || !vr.dependsOn) return true;
-                                        const depVal = dynamicValues[vr.dependsOn];
-                                        return Boolean(depVal) && depVal === vr.value;
-                                      })).map(({ panel: pn }) => {
+                                      {visiblePanelNodes.map(({ panel: pn }) => {
                                         const chipKey = `panel-${pn.id}`;
                                         const active = expandedPanels.has(chipKey);
                                         return (
@@ -1867,18 +1867,8 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                       </DragOverlay>
                                     </DndContext>
                                   ) : (
-                                    filteredPanelNodes.map(({ panel, parameters }) => {
+                                    visiblePanelNodes.map(({ panel, parameters }) => {
                                       const panelKey = `panel-${panel.id}`;
-
-                                      // Panel-level visibility: hide panel when every field has a visibilityRule
-                                      // and none of those rules resolve to visible with current values.
-                                      const hasAnyVisibleParam = parameters.some(p => {
-                                        const vr = p.visibilityRule as { dependsOn: string; value: string } | null;
-                                        if (!vr || !vr.dependsOn) return true;
-                                        const depVal = dynamicValues[vr.dependsOn];
-                                        return Boolean(depVal) && depVal === vr.value;
-                                      });
-                                      if (!hasAnyVisibleParam) return null;
 
                                       const filledCount = parameters.filter(p => {
                                         const v = dynamicValues[p.fieldKey];
