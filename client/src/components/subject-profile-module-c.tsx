@@ -1138,6 +1138,20 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     return initial;
   });
 
+  useEffect(() => {
+    setDynamicValues(prev => {
+      const updates: Record<string, string> = {};
+      if (subject.firstName && !prev["meno"]) updates["meno"] = subject.firstName;
+      if (subject.lastName && !prev["priezvisko"]) updates["priezvisko"] = subject.lastName;
+      if (subject.birthNumber && !prev["rodne_cislo"]) updates["rodne_cislo"] = subject.birthNumber;
+      if (subject.email && !prev["email"]) updates["email"] = subject.email;
+      if (subject.phone && !prev["telefon"]) updates["telefon"] = subject.phone;
+      if (subject.idCardNumber && !prev["cislo_dokladu"]) updates["cislo_dokladu"] = subject.idCardNumber;
+      if (Object.keys(updates).length === 0) return prev;
+      return { ...prev, ...updates };
+    });
+  }, [subject.id, subject.firstName, subject.lastName, subject.birthNumber, subject.email, subject.phone, subject.idCardNumber]);
+
   const isInMemoriam = dynamicValues["lifecycle_status"] === "in_memoriam";
   const isZaniknuta = dynamicValues["lifecycle_status"] === "zaniknuta";
   const isVLikvidacii = dynamicValues["lifecycle_status"] === "v_likvidacii";
