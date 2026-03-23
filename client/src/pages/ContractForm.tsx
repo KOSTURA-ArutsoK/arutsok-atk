@@ -2163,17 +2163,17 @@ export default function ContractForm() {
                 );
               })()}
 
-              {!selectedSubject && (
+              {!selectedSubject && !existingContract?.subjectSnapshot && (
                 <div className="text-center py-8 text-sm text-muted-foreground" data-testid="no-client-selected">
                   Vyberte klienta z rozbaľovacieho zoznamu vyššie
                 </div>
               )}
-              {selectedSubject && existingContract?.subjectSnapshot && (
+              {existingContract?.subjectSnapshot && (
                 <SnapshotSubjectView
                   snapshot={existingContract.subjectSnapshot as Record<string, any>}
                   snapshotAt={existingContract.subjectSnapshotAt ? String(existingContract.subjectSnapshotAt) : null}
                   appUserRole={appUser?.role}
-                  liveSubject={selectedSubject}
+                  liveSubject={selectedSubject ?? null}
                 />
               )}
               {selectedSubject && !existingContract?.subjectSnapshot && (
