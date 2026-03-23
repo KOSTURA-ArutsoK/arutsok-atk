@@ -1732,9 +1732,19 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                               </div>
                               {isSectionExpanded && (
                                 <CardContent className="px-4 pb-4 pt-3 space-y-3">
-                                  {!isArchitectMode && filteredPanelNodes.length > 2 && (
+                                  {!isArchitectMode && filteredPanelNodes.filter(({ parameters }) => parameters.some(p => {
+                                    const vr = p.visibilityRule as { dependsOn: string; value: string } | null;
+                                    if (!vr || !vr.dependsOn) return true;
+                                    const depVal = dynamicValues[vr.dependsOn];
+                                    return Boolean(depVal) && depVal === vr.value;
+                                  })).length > 2 && (
                                     <div className="flex flex-wrap gap-1.5 pb-3 border-b border-border/20" data-testid="panel-nav-chips">
-                                      {filteredPanelNodes.map(({ panel: pn }) => {
+                                      {filteredPanelNodes.filter(({ parameters }) => parameters.some(p => {
+                                        const vr = p.visibilityRule as { dependsOn: string; value: string } | null;
+                                        if (!vr || !vr.dependsOn) return true;
+                                        const depVal = dynamicValues[vr.dependsOn];
+                                        return Boolean(depVal) && depVal === vr.value;
+                                      })).map(({ panel: pn }) => {
                                         const chipKey = `panel-${pn.id}`;
                                         const active = expandedPanels.has(chipKey);
                                         return (
