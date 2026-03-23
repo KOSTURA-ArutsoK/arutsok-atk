@@ -2,6 +2,9 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { db } from "./db";
+import { subjectParameters } from "@shared/schema";
+import { inArray } from "drizzle-orm";
 
 const app = express();
 const httpServer = createServer(app);
@@ -60,6 +63,20 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // One-time fixup: hide legacy duplicate address/AML params that were superseded
+  // by their renamed canonical counterparts (adr_tp_* series and aml_pep duplicate).
+  // These IDs were identified via full DB scan as the only exact-label duplicates:
+  //   id=117 fieldKey="adr_tp_ulica"  — duplicate of id=522 fieldKey="tp_ulica"
+  //   id=167 fieldKey="aml_pep"       — duplicate of id=562 fieldKey="pep"
+  const LEGACY_DUPLICATE_PARAM_IDS = [117, 167];
+  try {
+    await db.update(subjectParameters)
+      .set({ isHidden: true })
+      .where(inArray(subjectParameters.id, LEGACY_DUPLICATE_PARAM_IDS));
+  } catch (e) {
+    console.warn("[startup] Could not hide legacy duplicate params:", e);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
