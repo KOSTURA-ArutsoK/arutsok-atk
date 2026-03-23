@@ -8309,25 +8309,6 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/contracts/:id/refresh-snapshot", isAuthenticated, async (req: any, res) => {
-    try {
-      const appUser = req.appUser;
-      if (!isAdmin(appUser)) return res.status(403).json({ message: "Len admin" });
-      const contractId = Number(req.params.id);
-      const [contract] = await db.select({ id: contracts.id, subjectId: contracts.subjectId }).from(contracts).where(eq(contracts.id, contractId));
-      if (!contract) return res.status(404).json({ message: "Zmluva neexistuje" });
-      if (!contract.subjectId) return res.status(400).json({ message: "Zmluva nemá priradený subjekt" });
-      const snapshot = await captureSubjectSnapshot(contract.subjectId);
-      if (!snapshot) return res.status(500).json({ message: "Nepodarilo sa zachytiť snímku" });
-      await db.update(contracts).set({ subjectSnapshot: snapshot, subjectSnapshotAt: new Date() }).where(eq(contracts.id, contractId));
-      await logAudit(req, { action: "UPDATE", module: "zmluvy", entityId: contractId, entityName: `Refresh snapshot for contract ${contractId}`, newData: { snapshotRefreshed: true } });
-      res.json({ ok: true, capturedAt: snapshot.capturedAt });
-    } catch (err) {
-      console.error("[SNAPSHOT] refresh-snapshot error:", err);
-      res.status(500).json({ message: "Internal error" });
-    }
-  });
-
   app.post("/api/contracts/:contractId/passwords", isAuthenticated, async (req: any, res) => {
     try {
       const { password, note } = req.body;

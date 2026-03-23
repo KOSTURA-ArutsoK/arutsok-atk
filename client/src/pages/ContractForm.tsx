@@ -772,7 +772,7 @@ function StatusTabContent(props: StatusTabContentProps) {
   );
 }
 
-function SnapshotSubjectView({ snapshot, snapshotAt, appUserRole, contractId, liveSubject, onSnapshotRefreshed }: { snapshot: Record<string, any>; snapshotAt: string | null; appUserRole?: string; contractId?: number | null; liveSubject?: any | null; onSnapshotRefreshed?: () => void }) {
+function SnapshotSubjectView({ snapshot, snapshotAt, appUserRole, liveSubject }: { snapshot: Record<string, any>; snapshotAt: string | null; appUserRole?: string; liveSubject?: any | null }) {
   const details = (snapshot.details as any) || {};
   const dynFields: Record<string, string> = details.dynamicFields || details || {};
   const addresses: any[] = snapshot.addresses || [];
@@ -802,8 +802,6 @@ function SnapshotSubjectView({ snapshot, snapshotAt, appUserRole, contractId, li
   const capturedAt = snapshot.capturedAt ? formatDateTimeSlovak(snapshot.capturedAt) : snapshotDate;
 
   const isAdmin = appUserRole === "admin" || appUserRole === "superadmin";
-  const { toast } = useToast();
-  const [refreshing, setRefreshing] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
 
   const diffItems: { key: string; label: string; snapVal: string; liveVal: string }[] = useMemo(() => {
@@ -821,21 +819,6 @@ function SnapshotSubjectView({ snapshot, snapshotAt, appUserRole, contractId, li
       .filter(d => d.snapVal !== d.liveVal);
   }, [liveSubject, snapshot, isAdmin]);
 
-  async function handleRefreshSnapshot() {
-    if (!contractId) return;
-    setRefreshing(true);
-    try {
-      const res = await apiRequest("POST", `/api/contracts/${contractId}/refresh-snapshot`);
-      const data = await res.json();
-      toast({ title: "Snímka obnovená", description: `Zachytené: ${data.capturedAt ? formatDateTimeSlovak(data.capturedAt) : "teraz"}` });
-      if (onSnapshotRefreshed) onSnapshotRefreshed();
-    } catch (e: any) {
-      toast({ title: "Chyba", description: "Nepodarilo sa obnoviť snímku", variant: "destructive" });
-    } finally {
-      setRefreshing(false);
-    }
-  }
-
   return (
     <div className="space-y-3" data-testid="snapshot-subject-view">
       <div className="rounded-md border border-amber-700/50 bg-amber-950/20 px-3 py-2 flex items-center gap-2 flex-wrap" data-testid="snapshot-banner">
@@ -845,22 +828,9 @@ function SnapshotSubjectView({ snapshot, snapshotAt, appUserRole, contractId, li
           <span className="text-[10px] text-amber-400/70" data-testid="snapshot-captured-at">Zachytené: {capturedAt}</span>
         )}
         {diffItems.length > 0 && (
-          <Badge variant="outline" className="text-[9px] border-orange-500/40 text-orange-400 cursor-pointer" onClick={() => setShowDiff(v => !v)} data-testid="badge-diff-changed">
+          <Badge variant="outline" className="text-[9px] border-orange-500/40 text-orange-400 cursor-pointer ml-auto" onClick={() => setShowDiff(v => !v)} data-testid="badge-diff-changed">
             {diffItems.length} zmien od snímky
           </Badge>
-        )}
-        {isAdmin && contractId && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 text-[10px] text-amber-400/60 hover:text-amber-300 ml-auto"
-            onClick={handleRefreshSnapshot}
-            disabled={refreshing}
-            data-testid="button-refresh-snapshot"
-          >
-            {refreshing ? <Loader2 className="w-3 h-3 animate-spin" /> : <History className="w-3 h-3" />}
-            <span className="ml-1">Obnoviť snímku</span>
-          </Button>
         )}
       </div>
 
@@ -2203,11 +2173,7 @@ export default function ContractForm() {
                   snapshot={existingContract.subjectSnapshot as Record<string, any>}
                   snapshotAt={existingContract.subjectSnapshotAt ? String(existingContract.subjectSnapshotAt) : null}
                   appUserRole={appUser?.role}
-                  contractId={contractId}
                   liveSubject={selectedSubject}
-                  onSnapshotRefreshed={() => {
-                    queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
-                  }}
                 />
               )}
               {selectedSubject && !existingContract?.subjectSnapshot && (
