@@ -406,7 +406,11 @@ function FullPageEditor({
             } catch {}
           }
         }
-        onCancel();
+        if (createdSubject?.id) {
+          window.location.href = `/profil-subjektu?id=${createdSubject.id}`;
+        } else {
+          onCancel();
+        }
       },
     });
   }
@@ -481,7 +485,11 @@ function FullPageEditor({
                           } catch {}
                         }
                       }
-                      onCancel();
+                      if (result?.id) {
+                        window.location.href = `/profil-subjektu?id=${result.id}`;
+                      } else {
+                        onCancel();
+                      }
                     },
                   });
                 }}
