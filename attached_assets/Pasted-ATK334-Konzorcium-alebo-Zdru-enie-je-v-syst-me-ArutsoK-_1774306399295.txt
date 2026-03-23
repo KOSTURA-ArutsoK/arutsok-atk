@@ -1,0 +1,75 @@
+ATK334
+
+Konzorcium alebo Združenie je v systéme ArutsoK (ATK) špecifické tým, že často nejde o samostatnú právnickú osobu s vlastným IČO, ale o zmluvný vzťah viacerých partnerov. Kľúčové je tu identifikovať „Lídra“ (vedúceho člena) a účel, na ktorý bolo združenie založené (napr. konkrétny tender alebo projekt).
+
+Tu je detailný, na milimeter presný pasport pre tento typ subjektu.
+
+🏛️ Kompletný pasport: Konzorcium / Združenie (OS)
+Všetky tieto polia sa aktivujú výhradne, keď v prepínači specifikacia_os svieti "Konzorcium / Združenie".
+
+PANEL 1: Základné údaje (os_subjekt)
+
+Riadok 2: nazov_zdruzenia (Názov konzorcia / združenia, 50 %) | ucel_zdruzenia (Účel združenia / Názov projektu, 50 %)
+
+Riadok 3: veduci_clen_zdruzenia (Obchodné meno lídra konzorcia, 50 %) | zmluva_o_zdruzeni_datum (Dátum uzatvorenia zmluvy o združení, 50 %)
+
+Riadok 4: identifikator_zdruzenia (Interné číslo alebo ID pridelené lídrom, 50 %) | predpokladana_doba_trvania (Text: napr. Do ukončenia projektu XY, 50 %)
+
+PANEL 2: Detaily spolupráce (os_konzorcium_detaily) — Nový, podmienený panel
+
+Riadok 0: pocet_clenov_zdruzenia (Number: Celkový počet participujúcich subjektov, 50 %) | pomer_ucasti_lidra (Text: napr. 60 %, 50 %)
+
+Riadok 1: hlavny_predmet_spoluprace (Stručný opis spoločnej činnosti, 100 %)
+
+PANEL 3: Sídlo / Korešpondenčná adresa (os_sidlo)
+
+Riadok 1: ulica_zdruzenia (40 %) | supisne_cislo_zdruzenia (30 %) | orientacne_cislo_zdruzenia (30 %)
+
+Riadok 2: mesto_zdruzenia (50 %) | psc_zdruzenia (25 %) | stat_zdruzenia (25 %)
+
+PANEL 4: Kontaktné údaje (os_kontakt)
+
+Riadok 1: telefon_zdruzenia (50 %) | email_zdruzenia (50 %)
+
+Riadok 2: web_projektu (URL adresa spoločného projektu, 100 %)
+
+PANEL 5: Bankové spojenie (Spoločný účet) (os_banka)
+
+Riadok 1: iban_zdruzenia (50 %) | swift_zdruzenia (50 %)
+
+Riadok 2: nazov_banky_zdruzenia (100 %)
+
+📥 Inštrukcia pre Agenta 4 (Task #109 - Sub-úloha Konzorcium)
+Skopíruj Agentovi 4 tento presný technický príkaz:
+
+Agent 4 (ATK334): Implementácia detailov pre "Konzorcium / Združenie" (OS)
+
+Pripravujeme detailný pasport pre Konzorcium. Dodrž striktne tieto parametre:
+
+1. Visibility & Logic:
+
+Všetky polia v paneli os_subjekt (R2-R4) a celý panel os_konzorcium_detaily sa zobrazia len pri specifikacia_os === "Konzorcium / Združenie".
+
+2. Databázový Seed (Justified Layout 100%):
+
+Implementuj polia a šírky presne podľa rozpisu v ATK334.
+
+Na pole zmluva_o_zdruzeni_datum aplikuj 90-dňový semafor platnosti.
+
+Polia identifikator_zdruzenia a iban_zdruzenia označ ako Citlivé pre potreby auditnej stopy (vyžaduje overlay potvrdenie).
+
+3. Vizuálna identita (Emerald Green / Silver):
+
+Aplikuj 2px hrúbku čiary.
+
+Stroke: Emerald Green | Fill: White/Silver.
+
+Priraď ikonu: Groups (pre symboliku viacerých subjektov).
+
+V Day Mode pridaj subtle drop-shadow, v Night Mode subtle outer glow.
+
+4. UID Formát:
+
+Pre identifikator_zdruzenia použi globálnu konštantu formátovania UID.
+
+Sync: Spusti aktualizáciu seedu a potvrď, že pri prepnutí na Konzorcium je Grid zarovnaný do bloku.

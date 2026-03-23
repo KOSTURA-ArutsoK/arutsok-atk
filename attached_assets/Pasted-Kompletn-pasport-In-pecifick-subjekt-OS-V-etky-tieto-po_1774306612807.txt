@@ -1,0 +1,67 @@
+Kompletný pasport: Iný špecifický subjekt (OS)
+Všetky tieto polia sa aktivujú výhradne, keď v prepínači specifikacia_os zvolíš "Iný špecifický subjekt".
+
+PANEL 1: Základné údaje (os_subjekt)
+
+Riadok 2: nazov_subjektu_iny (Názov subjektu, 50 %) | specifikacia_pravnej_formy (Opis právnej formy / typu, 50 %)
+
+Riadok 3: identifikator_iny (Hlavný identifikátor / Číslo registrácie, 33 %) | dic_iny (DIČ – ak je pridelené, 33 %) | ic_dph_iny (IČ DPH – ak je pridelené, 34 %)
+
+Riadok 4: datum_zaznamu_iny (Dátum vzniku / registrácie, 50 %) | registracny_organ_iny (Názov úradu/registra, kde je vedený, 50 %)
+
+PANEL 2: Doplnkové informácie (os_iny_detaily) — Nový, podmienený panel
+
+Riadok 0: poznamka_k_subjektu (Text: Doplňujúce údaje o charaktere subjektu, 100 %)
+
+PANEL 3: Sídlo / Adresa (os_sidlo)
+
+Riadok 1: ulica_iny (40 %) | supisne_cislo_iny (30 %) | orientacne_cislo_iny (30 %)
+
+Riadok 2: mesto_iny (50 %) | psc_iny (25 %) | stat_iny (25 %)
+
+PANEL 4: Kontaktné údaje (os_kontakt)
+
+Riadok 1: telefon_iny (50 %) | email_iny (50 %)
+
+Riadok 2: web_iny (100 %)
+
+PANEL 5: Bankové spojenie (os_banka)
+
+Riadok 1: iban_iny (50 %) | swift_iny (50 %)
+
+Riadok 2: nazov_banky_iny (100 %)
+
+📥 Inštrukcia pre Agenta 4 (Task #109 - Sub-úloha Iný subjekt)
+Skopíruj Agentovi 4 tento záverečný technický príkaz:
+
+Agent 4 (ATK336): Finálna implementácia pre "Iný špecifický subjekt" (OS)
+
+Týmto uzatvárame celú maticu OS. Implementuj posledný subtyp subjektu:
+
+1. Visibility & Logic:
+
+Všetky polia v paneli os_subjekt (R2-R4) a celý panel os_iny_detaily sa zobrazia len pri specifikacia_os === "Iný špecifický subjekt".
+
+2. Databázový Seed (Justified Layout 100%):
+
+Implementuj polia a šírky presne podľa rozpisu v ATK336.
+
+Na pole datum_zaznamu_iny aplikuj 90-dňový semafor platnosti.
+
+Polia identifikator_iny, dic_iny a iban_iny označ ako Citlivé (Audit log).
+
+3. Vizuálna identita (Emerald Green / Silver):
+
+Aplikuj 2px hrúbku čiary.
+
+Stroke: Emerald Green | Fill: White/Silver.
+
+Priraď ikonu: HelpCircle (SVG pre nešpecifikovaný typ).
+
+V Day Mode pridaj subtle drop-shadow, v Night Mode subtle outer glow.
+
+4. UID Formát:
+
+Pre identifikator_iny použi globálnu konštantu formátovania UID.
+
+Sync: Spusti finálnu aktualizáciu seedu a potvrď, že celých 7 subtypov v prepínači funguje bezchybne a mriežka je zladená.

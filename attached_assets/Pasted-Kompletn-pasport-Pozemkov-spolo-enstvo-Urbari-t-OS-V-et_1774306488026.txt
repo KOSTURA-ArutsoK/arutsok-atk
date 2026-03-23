@@ -1,0 +1,69 @@
+Kompletný pasport: Pozemkové spoločenstvo / Urbariát (OS)
+Všetky tieto polia sa aktivujú výhradne, keď v prepínači specifikacia_os zvolíš "Pozemkové spoločenstvo (Urbariát)".
+
+PANEL 1: Základné údaje (os_subjekt)
+
+Riadok 2: nazov_urbariatu (Názov pozemkového spoločenstva, 50 %) | registracia_ou_ps (Číslo registrácie na Pozemkovom a lesnom odbore OÚ, 50 %)
+
+Riadok 3: ico_ps (IČO urbariátu, 33 %) | dic_ps (DIČ urbariátu, 33 %) | druh_ps (Enum: S právnou subjektivitou, Bez právnej subjektivity, 34 %)
+
+Riadok 4: datum_vzniku_ps (Dátum zápisu do registra, 50 %) | kod_katastralneho_uzemia_ps (Kód a názov KÚ, kde pôsobí, 50 %)
+
+PANEL 2: Špecifiká urbariátu (os_urbariat_detaily) — Nový, podmienený panel
+
+Riadok 0: celkova_vymera_ps (Text/Number: Celková výmera v ha, 50 %) | pocet_clenov_ps (Number: Počet podielnikov / členov, 50 %)
+
+Riadok 1: hlavny_druh_pozemkov (Enum: Lesné pozemky, Poľnohospodárske pozemky, Zmiešané, 50 %) | prislusny_ou_ps (Názov okresného úradu, pod ktorý spadá, 50 %)
+
+PANEL 3: Sídlo / Korešpondenčná adresa (os_sidlo)
+
+Riadok 1: ulica_ps (40 %) | supisne_cislo_ps (30 %) | orientacne_cislo_ps (30 %)
+
+Riadok 2: mesto_ps (50 %) | psc_ps (25 %) | stat_ps (25 %)
+
+PANEL 4: Kontaktné údaje (os_kontakt)
+
+Riadok 1: telefon_ps (50 %) | email_ps (50 %)
+
+Riadok 2: web_ps (100 %)
+
+PANEL 5: Bankové spojenie (os_banka)
+
+Riadok 1: iban_ps (50 %) | swift_ps (50 %)
+
+Riadok 2: nazov_banky_ps (100 %)
+
+📥 Inštrukcia pre Agenta 4 (Task #109 - Sub-úloha Urbariát)
+Skopíruj Agentovi 4 tento presný technický príkaz:
+
+Agent 4 (ATK335): Implementácia detailov pre "Pozemkové spoločenstvo (Urbariát)" (OS)
+
+Pripravujeme detailný pasport pre Urbariáty. Dodrž striktne tieto parametre:
+
+1. Visibility & Logic:
+
+Všetky polia v paneli os_subjekt (R2-R4) a celý panel os_urbariat_detaily sa zobrazia len pri specifikacia_os === "Pozemkové spoločenstvo (Urbariát)".
+
+2. Databázový Seed (Justified Layout 100%):
+
+Implementuj polia a šírky presne podľa rozpisu v ATK335.
+
+Na pole datum_vzniku_ps aplikuj 90-dňový semafor platnosti.
+
+Polia ico_ps, dic_ps a iban_ps označ ako Citlivé pre potreby auditnej stopy.
+
+3. Vizuálna identita (Emerald Green / Silver):
+
+Aplikuj 2px hrúbku čiary.
+
+Stroke: Emerald Green | Fill: White/Silver.
+
+Priraď ikonu: Forest (SVG strom pre lesné spoločenstvá).
+
+V Day Mode pridaj subtle drop-shadow, v Night Mode subtle outer glow.
+
+4. UID Formát:
+
+Pre ico_ps použi globálnu konštantu formátovania UID.
+
+Sync: Spusti aktualizáciu seedu a potvrď, že pri prepnutí na Urbariát je Grid zarovnaný do bloku a vizuálne sedí.

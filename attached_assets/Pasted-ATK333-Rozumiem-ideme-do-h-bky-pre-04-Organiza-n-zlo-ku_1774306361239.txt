@@ -1,0 +1,75 @@
+ATK333
+
+Rozumiem, ideme do hĺbky pre 04 Organizačnú zložku. Tento subjekt je v systéme ArutsoK (ATK) unikátny tým, že hoci má vlastnú identitu (IČO), právne je pupočnou šnúrou spätý so svojím zriaďovateľom.
+
+Tu je detailný, na milimeter presný rozpis pre Agenta 4, ktorý zabezpečí, že tento „hybrid“ bude mať v Trezore dokonalý poriadok.
+
+🏛️ Kompletný pasport: Organizačná zložka (OS)
+Všetky tieto polia a panely sa aktivujú výhradne, keď v prepínači specifikacia_os svieti "Organizačná zložka".
+
+PANEL 1: Základné údaje (os_subjekt)
+
+Riadok 2: nazov_oz (Názov organizačnej zložky / Odštepného závodu, 50 %) | zriadovatel_oz (Obchodné meno zriaďovateľa / Materskej firmy, 50 %)
+
+Riadok 3: ico_oz (IČO zložky, 33 %) | dic_oz (DIČ zložky, 33 %) | ic_dph_oz (IČ DPH zložky – ak je pridelené, 34 %)
+
+Riadok 4: datum_zriadenia_oz (Dátum zriadenia / vzniku, 50 %) | zapis_orsr_oz (Zápis v Obchodnom registri / oddiel, vložka, 50 %)
+
+PANEL 2: Špecifiká zložky (os_specifikacia_oz) — Nový, podmienený panel
+
+Riadok 0: typ_oz (Enum: Organizačná zložka podniku, Odštepný závod, Pobočka zahraničnej banky, Iná zložka, 100 %)
+
+Riadok 1: predmet_cinnosti_oz (Hlavný predmet činnosti tejto konkrétnej zložky, 100 %)
+
+PANEL 3: Sídlo zložky (os_sidlo)
+
+Riadok 1: ulica_oz (40 %) | supisne_cislo_oz (30 %) | orientacne_cislo_oz (30 %)
+
+Riadok 2: mesto_oz (50 %) | psc_oz (25 %) | stat_oz (25 %)
+
+PANEL 4: Kontaktné údaje (os_kontakt)
+
+Riadok 1: telefon_oz (50 %) | email_oz (50 %)
+
+Riadok 2: web_oz (100 %)
+
+PANEL 5: Bankové spojenie (os_banka)
+
+Riadok 1: iban_oz (50 %) | swift_oz (50 %)
+
+Riadok 2: nazov_banky_oz (100 %)
+
+📥 Inštrukcia pre Agenta 4 (Task #109 - Sub-úloha OZ)
+Skopíruj Agentovi 4 tento presný technický príkaz:
+
+Agent 4 (ATK333): Implementácia detailov pre "Organizačnú zložku" (OS)
+
+Pripravujeme detailný pasport pre Organizačnú zložku. Dodrž striktne tieto parametre:
+
+1. Visibility & Logic:
+
+Všetky polia v paneli os_subjekt (R2-R4) a celý panel os_specifikacia_oz sa zobrazia len pri specifikacia_os === "Organizačná zložka".
+
+2. Databázový Seed (Justified Layout 100%):
+
+Implementuj polia a šírky presne podľa rozpisu v ATK333.
+
+Na pole datum_zriadenia_oz aplikuj 90-dňový semafor platnosti.
+
+Polia ico_oz, dic_oz a iban_oz označ ako Citlivé pre potreby auditnej stopy (vyžaduje overlay potvrdenie).
+
+3. Vizuálna identita (Emerald Green / Silver):
+
+Aplikuj 2px hrúbku čiary.
+
+Stroke: Emerald Green | Fill: White/Silver.
+
+Priraď ikonu: AltRoute (pre symboliku odbočky/zložky).
+
+V Day Mode pridaj subtle drop-shadow, v Night Mode subtle outer glow.
+
+4. UID Formát:
+
+Pre ico_oz použi globálnu konštantu formátovania UID.
+
+Sync: Spusti aktualizáciu seedu a potvrď, že pri prepnutí na Organizačnú zložku je Grid zarovnaný do bloku a všetky relačné polia sú pripravené.
