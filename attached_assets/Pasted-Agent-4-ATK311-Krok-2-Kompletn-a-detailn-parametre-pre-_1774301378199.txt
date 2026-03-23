@@ -1,0 +1,50 @@
+Agent 4 (ATK311): Krok 2 - Kompletné a detailné parametre pre "Cirkev" (OS)
+
+Infraštruktúru pre OS máme. Teraz ideme naseedovať kompletný a vyčerpávajúci profil pre prvú možnosť: Cirkev a náboženská spoločnosť.
+
+Tvoja úloha:
+Pridaj do databázy (seedu) pre klientsky typ OS nasledujúce parametre. Všetky tieto parametre v špecifických paneloch musia mať nastavené visibilityRule tak, aby sa zobrazili výhradne vtedy, keď je specifikacia_os nastavená na "Cirkev a náboženská spoločnosť".
+
+Kritické pravidlo (Justified Grid): Percentá šírok (width_percent) na riadku (row_number) musia vždy tvoriť súčet presne 100 %.
+
+PANEL 1: Základné údaje (os_povinne)
+(Riadok 1 je už obsadený 100% prepínačom specifikacia_os)
+
+Riadok 2: nazov_cirkvi_institucie (Text, 50%) | registracia_mk_sr (Text, 50%)
+
+Riadok 3: ico_cirkvi (Text, 33%) | dic_cirkvi (Text, 33%) | ic_dph_cirkvi (Text, 34%)
+
+Riadok 4: datum_zriadenia (Date, 50%) | zriadovatel_dieceza (Text, 50%)
+
+PANEL 2: Rozšírené cirkevné údaje (os_doplnkove)
+
+Riadok 1: typ_cirkevnej_organizacie (Enum: Farnosť, Diecéza, Rehoľa, Charita, Iné, 50%) | dekanat_seniorat (Text, 50%)
+
+Riadok 2: patrocinium_titular_kostola (Text, 100%)
+
+PANEL 3: Sídlo / Adresa (os_sidlo)
+(Tieto polia sú štandardné, ale musia byť priradené k OS)
+
+Riadok 1: ulica (Text, 40%) | supisne_cislo (Text, 30%) | orientacne_cislo (Text, 30%)
+
+Riadok 2: mesto (Text, 50%) | psc (Text, 25%) | stat (Text, 25%)
+
+PANEL 4: Kontaktné údaje (os_kontakt)
+
+Riadok 1: telefon_farnost (Text, 50%) | email_farnost (Text, 50%)
+
+Riadok 2: webova_stranka (Text, 100%)
+
+PANEL 5: Bankové spojenie (os_banka)
+
+Riadok 1: iban (Text, 50%) | swift_bic (Text, 50%)
+
+Riadok 2: nazov_banky (Text, 100%)
+
+Technická inštrukcia:
+
+Zapracuj úplne všetky tieto polia do seedu pre typ klienta OS (id=7).
+
+Ošetri ich podmienkou (visibility rule), aby nevybehli, ak používateľ zaklikne iný typ v prepínači.
+
+Spusti migráciu/sync, nasaď to a potvrď mi, že keď v profile OS kliknem na "Cirkev", vyroluje sa mi tento kompletný, detailný a na 100 % zarovnaný profil.
