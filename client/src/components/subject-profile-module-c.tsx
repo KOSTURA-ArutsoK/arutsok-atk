@@ -1623,26 +1623,11 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       )}
 
       {(() => {
-        const HEADER_RENDERED_KEYS = new Set([
-          "meno", "priezvisko", "zi_meno", "zi_priezvisko",
-          "rodne_cislo", "zi_rodne_cislo",
-          "zi_titul_pred", "zi_titul_za",
-          "zi_datum_narodenia", "datum_narodenia",
-          "zi_statna_prislusnost",
-          "zi_sidlo", "zi_stat",
-          "email", "telefon",
-          "f_interny_kod_arutsok_i1j8",
-        ]);
-
         const HEADER_PANEL_IDS = new Set([53]);
-
-        const filterParams = (params: any[]) =>
-          params.filter(p => !HEADER_RENDERED_KEYS.has(p.fieldKey));
 
         const filterPanels = (panelNodes: { panel: any; parameters: any[] }[]) =>
           panelNodes
             .filter(pn => !HEADER_PANEL_IDS.has(pn.panel.id))
-            .map(pn => ({ ...pn, parameters: filterParams(pn.parameters) }))
             .filter(pn => pn.parameters.length > 0);
 
         const CATEGORY_META: Record<string, { icon: typeof ShieldCheck; color: string }> = {

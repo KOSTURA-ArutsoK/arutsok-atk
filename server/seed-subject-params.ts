@@ -164,20 +164,24 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
 
   const FIELDS: FieldSeed[] = [
     // ============================================================
-    // FO: Osobné údaje (fo_osobne) - 11 fields
+    // FO: Osobné údaje (fo_osobne) - 12 fields
+    // Row 1 (100%): titul_pred(12) + meno(33) + priezvisko(43) + titul_za(12)
+    // Row 2 (100%): rodne_cislo(25) + datum_narodenia(25) + pohlavie(25) + rodinny_stav(25)
+    // Row 3 (100%): vek(20) + rodne_priezvisko(40) + miesto_narodenia(40)
+    // Row 4 (100%): statna_prislusnost(100)
     // ============================================================
     f(1, "fo_povinne", "fo_osobne", "titul_pred", "Titul pred menom", "short_text", 10, 1, 12, { shortLabel: "Titul pred" }),
     f(1, "fo_povinne", "fo_osobne", "meno", "Meno", "short_text", 20, 1, 33, { isRequired: true }),
     f(1, "fo_povinne", "fo_osobne", "priezvisko", "Priezvisko", "short_text", 30, 1, 43, { isRequired: true }),
     f(1, "fo_povinne", "fo_osobne", "titul_za", "Titul za menom", "short_text", 40, 1, 12, { shortLabel: "Titul za" }),
-    f(1, "fo_povinne", "fo_osobne", "rodne_priezvisko", "Rodné priezvisko", "short_text", 50, 2, 50, { shortLabel: "Rod. priez." }),
     f(1, "fo_povinne", "fo_osobne", "rodne_cislo", "Rodné číslo", "short_text", 60, 2, 25, { isRequired: true, shortLabel: "Rod. číslo" }),
     f(1, "fo_povinne", "fo_osobne", "datum_narodenia", "Dátum narodenia", "date", 70, 2, 25, { isRequired: true, shortLabel: "Dát. nar." }),
-    f(1, "fo_povinne", "fo_osobne", "vek", "Vek", "number", 80, 3, 15, { isRequired: true }),
-    f(1, "fo_povinne", "fo_osobne", "pohlavie", "Pohlavie", "jedna_moznost", 90, 3, 20, { options: ["muž", "žena"] }),
-    f(1, "fo_povinne", "fo_osobne", "rodinny_stav", "Rodinný stav", "jedna_moznost", 95, 3, 35, { options: ["slobodný/á", "ženatý/vydatá", "rozvedený/á", "vdovec/vdova", "druh/družka"], categoryCode: "osobne" }),
-    f(1, "fo_povinne", "fo_osobne", "miesto_narodenia", "Miesto narodenia", "short_text", 100, 4, 50, { shortLabel: "Miesto nar." }),
-    f(1, "fo_povinne", "fo_osobne", "statna_prislusnost", "Štátna príslušnosť", "short_text", 110, 4, 50, { shortLabel: "Št. príslušnosť" }),
+    f(1, "fo_povinne", "fo_osobne", "pohlavie", "Pohlavie", "jedna_moznost", 80, 2, 25, { options: ["muž", "žena"] }),
+    f(1, "fo_povinne", "fo_osobne", "rodinny_stav", "Rodinný stav", "jedna_moznost", 85, 2, 25, { options: ["slobodný/á", "ženatý/vydatá", "rozvedený/á", "vdovec/vdova", "druh/družka"], categoryCode: "osobne" }),
+    f(1, "fo_povinne", "fo_osobne", "vek", "Vek", "number", 90, 3, 20, {}),
+    f(1, "fo_povinne", "fo_osobne", "rodne_priezvisko", "Rodné priezvisko", "short_text", 100, 3, 40, { shortLabel: "Rod. priez." }),
+    f(1, "fo_povinne", "fo_osobne", "miesto_narodenia", "Miesto narodenia", "short_text", 105, 3, 40, { shortLabel: "Miesto nar." }),
+    f(1, "fo_povinne", "fo_osobne", "statna_prislusnost", "Štátna príslušnosť", "short_text", 110, 4, 100, { shortLabel: "Št. príslušnosť" }),
 
     // ============================================================
     // FO: Adresa (fo_adresa) - 21 fields
