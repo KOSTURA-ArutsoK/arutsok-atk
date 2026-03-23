@@ -26,6 +26,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn, formatUid } from "@/lib/utils";
 import {
   Loader2, Pencil, Save, X, Shield,
@@ -368,6 +369,27 @@ function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasError, d
           </Select>
           {subjectId && <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={displayLabel} inline />}
         </div>
+      ) : field.fieldType === "segmented" ? (
+        <ToggleGroup
+          type="single"
+          value={dynamicValues[field.fieldKey] || ""}
+          onValueChange={val => { if (!disabled) setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val })); }}
+          className="flex flex-wrap gap-1 justify-start w-full"
+          data-testid={`segmented-${field.fieldKey}`}
+        >
+          {(field.options || []).map((opt: string) => (
+            <ToggleGroupItem
+              key={opt}
+              value={opt}
+              size="sm"
+              disabled={disabled}
+              className="h-7 px-2.5 text-xs font-normal border border-border data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary"
+              data-testid={`segmented-item-${field.fieldKey}-${opt}`}
+            >
+              {opt}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       ) : field.fieldType === "viac_moznosti" ? (
         <MultiSelectCheckboxes
           paramId={field.fieldKey}

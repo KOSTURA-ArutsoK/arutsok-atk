@@ -1719,7 +1719,7 @@ function FullPageEditor({
   );
 }
 
-const INIT_STEP_TYPE_CODES = ["FO", "SZCO", "PO"];
+const INIT_STEP_TYPE_CODES = ["FO", "SZCO", "PO", "OS"];
 
 function InitStep({ onProceed }: { onProceed: (data: InitialData) => void }) {
   const [hovered, setHovered] = useState(false);

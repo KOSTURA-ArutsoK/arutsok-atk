@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { subjectParamSections, subjectParameters, parameterSynonyms, subjectTemplates, subjectTemplateParams } from "@shared/schema";
+import { subjectParamSections, subjectParameters, parameterSynonyms, subjectTemplates, subjectTemplateParams, clientTypes } from "@shared/schema";
 import { eq, and, asc, inArray, or, sql } from "drizzle-orm";
 
 type FieldSeed = {
@@ -116,6 +116,11 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     { clientTypeId: 6, name: "Bankové údaje", code: "vs_zmluvne", folderCategory: "doplnkove", sortOrder: 2, isPanel: true, gridColumns: 3 },
     { clientTypeId: 6, name: "Štatutárni zástupcovia", code: "vs_statutari", folderCategory: "doplnkove", sortOrder: 3, isPanel: true, gridColumns: 2 },
     { clientTypeId: 6, name: "Inštitucionálny profil", code: "vs_inst_profil", folderCategory: "doplnkove", sortOrder: 4, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 7, name: "POVINNÉ ÚDAJE", code: "os_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 7, name: "DOPLNKOVÉ ÚDAJE", code: "os_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 7, name: "VOLITEĽNÉ ÚDAJE", code: "os_volitelne", folderCategory: "volitelne", sortOrder: 2, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 7, name: "INÉ ÚDAJE", code: "os_ine", folderCategory: "ine", sortOrder: 3, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 7, name: "Základné údaje", code: "os_subjekt", folderCategory: "povinne", sortOrder: 0, isPanel: true, gridColumns: 2 },
   ];
 
   const sectionMap: Record<string, number> = {};
@@ -152,6 +157,7 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     ns_aml: "ns_doplnkove", ns_zakonne: "ns_doplnkove", ns_zmluvne: "ns_doplnkove", ns_statutari: "ns_doplnkove", ns_firemny: "ns_doplnkove",
     vs_subjekt: "vs_povinne", vs_sidlo: "vs_povinne", vs_kontakt: "vs_povinne",
     vs_aml: "vs_doplnkove", vs_zakonne: "vs_doplnkove", vs_zmluvne: "vs_doplnkove", vs_statutari: "vs_doplnkove", vs_inst_profil: "vs_doplnkove",
+    os_subjekt: "os_povinne",
   };
 
   for (const [childCode, parentCode] of Object.entries(parentCodes)) {
@@ -849,6 +855,15 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     f(6, "vs_doplnkove", "vs_inst_profil", "nadriadeny_organ", "Nadriadený orgán / Zriaďovateľ", "short_text", 10, 0, 100, { shortLabel: "Nadr. orgán", categoryCode: "firemny_profil" }),
     f(6, "vs_doplnkove", "vs_inst_profil", "typ_financovania", "Typ financovania", "jedna_moznost", 20, 1, 50, { shortLabel: "Typ financ.", options: ["Rozpočtová organizácia", "Príspevková organizácia", "Iné"], categoryCode: "firemny_profil" }),
     f(6, "vs_doplnkove", "vs_inst_profil", "rozpoctova_kapitola_vs", "Rozpočtová kapitola", "short_text", 30, 1, 50, { shortLabel: "Rozp. kap.", categoryCode: "firemny_profil" }),
+
+    // ============================================================
+    // OS: Základné údaje (os_subjekt)
+    // Row 0 (100%): nazov_organizacie(50) + ico(50)
+    // Row 1 (100%): specifikacia_os(100) – segmented control
+    // ============================================================
+    f(7, "os_povinne", "os_subjekt", "nazov_organizacie", "Názov subjektu", "short_text", 10, 0, 50, { isRequired: true, shortLabel: "Názov" }),
+    f(7, "os_povinne", "os_subjekt", "ico", "IČO", "short_text", 20, 0, 50, { isRequired: true }),
+    f(7, "os_povinne", "os_subjekt", "specifikacia_os", "Špecifikácia OS", "segmented", 30, 1, 100, { shortLabel: "Špecifikácia", options: ["Cirkev a náboženská spoločnosť", "Spoločenstvo vlastníkov bytov (SVB)", "Zahraničná osoba", "Organizačná zložka", "Konzorcium / Združenie", "Iný špecifický subjekt"] }),
   ];
 
   const paramIdMap: Record<string, number> = {};
@@ -1235,7 +1250,26 @@ export async function seedEventAndEntityPanels(): Promise<{ sectionsCount: numbe
   return { sectionsCount: insertedPanels.length, parametersCount: paramCount };
 }
 
+export async function ensureOsClientType(): Promise<number | null> {
+  const [existing] = await db.select({ id: clientTypes.id }).from(clientTypes).where(eq(clientTypes.code, "OS"));
+  if (existing) {
+    console.log("[SEED] Client type 'OS' already exists, skipping.");
+    return existing.id;
+  }
+  const [inserted] = await db.insert(clientTypes).values({
+    code: "OS",
+    name: "Ostatné / Špecifické",
+    baseParameter: "ico",
+    isActive: true,
+  }).returning({ id: clientTypes.id });
+  console.log(`[SEED] Client type 'OS' created with id=${inserted.id}`);
+  return inserted.id;
+}
+
 export async function seedNsVsTemplates(): Promise<void> {
+  const osType = await db.select({ id: clientTypes.id }).from(clientTypes).where(eq(clientTypes.code, "OS"));
+  const osClientTypeId = osType[0]?.id ?? null;
+
   const TEMPLATES_TO_SEED = [
     {
       code: "subjekt_ns",
@@ -1249,6 +1283,12 @@ export async function seedNsVsTemplates(): Promise<void> {
       description: "Šablóna pre inštitúciu verejného sektora – identita, štatutári, KUV, financovanie",
       clientTypeId: 6,
     },
+    ...(osClientTypeId ? [{
+      code: "subjekt_os",
+      name: "SUBJEKT OS",
+      description: "Šablóna pre ostatné / špecifické subjekty – identita, IČO, špecifikácia",
+      clientTypeId: osClientTypeId,
+    }] : []),
   ];
 
   for (const tpl of TEMPLATES_TO_SEED) {

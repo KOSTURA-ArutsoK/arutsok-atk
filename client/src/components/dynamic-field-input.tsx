@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
 import { PhoneInput } from "@/components/phone-input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
 import { cn } from "@/lib/utils";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair } from "@/lib/document-validity";
@@ -143,6 +144,26 @@ export function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasE
             ))}
           </SelectContent>
         </Select>
+      ) : field.fieldType === "segmented" ? (
+        <ToggleGroup
+          type="single"
+          value={dynamicValues[field.fieldKey] || ""}
+          onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+          className="flex flex-wrap gap-1 justify-start w-full"
+          data-testid={`segmented-${field.fieldKey}`}
+        >
+          {(field.options || []).map((opt: string) => (
+            <ToggleGroupItem
+              key={opt}
+              value={opt}
+              size="sm"
+              className="h-7 px-2.5 text-xs font-normal border border-border data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary"
+              data-testid={`segmented-item-${field.fieldKey}-${opt}`}
+            >
+              {opt}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       ) : field.fieldType === "viac_moznosti" ? (
         <MultiSelectCheckboxes
           paramId={field.fieldKey}
