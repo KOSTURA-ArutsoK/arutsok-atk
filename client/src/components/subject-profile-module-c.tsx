@@ -1859,6 +1859,17 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                   ) : (
                                     filteredPanelNodes.map(({ panel, parameters }) => {
                                       const panelKey = `panel-${panel.id}`;
+
+                                      // Panel-level visibility: hide panel when every field has a visibilityRule
+                                      // and none of those rules resolve to visible with current values.
+                                      const hasAnyVisibleParam = parameters.some(p => {
+                                        const vr = p.visibilityRule as { dependsOn: string; value: string } | null;
+                                        if (!vr || !vr.dependsOn) return true;
+                                        const depVal = dynamicValues[vr.dependsOn];
+                                        return Boolean(depVal) && depVal === vr.value;
+                                      });
+                                      if (!hasAnyVisibleParam) return null;
+
                                       const filledCount = parameters.filter(p => {
                                         const v = dynamicValues[p.fieldKey];
                                         return v !== undefined && v !== null && v !== "";
