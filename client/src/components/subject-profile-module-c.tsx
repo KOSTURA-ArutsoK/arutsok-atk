@@ -813,10 +813,37 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   const [isArchitectMode, setIsArchitectMode] = useState(false);
   const [fieldLayouts, setFieldLayouts] = useState<Record<string, { sortOrder: number; widthClass: string; rowGroup: number }>>({});
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
-  const toggleSection = useCallback((key: string) => {
-    setExpandedSections(prev =>
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-    );
+  const [expandedPanels, setExpandedPanels] = useState<Set<string>>(new Set());
+  const panelRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const togglePanel = useCallback((key: string) => {
+    setExpandedPanels(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const scrollToPanel = useCallback((panelId: number | string) => {
+    const key = `panel-${panelId}`;
+    setExpandedPanels(prev => { const next = new Set(prev); next.add(key); return next; });
+    setTimeout(() => {
+      panelRefs.current[key]?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 60);
+  }, []);
+
+  const toggleSection = useCallback((key: string, panelIds?: number[]) => {
+    setExpandedSections(prev => {
+      const isOpening = !prev.includes(key);
+      if (isOpening && panelIds && panelIds.length > 0) {
+        setExpandedPanels(pp => {
+          const next = new Set(pp);
+          panelIds.slice(0, 2).forEach(id => next.add(`panel-${id}`));
+          return next;
+        });
+      }
+      return isOpening ? [...prev, key] : prev.filter(k => k !== key);
+    });
   }, []);
   const [renamingSection, setRenamingSection] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -1641,7 +1668,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                             <Card key={section.id} className="border border-border/50 bg-muted/10 shadow-sm" data-testid={`section-card-${section.id}`}>
                               <div
                                 className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none hover:bg-muted/20 transition-colors rounded-t-lg border-b border-border/30"
-                                onClick={() => toggleSection(sectionKey)}
+                                onClick={() => toggleSection(sectionKey, filteredPanelNodes.map(pn => pn.panel.id))}
                                 data-testid={`section-toggle-${section.id}`}
                               >
                                 {isSectionExpanded ? <ChevronDown className="w-4 h-4 text-primary/60 shrink-0" /> : <ChevronRight className="w-4 h-4 text-primary/60 shrink-0" />}
@@ -1686,7 +1713,31 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                 )}
                               </div>
                               {isSectionExpanded && (
-                                <CardContent className="px-4 pb-4 pt-2 space-y-4">
+                                <CardContent className="px-4 pb-4 pt-3 space-y-3">
+                                  {!isArchitectMode && filteredPanelNodes.length > 2 && (
+                                    <div className="flex flex-wrap gap-1.5 pb-3 border-b border-border/20" data-testid="panel-nav-chips">
+                                      {filteredPanelNodes.map(({ panel: pn }) => {
+                                        const chipKey = `panel-${pn.id}`;
+                                        const active = expandedPanels.has(chipKey);
+                                        return (
+                                          <button
+                                            key={pn.id}
+                                            type="button"
+                                            onClick={() => scrollToPanel(pn.id)}
+                                            className={cn(
+                                              "text-[10px] px-2.5 py-0.5 rounded-full border transition-colors font-medium leading-5",
+                                              active
+                                                ? "border-primary/50 bg-primary/10 text-primary"
+                                                : "border-border/40 bg-muted/20 text-muted-foreground hover:border-primary/30 hover:text-primary/70 hover:bg-primary/5"
+                                            )}
+                                            data-testid={`chip-panel-${pn.id}`}
+                                          >
+                                            {pn.name}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
                                   {isArchitectMode ? (
                                     <DndContext
                                       sensors={dndSensors}
@@ -1789,6 +1840,9 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                     </DndContext>
                                   ) : (
                                     filteredPanelNodes.map(({ panel, parameters }) => {
+                                      const panelKey = `panel-${panel.id}`;
+                                      const isPanelOpen = !isEditing || expandedPanels.has(panelKey);
+
                                       if (!isEditing) {
                                         const hasVisibleParam = parameters.some(param => {
                                           const field = dbParamToStaticField(param);
@@ -1803,48 +1857,78 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                       }
                                       const heatmapClass = getPanelHeatmapClass(parameters, fieldFreshness);
                                       const heatmapLabel = getHeatmapLabel(parameters, fieldFreshness);
+                                      const filledCount = isEditing ? parameters.filter(p => {
+                                        const v = dynamicValues[p.fieldKey];
+                                        return v !== undefined && v !== null && v !== "";
+                                      }).length : 0;
                                       return (
-                                      <div key={panel.id} className={cn("space-y-2 rounded-lg border p-3 transition-colors", heatmapClass || "border-border/20 bg-card/40")} data-testid={`panel-group-${panel.id}`}>
-                                        <div className="flex items-center gap-2 pb-1.5 mb-1 border-b border-border/30">
-                                          <GripVertical className="w-3 h-3 text-muted-foreground/40" />
-                                          <p className="text-[11px] font-semibold text-muted-foreground/80 tracking-wider uppercase flex-1">
-                                            {panel.name}
-                                            <span className="ml-2 text-[9px] text-muted-foreground/50 font-normal normal-case">({parameters.length} polí)</span>
-                                          </p>
-                                          {heatmapLabel && (
-                                            <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-blue-400/40 text-blue-400 shrink-0" data-testid={`heatmap-badge-${panel.id}`}>
-                                              {heatmapLabel}
-                                            </Badge>
+                                        <div
+                                          key={panel.id}
+                                          ref={el => { panelRefs.current[panelKey] = el; }}
+                                          className={cn("rounded-xl border overflow-hidden transition-colors", heatmapClass ? heatmapClass : "border-border/40 dark:border-border/30")}
+                                          data-testid={`panel-group-${panel.id}`}
+                                        >
+                                          <div
+                                            className={cn(
+                                              "flex items-center gap-2.5 px-3 py-2.5 select-none transition-colors",
+                                              isEditing ? "cursor-pointer" : "cursor-default",
+                                              isPanelOpen
+                                                ? "bg-muted/40 border-b border-border/30"
+                                                : "bg-muted/15 hover:bg-muted/30"
+                                            )}
+                                            onClick={isEditing ? () => togglePanel(panelKey) : undefined}
+                                            data-testid={`panel-header-${panel.id}`}
+                                          >
+                                            {isEditing && (
+                                              isPanelOpen
+                                                ? <ChevronDown className="w-3.5 h-3.5 text-primary/60 shrink-0" />
+                                                : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
+                                            )}
+                                            <span className="text-xs font-semibold text-foreground/85 tracking-wide flex-1">{panel.name}</span>
+                                            {isEditing && filledCount > 0 && (
+                                              <span className="text-[9px] text-emerald-400/80 font-mono shrink-0">{filledCount}/{parameters.length}</span>
+                                            )}
+                                            {isEditing && filledCount === 0 && (
+                                              <span className="text-[9px] text-muted-foreground/40 font-mono shrink-0">{parameters.length} polí</span>
+                                            )}
+                                            {heatmapLabel && (
+                                              <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-blue-400/40 text-blue-400 shrink-0" data-testid={`heatmap-badge-${panel.id}`}>
+                                                {heatmapLabel}
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          {isPanelOpen && (
+                                            <div className="p-3">
+                                              <div
+                                                className="grid gap-4 items-end"
+                                                style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 3}, minmax(0, 1fr))` }}
+                                              >
+                                                {parameters.map(param => {
+                                                  const field = dbParamToStaticField(param);
+                                                  if (field.visibilityRule && field.visibilityRule.dependsOn) {
+                                                    const depVal = dynamicValues[field.visibilityRule.dependsOn];
+                                                    if (!depVal || depVal !== field.visibilityRule.value) return null;
+                                                  }
+                                                  const rawFieldVal = dynamicValues[field.key];
+                                                  const fieldVal = rawFieldVal ?? "";
+                                                  if (!isEditing && (rawFieldVal === undefined || rawFieldVal === null || rawFieldVal === "")) return null;
+                                                  const fkLower = (field.key || "").toLowerCase();
+                                                  const isExpiryField = field.fieldType === "date" && (fkLower.includes("platnost") || fkLower.includes("_do") || fkLower.includes("expir") || fkLower.includes("validit") || fkLower.endsWith("do"));
+                                                  return (
+                                                    <div key={field.id} className="min-w-0 relative">
+                                                      <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} />
+                                                      {isExpiryField && fieldVal && !isEditing && (
+                                                        <div className="mt-0.5">
+                                                          <ExpiryBadge date={fieldVal} />
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  );
+                                                })}
+                                              </div>
+                                            </div>
                                           )}
                                         </div>
-                                        <div
-                                          className="grid gap-4 items-end"
-                                          style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 3}, minmax(0, 1fr))` }}
-                                        >
-                                          {parameters.map(param => {
-                                            const field = dbParamToStaticField(param);
-                                            if (field.visibilityRule && field.visibilityRule.dependsOn) {
-                                              const depVal = dynamicValues[field.visibilityRule.dependsOn];
-                                              if (!depVal || depVal !== field.visibilityRule.value) return null;
-                                            }
-                                            const rawFieldVal = dynamicValues[field.key];
-                                            const fieldVal = rawFieldVal ?? "";
-                                            if (!isEditing && (rawFieldVal === undefined || rawFieldVal === null || rawFieldVal === "")) return null;
-                                            const fkLower = (field.key || "").toLowerCase();
-                                            const isExpiryField = field.fieldType === "date" && (fkLower.includes("platnost") || fkLower.includes("_do") || fkLower.includes("expir") || fkLower.includes("validit") || fkLower.endsWith("do"));
-                                            return (
-                                              <div key={field.id} className="min-w-0 relative">
-                                                <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} />
-                                                {isExpiryField && fieldVal && !isEditing && (
-                                                  <div className="mt-0.5">
-                                                    <ExpiryBadge date={fieldVal} />
-                                                  </div>
-                                                )}
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      </div>
                                       );
                                     })
                                   )}
