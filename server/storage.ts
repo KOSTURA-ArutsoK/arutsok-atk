@@ -1652,7 +1652,7 @@ export class DatabaseStorage implements IStorage {
       await db.update(subjects).set({ details: { ...details, dynamicFields } }).where(eq(subjects.id, subjectId));
     }
 
-    const restoreDateFormatted = restoreDate ? new Date(restoreDate).toLocaleString('sk-SK') : 'neznámy';
+    const restoreDateFormatted = restoreDate ? new Date(restoreDate).toLocaleString('sk-SK', { timeZone: 'Europe/Bratislava' }) : 'neznámy';
     const [restoreLog] = await db.insert(subjectFieldHistory).values({
       subjectId,
       fieldKey,
