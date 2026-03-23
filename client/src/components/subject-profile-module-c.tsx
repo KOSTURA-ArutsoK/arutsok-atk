@@ -814,12 +814,23 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
   const [fieldLayouts, setFieldLayouts] = useState<Record<string, { sortOrder: number; widthClass: string; rowGroup: number }>>({});
   const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [expandedPanels, setExpandedPanels] = useState<Set<string>>(new Set());
+  const [viewPanelState, setViewPanelState] = useState<Map<string, boolean>>(new Map());
   const panelRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const togglePanel = useCallback((key: string) => {
     setExpandedPanels(prev => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const toggleViewPanel = useCallback((key: string, hasData: boolean) => {
+    setViewPanelState(prev => {
+      const next = new Map(prev);
+      const currentDefault = hasData;
+      const currentState = next.has(key) ? next.get(key)! : currentDefault;
+      next.set(key, !currentState);
       return next;
     });
   }, []);
@@ -1855,26 +1866,17 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                   ) : (
                                     filteredPanelNodes.map(({ panel, parameters }) => {
                                       const panelKey = `panel-${panel.id}`;
-                                      const isPanelOpen = !isEditing || expandedPanels.has(panelKey);
-
-                                      if (!isEditing) {
-                                        const hasVisibleParam = parameters.some(param => {
-                                          const field = dbParamToStaticField(param);
-                                          if (field.visibilityRule && field.visibilityRule.dependsOn) {
-                                            const depVal = dynamicValues[field.visibilityRule.dependsOn];
-                                            if (!depVal || depVal !== field.visibilityRule.value) return false;
-                                          }
-                                          const rawVal = dynamicValues[field.fieldKey];
-                                          return rawVal !== undefined && rawVal !== null && rawVal !== "";
-                                        });
-                                        if (!hasVisibleParam) return null;
-                                      }
-                                      const heatmapClass = getPanelHeatmapClass(parameters, fieldFreshness);
-                                      const heatmapLabel = getHeatmapLabel(parameters, fieldFreshness);
-                                      const filledCount = isEditing ? parameters.filter(p => {
+                                      const filledCount = parameters.filter(p => {
                                         const v = dynamicValues[p.fieldKey];
                                         return v !== undefined && v !== null && v !== "";
-                                      }).length : 0;
+                                      }).length;
+                                      const hasPanelData = filledCount > 0;
+                                      const isPanelOpen = isEditing
+                                        ? expandedPanels.has(panelKey)
+                                        : viewPanelState.has(panelKey) ? viewPanelState.get(panelKey)! : hasPanelData;
+
+                                      const heatmapClass = getPanelHeatmapClass(parameters, fieldFreshness);
+                                      const heatmapLabel = getHeatmapLabel(parameters, fieldFreshness);
                                       return (
                                         <div
                                           key={panel.id}
@@ -1884,26 +1886,23 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                         >
                                           <div
                                             className={cn(
-                                              "flex items-center gap-2.5 px-3 py-2.5 select-none transition-colors",
-                                              isEditing ? "cursor-pointer" : "cursor-default",
+                                              "flex items-center gap-2.5 px-3 py-2.5 select-none transition-colors cursor-pointer",
                                               isPanelOpen
                                                 ? "bg-muted/40 border-b border-border/30"
                                                 : "bg-muted/15 hover:bg-muted/30"
                                             )}
-                                            onClick={isEditing ? () => togglePanel(panelKey) : undefined}
+                                            onClick={isEditing ? () => togglePanel(panelKey) : () => toggleViewPanel(panelKey, hasPanelData)}
                                             data-testid={`panel-header-${panel.id}`}
                                           >
-                                            {isEditing && (
-                                              isPanelOpen
-                                                ? <ChevronDown className="w-3.5 h-3.5 text-primary/60 shrink-0" />
-                                                : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
-                                            )}
+                                            {isPanelOpen
+                                              ? <ChevronDown className="w-3.5 h-3.5 text-primary/60 shrink-0" />
+                                              : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
+                                            }
                                             <span className="text-xs font-semibold text-foreground/85 tracking-wide flex-1">{panel.name}</span>
-                                            {isEditing && filledCount > 0 && (
+                                            {filledCount > 0 ? (
                                               <span className="text-[9px] text-emerald-400/80 font-mono shrink-0">{filledCount}/{parameters.length}</span>
-                                            )}
-                                            {isEditing && filledCount === 0 && (
-                                              <span className="text-[9px] text-muted-foreground/40 font-mono shrink-0">{parameters.length} polí</span>
+                                            ) : (
+                                              <span className="text-[9px] text-muted-foreground/40 font-mono shrink-0">0/{parameters.length}</span>
                                             )}
                                             {heatmapLabel && (
                                               <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-blue-400/40 text-blue-400 shrink-0" data-testid={`heatmap-badge-${panel.id}`}>
@@ -1922,10 +1921,18 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                                   }
                                                   const rawFieldVal = dynamicValues[field.fieldKey];
                                                   const fieldVal = rawFieldVal ?? "";
-                                                  if (!isEditing && (rawFieldVal === undefined || rawFieldVal === null || rawFieldVal === "")) return null;
+                                                  const isEmptyViewField = !isEditing && (rawFieldVal === undefined || rawFieldVal === null || rawFieldVal === "");
                                                   const fkLower = field.fieldKey.toLowerCase();
                                                   const isExpiryField = field.fieldType === "date" && (fkLower.includes("platnost") || fkLower.includes("_do") || fkLower.includes("expir") || fkLower.includes("validit") || fkLower.endsWith("do"));
                                                   const pct = field.widthPercent > 0 ? field.widthPercent : 33.333;
+                                                  if (isEmptyViewField) {
+                                                    return (
+                                                      <div key={field.id} className="min-w-0 relative px-1.5 pb-3" style={{ flex: `0 0 ${pct}%`, width: `${pct}%` }}>
+                                                        <p className="text-[10px] text-muted-foreground/30 font-medium leading-none mb-0.5 truncate">{field.label}</p>
+                                                        <span className="text-sm text-muted-foreground/25 select-none">–</span>
+                                                      </div>
+                                                    );
+                                                  }
                                                   return (
                                                     <div key={field.id} className="min-w-0 relative px-1.5 pb-3" style={{ flex: `0 0 ${pct}%`, width: `${pct}%` }}>
                                                       <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} />
