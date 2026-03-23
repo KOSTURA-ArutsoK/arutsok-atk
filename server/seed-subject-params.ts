@@ -133,6 +133,7 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Kontaktné údaje", code: "os_kontakt", folderCategory: "povinne", sortOrder: 2, isPanel: true, gridColumns: 2 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Správa a riadenie", code: "os_riadenie", folderCategory: "povinne", sortOrder: 3, isPanel: true, gridColumns: 2 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Údaje o bytovom dome", code: "os_bytovy_dom", folderCategory: "povinne", sortOrder: 4, isPanel: true, gridColumns: 3 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "Sídlo v domovskej krajine", code: "os_sidlo_zahranicie", folderCategory: "povinne", sortOrder: 5, isPanel: true, gridColumns: 3 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Rozšírené cirkevné údaje", code: "os_cirkev", folderCategory: "doplnkove", sortOrder: 0, isPanel: true, gridColumns: 2 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Bankové spojenie", code: "os_banka", folderCategory: "doplnkove", sortOrder: 1, isPanel: true, gridColumns: 3 },
     ] : []),
@@ -173,7 +174,7 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     vs_subjekt: "vs_povinne", vs_sidlo: "vs_povinne", vs_kontakt: "vs_povinne",
     vs_aml: "vs_doplnkove", vs_zakonne: "vs_doplnkove", vs_zmluvne: "vs_doplnkove", vs_statutari: "vs_doplnkove", vs_inst_profil: "vs_doplnkove",
     os_subjekt: "os_povinne", os_sidlo: "os_povinne", os_kontakt: "os_povinne",
-    os_riadenie: "os_povinne", os_bytovy_dom: "os_povinne",
+    os_riadenie: "os_povinne", os_bytovy_dom: "os_povinne", os_sidlo_zahranicie: "os_povinne",
     os_cirkev: "os_doplnkove", os_banka: "os_doplnkove",
   };
 
@@ -976,6 +977,42 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "iban_svb", "IBAN", "short_text", 110, 0, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "swift_svb", "SWIFT / BIC", "short_text", 120, 0, 50, { shortLabel: "SWIFT/BIC", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "nazov_banky_svb", "Názov banky", "short_text", 130, 1, 100, { shortLabel: "Banka", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+
+      // ============================================================
+      // OS: Zahraničná osoba – os_subjekt rows 2–4 (sortOrders 210–270)
+      // R2: obchodne_meno_zahranicne(50) + pravna_forma_zahranicna(50)
+      // R3: registracne_cislo_zahranicne(33) + krajina_povodu(33) + vat_id_zahranicne(34)
+      // R4: datum_vzniku_zahranicnej(50) + nazov_zahranicneho_registra(50)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "obchodne_meno_zahranicne", "Pôvodné obchodné meno", "short_text", 210, 2, 50, { shortLabel: "Obch. meno", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "pravna_forma_zahranicna", "Právna forma v krajine pôvodu", "short_text", 220, 2, 50, { shortLabel: "Právna forma", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "registracne_cislo_zahranicne", "Identifikátor / Registration No.", "short_text", 230, 3, 33, { shortLabel: "Reg. číslo", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "krajina_povodu", "Krajina registrácie", "short_text", 240, 3, 33, { shortLabel: "Krajina", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "vat_id_zahranicne", "Daňové číslo / VAT ID", "short_text", 250, 3, 34, { shortLabel: "VAT ID", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "datum_vzniku_zahranicnej", "Dátum vzniku", "date", 260, 4, 50, { shortLabel: "Dátum vzniku", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "nazov_zahranicneho_registra", "Názov registra v domovskej krajine", "short_text", 270, 4, 50, { shortLabel: "Názov registra", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+
+      // ============================================================
+      // OS: Sídlo v domovskej krajine (os_sidlo_zahranicie) – Zahraničná osoba only
+      // R0: ulica_zahranicie(40) + cislo_zahranicie(30) + psc_zahranicie(30)
+      // R1: mesto_zahranicie(50) + stat_provincia(50)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo_zahranicie", "ulica_zahranicie", "Ulica", "short_text", 10, 0, 40, { visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo_zahranicie", "cislo_zahranicie", "Číslo domu / orientačné", "short_text", 20, 0, 30, { shortLabel: "Č. domu", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo_zahranicie", "psc_zahranicie", "ZIP / PSČ", "short_text", 30, 0, 30, { shortLabel: "ZIP/PSČ", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo_zahranicie", "mesto_zahranicie", "Mesto", "short_text", 40, 1, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo_zahranicie", "stat_provincia", "Štát / Provincia / Región", "short_text", 50, 1, 50, { shortLabel: "Štát / Provincia", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+
+      // Zahraničná osoba: Kontaktné údaje – sortOrders 210–230
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "telefon_zahranicie", "Telefón", "short_text", 210, 0, 50, { shortLabel: "Telefón", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "email_zahranicie", "E-mail", "short_text", 220, 0, 50, { shortLabel: "E-mail", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "web_zahranicie", "Webová stránka", "short_text", 230, 1, 100, { shortLabel: "Web", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+
+      // Zahraničná osoba: Bankové spojenie – sortOrders 210–230
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "iban_zahranicne", "IBAN", "short_text", 210, 0, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "swift_bic_zahranicne", "SWIFT / BIC", "short_text", 220, 0, 50, { shortLabel: "SWIFT/BIC", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "nazov_banky_zahranicie", "Názov banky", "short_text", 230, 1, 50, { shortLabel: "Banka", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "mena_uctu", "Mena účtu", "jedna_moznost", 240, 1, 50, { shortLabel: "Mena", options: ["EUR", "USD", "GBP", "CHF", "Ostatné"], visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
     ] : []),
   ];
 
