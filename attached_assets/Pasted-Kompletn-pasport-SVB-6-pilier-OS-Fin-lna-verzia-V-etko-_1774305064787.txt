@@ -1,0 +1,88 @@
+Kompletný pasport SVB (6. pilier - OS) – Finálna verzia
+Všetko podmienené výberom „Spoločenstvo vlastníkov bytov (SVB)“ v 100 % Justified Gride.
+
+PANEL 1: Základné údaje (os_povinne)
+
+Riadok 2: nazov_svb (50 %) | registracia_ou_svb (50 %)
+
+Riadok 3: ico_svb (33 %) | dic_svb (33 %) | ic_dph_svb (34 %)
+
+Riadok 4: datum_vzniku_svb (50 %) | zmluva_o_spolocenstve_datum (50 %)
+
+PANEL 2: Správa a riadenie (os_riadenie)
+
+Riadok 1: forma_spravy (Enum: Vlastná správa, Externý správca, 50 %) | nazov_spravcovskej_spolocnosti (Text, 50 %)
+
+Riadok 2: cislo_zmluvy_o_sprave (Text, 50 %) | datum_uzatvorenia_spravy (Date, 50 %)
+
+PANEL 3: Údaje o bytovom dome (os_bytovy_dom)
+
+Riadok 1: katastralne_uzemie_svb (50 %) | cislo_lv_svb (50 %)
+
+Riadok 2: pocet_bytov (33 %) | pocet_nebytovych_priestorov (33 %) | supisne_cisla_domu (34 %)
+
+PANEL 4: Sídlo / Adresa bytového domu (os_sidlo)
+
+Riadok 1: ulica_svb (40 %) | supisne_cislo_svb (30 %) | orientacne_cislo_svb (30 %)
+
+Riadok 2: mesto_svb (50 %) | psc_svb (25 %) | stat_svb (25 %)
+
+PANEL 5: Kontaktné údaje (os_kontakt)
+
+Riadok 1: telefon_svb (50 %) | email_svb (50 %)
+
+Riadok 2: portal_vlastnikov (100 %)
+
+PANEL 6: Bankové spojenie (Fond opráv) (os_banka)
+
+Riadok 1: iban_svb (50 %) | swift_svb (50 %)
+
+Riadok 2: nazov_banky_svb (100 %)
+
+📥 Finálna inštrukcia pre Agenta 4 (ATK323)
+Toto je už ten „nepriestrelný“ balík. Skopíruj mu toto:
+
+Agent 4 (ATK323): Krok 3 - DEFENITÍVNA implementácia parametrov pre "SVB" (OS)
+
+Dopĺňame a uzatvárame profil pre Spoločenstvo vlastníkov bytov (SVB). Musí obsahovať aj údaje o správe domu.
+
+Tvoja úloha:
+Pridaj do databázy (seedu) pre OS nasledujúce parametre s visibilityRule pre "Spoločenstvo vlastníkov bytov (SVB)".
+
+Záväzný Justified Grid (100 % riadky):
+
+Sekcia os_povinne:
+
+R2: nazov_svb (50%) | registracia_ou_svb (50%)
+
+R3: ico_svb (33%) | dic_svb (33%) | ic_dph_svb (34%)
+
+R4: datum_vzniku_svb (50%) | zmluva_o_spolocenstve_datum (50%)
+
+NOVÁ Sekcia os_riadenie (Správa a riadenie):
+
+R0: forma_spravy (Enum: Vlastná správa, Externý správca, 50%) | nazov_spravcu (50%)
+
+R1: cislo_zmluvy_o_sprave (50%) | datum_uzatvorenia_spravy (50%)
+
+NOVÁ Sekcia os_bytovy_dom:
+
+R0: katastralne_uzemie_svb (50%) | cislo_lv_svb (50%)
+
+R1: pocet_bytov (33%) | pocet_nebytovych_priestorov (33%) | supisne_cisla_domu (34%)
+
+Sekcia os_sidlo:
+
+R0: ulica_svb (40%) | supisne_cislo_svb (30%) | orientacne_cislo_svb (30%)
+
+R1: mesto_svb (50%) | psc_svb (25%) | stat_svb (25%)
+
+Sekcia os_kontakt:
+
+R0: telefon_svb (50%) | email_svb (50%) | R1: portal_vlastnikov (100%)
+
+Sekcia os_banka:
+
+R0: iban_svb (50%) | swift_svb (50%) | R1: nazov_banky_svb (100%)
+
+Technická poznámka: Dodrž striktne podmienené zobrazovanie polí aj celých sekcií. Spusti sync a potvrď, že profil SVB je kompletný a mriežka sedí na 100 %.
