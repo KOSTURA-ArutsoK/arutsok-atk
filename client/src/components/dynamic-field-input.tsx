@@ -148,7 +148,7 @@ export function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasE
         <ToggleGroup
           type="single"
           value={dynamicValues[field.fieldKey] || ""}
-          onValueChange={val => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val }))}
+          onValueChange={val => { if (!disabled) setDynamicValues(prev => ({ ...prev, [field.fieldKey]: val })); }}
           className="flex flex-wrap gap-1 justify-start w-full"
           data-testid={`segmented-${field.fieldKey}`}
         >
@@ -157,6 +157,7 @@ export function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasE
               key={opt}
               value={opt}
               size="sm"
+              disabled={disabled}
               className="h-7 px-2.5 text-xs font-normal border border-border data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:border-primary"
               data-testid={`segmented-item-${field.fieldKey}-${opt}`}
             >
