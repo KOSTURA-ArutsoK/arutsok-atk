@@ -1850,7 +1850,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                             const depVal = dynamicValues[field.visibilityRule.dependsOn];
                                             if (!depVal || depVal !== field.visibilityRule.value) return false;
                                           }
-                                          const rawVal = dynamicValues[field.key];
+                                          const rawVal = dynamicValues[field.fieldKey];
                                           return rawVal !== undefined && rawVal !== null && rawVal !== "";
                                         });
                                         if (!hasVisibleParam) return null;
@@ -1898,24 +1898,22 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                             )}
                                           </div>
                                           {isPanelOpen && (
-                                            <div className="p-3">
-                                              <div
-                                                className="grid gap-4 items-end"
-                                                style={{ gridTemplateColumns: `repeat(${panel.gridColumns || 3}, minmax(0, 1fr))` }}
-                                              >
+                                            <div className="p-2">
+                                              <div className="flex flex-wrap -mx-1.5">
                                                 {parameters.map(param => {
                                                   const field = dbParamToStaticField(param);
                                                   if (field.visibilityRule && field.visibilityRule.dependsOn) {
                                                     const depVal = dynamicValues[field.visibilityRule.dependsOn];
                                                     if (!depVal || depVal !== field.visibilityRule.value) return null;
                                                   }
-                                                  const rawFieldVal = dynamicValues[field.key];
+                                                  const rawFieldVal = dynamicValues[field.fieldKey];
                                                   const fieldVal = rawFieldVal ?? "";
                                                   if (!isEditing && (rawFieldVal === undefined || rawFieldVal === null || rawFieldVal === "")) return null;
-                                                  const fkLower = (field.key || "").toLowerCase();
+                                                  const fkLower = field.fieldKey.toLowerCase();
                                                   const isExpiryField = field.fieldType === "date" && (fkLower.includes("platnost") || fkLower.includes("_do") || fkLower.includes("expir") || fkLower.includes("validit") || fkLower.endsWith("do"));
+                                                  const pct = field.widthPercent > 0 ? field.widthPercent : (100 / (panel.gridColumns || 3));
                                                   return (
-                                                    <div key={field.id} className="min-w-0 relative">
+                                                    <div key={field.id} className="min-w-0 relative px-1.5 pb-3" style={{ width: `${pct}%` }}>
                                                       <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} />
                                                       {isExpiryField && fieldVal && !isEditing && (
                                                         <div className="mt-0.5">
