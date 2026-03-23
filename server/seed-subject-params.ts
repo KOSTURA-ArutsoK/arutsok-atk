@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { subjectParamSections, subjectParameters, parameterSynonyms, subjectTemplates, subjectTemplateParams } from "@shared/schema";
-import { eq, and, asc, inArray, or } from "drizzle-orm";
+import { eq, and, asc, inArray, or, sql } from "drizzle-orm";
 
 type FieldSeed = {
   clientTypeId: number; sectionCode: string; panelCode: string | null; fieldKey: string; label: string;
@@ -1220,20 +1220,14 @@ export async function seedNsVsTemplates(): Promise<void> {
 }
 
 export async function cleanupZombieTemplateParams(): Promise<void> {
-  const zombieParamIds = await db
-    .select({ id: subjectParameters.id })
-    .from(subjectParameters)
-    .where(or(eq(subjectParameters.isActive, false), eq(subjectParameters.isHidden, true)));
-
-  if (zombieParamIds.length === 0) {
-    console.log(`[CLEANUP] No zombie template-param links found.`);
-    return;
-  }
-
-  const ids = zombieParamIds.map(r => r.id);
   const deleted = await db
     .delete(subjectTemplateParams)
-    .where(inArray(subjectTemplateParams.parameterId, ids))
+    .where(
+      sql`${subjectTemplateParams.parameterId} IN (
+        SELECT id FROM ${subjectParameters}
+        WHERE is_active = false OR is_hidden = true
+      )`
+    )
     .returning({ id: subjectTemplateParams.id });
 
   const removed = deleted.length;
