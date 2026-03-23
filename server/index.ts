@@ -4,7 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { db } from "./db";
 import { subjectParameters } from "@shared/schema";
-import { inArray } from "drizzle-orm";
+import { inArray, like, or, eq } from "drizzle-orm";
 
 const app = express();
 const httpServer = createServer(app);
@@ -63,16 +63,26 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // One-time fixup: hide legacy duplicate address/AML params that were superseded
-  // by their renamed canonical counterparts (adr_tp_* series and aml_pep duplicate).
-  // These IDs were identified via full DB scan as the only exact-label duplicates:
-  //   id=117 fieldKey="adr_tp_ulica"  — duplicate of id=522 fieldKey="tp_ulica"
-  //   id=167 fieldKey="aml_pep"       — duplicate of id=562 fieldKey="pep"
-  const LEGACY_DUPLICATE_PARAM_IDS = [117, 167];
+  // Startup fixup: hide all legacy address params (adr_tp_* and adr_ka_* series)
+  // that were superseded when the address panel was restructured into canonical
+  // tp_* / ka_* keys (IDs 522–534).  Also hides the duplicate aml_pep (id=167).
+  // Identified via full DB scan:
+  //   adr_tp_ulica (117), adr_tp_cislo (118), adr_tp_psc (119), adr_tp_obec (120),
+  //   adr_tp_okres (121), adr_tp_kraj (122), adr_tp_stat (123),
+  //   adr_ka_rovnaka (124), adr_ka_ulica (125), adr_ka_cislo (126),
+  //   adr_ka_psc (127), adr_ka_obec (128), adr_ka_okres (129),
+  //   adr_ka_kraj (130), adr_ka_stat (131),
+  //   aml_pep duplicate (167, FO) — superseded by canonical pep (562).
+  // SZCO/PO do not have adr_* params (verified via full-table scan).
+  // This update is idempotent (safe to repeat on every startup).
   try {
     await db.update(subjectParameters)
       .set({ isHidden: true })
-      .where(inArray(subjectParameters.id, LEGACY_DUPLICATE_PARAM_IDS));
+      .where(or(
+        like(subjectParameters.fieldKey, "adr_tp_%"),
+        like(subjectParameters.fieldKey, "adr_ka_%"),
+        eq(subjectParameters.id, 167),
+      ));
   } catch (e) {
     console.warn("[startup] Could not hide legacy duplicate params:", e);
   }
