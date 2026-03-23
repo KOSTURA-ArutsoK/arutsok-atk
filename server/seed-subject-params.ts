@@ -134,6 +134,8 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Správa a riadenie", code: "os_riadenie", folderCategory: "povinne", sortOrder: 3, isPanel: true, gridColumns: 2 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Údaje o bytovom dome", code: "os_bytovy_dom", folderCategory: "povinne", sortOrder: 4, isPanel: true, gridColumns: 3 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Sídlo v domovskej krajine", code: "os_sidlo_zahranicie", folderCategory: "povinne", sortOrder: 5, isPanel: true, gridColumns: 3 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "Špecifiká zložky", code: "os_specifikacia_oz", folderCategory: "povinne", sortOrder: 6, isPanel: true, gridColumns: 1 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "Detaily spolupráce", code: "os_konzorcium_detaily", folderCategory: "povinne", sortOrder: 7, isPanel: true, gridColumns: 2 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Rozšírené cirkevné údaje", code: "os_cirkev", folderCategory: "doplnkove", sortOrder: 0, isPanel: true, gridColumns: 2 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Bankové spojenie", code: "os_banka", folderCategory: "doplnkove", sortOrder: 1, isPanel: true, gridColumns: 3 },
     ] : []),
@@ -175,6 +177,7 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     vs_aml: "vs_doplnkove", vs_zakonne: "vs_doplnkove", vs_zmluvne: "vs_doplnkove", vs_statutari: "vs_doplnkove", vs_inst_profil: "vs_doplnkove",
     os_subjekt: "os_povinne", os_sidlo: "os_povinne", os_kontakt: "os_povinne",
     os_riadenie: "os_povinne", os_bytovy_dom: "os_povinne", os_sidlo_zahranicie: "os_povinne",
+    os_specifikacia_oz: "os_povinne", os_konzorcium_detaily: "os_povinne",
     os_cirkev: "os_doplnkove", os_banka: "os_doplnkove",
   };
 
@@ -885,7 +888,7 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     ...(OS_CLIENT_TYPE_ID ? [
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "nazov_organizacie", "Názov subjektu", "short_text", 10, 0, 50, { isRequired: true, shortLabel: "Názov" }),
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "ico", "IČO", "short_text", 20, 0, 50, { isRequired: true }),
-      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "specifikacia_os", "Špecifikácia OS", "segmented", 30, 1, 100, { shortLabel: "Špecifikácia", options: ["Cirkev a náboženská spoločnosť", "Spoločenstvo vlastníkov bytov (SVB)", "Zahraničná osoba", "Organizačná zložka", "Konzorcium / Združenie", "Iný špecifický subjekt"] }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "specifikacia_os", "Špecifikácia OS", "segmented", 30, 1, 100, { shortLabel: "Špecifikácia", options: ["Cirkev a náboženská spoločnosť", "Spoločenstvo vlastníkov bytov (SVB)", "Zahraničná osoba", "Organizačná zložka", "Konzorcium / Združenie", "Pozemkové spoločenstvo (Urbariát)", "Iný špecifický subjekt"] }),
       // Cirkev-specific rows in os_subjekt (visibilityRule on all)
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "nazov_cirkvi_institucie", "Názov cirkvi / inštitúcie", "short_text", 40, 2, 50, { shortLabel: "Názov cirkvi", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "registracia_mk_sr", "Registrácia MK SR", "short_text", 50, 2, 50, { shortLabel: "Regist. MK SR", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
@@ -1013,6 +1016,86 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "swift_bic_zahranicne", "SWIFT / BIC", "short_text", 220, 0, 50, { shortLabel: "SWIFT/BIC", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "nazov_banky_zahranicie", "Názov banky", "short_text", 230, 1, 50, { shortLabel: "Banka", visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "mena_uctu", "Mena účtu", "jedna_moznost", 240, 1, 50, { shortLabel: "Mena", options: ["EUR", "USD", "GBP", "CHF", "Ostatné"], visibilityRule: { dependsOn: "specifikacia_os", value: "Zahraničná osoba" } }),
+
+      // ============================================================
+      // OS: Organizačná zložka – os_subjekt rows 2–4 (sortOrders 310–370)
+      // R2: nazov_oz(50) + zriadovatel_oz(50)
+      // R3: ico_oz(33) + dic_oz(33) + ic_dph_oz(34)
+      // R4: datum_zriadenia_oz(50, date) + zapis_orsr_oz(50)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "nazov_oz", "Názov organizačnej zložky / Odštepného závodu", "short_text", 310, 2, 50, { shortLabel: "Názov zložky", visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "zriadovatel_oz", "Obchodné meno zriaďovateľa / Materskej firmy", "short_text", 320, 2, 50, { shortLabel: "Zriaďovateľ", visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "ico_oz", "IČO zložky", "short_text", 330, 3, 33, { shortLabel: "IČO zložky", visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "dic_oz", "DIČ zložky", "short_text", 340, 3, 33, { shortLabel: "DIČ zložky", visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "ic_dph_oz", "IČ DPH zložky", "short_text", 350, 3, 34, { shortLabel: "IČ DPH zložky", visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "datum_zriadenia_oz", "Dátum zriadenia / vzniku", "date", 360, 4, 50, { shortLabel: "Dátum zriadenia", visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "zapis_orsr_oz", "Zápis v Obchodnom registri", "short_text", 370, 4, 50, { shortLabel: "Zápis OR/SR", visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+
+      // ============================================================
+      // OS: Špecifiká zložky (os_specifikacia_oz) – Organizačná zložka only
+      // R0: typ_oz(100, Enum)
+      // R1: predmet_cinnosti_oz(100)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_specifikacia_oz", "typ_oz", "Typ organizačnej zložky", "jedna_moznost", 10, 0, 100, { shortLabel: "Typ zložky", options: ["Organizačná zložka podniku", "Odštepný závod", "Pobočka zahraničnej banky", "Iná zložka"], visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_specifikacia_oz", "predmet_cinnosti_oz", "Hlavný predmet činnosti zložky", "short_text", 20, 1, 100, { shortLabel: "Predmet činnosti", visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+
+      // Organizačná zložka: Sídlo – sortOrders 310–360
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "ulica_oz", "Ulica", "short_text", 310, 0, 40, { visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "supisne_cislo_oz", "Súpisné číslo", "short_text", 320, 0, 30, { shortLabel: "Súp. č.", visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "orientacne_cislo_oz", "Orientačné číslo", "short_text", 330, 0, 30, { shortLabel: "Or. č.", visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "mesto_oz", "Mesto", "short_text", 340, 1, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "psc_oz", "PSČ", "short_text", 350, 1, 25, { visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "stat_oz", "Štát", "short_text", 360, 1, 25, { visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+
+      // Organizačná zložka: Kontaktné údaje – sortOrders 310–330
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "telefon_oz", "Telefón", "short_text", 310, 0, 50, { shortLabel: "Telefón", visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "email_oz", "E-mail", "short_text", 320, 0, 50, { shortLabel: "E-mail", visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "web_oz", "Webová stránka", "short_text", 330, 1, 100, { shortLabel: "Web", visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+
+      // Organizačná zložka: Bankové spojenie – sortOrders 310–330
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "iban_oz", "IBAN", "short_text", 310, 0, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "swift_oz", "SWIFT / BIC", "short_text", 320, 0, 50, { shortLabel: "SWIFT/BIC", visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "nazov_banky_oz", "Názov banky", "short_text", 330, 1, 100, { shortLabel: "Banka", visibilityRule: { dependsOn: "specifikacia_os", value: "Organizačná zložka" } }),
+
+      // ============================================================
+      // OS: Konzorcium / Združenie – os_subjekt rows 2–4 (sortOrders 410–470)
+      // R2: nazov_zdruzenia(50) + ucel_zdruzenia(50)
+      // R3: veduci_clen_zdruzenia(50) + zmluva_o_zdruzeni_datum(50, date)
+      // R4: identifikator_zdruzenia(50) + predpokladana_doba_trvania(50)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "nazov_zdruzenia", "Názov konzorcia / združenia", "short_text", 410, 2, 50, { shortLabel: "Názov združenia", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "ucel_zdruzenia", "Účel združenia / Názov projektu", "short_text", 420, 2, 50, { shortLabel: "Účel / Projekt", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "veduci_clen_zdruzenia", "Obchodné meno lídra konzorcia", "short_text", 430, 3, 50, { shortLabel: "Líder konzorcia", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "zmluva_o_zdruzeni_datum", "Dátum zmluvy o združení", "date", 440, 3, 50, { shortLabel: "Dátum zmluvy", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "identifikator_zdruzenia", "Interné číslo / ID pridelené lídrom", "short_text", 450, 4, 50, { shortLabel: "ID združenia", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "predpokladana_doba_trvania", "Predpokladaná doba trvania", "short_text", 460, 4, 50, { shortLabel: "Doba trvania", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+
+      // ============================================================
+      // OS: Detaily spolupráce (os_konzorcium_detaily) – Konzorcium only
+      // R0: pocet_clenov_zdruzenia(50, number) + pomer_ucasti_lidra(50)
+      // R1: hlavny_predmet_spoluprace(100)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_konzorcium_detaily", "pocet_clenov_zdruzenia", "Počet participujúcich subjektov", "number", 10, 0, 50, { shortLabel: "Počet členov", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_konzorcium_detaily", "pomer_ucasti_lidra", "Podiel účasti lídra", "short_text", 20, 0, 50, { shortLabel: "Podiel lídra", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_konzorcium_detaily", "hlavny_predmet_spoluprace", "Hlavný predmet spolupráce", "short_text", 30, 1, 100, { shortLabel: "Predmet spolupráce", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+
+      // Konzorcium / Združenie: Sídlo – sortOrders 410–460
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "ulica_zdruzenia", "Ulica", "short_text", 410, 0, 40, { visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "supisne_cislo_zdruzenia", "Súpisné číslo", "short_text", 420, 0, 30, { shortLabel: "Súp. č.", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "orientacne_cislo_zdruzenia", "Orientačné číslo", "short_text", 430, 0, 30, { shortLabel: "Or. č.", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "mesto_zdruzenia", "Mesto", "short_text", 440, 1, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "psc_zdruzenia", "PSČ", "short_text", 450, 1, 25, { visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "stat_zdruzenia", "Štát", "short_text", 460, 1, 25, { visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+
+      // Konzorcium / Združenie: Kontaktné údaje – sortOrders 410–430
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "telefon_zdruzenia", "Telefón", "short_text", 410, 0, 50, { shortLabel: "Telefón", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "email_zdruzenia", "E-mail", "short_text", 420, 0, 50, { shortLabel: "E-mail", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "web_projektu", "URL adresa spoločného projektu", "short_text", 430, 1, 100, { shortLabel: "Web projektu", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+
+      // Konzorcium / Združenie: Bankové spojenie – sortOrders 410–430
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "iban_zdruzenia", "IBAN", "short_text", 410, 0, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "swift_zdruzenia", "SWIFT / BIC", "short_text", 420, 0, 50, { shortLabel: "SWIFT/BIC", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "nazov_banky_zdruzenia", "Názov banky", "short_text", 430, 1, 100, { shortLabel: "Banka", visibilityRule: { dependsOn: "specifikacia_os", value: "Konzorcium / Združenie" } }),
     ] : []),
   ];
 
