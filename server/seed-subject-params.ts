@@ -31,6 +31,13 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     }
   }
 
+  // Resolve OS client type ID dynamically so we never assume a fixed numeric ID.
+  const osTypeRow = await db.select({ id: clientTypes.id }).from(clientTypes).where(eq(clientTypes.code, "OS"));
+  const OS_CLIENT_TYPE_ID: number | null = osTypeRow[0]?.id ?? null;
+  if (!OS_CLIENT_TYPE_ID) {
+    console.warn("[SEED] OS client type not found – OS sections/fields will be skipped.");
+  }
+
   const STATIC_SECTIONS = [
     { clientTypeId: 1, name: "POVINNÉ ÚDAJE", code: "fo_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
     { clientTypeId: 1, name: "DOPLNKOVÉ ÚDAJE", code: "fo_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
@@ -116,11 +123,13 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     { clientTypeId: 6, name: "Bankové údaje", code: "vs_zmluvne", folderCategory: "doplnkove", sortOrder: 2, isPanel: true, gridColumns: 3 },
     { clientTypeId: 6, name: "Štatutárni zástupcovia", code: "vs_statutari", folderCategory: "doplnkove", sortOrder: 3, isPanel: true, gridColumns: 2 },
     { clientTypeId: 6, name: "Inštitucionálny profil", code: "vs_inst_profil", folderCategory: "doplnkove", sortOrder: 4, isPanel: true, gridColumns: 2 },
-    { clientTypeId: 7, name: "POVINNÉ ÚDAJE", code: "os_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
-    { clientTypeId: 7, name: "DOPLNKOVÉ ÚDAJE", code: "os_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
-    { clientTypeId: 7, name: "VOLITEĽNÉ ÚDAJE", code: "os_volitelne", folderCategory: "volitelne", sortOrder: 2, isPanel: false, gridColumns: 1 },
-    { clientTypeId: 7, name: "INÉ ÚDAJE", code: "os_ine", folderCategory: "ine", sortOrder: 3, isPanel: false, gridColumns: 1 },
-    { clientTypeId: 7, name: "Základné údaje", code: "os_subjekt", folderCategory: "povinne", sortOrder: 0, isPanel: true, gridColumns: 2 },
+    ...(OS_CLIENT_TYPE_ID ? [
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "POVINNÉ ÚDAJE", code: "os_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "DOPLNKOVÉ ÚDAJE", code: "os_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "VOLITEĽNÉ ÚDAJE", code: "os_volitelne", folderCategory: "volitelne", sortOrder: 2, isPanel: false, gridColumns: 1 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "INÉ ÚDAJE", code: "os_ine", folderCategory: "ine", sortOrder: 3, isPanel: false, gridColumns: 1 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "Základné údaje", code: "os_subjekt", folderCategory: "povinne", sortOrder: 0, isPanel: true, gridColumns: 2 },
+    ] : []),
   ];
 
   const sectionMap: Record<string, number> = {};
@@ -857,13 +866,15 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     f(6, "vs_doplnkove", "vs_inst_profil", "rozpoctova_kapitola_vs", "Rozpočtová kapitola", "short_text", 30, 1, 50, { shortLabel: "Rozp. kap.", categoryCode: "firemny_profil" }),
 
     // ============================================================
-    // OS: Základné údaje (os_subjekt)
+    // OS: Základné údaje (os_subjekt)  – conditional on OS_CLIENT_TYPE_ID
     // Row 0 (100%): nazov_organizacie(50) + ico(50)
     // Row 1 (100%): specifikacia_os(100) – segmented control
     // ============================================================
-    f(7, "os_povinne", "os_subjekt", "nazov_organizacie", "Názov subjektu", "short_text", 10, 0, 50, { isRequired: true, shortLabel: "Názov" }),
-    f(7, "os_povinne", "os_subjekt", "ico", "IČO", "short_text", 20, 0, 50, { isRequired: true }),
-    f(7, "os_povinne", "os_subjekt", "specifikacia_os", "Špecifikácia OS", "segmented", 30, 1, 100, { shortLabel: "Špecifikácia", options: ["Cirkev a náboženská spoločnosť", "Spoločenstvo vlastníkov bytov (SVB)", "Zahraničná osoba", "Organizačná zložka", "Konzorcium / Združenie", "Iný špecifický subjekt"] }),
+    ...(OS_CLIENT_TYPE_ID ? [
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "nazov_organizacie", "Názov subjektu", "short_text", 10, 0, 50, { isRequired: true, shortLabel: "Názov" }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "ico", "IČO", "short_text", 20, 0, 50, { isRequired: true }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "specifikacia_os", "Špecifikácia OS", "segmented", 30, 1, 100, { shortLabel: "Špecifikácia", options: ["Cirkev a náboženská spoločnosť", "Spoločenstvo vlastníkov bytov (SVB)", "Zahraničná osoba", "Organizačná zložka", "Konzorcium / Združenie", "Iný špecifický subjekt"] }),
+    ] : []),
   ];
 
   const paramIdMap: Record<string, number> = {};
