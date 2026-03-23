@@ -794,7 +794,8 @@ function SnapshotSubjectView({ snapshot, snapshotAt, appUserRole, liveSubject }:
 
   const formatAddr = (a: any) => {
     if (!a) return null;
-    const parts = [a.street, a.city, a.postalCode, a.country].filter(Boolean);
+    const street = [a.ulica, a.supisneCislo, a.orientacneCislo].filter(Boolean).join(" ");
+    const parts = [street || null, a.obecMesto, a.psc, a.stat].filter(Boolean);
     return parts.length > 0 ? parts.join(", ") : null;
   };
 
