@@ -1,0 +1,68 @@
+Kompletná mapa parametrov pre Zahraničnú osobu (6. pilier - OS)
+Všetky tieto polia sa aktivujú iba vtedy, keď v prepínači zvolíš „Zahraničná osoba“.
+
+PANEL 1: Základné údaje (os_subjekt)
+
+Riadok 2: obchodne_meno_zahranicne (Text: Pôvodné obchodné meno, 50 %) | pravna_forma_zahranicna (Text: Právna forma v krajine pôvodu, 50 %)
+
+Riadok 3: registracne_cislo_zahranicne (Text: Identifikátor / Registration No., 33 %) | krajina_povodu (Text: Krajina registrácie, 33 %) | vat_id_zahranicne (Text: Daňové číslo / VAT ID, 34 %)
+
+Riadok 4: datum_vzniku_zahranicnej (Date, 50 %) | nazov_zahranicneho_registra (Text: Názov registra v domovskej krajine, 50 %)
+
+PANEL 2: Sídlo v domovskej krajine (os_sidlo_zahranicie)
+
+Riadok 1: ulica_zahranicie (Text, 40 %) | cislo_zahranicie (Text: Číslo domu / orientačné, 30 %) | psc_zahranicie (Text: ZIP / PSČ, 30 %)
+
+Riadok 2: mesto_zahranicie (Text, 50 %) | stat_provincia (Text: Štát / Provincia / Región, 50 %)
+
+PANEL 3: Kontaktné údaje (os_kontakt)
+
+Riadok 1: telefon_zahranicie (Text, 50 %) | email_zahranicie (Text, 50 %)
+
+Riadok 2: web_zahranicie (Text, 100 %)
+
+PANEL 4: Bankové spojenie (Medzinárodné) (os_banka)
+
+Riadok 1: iban_zahranicne (Text, 50 %) | swift_bic_zahranicne (Text, 50 %)
+
+Riadok 2: nazov_banky_zahranicie (Text, 50 %) | mena_uctu (Enum: EUR, USD, GBP, CHF, Ostatné, 50 %)
+
+📥 Inštrukcia pre Agenta 4 (ATK326)
+Skopíruj Agentovi 4 toto zadanie. Je to definitívny príkaz na naseedovanie šablóny pre zahraničné firmy.
+
+Agent 4 (ATK326): Krok 4 - Implementácia parametrov a Gridu pre "Zahraničná osoba" (OS)
+
+Pokračujeme v budovaní 6. piliera (OS). Implementujeme subtyp Zahraničná osoba.
+
+Tvoja úloha:
+Pridaj do databázy (seedu) pre OS nasledujúce parametre s visibilityRule pre "Zahraničná osoba".
+
+Záväzný Justified Grid (100% riadky):
+
+Sekcia os_povinne (od Riadku 2):
+
+R2: obchodne_meno_zahranicne (50%) | pravna_forma_zahranicna (50%)
+
+R3: registracne_cislo_zahranicne (33%) | krajina_povodu (33%) | vat_id_zahranicne (34%)
+
+R4: datum_vzniku_zahranicnej (50%) | nazov_zahranicneho_registra (50%)
+
+NOVÁ Sekcia os_sidlo_zahranicie (Sídlo v domovskej krajine):
+
+R0: ulica_zahranicie (40%) | cislo_zahranicie (30%) | psc_zahranicie (30%)
+
+R1: mesto_zahranicie (50%) | stat_provincia (50%)
+
+Sekcia os_kontakt:
+
+R0: telefon_zahranicie (50%) | email_zahranicie (50%)
+
+R1: web_zahranicie (100%)
+
+Sekcia os_banka (Medzinárodný účet):
+
+R0: iban_zahranicne (50%) | swift_bic_zahranicne (50%)
+
+R1: nazov_banky_zahranicie (50%) | mena_uctu (Enum: EUR, USD, GBP, CHF, Ostatné, 50%)
+
+Technická inštrukcia: > Nezabudni na panel-level visibility. Panel os_sidlo_zahranicie musí byť viditeľný len pre Zahraničnú osobu. Spusti sync a potvrď mi hotovú mriežku.
