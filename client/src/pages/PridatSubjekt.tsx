@@ -1719,32 +1719,29 @@ function FullPageEditor({
   );
 }
 
+const INIT_STEP_TYPE_CODES = ["FO", "SZCO", "PO"];
+
 function InitStep({ onProceed }: { onProceed: (data: InitialData) => void }) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
   const [selectedType, setSelectedType] = useState("");
-  const [stateId, setStateId] = useState<string>("");
   const [baseValue, setBaseValue] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
-  const { data: allStates } = useStates();
   const { data: appUser } = useAppUser();
 
-  useEffect(() => {
-    if (appUser?.activeStateId && !stateId) setStateId(String(appUser.activeStateId));
-  }, [appUser?.activeStateId]);
-
-  const selectedClientType = clientTypes?.find(ct => ct.code === selectedType);
+  const filteredTypes = (clientTypes || []).filter(ct => INIT_STEP_TYPE_CODES.includes(ct.code));
+  const selectedClientType = filteredTypes.find(ct => ct.code === selectedType);
   const isRc = selectedClientType?.baseParameter === "rc";
   const isActive = hovered || pressed;
 
   function handleProceed() {
     if (!selectedType) { setError("Vyberte typ subjektu"); return; }
-    if (!stateId) { setError("Vyberte štát"); return; }
     if (!baseValue.trim()) { setError(isRc ? "Zadajte rodné číslo" : "Zadajte IČO"); return; }
+    const stateId = appUser?.activeStateId ?? 1;
     setError(null);
-    onProceed({ clientTypeCode: selectedType, stateId: Number(stateId), baseValue: baseValue.trim() });
+    onProceed({ clientTypeCode: selectedType, stateId, baseValue: baseValue.trim() });
   }
 
   const PW = 380; const PH = 96; const PR = 38;
@@ -1837,22 +1834,8 @@ function InitStep({ onProceed }: { onProceed: (data: InitialData) => void }) {
               <SelectValue placeholder="Vyberte typ..." />
             </SelectTrigger>
             <SelectContent>
-              {(clientTypes || []).map(ct => (
+              {filteredTypes.map(ct => (
                 <SelectItem key={ct.code} value={ct.code}>{ct.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="init-state">Štát</Label>
-          <Select value={stateId} onValueChange={(v) => { setStateId(v); setError(null); }}>
-            <SelectTrigger id="init-state" data-testid="select-state">
-              <SelectValue placeholder="Vyberte štát..." />
-            </SelectTrigger>
-            <SelectContent>
-              {(allStates || []).map(s => (
-                <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
