@@ -131,6 +131,8 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Základné údaje", code: "os_subjekt", folderCategory: "povinne", sortOrder: 0, isPanel: true, gridColumns: 2 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Sídlo / Adresa", code: "os_sidlo", folderCategory: "povinne", sortOrder: 1, isPanel: true, gridColumns: 4 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Kontaktné údaje", code: "os_kontakt", folderCategory: "povinne", sortOrder: 2, isPanel: true, gridColumns: 2 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "Správa a riadenie", code: "os_riadenie", folderCategory: "povinne", sortOrder: 3, isPanel: true, gridColumns: 2 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "Údaje o bytovom dome", code: "os_bytovy_dom", folderCategory: "povinne", sortOrder: 4, isPanel: true, gridColumns: 3 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Rozšírené cirkevné údaje", code: "os_cirkev", folderCategory: "doplnkove", sortOrder: 0, isPanel: true, gridColumns: 2 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Bankové spojenie", code: "os_banka", folderCategory: "doplnkove", sortOrder: 1, isPanel: true, gridColumns: 3 },
     ] : []),
@@ -171,6 +173,7 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     vs_subjekt: "vs_povinne", vs_sidlo: "vs_povinne", vs_kontakt: "vs_povinne",
     vs_aml: "vs_doplnkove", vs_zakonne: "vs_doplnkove", vs_zmluvne: "vs_doplnkove", vs_statutari: "vs_doplnkove", vs_inst_profil: "vs_doplnkove",
     os_subjekt: "os_povinne", os_sidlo: "os_povinne", os_kontakt: "os_povinne",
+    os_riadenie: "os_povinne", os_bytovy_dom: "os_povinne",
     os_cirkev: "os_doplnkove", os_banka: "os_doplnkove",
   };
 
@@ -890,6 +893,35 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "ic_dph_cirkvi", "IČ DPH cirkvi", "short_text", 80, 3, 34, { shortLabel: "IČ DPH", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "datum_zriadenia", "Dátum zriadenia", "date", 90, 4, 50, { shortLabel: "Dátum zriad.", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "zriadovatel_dieceza", "Zriaďovateľ / Diecéza", "short_text", 100, 4, 50, { shortLabel: "Zriaď. / Diecéza", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      // SVB-specific rows in os_subjekt (rows 2–4, sortOrders 110–170)
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "nazov_svb", "Názov SVB", "short_text", 110, 2, 50, { shortLabel: "Názov SVB", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "registracia_ou_svb", "Registrácia na Okresnom úrade", "short_text", 120, 2, 50, { shortLabel: "Regist. OÚ", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "ico_svb", "IČO", "short_text", 130, 3, 33, { shortLabel: "IČO", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "dic_svb", "DIČ", "short_text", 140, 3, 33, { shortLabel: "DIČ", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "ic_dph_svb", "IČ DPH", "short_text", 150, 3, 34, { shortLabel: "IČ DPH", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "datum_vzniku_svb", "Dátum vzniku", "date", 160, 4, 50, { shortLabel: "Dátum vzniku", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "zmluva_o_spolocenstve_datum", "Zmluva o spoločenstve zo dňa", "date", 170, 4, 50, { shortLabel: "Zmluva zo dňa", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+
+      // ============================================================
+      // OS: Správa a riadenie (os_riadenie) – SVB only
+      // Row 0: forma_spravy(50) + nazov_spravcu(50)
+      // Row 1: cislo_zmluvy_o_sprave(50) + datum_uzatvorenia_spravy(50)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_riadenie", "forma_spravy", "Forma správy", "jedna_moznost", 10, 0, 50, { shortLabel: "Forma správy", options: ["Vlastná správa", "Externý správca"], visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_riadenie", "nazov_spravcu", "Názov správcu", "short_text", 20, 0, 50, { shortLabel: "Názov správcu", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_riadenie", "cislo_zmluvy_o_sprave", "Číslo zmluvy o správe", "short_text", 30, 1, 50, { shortLabel: "Č. zmluvy", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_riadenie", "datum_uzatvorenia_spravy", "Dátum uzatvorenia zmluvy", "date", 40, 1, 50, { shortLabel: "Dátum zmluvy", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+
+      // ============================================================
+      // OS: Údaje o bytovom dome (os_bytovy_dom) – SVB only
+      // Row 0: katastralne_uzemie_svb(50) + cislo_lv_svb(50)
+      // Row 1: pocet_bytov(33) + pocet_nebytovych_priestorov(33) + supisne_cisla_domu(34)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_bytovy_dom", "katastralne_uzemie_svb", "Katastrálne územie", "short_text", 10, 0, 50, { shortLabel: "Kat. územie", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_bytovy_dom", "cislo_lv_svb", "Číslo listu vlastníctva", "short_text", 20, 0, 50, { shortLabel: "Č. LV", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_bytovy_dom", "pocet_bytov", "Počet bytov", "number", 30, 1, 33, { shortLabel: "Počet bytov", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_bytovy_dom", "pocet_nebytovych_priestorov", "Počet nebyt. priestorov", "number", 40, 1, 33, { shortLabel: "Neb. priestory", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_bytovy_dom", "supisne_cisla_domu", "Súpisné čísla", "short_text", 50, 1, 34, { shortLabel: "Súp. čísla", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
 
       // ============================================================
       // OS: Rozšírené cirkevné údaje (os_cirkev)
@@ -901,7 +933,7 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_cirkev", "patrocinium_titular_kostola", "Patrocínium / Titulár kostola", "short_text", 30, 1, 100, { shortLabel: "Patrocínium", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
 
       // ============================================================
-      // OS: Sídlo / Adresa (os_sidlo)
+      // OS: Sídlo / Adresa (os_sidlo) – Cirkev fields
       // Row 0: ulica(40) + supisne_cislo(30) + orientacne_cislo(30)
       // Row 1: mesto(50) + psc(25) + stat(25)
       // ============================================================
@@ -911,24 +943,39 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "mesto", "Mesto", "short_text", 40, 1, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "psc", "PSČ", "short_text", 50, 1, 25, { visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "stat", "Štát", "short_text", 60, 1, 25, { visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      // SVB: Sídlo / Adresa – sortOrders 110–160
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "ulica_svb", "Ulica", "short_text", 110, 0, 40, { visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "supisne_cislo_svb", "Súpisné číslo", "short_text", 120, 0, 30, { shortLabel: "Súp. č.", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "orientacne_cislo_svb", "Orientačné číslo", "short_text", 130, 0, 30, { shortLabel: "Or. č.", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "mesto_svb", "Mesto", "short_text", 140, 1, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "psc_svb", "PSČ", "short_text", 150, 1, 25, { visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "stat_svb", "Štát", "short_text", 160, 1, 25, { visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
 
       // ============================================================
-      // OS: Kontaktné údaje (os_kontakt)
+      // OS: Kontaktné údaje (os_kontakt) – Cirkev fields
       // Row 0: telefon_farnost(50) + email_farnost(50)
       // Row 1: webova_stranka(100)
       // ============================================================
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "telefon_farnost", "Telefón farnosti", "short_text", 10, 0, 50, { shortLabel: "Telefón", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "email_farnost", "E-mail farnosti", "short_text", 20, 0, 50, { shortLabel: "E-mail", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "webova_stranka", "Webová stránka", "short_text", 30, 1, 100, { shortLabel: "Web", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      // SVB: Kontaktné údaje – sortOrders 110–130
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "telefon_svb", "Telefón", "short_text", 110, 0, 50, { shortLabel: "Telefón", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "email_svb", "E-mail", "short_text", 120, 0, 50, { shortLabel: "E-mail", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "portal_vlastnikov", "Webový portál pre vlastníkov", "short_text", 130, 1, 100, { shortLabel: "Portál", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
 
       // ============================================================
-      // OS: Bankové spojenie (os_banka)
+      // OS: Bankové spojenie (os_banka) – Cirkev fields
       // Row 0: iban(50) + swift_bic(50)
       // Row 1: nazov_banky(100)
       // ============================================================
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "iban", "IBAN", "short_text", 10, 0, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "swift_bic", "SWIFT / BIC", "short_text", 20, 0, 50, { shortLabel: "SWIFT/BIC", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "nazov_banky", "Názov banky", "short_text", 30, 1, 100, { shortLabel: "Banka", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      // SVB: Bankové spojenie – sortOrders 110–130
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "iban_svb", "IBAN", "short_text", 110, 0, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "swift_svb", "SWIFT / BIC", "short_text", 120, 0, 50, { shortLabel: "SWIFT/BIC", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "nazov_banky_svb", "Názov banky", "short_text", 130, 1, 100, { shortLabel: "Banka", visibilityRule: { dependsOn: "specifikacia_os", value: "Spoločenstvo vlastníkov bytov (SVB)" } }),
     ] : []),
   ];
 
