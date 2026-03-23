@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, AlertTriangle, ExternalLink, X, Building2, User, Loader2, Link2,
   Plus, Trash2, ShieldCheck, ListPlus, Eye, CreditCard, Users, CheckCircle2,
-  ChevronsUpDown, Check,
+  ChevronsUpDown, Check, UserPlus,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
