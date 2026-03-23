@@ -63,6 +63,7 @@ import {
   User,
   Plus,
   FileSignature,
+  UserPlus,
 } from "lucide-react";
 import {
   Sidebar,
@@ -87,6 +88,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { InitialRegistrationModal } from "@/components/initial-registration-modal";
 
 const topItems = [
   { href: "/", icon: LayoutDashboard, label: "Prehlad" },
@@ -438,6 +440,7 @@ export function AppSidebar() {
 
   const activeMenuId = allMenus.find(m => m.items.some(i => i.href === location || i.href === locationWithSearch))?.id || null;
   const [openMenuId, setOpenMenuId] = useState<string | null>(activeMenuId);
+  const [isPridatSubjektOpen, setIsPridatSubjektOpen] = useState(false);
 
   const isNastavenieActive = allNastavenieHrefs.includes(location);
   const isNastavenieOpen = openMenuId === "nastavenia";
@@ -464,6 +467,7 @@ export function AppSidebar() {
   const showZmluvyCascade = visibleZmluvySubItems.length > 1;
 
   return (
+    <>
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
@@ -849,6 +853,16 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
+                      <SidebarMenuSubItem key="pridat-subjekt">
+                        <SidebarMenuSubButton
+                          className="py-1.5 text-primary hover:text-primary"
+                          data-testid="nav-pridat-subjekt"
+                          onClick={() => setIsPridatSubjektOpen(true)}
+                        >
+                          <UserPlus className="w-4 h-4" />
+                          <span className="text-[13px]">Pridať subjekt</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
                       {klientiItems.map(item => (
                         <SidebarMenuSubItem key={item.href}>
                           <SidebarMenuSubButton
@@ -1250,5 +1264,22 @@ export function AppSidebar() {
         </div>
       </SidebarFooter>
     </Sidebar>
+
+    <InitialRegistrationModal
+      open={isPridatSubjektOpen}
+      onOpenChange={setIsPridatSubjektOpen}
+      onProceed={(data) => {
+        setIsPridatSubjektOpen(false);
+        if (data.aresData) {
+          try { sessionStorage.setItem('pridat_subjekt_ares', JSON.stringify(data.aresData)); } catch {}
+        }
+        window.location.href = `/subjects?addNew=true&clientType=${encodeURIComponent(data.clientTypeCode)}&baseValue=${encodeURIComponent(data.baseValue)}`;
+      }}
+      onViewSubject={(id) => {
+        setIsPridatSubjektOpen(false);
+        window.location.href = `/subjects?openId=${id}`;
+      }}
+    />
+    </>
   );
 }
