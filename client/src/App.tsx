@@ -69,6 +69,7 @@ import ReportyOdosielanie from "@/pages/ReportyOdosielanie";
 import ReportyNBS from "@/pages/ReportyNBS";
 import ObchodnePrilezitosti from "@/pages/ObchodnePrilezitosti";
 import NastavenieObchodnychPrilezitosti from "@/pages/NastavenieObchodnychPrilezitosti";
+import PridatSubjekt from "@/pages/PridatSubjekt";
 import { AppShell } from "@/components/layout/AppShell";
 import { RedListNotificationPopup } from "@/components/red-list-notification-popup";
 import { BlackListNotificationPopup } from "@/components/black-list-notification-popup";
@@ -171,6 +172,7 @@ const PrivateReportyOdosielanie = () => <PrivateRoute><ReportyOdosielanie /></Pr
 const PrivateReportyNBS = () => <PrivateRoute><ReportyNBS /></PrivateRoute>;
 const PrivateObchodnePrilezitosti = () => <PrivateRoute><ObchodnePrilezitosti /></PrivateRoute>;
 const PrivateNastavenieObchodnychPrilezitosti = () => <PrivateRoute><NastavenieObchodnychPrilezitosti /></PrivateRoute>;
+const PrivatePridatSubjekt = () => <PrivateRoute><PridatSubjekt /></PrivateRoute>;
 const PrivateClientProfile = () => <PrivateRoute><ClientProfilePage /></PrivateRoute>;
 
 function Router() {
@@ -240,6 +242,7 @@ function Router() {
       <Route path="/reporty-nbs" component={PrivateReportyNBS} />
       <Route path="/obchodne-prilezitosti" component={PrivateObchodnePrilezitosti} />
       <Route path="/nastavenie-obchodnych-prilezitosti" component={PrivateNastavenieObchodnychPrilezitosti} />
+      <Route path="/pridat-subjekt" component={PrivatePridatSubjekt} />
       <Route component={NotFound} />
     </Switch>
   );

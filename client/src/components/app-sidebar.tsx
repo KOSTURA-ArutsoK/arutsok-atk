@@ -1270,10 +1270,8 @@ export function AppSidebar() {
       onOpenChange={setIsPridatSubjektOpen}
       onProceed={(data) => {
         setIsPridatSubjektOpen(false);
-        if (data.aresData) {
-          try { sessionStorage.setItem('pridat_subjekt_ares', JSON.stringify(data.aresData)); } catch {}
-        }
-        window.location.href = `/subjects?addNew=true&clientType=${encodeURIComponent(data.clientTypeCode)}&baseValue=${encodeURIComponent(data.baseValue)}`;
+        try { sessionStorage.setItem('pridat_subjekt_data', JSON.stringify(data)); } catch {}
+        window.location.href = '/pridat-subjekt';
       }}
       onViewSubject={(id) => {
         setIsPridatSubjektOpen(false);
