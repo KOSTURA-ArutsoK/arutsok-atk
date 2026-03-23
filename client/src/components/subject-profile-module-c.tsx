@@ -1911,9 +1911,9 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                                                   if (!isEditing && (rawFieldVal === undefined || rawFieldVal === null || rawFieldVal === "")) return null;
                                                   const fkLower = field.fieldKey.toLowerCase();
                                                   const isExpiryField = field.fieldType === "date" && (fkLower.includes("platnost") || fkLower.includes("_do") || fkLower.includes("expir") || fkLower.includes("validit") || fkLower.endsWith("do"));
-                                                  const pct = field.widthPercent > 0 ? field.widthPercent : (100 / (panel.gridColumns || 3));
+                                                  const pct = field.widthPercent > 0 ? field.widthPercent : 33.333;
                                                   return (
-                                                    <div key={field.id} className="min-w-0 relative px-1.5 pb-3" style={{ width: `${pct}%` }}>
+                                                    <div key={field.id} className="min-w-0 relative px-1.5 pb-3" style={{ flex: `0 0 ${pct}%`, width: `${pct}%` }}>
                                                       <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} disabled={!isEditing} subjectId={subject.id} />
                                                       {isExpiryField && fieldVal && !isEditing && (
                                                         <div className="mt-0.5">
