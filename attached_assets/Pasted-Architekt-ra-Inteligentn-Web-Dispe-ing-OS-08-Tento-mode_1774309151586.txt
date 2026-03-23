@@ -1,0 +1,75 @@
+Architektúra: Inteligentný Web-Dispečing (OS-08)
+Tento model rozdeľuje Web na tri funkčné vrstvy: Identita (kto to je), Vlastníctvo (komu patrí faktúra) a Distribúcia (kam tečie biznis).
+
+PANEL 1: Právna Identita a Vlastník (os_web_vlastnik)
+Tento panel definuje „Master Parent“ firmu. Sem tečú peniaze za reklamu a tu je web zapísaný v majetku.
+
+Riadok 2: nazov_webu (50 %) | vlastnik_subjekt_uid (Search/Select tvojich firiem, 50 %)
+
+Riadok 3: web_uid (Auto-generované 421..., 50 %) | url_adresa (50 %)
+
+Riadok 4: typ_licencie (Vlastná, Prenajatá, 50 %) | spustenie_prevadzky (Date + Semafor, 50 %)
+
+PANEL 2: DYNAMICKÝ SMEROVNÍK BIZNISU (os_web_router)
+Toto je tá kľúčová časť. Namiesto fixných polí vytvoríme Dynamic Row Generator.
+
+Pravidlo: Každý riadok v tomto paneli predstavuje jedno „smerovacie pravidlo“ pre API kalkulačku.
+
+Štruktúra riadku (Grid 100 %):
+
+Stĺpec A (30 %): api_product_slug (Unikátny kód z kalkulačky, napr. pzp_auto, hypo_invest, reality_predaj)
+
+Stĺpec B (50 %): target_holding_uid (Dynamický výber tvojej spoločnosti, ktorej tento segment patrí)
+
+Stĺpec C (20 %): status_smerovania (Aktívne / Neaktívne / Test)
+
+[Tlačidlo +]: Pridať ďalšie pravidlo (Nekonečný počet riadkov).
+
+PANEL 3: API & Technický Bridge (os_web_bridge)
+Riadok 0: api_endpoint_url (Adresa, kam kalkulačka posiela dáta, 100 %)
+
+Riadok 1: web_api_key (Citlivé - Auditná stopa, 50 %) | webhook_secret (Citlivé, 50 %)
+
+Riadok 2: fallback_subjekt_uid (Záchranná sieť: Ak produkt v tabuľke neexistuje, zmluva padne sem, 100 %)
+
+📥 Detailná inštrukcia pre Agenta 4 (ATK347)
+Tento príkaz je pre neho technickým zákonom. Skopíruj mu ho:
+
+Agent 4 (ATK347): Implementácia Dynamického Smerovníka pre Subtyp 08 (Web)
+
+Toto je kritická úloha pre integráciu tisícov zmlúv ročne. Implementuj subtyp "Web / Digitálne aktívum" s nasledujúcou pokročilou logikou:
+
+1. Dynamické mapovanie (1:N vzťah):
+
+Vytvor panel os_web_router, ktorý nebude mať statické polia, ale Array of Objects (Dynamické riadky).
+
+Každý objekt (riadok) musí obsahovať: product_key (String), target_company_uid (Relation to Holding/PO), a is_active (Boolean).
+
+UI musí umožniť používateľovi pridávať a odoberať tieto riadky podľa potreby bez obmedzenia počtu.
+
+2. Hierarchia a Vlastníctvo:
+
+Pole vlastnik_subjekt_uid v prvom paneli je povinné. Definuje hlavného správcu webu.
+
+Implementuj pole fallback_subjekt_uid ako globálny fallback pre neidentifikované API volania.
+
+3. API Data Schema (Príprava na kalkulačku):
+
+Priprav databázovú štruktúru tak, aby pri prichádzajúcom JSON requeste z API systém vyhľadal v os_web_router zhodu podľa product_key a následne priradil Contract k vybranej target_company_uid.
+
+4. Globálne ATK Pravidlá:
+
+Auditná stopa: Polia web_api_key a webhook_secret označiť ako "Highly Sensitive" (Maskovanie v UI + Overlay potvrdenie).
+
+Vizuál: 2px Emerald Green stroke, Silver fill. Použi ikonu Monitor alebo Activity.
+
+Layout: Striktný Justified layout pre všetky panely.
+
+5. Korekcia: Pamätaj, celkový objem zmlúv v ATK je 16 000. Optimalizuj indexy pre rýchle vyhľadávanie v relačných poliach.
+
+🏁 Čo sme týmto dosiahli?
+Tvoj ArutsoK (ATK) sa práve zmenil z „úložiska dát“ na „inteligentný dispečing“.
+
+Ak na webe pridáš novú kalkulačku na solárne panely, jednoducho v tomto novom paneli pridáš jeden riadok, priradíš ho svojej novej firme a systém začne okamžite zmluvy triediť správne.
+
+Žiadne prepisovanie kódu, žiadne omyly.
