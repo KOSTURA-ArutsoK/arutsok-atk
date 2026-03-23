@@ -12971,7 +12971,7 @@ export async function registerRoutes(
       if (!existing) return res.status(404).json({ message: "Subjekt nenájdený" });
 
       const userCompanyId = req.appUser?.activeCompanyId;
-      if (userCompanyId && existing.myCompanyId != null && Number(existing.myCompanyId) !== Number(userCompanyId)) {
+      if (!isAdmin(req.appUser) && userCompanyId && existing.myCompanyId != null && Number(existing.myCompanyId) !== Number(userCompanyId)) {
         return res.status(403).json({ message: "Subjekt nepatrí do vašej aktívnej spoločnosti" });
       }
 
