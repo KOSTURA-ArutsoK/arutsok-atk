@@ -1719,7 +1719,9 @@ function FullPageEditor({
   );
 }
 
-function InitStep({ onProceed }: { onProceed: (data: InitialData) => void }) {
+// InitStep removed – sidebar uses InitialRegistrationModal dialog instead
+
+function _unused_InitStep({ onProceed }: { onProceed: (data: InitialData) => void }) {
   const { data: appUser } = useAppUser();
   const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
 
@@ -1964,7 +1966,7 @@ function InitStep({ onProceed }: { onProceed: (data: InitialData) => void }) {
 }
 
 export default function PridatSubjekt() {
-  const [initialData, setInitialData] = useState<InitialData | null>(() => {
+  const [initialData] = useState<InitialData | null>(() => {
     const raw = sessionStorage.getItem('pridat_subjekt_data');
     if (!raw) return null;
     try {
@@ -1977,7 +1979,8 @@ export default function PridatSubjekt() {
   });
 
   if (!initialData) {
-    return <InitStep onProceed={(data) => setInitialData(data)} />;
+    window.history.back();
+    return null;
   }
 
   return (
