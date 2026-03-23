@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useCreateSubject } from "@/hooks/use-subjects";
 import { useStates } from "@/hooks/use-hierarchy";
@@ -1719,31 +1719,265 @@ function FullPageEditor({
   );
 }
 
-export default function PridatSubjekt() {
-  const [, navigate] = useLocation();
-  const [initialData, setInitialData] = useState<InitialData | null>(null);
+function InitStep({ onProceed }: { onProceed: (data: InitialData) => void }) {
+  const { data: appUser } = useAppUser();
+  const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
 
-  useEffect(() => {
-    const raw = sessionStorage.getItem('pridat_subjekt_data');
-    if (!raw) {
-      navigate('/subjects');
-      return;
-    }
+  const [selectedType, setSelectedType] = useState("");
+  const [baseValue, setBaseValue] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; uid: string; id: number; matchedField?: string; managerName?: string | null; isBlacklisted?: boolean; blacklistMessage?: string } | null>(null);
+  const [duplicateChecked, setDuplicateChecked] = useState(false);
+  const [rcError, setRcError] = useState<string | null>(null);
+  const [icoError, setIcoError] = useState<string | null>(null);
+  const [aresLookup, setAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; directors?: { name: string; role: string; titleBefore?: string; firstName?: string; lastName?: string; titleAfter?: string }[]; found: boolean; message?: string } | null>(null);
+  const [aresLoading, setAresLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const baseInputRef = useRef<HTMLInputElement>(null);
+  const proceedBtnRef = useRef<HTMLButtonElement>(null);
+
+  const selectedClientType = clientTypes?.find(ct => ct.code === selectedType);
+  const baseParamLabel = selectedClientType?.baseParameter === "ico" ? "IČO" : "Rodné číslo (RC)";
+
+  const performDuplicateCheck = useCallback(async (value: string, _paramType: string | undefined) => {
+    if (!value.trim()) { setDuplicateInfo(null); setDuplicateChecked(false); return; }
+    setChecking(true);
     try {
-      const parsed = JSON.parse(raw);
-      sessionStorage.removeItem('pridat_subjekt_data');
-      setInitialData(parsed);
+      const trimmed = value.trim();
+      const res = await apiRequest("POST", "/api/subjects/check-duplicate", { birthNumber: trimmed, ico: trimmed });
+      const data = await res.json();
+      if (data.isDuplicate) {
+        setDuplicateInfo({ name: data.subject.name, uid: data.subject.uid, id: data.subject.id, matchedField: data.subject.matchedField, managerName: data.managerName, isBlacklisted: data.isBlacklisted, blacklistMessage: data.message });
+      } else {
+        setDuplicateInfo(null);
+      }
+      setDuplicateChecked(true);
+      if (!data.isDuplicate) setTimeout(() => proceedBtnRef.current?.focus(), 50);
     } catch {
-      navigate('/subjects');
+      setDuplicateInfo(null);
+      setDuplicateChecked(true);
+    } finally {
+      setChecking(false);
     }
   }, []);
 
-  if (!initialData) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">Načítavam...</p>
+  useEffect(() => {
+    if (!baseValue.trim() || !selectedType) {
+      setDuplicateInfo(null); setDuplicateChecked(false); setRcError(null); setIcoError(null); setAresLookup(null);
+      return;
+    }
+    const isRc = selectedClientType?.baseParameter === "rc";
+    const isIco = selectedClientType?.baseParameter === "ico";
+    if (isRc) {
+      setIcoError(null); setAresLookup(null);
+      const digitsOnly = baseValue.replace(/[^0-9]/g, "");
+      if (digitsOnly.length < 9) { setDuplicateChecked(false); setRcError(null); return; }
+      const result = validateSlovakRC(baseValue);
+      if (!result.valid) { setRcError(result.error || "Neplatné rodné číslo"); setDuplicateChecked(false); return; }
+      setRcError(null);
+      performDuplicateCheck(baseValue, selectedClientType?.baseParameter);
+    } else if (isIco) {
+      setRcError(null);
+      const digitsOnly = baseValue.replace(/[\s\/-]/g, "");
+      if (digitsOnly.length < 1) { setDuplicateChecked(false); setIcoError(null); setAresLookup(null); return; }
+      const icoResult = validateSlovakICO(baseValue);
+      if (!icoResult.valid) { setIcoError(icoResult.error || "Neplatné IČO"); setDuplicateChecked(false); setAresLookup(null); return; }
+      setIcoError(null);
+      performDuplicateCheck(baseValue, selectedClientType?.baseParameter);
+      setAresLoading(true);
+      const normalizedIco = icoResult.normalized || digitsOnly;
+      const lookupType = selectedType.toLowerCase().includes("szco") ? "szco" : "company";
+      fetch(`/api/lookup/ico/${encodeURIComponent(normalizedIco)}?type=${lookupType}`, { credentials: "include" })
+        .then(r => r.json())
+        .then(d => { setAresLookup(d.found ? d : { found: false, message: d.message || "Subjekt nenájdený v štátnych registroch" }); })
+        .catch(() => { setAresLookup({ found: false, message: "Chyba pri vyhľadávaní v registroch" }); })
+        .finally(() => setAresLoading(false));
+    } else {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      setDuplicateChecked(false);
+      debounceRef.current = setTimeout(() => { performDuplicateCheck(baseValue, selectedClientType?.baseParameter); }, 500);
+      return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    }
+  }, [baseValue, selectedType, selectedClientType?.baseParameter, performDuplicateCheck]);
+
+  function handleProceed() {
+    if (duplicateInfo) return;
+    onProceed({
+      clientTypeCode: selectedType,
+      stateId: appUser?.activeStateId || 0,
+      baseValue: baseValue.trim(),
+      aresData: aresLookup?.found ? { name: aresLookup.name, street: aresLookup.street, streetNumber: aresLookup.streetNumber, zip: aresLookup.zip, city: aresLookup.city, legalForm: aresLookup.legalForm, dic: aresLookup.dic, source: aresLookup.source, directors: aresLookup.directors } : undefined,
+    });
+  }
+
+  const canProceed = selectedType && appUser?.activeStateId && baseValue.trim() && duplicateChecked && !duplicateInfo && !rcError && !icoError;
+
+  return (
+    <div className="max-w-xl mx-auto py-8 px-4">
+      <div className="flex items-center gap-3 mb-6">
+        <Button variant="ghost" size="sm" onClick={() => window.history.back()} data-testid="button-back-init">
+          <ArrowLeft className="w-4 h-4 mr-1" />
+          Späť
+        </Button>
+        <div>
+          <h2 className="text-xl font-bold">Nový klient</h2>
+          <p className="text-xs text-muted-foreground">Registrácia nového subjektu</p>
+        </div>
       </div>
-    );
+
+      <Card>
+        <CardContent className="pt-6 space-y-5">
+          <div>
+            <Label className="text-xs">Typ klienta</Label>
+            <Select value={selectedType} onValueChange={(v) => { setSelectedType(v); setDuplicateInfo(null); setTimeout(() => baseInputRef.current?.focus(), 50); }}>
+              <SelectTrigger data-testid="select-client-type">
+                <SelectValue placeholder="Vyberte typ" />
+              </SelectTrigger>
+              <SelectContent>
+                {clientTypes?.filter(ct => ct.isActive).map(ct => (
+                  <SelectItem key={ct.code} value={ct.code}>{ct.name} ({ct.code})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedType && (
+            <div>
+              <Label className="text-xs">{baseParamLabel}</Label>
+              <div className="relative">
+                <Input
+                  ref={baseInputRef}
+                  placeholder={selectedClientType?.baseParameter === "ico" ? "napr. 12345678" : "napr. 900101/1234"}
+                  value={baseValue}
+                  onChange={(e) => setBaseValue(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && canProceed && !checking) handleProceed(); }}
+                  className={(rcError || icoError) ? "border-red-500 focus-visible:ring-red-500" : ""}
+                  data-testid="input-base-parameter"
+                />
+                {(checking || aresLoading) && (
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+                {!checking && !aresLoading && duplicateChecked && !duplicateInfo && baseValue.trim() && !rcError && !icoError && (
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  </div>
+                )}
+                {(rcError || icoError) && !checking && !aresLoading && (
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                    <AlertTriangle className="w-4 h-4 text-red-500" />
+                  </div>
+                )}
+              </div>
+              {rcError && <p className="text-xs text-red-500 mt-1" data-testid="text-rc-error">{rcError}</p>}
+              {icoError && <p className="text-xs text-red-500 mt-1" data-testid="text-ico-error">{icoError}</p>}
+              {aresLoading && (
+                <div className="flex items-center gap-2 mt-1">
+                  <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
+                  <span className="text-xs text-blue-400">Preberám údaje z registra...</span>
+                </div>
+              )}
+              {aresLookup?.found && (
+                <div className="mt-2 bg-blue-500/10 border border-blue-500/30 rounded-md p-3 space-y-1" data-testid="ares-lookup-result">
+                  <div className="flex items-center gap-2 justify-between">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
+                      <span className="text-xs font-semibold text-blue-400">{aresLookup.source === "ORSR" ? "Obchodný register SR" : aresLookup.source === "ZRSR" ? "Živnostenský register SR" : "ARES Register"}</span>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] px-2 border-blue-500/40 text-blue-400 hover:bg-blue-500/20" onClick={handleProceed} disabled={!canProceed || checking} data-testid="button-use-ares-data">
+                      Použiť údaje
+                    </Button>
+                  </div>
+                  {aresLookup.name && <p className="text-sm font-medium">{aresLookup.name}</p>}
+                  {(aresLookup.street || aresLookup.city) && (
+                    <p className="text-xs text-muted-foreground">
+                      {[aresLookup.street, aresLookup.streetNumber].filter(Boolean).join(" ")}
+                      {(aresLookup.street || aresLookup.streetNumber) && (aresLookup.zip || aresLookup.city) ? ", " : ""}
+                      {[aresLookup.zip, aresLookup.city].filter(Boolean).join(" ")}
+                    </p>
+                  )}
+                  {aresLookup.legalForm && <p className="text-[10px] text-muted-foreground">{aresLookup.legalForm}{aresLookup.dic ? ` | DIČ: ${aresLookup.dic}` : ""}</p>}
+                  {aresLookup.directors && aresLookup.directors.length > 0 && (
+                    <div className="mt-1 pt-1 border-t border-blue-500/20">
+                      <p className="text-[10px] font-semibold text-blue-400/80 mb-0.5">Štatutári / Konatelia:</p>
+                      {aresLookup.directors.slice(0, 5).map((dir, i) => (
+                        <p key={i} className="text-[10px] text-muted-foreground">
+                          {[dir.titleBefore, dir.firstName, dir.lastName, dir.titleAfter].filter(Boolean).join(" ") || dir.name}
+                          {dir.role ? <span className="text-[9px] text-blue-400/60 ml-1">({dir.role})</span> : null}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {aresLookup && !aresLookup.found && !icoError && (
+                <p className="text-xs text-muted-foreground mt-1">{aresLookup.message}</p>
+              )}
+            </div>
+          )}
+
+          {duplicateInfo && (
+            <div className={`${duplicateInfo.isBlacklisted ? 'bg-red-900/20 border-red-500/50' : 'bg-destructive/10 border-destructive/30'} border rounded-md p-3 space-y-2`}>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className={`w-4 h-4 flex-shrink-0 ${duplicateInfo.isBlacklisted ? 'text-red-500' : 'text-destructive'}`} />
+                <span className={`text-sm font-semibold ${duplicateInfo.isBlacklisted ? 'text-red-500' : 'text-destructive'}`}>
+                  {duplicateInfo.isBlacklisted ? 'Registráciu nie je možné dokončiť' : 'Klient už existuje'}
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {duplicateInfo.name} <span className="font-mono text-xs">[ {formatUid(duplicateInfo.uid)} ]</span>
+                {duplicateInfo.matchedField && <span className="text-xs ml-1">(zhoda: {duplicateInfo.matchedField})</span>}
+              </p>
+              {duplicateInfo.isBlacklisted && (
+                <p className="text-xs text-red-400 font-medium" data-testid="text-blacklist-message">{duplicateInfo.blacklistMessage}</p>
+              )}
+              {duplicateInfo.managerName && !duplicateInfo.isBlacklisted && (
+                <p className="text-xs text-muted-foreground" data-testid="text-duplicate-manager">Správca: <span className="font-semibold text-foreground">{duplicateInfo.managerName}</span></p>
+              )}
+              {!duplicateInfo.isBlacklisted && (
+                <Button variant="outline" size="sm" onClick={() => { window.location.href = `/profil-subjektu?id=${duplicateInfo.id}`; }} data-testid="button-go-to-client">
+                  <ExternalLink className="w-3 h-3 mr-1" />
+                  Prejsť na kartu klienta
+                </Button>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-border">
+            <Button variant="outline" onClick={() => window.history.back()} data-testid="button-cancel-init-reg">
+              Zrušiť
+            </Button>
+            <Button
+              ref={proceedBtnRef}
+              onClick={handleProceed}
+              disabled={!canProceed || checking}
+              data-testid="button-continue-reg"
+            >
+              {checking ? "Overujem..." : "Pokračovať"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function PridatSubjekt() {
+  const [initialData, setInitialData] = useState<InitialData | null>(() => {
+    const raw = sessionStorage.getItem('pridat_subjekt_data');
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      sessionStorage.removeItem('pridat_subjekt_data');
+      return parsed;
+    } catch {
+      return null;
+    }
+  });
+
+  if (!initialData) {
+    return <InitStep onProceed={(data) => setInitialData(data)} />;
   }
 
   return (
