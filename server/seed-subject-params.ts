@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { subjectParamSections, subjectParameters, parameterSynonyms, subjectTemplates, subjectTemplateParams } from "@shared/schema";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, inArray, sql } from "drizzle-orm";
 
 type FieldSeed = {
   clientTypeId: number; sectionCode: string; panelCode: string | null; fieldKey: string; label: string;
@@ -1216,5 +1216,21 @@ export async function seedNsVsTemplates(): Promise<void> {
     }
 
     console.log(`[SEED] Template '${tpl.code}' created with ${params.length} params.`);
+  }
+}
+
+export async function cleanupZombieTemplateParams(): Promise<void> {
+  const result = await db.execute(sql`
+    DELETE FROM subject_template_params
+    WHERE parameter_id IN (
+      SELECT id FROM subject_parameters
+      WHERE is_active = false OR is_hidden = true
+    )
+  `);
+  const removed = (result as any).rowCount ?? 0;
+  if (removed > 0) {
+    console.log(`[CLEANUP] Removed ${removed} zombie template-param link(s) pointing to inactive or hidden parameters.`);
+  } else {
+    console.log(`[CLEANUP] No zombie template-param links found.`);
   }
 }
