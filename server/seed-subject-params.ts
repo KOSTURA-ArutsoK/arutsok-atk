@@ -129,6 +129,10 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "VOLITEĽNÉ ÚDAJE", code: "os_volitelne", folderCategory: "volitelne", sortOrder: 2, isPanel: false, gridColumns: 1 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "INÉ ÚDAJE", code: "os_ine", folderCategory: "ine", sortOrder: 3, isPanel: false, gridColumns: 1 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Základné údaje", code: "os_subjekt", folderCategory: "povinne", sortOrder: 0, isPanel: true, gridColumns: 2 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "Sídlo / Adresa", code: "os_sidlo", folderCategory: "povinne", sortOrder: 1, isPanel: true, gridColumns: 4 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "Kontaktné údaje", code: "os_kontakt", folderCategory: "povinne", sortOrder: 2, isPanel: true, gridColumns: 2 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "Rozšírené cirkevné údaje", code: "os_cirkev", folderCategory: "doplnkove", sortOrder: 0, isPanel: true, gridColumns: 2 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "Bankové spojenie", code: "os_banka", folderCategory: "doplnkove", sortOrder: 1, isPanel: true, gridColumns: 3 },
     ] : []),
   ];
 
@@ -166,7 +170,8 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     ns_aml: "ns_doplnkove", ns_zakonne: "ns_doplnkove", ns_zmluvne: "ns_doplnkove", ns_statutari: "ns_doplnkove", ns_firemny: "ns_doplnkove",
     vs_subjekt: "vs_povinne", vs_sidlo: "vs_povinne", vs_kontakt: "vs_povinne",
     vs_aml: "vs_doplnkove", vs_zakonne: "vs_doplnkove", vs_zmluvne: "vs_doplnkove", vs_statutari: "vs_doplnkove", vs_inst_profil: "vs_doplnkove",
-    os_subjekt: "os_povinne",
+    os_subjekt: "os_povinne", os_sidlo: "os_povinne", os_kontakt: "os_povinne",
+    os_cirkev: "os_doplnkove", os_banka: "os_doplnkove",
   };
 
   for (const [childCode, parentCode] of Object.entries(parentCodes)) {
@@ -869,11 +874,61 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     // OS: Základné údaje (os_subjekt)  – conditional on OS_CLIENT_TYPE_ID
     // Row 0 (100%): nazov_organizacie(50) + ico(50)
     // Row 1 (100%): specifikacia_os(100) – segmented control
+    // Row 2–4 (Cirkev): nazov_cirkvi_institucie(50)+registracia_mk_sr(50),
+    //                   ico_cirkvi(33)+dic_cirkvi(33)+ic_dph_cirkvi(34),
+    //                   datum_zriadenia(50)+zriadovatel_dieceza(50)
     // ============================================================
     ...(OS_CLIENT_TYPE_ID ? [
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "nazov_organizacie", "Názov subjektu", "short_text", 10, 0, 50, { isRequired: true, shortLabel: "Názov" }),
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "ico", "IČO", "short_text", 20, 0, 50, { isRequired: true }),
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "specifikacia_os", "Špecifikácia OS", "segmented", 30, 1, 100, { shortLabel: "Špecifikácia", options: ["Cirkev a náboženská spoločnosť", "Spoločenstvo vlastníkov bytov (SVB)", "Zahraničná osoba", "Organizačná zložka", "Konzorcium / Združenie", "Iný špecifický subjekt"] }),
+      // Cirkev-specific rows in os_subjekt (visibilityRule on all)
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "nazov_cirkvi_institucie", "Názov cirkvi / inštitúcie", "short_text", 40, 2, 50, { shortLabel: "Názov cirkvi", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "registracia_mk_sr", "Registrácia MK SR", "short_text", 50, 2, 50, { shortLabel: "Regist. MK SR", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "ico_cirkvi", "IČO cirkvi", "short_text", 60, 3, 33, { shortLabel: "IČO cirkvi", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "dic_cirkvi", "DIČ cirkvi", "short_text", 70, 3, 33, { shortLabel: "DIČ cirkvi", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "ic_dph_cirkvi", "IČ DPH cirkvi", "short_text", 80, 3, 34, { shortLabel: "IČ DPH", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "datum_zriadenia", "Dátum zriadenia", "date", 90, 4, 50, { shortLabel: "Dátum zriad.", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "zriadovatel_dieceza", "Zriaďovateľ / Diecéza", "short_text", 100, 4, 50, { shortLabel: "Zriaď. / Diecéza", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+
+      // ============================================================
+      // OS: Rozšírené cirkevné údaje (os_cirkev)
+      // Row 0: typ_cirkevnej_organizacie(50) + dekanat_seniorat(50)
+      // Row 1: patrocinium_titular_kostola(100)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_cirkev", "typ_cirkevnej_organizacie", "Typ cirkevnej organizácie", "jedna_moznost", 10, 0, 50, { shortLabel: "Typ org.", options: ["Farnosť", "Diecéza", "Rehoľa", "Charita", "Iné"], visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_cirkev", "dekanat_seniorat", "Dekanát / Seniorát", "short_text", 20, 0, 50, { shortLabel: "Dekanát", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_cirkev", "patrocinium_titular_kostola", "Patrocínium / Titulár kostola", "short_text", 30, 1, 100, { shortLabel: "Patrocínium", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+
+      // ============================================================
+      // OS: Sídlo / Adresa (os_sidlo)
+      // Row 0: ulica(40) + supisne_cislo(30) + orientacne_cislo(30)
+      // Row 1: mesto(50) + psc(25) + stat(25)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "ulica", "Ulica", "short_text", 10, 0, 40, { visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "supisne_cislo", "Súpisné číslo", "short_text", 20, 0, 30, { shortLabel: "Súp. č.", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "orientacne_cislo", "Orientačné číslo", "short_text", 30, 0, 30, { shortLabel: "Or. č.", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "mesto", "Mesto", "short_text", 40, 1, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "psc", "PSČ", "short_text", 50, 1, 25, { visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_sidlo", "stat", "Štát", "short_text", 60, 1, 25, { visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+
+      // ============================================================
+      // OS: Kontaktné údaje (os_kontakt)
+      // Row 0: telefon_farnost(50) + email_farnost(50)
+      // Row 1: webova_stranka(100)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "telefon_farnost", "Telefón farnosti", "short_text", 10, 0, 50, { shortLabel: "Telefón", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "email_farnost", "E-mail farnosti", "short_text", 20, 0, 50, { shortLabel: "E-mail", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_kontakt", "webova_stranka", "Webová stránka", "short_text", 30, 1, 100, { shortLabel: "Web", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+
+      // ============================================================
+      // OS: Bankové spojenie (os_banka)
+      // Row 0: iban(50) + swift_bic(50)
+      // Row 1: nazov_banky(100)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "iban", "IBAN", "short_text", 10, 0, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "swift_bic", "SWIFT / BIC", "short_text", 20, 0, 50, { shortLabel: "SWIFT/BIC", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
+      f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "nazov_banky", "Názov banky", "short_text", 30, 1, 100, { shortLabel: "Banka", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
     ] : []),
   ];
 
