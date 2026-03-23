@@ -1200,7 +1200,7 @@ export async function seedNsVsTemplates(): Promise<void> {
 
     const params = await db.select({ id: subjectParameters.id, sortOrder: subjectParameters.sortOrder })
       .from(subjectParameters)
-      .where(and(eq(subjectParameters.clientTypeId, tpl.clientTypeId), eq(subjectParameters.isActive, true)))
+      .where(and(eq(subjectParameters.clientTypeId, tpl.clientTypeId), eq(subjectParameters.isActive, true), eq(subjectParameters.isHidden, false)))
       .orderBy(asc(subjectParameters.sortOrder));
 
     if (params.length > 0) {
