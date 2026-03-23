@@ -871,65 +871,64 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     // Migration #99: Move FO personal fields from panel fo_osobne_udaje (panel 55)
     // to panel fo_osobne (panel 87) and fix all row widths to sum to 100%.
     // Panel 55 is renamed to "Rozšírené osobné údaje" to avoid name collision.
+    // Each update is independently idempotent via its own WHERE condition.
     {
-      const panelOsobne = sectionMap["fo_osobne"];        // panel 87
+      const panelOsobne = sectionMap["fo_osobne"];          // panel 87
       const panelRozsirene = sectionMap["fo_osobne_udaje"]; // panel 55
       if (panelOsobne && panelRozsirene) {
-        // Check if pohlavie is still in the wrong panel (pre-migration state)
-        const wrongPanel = await db.select({ id: subjectParameters.id })
-          .from(subjectParameters)
-          .where(and(
-            eq(subjectParameters.clientTypeId, 1),
-            eq(subjectParameters.fieldKey, "pohlavie"),
-            eq(subjectParameters.panelId, panelRozsirene)
-          ))
-          .limit(1);
-        if (wrongPanel.length > 0) {
-          // Move pohlavie → panel 87, row 2, 25%
-          await db.update(subjectParameters)
+        // Fields to move from panel 55 → panel 87 (each guarded by panelId=panelRozsirene)
+        const movedFrom55 = await Promise.all([
+          db.update(subjectParameters)
             .set({ panelId: panelOsobne, sortOrder: 80, rowNumber: 2, widthPercent: 25 })
-            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "pohlavie"), eq(subjectParameters.panelId, panelRozsirene)));
-          // Move rodinny_stav → panel 87, row 2, 25%
-          await db.update(subjectParameters)
+            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "pohlavie"), eq(subjectParameters.panelId, panelRozsirene)))
+            .returning({ id: subjectParameters.id }),
+          db.update(subjectParameters)
             .set({ panelId: panelOsobne, sortOrder: 85, rowNumber: 2, widthPercent: 25 })
-            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "rodinny_stav"), eq(subjectParameters.panelId, panelRozsirene)));
-          // Move rodne_priezvisko → panel 87, row 3, 40%
-          await db.update(subjectParameters)
+            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "rodinny_stav"), eq(subjectParameters.panelId, panelRozsirene)))
+            .returning({ id: subjectParameters.id }),
+          db.update(subjectParameters)
             .set({ panelId: panelOsobne, sortOrder: 100, rowNumber: 3, widthPercent: 40 })
-            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "rodne_priezvisko"), eq(subjectParameters.panelId, panelRozsirene)));
-          // Move miesto_narodenia → panel 87, row 3, 40%
-          await db.update(subjectParameters)
+            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "rodne_priezvisko"), eq(subjectParameters.panelId, panelRozsirene)))
+            .returning({ id: subjectParameters.id }),
+          db.update(subjectParameters)
             .set({ panelId: panelOsobne, sortOrder: 105, rowNumber: 3, widthPercent: 40 })
-            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "miesto_narodenia"), eq(subjectParameters.panelId, panelRozsirene)));
-          // Fix vek layout in panel 87: row 3, 20%
-          await db.update(subjectParameters)
+            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "miesto_narodenia"), eq(subjectParameters.panelId, panelRozsirene)))
+            .returning({ id: subjectParameters.id }),
+        ]);
+        // Fix layout of fields already in panel 87 (guarded by panelId=panelOsobne)
+        await Promise.all([
+          db.update(subjectParameters)
             .set({ sortOrder: 90, rowNumber: 3, widthPercent: 20 })
-            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "vek"), eq(subjectParameters.panelId, panelOsobne)));
-          // Fix statna_prislusnost: full-width row 4
-          await db.update(subjectParameters)
+            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "vek"), eq(subjectParameters.panelId, panelOsobne))),
+          db.update(subjectParameters)
             .set({ sortOrder: 110, rowNumber: 4, widthPercent: 100 })
-            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "statna_prislusnost"), eq(subjectParameters.panelId, panelOsobne)));
-          // Fix remaining panel 55 fields (row assignments)
-          await db.update(subjectParameters)
+            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "statna_prislusnost"), eq(subjectParameters.panelId, panelOsobne))),
+        ]);
+        // Fix row assignments for remaining panel 55 fields (guarded by panelId=panelRozsirene)
+        await Promise.all([
+          db.update(subjectParameters)
             .set({ sortOrder: 10, rowNumber: 1, widthPercent: 50 })
-            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "p_predch_priezvisko"), eq(subjectParameters.panelId, panelRozsirene)));
-          await db.update(subjectParameters)
+            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "p_predch_priezvisko"), eq(subjectParameters.panelId, panelRozsirene))),
+          db.update(subjectParameters)
             .set({ sortOrder: 20, rowNumber: 1, widthPercent: 50 })
-            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "p_druhe_obcianstvo"), eq(subjectParameters.panelId, panelRozsirene)));
-          await db.update(subjectParameters)
+            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "p_druhe_obcianstvo"), eq(subjectParameters.panelId, panelRozsirene))),
+          db.update(subjectParameters)
             .set({ sortOrder: 30, rowNumber: 2, widthPercent: 50 })
-            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "p_krajina_narodenia"), eq(subjectParameters.panelId, panelRozsirene)));
-          await db.update(subjectParameters)
+            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "p_krajina_narodenia"), eq(subjectParameters.panelId, panelRozsirene))),
+          db.update(subjectParameters)
             .set({ sortOrder: 40, rowNumber: 2, widthPercent: 50 })
-            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "p_matersky_jazyk"), eq(subjectParameters.panelId, panelRozsirene)));
-          await db.update(subjectParameters)
+            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "p_matersky_jazyk"), eq(subjectParameters.panelId, panelRozsirene))),
+          db.update(subjectParameters)
             .set({ sortOrder: 50, rowNumber: 3, widthPercent: 100 })
-            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "p_pocet_deti"), eq(subjectParameters.panelId, panelRozsirene)));
-          // Rename panel 55 to avoid duplicate name "Osobné údaje"
-          await db.update(subjectParamSections)
-            .set({ name: "Rozšírené osobné údaje" })
-            .where(eq(subjectParamSections.id, panelRozsirene));
-          console.log("[SEED] Migration #99: moved FO personal fields to panel fo_osobne, fixed row widths, renamed fo_osobne_udaje");
+            .where(and(eq(subjectParameters.clientTypeId, 1), eq(subjectParameters.fieldKey, "p_pocet_deti"), eq(subjectParameters.panelId, panelRozsirene))),
+        ]);
+        // Rename panel 55 (idempotent – SET is a no-op if already correct)
+        await db.update(subjectParamSections)
+          .set({ name: "Rozšírené osobné údaje" })
+          .where(eq(subjectParamSections.id, panelRozsirene));
+        const movedCount = movedFrom55.filter(r => r.length > 0).length;
+        if (movedCount > 0) {
+          console.log(`[SEED] Migration #99: moved ${movedCount} FO field(s) to fo_osobne, fixed row widths, renamed fo_osobne_udaje`);
         }
       }
     }
