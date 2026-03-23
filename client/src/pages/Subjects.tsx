@@ -2885,7 +2885,11 @@ export default function Subjects() {
         }}
         onViewSubject={(id) => {
           const found = subjects?.find(s => s.id === id);
-          if (found) setViewTarget(found);
+          if (found) {
+            setViewTarget(found);
+          } else {
+            window.location.href = `/subjects?openId=${id}`;
+          }
         }}
       />
       {bulkAssignOpen && <BulkAssignDialog 
