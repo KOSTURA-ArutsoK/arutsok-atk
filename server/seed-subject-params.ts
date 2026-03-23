@@ -1,6 +1,6 @@
 import { db } from "./db";
-import { subjectParamSections, subjectParameters, parameterSynonyms } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { subjectParamSections, subjectParameters, parameterSynonyms, subjectTemplates, subjectTemplateParams } from "@shared/schema";
+import { eq, and, asc } from "drizzle-orm";
 
 type FieldSeed = {
   clientTypeId: number; sectionCode: string; panelCode: string | null; fieldKey: string; label: string;
@@ -1164,4 +1164,57 @@ export async function seedEventAndEntityPanels(): Promise<{ sectionsCount: numbe
 
   console.log(`[SEED-EVENTS] Created ${insertedPanels.length} panels, ${paramCount} parameters`);
   return { sectionsCount: insertedPanels.length, parametersCount: paramCount };
+}
+
+export async function seedNsVsTemplates(): Promise<void> {
+  const TEMPLATES_TO_SEED = [
+    {
+      code: "subjekt_ns",
+      name: "SUBJEKT NS",
+      description: "Šablóna pre neziskovú organizáciu – identita, štatutári, KUV, kontakt, GDPR",
+      clientTypeId: 5,
+    },
+    {
+      code: "subjekt_vs",
+      name: "SUBJEKT VS",
+      description: "Šablóna pre inštitúciu verejného sektora – identita, štatutári, KUV, financovanie",
+      clientTypeId: 6,
+    },
+  ];
+
+  for (const tpl of TEMPLATES_TO_SEED) {
+    const [existing] = await db.select({ id: subjectTemplates.id }).from(subjectTemplates).where(eq(subjectTemplates.code, tpl.code));
+    if (existing) {
+      console.log(`[SEED] Template '${tpl.code}' already exists, skipping.`);
+      continue;
+    }
+
+    const [created] = await db.insert(subjectTemplates).values({
+      code: tpl.code,
+      name: tpl.name,
+      description: tpl.description,
+      clientTypeId: tpl.clientTypeId,
+      isDefault: true,
+      isActive: true,
+    }).returning();
+
+    const params = await db.select({ id: subjectParameters.id, sortOrder: subjectParameters.sortOrder })
+      .from(subjectParameters)
+      .where(and(eq(subjectParameters.clientTypeId, tpl.clientTypeId), eq(subjectParameters.isActive, true)))
+      .orderBy(asc(subjectParameters.sortOrder));
+
+    if (params.length > 0) {
+      const entries = params.map(p => ({
+        templateId: created.id,
+        parameterId: p.id,
+        sortOrder: p.sortOrder ?? 0,
+        isRequired: false,
+      }));
+      for (let i = 0; i < entries.length; i += 50) {
+        await db.insert(subjectTemplateParams).values(entries.slice(i, i + 50));
+      }
+    }
+
+    console.log(`[SEED] Template '${tpl.code}' created with ${params.length} params.`);
+  }
 }
