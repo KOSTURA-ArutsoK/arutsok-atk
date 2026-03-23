@@ -1719,254 +1719,178 @@ function FullPageEditor({
   );
 }
 
-// InitStep removed – sidebar uses InitialRegistrationModal dialog instead
-
-function _unused_InitStep({ onProceed }: { onProceed: (data: InitialData) => void }) {
-  const { data: appUser } = useAppUser();
-  const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
-
+function InitStep({ onProceed }: { onProceed: (data: InitialData) => void }) {
+  const [hovered, setHovered] = useState(false);
+  const [pressed, setPressed] = useState(false);
   const [selectedType, setSelectedType] = useState("");
+  const [stateId, setStateId] = useState<string>("");
   const [baseValue, setBaseValue] = useState("");
-  const [checking, setChecking] = useState(false);
-  const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; uid: string; id: number; matchedField?: string; managerName?: string | null; isBlacklisted?: boolean; blacklistMessage?: string } | null>(null);
-  const [duplicateChecked, setDuplicateChecked] = useState(false);
-  const [rcError, setRcError] = useState<string | null>(null);
-  const [icoError, setIcoError] = useState<string | null>(null);
-  const [aresLookup, setAresLookup] = useState<{ name?: string; street?: string; streetNumber?: string; zip?: string; city?: string; legalForm?: string; dic?: string; source?: string; directors?: { name: string; role: string; titleBefore?: string; firstName?: string; lastName?: string; titleAfter?: string }[]; found: boolean; message?: string } | null>(null);
-  const [aresLoading, setAresLoading] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const baseInputRef = useRef<HTMLInputElement>(null);
-  const proceedBtnRef = useRef<HTMLButtonElement>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const selectedClientType = clientTypes?.find(ct => ct.code === selectedType);
-  const baseParamLabel = selectedClientType?.baseParameter === "ico" ? "IČO" : "Rodné číslo (RC)";
-
-  const performDuplicateCheck = useCallback(async (value: string, _paramType: string | undefined) => {
-    if (!value.trim()) { setDuplicateInfo(null); setDuplicateChecked(false); return; }
-    setChecking(true);
-    try {
-      const trimmed = value.trim();
-      const res = await apiRequest("POST", "/api/subjects/check-duplicate", { birthNumber: trimmed, ico: trimmed });
-      const data = await res.json();
-      if (data.isDuplicate) {
-        setDuplicateInfo({ name: data.subject.name, uid: data.subject.uid, id: data.subject.id, matchedField: data.subject.matchedField, managerName: data.managerName, isBlacklisted: data.isBlacklisted, blacklistMessage: data.message });
-      } else {
-        setDuplicateInfo(null);
-      }
-      setDuplicateChecked(true);
-      if (!data.isDuplicate) setTimeout(() => proceedBtnRef.current?.focus(), 50);
-    } catch {
-      setDuplicateInfo(null);
-      setDuplicateChecked(true);
-    } finally {
-      setChecking(false);
-    }
-  }, []);
+  const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
+  const { data: allStates } = useStates();
+  const { data: appUser } = useAppUser();
 
   useEffect(() => {
-    if (!baseValue.trim() || !selectedType) {
-      setDuplicateInfo(null); setDuplicateChecked(false); setRcError(null); setIcoError(null); setAresLookup(null);
-      return;
-    }
-    const isRc = selectedClientType?.baseParameter === "rc";
-    const isIco = selectedClientType?.baseParameter === "ico";
-    if (isRc) {
-      setIcoError(null); setAresLookup(null);
-      const digitsOnly = baseValue.replace(/[^0-9]/g, "");
-      if (digitsOnly.length < 9) { setDuplicateChecked(false); setRcError(null); return; }
-      const result = validateSlovakRC(baseValue);
-      if (!result.valid) { setRcError(result.error || "Neplatné rodné číslo"); setDuplicateChecked(false); return; }
-      setRcError(null);
-      performDuplicateCheck(baseValue, selectedClientType?.baseParameter);
-    } else if (isIco) {
-      setRcError(null);
-      const digitsOnly = baseValue.replace(/[\s\/-]/g, "");
-      if (digitsOnly.length < 1) { setDuplicateChecked(false); setIcoError(null); setAresLookup(null); return; }
-      const icoResult = validateSlovakICO(baseValue);
-      if (!icoResult.valid) { setIcoError(icoResult.error || "Neplatné IČO"); setDuplicateChecked(false); setAresLookup(null); return; }
-      setIcoError(null);
-      performDuplicateCheck(baseValue, selectedClientType?.baseParameter);
-      setAresLoading(true);
-      const normalizedIco = icoResult.normalized || digitsOnly;
-      const lookupType = selectedType.toLowerCase().includes("szco") ? "szco" : "company";
-      fetch(`/api/lookup/ico/${encodeURIComponent(normalizedIco)}?type=${lookupType}`, { credentials: "include" })
-        .then(r => r.json())
-        .then(d => { setAresLookup(d.found ? d : { found: false, message: d.message || "Subjekt nenájdený v štátnych registroch" }); })
-        .catch(() => { setAresLookup({ found: false, message: "Chyba pri vyhľadávaní v registroch" }); })
-        .finally(() => setAresLoading(false));
-    } else {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      setDuplicateChecked(false);
-      debounceRef.current = setTimeout(() => { performDuplicateCheck(baseValue, selectedClientType?.baseParameter); }, 500);
-      return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-    }
-  }, [baseValue, selectedType, selectedClientType?.baseParameter, performDuplicateCheck]);
+    if (appUser?.activeStateId && !stateId) setStateId(String(appUser.activeStateId));
+  }, [appUser?.activeStateId]);
+
+  const selectedClientType = clientTypes?.find(ct => ct.code === selectedType);
+  const isRc = selectedClientType?.baseParameter === "rc";
+  const isActive = hovered || pressed;
 
   function handleProceed() {
-    if (duplicateInfo) return;
-    onProceed({
-      clientTypeCode: selectedType,
-      stateId: appUser?.activeStateId || 0,
-      baseValue: baseValue.trim(),
-      aresData: aresLookup?.found ? { name: aresLookup.name, street: aresLookup.street, streetNumber: aresLookup.streetNumber, zip: aresLookup.zip, city: aresLookup.city, legalForm: aresLookup.legalForm, dic: aresLookup.dic, source: aresLookup.source, directors: aresLookup.directors } : undefined,
-    });
+    if (!selectedType) { setError("Vyberte typ subjektu"); return; }
+    if (!stateId) { setError("Vyberte štát"); return; }
+    if (!baseValue.trim()) { setError(isRc ? "Zadajte rodné číslo" : "Zadajte IČO"); return; }
+    setError(null);
+    onProceed({ clientTypeCode: selectedType, stateId: Number(stateId), baseValue: baseValue.trim() });
   }
 
-  const canProceed = selectedType && appUser?.activeStateId && baseValue.trim() && duplicateChecked && !duplicateInfo && !rcError && !icoError;
+  const PW = 380; const PH = 96; const PR = 38;
 
   return (
-    <div className="max-w-xl mx-auto py-8 px-4">
-      <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="sm" onClick={() => window.history.back()} data-testid="button-back-init">
-          <ArrowLeft className="w-4 h-4 mr-1" />
-          Späť
-        </Button>
-        <div>
-          <h2 className="text-xl font-bold">Nový klient</h2>
-          <p className="text-xs text-muted-foreground">Registrácia nového subjektu</p>
+    <div className="min-h-[80vh] flex flex-col items-center justify-center gap-8 p-8">
+      {/* Pill – purely decorative, no click action */}
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => { setHovered(false); setPressed(false); }}
+        onMouseDown={() => setPressed(true)}
+        onMouseUp={() => setPressed(false)}
+        style={{
+          position: "relative",
+          width: PW,
+          height: PH,
+          userSelect: "none",
+          transition: "transform 0.15s ease",
+          transform: pressed ? "scale(0.97)" : hovered ? "scale(1.03)" : "scale(1)",
+        }}
+      >
+        <svg
+          width={PW}
+          height={PH}
+          viewBox={`0 0 ${PW} ${PH}`}
+          fill="none"
+          style={{ position: "absolute", top: 0, left: 0, overflow: "visible" }}
+        >
+          <defs>
+            <filter id="pillGlow" x="-20%" y="-60%" width="140%" height="220%">
+              <feGaussianBlur stdDeviation="12" result="blur" />
+            </filter>
+            <linearGradient id="pillGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#0a1f3d" />
+              <stop offset="100%" stopColor="#1a3f80" />
+            </linearGradient>
+          </defs>
+          <rect
+            x="8" y="8" width={PW - 16} height={PH - 16} rx={PR}
+            fill={isActive ? "rgba(56,189,248,0.60)" : "rgba(56,189,248,0.30)"}
+            filter="url(#pillGlow)"
+            style={{ transition: "fill 0.2s ease" }}
+          />
+          <rect
+            x="8" y="8" width={PW - 16} height={PH - 16} rx={PR}
+            fill="url(#pillGrad)"
+            stroke={isActive ? "rgba(96,184,248,0.65)" : "rgba(56,189,248,0.25)"}
+            strokeWidth="1.5"
+            style={{ transition: "stroke 0.15s ease" }}
+          />
+        </svg>
+        <div style={{
+          position: "absolute",
+          top: 8, left: 8, right: 8, bottom: 8,
+          display: "flex",
+          alignItems: "center",
+          paddingLeft: 32,
+          paddingRight: 32,
+          gap: 20,
+        }}>
+          <UserPlus
+            size={42}
+            strokeWidth={1.4}
+            style={{
+              color: "#60b8f8",
+              filter: `drop-shadow(0 0 ${isActive ? 10 : 6}px rgba(96,184,248,${isActive ? 0.9 : 0.55}))`,
+              transition: "filter 0.15s ease",
+              flexShrink: 0,
+            }}
+          />
+          <div style={{ width: 1, height: 44, background: "rgba(96,184,248,0.22)", flexShrink: 0 }} />
+          <span style={{
+            fontFamily: "sans-serif",
+            fontSize: 19,
+            fontWeight: 700,
+            color: "#b8d0f0",
+            letterSpacing: "0.05em",
+          }}>
+            Pridať subjekt
+          </span>
         </div>
       </div>
 
-      <Card>
-        <CardContent className="pt-6 space-y-5">
-          <div>
-            <Label className="text-xs">Typ klienta</Label>
-            <Select value={selectedType} onValueChange={(v) => { setSelectedType(v); setDuplicateInfo(null); setTimeout(() => baseInputRef.current?.focus(), 50); }}>
-              <SelectTrigger data-testid="select-client-type">
-                <SelectValue placeholder="Vyberte typ" />
-              </SelectTrigger>
-              <SelectContent>
-                {clientTypes?.filter(ct => ct.isActive).map(ct => (
-                  <SelectItem key={ct.code} value={ct.code}>{ct.name} ({ct.code})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* Simple form */}
+      <div className="w-full max-w-sm space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="init-type">Typ subjektu</Label>
+          <Select value={selectedType} onValueChange={(v) => { setSelectedType(v); setBaseValue(""); setError(null); }}>
+            <SelectTrigger id="init-type" data-testid="select-subject-type">
+              <SelectValue placeholder="Vyberte typ..." />
+            </SelectTrigger>
+            <SelectContent>
+              {(clientTypes || []).map(ct => (
+                <SelectItem key={ct.code} value={ct.code}>{ct.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="init-state">Štát</Label>
+          <Select value={stateId} onValueChange={(v) => { setStateId(v); setError(null); }}>
+            <SelectTrigger id="init-state" data-testid="select-state">
+              <SelectValue placeholder="Vyberte štát..." />
+            </SelectTrigger>
+            <SelectContent>
+              {(allStates || []).map(s => (
+                <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {selectedType && (
+          <div className="space-y-1.5">
+            <Label htmlFor="init-base">{isRc ? "Rodné číslo" : "IČO"}</Label>
+            <Input
+              id="init-base"
+              data-testid="input-base-value"
+              placeholder={isRc ? "napr. 900101/1234" : "napr. 12345678"}
+              value={baseValue}
+              onChange={e => { setBaseValue(e.target.value); setError(null); }}
+              onKeyDown={e => { if (e.key === "Enter") handleProceed(); }}
+              autoFocus
+            />
           </div>
+        )}
 
-          {selectedType && (
-            <div>
-              <Label className="text-xs">{baseParamLabel}</Label>
-              <div className="relative">
-                <Input
-                  ref={baseInputRef}
-                  placeholder={selectedClientType?.baseParameter === "ico" ? "napr. 12345678" : "napr. 900101/1234"}
-                  value={baseValue}
-                  onChange={(e) => setBaseValue(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && canProceed && !checking) handleProceed(); }}
-                  className={(rcError || icoError) ? "border-red-500 focus-visible:ring-red-500" : ""}
-                  data-testid="input-base-parameter"
-                />
-                {(checking || aresLoading) && (
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                  </div>
-                )}
-                {!checking && !aresLoading && duplicateChecked && !duplicateInfo && baseValue.trim() && !rcError && !icoError && (
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                  </div>
-                )}
-                {(rcError || icoError) && !checking && !aresLoading && (
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                    <AlertTriangle className="w-4 h-4 text-red-500" />
-                  </div>
-                )}
-              </div>
-              {rcError && <p className="text-xs text-red-500 mt-1" data-testid="text-rc-error">{rcError}</p>}
-              {icoError && <p className="text-xs text-red-500 mt-1" data-testid="text-ico-error">{icoError}</p>}
-              {aresLoading && (
-                <div className="flex items-center gap-2 mt-1">
-                  <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
-                  <span className="text-xs text-blue-400">Preberám údaje z registra...</span>
-                </div>
-              )}
-              {aresLookup?.found && (
-                <div className="mt-2 bg-blue-500/10 border border-blue-500/30 rounded-md p-3 space-y-1" data-testid="ares-lookup-result">
-                  <div className="flex items-center gap-2 justify-between">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
-                      <span className="text-xs font-semibold text-blue-400">{aresLookup.source === "ORSR" ? "Obchodný register SR" : aresLookup.source === "ZRSR" ? "Živnostenský register SR" : "ARES Register"}</span>
-                    </div>
-                    <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] px-2 border-blue-500/40 text-blue-400 hover:bg-blue-500/20" onClick={handleProceed} disabled={!canProceed || checking} data-testid="button-use-ares-data">
-                      Použiť údaje
-                    </Button>
-                  </div>
-                  {aresLookup.name && <p className="text-sm font-medium">{aresLookup.name}</p>}
-                  {(aresLookup.street || aresLookup.city) && (
-                    <p className="text-xs text-muted-foreground">
-                      {[aresLookup.street, aresLookup.streetNumber].filter(Boolean).join(" ")}
-                      {(aresLookup.street || aresLookup.streetNumber) && (aresLookup.zip || aresLookup.city) ? ", " : ""}
-                      {[aresLookup.zip, aresLookup.city].filter(Boolean).join(" ")}
-                    </p>
-                  )}
-                  {aresLookup.legalForm && <p className="text-[10px] text-muted-foreground">{aresLookup.legalForm}{aresLookup.dic ? ` | DIČ: ${aresLookup.dic}` : ""}</p>}
-                  {aresLookup.directors && aresLookup.directors.length > 0 && (
-                    <div className="mt-1 pt-1 border-t border-blue-500/20">
-                      <p className="text-[10px] font-semibold text-blue-400/80 mb-0.5">Štatutári / Konatelia:</p>
-                      {aresLookup.directors.slice(0, 5).map((dir, i) => (
-                        <p key={i} className="text-[10px] text-muted-foreground">
-                          {[dir.titleBefore, dir.firstName, dir.lastName, dir.titleAfter].filter(Boolean).join(" ") || dir.name}
-                          {dir.role ? <span className="text-[9px] text-blue-400/60 ml-1">({dir.role})</span> : null}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              {aresLookup && !aresLookup.found && !icoError && (
-                <p className="text-xs text-muted-foreground mt-1">{aresLookup.message}</p>
-              )}
-            </div>
-          )}
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
-          {duplicateInfo && (
-            <div className={`${duplicateInfo.isBlacklisted ? 'bg-red-900/20 border-red-500/50' : 'bg-destructive/10 border-destructive/30'} border rounded-md p-3 space-y-2`}>
-              <div className="flex items-center gap-2">
-                <AlertTriangle className={`w-4 h-4 flex-shrink-0 ${duplicateInfo.isBlacklisted ? 'text-red-500' : 'text-destructive'}`} />
-                <span className={`text-sm font-semibold ${duplicateInfo.isBlacklisted ? 'text-red-500' : 'text-destructive'}`}>
-                  {duplicateInfo.isBlacklisted ? 'Registráciu nie je možné dokončiť' : 'Klient už existuje'}
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {duplicateInfo.name} <span className="font-mono text-xs">[ {formatUid(duplicateInfo.uid)} ]</span>
-                {duplicateInfo.matchedField && <span className="text-xs ml-1">(zhoda: {duplicateInfo.matchedField})</span>}
-              </p>
-              {duplicateInfo.isBlacklisted && (
-                <p className="text-xs text-red-400 font-medium" data-testid="text-blacklist-message">{duplicateInfo.blacklistMessage}</p>
-              )}
-              {duplicateInfo.managerName && !duplicateInfo.isBlacklisted && (
-                <p className="text-xs text-muted-foreground" data-testid="text-duplicate-manager">Správca: <span className="font-semibold text-foreground">{duplicateInfo.managerName}</span></p>
-              )}
-              {!duplicateInfo.isBlacklisted && (
-                <Button variant="outline" size="sm" onClick={() => { window.location.href = `/profil-subjektu?id=${duplicateInfo.id}`; }} data-testid="button-go-to-client">
-                  <ExternalLink className="w-3 h-3 mr-1" />
-                  Prejsť na kartu klienta
-                </Button>
-              )}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-2 border-t border-border">
-            <Button variant="outline" onClick={() => window.history.back()} data-testid="button-cancel-init-reg">
-              Zrušiť
-            </Button>
-            <Button
-              ref={proceedBtnRef}
-              onClick={handleProceed}
-              disabled={!canProceed || checking}
-              data-testid="button-continue-reg"
-            >
-              {checking ? "Overujem..." : "Pokračovať"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        <div className="flex gap-3 pt-2">
+          <Button type="button" variant="outline" onClick={() => window.history.back()} data-testid="button-cancel-init">
+            Zrušiť
+          </Button>
+          <Button type="button" onClick={handleProceed} data-testid="button-proceed-init">
+            Pokračovať
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
 
+
 export default function PridatSubjekt() {
-  const [initialData] = useState<InitialData | null>(() => {
+  const [initialData, setInitialData] = useState<InitialData | null>(() => {
     const raw = sessionStorage.getItem('pridat_subjekt_data');
     if (!raw) return null;
     try {
@@ -1979,8 +1903,7 @@ export default function PridatSubjekt() {
   });
 
   if (!initialData) {
-    window.history.back();
-    return null;
+    return <InitStep onProceed={(data) => setInitialData(data)} />;
   }
 
   return (

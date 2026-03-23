@@ -88,7 +88,6 @@ import {
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
-import { InitialRegistrationModal } from "@/components/initial-registration-modal";
 
 const topItems = [
   { href: "/", icon: LayoutDashboard, label: "Prehlad" },
@@ -440,8 +439,6 @@ export function AppSidebar() {
 
   const activeMenuId = allMenus.find(m => m.items.some(i => i.href === location || i.href === locationWithSearch))?.id || null;
   const [openMenuId, setOpenMenuId] = useState<string | null>(activeMenuId);
-  const [isPridatSubjektOpen, setIsPridatSubjektOpen] = useState(false);
-
   const isNastavenieActive = allNastavenieHrefs.includes(location);
   const isNastavenieOpen = openMenuId === "nastavenia";
   const nastavenieInitialSub = spravaPristupovItems.some(i => i.href === location) ? "sprava-pristupov"
@@ -467,7 +464,6 @@ export function AppSidebar() {
   const showZmluvyCascade = visibleZmluvySubItems.length > 1;
 
   return (
-    <>
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
@@ -858,7 +854,7 @@ export function AppSidebar() {
                           <SidebarMenuSubButton
                             className="py-1.5 text-primary hover:text-primary"
                             data-testid="nav-pridat-subjekt"
-                            onClick={() => setIsPridatSubjektOpen(true)}
+                            onClick={() => { window.location.href = '/pridat-subjekt'; }}
                           >
                             <UserPlus className="w-4 h-4" />
                             <span className="text-[13px]">Pridať subjekt</span>
@@ -1266,20 +1262,5 @@ export function AppSidebar() {
         </div>
       </SidebarFooter>
     </Sidebar>
-
-    <InitialRegistrationModal
-      open={isPridatSubjektOpen}
-      onOpenChange={setIsPridatSubjektOpen}
-      onProceed={(data) => {
-        setIsPridatSubjektOpen(false);
-        try { sessionStorage.setItem('pridat_subjekt_data', JSON.stringify(data)); } catch {}
-        window.location.href = '/pridat-subjekt';
-      }}
-      onViewSubject={(id) => {
-        setIsPridatSubjektOpen(false);
-        window.location.href = `/subjects?openId=${id}`;
-      }}
-    />
-  </>
   );
 }
