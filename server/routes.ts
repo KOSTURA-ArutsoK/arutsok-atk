@@ -14372,16 +14372,21 @@ export async function registerRoutes(
 
       // Aggregate stats
       const byType: Record<string, number> = { person: 0, company: 0, szco: 0, organization: 0, system: 0 };
-      const byLifecyclePhase: Record<string, number> = {};
+      const byLifecyclePhase: Record<string, number> = {
+        active: 0,
+        inactive: 0,
+        in_memoriam: 0,
+        zaniknuta: 0,
+        v_likvidacii: 0,
+      };
 
       for (const id of allIds) {
         const s = subjectById.get(id);
         if (!s) continue;
         const t = s.type || 'person';
         byType[t] = (byType[t] || 0) + 1;
-        if (s.lifecycleStatus) {
-          byLifecyclePhase[s.lifecycleStatus] = (byLifecyclePhase[s.lifecycleStatus] || 0) + 1;
-        }
+        const ls = s.lifecycleStatus || 'active';
+        byLifecyclePhase[ls] = (byLifecyclePhase[ls] || 0) + 1;
       }
 
       // Count contracts for all subjects in tree

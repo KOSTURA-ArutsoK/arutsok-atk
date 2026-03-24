@@ -1614,7 +1614,7 @@ function SubjectHierarchyTab({ subject, appUser }: { subject: any; appUser: any 
     queryKey: ["/api/subjects", "parent-search", parentSearch],
     queryFn: async () => {
       if (!parentSearch || parentSearch.length < 2) return [];
-      const res = await fetch(`/api/subjects?limit=20`, { credentials: "include" });
+      const res = await fetch(`/api/subjects?limit=500`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       const all: any[] = data.subjects || data || [];
@@ -1672,7 +1672,11 @@ function SubjectHierarchyTab({ subject, appUser }: { subject: any; appUser: any 
               {subject.parentSubjectId && parent ? (
                 <div className="flex items-center gap-2">
                   <Link2 className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="text-sm font-medium" data-testid="text-parent-name">{getSubjectDisplayName(parent)}</span>
+                  <a
+                    href={`/subjects?openId=${parent.id}`}
+                    className="text-sm font-medium hover:underline text-primary"
+                    data-testid="text-parent-name"
+                  >{getSubjectDisplayName(parent)}</a>
                   {parent.uid && <span className="text-[10px] text-muted-foreground font-mono">{formatUid(parent.uid)}</span>}
                 </div>
               ) : (
@@ -1719,7 +1723,10 @@ function SubjectHierarchyTab({ subject, appUser }: { subject: any; appUser: any 
               {children.map((c: any) => (
                 <div key={c.id} className="flex items-center gap-2 py-1 px-1" data-testid={`child-subject-${c.id}`}>
                   <ChevronRight className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-sm">{getSubjectDisplayName(c)}</span>
+                  <a
+                    href={`/subjects?openId=${c.id}`}
+                    className="text-sm hover:underline text-primary"
+                  >{getSubjectDisplayName(c)}</a>
                   {c.uid && <span className="text-[10px] text-muted-foreground font-mono">{formatUid(c.uid)}</span>}
                 </div>
               ))}

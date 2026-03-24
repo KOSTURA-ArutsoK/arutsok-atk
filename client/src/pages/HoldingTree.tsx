@@ -272,7 +272,7 @@ export default function HoldingTree() {
     queryKey: ["/api/subjects", "search", subjectSearch],
     queryFn: async () => {
       if (!subjectSearch || subjectSearch.length < 2) return [];
-      const res = await fetch(`/api/subjects?limit=20`, { credentials: "include" });
+      const res = await fetch(`/api/subjects?limit=500`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       const all: SubjectSearchResult[] = data.subjects || data || [];
