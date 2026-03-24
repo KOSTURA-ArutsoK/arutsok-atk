@@ -700,15 +700,18 @@ function FullPageEditor({
                 <span className="text-sm font-semibold">Fyzická osoba (Majiteľ SZČO)</span>
                 {szcoFoLoading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
                 {szcoFoLinkedId && (
-                  <Badge variant="outline" className="text-xs ml-auto">
-                    <Link2 className="w-3 h-3 mr-1" />
-                    Prepojená FO #{szcoFoLinkedId}
-                  </Badge>
+                  <div className="ml-auto flex items-center gap-1">
+                    <Badge variant="outline" className="text-xs">
+                      <Link2 className="w-3 h-3 mr-1" />
+                      Prepojená FO #{szcoFoLinkedId}
+                    </Badge>
+                    <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive" onClick={() => { setSzcoFoData(prev => ({ ...prev, fo_uid: "" })); setSzcoFoLinkedId(null); }} data-testid="button-szco-fo-odpojit">Odpojiť</Button>
+                  </div>
                 )}
               </div>
               <div className="flex flex-wrap gap-3">
-                <div className="space-y-1 w-[180px] min-w-[140px]">
-                  <Label className="text-xs text-muted-foreground">ID Subjektu FO (421...)</Label>
+                <div className="space-y-1 w-[220px] min-w-[160px]">
+                  <Label className="text-xs text-muted-foreground">Vyhľadať existujúcu FO (421...)</Label>
                   <Input
                     value={szcoFoData.fo_uid}
                     onChange={e => setSzcoFoData(prev => ({ ...prev, fo_uid: e.target.value }))}
@@ -717,7 +720,6 @@ function FullPageEditor({
                       if (!val) return;
                       if (val.replace(/\D/g, '').length > 0 && val.replace(/\D/g, '').length < 15) {
                         val = smartPadUid(val, uidPrefix);
-                        setSzcoFoData(prev => ({ ...prev, fo_uid: val }));
                       }
                       if (!val || val.length < 6) return;
                       setSzcoFoLoading(true);
@@ -728,14 +730,22 @@ function FullPageEditor({
                         if (match) {
                           setSzcoFoData({ firstName: match.firstName || "", lastName: match.lastName || "", birthNumber: match.birthNumber || "", fo_uid: match.uid });
                           setSzcoFoLinkedId(match.id);
+                        } else {
+                          setSzcoFoData(prev => ({ ...prev, fo_uid: "" }));
+                          toast({ title: "FO nebola nájdená", description: "Subjekt s týmto UID neexistuje v systéme.", variant: "destructive" });
                         }
-                      } catch {}
+                      } catch {
+                        setSzcoFoData(prev => ({ ...prev, fo_uid: "" }));
+                      }
                       setSzcoFoLoading(false);
                     }}
                     placeholder="421XXXXXXXXX"
                     className="font-mono"
                     data-testid="input-szco-fo-uid"
                   />
+                  {!szcoFoData.fo_uid && !szcoFoLinkedId && (
+                    <p className="text-[11px] text-muted-foreground">UID bude pridelený automaticky</p>
+                  )}
                 </div>
                 <div className="space-y-1 flex-1 min-w-[150px]">
                   <Label className="text-xs text-muted-foreground">Meno *</Label>
@@ -1574,18 +1584,22 @@ function FullPageEditor({
                 );
               })() : (
                 <>
-                  <FormField control={form.control} name="companyName" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Názov spoločnosti</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-subject-companyname" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                  {!isSzcoType && (
+                    <>
+                      <FormField control={form.control} name="companyName" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Názov spoločnosti</FormLabel>
+                          <FormControl><Input {...field} value={field.value || ""} data-testid="input-subject-companyname" /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
 
-                  <div>
-                    <Label className="text-xs text-muted-foreground">{isOsType ? "Identifikátor" : "IČO"}</Label>
-                    <Input value={initialData.baseValue} disabled className="mt-1" data-testid="input-ico-locked" />
-                  </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">{isOsType ? "Identifikátor" : "IČO"}</Label>
+                        <Input value={initialData.baseValue} disabled className="mt-1" data-testid="input-ico-locked" />
+                      </div>
+                    </>
+                  )}
 
                   <div className="flex flex-wrap gap-4 items-end">
                     <FormField control={form.control} name="email" render={({ field }) => (
@@ -1616,7 +1630,7 @@ function FullPageEditor({
                       povinne: [], doplnkove: [], volitelne: [],
                     };
                     const SZCO_HARDCODED_KEYS = new Set([
-                      'nazov_firmy', 'ico', 'dic', 'ic_dph',
+                      'nazov_firmy', 'nazov_organizacie', 'ico', 'dic', 'ic_dph',
                       'meno', 'priezvisko', 'rodne_cislo',
                       'email', 'telefon',
                     ]);
