@@ -64,7 +64,6 @@ import {
   Plus,
   FileSignature,
   UserPlus,
-  Star,
 } from "lucide-react";
 import {
   Sidebar,
@@ -858,7 +857,7 @@ export function AppSidebar() {
                           className="py-1.5"
                         >
                           <Link href="/aaa">
-                            <Star className="w-4 h-4" />
+                            <UserPlus className="w-4 h-4" />
                             <span className="text-[13px]">aaa</span>
                           </Link>
                         </SidebarMenuSubButton>
