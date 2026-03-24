@@ -16828,7 +16828,10 @@ export async function registerRoutes(
         kategoria: null, blok: "kategoria", panel: "blok", riadok: "panel",
       };
       const requiredParentType = REQUIRED_PARENT_TYPE[sectionType];
-      if (requiredParentType !== null) {
+      if (requiredParentType === null) {
+        // kategoria must have no parent
+        if (parentSectionId) return res.status(400).json({ message: `Typ "kategoria" nesmie mať rodičovskú sekciu.` });
+      } else {
         if (!parentSectionId) return res.status(400).json({ message: `Typ "${sectionType}" vyžaduje parentSectionId.` });
         const [parent] = await db.select().from(subjectParamSections).where(eq(subjectParamSections.id, parentSectionId));
         if (!parent) return res.status(400).json({ message: "Rodičovská sekcia neexistuje." });
@@ -23343,7 +23346,7 @@ async function migrateSectionTypes() {
         sectionType: "kategoria",
         isPanel: false,
         sortOrder: 0,
-      } as any).returning();
+      }).returning();
       katMap.set(key, newKat.id);
       changes++;
     }
