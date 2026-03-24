@@ -715,6 +715,7 @@ export interface IStorage {
 
   // Web routing rules
   getWebRoutingRules(subjectId: number): Promise<WebRoutingRule[]>;
+  getWebRoutingRuleById(ruleId: number): Promise<WebRoutingRule | undefined>;
   createWebRoutingRule(data: InsertWebRoutingRule): Promise<WebRoutingRule>;
   updateWebRoutingRule(ruleId: number, updates: Partial<InsertWebRoutingRule>): Promise<WebRoutingRule | undefined>;
   deleteWebRoutingRule(ruleId: number): Promise<void>;
@@ -5393,6 +5394,11 @@ export class DatabaseStorage implements IStorage {
 
   async createWebRoutingRule(data: InsertWebRoutingRule): Promise<WebRoutingRule> {
     const [row] = await db.insert(webRoutingRules).values(data).returning();
+    return row;
+  }
+
+  async getWebRoutingRuleById(ruleId: number): Promise<WebRoutingRule | undefined> {
+    const [row] = await db.select().from(webRoutingRules).where(eq(webRoutingRules.id, ruleId));
     return row;
   }
 

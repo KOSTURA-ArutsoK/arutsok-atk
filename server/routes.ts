@@ -16577,13 +16577,18 @@ export async function registerRoutes(
 
   app.patch("/api/web-routing-rules/:ruleId", isAuthenticated, async (req, res) => {
     try {
+      const ruleId = Number(req.params.ruleId);
+      const existing = await storage.getWebRoutingRuleById(ruleId);
+      if (!existing) return res.status(404).json({ message: "Not found" });
+      const subject = await storage.getSubject(existing.subjectId);
+      if (!subject) return res.status(404).json({ message: "Subject not found" });
       const { apiProductSlug, targetHoldingUid, statusSmerovania, sortOrder } = req.body;
       const updates: Record<string, unknown> = {};
       if (apiProductSlug !== undefined) updates.apiProductSlug = String(apiProductSlug).trim();
       if (targetHoldingUid !== undefined) updates.targetHoldingUid = String(targetHoldingUid).trim();
       if (statusSmerovania !== undefined) updates.statusSmerovania = String(statusSmerovania);
       if (sortOrder !== undefined) updates.sortOrder = Number(sortOrder);
-      const updated = await storage.updateWebRoutingRule(Number(req.params.ruleId), updates as any);
+      const updated = await storage.updateWebRoutingRule(ruleId, updates as any);
       if (!updated) return res.status(404).json({ message: "Not found" });
       res.json(updated);
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
@@ -16591,7 +16596,12 @@ export async function registerRoutes(
 
   app.delete("/api/web-routing-rules/:ruleId", isAuthenticated, async (req, res) => {
     try {
-      await storage.deleteWebRoutingRule(Number(req.params.ruleId));
+      const ruleId = Number(req.params.ruleId);
+      const existing = await storage.getWebRoutingRuleById(ruleId);
+      if (!existing) return res.status(404).json({ message: "Not found" });
+      const subject = await storage.getSubject(existing.subjectId);
+      if (!subject) return res.status(404).json({ message: "Subject not found" });
+      await storage.deleteWebRoutingRule(ruleId);
       res.json({ success: true });
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });

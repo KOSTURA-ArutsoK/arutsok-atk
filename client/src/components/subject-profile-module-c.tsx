@@ -1274,11 +1274,6 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (dynamicValues.specifikacia_os === "Web / Digitálne aktívum" && !dynamicValues.vlastnik_subjekt_uid) {
-        toast({ title: "Povinné pole", description: "Web musí mať priradeného vlastníka / nadriadeného subjektu.", variant: "destructive" });
-        throw new Error("missing_vlastnik");
-      }
-
       const payload: Record<string, any> = {};
       const cleanDynamic = { ...dynamicValues };
 
