@@ -16882,8 +16882,13 @@ export async function registerRoutes(
       if (!targetKat) return res.status(404).json({ message: "Cieľová kategória nenájdená." });
       if (targetKat.sectionType !== "kategoria") return res.status(400).json({ message: "Cieľ musí byť kategória." });
       if (targetKat.clientTypeId !== blok.clientTypeId) return res.status(400).json({ message: "Bloky možno presúvať len v rámci rovnakého typu subjektu." });
+      // Append at end of target category
+      const [countResult] = await db.select({ count: sql<number>`count(*)` })
+        .from(subjectParamSections)
+        .where(and(eq(subjectParamSections.sectionType, "blok"), eq(subjectParamSections.parentSectionId, Number(targetKategoriaId))));
+      const newSortOrder = (Number(countResult?.count ?? 0)) * 10;
       const [updated] = await db.update(subjectParamSections)
-        .set({ parentSectionId: Number(targetKategoriaId), folderCategory: targetKat.folderCategory })
+        .set({ parentSectionId: Number(targetKategoriaId), folderCategory: targetKat.folderCategory, sortOrder: newSortOrder })
         .where(eq(subjectParamSections.id, sectionId))
         .returning();
       res.json(updated);
