@@ -438,7 +438,7 @@ export default function SektorySubjektovVizia() {
 
       {/* Add Mega-Blok */}
       <Dialog open={addBlockOpen} onOpenChange={setAddBlockOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent size="sm">
           <DialogHeader><DialogTitle>Nový Mega-Blok (sekcia)</DialogTitle></DialogHeader>
           <Input
             placeholder="Názov (napr. Identita, Financie...)"
@@ -459,7 +459,7 @@ export default function SektorySubjektovVizia() {
 
       {/* Edit Mega-Blok name */}
       <Dialog open={editBlockOpen} onOpenChange={setEditBlockOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent size="sm">
           <DialogHeader><DialogTitle>Premenovať Mega-Blok</DialogTitle></DialogHeader>
           <Input
             value={editBlockName}
@@ -478,7 +478,7 @@ export default function SektorySubjektovVizia() {
 
       {/* Add panels */}
       <Dialog open={addPanelOpen} onOpenChange={setAddPanelOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>Pridať panely do „{activeBlock?.name}"</DialogTitle>
           </DialogHeader>
@@ -515,7 +515,7 @@ export default function SektorySubjektovVizia() {
 
       {/* Add parameters */}
       <Dialog open={addParamOpen} onOpenChange={setAddParamOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>Pridať parametre do „{selectedPanel?.name}"</DialogTitle>
           </DialogHeader>

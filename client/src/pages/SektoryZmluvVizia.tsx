@@ -543,7 +543,7 @@ export default function SektoryZmluvVizia() {
 
       {/* Add folders dialog */}
       <Dialog open={addFolderOpen} onOpenChange={setAddFolderOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>Pridať priečinky k produktu</DialogTitle>
           </DialogHeader>
@@ -576,7 +576,7 @@ export default function SektoryZmluvVizia() {
 
       {/* Add panels dialog */}
       <Dialog open={addPanelOpen} onOpenChange={setAddPanelOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>Pridať panely do „{activeFolder?.name}"</DialogTitle>
           </DialogHeader>
@@ -619,7 +619,7 @@ export default function SektoryZmluvVizia() {
 
       {/* Add parameters dialog */}
       <Dialog open={addParamOpen} onOpenChange={setAddParamOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>
               Pridať parametre do „{activeFolder?.panels.find(p => p.id === selectedPanelId)?.name}"
@@ -658,7 +658,7 @@ export default function SektoryZmluvVizia() {
 
       {/* Clone dialog */}
       <Dialog open={cloneOpen} onOpenChange={setCloneOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>Klonovať šablónu produktu</DialogTitle>
           </DialogHeader>
