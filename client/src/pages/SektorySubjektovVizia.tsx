@@ -131,7 +131,7 @@ export default function SektorySubjektovVizia() {
 
   // Total counts
   const totalPanels = useMemo(() => allSections.filter(s => s.isPanel).length, [allSections]);
-  const totalParams = useMemo(() => allParams.length, [allParams]);
+  const totalParams = useMemo(() => allParams.filter(p => p.panelId != null).length, [allParams]);
 
   // ============================================================
   // Mutations
