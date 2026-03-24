@@ -16583,12 +16583,12 @@ export async function registerRoutes(
       const subject = await storage.getSubject(existing.subjectId);
       if (!subject) return res.status(404).json({ message: "Subject not found" });
       const { apiProductSlug, targetHoldingUid, statusSmerovania, sortOrder } = req.body;
-      const updates: Record<string, unknown> = {};
+      const updates: { apiProductSlug?: string; targetHoldingUid?: string; statusSmerovania?: string; sortOrder?: number } = {};
       if (apiProductSlug !== undefined) updates.apiProductSlug = String(apiProductSlug).trim();
       if (targetHoldingUid !== undefined) updates.targetHoldingUid = String(targetHoldingUid).trim();
       if (statusSmerovania !== undefined) updates.statusSmerovania = String(statusSmerovania);
       if (sortOrder !== undefined) updates.sortOrder = Number(sortOrder);
-      const updated = await storage.updateWebRoutingRule(ruleId, updates as any);
+      const updated = await storage.updateWebRoutingRule(ruleId, updates);
       if (!updated) return res.status(404).json({ message: "Not found" });
       res.json(updated);
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
