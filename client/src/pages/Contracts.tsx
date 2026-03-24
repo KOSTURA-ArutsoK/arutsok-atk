@@ -4260,7 +4260,18 @@ export default function Contracts() {
         <TableBody>
           {list.map(contract => {
             const sub = subjects?.find(s => s.id === contract.subjectId);
-            const subjectType = sub?.type === "person" ? "FO" : sub?.type === "szco" ? "SZČO" : sub?.type === "company" ? "PO" : "—";
+            const importRaw = (contract as any).importedRawData || {};
+            const rawSubjTypeVal = importRaw["subjectType"] || importRaw["typ_subjektu"] || null;
+            const normalizedRawType = (() => {
+              if (!rawSubjTypeVal) return null;
+              const t = String(rawSubjTypeVal).trim().toLowerCase();
+              if (["po", "company", "firma", "pravnicka_osoba", "právnická osoba", "právnická", "pravnicka", "p.o.", "p.o"].includes(t)) return "company";
+              if (["szco", "szčo", "živnostník", "zivnostnik", "s.z.č.o.", "s.z.c.o.", "szč.o.", "szc.o."].includes(t)) return "szco";
+              if (["fo", "person", "fyzická osoba", "fyzicka_osoba", "fyzicka osoba", "fyzická", "fyzicka", "f.o.", "f.o", "fyz"].includes(t)) return "person";
+              return null;
+            })();
+            const resolvedSubjType = sub?.type || normalizedRawType || null;
+            const subjectType = resolvedSubjType === "person" ? "FO" : resolvedSubjType === "szco" ? "SZČO" : resolvedSubjType === "company" ? "PO" : "—";
             const subjectFullName = sub ? [sub.titleBefore, sub.firstName, sub.lastName, sub.titleAfter].filter(Boolean).join(" ") || sub.companyName || "—" : "—";
             const { specialist: rowSpec, recommenders: rowRecs } = getContractDistData(contract.id);
             const rowR1 = rowRecs[0]; const rowR2 = rowRecs[1]; const rowR3 = rowRecs[2];
