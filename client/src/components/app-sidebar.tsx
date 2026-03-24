@@ -8,6 +8,7 @@ import { ClientGroupsIcon } from "@/components/icons/client-groups-icon";
 import { StrukturaIcon } from "@/components/icons/struktura-icon";
 import { useQuery } from "@tanstack/react-query";
 import { isAdmin as checkIsAdmin, canCreateSubjects } from "@/lib/utils";
+import { InitialRegistrationModal } from "@/components/initial-registration-modal";
 import type { CircleConfig, SidebarLinkSection, SidebarLink } from "@shared/schema";
 import {
   LayoutDashboard,
@@ -439,6 +440,7 @@ export function AppSidebar() {
 
   const activeMenuId = allMenus.find(m => m.items.some(i => i.href === location || i.href === locationWithSearch))?.id || null;
   const [openMenuId, setOpenMenuId] = useState<string | null>(activeMenuId);
+  const [isPridatSubjektOpen, setIsPridatSubjektOpen] = useState(false);
   const isNastavenieActive = allNastavenieHrefs.includes(location);
   const isNastavenieOpen = openMenuId === "nastavenia";
   const nastavenieInitialSub = spravaPristupovItems.some(i => i.href === location) ? "sprava-pristupov"
@@ -854,7 +856,7 @@ export function AppSidebar() {
                           <SidebarMenuSubButton
                             className="py-1.5 text-primary hover:text-primary"
                             data-testid="nav-pridat-subjekt"
-                            onClick={() => { window.location.href = '/pridat-subjekt'; }}
+                            onClick={() => setIsPridatSubjektOpen(true)}
                           >
                             <UserPlus className="w-4 h-4" />
                             <span className="text-[13px]">Pridať subjekt</span>
@@ -1261,6 +1263,20 @@ export function AppSidebar() {
           />
         </div>
       </SidebarFooter>
+
+      <InitialRegistrationModal
+        open={isPridatSubjektOpen}
+        onOpenChange={setIsPridatSubjektOpen}
+        onProceed={(data) => {
+          setIsPridatSubjektOpen(false);
+          try { sessionStorage.setItem('pridat_subjekt_data', JSON.stringify(data)); } catch {}
+          window.location.href = '/pridat-subjekt';
+        }}
+        onViewSubject={(id) => {
+          setIsPridatSubjektOpen(false);
+          window.location.href = `/subjekty/${id}`;
+        }}
+      />
     </Sidebar>
   );
 }
