@@ -64,6 +64,7 @@ import {
   Plus,
   FileSignature,
   UserPlus,
+  Star,
 } from "lucide-react";
 import {
   Sidebar,
@@ -849,6 +850,19 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
+                      <SidebarMenuSubItem key="aaa">
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={location === '/aaa'}
+                          data-testid="nav-aaa"
+                          className="py-1.5"
+                        >
+                          <Link href="/aaa">
+                            <Star className="w-4 h-4" />
+                            <span className="text-[13px]">aaa</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
                       {klientiItems.map(item => (
                         <SidebarMenuSubItem key={item.href}>
                           <SidebarMenuSubButton
