@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -215,16 +214,21 @@ function RuleRow({
   const saveIfDirty = async () => {
     if (!state.dirty) return;
     setState(s => ({ ...s, saving: true }));
-    const result = await onPatch(rule.id, {
-      apiProductSlug: state.apiProductSlug,
-      targetHoldingUid: state.targetHoldingUid,
-      statusSmerovania: state.statusSmerovania,
-    });
-    if (!result.ok) {
-      handleApiError(result.status, toast);
+    try {
+      const result = await onPatch(rule.id, {
+        apiProductSlug: state.apiProductSlug,
+        targetHoldingUid: state.targetHoldingUid,
+        statusSmerovania: state.statusSmerovania,
+      });
+      if (!result.ok) {
+        handleApiError(result.status, toast);
+        setState(s => ({ ...s, saving: false }));
+      } else {
+        setState(s => ({ ...s, saving: false, dirty: false }));
+      }
+    } catch {
+      toast({ title: "Chyba pri ukladaní pravidla", variant: "destructive" });
       setState(s => ({ ...s, saving: false }));
-    } else {
-      setState(s => ({ ...s, saving: false, dirty: false }));
     }
   };
 
@@ -253,12 +257,17 @@ function RuleRow({
             uid={state.targetHoldingUid}
             onChange={async (newUid) => {
               setState(s => ({ ...s, targetHoldingUid: newUid, dirty: true, saving: true }));
-              const result = await onPatch(rule.id, { targetHoldingUid: newUid });
-              if (!result.ok) {
-                handleApiError(result.status, toast);
+              try {
+                const result = await onPatch(rule.id, { targetHoldingUid: newUid });
+                if (!result.ok) {
+                  handleApiError(result.status, toast);
+                  setState(s => ({ ...s, saving: false }));
+                } else {
+                  setState(s => ({ ...s, saving: false, dirty: false }));
+                }
+              } catch {
+                toast({ title: "Chyba pri ukladaní pravidla", variant: "destructive" });
                 setState(s => ({ ...s, saving: false }));
-              } else {
-                setState(s => ({ ...s, saving: false, dirty: false }));
               }
             }}
             rowId={rule.id}
@@ -269,11 +278,15 @@ function RuleRow({
             value={state.statusSmerovania}
             onValueChange={async (val) => {
               setState(s => ({ ...s, statusSmerovania: val, dirty: true }));
-              const result = await onPatch(rule.id, { statusSmerovania: val });
-              if (!result.ok) {
-                handleApiError(result.status, toast);
-              } else {
-                setState(s => ({ ...s, dirty: false }));
+              try {
+                const result = await onPatch(rule.id, { statusSmerovania: val });
+                if (!result.ok) {
+                  handleApiError(result.status, toast);
+                } else {
+                  setState(s => ({ ...s, dirty: false }));
+                }
+              } catch {
+                toast({ title: "Chyba pri ukladaní pravidla", variant: "destructive" });
               }
             }}
           >
@@ -361,11 +374,16 @@ function NewRuleRow({
     }
     setSaving(true);
     try {
-      const res = await apiRequest("POST", `/api/subjects/${subjectId}/web-routing-rules`, {
-        apiProductSlug: state.apiProductSlug.trim(),
-        targetHoldingUid: state.targetHoldingUid,
-        statusSmerovania: state.statusSmerovania,
-        sortOrder: 0,
+      const res = await fetch(`/api/subjects/${subjectId}/web-routing-rules`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          apiProductSlug: state.apiProductSlug.trim(),
+          targetHoldingUid: state.targetHoldingUid,
+          statusSmerovania: state.statusSmerovania,
+          sortOrder: 0,
+        }),
       });
       if (!res.ok) {
         handleApiError(res.status, toast);
@@ -459,13 +477,21 @@ export function WebRouterPanel({ subjectId }: { subjectId: number }) {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "web-routing-rules"] });
 
   const handlePatch = async (id: number, updates: Partial<WebRoutingRule>): Promise<{ ok: boolean; status: number }> => {
-    const res = await apiRequest("PATCH", `/api/web-routing-rules/${id}`, updates);
+    const res = await fetch(`/api/web-routing-rules/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(updates),
+    });
     if (res.ok) await invalidate();
     return { ok: res.ok, status: res.status };
   };
 
   const handleDelete = async (id: number) => {
-    const res = await apiRequest("DELETE", `/api/web-routing-rules/${id}`, undefined);
+    const res = await fetch(`/api/web-routing-rules/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
     if (!res.ok) {
       toast({ title: "Chyba pri mazaní pravidla", variant: "destructive" });
       return;
