@@ -219,7 +219,7 @@ export default function SektorySubjektovVizia() {
     onSuccess: (data: UiBlueprint) => {
       setBlueprintId(data.id);
       setIsDirty(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/ui-blueprints/find", "SUBJECT", activeCode] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ui-blueprints/find", activeCode, "SUBJECT"] });
       toast({ title: "Blueprint uložený" });
     },
     onError: () => toast({ title: "Chyba pri ukladaní", variant: "destructive" }),

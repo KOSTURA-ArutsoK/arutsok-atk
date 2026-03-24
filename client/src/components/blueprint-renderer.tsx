@@ -4,6 +4,7 @@
  * Also provides SubjectBlueprintSection (B-Vízia) for rendering subject blueprints.
  *
  * Cross-Pulling: contract parameters can pull values from subject's dynamicFields.
+ * MIRROR panels: display subject blueprint fields inline within contract blueprint.
  */
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -14,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FolderOpen, LayoutGrid, AlignLeft, Link2, Info } from "lucide-react";
+import { FolderOpen, LayoutGrid, AlignLeft, Link2, Info, ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ============================================================
@@ -39,6 +40,10 @@ export interface BpPanel {
   sortOrder: number;
   gridColumns?: number;
   parameters: BpParameter[];
+  // MIRROR panel support (Task #127 Cross-Pulling)
+  type?: "MIRROR";
+  sourceBlueprint?: "SUBJECT";
+  sourceType?: string;
 }
 
 export interface BpFolder {
@@ -304,6 +309,122 @@ function PanelCard({ panel, values, onChange, crossPullValues, readOnly, colors 
 }
 
 // ============================================================
+// MIRROR Panel — Cross-Pulling (Task #127 Modul C)
+// Displays subject blueprint fields inline within contract blueprint
+// ============================================================
+interface MirrorPanelProps {
+  panel: BpPanel;
+  subjectDynamicFields?: Record<string, any>;
+}
+
+interface MirrorAllPanel { id: number; name: string; description?: string | null; }
+interface MirrorAllParam { id: number; name: string; paramType: string; helpText?: string | null; options?: string[]; defaultValue?: string | null; }
+
+interface SubjectMirrorBlueprintData {
+  id: number;
+  type: string;
+  targetId: string;
+  layoutJson: {
+    megaBlocks: {
+      id: string;
+      name: string;
+      order: number;
+      panels: {
+        panelId: number;
+        order: number;
+        parameters: { parameterId: number; order: number; width: string }[];
+      }[];
+    }[];
+  };
+}
+
+function MirrorPanel({ panel, subjectDynamicFields = {} }: MirrorPanelProps) {
+  const sourceType = panel.sourceType || "FO";
+
+  const { data: allPanels = [] } = useQuery<MirrorAllPanel[]>({ queryKey: ["/api/panels"] });
+  const { data: allParams = [] } = useQuery<MirrorAllParam[]>({ queryKey: ["/api/parameters"] });
+  const { data: blueprint } = useQuery<SubjectMirrorBlueprintData | null>({
+    queryKey: ["/api/ui-blueprints/find", sourceType, "SUBJECT"],
+    queryFn: () =>
+      apiRequest("GET", `/api/ui-blueprints/find?type=SUBJECT&targetId=${sourceType}`).then(r => r.json()),
+    enabled: !!sourceType,
+  });
+
+  const enrichedPanels = useMemo(() => {
+    if (!blueprint?.layoutJson?.megaBlocks) return [];
+    const result: { id: number; name: string; parameters: (MirrorAllParam & { width: string })[] }[] = [];
+    for (const mb of blueprint.layoutJson.megaBlocks) {
+      for (const p of (mb.panels || [])) {
+        const panelDef = allPanels.find(pl => pl.id === p.panelId);
+        if (!panelDef) continue;
+        const parameters = (p.parameters || [])
+          .map(pr => {
+            const param = allParams.find(pa => pa.id === pr.parameterId);
+            return param ? { ...param, width: pr.width || "50%" } : null;
+          })
+          .filter(Boolean) as (MirrorAllParam & { width: string })[];
+        result.push({ id: panelDef.id, name: panelDef.name, parameters });
+      }
+    }
+    return result;
+  }, [blueprint, allPanels, allParams]);
+
+  return (
+    <div
+      className="border-2 border-blue-300/40 dark:border-blue-700/30 rounded-lg overflow-hidden bg-blue-50/10 dark:bg-blue-900/5"
+      data-testid={`blueprint-mirror-panel-${panel.id}`}
+    >
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-blue-200/40 dark:border-blue-800/30 bg-blue-50/40 dark:bg-blue-900/20">
+        <ArrowLeftRight className="h-3.5 w-3.5 text-blue-400" />
+        <span className="text-sm font-semibold">{panel.name}</span>
+        <Badge variant="outline" className="text-[10px] border-blue-300/50 text-blue-500 py-0 px-1.5 ml-1">
+          Zrkadlový blok · {sourceType}
+        </Badge>
+        <span className="ml-auto text-xs text-blue-400/70">Cross-Pull</span>
+      </div>
+      {enrichedPanels.length === 0 ? (
+        <div className="px-3 py-3 text-xs text-muted-foreground">
+          B-Vízia šablóna pre {sourceType} nie je definovaná alebo nemá polia.
+        </div>
+      ) : (
+        <div className="p-3 space-y-3">
+          {enrichedPanels.map(ep => (
+            <div key={ep.id}>
+              {enrichedPanels.length > 1 && (
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-blue-400/70 mb-1.5">{ep.name}</div>
+              )}
+              <div className="grid grid-cols-4 gap-3">
+                {ep.parameters.map(param => {
+                  const rawVal = subjectDynamicFields[param.name] ?? subjectDynamicFields[param.name.toLowerCase().replace(/\s+/g, "_")] ?? "";
+                  const strVal = rawVal !== null && rawVal !== undefined ? String(rawVal) : "";
+                  return (
+                    <div key={param.id} className={cn("flex flex-col gap-1", widthToColSpan(param.width))} data-testid={`mirror-param-field-${ep.id}-${param.id}`}>
+                      <label className="text-xs font-medium flex items-center gap-1 text-blue-600/80 dark:text-blue-400/80">
+                        {param.name}
+                        <Link2 className="h-3 w-3 text-blue-400/60" />
+                      </label>
+                      {strVal ? (
+                        <div className="text-sm min-h-[32px] px-3 py-1.5 bg-blue-50/30 dark:bg-blue-900/10 rounded border border-blue-200/40 dark:border-blue-800/30 flex items-center">
+                          {strVal}
+                        </div>
+                      ) : (
+                        <div className="text-sm min-h-[32px] px-3 py-1.5 rounded border border-dashed border-blue-200/40 dark:border-blue-700/30 flex items-center text-muted-foreground/50 text-xs">
+                          —
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // A-VÍZIA BLUEPRINT RENDERER
 // Renders product blueprint: Folders (tabs) → Panels (grid) → Parameters
 // ============================================================
@@ -312,13 +433,14 @@ interface BlueprintRendererProps {
   values?: Record<string, string>;
   onChange?: (panelId: number, paramId: number, value: string) => void;
   crossPullValues?: Record<string, string>;
+  subjectDynamicFields?: Record<string, any>;
   readOnly?: boolean;
   compact?: boolean;
   colorScheme?: ColorScheme;
 }
 
 export function BlueprintRenderer({
-  productId, values = {}, onChange, crossPullValues, readOnly, compact, colorScheme = "default",
+  productId, values = {}, onChange, crossPullValues, subjectDynamicFields, readOnly, compact, colorScheme = "default",
 }: BlueprintRendererProps) {
   const colors = COLOR_SCHEME_STYLES[colorScheme];
   const [activeTab, setActiveTab] = useState(0);
@@ -383,17 +505,28 @@ export function BlueprintRenderer({
         {activeFolder.panels.length === 0 ? (
           <div className="text-sm text-muted-foreground py-4 text-center">Žiadne panely v tomto priečinku.</div>
         ) : (
-          activeFolder.panels.map(panel => (
-            <PanelCard
-              key={panel.id}
-              panel={panel}
-              values={values}
-              onChange={handleChange}
-              crossPullValues={crossPullValues}
-              readOnly={readOnly}
-              colors={colors}
-            />
-          ))
+          activeFolder.panels.map(panel => {
+            if (panel.type === "MIRROR") {
+              return (
+                <MirrorPanel
+                  key={`mirror-${panel.id}`}
+                  panel={panel}
+                  subjectDynamicFields={subjectDynamicFields || crossPullValues}
+                />
+              );
+            }
+            return (
+              <PanelCard
+                key={panel.id}
+                panel={panel}
+                values={values}
+                onChange={handleChange}
+                crossPullValues={crossPullValues}
+                readOnly={readOnly}
+                colors={colors}
+              />
+            );
+          })
         )}
       </div>
 
@@ -430,6 +563,7 @@ interface SubjectBlueprintSectionProps {
   subjectCode?: SubjectCode;
   dynamicFields?: Record<string, any>;
   readOnly?: boolean;
+  compact?: boolean;
 }
 
 interface SubjectMegaBlock {
@@ -454,7 +588,7 @@ interface AllPanel { id: number; name: string; description?: string | null; }
 interface AllParam { id: number; name: string; paramType: string; helpText?: string | null; options?: string[]; isRequired?: boolean; defaultValue?: string | null; }
 
 export function SubjectBlueprintSection({
-  clientTypeId, subjectCode, dynamicFields = {}, readOnly = true,
+  clientTypeId, subjectCode, dynamicFields = {}, readOnly = true, compact = false,
 }: SubjectBlueprintSectionProps) {
   const [activeBlockIdx, setActiveBlockIdx] = useState(0);
 
@@ -519,7 +653,7 @@ export function SubjectBlueprintSection({
               className={cn(
                 "flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
                 activeBlockIdx === idx
-                  ? "border-primary text-primary"
+                  ? "border-emerald-500 text-emerald-600"
                   : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40"
               )}
             >
@@ -530,17 +664,22 @@ export function SubjectBlueprintSection({
       )}
 
       {/* Panels in active block */}
-      <div className="space-y-3">
+      <div className={compact ? "space-y-2" : "space-y-3"}>
         {(activeBlock?.panels || []).length === 0 ? (
           <div className="text-sm text-muted-foreground py-4 text-center">Žiadne panely v tomto bloku.</div>
         ) : (
           (activeBlock.panels as (AllPanel & { parameters: (AllParam & { width: string })[] })[]).map(panel => (
-            <div key={panel.id} className="border rounded-lg overflow-hidden" data-testid={`subject-panel-${panel.id}`}>
-              <div className="flex items-center gap-2 px-3 py-2 bg-muted/40 border-b">
-                <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
+            <div
+              key={panel.id}
+              className="border-2 border-emerald-200/60 dark:border-emerald-800/40 rounded-lg overflow-hidden"
+              data-testid={`subject-panel-${panel.id}`}
+            >
+              <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50/60 dark:bg-emerald-900/20 border-b border-emerald-200/40 dark:border-emerald-800/30">
+                <LayoutGrid className="h-3.5 w-3.5 text-emerald-600/70" />
                 <span className="text-sm font-semibold">{panel.name}</span>
+                <span className="ml-auto text-xs text-muted-foreground">{panel.parameters.length} polí</span>
               </div>
-              <div className="p-3 grid grid-cols-4 gap-3">
+              <div className={cn("p-3 grid grid-cols-4 gap-3", compact && "gap-2")}>
                 {panel.parameters.map(param => {
                   const rawVal = dynamicFields[param.name] ?? dynamicFields[param.name.toLowerCase().replace(/\s+/g, "_")] ?? "";
                   const strVal = rawVal !== null && rawVal !== undefined ? String(rawVal) : "";
@@ -566,6 +705,130 @@ export function SubjectBlueprintSection({
             </div>
           ))
         )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// CONTRACT BLUEPRINT VIEW
+// Read-only view of A-Vízia parameters stored in dynamicPanelValues
+// Used in the contract detail dialog (nahratieViewDialog)
+// ============================================================
+interface ContractBlueprintViewProps {
+  productId: number | string;
+  dynamicPanelValues?: Record<string, string>;
+  subjectDynamicFields?: Record<string, any>;
+  colorScheme?: ColorScheme;
+}
+
+export function ContractBlueprintView({
+  productId, dynamicPanelValues = {}, subjectDynamicFields, colorScheme = "default",
+}: ContractBlueprintViewProps) {
+  const colors = COLOR_SCHEME_STYLES[colorScheme];
+  const [activeTab, setActiveTab] = useState(0);
+
+  const { data: blueprint, isLoading } = useQuery<FullBlueprint>({
+    queryKey: ["/api/sector-products", productId, "full-blueprint"],
+    queryFn: () =>
+      apiRequest("GET", `/api/sector-products/${productId}/full-blueprint`).then(r => r.json()),
+    enabled: !!productId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-28 w-full" />
+      </div>
+    );
+  }
+
+  if (!blueprint || !blueprint.folders || blueprint.folders.length === 0) {
+    return null;
+  }
+
+  // Check if there's any data stored
+  const hasData = Object.keys(dynamicPanelValues).length > 0;
+  if (!hasData) return null;
+
+  const activeFolder = blueprint.folders[activeTab] || blueprint.folders[0];
+
+  return (
+    <div className="space-y-3" data-testid="contract-blueprint-view">
+      {/* Folder tabs */}
+      {blueprint.folders.length > 1 && (
+        <div className="flex gap-0.5 border-b overflow-x-auto">
+          {blueprint.folders.map((folder, idx) => (
+            <button
+              key={folder.id}
+              onClick={() => setActiveTab(idx)}
+              data-testid={`contract-blueprint-tab-${folder.id}`}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+                activeTab === idx
+                  ? colors.tabActive
+                  : cn("border-transparent text-muted-foreground hover:text-foreground", colors.tabBorder)
+              )}
+            >
+              <FolderOpen className="h-3.5 w-3.5" />
+              {folder.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {activeFolder.panels.map(panel => {
+          if (panel.type === "MIRROR") {
+            return (
+              <MirrorPanel
+                key={`mirror-${panel.id}`}
+                panel={panel}
+                subjectDynamicFields={subjectDynamicFields}
+              />
+            );
+          }
+
+          const panelParams = panel.parameters.filter(param => {
+            const key = `${panel.id}_${param.id}`;
+            return dynamicPanelValues[key];
+          });
+
+          if (panelParams.length === 0) return null;
+
+          return (
+            <div
+              key={panel.id}
+              className={cn("border-2 rounded-lg overflow-hidden", colors.panelBorder)}
+              data-testid={`contract-blueprint-panel-${panel.id}`}
+            >
+              <div className={cn("flex items-center gap-2 px-3 py-2 border-b", colors.panelHeader)}>
+                <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-sm font-semibold">{panel.name}</span>
+                <span className="ml-auto text-xs text-muted-foreground">{panelParams.length} polí</span>
+              </div>
+              <div className="p-3 grid grid-cols-4 gap-3">
+                {panelParams.map(param => {
+                  const key = `${panel.id}_${param.id}`;
+                  const val = dynamicPanelValues[key] || "";
+                  return (
+                    <div
+                      key={param.id}
+                      className={cn("flex flex-col gap-1", widthToColSpan(param.width))}
+                      data-testid={`contract-param-field-${panel.id}-${param.id}`}
+                    >
+                      <label className="text-xs font-medium text-muted-foreground">{param.name}</label>
+                      <div className="text-sm min-h-[32px] px-3 py-1.5 bg-muted/20 rounded border border-border flex items-center">
+                        {val || <span className="text-muted-foreground/50 text-xs">—</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

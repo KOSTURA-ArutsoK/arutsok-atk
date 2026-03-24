@@ -15,7 +15,7 @@ import { validateSlovakICO } from "@shared/ico-validator";
 import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, AlertCircle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building, Building2, ArrowLeftRight, Info, Download, Landmark } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
-import { BlueprintRenderer } from "@/components/blueprint-renderer";
+import { BlueprintRenderer, ContractBlueprintView } from "@/components/blueprint-renderer";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
@@ -6403,6 +6403,32 @@ export default function Contracts() {
                   )}
                 </div>
               </div>
+
+              {/* A-Vízia Blueprint Section — dynamicPanelValues z produktového blueprintu */}
+              {c.sectorProductId && (
+                (() => {
+                  const dpv = (c as any).dynamicPanelValues as Record<string, string> | undefined;
+                  const subDynFields = (sub?.details as any)?.dynamicFields || {};
+                  if (!dpv || Object.keys(dpv).length === 0) return null;
+                  return (
+                    <div className="border rounded-md overflow-hidden" data-testid="section-contract-blueprint">
+                      <div className="bg-muted/50 px-4 py-2 border-b flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">5</div>
+                        <LayoutGrid className="w-4 h-4 text-primary/70" />
+                        <span className="text-sm font-semibold">Parametre produktu (A-Vízia)</span>
+                      </div>
+                      <div className="px-4 py-3">
+                        <ContractBlueprintView
+                          productId={c.sectorProductId}
+                          dynamicPanelValues={dpv}
+                          subjectDynamicFields={subDynFields}
+                          colorScheme="client"
+                        />
+                      </div>
+                    </div>
+                  );
+                })()
+              )}
             </div>
           </DialogScrollContent>
         </DialogContent>

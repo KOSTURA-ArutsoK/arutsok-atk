@@ -2259,7 +2259,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       </Accordion>
 
       {subject.id > 0 && (
-        <Accordion type="multiple" defaultValue={[]} className="space-y-1">
+        <Accordion type="multiple" defaultValue={["b-vizia-blueprint"]} className="space-y-1">
           <AccordionItem value="relacie-panels" className="border rounded-md px-3 border-violet-500/20" data-testid="accordion-relacie-panels">
             <AccordionTrigger className="py-3 hover:no-underline">
               <div className="flex items-center gap-2">
@@ -2493,12 +2493,14 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
             </AccordionContent>
           </AccordionItem>
 
-          {/* B-Vízia Blueprint Section */}
-          <AccordionItem value="b-vizia-blueprint" className="border rounded-md px-3 border-blue-500/20" data-testid="accordion-b-vizia-blueprint">
+          {/* B-Vízia Blueprint Section — primárny rendering z blueprintu */}
+          <AccordionItem value="b-vizia-blueprint" className="border-2 rounded-md px-3 border-emerald-500/30 bg-emerald-500/[0.02]" data-testid="accordion-b-vizia-blueprint">
             <AccordionTrigger className="text-sm font-semibold py-3 hover:no-underline">
               <span className="flex items-center gap-2">
-                <span className="text-blue-400 text-xs font-bold uppercase tracking-widest">B-Vízia</span>
-                Šablóna subjektu
+                <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-[10px] font-bold text-emerald-500">B</span>
+                <span className="text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase tracking-widest">B-Vízia</span>
+                <span className="font-semibold">Šablóna subjektu</span>
+                <Badge variant="outline" className="text-[10px] border-emerald-400/40 text-emerald-500 py-0 px-1.5">Blueprint</Badge>
               </span>
             </AccordionTrigger>
             <AccordionContent className="pb-4">
