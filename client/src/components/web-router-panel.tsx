@@ -282,11 +282,13 @@ function RuleRow({
                 const result = await onPatch(rule.id, { statusSmerovania: val });
                 if (!result.ok) {
                   handleApiError(result.status, toast);
+                  setState(s => ({ ...s, statusSmerovania: rule.statusSmerovania, dirty: false }));
                 } else {
                   setState(s => ({ ...s, dirty: false }));
                 }
               } catch {
                 toast({ title: "Chyba pri ukladaní pravidla", variant: "destructive" });
+                setState(s => ({ ...s, statusSmerovania: rule.statusSmerovania, dirty: false }));
               }
             }}
           >
