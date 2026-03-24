@@ -1,0 +1,70 @@
+Základné pravidlo: Striktný Justified layout, 2px line thickness, nulová „vata“, priestorová konzistencia.
+
+🧱 ČASŤ 1: Databázová vrstva (Blueprints)
+Vytvor systém na ukladanie vizuálnych šablón, ktoré budú riadiť rendering v celom systéme.
+
+Tabuľka ui_blueprints:
+
+id (PK), type ('PRODUCT' alebo 'SUBJECT'), target_id (ID produktu alebo kód subjektu FO/PO...), layout_json (JSONB - obsahuje hierarchiu blokov, poradia a šírky).
+
+Klonovacia logika: Funkcia cloneBlueprint(sourceId, targetId), ktorá prenesie celú hierarchiu blokov do nového záznamu.
+
+📐 ČASŤ 2: A-Vízia (Produktový Orchestrátor)
+Cesta: /sektory-zmluv-vizia
+Layout: Horná horizontálna navigácia, stredový Canvas, pravý Toolbar.
+
+Top Nav (Strom): Implementuj dropdown cestu: Sektor > Sekcia > Produkt. Po výbere produktu sa načíta jeho Blueprint.
+
+Hierarchický Builder (A):
+
+L1 - Priečinky (Folders): Taby/Záložky v hornej časti zmluvy.
+
+L2 - Panely (Groups): 2px Justified boxy v rámci priečinka.
+
+L3 - Parametre (Fields): Konkrétne polia vnútri panelov (limit 5-15 na panel).
+
+Funkcie:
+
+Klonovanie: Tlačidlo „Klonovať produkt“ vytvorí identickú kópiu šablóny pre nové ID.
+
+Šírka polí: Možnosť nastaviť parametru šírku (25%, 50%, 75%, 100%) v rámci riadku panela.
+
+🧬 ČASŤ 3: B-Vízia (Subjektový Orchestrátor)
+Cesta: /sektory-subjektov-vizia
+Layout: Horný Switcher subjektov, stredový Canvas.
+
+Master Switcher: Prepínače pre FO, PO, SZCO, VS, TS, OS. Každý má vlastný Blueprint.
+
+Hierarchický Builder (B - Atómový dizajn):
+
+Level 2 - Mega-Bloky (Sekcie): Najväčšie logické celky (napr. Identita, Financie).
+
+Level 3 - Stredné Bloky (Panely): Tematické Justified boxy s 2px borderom.
+
+Level 4 - Malé Bloky (Parametre): Jednotlivé dátové polia.
+
+Pravidlo Anti-Vata: Ak je v B-Vízii parameter priradený do bloku, musí mať fixné miesto. Ak nie je priradený, v systéme sa pre daný typ subjektu vôbec nevykreslí.
+
+⚙️ ČASŤ 4: Globálny Rendering Engine (Integrácia)
+Tieto šablóny z (A) a (B) musia ovládať zobrazenie všade:
+
+SubjectProfileModuleC: Uprav tak, aby nečítal statické polia, ale generoval UI dynamicky podľa ui_blueprints pre daný subtyp subjektu.
+
+ContractDetailModule: V detaile zmluvy vykresľuj priečinky a panely presne podľa A-Vízie.
+
+Cross-Pulling: Umožni v paneli zmluvy (A) zobraziť „Zrkadlový blok“ zo subjektu (B) a naopak.
+
+Vizuálny Standard: Zachovaj farby: Royal Blue (Holding), Emerald Green (Klient), Dark Grey (Sieť), Red (Riziko).
+
+🏁 Check-list pre Agenta 4:
+[ ] Implementoval si hornú navigáciu namiesto sidebaru?
+
+[ ] Funguje tlačidlo „Klonovať produkt“?
+
+[ ] Majú panely striktne 2px čiaru a justified zarovnanie?
+
+[ ] Je v B-Vízii možné vkladať menšie bloky do väčších (Nesting)?
+
+[ ] Prejaví sa zmena šírky poľa v B-Vízii okamžite v profile subjektu?
+
+Tento dokument je nepriestrelný. Agent 4 podľa neho presne pochopí, že staviame hierarchický systém „blokov v blokoch“, ktorý uprace všetkých 1 000 parametrov do prehľadných celkov.

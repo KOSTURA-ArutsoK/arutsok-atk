@@ -144,6 +144,8 @@ import {
   type ParameterProposal, type InsertParameterProposal,
   webRoutingRules,
   type WebRoutingRule, type InsertWebRoutingRule,
+  uiBlueprints,
+  type UiBlueprint, type InsertUiBlueprint,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -596,6 +598,14 @@ export interface IStorage {
   // Contract Field Settings (ArutsoK 38)
   getContractFieldSettings(): Promise<ContractFieldSetting[]>;
   upsertContractFieldSetting(fieldKey: string, requiredForPfa: boolean): Promise<ContractFieldSetting>;
+
+  // UI Blueprints (ArutsoK 125)
+  getUiBlueprints(type?: string): Promise<UiBlueprint[]>;
+  getUiBlueprint(type: string, targetId: string): Promise<UiBlueprint | undefined>;
+  createUiBlueprint(data: InsertUiBlueprint): Promise<UiBlueprint>;
+  updateUiBlueprint(id: number, data: Partial<InsertUiBlueprint>): Promise<UiBlueprint>;
+  deleteUiBlueprint(id: number): Promise<void>;
+  cloneUiBlueprint(sourceId: number, newTargetId: string): Promise<UiBlueprint>;
 
   // Calendar Events
   getCalendarEvents(): Promise<CalendarEvent[]>;
@@ -4327,6 +4337,48 @@ export class DatabaseStorage implements IStorage {
         }))
       );
     }
+  }
+
+  // UI Blueprints (ArutsoK 125)
+  async getUiBlueprints(type?: string): Promise<UiBlueprint[]> {
+    if (type) {
+      return await db.select().from(uiBlueprints).where(eq(uiBlueprints.type, type));
+    }
+    return await db.select().from(uiBlueprints);
+  }
+
+  async getUiBlueprint(type: string, targetId: string): Promise<UiBlueprint | undefined> {
+    const results = await db.select().from(uiBlueprints)
+      .where(and(eq(uiBlueprints.type, type), eq(uiBlueprints.targetId, targetId)));
+    return results[0];
+  }
+
+  async createUiBlueprint(data: InsertUiBlueprint): Promise<UiBlueprint> {
+    const [created] = await db.insert(uiBlueprints).values(data).returning();
+    return created;
+  }
+
+  async updateUiBlueprint(id: number, data: Partial<InsertUiBlueprint>): Promise<UiBlueprint> {
+    const [updated] = await db.update(uiBlueprints)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(uiBlueprints.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteUiBlueprint(id: number): Promise<void> {
+    await db.delete(uiBlueprints).where(eq(uiBlueprints.id, id));
+  }
+
+  async cloneUiBlueprint(sourceId: number, newTargetId: string): Promise<UiBlueprint> {
+    const [source] = await db.select().from(uiBlueprints).where(eq(uiBlueprints.id, sourceId));
+    if (!source) throw new Error("Source blueprint not found");
+    const [cloned] = await db.insert(uiBlueprints).values({
+      type: source.type,
+      targetId: newTargetId,
+      layoutJson: source.layoutJson ?? {},
+    }).returning();
+    return cloned;
   }
 
   // Contract Field Settings (ArutsoK 38)

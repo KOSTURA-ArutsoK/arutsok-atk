@@ -11525,6 +11525,122 @@ export async function registerRoutes(
     }
   });
 
+  // === FULL PRODUCT BLUEPRINT (ArutsoK 125) ===
+  // Returns the complete hierarchy: folders -> panels -> parameters for a sector-product
+  app.get("/api/sector-products/:id/full-blueprint", isAuthenticated, async (req, res) => {
+    try {
+      const productId = Number(req.params.id);
+      const folderAssignments = await storage.getProductFolderAssignments(productId);
+      const allFolders = await storage.getContractFolders();
+      const allPanels = await storage.getPanels();
+      const allParams = await storage.getParameters();
+
+      // Get blueprint layout for parameter widths
+      const blueprint = await storage.getUiBlueprint("PRODUCT", String(productId));
+      const layoutJson = (blueprint?.layoutJson as any) || {};
+
+      const result = [];
+      for (const fa of folderAssignments) {
+        const folder = allFolders.find(f => f.id === fa.folderId);
+        if (!folder) continue;
+        const fpList = await storage.getFolderPanels(folder.id);
+        const panels = [];
+        for (const fp of fpList) {
+          const panel = allPanels.find(p => p.id === fp.panelId);
+          if (!panel) continue;
+          const ppList = await storage.getPanelParameters(panel.id);
+          const parameters = ppList.map(pp => {
+            const param = allParams.find(p => p.id === pp.parameterId);
+            if (!param) return null;
+            // Get width from blueprint layout_json if available
+            const lFolder = (layoutJson.folders || []).find((f: any) => f.folderId === folder.id);
+            const lPanel = lFolder ? (lFolder.panels || []).find((p: any) => p.panelId === panel.id) : null;
+            const lParam = lPanel ? (lPanel.parameters || []).find((p: any) => p.parameterId === param.id) : null;
+            return { ...param, sortOrder: pp.sortOrder, width: lParam?.width || "50%" };
+          }).filter(Boolean).sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+          panels.push({ ...panel, sortOrder: fp.sortOrder, gridColumns: fp.gridColumns, parameters });
+        }
+        panels.sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        result.push({ ...folder, sortOrder: fa.sortOrder, panels });
+      }
+      result.sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      res.json({ folders: result, blueprintId: blueprint?.id || null });
+    } catch (err) {
+      console.error("Get full product blueprint error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === UI BLUEPRINTS (ArutsoK 125) ===
+  app.get("/api/ui-blueprints", isAuthenticated, async (req, res) => {
+    try {
+      const type = req.query.type as string | undefined;
+      const blueprints = await storage.getUiBlueprints(type);
+      res.json(blueprints);
+    } catch (err) {
+      console.error("Get ui blueprints error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.get("/api/ui-blueprints/find", isAuthenticated, async (req, res) => {
+    try {
+      const type = req.query.type as string;
+      const targetId = req.query.targetId as string;
+      if (!type || !targetId) return res.status(400).json({ message: "type and targetId required" });
+      const bp = await storage.getUiBlueprint(type, targetId);
+      res.json(bp || null);
+    } catch (err) {
+      console.error("Find ui blueprint error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/ui-blueprints", isAuthenticated, async (req: any, res) => {
+    try {
+      const bp = await storage.createUiBlueprint(req.body);
+      res.json(bp);
+    } catch (err) {
+      console.error("Create ui blueprint error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/ui-blueprints/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const bp = await storage.updateUiBlueprint(id, req.body);
+      res.json(bp);
+    } catch (err) {
+      console.error("Update ui blueprint error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/ui-blueprints/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      await storage.deleteUiBlueprint(id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Delete ui blueprint error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/ui-blueprints/:id/clone", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { newTargetId } = req.body;
+      if (!newTargetId) return res.status(400).json({ message: "newTargetId required" });
+      const cloned = await storage.cloneUiBlueprint(id, String(newTargetId));
+      res.json(cloned);
+    } catch (err) {
+      console.error("Clone ui blueprint error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   // === CONTRACT FIELD SETTINGS (ArutsoK 38) ===
   app.get("/api/contract-field-settings", isAuthenticated, async (_req, res) => {
     try {

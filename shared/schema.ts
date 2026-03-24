@@ -1520,6 +1520,20 @@ export const insertProductFolderAssignmentSchema = createInsertSchema(productFol
 export type ProductFolderAssignment = typeof productFolderAssignments.$inferSelect;
 export type InsertProductFolderAssignment = z.infer<typeof insertProductFolderAssignmentSchema>;
 
+// === UI BLUEPRINTS (ArutsoK 125 - layout templates for products and subjects) ===
+export const uiBlueprints = pgTable("ui_blueprints", {
+  id: serial("id").primaryKey(),
+  type: text("type").notNull(), // 'PRODUCT' | 'SUBJECT'
+  targetId: text("target_id").notNull(), // product ID (as string) or subject code 'FO'|'PO'|...
+  layoutJson: jsonb("layout_json").$type<Record<string, any>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertUiBlueprintSchema = createInsertSchema(uiBlueprints).omit({ id: true, createdAt: true, updatedAt: true });
+export type UiBlueprint = typeof uiBlueprints.$inferSelect;
+export type InsertUiBlueprint = z.infer<typeof insertUiBlueprintSchema>;
+
 // === CONTRACT FIELD SETTINGS (ArutsoK 38 - PFA required field toggles) ===
 export const contractFieldSettings = pgTable("contract_field_settings", {
   id: serial("id").primaryKey(),
