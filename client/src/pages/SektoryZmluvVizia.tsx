@@ -11,18 +11,15 @@ import { ChevronRight, Layers, FolderOpen, LayoutGrid, SlidersHorizontal, Copy, 
 import type { Sector, Section, SectorProduct, ContractFolder, Panel, Parameter } from "@shared/schema";
 
 // --- Type for the full blueprint response ---
-type BpParameter = Parameter & { sortOrder: number; width: string };
-type BpPanel = Panel & { sortOrder: number; gridColumns: number; parameters: BpParameter[] };
+type BpParameter = Parameter & { sortOrder: number; width: number };
+type BpPanel = Panel & { sortOrder: number; gridColumns: number; width: number; parameters: BpParameter[] };
 type BpFolder = ContractFolder & { sortOrder: number; panels: BpPanel[] };
 type FullBlueprint = { folders: BpFolder[]; blueprintId: number | null };
 
-// --- Width options ---
-const WIDTH_OPTIONS = [
-  { label: "25%", value: "25%" },
-  { label: "50%", value: "50%" },
-  { label: "75%", value: "75%" },
-  { label: "100%", value: "100%" },
-];
+// --- Width preset options for parameters ---
+const PARAM_WIDTH_PRESETS = [25, 33, 50, 75, 100];
+// --- Width preset options for panels ---
+const PANEL_WIDTH_PRESETS = [25, 33, 50, 75, 100];
 
 const PARAM_TYPE_LABELS: Record<string, string> = {
   text: "Text", number: "Číslo", date: "Dátum", select: "Výber",
@@ -104,12 +101,34 @@ export default function SektoryZmluvVizia() {
 
   // Update parameter width in blueprint
   const updateWidthMutation = useMutation({
-    mutationFn: async ({ folderId, panelId, parameterId, width }: { folderId: number; panelId: number; parameterId: number; width: string }) => {
+    mutationFn: async ({ folderId, panelId, parameterId, width }: { folderId: number; panelId: number; parameterId: number; width: number }) => {
       const bp = blueprint;
       if (!selProductId) return;
 
       const existingBpId = bp?.blueprintId;
       const layoutJson = buildUpdatedLayoutJson(bp, folderId, panelId, parameterId, width);
+
+      if (existingBpId) {
+        return apiRequest("PUT", `/api/ui-blueprints/${existingBpId}`, { layoutJson }).then(r => r.json());
+      } else {
+        return apiRequest("POST", "/api/ui-blueprints", {
+          type: "PRODUCT", targetId: String(selProductId), layoutJson,
+        }).then(r => r.json());
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selProductId, "full-blueprint"] });
+    },
+  });
+
+  // Update panel width in blueprint
+  const updatePanelWidthMutation = useMutation({
+    mutationFn: async ({ folderId, panelId, width }: { folderId: number; panelId: number; width: number }) => {
+      const bp = blueprint;
+      if (!selProductId) return;
+
+      const existingBpId = bp?.blueprintId;
+      const layoutJson = buildUpdatedPanelWidthLayoutJson(bp, folderId, panelId, width);
 
       if (existingBpId) {
         return apiRequest("PUT", `/api/ui-blueprints/${existingBpId}`, { layoutJson }).then(r => r.json());
@@ -236,14 +255,30 @@ export default function SektoryZmluvVizia() {
   });
 
   // === HELPERS ===
-  function buildUpdatedLayoutJson(bp: FullBlueprint | undefined, folderId: number, panelId: number, parameterId: number, width: string) {
+  function buildUpdatedLayoutJson(bp: FullBlueprint | undefined, folderId: number, panelId: number, parameterId: number, width: number) {
     const existing = (bp?.folders || []).map(f => ({
       folderId: f.id,
       panels: f.panels.map(p => ({
         panelId: p.id,
+        width: p.width || 50,
         parameters: p.parameters.map(pr => ({
           parameterId: pr.id,
-          width: (pr.id === parameterId && p.id === panelId && f.id === folderId) ? width : (pr.width || "50%"),
+          width: (pr.id === parameterId && p.id === panelId && f.id === folderId) ? width : (pr.width || 50),
+        })),
+      })),
+    }));
+    return { folders: existing };
+  }
+
+  function buildUpdatedPanelWidthLayoutJson(bp: FullBlueprint | undefined, folderId: number, panelId: number, width: number) {
+    const existing = (bp?.folders || []).map(f => ({
+      folderId: f.id,
+      panels: f.panels.map(p => ({
+        panelId: p.id,
+        width: (p.id === panelId && f.id === folderId) ? width : (p.width || 50),
+        parameters: p.parameters.map(pr => ({
+          parameterId: pr.id,
+          width: pr.width || 50,
         })),
       })),
     }));
@@ -367,7 +402,7 @@ export default function SektoryZmluvVizia() {
                   >
                     <FolderOpen className="h-3.5 w-3.5" />
                     {folder.name}
-                    {getDensityWarning(folder.panels.length, 2, 6, "Priečinok") && (
+                    {getDensityWarning(folder.panels.length, 1, 6, "Priečinok") && (
                       <span className="text-amber-500 text-xs">⚠</span>
                     )}
                   </button>
@@ -396,9 +431,9 @@ export default function SektoryZmluvVizia() {
                 ) : (
                   <>
                     {/* Density warning */}
-                    {getDensityWarning(activeFolder.panels.length, 2, 6, "Priečinok") && (
+                    {getDensityWarning(activeFolder.panels.length, 1, 6, "Priečinok") && (
                       <div className="mb-4 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-3 py-2">
-                        ⚠ {getDensityWarning(activeFolder.panels.length, 2, 6, "Priečinok")}
+                        ⚠ {getDensityWarning(activeFolder.panels.length, 1, 6, "Priečinok")}
                       </div>
                     )}
 
@@ -412,7 +447,7 @@ export default function SektoryZmluvVizia() {
                         </Button>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      <div className="flex flex-wrap gap-4 items-start">
                         {activeFolder.panels.map(panel => (
                           <PanelCard
                             key={panel.id}
@@ -426,6 +461,7 @@ export default function SektoryZmluvVizia() {
                             onRemoveParam={(pid) => removeParamMutation.mutate({ panelId: panel.id, parameterId: pid })}
                             onAddParams={() => { setSelectedPanelId(panel.id); setAddParamOpen(true); }}
                             onWidthChange={(pid, w) => updateWidthMutation.mutate({ folderId: activeFolder.id, panelId: panel.id, parameterId: pid, width: w })}
+                            panelWidth={panel.width || 50}
                           />
                         ))}
                       </div>
@@ -458,38 +494,98 @@ export default function SektoryZmluvVizia() {
               </div>
             </div>
 
-            {/* Width selector for selected parameter */}
-            {selectedParamId && selectedPanelId && activeFolder && (
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Šírka poľa</p>
-                <div className="grid grid-cols-2 gap-1">
-                  {WIDTH_OPTIONS.map(opt => {
-                    const panel = activeFolder.panels.find(p => p.id === selectedPanelId);
-                    const param = panel?.parameters.find(p => p.id === selectedParamId);
-                    const isActive = param?.width === opt.value;
-                    return (
+            {/* Width selector for selected panel */}
+            {selectedPanelId && !selectedParamId && activeFolder && (() => {
+              const panel = activeFolder.panels.find(p => p.id === selectedPanelId);
+              const currentWidth = panel?.width || 50;
+              return (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Šírka panelu</p>
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {PANEL_WIDTH_PRESETS.map(w => (
                       <button
-                        key={opt.value}
-                        onClick={() => updateWidthMutation.mutate({
-                          folderId: activeFolder.id,
-                          panelId: selectedPanelId,
-                          parameterId: selectedParamId,
-                          width: opt.value,
-                        })}
-                        data-testid={`width-option-${opt.value}`}
-                        className={`px-2 py-1.5 text-xs rounded border transition-colors ${
-                          isActive
+                        key={w}
+                        onClick={() => updatePanelWidthMutation.mutate({ folderId: activeFolder.id, panelId: selectedPanelId, width: w })}
+                        data-testid={`panel-width-preset-${w}`}
+                        className={`px-2 py-1 text-xs rounded border transition-colors ${
+                          currentWidth === w
                             ? "bg-primary text-primary-foreground border-primary"
                             : "border-border hover:border-primary hover:text-primary"
                         }`}
                       >
-                        {opt.label}
+                        {w}%
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
+
+            {/* Width selector for selected parameter */}
+            {selectedParamId && selectedPanelId && activeFolder && (() => {
+              const panel = activeFolder.panels.find(p => p.id === selectedPanelId);
+              const param = panel?.parameters.find(p => p.id === selectedParamId);
+              const currentWidth = param?.width || 50;
+              const otherParamsSum = (panel?.parameters || [])
+                .filter(p => p.id !== selectedParamId)
+                .reduce((sum, p) => sum + (p.width || 0), 0);
+              const remainder = 100 - otherParamsSum;
+              const allParamsSum = (panel?.parameters || [])
+                .reduce((sum, p) => sum + (p.width || 0), 0);
+              const sumOk = allParamsSum === 100;
+
+              return (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Šírka poľa</p>
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {PARAM_WIDTH_PRESETS.map(w => (
+                      <button
+                        key={w}
+                        onClick={() => updateWidthMutation.mutate({
+                          folderId: activeFolder.id,
+                          panelId: selectedPanelId,
+                          parameterId: selectedParamId,
+                          width: w,
+                        })}
+                        data-testid={`param-width-preset-${w}`}
+                        className={`px-2 py-1 text-xs rounded border transition-colors ${
+                          currentWidth === w
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "border-border hover:border-primary hover:text-primary"
+                        }`}
+                      >
+                        {w}%
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="number"
+                    min={5}
+                    max={100}
+                    value={currentWidth}
+                    onChange={(e) => {
+                      const val = Math.min(100, Math.max(5, Number(e.target.value)));
+                      updateWidthMutation.mutate({
+                        folderId: activeFolder.id,
+                        panelId: selectedPanelId,
+                        parameterId: selectedParamId,
+                        width: val,
+                      });
+                    }}
+                    data-testid="param-width-custom-input"
+                    className="w-full text-xs border border-border rounded px-2 py-1 bg-background text-foreground mb-2 focus:outline-none focus:border-primary"
+                  />
+                  <p className="text-[11px] text-muted-foreground" data-testid="param-width-remainder">
+                    Zostatok: {remainder}%
+                  </p>
+                  {!sumOk && (
+                    <p className="text-[11px] text-amber-500 mt-1" data-testid="param-width-sum-warning">
+                      Súčet: {allParamsSum}% — {allParamsSum < 100 ? `chýba ${100 - allParamsSum}%` : `presahuje o ${allParamsSum - 100}%`}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Remove actions */}
             {(selectedPanelId || activeFolder) && (
@@ -516,12 +612,12 @@ export default function SektoryZmluvVizia() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Anti-Vata</p>
               <div className="text-[11px] text-muted-foreground space-y-0.5">
                 <p>📁 3–7 priečinkov</p>
-                <p>📦 2–6 panelov</p>
+                <p>📦 1–6 panelov</p>
                 <p>⚙ 5–15 parametrov</p>
               </div>
               {activeFolder && (
                 <div className="mt-2 text-[11px] space-y-0.5">
-                  <p className={activeFolder.panels.length > 6 || activeFolder.panels.length < 2 ? "text-amber-500" : "text-green-600"}>
+                  <p className={activeFolder.panels.length > 6 || activeFolder.panels.length < 1 ? "text-amber-500" : "text-green-600"}>
                     Panely: {activeFolder.panels.length}
                   </p>
                   {selectedPanelId && (() => {
@@ -701,12 +797,13 @@ interface PanelCardProps {
   onRemovePanel: () => void;
   onRemoveParam: (id: number) => void;
   onAddParams: () => void;
-  onWidthChange: (paramId: number, width: string) => void;
+  onWidthChange: (paramId: number, width: number) => void;
+  panelWidth: number;
 }
 
 function PanelCard({
   panel, folderId, isSelected, selectedParamId,
-  onSelectPanel, onSelectParam, onRemovePanel, onRemoveParam, onAddParams, onWidthChange,
+  onSelectPanel, onSelectParam, onRemovePanel, onRemoveParam, onAddParams, onWidthChange, panelWidth,
 }: PanelCardProps) {
   const paramWarning = getDensityWarning(panel.parameters.length, 5, 15, "Panel");
 
@@ -715,6 +812,7 @@ function PanelCard({
       className={`border-2 rounded-lg flex flex-col transition-all ${
         isSelected ? "border-primary shadow-sm" : "border-border hover:border-muted-foreground/50"
       }`}
+      style={{ width: `calc(${panelWidth}% - 1rem)`, minWidth: "200px" }}
       data-testid={`card-panel-${panel.id}`}
     >
       {/* Panel Header */}
@@ -758,7 +856,7 @@ function PanelCard({
               >
                 <span className="flex-1 truncate">{param.name}</span>
                 <ParamTypeBadge type={param.paramType} />
-                <span className="text-[10px] text-muted-foreground/60 w-8 text-right">{param.width}</span>
+                <span className="text-[10px] text-muted-foreground/60 w-8 text-right">{param.width}%</span>
                 <button
                   onClick={(e) => { e.stopPropagation(); onRemoveParam(param.id); }}
                   className="h-4 w-4 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"

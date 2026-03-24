@@ -11556,9 +11556,11 @@ export async function registerRoutes(
             const lFolder = (layoutJson.folders || []).find((f: any) => f.folderId === folder.id);
             const lPanel = lFolder ? (lFolder.panels || []).find((p: any) => p.panelId === panel.id) : null;
             const lParam = lPanel ? (lPanel.parameters || []).find((p: any) => p.parameterId === param.id) : null;
-            return { ...param, sortOrder: pp.sortOrder, width: lParam?.width || "50%" };
+            return { ...param, sortOrder: pp.sortOrder, width: typeof lParam?.width === "number" ? lParam.width : (parseInt(lParam?.width, 10) || 50) };
           }).filter(Boolean).sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
-          panels.push({ ...panel, sortOrder: fp.sortOrder, gridColumns: fp.gridColumns, parameters });
+          const lFolderForPanel = (layoutJson.folders || []).find((f: any) => f.folderId === folder.id);
+          const lPanelForPanel = lFolderForPanel ? (lFolderForPanel.panels || []).find((p: any) => p.panelId === panel.id) : null;
+          panels.push({ ...panel, sortOrder: fp.sortOrder, gridColumns: fp.gridColumns, width: lPanelForPanel?.width || 50, parameters });
         }
         panels.sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
         result.push({ ...folder, sortOrder: fa.sortOrder, panels });
