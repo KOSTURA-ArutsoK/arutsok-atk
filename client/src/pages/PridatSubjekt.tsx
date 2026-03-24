@@ -1545,22 +1545,22 @@ function FullPageEditor({
                                 {groups.map(({ section, fields }) => (
                                   <div key={section.id} className="space-y-2">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1" style={{ display: groups.length > 1 ? 'block' : 'none' }}>{section.name}</p>
-                                    <div className="flex flex-wrap gap-4 items-end">
-                                      {fields.map((field: StaticField) => {
-                                        const fk = field.fieldKey;
-                                        let wCls = "flex-1 min-w-[140px]";
-                                        if (fk === "titul_pred" || fk === "titul_za") wCls = "w-[100px] min-w-[80px] shrink-0";
-                                        else if (fk === "vek") wCls = "w-[80px] min-w-[60px] shrink-0";
-                                        else if (fk === "pohlavie") wCls = "w-[130px] min-w-[100px] shrink-0";
-                                        else if (fk === "datum_narodenia" || fk === "platnost_dokladu") wCls = "w-[160px] min-w-[140px] shrink-0";
-                                        else if (fk === "meno" || fk === "priezvisko" || fk === "rodne_priezvisko") wCls = "flex-1 min-w-[150px]";
-                                        return (
-                                          <div key={field.id} className={cn("min-w-0", wCls, flashingFields.has(field.fieldKey) && "field-imported-flash")}>
-                                            <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
+                                    {(() => {
+                                      const byRow: Record<number, StaticField[]> = {};
+                                      for (const f of fields) { const r = f.rowNumber ?? 0; if (!byRow[r]) byRow[r] = []; byRow[r].push(f); }
+                                      return Object.keys(byRow).map(Number).sort((a, b) => a - b).map(rowNum => (
+                                        <div key={rowNum} className="flex flex-wrap gap-3 items-end">
+                                          {byRow[rowNum].map((field: StaticField) => {
+                                            const wp = field.widthPercent || 50;
+                                            return (
+                                              <div key={field.id} className={cn("min-w-0 shrink", flashingFields.has(field.fieldKey) && "field-imported-flash")} style={{ flexBasis: `calc(${wp}% - 0.75rem)`, minWidth: wp <= 20 ? '70px' : '100px' }}>
+                                                <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      ));
+                                    })()}
                                   </div>
                                 ))}
                               </div>
@@ -1673,22 +1673,22 @@ function FullPageEditor({
                                           {panel && (
                                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border pb-1">{panel.name}</p>
                                           )}
-                                          <div className="flex flex-wrap gap-4 items-end">
-                                            {fields.map((field: StaticField) => {
-                                              const fk = field.fieldKey;
-                                              let wCls = "flex-1 min-w-[140px]";
-                                              if (fk === "titul_pred" || fk === "titul_za") wCls = "w-[100px] min-w-[80px] shrink-0";
-                                              else if (fk === "vek") wCls = "w-[80px] min-w-[60px] shrink-0";
-                                              else if (fk === "pohlavie") wCls = "w-[130px] min-w-[100px] shrink-0";
-                                              else if (fk === "datum_narodenia" || fk === "platnost_dokladu") wCls = "w-[160px] min-w-[140px] shrink-0";
-                                              else if (fk === "meno" || fk === "priezvisko" || fk === "rodne_priezvisko") wCls = "flex-1 min-w-[150px]";
-                                              return (
-                                                <div key={field.id} className={cn("min-w-0", wCls, flashingFields.has(field.fieldKey) && "field-imported-flash")}>
-                                                  <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
-                                                </div>
-                                              );
-                                            })}
-                                          </div>
+                                          {(() => {
+                                            const byRow: Record<number, StaticField[]> = {};
+                                            for (const f of fields) { const r = f.rowNumber ?? 0; if (!byRow[r]) byRow[r] = []; byRow[r].push(f); }
+                                            return Object.keys(byRow).map(Number).sort((a, b) => a - b).map(rowNum => (
+                                              <div key={rowNum} className="flex flex-wrap gap-3 items-end">
+                                                {byRow[rowNum].map((field: StaticField) => {
+                                                  const wp = field.widthPercent || 50;
+                                                  return (
+                                                    <div key={field.id} className={cn("min-w-0 shrink", flashingFields.has(field.fieldKey) && "field-imported-flash")} style={{ flexBasis: `calc(${wp}% - 0.75rem)`, minWidth: wp <= 20 ? '70px' : '100px' }}>
+                                                      <DynamicFieldInput field={field} dynamicValues={dynamicValues} setDynamicValues={setDynamicValues} hasError={validationErrors.has(field.fieldKey)} />
+                                                    </div>
+                                                  );
+                                                })}
+                                              </div>
+                                            ));
+                                          })()}
                                         </div>
                                       ))
                                     )}
