@@ -1,0 +1,202 @@
+EKONOMIKA
+FO (Fyzická osoba)
+doplnkove
+5 panelov
+
+
+POVINNÉ ÚDAJE
+VS (Verejný sektor)
+povinne
+3 panelov
+
+
+SZČO – ÚDAJE
+SZČO
+povinne
+1 panelov
+
+
+POVINNÉ ÚDAJE
+NS (Tretí sektor)
+povinne
+3 panelov
+
+
+Kontakty a doklady
+FO (Fyzická osoba)
+povinne
+3 panelov
+
+
+ZÁKLADNÉ ÚDAJE
+FO (Fyzická osoba)
+povinne
+7 panelov
+
+
+POVINNÉ ÚDAJE
+Typ 7
+povinne
+12 panelov
+
+
+PRÁVNE SUBJEKTY (Firmy)
+PO (Právnická osoba)
+povinne
+5 panelov
+
+
+POVINNÉ ÚDAJE
+PO (Právnická osoba)
+povinne
+3 panelov
+
+
+POVINNÉ ÚDAJE
+SZČO
+povinne
+6 panelov
+
+
+DOPLNKOVÉ ÚDAJE
+SZČO
+doplnkove
+11 panelov
+
+
+DOPLNKOVÉ ÚDAJE
+PO (Právnická osoba)
+doplnkove
+10 panelov
+
+
+DOPLNKOVÉ ÚDAJE
+Typ 7
+doplnkove
+2 panelov
+
+
+DOPLNKOVÉ ÚDAJE
+NS (Tretí sektor)
+doplnkove
+5 panelov
+
+
+DOPLNKOVÉ ÚDAJE
+VS (Verejný sektor)
+doplnkove
+5 panelov
+
+
+DOPLNKOVÉ ÚDAJE
+FO (Fyzická osoba)
+doplnkove
+16 panelov
+
+
+VOLITEĽNÉ ÚDAJE
+Typ 7
+volitelne
+0 panelov
+
+
+VOLITEĽNÉ ÚDAJE
+VS (Verejný sektor)
+volitelne
+0 panelov
+
+
+VOLITEĽNÉ ÚDAJE
+NS (Tretí sektor)
+volitelne
+0 panelov
+
+
+VOLITEĽNÉ ÚDAJE
+SZČO
+volitelne
+4 panelov
+
+
+VOLITEĽNÉ ÚDAJE
+PO (Právnická osoba)
+volitelne
+4 panelov
+
+
+VOZIDLÁ
+FO (Fyzická osoba)
+doplnkove
+6 panelov
+
+
+INÉ ÚDAJE
+Typ 7
+ine
+0 panelov
+
+
+INÉ ÚDAJE
+NS (Tretí sektor)
+ine
+0 panelov
+
+
+INÉ ÚDAJE
+VS (Verejný sektor)
+ine
+0 panelov
+
+
+VOLITEĽNÉ ÚDAJE
+FO (Fyzická osoba)
+volitelne
+3 panelov
+
+
+REALITY (Majetok)
+FO (Fyzická osoba)
+doplnkove
+6 panelov
+
+
+Zdravotný profil (FO)
+FO (Fyzická osoba)
+doplnkove
+1 panelov
+
+
+Investičný profil (FO)
+FO (Fyzická osoba)
+doplnkove
+1 panelov
+
+
+SDS (II. pilier)
+FO (Fyzická osoba)
+doplnkove
+2 panelov
+
+
+PRENÁJOM NEHNUTEĽNOSTÍ
+FO (Fyzická osoba)
+doplnkove
+1 panelov
+
+
+POĽNOHOSPODÁRSTVO & ZVIERATÁ
+FO (Fyzická osoba)
+doplnkove
+3 panelov
+
+
+MARKETING & GDPR
+FO (Fyzická osoba)
+povinne
+1 panelov
+
+
+UNIVERZÁLNY RETAIL & OBCHOD
+FO (Fyzická osoba)
+doplnkove
+3 panelov
