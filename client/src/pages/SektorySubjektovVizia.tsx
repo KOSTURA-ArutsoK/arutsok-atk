@@ -293,7 +293,7 @@ export default function SektorySubjektovVizia() {
 
   const reorderParamsMutation = useMutation({
     mutationFn: async (items: { id: number; sortOrder: number }[]) => {
-      const r = await apiRequest("POST", "/api/subject-parameters/batch-reorder", { items });
+      const r = await apiRequest("PATCH", "/api/subject-parameters/reorder", { items });
       return r.json();
     },
     onError: () => { invalidateParams(); toast({ title: "Chyba pri ukladaní poradia", variant: "destructive" }); },
@@ -733,17 +733,28 @@ export default function SektorySubjektovVizia() {
                                                                               </SortableContext>
                                                                             </DndContext>
 
-                                                                            {/* Legacy params without rowId */}
+                                                                            {/* Legacy params without rowId — also DnD sortable */}
                                                                             {legacyParams.length > 0 && (
                                                                               <div className="rounded border border-dashed border-amber-300/60 px-2 py-1">
                                                                                 <div className="text-[10px] text-amber-600/70 mb-0.5">Parametre bez riadku:</div>
-                                                                                {legacyParams.map(param => (
-                                                                                  <div key={param.id} className="flex items-center gap-1 text-xs text-muted-foreground py-0.5" data-testid={`param-row-${param.id}`}>
-                                                                                    <AlignLeft className="h-3 w-3 opacity-50 flex-shrink-0" />
-                                                                                    <span className="flex-1 truncate">{param.label}</span>
-                                                                                    <FieldTypeBadge type={param.fieldType} />
-                                                                                  </div>
-                                                                                ))}
+                                                                                <DndContext sensors={sensors} onDragEnd={e => handleDragEndParams(e, getParamsForPanel(panel.id))}>
+                                                                                  <SortableContext items={legacyParams.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                                                                                    {legacyParams.map(param => (
+                                                                                      <SortableItem key={param.id} id={param.id}>
+                                                                                        {({ listeners: pL, attributes: pA }) => (
+                                                                                          <div className="flex items-center gap-1 text-xs text-muted-foreground py-0.5 hover:bg-muted/30 rounded" data-testid={`param-row-${param.id}`}>
+                                                                                            <button type="button" className="text-muted-foreground/20 hover:text-muted-foreground/60 cursor-grab active:cursor-grabbing" {...pL} {...pA} onClick={e => e.stopPropagation()}>
+                                                                                              <GripVertical className="h-3 w-3" />
+                                                                                            </button>
+                                                                                            <AlignLeft className="h-3 w-3 opacity-50 flex-shrink-0" />
+                                                                                            <span className="flex-1 truncate">{param.label}</span>
+                                                                                            <FieldTypeBadge type={param.fieldType} />
+                                                                                          </div>
+                                                                                        )}
+                                                                                      </SortableItem>
+                                                                                    ))}
+                                                                                  </SortableContext>
+                                                                                </DndContext>
                                                                               </div>
                                                                             )}
                                                                           </>

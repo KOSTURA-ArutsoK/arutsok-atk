@@ -17162,6 +17162,17 @@ export async function registerRoutes(
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
+  app.patch("/api/subject-parameters/reorder", isAuthenticated, async (req, res) => {
+    try {
+      const { items } = req.body;
+      if (!Array.isArray(items)) return res.status(400).json({ message: "items must be array" });
+      for (const item of items) {
+        await storage.updateSubjectParameter(item.id, { sortOrder: Number(item.sortOrder) });
+      }
+      res.json({ success: true, updated: items.length });
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
   app.patch("/api/subject-parameters/:id", isAuthenticated, async (req, res) => {
     try {
       const param = await storage.updateSubjectParameter(Number(req.params.id), req.body);
