@@ -659,6 +659,7 @@ export async function registerRoutes(
     .then(r => { if (r.parametersCount > 0) console.log(`[SYNC] Added ${r.sectionsCount} sections, ${r.parametersCount} params on startup`); })
     .catch(err => console.error("[SEED-OS-NS-VS-TEMPLATES ERROR]", err));
   cleanupZombieTemplateParams().catch(err => console.error("[CLEANUP-ZOMBIE-PARAMS ERROR]", err));
+  migrateSectionTypes().catch(err => console.error("[MIGRATE-SECTION-TYPES ERROR]", err));
 
   (async () => {
     try {
@@ -16814,11 +16815,32 @@ export async function registerRoutes(
     try {
       const { name, clientTypeId } = req.body;
       if (!name || !clientTypeId) return res.status(400).json({ message: "name, clientTypeId required" });
+
+      const VALID_SECTION_TYPES = ["kategoria", "blok", "panel", "riadok"];
+      const sectionType = req.body.sectionType || (req.body.isPanel ? "panel" : "blok");
+      if (!VALID_SECTION_TYPES.includes(sectionType)) {
+        return res.status(400).json({ message: `Neplatný typ sekcie: ${sectionType}. Povolené: ${VALID_SECTION_TYPES.join(", ")}` });
+      }
+
+      // Validate hierarchy: blok→kategoria, panel→blok, riadok→panel; kategoria has no parent
+      const parentSectionId = req.body.parentSectionId ? Number(req.body.parentSectionId) : null;
+      const REQUIRED_PARENT_TYPE: Record<string, string | null> = {
+        kategoria: null, blok: "kategoria", panel: "blok", riadok: "panel",
+      };
+      const requiredParentType = REQUIRED_PARENT_TYPE[sectionType];
+      if (requiredParentType !== null) {
+        if (!parentSectionId) return res.status(400).json({ message: `Typ "${sectionType}" vyžaduje parentSectionId.` });
+        const [parent] = await db.select().from(subjectParamSections).where(eq(subjectParamSections.id, parentSectionId));
+        if (!parent) return res.status(400).json({ message: "Rodičovská sekcia neexistuje." });
+        if (parent.sectionType !== requiredParentType) {
+          return res.status(400).json({ message: `Typ "${sectionType}" musí byť pod sekciou typu "${requiredParentType}", nie "${parent.sectionType}".` });
+        }
+      }
+
       const code = req.body.code || generateAutoCode(name, "sec_");
       const folderCategory = req.body.folderCategory || "general";
-      const sectionType = req.body.sectionType || (req.body.isPanel ? "panel" : "blok");
       const isPanel = sectionType === "panel";
-      const section = await storage.createSubjectParamSection({ ...req.body, code, folderCategory, sectionType, isPanel });
+      const section = await storage.createSubjectParamSection({ ...req.body, code, folderCategory, sectionType, isPanel, parentSectionId });
       res.json(section);
     } catch (err: any) {
       console.error("Error creating subject param section:", err?.message || err);
@@ -16843,11 +16865,29 @@ export async function registerRoutes(
   app.delete("/api/subject-param-sections/:id", isAuthenticated, async (req, res) => {
     try {
       const sectionId = Number(req.params.id);
-      const deps = await storage.getSectionDependencies(sectionId);
-      if (deps.parameterCount > 0) {
+
+      // Check child sections (any section with this as parent)
+      const [childSectionsResult] = await db.select({ count: sql<number>`count(*)` })
+        .from(subjectParamSections)
+        .where(eq(subjectParamSections.parentSectionId, sectionId));
+      const childCount = Number(childSectionsResult?.count ?? 0);
+      if (childCount > 0) {
         return res.status(400).json({
-          message: `Sekciu nie je možné vymazať – obsahuje ${deps.parameterCount} parametrov/panelov.`,
-          dependencies: deps,
+          message: `Sekcia obsahuje ${childCount} podradených záznamov — najprv ich odstráňte.`,
+        });
+      }
+
+      // Check parameters assigned to this section (panelId or rowId)
+      const [paramResult] = await db.select({ count: sql<number>`count(*)` })
+        .from(subjectParameters)
+        .where(and(
+          or(eq(subjectParameters.sectionId, sectionId), eq(subjectParameters.panelId, sectionId), eq(subjectParameters.rowId, sectionId)),
+          eq(subjectParameters.isActive, true)
+        ));
+      const paramCount = Number(paramResult?.count ?? 0);
+      if (paramCount > 0) {
+        return res.status(400).json({
+          message: `Sekcia obsahuje ${paramCount} parametrov — najprv ich odstráňte.`,
         });
       }
       const section = await storage.getSubjectParamSections();
@@ -23253,4 +23293,74 @@ async function seedSubjectParameters() {
   }
 
   console.log(`[SEED] Created ${STATIC_SECTIONS.length} sections, ${allInsertedParams.length} parameters, 1 default template`);
+}
+
+async function migrateSectionTypes() {
+  const startTime = Date.now();
+  let changes = 0;
+
+  // 1. Fix isPanel=true records that still have sectionType='blok' (legacy panels)
+  const fixPanels = await db.update(subjectParamSections)
+    .set({ sectionType: "panel" })
+    .where(and(eq(subjectParamSections.isPanel, true), sql`section_type != 'panel'`))
+    .returning({ id: subjectParamSections.id });
+  changes += fixPanels.length;
+
+  // 2. Ensure all non-panel, non-kategoria, non-riadok records have sectionType='blok'
+  const fixBloky = await db.update(subjectParamSections)
+    .set({ sectionType: "blok" })
+    .where(sql`section_type NOT IN ('kategoria', 'blok', 'panel', 'riadok')`)
+    .returning({ id: subjectParamSections.id });
+  changes += fixBloky.length;
+
+  // 3. Create missing Kategória records for each (clientTypeId × folderCategory) combo from existing Bloky
+  const FOLDER_CATEGORY_LABELS: Record<string, string> = {
+    povinne: "Povinné",
+    doplnkove: "Doplnkové",
+    volitelne: "Voliteľné",
+    ine: "Iné",
+    general: "Všeobecné",
+  };
+
+  const bloky = await db.select().from(subjectParamSections).where(eq(subjectParamSections.sectionType, "blok"));
+  const existingKategorie = await db.select().from(subjectParamSections).where(eq(subjectParamSections.sectionType, "kategoria"));
+
+  const katMap = new Map<string, number>(); // "clientTypeId:folderCategory" → id
+  for (const k of existingKategorie) {
+    katMap.set(`${k.clientTypeId}:${k.folderCategory}`, k.id);
+  }
+
+  for (const blok of bloky) {
+    const key = `${blok.clientTypeId}:${blok.folderCategory}`;
+    if (!katMap.has(key)) {
+      const label = FOLDER_CATEGORY_LABELS[blok.folderCategory] ?? blok.folderCategory;
+      const code = `kat_${blok.clientTypeId}_${blok.folderCategory}_${Math.random().toString(36).substring(2, 5)}`;
+      const [newKat] = await db.insert(subjectParamSections).values({
+        name: label,
+        code,
+        clientTypeId: blok.clientTypeId,
+        folderCategory: blok.folderCategory,
+        sectionType: "kategoria",
+        isPanel: false,
+        sortOrder: 0,
+      } as any).returning();
+      katMap.set(key, newKat.id);
+      changes++;
+    }
+
+    // 4. Link blok to its kategoria if parentSectionId is null
+    if (blok.parentSectionId === null) {
+      const katId = katMap.get(key);
+      if (katId) {
+        await db.update(subjectParamSections)
+          .set({ parentSectionId: katId })
+          .where(and(eq(subjectParamSections.id, blok.id), isNull(subjectParamSections.parentSectionId)));
+        changes++;
+      }
+    }
+  }
+
+  if (changes > 0) {
+    console.log(`[MIGRATE-SECTION-TYPES] Applied ${changes} fix(es) in ${Date.now() - startTime}ms`);
+  }
 }

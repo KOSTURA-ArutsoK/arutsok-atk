@@ -1846,7 +1846,7 @@ export const subjectParamSections = pgTable("subject_param_sections", {
   folderCategory: text("folder_category").notNull(),
   sortOrder: integer("sort_order").default(0),
   isPanel: boolean("is_panel").default(false),
-  sectionType: text("section_type").default("blok"),
+  sectionType: text("section_type").notNull().default("blok"),
   parentSectionId: integer("parent_section_id"),
   gridColumns: integer("grid_columns").default(1),
   isCollection: boolean("is_collection").default(false),
