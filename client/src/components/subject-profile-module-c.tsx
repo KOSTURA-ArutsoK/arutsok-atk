@@ -7,6 +7,7 @@ import { type StaticField, PHOTO_REQUIRED_FIELD_KEYS } from "@/lib/staticFieldDe
 import { getCategoriesForClientType } from "@/lib/staticFieldDefs";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair } from "@/lib/document-validity";
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
+import { SubjectBlueprintSection } from "@/components/blueprint-renderer";
 import { SubjectProfilePhoto } from "@/components/subject-profile-photo";
 import { SubjectContactsPanel } from "@/components/subject-contacts-panel";
 import { WebRouterPanel } from "@/components/web-router-panel";
@@ -2489,6 +2490,23 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                 )}
               </Card>
 
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* B-Vízia Blueprint Section */}
+          <AccordionItem value="b-vizia-blueprint" className="border rounded-md px-3 border-blue-500/20" data-testid="accordion-b-vizia-blueprint">
+            <AccordionTrigger className="text-sm font-semibold py-3 hover:no-underline">
+              <span className="flex items-center gap-2">
+                <span className="text-blue-400 text-xs font-bold uppercase tracking-widest">B-Vízia</span>
+                Šablóna subjektu
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="pb-4">
+              <SubjectBlueprintSection
+                clientTypeId={clientTypeId}
+                dynamicFields={(subject as any)?.details?.dynamicFields || {}}
+                readOnly={true}
+              />
             </AccordionContent>
           </AccordionItem>
         </Accordion>

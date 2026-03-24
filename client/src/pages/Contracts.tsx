@@ -15,6 +15,7 @@ import { validateSlovakICO } from "@shared/ico-validator";
 import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, AlertCircle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building, Building2, ArrowLeftRight, Info, Download, Landmark } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
+import { BlueprintRenderer } from "@/components/blueprint-renderer";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
@@ -1239,107 +1240,26 @@ function ContractFormDialog({
             </div>
           </div>
 
-          <div className="space-y-3 border rounded-md p-4" data-testid="section-contract-panels" style={{ display: sectorProductId && productPanels && productPanels.length > 0 ? 'block' : 'none' }}>
-              <div className="flex items-center gap-2 mb-2">
-                <LayoutGrid className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold">Parametre produktu</span>
+
+            {/* A-Vízia BlueprintRenderer — blueprint-driven parameter rendering with cross-pull */}
+            {sectorProductId && (
+              <div className="border rounded-md p-4" data-testid="section-contract-panels">
+                <div className="flex items-center gap-2 mb-3">
+                  <LayoutGrid className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-semibold">Parametre produktu</span>
+                </div>
+                <BlueprintRenderer
+                  productId={parseInt(sectorProductId)}
+                  values={panelValues}
+                  onChange={(panelId, paramId, val) =>
+                    setPanelValues(prev => ({ ...prev, [`${panelId}_${paramId}`]: val }))
+                  }
+                  crossPullValues={
+                    ((subjects?.find(s => s.id === parseInt(subjectId))?.details as any)?.dynamicFields) || {}
+                  }
+                />
               </div>
-              {productPanels?.map(panel => (
-                <Card key={panel.id} className="p-3" data-testid={`panel-section-${panel.id}`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-sm font-semibold">{panel.name}</span>
-                    <span className="text-xs text-muted-foreground" style={{ display: panel.description ? 'inline' : 'none' }}>({panel.description})</span>
-                  </div>
-                  {panel.parameters.length > 0 ? (
-                    <div className="grid grid-cols-2 gap-3">
-                      {panel.parameters.map(param => (
-                        <div key={param.id} className="space-y-1">
-                          <label className="text-xs font-medium">
-                            {param.name}
-                            <span className="text-destructive ml-1" style={{ display: param.isRequired ? 'inline' : 'none' }}>*</span>
-                          </label>
-                          {param.paramType === "textarea" ? (
-                            <Textarea
-                              value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                              onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
-                              rows={2}
-                              data-testid={`input-panel-param-${panel.id}-${param.id}`}
-                            />
-                          ) : param.paramType === "boolean" ? (
-                            <Select
-                              value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                              onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
-                            >
-                              <SelectTrigger data-testid={`select-panel-param-${panel.id}-${param.id}`}>
-                                <SelectValue placeholder="Vyberte" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="ano">Ano</SelectItem>
-                                <SelectItem value="nie">Nie</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          ) : (param.paramType === "combobox" || param.paramType === "jedna_moznost") && param.options?.length > 0 ? (
-                            <Select
-                              value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                              onValueChange={val => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
-                            >
-                              <SelectTrigger data-testid={`select-panel-param-${panel.id}-${param.id}`}>
-                                <SelectValue placeholder="Vyberte" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {param.options.map(opt => (
-                                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : param.paramType === "viac_moznosti" && param.options?.length > 0 ? (
-                            <MultiSelectCheckboxes
-                              paramId={`${panel.id}_${param.id}`}
-                              options={param.options || []}
-                              value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                              onChange={(val) => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: val }))}
-                            />
-                          ) : param.paramType === "decimal" ? (
-                            <div className="flex items-center gap-1.5">
-                              <Input
-                                type="text"
-                                inputMode="decimal"
-                                value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                                onChange={e => {
-                                  const raw = e.target.value.replace(/,/g, ".");
-                                  const dp = (param as any).decimalPlaces ?? 2;
-                                  const regex = dp > 0 ? new RegExp(`^\\d*\\.?\\d{0,${dp}}$`) : /^\d*$/;
-                                  if (raw === "" || raw === "." || regex.test(raw)) {
-                                    setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: raw }));
-                                  }
-                                }}
-                                data-testid={`input-panel-param-${panel.id}-${param.id}`}
-                                className="flex-1"
-                              />
-                              <span style={{ display: (param as any).unit ? 'inline' : 'none' }} className="text-sm text-muted-foreground font-medium whitespace-nowrap">{(param as any).unit}</span>
-                            </div>
-                          ) : (
-                            <Input
-                              type={param.paramType === "number" || param.paramType === "currency" || param.paramType === "percent" ? "number" : param.paramType === "date" ? "date" : param.paramType === "datetime" ? "datetime-local" : param.paramType === "email" ? "email" : param.paramType === "url" ? "url" : "text"}
-                              value={panelValues[`${panel.id}_${param.id}`] || param.defaultValue || ""}
-                              onChange={e => setPanelValues(prev => ({ ...prev, [`${panel.id}_${param.id}`]: e.target.value }))}
-                              data-testid={`input-panel-param-${panel.id}-${param.id}`}
-                            />
-                          )}
-                          <p className="text-xs text-muted-foreground" style={{ display: param.helpText ? 'block' : 'none' }}>{param.helpText}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Ziadne parametre</p>
-                  )}
-                </Card>
-              ))}
-            </div>
-          <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground" style={{ display: sectorProductId && panelsLoading ? 'flex' : 'none' }}>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Nacitavam panely...
-          </div>
+            )}
 
           <div className="grid grid-cols-4 gap-4">
             <div className="space-y-2">
