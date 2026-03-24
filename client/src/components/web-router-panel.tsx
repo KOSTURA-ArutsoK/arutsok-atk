@@ -261,13 +261,13 @@ function RuleRow({
                 const result = await onPatch(rule.id, { targetHoldingUid: newUid });
                 if (!result.ok) {
                   handleApiError(result.status, toast);
-                  setState(s => ({ ...s, saving: false }));
+                  setState(s => ({ ...s, targetHoldingUid: rule.targetHoldingUid, saving: false, dirty: false }));
                 } else {
                   setState(s => ({ ...s, saving: false, dirty: false }));
                 }
               } catch {
                 toast({ title: "Chyba pri ukladaní pravidla", variant: "destructive" });
-                setState(s => ({ ...s, saving: false }));
+                setState(s => ({ ...s, targetHoldingUid: rule.targetHoldingUid, saving: false, dirty: false }));
               }
             }}
             rowId={rule.id}
