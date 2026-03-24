@@ -16841,7 +16841,13 @@ export async function registerRoutes(
       }
 
       const code = req.body.code || generateAutoCode(name, "sec_");
-      const folderCategory = req.body.folderCategory || "general";
+      // For blok/panel/riadok, derive folderCategory from the parent to guarantee consistency
+      let folderCategory = req.body.folderCategory || "general";
+      if (requiredParentType !== null && parentSectionId) {
+        const [resolvedParent] = await db.select({ folderCategory: subjectParamSections.folderCategory })
+          .from(subjectParamSections).where(eq(subjectParamSections.id, parentSectionId));
+        if (resolvedParent?.folderCategory) folderCategory = resolvedParent.folderCategory;
+      }
       const isPanel = sectionType === "panel";
       const section = await storage.createSubjectParamSection({ ...req.body, code, folderCategory, sectionType, isPanel, parentSectionId });
       res.json(section);
