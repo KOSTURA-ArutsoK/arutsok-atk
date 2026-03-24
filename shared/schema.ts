@@ -2814,7 +2814,9 @@ export const webRoutingRules = pgTable("web_routing_rules", {
   targetHoldingUid: varchar("target_holding_uid", { length: 20 }).notNull(),
   statusSmerovania: varchar("status_smerovania", { length: 20 }).notNull().default("Aktívne"),
   sortOrder: integer("sort_order").notNull().default(0),
-});
+}, (t) => ({
+  subjectSlugUniq: uniqueIndex("web_routing_rules_subject_slug_uniq").on(t.subjectId, t.apiProductSlug),
+}));
 
 export const insertWebRoutingRuleSchema = createInsertSchema(webRoutingRules).omit({ id: true });
 export type WebRoutingRule = typeof webRoutingRules.$inferSelect;

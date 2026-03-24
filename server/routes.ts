@@ -16616,24 +16616,46 @@ export async function registerRoutes(
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
-  app.post("/api/subjects/:id/web-routing-rules", isAuthenticated, async (req, res) => {
+  app.post("/api/subjects/:id/web-routing-rules", isAuthenticated, async (req: any, res) => {
     try {
+      const subjectId = Number(req.params.id);
+      const subject = await storage.getSubject(subjectId);
+      if (!subject) return res.status(404).json({ message: "Subject not found" });
       const { apiProductSlug, targetHoldingUid, statusSmerovania, sortOrder } = req.body;
       if (!apiProductSlug || !targetHoldingUid) {
         return res.status(400).json({ message: "apiProductSlug a targetHoldingUid sú povinné" });
       }
-      const rule = await storage.createWebRoutingRule({
-        subjectId: Number(req.params.id),
-        apiProductSlug: String(apiProductSlug).trim(),
-        targetHoldingUid: String(targetHoldingUid).trim(),
-        statusSmerovania: String(statusSmerovania || "Aktívne"),
-        sortOrder: Number(sortOrder ?? 0),
+      const targetSubject = await storage.getSubjectByUid(String(targetHoldingUid).trim());
+      if (!targetSubject) {
+        return res.status(422).json({ message: "Cieľový subjekt s týmto UID neexistuje" });
+      }
+      let rule: any;
+      try {
+        rule = await storage.createWebRoutingRule({
+          subjectId,
+          apiProductSlug: String(apiProductSlug).trim(),
+          targetHoldingUid: String(targetHoldingUid).trim(),
+          statusSmerovania: String(statusSmerovania || "Aktívne"),
+          sortOrder: Number(sortOrder ?? 0),
+        });
+      } catch (dbErr: any) {
+        if (dbErr?.code === "23505") {
+          return res.status(409).json({ message: "Kód produktu je už použitý pre tento web" });
+        }
+        throw dbErr;
+      }
+      await logAudit(req, {
+        action: "CREATE",
+        module: "web_smerovnik",
+        entityId: rule.id,
+        entityName: `${subject.companyName || subject.uid} / ${rule.apiProductSlug}`,
+        newData: { subjectId, apiProductSlug: rule.apiProductSlug, targetHoldingUid: rule.targetHoldingUid, statusSmerovania: rule.statusSmerovania },
       });
       res.status(201).json(rule);
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
-  app.patch("/api/web-routing-rules/:ruleId", isAuthenticated, async (req, res) => {
+  app.patch("/api/web-routing-rules/:ruleId", isAuthenticated, async (req: any, res) => {
     try {
       const ruleId = Number(req.params.ruleId);
       const existing = await storage.getWebRoutingRuleById(ruleId);
@@ -16641,18 +16663,40 @@ export async function registerRoutes(
       const subject = await storage.getSubject(existing.subjectId);
       if (!subject) return res.status(404).json({ message: "Subject not found" });
       const { apiProductSlug, targetHoldingUid, statusSmerovania, sortOrder } = req.body;
+      if (targetHoldingUid !== undefined && String(targetHoldingUid).trim() !== existing.targetHoldingUid) {
+        const targetSubject = await storage.getSubjectByUid(String(targetHoldingUid).trim());
+        if (!targetSubject) {
+          return res.status(422).json({ message: "Cieľový subjekt s týmto UID neexistuje" });
+        }
+      }
       const updates: { apiProductSlug?: string; targetHoldingUid?: string; statusSmerovania?: string; sortOrder?: number } = {};
       if (apiProductSlug !== undefined) updates.apiProductSlug = String(apiProductSlug).trim();
       if (targetHoldingUid !== undefined) updates.targetHoldingUid = String(targetHoldingUid).trim();
       if (statusSmerovania !== undefined) updates.statusSmerovania = String(statusSmerovania);
       if (sortOrder !== undefined) updates.sortOrder = Number(sortOrder);
-      const updated = await storage.updateWebRoutingRule(ruleId, updates);
+      let updated: any;
+      try {
+        updated = await storage.updateWebRoutingRule(ruleId, updates);
+      } catch (dbErr: any) {
+        if (dbErr?.code === "23505") {
+          return res.status(409).json({ message: "Kód produktu je už použitý pre tento web" });
+        }
+        throw dbErr;
+      }
       if (!updated) return res.status(404).json({ message: "Not found" });
+      await logAudit(req, {
+        action: "UPDATE",
+        module: "web_smerovnik",
+        entityId: ruleId,
+        entityName: `${subject.companyName || subject.uid} / ${updated.apiProductSlug}`,
+        oldData: { apiProductSlug: existing.apiProductSlug, targetHoldingUid: existing.targetHoldingUid, statusSmerovania: existing.statusSmerovania },
+        newData: updates,
+      });
       res.json(updated);
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
-  app.delete("/api/web-routing-rules/:ruleId", isAuthenticated, async (req, res) => {
+  app.delete("/api/web-routing-rules/:ruleId", isAuthenticated, async (req: any, res) => {
     try {
       const ruleId = Number(req.params.ruleId);
       const existing = await storage.getWebRoutingRuleById(ruleId);
@@ -16660,6 +16704,13 @@ export async function registerRoutes(
       const subject = await storage.getSubject(existing.subjectId);
       if (!subject) return res.status(404).json({ message: "Subject not found" });
       await storage.deleteWebRoutingRule(ruleId);
+      await logAudit(req, {
+        action: "DELETE",
+        module: "web_smerovnik",
+        entityId: ruleId,
+        entityName: `${subject.companyName || subject.uid} / ${existing.apiProductSlug}`,
+        oldData: { apiProductSlug: existing.apiProductSlug, targetHoldingUid: existing.targetHoldingUid, statusSmerovania: existing.statusSmerovania },
+      });
       res.json({ success: true });
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });

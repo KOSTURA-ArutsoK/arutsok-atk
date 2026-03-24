@@ -1,14 +1,23 @@
 import { useState, useEffect, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Globe, Loader2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Trash2, Plus, Route, Loader2, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 
 type WebRoutingRule = {
   id: number;
@@ -22,6 +31,16 @@ type WebRoutingRule = {
 type SubjectResult = { id: number; uid: string; displayName: string };
 
 const STATUS_OPTIONS = ["Aktívne", "Neaktívne", "Test"];
+
+function handleApiError(status: number, toast: ReturnType<typeof useToast>["toast"]) {
+  if (status === 409) {
+    toast({ title: "Kód produktu je už použitý pre tento web.", variant: "destructive" });
+  } else if (status === 422) {
+    toast({ title: "Cieľový subjekt s týmto UID neexistuje.", variant: "destructive" });
+  } else {
+    toast({ title: "Chyba pri ukladaní pravidla", variant: "destructive" });
+  }
+}
 
 function SubjectPickerCell({
   uid,
@@ -77,6 +96,7 @@ function SubjectPickerCell({
   if (uid && !editing) {
     return (
       <div className="flex items-center gap-2 h-8 px-2 rounded border border-border bg-muted/30 text-sm min-w-0" data-testid={`wr-picker-display-${rowId}`}>
+        <Building2 className="h-3.5 w-3.5 text-blue-600 shrink-0" />
         <span className="flex-1 truncate text-foreground">{picked?.displayName || uid}</span>
         <span className="text-[10px] font-mono text-muted-foreground shrink-0 hidden sm:block">{uid}</span>
         {!disabled && (
@@ -108,12 +128,13 @@ function SubjectPickerCell({
           onFocus={() => { if (searchText.length >= 2) setOpen(true); }}
           onBlur={() => { setTimeout(() => setOpen(false), 180); }}
           placeholder="Vyhľadajte subjekt..."
-          className="h-8 text-sm"
+          className="h-8 text-sm pl-8"
           autoComplete="off"
           data-testid={`wr-picker-input-${rowId}`}
         />
+        <Building2 className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-600 pointer-events-none" />
         {loading && (
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">…</span>
+          <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
         )}
       </div>
       {open && results.length > 0 && (
@@ -133,6 +154,7 @@ function SubjectPickerCell({
               className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
               data-testid={`wr-picker-option-${rowId}-${s.id}`}
             >
+              <Building2 className="h-3.5 w-3.5 text-blue-600 shrink-0" />
               <span className="flex-1 truncate">{s.displayName}</span>
               <span className="text-[10px] font-mono text-muted-foreground shrink-0">{s.uid}</span>
             </button>
@@ -167,9 +189,10 @@ function RuleRow({
   onPatch,
 }: {
   rule: WebRoutingRule;
-  onDelete: (id: number) => void;
-  onPatch: (id: number, updates: Partial<WebRoutingRule>) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+  onPatch: (id: number, updates: Partial<WebRoutingRule>) => Promise<{ ok: boolean; status: number }>;
 }) {
+  const { toast } = useToast();
   const [state, setState] = useState<RowState>({
     apiProductSlug: rule.apiProductSlug,
     targetHoldingUid: rule.targetHoldingUid,
@@ -177,6 +200,7 @@ function RuleRow({
     dirty: false,
     saving: false,
   });
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
     setState({
@@ -191,13 +215,15 @@ function RuleRow({
   const saveIfDirty = async () => {
     if (!state.dirty) return;
     setState(s => ({ ...s, saving: true }));
-    try {
-      await onPatch(rule.id, {
-        apiProductSlug: state.apiProductSlug,
-        targetHoldingUid: state.targetHoldingUid,
-        statusSmerovania: state.statusSmerovania,
-      });
-    } finally {
+    const result = await onPatch(rule.id, {
+      apiProductSlug: state.apiProductSlug,
+      targetHoldingUid: state.targetHoldingUid,
+      statusSmerovania: state.statusSmerovania,
+    });
+    if (!result.ok) {
+      handleApiError(result.status, toast);
+      setState(s => ({ ...s, saving: false }));
+    } else {
       setState(s => ({ ...s, saving: false, dirty: false }));
     }
   };
@@ -209,64 +235,95 @@ function RuleRow({
   };
 
   return (
-    <div className="grid grid-cols-[30%_40%_20%_auto] gap-2 items-start py-2 px-3 border-b border-border/50 last:border-0" data-testid={`wr-row-${rule.id}`}>
-      <div>
-        <Input
-          value={state.apiProductSlug}
-          onChange={e => setState(s => ({ ...s, apiProductSlug: e.target.value, dirty: true }))}
-          onBlur={saveIfDirty}
-          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveIfDirty(); } }}
-          placeholder="napr. pzp_auto"
-          className="h-8 text-sm font-mono"
-          data-testid={`wr-slug-${rule.id}`}
-        />
+    <>
+      <div className="grid grid-cols-[30%_40%_20%_auto] gap-2 items-start py-2 px-3 border-b border-border/50 last:border-0 w-full" data-testid={`wr-row-${rule.id}`}>
+        <div className="w-full">
+          <Input
+            value={state.apiProductSlug}
+            onChange={e => setState(s => ({ ...s, apiProductSlug: e.target.value, dirty: true }))}
+            onBlur={saveIfDirty}
+            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveIfDirty(); } }}
+            placeholder="napr. pzp_auto"
+            className="h-8 text-sm font-mono w-full"
+            data-testid={`wr-slug-${rule.id}`}
+          />
+        </div>
+        <div className="w-full">
+          <SubjectPickerCell
+            uid={state.targetHoldingUid}
+            onChange={async (newUid) => {
+              setState(s => ({ ...s, targetHoldingUid: newUid, dirty: true, saving: true }));
+              const result = await onPatch(rule.id, { targetHoldingUid: newUid });
+              if (!result.ok) {
+                handleApiError(result.status, toast);
+                setState(s => ({ ...s, saving: false }));
+              } else {
+                setState(s => ({ ...s, saving: false, dirty: false }));
+              }
+            }}
+            rowId={rule.id}
+          />
+        </div>
+        <div className="w-full">
+          <Select
+            value={state.statusSmerovania}
+            onValueChange={async (val) => {
+              setState(s => ({ ...s, statusSmerovania: val, dirty: true }));
+              const result = await onPatch(rule.id, { statusSmerovania: val });
+              if (!result.ok) {
+                handleApiError(result.status, toast);
+              } else {
+                setState(s => ({ ...s, dirty: false }));
+              }
+            }}
+          >
+            <SelectTrigger className="h-8 text-xs w-full" data-testid={`wr-status-${rule.id}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map(o => (
+                <SelectItem key={o} value={o}>{o}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-1 pt-0.5 justify-end">
+          {state.saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+          <button
+            type="button"
+            onClick={() => setDeleteOpen(true)}
+            className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            data-testid={`wr-delete-${rule.id}`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
-      <div>
-        <SubjectPickerCell
-          uid={state.targetHoldingUid}
-          onChange={async (newUid) => {
-            setState(s => ({ ...s, targetHoldingUid: newUid, dirty: true }));
-            setState(s => ({ ...s, saving: true }));
-            try {
-              await onPatch(rule.id, { targetHoldingUid: newUid });
-            } finally {
-              setState(s => ({ ...s, saving: false, dirty: false }));
-            }
-          }}
-          rowId={rule.id}
-        />
-      </div>
-      <div>
-        <Select
-          value={state.statusSmerovania}
-          onValueChange={async (val) => {
-            setState(s => ({ ...s, statusSmerovania: val, dirty: true }));
-            await onPatch(rule.id, { statusSmerovania: val });
-            setState(s => ({ ...s, dirty: false }));
-          }}
-        >
-          <SelectTrigger className="h-8 text-xs" data-testid={`wr-status-${rule.id}`}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_OPTIONS.map(o => (
-              <SelectItem key={o} value={o}>{o}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex items-center gap-1 pt-0.5">
-        {state.saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-        <button
-          type="button"
-          onClick={() => onDelete(rule.id)}
-          className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-          data-testid={`wr-delete-${rule.id}`}
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Odstrániť smerovanie?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Naozaj chcete odstrániť pravidlo <strong>{rule.apiProductSlug}</strong>? Akcia je nevratná.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid={`wr-delete-cancel-${rule.id}`}>Zrušiť</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setDeleteOpen(false);
+                await onDelete(rule.id);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid={`wr-delete-confirm-${rule.id}`}
+            >
+              Odstrániť
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -310,7 +367,10 @@ function NewRuleRow({
         statusSmerovania: state.statusSmerovania,
         sortOrder: 0,
       });
-      if (!res.ok) throw new Error("Save failed");
+      if (!res.ok) {
+        handleApiError(res.status, toast);
+        return;
+      }
       onCreated();
     } catch {
       toast({ title: "Chyba pri ukladaní pravidla", variant: "destructive" });
@@ -320,31 +380,31 @@ function NewRuleRow({
   };
 
   return (
-    <div className="grid grid-cols-[30%_40%_20%_auto] gap-2 items-start py-2 px-3 border-b border-border/50 bg-primary/5" data-testid="wr-new-row">
-      <div>
+    <div className="grid grid-cols-[30%_40%_20%_auto] gap-2 items-start py-2 px-3 border-b border-border/50 bg-emerald-500/5 w-full" data-testid="wr-new-row">
+      <div className="w-full">
         <Input
           value={state.apiProductSlug}
           onChange={e => setState(s => ({ ...s, apiProductSlug: e.target.value }))}
           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); save(); } if (e.key === "Escape") onCancel(); }}
           placeholder="napr. pzp_auto"
-          className="h-8 text-sm font-mono"
+          className="h-8 text-sm font-mono w-full"
           autoFocus
           data-testid="wr-new-slug"
         />
       </div>
-      <div>
+      <div className="w-full">
         <SubjectPickerCell
           uid={state.targetHoldingUid}
           onChange={uid => setState(s => ({ ...s, targetHoldingUid: uid }))}
           rowId={-1}
         />
       </div>
-      <div>
+      <div className="w-full">
         <Select
           value={state.statusSmerovania}
           onValueChange={val => setState(s => ({ ...s, statusSmerovania: val }))}
         >
-          <SelectTrigger className="h-8 text-xs" data-testid="wr-new-status">
+          <SelectTrigger className="h-8 text-xs w-full" data-testid="wr-new-status">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -354,7 +414,7 @@ function NewRuleRow({
           </SelectContent>
         </Select>
       </div>
-      <div className="flex items-center gap-1 pt-0.5">
+      <div className="flex items-center gap-1 pt-0.5 justify-end">
         {saving ? (
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         ) : (
@@ -362,7 +422,7 @@ function NewRuleRow({
             <button
               type="button"
               onClick={save}
-              className="text-xs text-primary hover:underline font-medium"
+              className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline font-medium"
               data-testid="wr-new-save"
             >
               Uložiť
@@ -398,29 +458,27 @@ export function WebRouterPanel({ subjectId }: { subjectId: number }) {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["/api/subjects", subjectId, "web-routing-rules"] });
 
-  const handlePatch = async (id: number, updates: Partial<WebRoutingRule>) => {
+  const handlePatch = async (id: number, updates: Partial<WebRoutingRule>): Promise<{ ok: boolean; status: number }> => {
     const res = await apiRequest("PATCH", `/api/web-routing-rules/${id}`, updates);
-    if (!res.ok) {
-      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
-    }
-    await invalidate();
+    if (res.ok) await invalidate();
+    return { ok: res.ok, status: res.status };
   };
 
   const handleDelete = async (id: number) => {
     const res = await apiRequest("DELETE", `/api/web-routing-rules/${id}`, undefined);
     if (!res.ok) {
-      toast({ title: "Chyba pri mazaní", variant: "destructive" });
+      toast({ title: "Chyba pri mazaní pravidla", variant: "destructive" });
       return;
     }
     await invalidate();
   };
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden" data-testid="web-router-panel">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-muted/30">
-        <Globe className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">Smerovník Biznisu</h3>
-        <Badge variant="outline" className="ml-auto text-xs">
+    <div className="rounded-lg border-2 border-emerald-500/60 bg-slate-50 dark:bg-slate-900/30 overflow-hidden" data-testid="web-router-panel">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-emerald-500/30 bg-emerald-500/5">
+        <Route className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+        <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Smerovník Biznisu</h3>
+        <Badge variant="outline" className="ml-auto text-xs border-emerald-500/40 text-emerald-700 dark:text-emerald-400">
           {isLoading ? "…" : (rules?.length ?? 0)} pravidiel
         </Badge>
       </div>
@@ -433,7 +491,7 @@ export function WebRouterPanel({ subjectId }: { subjectId: number }) {
       ) : (
         <>
           {(rules && rules.length > 0) || adding ? (
-            <div className="grid grid-cols-[30%_40%_20%_auto] gap-2 px-3 py-1.5 bg-muted/20 border-b border-border/50 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+            <div className="grid grid-cols-[30%_40%_20%_auto] gap-2 px-3 py-1.5 bg-emerald-500/5 border-b border-emerald-500/20 text-[10px] font-semibold text-emerald-700 dark:text-emerald-500 uppercase tracking-wide w-full">
               <span>API Product Slug</span>
               <span>Cieľová spoločnosť</span>
               <span>Stav</span>
@@ -452,7 +510,7 @@ export function WebRouterPanel({ subjectId }: { subjectId: number }) {
             ))
           ) : !adding ? (
             <div className="flex flex-col items-center justify-center py-8 text-sm text-muted-foreground gap-1" data-testid="wr-empty">
-              <Globe className="h-8 w-8 mb-1 opacity-20" />
+              <Route className="h-8 w-8 mb-1 opacity-20 text-emerald-600" />
               <span>Žiadne smerovanie</span>
               <span className="text-xs">Pridajte prvé pravidlo tlačidlom nižšie</span>
             </div>
@@ -466,12 +524,12 @@ export function WebRouterPanel({ subjectId }: { subjectId: number }) {
             />
           )}
 
-          <div className="px-3 py-2 border-t border-border/50">
+          <div className="px-3 py-2 border-t border-emerald-500/20">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 text-xs gap-1"
+              className="h-7 text-xs gap-1 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10"
               onClick={() => setAdding(true)}
               disabled={adding}
               data-testid="wr-add-button"
