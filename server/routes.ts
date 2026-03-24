@@ -13142,6 +13142,7 @@ export async function registerRoutes(
     "birthNumber", "idCardNumber", "iban", "swift",
     "continentId", "stateId", "myCompanyId", "type",
     "lifecycleStatus", "deathDate", "deathCertificateNumber", "isDeceased",
+    "parentSubjectId",
   ]);
 
   app.patch("/api/subjects/:id", isAuthenticated, async (req: any, res) => {
@@ -13169,6 +13170,50 @@ export async function registerRoutes(
       const updates: Record<string, any> = {};
       for (const [key, val] of Object.entries(rawFields)) {
         if (ALLOWED_SUBJECT_FIELDS.has(key)) updates[key] = val;
+      }
+
+      // === parentSubjectId: superadmin-only guard + circular reference check + audit ===
+      if ('parentSubjectId' in updates) {
+        if (!req.appUser || !['architekt', 'superadmin', 'prezident'].includes(req.appUser.role)) {
+          return res.status(403).json({ message: "Hierarchickú štruktúru môže meniť len Superadmin." });
+        }
+        const newParentId = updates.parentSubjectId === null || updates.parentSubjectId === '' ? null : Number(updates.parentSubjectId);
+        updates.parentSubjectId = newParentId;
+        // Root (system type) cannot have a parent
+        if (existing.type === 'system' && newParentId !== null) {
+          return res.status(400).json({ message: "Systémový (root) subjekt nemôže mať rodiča." });
+        }
+        // Self-reference guard
+        if (newParentId !== null && newParentId === subjectId) {
+          return res.status(400).json({ message: "Subjekt nemôže byť rodičom seba samého." });
+        }
+        // Circular reference guard (traverse chain upward, max 10 levels)
+        if (newParentId !== null) {
+          let checkId: number | null = newParentId;
+          const visited = new Set<number>();
+          let depth = 0;
+          while (checkId !== null && depth < 10) {
+            if (checkId === subjectId) {
+              return res.status(400).json({ message: "Cyklická referencia v hierarchii nie je povolená." });
+            }
+            if (visited.has(checkId)) break;
+            visited.add(checkId);
+            const [p] = await db.select({ parentId: subjects.parentSubjectId }).from(subjects).where(eq(subjects.id, checkId)).limit(1);
+            checkId = p?.parentId ?? null;
+            depth++;
+          }
+        }
+        // Audit: log field history
+        const appUser2 = req.appUser;
+        const userName2 = appUser2 ? [appUser2.firstName, appUser2.lastName].filter(Boolean).join(' ') || appUser2.email || 'Neznámy' : undefined;
+        await db.insert(subjectFieldHistory).values({
+          subjectId,
+          fieldKey: 'parentSubjectId',
+          oldValue: existing.parentSubjectId != null ? String(existing.parentSubjectId) : null,
+          newValue: newParentId != null ? String(newParentId) : null,
+          changedByUserId: appUser2?.id ?? null,
+          changedByName: userName2 ?? null,
+        });
       }
 
       if (details && typeof details === "object") {
@@ -14181,6 +14226,190 @@ export async function registerRoutes(
       if (!await checkKlientiSubjectAccess(req.appUser, subjectId)) return res.status(403).json({ message: "Prístup zamietnutý" });
       const freshness = await storage.getSubjectFieldHistoryFreshness(subjectId);
       res.json(freshness);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === HOLDING TREE: GET /api/subjects/:id/full-tree ===
+  app.get("/api/subjects/:id/full-tree", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const rootId = Number(req.params.id);
+      if (isNaN(rootId)) return res.status(400).json({ message: "Neplatné ID" });
+
+      interface TreeNode {
+        id: number;
+        uid: string | null;
+        type: string;
+        firstName: string | null;
+        lastName: string | null;
+        companyName: string | null;
+        isActive: boolean;
+        contractCount: number;
+        totalAnnualPremium: number;
+        children: TreeNode[];
+      }
+
+      // Get contract counts per subject
+      const contractRows = await db
+        .select({
+          subjectId: contracts.subjectId,
+          count: sql<number>`count(*)::int`,
+          totalAnnualPremium: sql<number>`coalesce(sum(${contracts.annualPremium}), 0)::float`,
+        })
+        .from(contracts)
+        .where(eq(contracts.isDeleted, false))
+        .groupBy(contracts.subjectId);
+
+      const contractMap = new Map<number, { count: number; totalAnnualPremium: number }>();
+      for (const row of contractRows) {
+        if (row.subjectId != null) {
+          contractMap.set(row.subjectId, { count: row.count, totalAnnualPremium: row.totalAnnualPremium });
+        }
+      }
+
+      // Get all subjects (to build tree in memory)
+      const allSubjects = await db
+        .select({
+          id: subjects.id,
+          uid: subjects.uid,
+          type: subjects.type,
+          firstName: subjects.firstName,
+          lastName: subjects.lastName,
+          companyName: subjects.companyName,
+          isActive: subjects.isActive,
+          parentSubjectId: subjects.parentSubjectId,
+        })
+        .from(subjects)
+        .where(eq(subjects.isDeleted, false));
+
+      // Build parent->children map
+      const childrenMap = new Map<number, typeof allSubjects>();
+      const subjectById = new Map<number, (typeof allSubjects)[0]>();
+      for (const s of allSubjects) {
+        subjectById.set(s.id, s);
+        if (s.parentSubjectId != null) {
+          if (!childrenMap.has(s.parentSubjectId)) childrenMap.set(s.parentSubjectId, []);
+          childrenMap.get(s.parentSubjectId)!.push(s);
+        }
+      }
+
+      function buildNode(subjectId: number, depth: number): TreeNode | null {
+        if (depth > 10) return null;
+        const s = subjectById.get(subjectId);
+        if (!s) return null;
+        const cData = contractMap.get(subjectId) || { count: 0, totalAnnualPremium: 0 };
+        const childSubjects = childrenMap.get(subjectId) || [];
+        const children: TreeNode[] = [];
+        for (const child of childSubjects) {
+          const childNode = buildNode(child.id, depth + 1);
+          if (childNode) children.push(childNode);
+        }
+        return {
+          id: s.id,
+          uid: s.uid,
+          type: s.type || 'person',
+          firstName: s.firstName,
+          lastName: s.lastName,
+          companyName: s.companyName,
+          isActive: s.isActive ?? true,
+          contractCount: cData.count,
+          totalAnnualPremium: cData.totalAnnualPremium,
+          children,
+        };
+      }
+
+      const tree = buildNode(rootId, 0);
+      if (!tree) return res.status(404).json({ message: "Subjekt nenájdený" });
+      res.json(tree);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === HOLDING TREE: GET /api/subjects/:id/consolidated-stats ===
+  app.get("/api/subjects/:id/consolidated-stats", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const rootId = Number(req.params.id);
+      if (isNaN(rootId)) return res.status(400).json({ message: "Neplatné ID" });
+
+      // Get all subjects
+      const allSubjects = await db
+        .select({
+          id: subjects.id,
+          type: subjects.type,
+          lifecycleStatus: subjects.lifecycleStatus,
+          parentSubjectId: subjects.parentSubjectId,
+        })
+        .from(subjects)
+        .where(eq(subjects.isDeleted, false));
+
+      const subjectById = new Map<number, (typeof allSubjects)[0]>();
+      const childrenMap = new Map<number, number[]>();
+      for (const s of allSubjects) {
+        subjectById.set(s.id, s);
+        if (s.parentSubjectId != null) {
+          if (!childrenMap.has(s.parentSubjectId)) childrenMap.set(s.parentSubjectId, []);
+          childrenMap.get(s.parentSubjectId)!.push(s.id);
+        }
+      }
+
+      // BFS to collect all descendant IDs
+      const allIds = new Set<number>();
+      const queue: number[] = [rootId];
+      let safetyCounter = 0;
+      while (queue.length > 0 && safetyCounter < 10000) {
+        safetyCounter++;
+        const current = queue.shift()!;
+        allIds.add(current);
+        const children = childrenMap.get(current) || [];
+        for (const c of children) {
+          if (!allIds.has(c)) queue.push(c);
+        }
+      }
+
+      // Aggregate stats
+      const byType: Record<string, number> = { person: 0, company: 0, szco: 0, organization: 0, system: 0 };
+      const byLifecyclePhase: Record<string, number> = {};
+
+      for (const id of allIds) {
+        const s = subjectById.get(id);
+        if (!s) continue;
+        const t = s.type || 'person';
+        byType[t] = (byType[t] || 0) + 1;
+        if (s.lifecycleStatus) {
+          byLifecyclePhase[s.lifecycleStatus] = (byLifecyclePhase[s.lifecycleStatus] || 0) + 1;
+        }
+      }
+
+      // Count contracts for all subjects in tree
+      const idArray = Array.from(allIds);
+      let totalContracts = 0;
+      let totalAnnualPremium = 0;
+      if (idArray.length > 0) {
+        const contractAgg = await db
+          .select({
+            count: sql<number>`count(*)::int`,
+            total: sql<number>`coalesce(sum(${contracts.annualPremium}), 0)::float`,
+          })
+          .from(contracts)
+          .where(and(
+            eq(contracts.isDeleted, false),
+            inArray(contracts.subjectId, idArray)
+          ));
+        totalContracts = contractAgg[0]?.count ?? 0;
+        totalAnnualPremium = contractAgg[0]?.total ?? 0;
+      }
+
+      res.json({
+        totalSubjects: allIds.size,
+        totalContracts,
+        totalAnnualPremium,
+        byType,
+        byLifecyclePhase,
+      });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }

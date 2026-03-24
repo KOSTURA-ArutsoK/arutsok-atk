@@ -656,6 +656,7 @@ export function AppSidebar() {
                   { href: "/sektory-subjektov", icon: Database, label: "UI Subjektov (B)" },
                   { href: "/sektory-subjektov-vizia", icon: Database, label: "UI Subjektov (B-Vizia)" },
                   { href: "/profil-subjektu", icon: Users, label: "Profil subjektu" },
+                  { href: "/holding-strom", icon: Network, label: "Holding strom" },
                 ]}
                 location={location}
                 searchString={currentSearch}

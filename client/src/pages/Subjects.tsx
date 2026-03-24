@@ -5,12 +5,12 @@ import { useMyCompanies } from "@/hooks/use-companies";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak, formatDateTimeSlovak, formatPhone, formatUid, canCreateSubjects, canEditRecords, normalizePhone, smartPadUid } from "@/lib/utils";
+import { formatDateSlovak, formatDateTimeSlovak, formatPhone, formatUid, canCreateSubjects, canEditRecords, normalizePhone, smartPadUid, isArchitekt } from "@/lib/utils";
 import { validateSlovakRC } from "@shared/rc-validator";
 import { validateSlovakICO } from "@shared/ico-validator";
 import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPair, type ValidityResult } from "@/lib/document-validity";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark, ChevronRight, ChevronDown, FolderOpen, Tag, Hash, Package, FileText as FileTextIcon, SquareIcon, TrendingDown, Shield, Save, Database, RefreshCw } from "lucide-react";
+import { Plus, Search, User, Building2, AlertTriangle, Eye, Calendar, Briefcase, ArrowRight, ArrowLeft, ExternalLink, History, Clock, Wallet, Loader2, CheckCircle2, Pencil, Lock, Users, X, Info, Link2, Unlink, Trash2, CreditCard, Archive, Ban, Boxes, Car, Home, Landmark, ChevronRight, ChevronDown, FolderOpen, Tag, Hash, Package, FileText as FileTextIcon, SquareIcon, TrendingDown, Shield, Save, Database, RefreshCw, Network } from "lucide-react";
 import { SubjectPhotoThumbnail } from "@/components/subject-profile-photo";
 import { SubjectTagBadges, CgnIndicator } from "@/components/subject-profile-module-c";
 import { ActivityTimeline } from "@/components/activity-timeline";
@@ -1584,6 +1584,224 @@ function RegistrySnapshotsTab({ subject }: { subject: Subject }) {
   );
 }
 
+function SubjectHierarchyTab({ subject, appUser }: { subject: any; appUser: any }) {
+  const { toast } = useToast();
+  const canManipulate = isArchitekt(appUser);
+  const [changeParentOpen, setChangeParentOpen] = useState(false);
+  const [parentSearch, setParentSearch] = useState("");
+  const [detachConfirm, setDetachConfirm] = useState(false);
+
+  const { data: parent } = useQuery<any>({
+    queryKey: ["/api/subjects", subject.parentSubjectId],
+    queryFn: async () => {
+      const res = await fetch(`/api/subjects/${subject.parentSubjectId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!subject.parentSubjectId,
+  });
+
+  const { data: childrenData } = useQuery<any>({
+    queryKey: ["/api/subjects", subject.id, "hierarchy-children"],
+    queryFn: async () => {
+      const res = await fetch(`/api/subjects/${subject.id}/hierarchy`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const { data: searchResults = [] } = useQuery<any[]>({
+    queryKey: ["/api/subjects", "parent-search", parentSearch],
+    queryFn: async () => {
+      if (!parentSearch || parentSearch.length < 2) return [];
+      const res = await fetch(`/api/subjects?limit=20`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      const all: any[] = data.subjects || data || [];
+      const q = parentSearch.toLowerCase();
+      return all.filter((s: any) => {
+        const name = [s.firstName, s.lastName, s.companyName].filter(Boolean).join(" ").toLowerCase();
+        const uid = (s.uid || "").toLowerCase();
+        return (name.includes(q) || uid.includes(q)) && s.id !== subject.id;
+      });
+    },
+    enabled: changeParentOpen && parentSearch.length >= 2,
+  });
+
+  const setParentMutation = useMutation({
+    mutationFn: async (parentId: number | null) => {
+      const res = await apiRequest("PATCH", `/api/subjects/${subject.id}`, { parentSubjectId: parentId });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: parentSearch ? "Rodič nastavený" : "Rodič odpojený" });
+      setChangeParentOpen(false);
+      setDetachConfirm(false);
+      setParentSearch("");
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/subjects", subject.parentSubjectId] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err?.message || "Nepodarilo sa zmeniť rodiča.", variant: "destructive" });
+    },
+  });
+
+  const getSubjectDisplayName = (s: any) => {
+    if (s.companyName) return s.companyName;
+    return [s.firstName, s.lastName].filter(Boolean).join(" ") || `#${s.id}`;
+  };
+
+  const children: any[] = childrenData?.children || [];
+
+  return (
+    <div className="space-y-5" data-testid="tab-hierarchia-content">
+      <div className="space-y-2">
+        <h4 className="text-sm font-semibold flex items-center gap-2">
+          <Network className="w-4 h-4" /> Hierarchická pozícia
+        </h4>
+        <p className="text-xs text-muted-foreground">
+          Subjekt môže byť zaradený do stromovej štruktúry organizácie (Majetkový dáždnik ATK).
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <div className="rounded-md border border-border p-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Rodičovský subjekt</p>
+              {subject.parentSubjectId && parent ? (
+                <div className="flex items-center gap-2">
+                  <Link2 className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-sm font-medium" data-testid="text-parent-name">{getSubjectDisplayName(parent)}</span>
+                  {parent.uid && <span className="text-[10px] text-muted-foreground font-mono">{formatUid(parent.uid)}</span>}
+                </div>
+              ) : (
+                <span className="text-sm text-muted-foreground italic" data-testid="text-no-parent">
+                  {subject.parentSubjectId ? "Načítavam..." : "(žiadny – koreňový uzol)"}
+                </span>
+              )}
+            </div>
+            {canManipulate && (
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => { setChangeParentOpen(true); setParentSearch(""); }}
+                  data-testid="btn-change-parent"
+                >
+                  <Pencil className="w-3 h-3 mr-1" />
+                  Zmeniť rodiča
+                </Button>
+                {subject.parentSubjectId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs text-red-500 hover:text-red-400"
+                    onClick={() => setDetachConfirm(true)}
+                    data-testid="btn-detach-parent"
+                  >
+                    <Unlink className="w-3 h-3 mr-1" />
+                    Odpojiť
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-md border border-border p-3">
+          <p className="text-xs text-muted-foreground mb-2">Priami potomkovia ({children.length})</p>
+          {children.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic" data-testid="text-no-children">Žiadni priami potomkovia</p>
+          ) : (
+            <div className="space-y-1">
+              {children.map((c: any) => (
+                <div key={c.id} className="flex items-center gap-2 py-1 px-1" data-testid={`child-subject-${c.id}`}>
+                  <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-sm">{getSubjectDisplayName(c)}</span>
+                  {c.uid && <span className="text-[10px] text-muted-foreground font-mono">{formatUid(c.uid)}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {changeParentOpen && (
+        <Dialog open onOpenChange={() => setChangeParentOpen(false)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Zmeniť rodiča subjektu</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={parentSearch}
+                  onChange={(e) => setParentSearch(e.target.value)}
+                  placeholder="Hľadať nového rodiča (min. 2 znaky)..."
+                  className="pl-8"
+                  autoFocus
+                  data-testid="input-parent-search"
+                />
+              </div>
+              <div className="space-y-1 max-h-60 overflow-y-auto">
+                {parentSearch.length >= 2 && searchResults.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4">Žiadne výsledky</p>
+                )}
+                {searchResults.map((s: any) => (
+                  <div
+                    key={s.id}
+                    className="flex items-center gap-2 px-3 py-2 rounded-md border border-border hover:bg-muted/50 cursor-pointer"
+                    onClick={() => !setParentMutation.isPending && setParentMutation.mutate(s.id)}
+                    data-testid={`parent-option-${s.id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{getSubjectDisplayName(s)}</p>
+                      {s.uid && <p className="text-[10px] text-muted-foreground font-mono">{formatUid(s.uid)}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setChangeParentOpen(false)} data-testid="btn-cancel-change-parent">
+                Zrušiť
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {detachConfirm && (
+        <AlertDialog open onOpenChange={() => setDetachConfirm(false)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Odpojiť od rodiča?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Subjekt bude odpojený zo stromovej hierarchie. Táto zmena sa zaznamená do histórie.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="btn-cancel-detach-parent">Zrušiť</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => setParentMutation.mutate(null)}
+                disabled={setParentMutation.isPending}
+                data-testid="btn-confirm-detach-parent"
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                {setParentMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                Odpojiť
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </div>
+  );
+}
+
 function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: () => void }) {
   const { toast } = useToast();
   const { data: appUser } = useAppUser();
@@ -1720,6 +1938,16 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
               >
                 <Link2 className="w-3.5 h-3.5 mr-1" />
                 Vzťahy
+              </Button>
+              <Button
+                variant={activeTab === "hierarchia" ? "default" : "ghost"}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => setActiveTab("hierarchia")}
+                data-testid="tab-subject-hierarchia"
+              >
+                <Network className="w-3.5 h-3.5 mr-1" />
+                Hierarchia
               </Button>
               {(subject.type === "szco" || subject.type === "company" || subject.type === "po") && (
                 <Button
@@ -1864,6 +2092,10 @@ function SubjectDetailPanel({ subject, onClose }: { subject: Subject; onClose: (
 
         {activeTab === "vztahy" && (
           <EntityLinksTab subject={subject} />
+        )}
+
+        {activeTab === "hierarchia" && (
+          <SubjectHierarchyTab subject={displaySubject} appUser={appUser} />
         )}
 
         {activeTab === "registre" && (
