@@ -275,13 +275,14 @@ export default function SektorySubjektovVizia() {
   // ============================================================
   // Available items (not yet assigned)
   // ============================================================
-  const assignedPanelIds = useMemo(() => {
+  const assignedPanelIdsInBlock = useMemo(() => {
     const ids = new Set<number>();
-    layout.megaBlocks.forEach(mb => mb.panels.forEach(p => ids.add(p.id)));
+    const activeBlock = layout.megaBlocks.find(mb => mb.id === selectedBlockId);
+    activeBlock?.panels.forEach(p => ids.add(p.id));
     return ids;
-  }, [layout]);
+  }, [layout, selectedBlockId]);
 
-  const availablePanels = allPanels.filter(p => !assignedPanelIds.has(p.id));
+  const availablePanels = allPanels.filter(p => !assignedPanelIdsInBlock.has(p.id));
   const assignedParamIdsInPanel = useMemo(() =>
     new Set(selectedPanel?.parameters.map(p => p.id) || []), [selectedPanel]);
   const availableParams = allParams.filter(p => !assignedParamIdsInPanel.has(p.id));
