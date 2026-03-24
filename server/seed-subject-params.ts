@@ -138,6 +138,7 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Detaily spolupráce", code: "os_konzorcium_detaily", folderCategory: "povinne", sortOrder: 7, isPanel: true, gridColumns: 2 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Špecifiká urbariátu", code: "os_urbariat_detaily", folderCategory: "povinne", sortOrder: 8, isPanel: true, gridColumns: 2 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Doplnkové informácie", code: "os_iny_detaily", folderCategory: "povinne", sortOrder: 9, isPanel: true, gridColumns: 1 },
+      { clientTypeId: OS_CLIENT_TYPE_ID, name: "API a Technický Bridge", code: "os_web_bridge", folderCategory: "povinne", sortOrder: 10, isPanel: true, gridColumns: 2 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Rozšírené cirkevné údaje", code: "os_cirkev", folderCategory: "doplnkove", sortOrder: 0, isPanel: true, gridColumns: 2 },
       { clientTypeId: OS_CLIENT_TYPE_ID, name: "Bankové spojenie", code: "os_banka", folderCategory: "doplnkove", sortOrder: 1, isPanel: true, gridColumns: 3 },
     ] : []),
@@ -181,6 +182,7 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     os_riadenie: "os_povinne", os_bytovy_dom: "os_povinne", os_sidlo_zahranicie: "os_povinne",
     os_specifikacia_oz: "os_povinne", os_konzorcium_detaily: "os_povinne",
     os_urbariat_detaily: "os_povinne", os_iny_detaily: "os_povinne",
+    os_web_bridge: "os_povinne",
     os_cirkev: "os_doplnkove", os_banka: "os_doplnkove",
   };
 
@@ -891,7 +893,7 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
     ...(OS_CLIENT_TYPE_ID ? [
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "nazov_organizacie", "Názov subjektu", "short_text", 10, 0, 50, { isRequired: true, shortLabel: "Názov" }),
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "ico", "IČO", "short_text", 20, 0, 50, { isRequired: true }),
-      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "specifikacia_os", "Špecifikácia OS", "segmented", 30, 1, 100, { shortLabel: "Špecifikácia", options: ["Cirkev a náboženská spoločnosť", "Spoločenstvo vlastníkov bytov (SVB)", "Zahraničná osoba", "Organizačná zložka", "Konzorcium / Združenie", "Pozemkové spoločenstvo (Urbariát)", "Iný špecifický subjekt"] }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "specifikacia_os", "Špecifikácia OS", "segmented", 30, 1, 100, { shortLabel: "Špecifikácia", options: ["Cirkev a náboženská spoločnosť", "Spoločenstvo vlastníkov bytov (SVB)", "Zahraničná osoba", "Organizačná zložka", "Konzorcium / Združenie", "Pozemkové spoločenstvo (Urbariát)", "Iný špecifický subjekt", "Web / Digitálne aktívum"] }),
       // Cirkev-specific rows in os_subjekt (visibilityRule on all)
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "nazov_cirkvi_institucie", "Názov cirkvi / inštitúcie", "short_text", 40, 2, 50, { shortLabel: "Názov cirkvi", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
       f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "registracia_mk_sr", "Registrácia MK SR", "short_text", 50, 2, 50, { shortLabel: "Regist. MK SR", visibilityRule: { dependsOn: "specifikacia_os", value: "Cirkev a náboženská spoločnosť" } }),
@@ -1179,6 +1181,30 @@ async function _runSubjectParameterSync(onlyMissing: boolean): Promise<{ section
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "iban_iny", "IBAN", "short_text", 610, 0, 50, { visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "swift_iny", "SWIFT / BIC", "short_text", 620, 0, 50, { shortLabel: "SWIFT/BIC", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
       f(OS_CLIENT_TYPE_ID, "os_doplnkove", "os_banka", "nazov_banky_iny", "Názov banky", "short_text", 630, 1, 100, { shortLabel: "Banka", visibilityRule: { dependsOn: "specifikacia_os", value: "Iný špecifický subjekt" } }),
+
+      // ============================================================
+      // OS: Web / Digitálne aktívum – os_subjekt rows 2–4 (sortOrders 710–760)
+      // Row 2: nazov_webu(50) + vlastnik_subjekt_uid(50, subject_picker, REQUIRED)
+      // Row 3: web_uid(50) + url_adresa(50)
+      // Row 4: typ_licencie(50, enum) + spustenie_prevadzky(50, date)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "nazov_webu", "Názov webu / digitálneho aktíva", "short_text", 710, 2, 50, { shortLabel: "Názov webu", visibilityRule: { dependsOn: "specifikacia_os", value: "Web / Digitálne aktívum" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "vlastnik_subjekt_uid", "Vlastník / Nadriadená spoločnosť", "subject_picker", 720, 2, 50, { shortLabel: "Vlastník", isRequired: true, visibilityRule: { dependsOn: "specifikacia_os", value: "Web / Digitálne aktívum" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "web_uid", "Identifikátor webu / UID", "short_text", 730, 3, 50, { shortLabel: "Web UID", visibilityRule: { dependsOn: "specifikacia_os", value: "Web / Digitálne aktívum" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "url_adresa", "URL adresa", "short_text", 740, 3, 50, { shortLabel: "URL", visibilityRule: { dependsOn: "specifikacia_os", value: "Web / Digitálne aktívum" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "typ_licencie", "Typ licencie", "jedna_moznost", 750, 4, 50, { shortLabel: "Typ licencie", options: ["Vlastná", "Prenajatá"], visibilityRule: { dependsOn: "specifikacia_os", value: "Web / Digitálne aktívum" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_subjekt", "spustenie_prevadzky", "Dátum spustenia", "date", 760, 4, 50, { shortLabel: "Spustenie", visibilityRule: { dependsOn: "specifikacia_os", value: "Web / Digitálne aktívum" } }),
+
+      // ============================================================
+      // OS: API a Technický Bridge (os_web_bridge) – Web only
+      // Row 0: api_endpoint_url(100)
+      // Row 1: web_api_key(50) + webhook_secret(50)
+      // Row 2: fallback_subjekt_uid(100, subject_picker)
+      // ============================================================
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_web_bridge", "api_endpoint_url", "API Endpoint URL", "short_text", 10, 0, 100, { shortLabel: "API Endpoint", visibilityRule: { dependsOn: "specifikacia_os", value: "Web / Digitálne aktívum" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_web_bridge", "web_api_key", "API kľúč", "short_text", 20, 1, 50, { shortLabel: "API kľúč", visibilityRule: { dependsOn: "specifikacia_os", value: "Web / Digitálne aktívum" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_web_bridge", "webhook_secret", "Webhook Secret", "short_text", 30, 1, 50, { shortLabel: "Webhook Secret", visibilityRule: { dependsOn: "specifikacia_os", value: "Web / Digitálne aktívum" } }),
+      f(OS_CLIENT_TYPE_ID, "os_povinne", "os_web_bridge", "fallback_subjekt_uid", "Záchranný subjekt pre neidentifikované API volania", "subject_picker", 40, 2, 100, { shortLabel: "Fallback subjekt", visibilityRule: { dependsOn: "specifikacia_os", value: "Web / Digitálne aktívum" } }),
     ] : []),
   ];
 

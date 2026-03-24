@@ -142,6 +142,8 @@ import {
   type SubjectContact, type InsertSubjectContact,
   parameterProposals,
   type ParameterProposal, type InsertParameterProposal,
+  webRoutingRules,
+  type WebRoutingRule, type InsertWebRoutingRule,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -710,6 +712,12 @@ export interface IStorage {
   createParameterProposal(data: InsertParameterProposal): Promise<ParameterProposal>;
   listParameterProposals(status?: string): Promise<ParameterProposal[]>;
   updateParameterProposalStatus(id: number, status: string, reviewedByUsername?: string, reviewNote?: string): Promise<ParameterProposal | undefined>;
+
+  // Web routing rules
+  getWebRoutingRules(subjectId: number): Promise<WebRoutingRule[]>;
+  createWebRoutingRule(data: InsertWebRoutingRule): Promise<WebRoutingRule>;
+  updateWebRoutingRule(ruleId: number, updates: Partial<InsertWebRoutingRule>): Promise<WebRoutingRule | undefined>;
+  deleteWebRoutingRule(ruleId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5375,6 +5383,29 @@ export class DatabaseStorage implements IStorage {
       .where(eq(parameterProposals.id, id))
       .returning();
     return row;
+  }
+
+  async getWebRoutingRules(subjectId: number): Promise<WebRoutingRule[]> {
+    return db.select().from(webRoutingRules)
+      .where(eq(webRoutingRules.subjectId, subjectId))
+      .orderBy(asc(webRoutingRules.sortOrder), asc(webRoutingRules.id));
+  }
+
+  async createWebRoutingRule(data: InsertWebRoutingRule): Promise<WebRoutingRule> {
+    const [row] = await db.insert(webRoutingRules).values(data).returning();
+    return row;
+  }
+
+  async updateWebRoutingRule(ruleId: number, updates: Partial<InsertWebRoutingRule>): Promise<WebRoutingRule | undefined> {
+    const [row] = await db.update(webRoutingRules)
+      .set(updates)
+      .where(eq(webRoutingRules.id, ruleId))
+      .returning();
+    return row;
+  }
+
+  async deleteWebRoutingRule(ruleId: number): Promise<void> {
+    await db.delete(webRoutingRules).where(eq(webRoutingRules.id, ruleId));
   }
 }
 

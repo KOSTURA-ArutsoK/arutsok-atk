@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useStates } from "@/hooks/use-hierarchy";
 import { useAppUser } from "@/hooks/use-app-user";
 import { Label } from "@/components/ui/label";
@@ -92,6 +93,49 @@ export function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasE
   const [rcFieldError, setRcFieldError] = useState<string | null>(null);
   const [icoFieldError, setIcoFieldError] = useState<string | null>(null);
 
+  const isSubjectPicker = field.fieldType === "subject_picker";
+  const [spSearchText, setSpSearchText] = useState("");
+  const [spResults, setSpResults] = useState<{ id: number; uid: string; displayName: string }[]>([]);
+  const [spOpen, setSpOpen] = useState(false);
+  const [spLoading, setSpLoading] = useState(false);
+  const [spEditing, setSpEditing] = useState(false);
+  const spContainerRef = useRef<HTMLDivElement>(null);
+
+  const currentPickerUid = isSubjectPicker ? (dynamicValues[field.fieldKey] || "") : "";
+  const { data: pickedSubject } = useQuery<{ displayName: string; uid: string }>({
+    queryKey: ["/api/subjects/by-uid", currentPickerUid],
+    enabled: isSubjectPicker && !!currentPickerUid && !spEditing,
+  });
+
+  useEffect(() => {
+    if (!isSubjectPicker) return;
+    if (!spEditing || !spSearchText || spSearchText.length < 2) {
+      setSpResults([]);
+      setSpOpen(false);
+      return;
+    }
+    setSpLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/subjects/search?q=${encodeURIComponent(spSearchText)}`);
+        const data = await res.json();
+        const mapped = (data as any[]).map(s => ({
+          id: s.id,
+          uid: s.uid || "",
+          displayName: s.companyName || [s.firstName, s.lastName].filter(Boolean).join(" ") || s.uid || "—",
+        }));
+        setSpResults(mapped);
+        setSpOpen(mapped.length > 0);
+      } catch {
+        setSpResults([]);
+        setSpOpen(false);
+      } finally {
+        setSpLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [spSearchText, spEditing, isSubjectPicker]);
+
   const isNameField = field.fieldKey === "meno" || field.fieldKey === "priezvisko";
   const isTitleField = field.fieldKey === "titul_pred" || field.fieldKey === "titul_za";
   const isRcField = field.fieldKey === "rodne_cislo" || field.fieldKey === "zi_rodne_cislo";
@@ -121,7 +165,89 @@ export function DynamicFieldInput({ field, dynamicValues, setDynamicValues, hasE
           <FieldHistoryIndicator subjectId={subjectId} fieldKey={field.fieldKey} fieldLabel={field.label || field.fieldKey} />
         )}
       </div>
-      {field.fieldType === "long_text" ? (
+      {field.fieldType === "subject_picker" ? (
+        <div ref={spContainerRef} className="relative">
+          {currentPickerUid && !spEditing ? (
+            <div className={cn(
+              "flex items-center gap-2 h-9 px-3 rounded-md border bg-muted/30 text-sm",
+              hasError ? "border-red-500 ring-1 ring-red-500" : "border-border",
+              disabled && "opacity-70"
+            )} data-testid={`subject-picker-selected-${field.fieldKey}`}>
+              <span className="flex-1 truncate text-foreground">
+                {pickedSubject?.displayName || currentPickerUid}
+              </span>
+              <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+                {currentPickerUid}
+              </span>
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => { setSpEditing(true); setSpSearchText(""); setSpResults([]); setSpOpen(false); }}
+                  className="text-xs text-primary hover:underline shrink-0"
+                  data-testid={`subject-picker-change-${field.fieldKey}`}
+                >
+                  Zmeniť
+                </button>
+              )}
+            </div>
+          ) : !disabled ? (
+            <>
+              <div className="relative">
+                <Input
+                  value={spSearchText}
+                  onChange={e => setSpSearchText(e.target.value)}
+                  onFocus={() => { if (spSearchText.length >= 2) setSpOpen(true); }}
+                  onBlur={() => { setTimeout(() => setSpOpen(false), 180); }}
+                  placeholder="Vyhľadajte subjekt..."
+                  className={cn(hasError ? "border-red-500 ring-1 ring-red-500" : "")}
+                  autoComplete="off"
+                  data-testid={`subject-picker-input-${field.fieldKey}`}
+                />
+                {spLoading && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">…</span>
+                )}
+              </div>
+              {spOpen && spResults.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg max-h-52 overflow-y-auto">
+                  {spResults.map(s => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onMouseDown={e => {
+                        e.preventDefault();
+                        setDynamicValues(prev => ({ ...prev, [field.fieldKey]: s.uid }));
+                        setSpEditing(false);
+                        setSpSearchText("");
+                        setSpResults([]);
+                        setSpOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent text-left"
+                      data-testid={`subject-picker-option-${field.fieldKey}-${s.id}`}
+                    >
+                      <span className="flex-1 truncate">{s.displayName}</span>
+                      <span className="text-[10px] font-mono text-muted-foreground shrink-0">{s.uid}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {currentPickerUid && (
+                <button
+                  type="button"
+                  onClick={() => { setSpEditing(false); setSpSearchText(""); setSpResults([]); setSpOpen(false); }}
+                  className="mt-1 text-xs text-muted-foreground hover:underline"
+                  data-testid={`subject-picker-cancel-${field.fieldKey}`}
+                >
+                  Zrušiť
+                </button>
+              )}
+            </>
+          ) : (
+            <div className="h-9 w-full flex items-center px-3 rounded-md bg-muted/50 border border-border text-sm text-muted-foreground">
+              {currentPickerUid || "—"}
+            </div>
+          )}
+        </div>
+      ) : field.fieldType === "long_text" ? (
         <Textarea
           value={dynamicValues[field.fieldKey] || ""}
           onChange={e => setDynamicValues(prev => ({ ...prev, [field.fieldKey]: e.target.value }))}

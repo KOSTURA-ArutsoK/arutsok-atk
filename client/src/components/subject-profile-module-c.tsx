@@ -9,6 +9,7 @@ import { getDocumentValidityStatus, isValidityField, isNumberFieldWithExpiredPai
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
 import { SubjectProfilePhoto } from "@/components/subject-profile-photo";
 import { SubjectContactsPanel } from "@/components/subject-contacts-panel";
+import { WebRouterPanel } from "@/components/web-router-panel";
 import { ExpiryBadge } from "@/components/expiry-badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -1273,6 +1274,11 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (dynamicValues.specifikacia_os === "Web / Digitálne aktívum" && !dynamicValues.vlastnik_subjekt_uid) {
+        toast({ title: "Povinné pole", description: "Web musí mať priradeného vlastníka / nadriadeného subjektu.", variant: "destructive" });
+        throw new Error("missing_vlastnik");
+      }
+
       const payload: Record<string, any> = {};
       const cleanDynamic = { ...dynamicValues };
 
@@ -1339,6 +1345,7 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
       setEditReason("");
     },
     onError: (err: any) => {
+      if (err?.message === "missing_vlastnik") return;
       toast({ title: "Chyba pri ukladaní", description: err.message, variant: "destructive" });
     },
   });
@@ -2089,6 +2096,11 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
                             </CardContent>
                           )}
                         </Card>
+                      )}
+                      {catKey === "povinne" && subject.id > 0 && dynamicValues.specifikacia_os === "Web / Digitálne aktívum" && (
+                        <div className="mt-1" data-testid="section-web-router">
+                          <WebRouterPanel subjectId={subject.id} />
+                        </div>
                       )}
                     </AccordionContent>
                   </AccordionItem>

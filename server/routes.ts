@@ -16550,6 +16550,52 @@ export async function registerRoutes(
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
+  // === WEB ROUTING RULES ===
+  app.get("/api/subjects/:id/web-routing-rules", isAuthenticated, async (req, res) => {
+    try {
+      const rules = await storage.getWebRoutingRules(Number(req.params.id));
+      res.json(rules);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.post("/api/subjects/:id/web-routing-rules", isAuthenticated, async (req, res) => {
+    try {
+      const { apiProductSlug, targetHoldingUid, statusSmerovania, sortOrder } = req.body;
+      if (!apiProductSlug || !targetHoldingUid) {
+        return res.status(400).json({ message: "apiProductSlug a targetHoldingUid sú povinné" });
+      }
+      const rule = await storage.createWebRoutingRule({
+        subjectId: Number(req.params.id),
+        apiProductSlug: String(apiProductSlug).trim(),
+        targetHoldingUid: String(targetHoldingUid).trim(),
+        statusSmerovania: String(statusSmerovania || "Aktívne"),
+        sortOrder: Number(sortOrder ?? 0),
+      });
+      res.status(201).json(rule);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.patch("/api/web-routing-rules/:ruleId", isAuthenticated, async (req, res) => {
+    try {
+      const { apiProductSlug, targetHoldingUid, statusSmerovania, sortOrder } = req.body;
+      const updates: Record<string, unknown> = {};
+      if (apiProductSlug !== undefined) updates.apiProductSlug = String(apiProductSlug).trim();
+      if (targetHoldingUid !== undefined) updates.targetHoldingUid = String(targetHoldingUid).trim();
+      if (statusSmerovania !== undefined) updates.statusSmerovania = String(statusSmerovania);
+      if (sortOrder !== undefined) updates.sortOrder = Number(sortOrder);
+      const updated = await storage.updateWebRoutingRule(Number(req.params.ruleId), updates as any);
+      if (!updated) return res.status(404).json({ message: "Not found" });
+      res.json(updated);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.delete("/api/web-routing-rules/:ruleId", isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteWebRoutingRule(Number(req.params.ruleId));
+      res.json({ success: true });
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
   app.post("/api/subject-parameters/batch-reorder", isAuthenticated, async (req, res) => {
     try {
       const { items } = req.body;

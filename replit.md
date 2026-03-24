@@ -37,6 +37,8 @@ The system employs a modern full-stack architecture prioritizing data integrity,
 - **Sensitive Field Audit**: Logs all access to sensitive fields.
 - **Global Field Versioning**: Tracks and records all field changes for subjects and contracts.
 - **Dynamic Parameter System (EAV Architecture)**: A 6-level hierarchy for dynamic configuration of contract fields and form generation, supported by AI synonym mapping.
+- **OS Subjekt Module (8 subtypes)**: Full dynamic parameter coverage for "Ostatné subjekty" (OS client type ID=7). 8 subtypes: Cirkev, SVB, Zahraničná osoba, Organizačná zložka, Konzorcium/Združenie, Pozemkové spoločenstvo (Urbariát), Iný špecifický subjekt, Web/Digitálne aktívum. 154 total seeded fields across 16 panels. `subject_picker` field type for cross-subject UID linking with debounced search + reverse lookup.
+- **Web Routing Rules (webRoutingRules table)**: 1:N routing rules for OS Web/Digital Asset subjects. Maps API product slugs to target holding UIDs. CRUD via `/api/subjects/:id/web-routing-rules` and `/api/web-routing-rules/:ruleId`. `WebRouterPanel` component with inline editing, subject picker, and status management (Aktívne/Neaktívne/Test).
 - **AI Synonym Mapping**: Requires multiple confirmations for synonyms, tracking `origin` (manual/registry).
 - **OCR Registry Audit**: Compares extracted company fields against stored registry snapshots during OCR, generating warnings and proposing synonyms for mismatches.
 - **Commission Brain & Calculation Engine**: Manages commission rates with temporal validity and various calculation types.

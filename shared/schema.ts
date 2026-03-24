@@ -2801,6 +2801,20 @@ export const insertParameterProposalSchema = createInsertSchema(parameterProposa
 export type ParameterProposal = typeof parameterProposals.$inferSelect;
 export type InsertParameterProposal = z.infer<typeof insertParameterProposalSchema>;
 
+// === WEB ROUTING RULES (1:N for OS Web/Digital Asset subjects) ===
+export const webRoutingRules = pgTable("web_routing_rules", {
+  id: serial("id").primaryKey(),
+  subjectId: integer("subject_id").notNull(),
+  apiProductSlug: varchar("api_product_slug", { length: 100 }).notNull(),
+  targetHoldingUid: varchar("target_holding_uid", { length: 20 }).notNull(),
+  statusSmerovania: varchar("status_smerovania", { length: 20 }).notNull().default("Aktívne"),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const insertWebRoutingRuleSchema = createInsertSchema(webRoutingRules).omit({ id: true });
+export type WebRoutingRule = typeof webRoutingRules.$inferSelect;
+export type InsertWebRoutingRule = z.infer<typeof insertWebRoutingRuleSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };
