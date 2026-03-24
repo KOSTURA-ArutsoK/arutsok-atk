@@ -16857,6 +16857,39 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/subject-param-sections/reorder", isAuthenticated, async (req, res) => {
+    try {
+      const { items } = req.body;
+      if (!Array.isArray(items)) return res.status(400).json({ message: "items must be array" });
+      for (const item of items) {
+        await db.update(subjectParamSections)
+          .set({ sortOrder: Number(item.sortOrder) })
+          .where(eq(subjectParamSections.id, Number(item.id)));
+      }
+      res.json({ success: true, updated: items.length });
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
+  app.patch("/api/subject-param-sections/:id/move", isAuthenticated, async (req, res) => {
+    try {
+      const sectionId = Number(req.params.id);
+      const { targetKategoriaId } = req.body;
+      if (!targetKategoriaId) return res.status(400).json({ message: "targetKategoriaId required" });
+      const [blok] = await db.select().from(subjectParamSections).where(eq(subjectParamSections.id, sectionId));
+      if (!blok) return res.status(404).json({ message: "Sekcia nenájdená." });
+      if (blok.sectionType !== "blok") return res.status(400).json({ message: "Len bloky je možné presúvať medzi kategóriami." });
+      const [targetKat] = await db.select().from(subjectParamSections).where(eq(subjectParamSections.id, Number(targetKategoriaId)));
+      if (!targetKat) return res.status(404).json({ message: "Cieľová kategória nenájdená." });
+      if (targetKat.sectionType !== "kategoria") return res.status(400).json({ message: "Cieľ musí byť kategória." });
+      if (targetKat.clientTypeId !== blok.clientTypeId) return res.status(400).json({ message: "Bloky možno presúvať len v rámci rovnakého typu subjektu." });
+      const [updated] = await db.update(subjectParamSections)
+        .set({ parentSectionId: Number(targetKategoriaId), folderCategory: targetKat.folderCategory })
+        .where(eq(subjectParamSections.id, sectionId))
+        .returning();
+      res.json(updated);
+    } catch (err) { res.status(500).json({ message: "Internal error" }); }
+  });
+
   app.patch("/api/subject-param-sections/:id", isAuthenticated, async (req, res) => {
     try {
       const section = await storage.updateSubjectParamSection(Number(req.params.id), req.body);

@@ -9,10 +9,24 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Users, LayoutGrid, AlignLeft, Plus, X,
+  LayoutGrid, AlignLeft, Plus, X,
   Layers, FolderOpen, Pencil, Info, Loader2, Tag,
-  Rows3, Square,
+  Rows3, Square, GripVertical, ArrowRightLeft,
 } from "lucide-react";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { SubjectParamSection, SubjectParameter } from "@shared/schema";
 
 // ============================================================
@@ -56,6 +70,56 @@ function FieldTypeBadge({ type }: { type: string }) {
 }
 
 // ============================================================
+// SortableItem — generic drag-and-drop wrapper
+// Uses render-prop pattern to pass drag handle attributes to children
+// ============================================================
+type DragHandleProps = {
+  listeners: ReturnType<typeof useSortable>["listeners"];
+  attributes: ReturnType<typeof useSortable>["attributes"];
+};
+
+function SortableItem({ id, children }: {
+  id: number;
+  children: (handleProps: DragHandleProps) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : undefined,
+        position: "relative",
+        zIndex: isDragging ? 1000 : undefined,
+      }}
+    >
+      {children({ listeners, attributes })}
+    </div>
+  );
+}
+
+// Grip handle button component
+function DragHandle({ listeners, attributes, testId }: {
+  listeners: DragHandleProps["listeners"];
+  attributes: DragHandleProps["attributes"];
+  testId?: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="flex-shrink-0 h-5 w-5 flex items-center justify-center rounded text-muted-foreground/30 hover:text-muted-foreground/70 cursor-grab active:cursor-grabbing transition-colors"
+      {...listeners}
+      {...attributes}
+      data-testid={testId}
+      onClick={e => e.stopPropagation()}
+    >
+      <GripVertical className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+// ============================================================
 // Main page
 // ============================================================
 export default function SektorySubjektovVizia() {
@@ -64,6 +128,11 @@ export default function SektorySubjektovVizia() {
   useEffect(() => {
     document.title = "UI Subjektov (B-Vízia) | Štruktúra";
   }, []);
+
+  // DnD sensors (pointer only, 5px activation distance to prevent accidental drags)
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
 
   // Master switcher
   const [activeCode, setActiveCode] = useState("FO");
@@ -76,13 +145,18 @@ export default function SektorySubjektovVizia() {
   const [selectedPanelId, setSelectedPanelId] = useState<number | null>(null);
   const [selectedRiadokId, setSelectedRiadokId] = useState<number | null>(null);
 
-  // Dialog state
+  // Dialog state — add
   const [addKategoriaOpen, setAddKategoriaOpen]     = useState(false);
   const [addBlokOpen, setAddBlokOpen]               = useState(false);
   const [addPanelOpen, setAddPanelOpen]             = useState(false);
   const [addRiadokOpen, setAddRiadokOpen]           = useState(false);
   const [editOpen, setEditOpen]                     = useState(false);
   const [editTarget, setEditTarget]                 = useState<SubjectParamSection | null>(null);
+
+  // Move blok dialog
+  const [moveBlokOpen, setMoveBlokOpen]             = useState(false);
+  const [moveBlokTarget, setMoveBlokTarget]         = useState<SubjectParamSection | null>(null);
+  const [moveBlokTargetKatId, setMoveBlokTargetKatId] = useState<string>("");
 
   // Form inputs
   const [newKategoriaName, setNewKategoriaName]         = useState("");
@@ -105,8 +179,9 @@ export default function SektorySubjektovVizia() {
   });
 
   // Query: parameters for current clientType (read-only display)
+  const paramsQK = ["/api/subject-parameters", clientTypeId];
   const { data: allParams = [] } = useQuery<SubjectParameter[]>({
-    queryKey: ["/api/subject-parameters", clientTypeId],
+    queryKey: paramsQK,
     queryFn: () =>
       apiRequest("GET", `/api/subject-parameters?clientTypeId=${clientTypeId}`)
         .then(r => r.json()),
@@ -135,7 +210,6 @@ export default function SektorySubjektovVizia() {
     allParams.filter(p => p.rowId === riadokId)
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
-  // Params without rowId (assigned to panel directly — legacy)
   const getParamsForPanel = (panelId: number) =>
     allParams.filter(p => p.panelId === panelId && !p.rowId)
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
@@ -153,14 +227,15 @@ export default function SektorySubjektovVizia() {
   // ============================================================
   // Mutations
   // ============================================================
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: sectionsQK });
+  const invalidateSections = () => queryClient.invalidateQueries({ queryKey: sectionsQK });
+  const invalidateParams   = () => queryClient.invalidateQueries({ queryKey: paramsQK });
 
   const createMutation = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
       const r = await apiRequest("POST", "/api/subject-param-sections", body);
       return r.json();
     },
-    onSuccess: () => invalidate(),
+    onSuccess: () => invalidateSections(),
     onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa vytvoriť.", variant: "destructive" }),
   });
 
@@ -169,7 +244,7 @@ export default function SektorySubjektovVizia() {
       const r = await apiRequest("PATCH", `/api/subject-param-sections/${id}`, { name });
       return r.json();
     },
-    onSuccess: () => { invalidate(); setEditOpen(false); },
+    onSuccess: () => { invalidateSections(); setEditOpen(false); },
     onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa premenovať.", variant: "destructive" }),
   });
 
@@ -187,34 +262,110 @@ export default function SektorySubjektovVizia() {
       if (selectedBlokId === id) { setSelectedBlokId(null); setSelectedPanelId(null); setSelectedRiadokId(null); }
       if (selectedPanelId === id) { setSelectedPanelId(null); setSelectedRiadokId(null); }
       if (selectedRiadokId === id) setSelectedRiadokId(null);
-      invalidate();
+      invalidateSections();
     },
     onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa vymazať.", variant: "destructive" }),
   });
+
+  const reorderSectionsMutation = useMutation({
+    mutationFn: async (items: { id: number; sortOrder: number }[]) => {
+      const r = await apiRequest("PATCH", "/api/subject-param-sections/reorder", { items });
+      return r.json();
+    },
+    onError: () => { invalidateSections(); toast({ title: "Chyba pri ukladaní poradia", variant: "destructive" }); },
+  });
+
+  const moveBlokMutation = useMutation({
+    mutationFn: async ({ id, targetKategoriaId }: { id: number; targetKategoriaId: number }) => {
+      const r = await apiRequest("PATCH", `/api/subject-param-sections/${id}/move`, { targetKategoriaId });
+      if (!r.ok) { const b = await r.json().catch(() => ({})); throw new Error(b.message || "Chyba"); }
+      return r.json();
+    },
+    onSuccess: () => {
+      invalidateSections();
+      setMoveBlokOpen(false);
+      setMoveBlokTarget(null);
+      setMoveBlokTargetKatId("");
+      toast({ title: "Blok presunutý" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message, variant: "destructive" }),
+  });
+
+  const reorderParamsMutation = useMutation({
+    mutationFn: async (items: { id: number; sortOrder: number }[]) => {
+      const r = await apiRequest("POST", "/api/subject-parameters/batch-reorder", { items });
+      return r.json();
+    },
+    onError: () => { invalidateParams(); toast({ title: "Chyba pri ukladaní poradia", variant: "destructive" }); },
+  });
+
+  // ============================================================
+  // Reorder helpers — optimistic update then API call
+  // ============================================================
+  function doReorderSections(reordered: SubjectParamSection[]) {
+    const withNewOrder = reordered.map((s, i) => ({ ...s, sortOrder: i * 10 }));
+    queryClient.setQueryData(sectionsQK, (old: SubjectParamSection[] | undefined) => {
+      if (!old) return old;
+      const byId = new Map(withNewOrder.map(s => [s.id, s]));
+      return old.map(s => byId.get(s.id) ?? s);
+    });
+    reorderSectionsMutation.mutate(withNewOrder.map(s => ({ id: s.id, sortOrder: s.sortOrder ?? 0 })));
+  }
+
+  function doReorderParams(reordered: SubjectParameter[]) {
+    const withNewOrder = reordered.map((p, i) => ({ ...p, sortOrder: i * 10 }));
+    queryClient.setQueryData(paramsQK, (old: SubjectParameter[] | undefined) => {
+      if (!old) return old;
+      const byId = new Map(withNewOrder.map(p => [p.id, p]));
+      return old.map(p => byId.get(p.id) ?? p);
+    });
+    reorderParamsMutation.mutate(withNewOrder.map(p => ({ id: p.id, sortOrder: p.sortOrder ?? 0 })));
+  }
+
+  function handleDragEndSections(event: DragEndEvent, items: SubjectParamSection[]) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = items.findIndex(i => i.id === Number(active.id));
+    const newIdx = items.findIndex(i => i.id === Number(over.id));
+    if (oldIdx < 0 || newIdx < 0) return;
+    doReorderSections(arrayMove(items, oldIdx, newIdx));
+  }
+
+  function handleDragEndParams(event: DragEndEvent, items: SubjectParameter[]) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = items.findIndex(i => i.id === Number(active.id));
+    const newIdx = items.findIndex(i => i.id === Number(over.id));
+    if (oldIdx < 0 || newIdx < 0) return;
+    doReorderParams(arrayMove(items, oldIdx, newIdx));
+  }
 
   // ============================================================
   // Handlers
   // ============================================================
   const handleAddKategoria = () => {
     if (!newKategoriaName.trim()) return;
+    const nextSortOrder = kategorie.length * 10;
     createMutation.mutate(
-      { name: newKategoriaName.trim(), clientTypeId, sectionType: "kategoria", folderCategory: newKategoriaCategory },
+      { name: newKategoriaName.trim(), clientTypeId, sectionType: "kategoria", folderCategory: newKategoriaCategory, sortOrder: nextSortOrder },
       { onSuccess: () => { toast({ title: "Kategória pridaná" }); setNewKategoriaName(""); setNewKategoriaCategory("povinne"); setAddKategoriaOpen(false); } }
     );
   };
 
   const handleAddBlok = () => {
     if (!newBlokName.trim() || !selectedKategoriaId || !selectedKategoria) return;
+    const nextSortOrder = getBloky(selectedKategoriaId).length * 10;
     createMutation.mutate(
-      { name: newBlokName.trim(), clientTypeId, sectionType: "blok", parentSectionId: selectedKategoriaId, folderCategory: selectedKategoria.folderCategory },
+      { name: newBlokName.trim(), clientTypeId, sectionType: "blok", parentSectionId: selectedKategoriaId, folderCategory: selectedKategoria.folderCategory, sortOrder: nextSortOrder },
       { onSuccess: () => { toast({ title: "Blok pridaný" }); setNewBlokName(""); setAddBlokOpen(false); } }
     );
   };
 
   const handleAddPanel = () => {
     if (!newPanelName.trim() || !selectedBlokId || !selectedKategoria) return;
+    const nextSortOrder = getPanely(selectedBlokId).length * 10;
     createMutation.mutate(
-      { name: newPanelName.trim(), clientTypeId, sectionType: "panel", parentSectionId: selectedBlokId, folderCategory: selectedKategoria.folderCategory },
+      { name: newPanelName.trim(), clientTypeId, sectionType: "panel", parentSectionId: selectedBlokId, folderCategory: selectedKategoria.folderCategory, sortOrder: nextSortOrder },
       { onSuccess: () => { toast({ title: "Panel pridaný" }); setNewPanelName(""); setAddPanelOpen(false); } }
     );
   };
@@ -223,14 +374,13 @@ export default function SektorySubjektovVizia() {
     if (!selectedPanelId || !selectedKategoria) return;
     if (riadokHasName && !newRiadokName.trim()) return;
     const name = riadokHasName ? newRiadokName.trim() : "";
+    const nextSortOrder = getRiadky(selectedPanelId).length * 10;
     createMutation.mutate(
-      { name, clientTypeId, sectionType: "riadok", parentSectionId: selectedPanelId, folderCategory: selectedKategoria.folderCategory },
+      { name, clientTypeId, sectionType: "riadok", parentSectionId: selectedPanelId, folderCategory: selectedKategoria.folderCategory, sortOrder: nextSortOrder },
       {
         onSuccess: () => {
           toast({ title: "Riadok pridaný" });
-          setNewRiadokName("");
-          setRiadokHasName(true);
-          setAddRiadokOpen(false);
+          setNewRiadokName(""); setRiadokHasName(true); setAddRiadokOpen(false);
         }
       }
     );
@@ -260,12 +410,22 @@ export default function SektorySubjektovVizia() {
     setEditOpen(true);
   };
 
+  const openMoveBlok = (blok: SubjectParamSection, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMoveBlokTarget(blok);
+    setMoveBlokTargetKatId(String(blok.parentSectionId ?? ""));
+    setMoveBlokOpen(true);
+  };
+
+  const handleMoveBlok = () => {
+    if (!moveBlokTarget || !moveBlokTargetKatId) return;
+    moveBlokMutation.mutate({ id: moveBlokTarget.id, targetKategoriaId: Number(moveBlokTargetKatId) });
+  };
+
   const switchType = (code: string) => {
     setActiveCode(code);
-    setSelectedKategoriaId(null);
-    setSelectedBlokId(null);
-    setSelectedPanelId(null);
-    setSelectedRiadokId(null);
+    setSelectedKategoriaId(null); setSelectedBlokId(null);
+    setSelectedPanelId(null); setSelectedRiadokId(null);
   };
 
   // ============================================================
@@ -347,240 +507,308 @@ export default function SektorySubjektovVizia() {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-6">
-                {kategorie.map(kat => {
-                  const isKatSel   = selectedKategoriaId === kat.id;
-                  const catStyle   = getCategoryStyle(kat.folderCategory);
-                  const catLabel   = getCategoryLabel(kat.folderCategory);
-                  const bloky      = getBloky(kat.id);
+              /* ── KATEGÓRIE DnD ── */
+              <DndContext sensors={sensors} onDragEnd={e => handleDragEndSections(e, kategorie)}>
+                <SortableContext items={kategorie.map(k => k.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-6">
+                    {kategorie.map(kat => {
+                      const isKatSel   = selectedKategoriaId === kat.id;
+                      const catStyle   = getCategoryStyle(kat.folderCategory);
+                      const catLabel   = getCategoryLabel(kat.folderCategory);
+                      const bloky      = getBloky(kat.id);
 
-                  return (
-                    <div
-                      key={kat.id}
-                      className={`rounded-xl border-2 transition-all ${isKatSel ? "border-primary shadow-sm" : "border-border"}`}
-                      data-testid={`section-kategoria-${kat.id}`}
-                    >
-                      {/* Kategória header */}
-                      <div
-                        className={`flex items-center gap-2 px-4 py-2.5 cursor-pointer rounded-t-xl ${
-                          isKatSel ? "bg-primary/8" : "bg-muted/30 hover:bg-muted/50"
-                        }`}
-                        onClick={() => {
-                          setSelectedKategoriaId(prev => prev === kat.id ? null : kat.id);
-                          setSelectedBlokId(null); setSelectedPanelId(null); setSelectedRiadokId(null);
-                        }}
-                      >
-                        <Tag className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <span className="font-bold text-sm flex-1">{kat.name}</span>
-                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border ${catStyle}`}>{catLabel}</Badge>
-                        <span className="text-xs text-muted-foreground">{bloky.length} blokov</span>
-                        <EditDeleteButtons section={kat} />
-                      </div>
-
-                      {/* Bloky inside Kategória */}
-                      <div className="p-4 space-y-4">
-                        {bloky.length === 0 ? (
-                          <div className="flex items-center justify-center h-12 border-2 border-dashed rounded text-muted-foreground/50 text-xs">
-                            Žiadne bloky — vyberte Kategóriu a pridajte Blok z Toolbar-u
-                          </div>
-                        ) : (
-                          bloky.map(blok => {
-                            const isBlokSel = selectedBlokId === blok.id;
-                            const panely    = getPanely(blok.id);
-
-                            return (
+                      return (
+                        <SortableItem key={kat.id} id={kat.id}>
+                          {({ listeners: katL, attributes: katA }) => (
+                            <div
+                              className={`rounded-xl border-2 transition-all ${isKatSel ? "border-primary shadow-sm" : "border-border"}`}
+                              data-testid={`section-kategoria-${kat.id}`}
+                            >
+                              {/* Kategória header */}
                               <div
-                                key={blok.id}
-                                className={`rounded-lg border-2 transition-all ${
-                                  isBlokSel ? "border-primary/70 shadow-sm" : "border-border/70"
+                                className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer rounded-t-xl ${
+                                  isKatSel ? "bg-primary/8" : "bg-muted/30 hover:bg-muted/50"
                                 }`}
-                                data-testid={`section-blok-${blok.id}`}
+                                onClick={() => {
+                                  setSelectedKategoriaId(prev => prev === kat.id ? null : kat.id);
+                                  setSelectedBlokId(null); setSelectedPanelId(null); setSelectedRiadokId(null);
+                                }}
                               >
-                                {/* Blok header */}
-                                <div
-                                  className={`flex items-center gap-2 px-3 py-2 cursor-pointer rounded-t-md ${
-                                    isBlokSel ? "bg-primary/6" : "bg-muted/20 hover:bg-muted/40"
-                                  }`}
-                                  onClick={() => {
-                                    setSelectedKategoriaId(kat.id);
-                                    setSelectedBlokId(prev => prev === blok.id ? null : blok.id);
-                                    setSelectedPanelId(null); setSelectedRiadokId(null);
-                                  }}
-                                >
-                                  <FolderOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                  <span className="font-semibold text-sm flex-1">{blok.name}</span>
-                                  <span className="text-xs text-muted-foreground">{panely.length} panelov</span>
-                                  <EditDeleteButtons section={blok} />
-                                </div>
-
-                                {/* Panely grid inside Blok */}
-                                <div className="p-3">
-                                  {panely.length === 0 ? (
-                                    <div className="flex items-center justify-center h-10 border-2 border-dashed rounded text-muted-foreground/40 text-xs">
-                                      Žiadne panely
-                                    </div>
-                                  ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                                      {panely.map(panel => {
-                                        const isPanelSel  = selectedPanelId === panel.id;
-                                        const riadky      = getRiadky(panel.id);
-                                        const legacyParams = getParamsForPanel(panel.id);
-
-                                        return (
-                                          <div
-                                            key={panel.id}
-                                            className={`border-2 rounded-lg flex flex-col transition-all cursor-pointer ${
-                                              isPanelSel ? "border-primary shadow-sm" : "border-border hover:border-muted-foreground/50"
-                                            }`}
-                                            onClick={() => {
-                                              setSelectedKategoriaId(kat.id);
-                                              setSelectedBlokId(blok.id);
-                                              setSelectedPanelId(prev => prev === panel.id ? null : panel.id);
-                                              setSelectedRiadokId(null);
-                                            }}
-                                            data-testid={`card-panel-${panel.id}`}
-                                          >
-                                            {/* Panel header */}
-                                            <div className={`flex items-center gap-2 px-3 py-2 rounded-t-md ${isPanelSel ? "bg-primary/5" : "bg-muted/30"}`}>
-                                              <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                              <span className="text-sm font-medium flex-1 truncate">{panel.name}</span>
-                                              <EditDeleteButtons section={panel} />
-                                            </div>
-
-                                            {/* Riadky inside Panel */}
-                                            <div className="p-2 flex-1 min-h-[40px] space-y-1">
-                                              {riadky.length === 0 && legacyParams.length === 0 ? (
-                                                <div className="flex items-center justify-center h-8 text-muted-foreground/40 text-xs">
-                                                  Žiadne riadky
-                                                </div>
-                                              ) : (
-                                                <>
-                                                  {riadky.map(riadok => {
-                                                    const isRiadokSel = selectedRiadokId === riadok.id;
-                                                    const params = getParamsForRiadok(riadok.id);
-                                                    return (
-                                                      <div
-                                                        key={riadok.id}
-                                                        className={`rounded border px-2 py-1 text-xs cursor-pointer transition-all ${
-                                                          isRiadokSel
-                                                            ? "border-primary/60 bg-primary/5"
-                                                            : "border-border/50 hover:border-muted-foreground/40 hover:bg-muted/20"
-                                                        }`}
-                                                        onClick={e => {
-                                                          e.stopPropagation();
-                                                          setSelectedKategoriaId(kat.id);
-                                                          setSelectedBlokId(blok.id);
-                                                          setSelectedPanelId(panel.id);
-                                                          setSelectedRiadokId(prev => prev === riadok.id ? null : riadok.id);
-                                                        }}
-                                                        data-testid={`card-riadok-${riadok.id}`}
-                                                      >
-                                                        <div className="flex items-center gap-1 mb-0.5">
-                                                          <Rows3 className="h-2.5 w-2.5 text-muted-foreground/60 flex-shrink-0" />
-                                                          {riadok.name ? (
-                                                            <span className="font-medium text-muted-foreground/80 flex-1 truncate">{riadok.name}</span>
-                                                          ) : (
-                                                            <span className="text-muted-foreground/35 flex-1 italic text-[10px]">bez názvu</span>
-                                                          )}
-                                                          <button
-                                                            onClick={e => { e.stopPropagation(); openEdit(riadok); }}
-                                                            className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/40 hover:text-foreground"
-                                                            data-testid={`button-edit-riadok-inline-${riadok.id}`}
-                                                          >
-                                                            <Pencil className="h-2.5 w-2.5" />
-                                                          </button>
-                                                          <button
-                                                            onClick={e => { e.stopPropagation(); handleDelete(riadok); }}
-                                                            className="h-4 w-4 flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground/40"
-                                                            data-testid={`button-delete-riadok-inline-${riadok.id}`}
-                                                          >
-                                                            <X className="h-2.5 w-2.5" />
-                                                          </button>
-                                                        </div>
-                                                        {params.length > 0 ? (
-                                                          <div className="flex flex-wrap gap-1 mt-0.5 pl-3.5">
-                                                            {params.map(param => (
-                                                              <div
-                                                                key={param.id}
-                                                                className="flex items-center gap-1 text-[10px] text-muted-foreground"
-                                                                data-testid={`param-row-${param.id}`}
-                                                              >
-                                                                <AlignLeft className="h-2.5 w-2.5 opacity-50 flex-shrink-0" />
-                                                                <span className="truncate max-w-[80px]">{param.label}</span>
-                                                                <FieldTypeBadge type={param.fieldType} />
-                                                                {param.isRequired && <span className="text-[9px] text-red-500 font-bold">*</span>}
-                                                              </div>
-                                                            ))}
-                                                          </div>
-                                                        ) : (
-                                                          <div className="pl-3.5 text-[10px] text-muted-foreground/40 italic">prázdny riadok</div>
-                                                        )}
-                                                      </div>
-                                                    );
-                                                  })}
-                                                  {/* Legacy params without rowId */}
-                                                  {legacyParams.length > 0 && (
-                                                    <div className="rounded border border-dashed border-amber-300/60 px-2 py-1">
-                                                      <div className="text-[10px] text-amber-600/70 mb-0.5">Parametre bez riadku:</div>
-                                                      {legacyParams.map(param => (
-                                                        <div key={param.id} className="flex items-center gap-1 text-xs text-muted-foreground py-0.5" data-testid={`param-row-${param.id}`}>
-                                                          <AlignLeft className="h-3 w-3 opacity-50 flex-shrink-0" />
-                                                          <span className="flex-1 truncate">{param.label}</span>
-                                                          <FieldTypeBadge type={param.fieldType} />
-                                                        </div>
-                                                      ))}
-                                                    </div>
-                                                  )}
-                                                </>
-                                              )}
-                                            </div>
-
-                                            {/* Panel footer */}
-                                            <div className="border-t px-3 py-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-                                              <Rows3 className="h-3 w-3" />
-                                              <span>{riadky.length} riadkov</span>
-                                              {legacyParams.length > 0 && (
-                                                <>
-                                                  <span>·</span>
-                                                  <span className="text-amber-600/70">{legacyParams.length} bez riadku</span>
-                                                </>
-                                              )}
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-
-                                  {/* Add panel button */}
-                                  <button
-                                    onClick={() => { setSelectedKategoriaId(kat.id); setSelectedBlokId(blok.id); setAddPanelOpen(true); }}
-                                    className="mt-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                                    data-testid={`button-add-panel-to-blok-${blok.id}`}
-                                  >
-                                    <Plus className="h-3 w-3" />
-                                    Pridať panel do tohto bloku
-                                  </button>
-                                </div>
+                                <DragHandle listeners={katL} attributes={katA} testId={`drag-handle-kategoria-${kat.id}`} />
+                                <Tag className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                <span className="font-bold text-sm flex-1">{kat.name}</span>
+                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border ${catStyle}`}>{catLabel}</Badge>
+                                <span className="text-xs text-muted-foreground">{bloky.length} blokov</span>
+                                <EditDeleteButtons section={kat} />
                               </div>
-                            );
-                          })
-                        )}
 
-                        {/* Add blok button */}
-                        <button
-                          onClick={() => { setSelectedKategoriaId(kat.id); setAddBlokOpen(true); }}
-                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                          data-testid={`button-add-blok-to-kat-${kat.id}`}
-                        >
-                          <Plus className="h-3 w-3" />
-                          Pridať blok do tejto kategórie
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                              {/* Bloky inside Kategória — each with its own DnD */}
+                              <div className="p-4 space-y-4">
+                                {bloky.length === 0 ? (
+                                  <div className="flex items-center justify-center h-12 border-2 border-dashed rounded text-muted-foreground/50 text-xs">
+                                    Žiadne bloky — vyberte Kategóriu a pridajte Blok z Toolbar-u
+                                  </div>
+                                ) : (
+                                  <DndContext sensors={sensors} onDragEnd={e => handleDragEndSections(e, getBloky(kat.id))}>
+                                    <SortableContext items={bloky.map(b => b.id)} strategy={verticalListSortingStrategy}>
+                                      <div className="space-y-4">
+                                        {bloky.map(blok => {
+                                          const isBlokSel = selectedBlokId === blok.id;
+                                          const panely    = getPanely(blok.id);
+
+                                          return (
+                                            <SortableItem key={blok.id} id={blok.id}>
+                                              {({ listeners: blokL, attributes: blokA }) => (
+                                                <div
+                                                  className={`rounded-lg border-2 transition-all ${
+                                                    isBlokSel ? "border-primary/70 shadow-sm" : "border-border/70"
+                                                  }`}
+                                                  data-testid={`section-blok-${blok.id}`}
+                                                >
+                                                  {/* Blok header */}
+                                                  <div
+                                                    className={`flex items-center gap-2 px-3 py-2 cursor-pointer rounded-t-md ${
+                                                      isBlokSel ? "bg-primary/6" : "bg-muted/20 hover:bg-muted/40"
+                                                    }`}
+                                                    onClick={() => {
+                                                      setSelectedKategoriaId(kat.id);
+                                                      setSelectedBlokId(prev => prev === blok.id ? null : blok.id);
+                                                      setSelectedPanelId(null); setSelectedRiadokId(null);
+                                                    }}
+                                                  >
+                                                    <DragHandle listeners={blokL} attributes={blokA} testId={`drag-handle-blok-${blok.id}`} />
+                                                    <FolderOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                                    <span className="font-semibold text-sm flex-1">{blok.name}</span>
+                                                    <span className="text-xs text-muted-foreground">{panely.length} panelov</span>
+                                                    {/* Move to another Kategória */}
+                                                    <Tooltip>
+                                                      <TooltipTrigger asChild>
+                                                        <button
+                                                          type="button"
+                                                          onClick={e => openMoveBlok(blok, e)}
+                                                          className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/50 hover:text-foreground transition-colors"
+                                                          data-testid={`button-move-blok-${blok.id}`}
+                                                        >
+                                                          <ArrowRightLeft className="h-3 w-3" />
+                                                        </button>
+                                                      </TooltipTrigger>
+                                                      <TooltipContent side="top" className="text-xs">
+                                                        Presunúť do inej Kategórie
+                                                      </TooltipContent>
+                                                    </Tooltip>
+                                                    <EditDeleteButtons section={blok} />
+                                                  </div>
+
+                                                  {/* Panely inside Blok */}
+                                                  <div className="p-3">
+                                                    {panely.length === 0 ? (
+                                                      <div className="flex items-center justify-center h-10 border-2 border-dashed rounded text-muted-foreground/40 text-xs">
+                                                        Žiadne panely
+                                                      </div>
+                                                    ) : (
+                                                      <DndContext sensors={sensors} onDragEnd={e => handleDragEndSections(e, getPanely(blok.id))}>
+                                                        <SortableContext items={panely.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                                                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                                            {panely.map(panel => {
+                                                              const isPanelSel   = selectedPanelId === panel.id;
+                                                              const riadky       = getRiadky(panel.id);
+                                                              const legacyParams = getParamsForPanel(panel.id);
+
+                                                              return (
+                                                                <SortableItem key={panel.id} id={panel.id}>
+                                                                  {({ listeners: panelL, attributes: panelA }) => (
+                                                                    <div
+                                                                      className={`border-2 rounded-lg flex flex-col transition-all cursor-pointer ${
+                                                                        isPanelSel ? "border-primary shadow-sm" : "border-border hover:border-muted-foreground/50"
+                                                                      }`}
+                                                                      onClick={() => {
+                                                                        setSelectedKategoriaId(kat.id);
+                                                                        setSelectedBlokId(blok.id);
+                                                                        setSelectedPanelId(prev => prev === panel.id ? null : panel.id);
+                                                                        setSelectedRiadokId(null);
+                                                                      }}
+                                                                      data-testid={`card-panel-${panel.id}`}
+                                                                    >
+                                                                      {/* Panel header */}
+                                                                      <div className={`flex items-center gap-1.5 px-2 py-2 rounded-t-md ${isPanelSel ? "bg-primary/5" : "bg-muted/30"}`}>
+                                                                        <DragHandle listeners={panelL} attributes={panelA} testId={`drag-handle-panel-${panel.id}`} />
+                                                                        <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                                                        <span className="text-sm font-medium flex-1 truncate">{panel.name}</span>
+                                                                        <EditDeleteButtons section={panel} />
+                                                                      </div>
+
+                                                                      {/* Riadky inside Panel */}
+                                                                      <div className="p-2 flex-1 min-h-[40px] space-y-1">
+                                                                        {riadky.length === 0 && legacyParams.length === 0 ? (
+                                                                          <div className="flex items-center justify-center h-8 text-muted-foreground/40 text-xs">
+                                                                            Žiadne riadky
+                                                                          </div>
+                                                                        ) : (
+                                                                          <>
+                                                                            <DndContext sensors={sensors} onDragEnd={e => handleDragEndSections(e, getRiadky(panel.id))}>
+                                                                              <SortableContext items={riadky.map(r => r.id)} strategy={verticalListSortingStrategy}>
+                                                                                {riadky.map(riadok => {
+                                                                                  const isRiadokSel = selectedRiadokId === riadok.id;
+                                                                                  const params = getParamsForRiadok(riadok.id);
+                                                                                  return (
+                                                                                    <SortableItem key={riadok.id} id={riadok.id}>
+                                                                                      {({ listeners: riadokL, attributes: riadokA }) => (
+                                                                                        <div
+                                                                                          className={`rounded border px-1.5 py-1 text-xs cursor-pointer transition-all ${
+                                                                                            isRiadokSel
+                                                                                              ? "border-primary/60 bg-primary/5"
+                                                                                              : "border-border/50 hover:border-muted-foreground/40 hover:bg-muted/20"
+                                                                                          }`}
+                                                                                          onClick={e => {
+                                                                                            e.stopPropagation();
+                                                                                            setSelectedKategoriaId(kat.id);
+                                                                                            setSelectedBlokId(blok.id);
+                                                                                            setSelectedPanelId(panel.id);
+                                                                                            setSelectedRiadokId(prev => prev === riadok.id ? null : riadok.id);
+                                                                                          }}
+                                                                                          data-testid={`card-riadok-${riadok.id}`}
+                                                                                        >
+                                                                                          <div className="flex items-center gap-1 mb-0.5">
+                                                                                            <DragHandle listeners={riadokL} attributes={riadokA} testId={`drag-handle-riadok-${riadok.id}`} />
+                                                                                            <Rows3 className="h-2.5 w-2.5 text-muted-foreground/60 flex-shrink-0" />
+                                                                                            {riadok.name ? (
+                                                                                              <span className="font-medium text-muted-foreground/80 flex-1 truncate">{riadok.name}</span>
+                                                                                            ) : (
+                                                                                              <span className="text-muted-foreground/35 flex-1 italic text-[10px]">bez názvu</span>
+                                                                                            )}
+                                                                                            <button
+                                                                                              onClick={e => { e.stopPropagation(); openEdit(riadok); }}
+                                                                                              className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/40 hover:text-foreground"
+                                                                                              data-testid={`button-edit-riadok-inline-${riadok.id}`}
+                                                                                            >
+                                                                                              <Pencil className="h-2.5 w-2.5" />
+                                                                                            </button>
+                                                                                            <button
+                                                                                              onClick={e => { e.stopPropagation(); handleDelete(riadok); }}
+                                                                                              className="h-4 w-4 flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground/40"
+                                                                                              data-testid={`button-delete-riadok-inline-${riadok.id}`}
+                                                                                            >
+                                                                                              <X className="h-2.5 w-2.5" />
+                                                                                            </button>
+                                                                                          </div>
+                                                                                          {/* Params inside Riadok — DnD */}
+                                                                                          {params.length > 0 ? (
+                                                                                            <DndContext sensors={sensors} onDragEnd={e => handleDragEndParams(e, getParamsForRiadok(riadok.id))}>
+                                                                                              <SortableContext items={params.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                                                                                                <div className="flex flex-col gap-0.5 mt-0.5 pl-3.5">
+                                                                                                  {params.map(param => (
+                                                                                                    <SortableItem key={param.id} id={param.id}>
+                                                                                                      {({ listeners: pL, attributes: pA }) => (
+                                                                                                        <div
+                                                                                                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:bg-muted/30 rounded px-0.5"
+                                                                                                          data-testid={`param-row-${param.id}`}
+                                                                                                        >
+                                                                                                          <button
+                                                                                                            type="button"
+                                                                                                            className="flex-shrink-0 text-muted-foreground/20 hover:text-muted-foreground/60 cursor-grab active:cursor-grabbing"
+                                                                                                            {...pL} {...pA}
+                                                                                                            onClick={e => e.stopPropagation()}
+                                                                                                          >
+                                                                                                            <GripVertical className="h-2.5 w-2.5" />
+                                                                                                          </button>
+                                                                                                          <AlignLeft className="h-2.5 w-2.5 opacity-50 flex-shrink-0" />
+                                                                                                          <span className="truncate max-w-[80px]">{param.label}</span>
+                                                                                                          <FieldTypeBadge type={param.fieldType} />
+                                                                                                          {param.isRequired && <span className="text-[9px] text-red-500 font-bold">*</span>}
+                                                                                                        </div>
+                                                                                                      )}
+                                                                                                    </SortableItem>
+                                                                                                  ))}
+                                                                                                </div>
+                                                                                              </SortableContext>
+                                                                                            </DndContext>
+                                                                                          ) : (
+                                                                                            <div className="pl-3.5 text-[10px] text-muted-foreground/40 italic">prázdny riadok</div>
+                                                                                          )}
+                                                                                        </div>
+                                                                                      )}
+                                                                                    </SortableItem>
+                                                                                  );
+                                                                                })}
+                                                                              </SortableContext>
+                                                                            </DndContext>
+
+                                                                            {/* Legacy params without rowId */}
+                                                                            {legacyParams.length > 0 && (
+                                                                              <div className="rounded border border-dashed border-amber-300/60 px-2 py-1">
+                                                                                <div className="text-[10px] text-amber-600/70 mb-0.5">Parametre bez riadku:</div>
+                                                                                {legacyParams.map(param => (
+                                                                                  <div key={param.id} className="flex items-center gap-1 text-xs text-muted-foreground py-0.5" data-testid={`param-row-${param.id}`}>
+                                                                                    <AlignLeft className="h-3 w-3 opacity-50 flex-shrink-0" />
+                                                                                    <span className="flex-1 truncate">{param.label}</span>
+                                                                                    <FieldTypeBadge type={param.fieldType} />
+                                                                                  </div>
+                                                                                ))}
+                                                                              </div>
+                                                                            )}
+                                                                          </>
+                                                                        )}
+                                                                      </div>
+
+                                                                      {/* Panel footer */}
+                                                                      <div className="border-t px-3 py-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                                                                        <Rows3 className="h-3 w-3" />
+                                                                        <span>{riadky.length} riadkov</span>
+                                                                        {legacyParams.length > 0 && (
+                                                                          <>
+                                                                            <span>·</span>
+                                                                            <span className="text-amber-600/70">{legacyParams.length} bez riadku</span>
+                                                                          </>
+                                                                        )}
+                                                                      </div>
+                                                                    </div>
+                                                                  )}
+                                                                </SortableItem>
+                                                              );
+                                                            })}
+                                                          </div>
+                                                        </SortableContext>
+                                                      </DndContext>
+                                                    )}
+
+                                                    {/* Add panel button */}
+                                                    <button
+                                                      onClick={() => { setSelectedKategoriaId(kat.id); setSelectedBlokId(blok.id); setAddPanelOpen(true); }}
+                                                      className="mt-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                                                      data-testid={`button-add-panel-to-blok-${blok.id}`}
+                                                    >
+                                                      <Plus className="h-3 w-3" />
+                                                      Pridať panel do tohto bloku
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </SortableItem>
+                                          );
+                                        })}
+                                      </div>
+                                    </SortableContext>
+                                  </DndContext>
+                                )}
+
+                                {/* Add blok button */}
+                                <button
+                                  onClick={() => { setSelectedKategoriaId(kat.id); setAddBlokOpen(true); }}
+                                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                                  data-testid={`button-add-blok-to-kat-${kat.id}`}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                  Pridať blok do tejto kategórie
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </SortableItem>
+                      );
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
             )}
           </div>
 
@@ -679,6 +907,16 @@ export default function SektorySubjektovVizia() {
                   <span className="font-medium">{totalParams}</span>
                 </div>
               </div>
+            </div>
+
+            {/* DnD hint */}
+            <div className="rounded-md bg-muted/40 p-2 text-[10px] text-muted-foreground space-y-1">
+              <div className="flex items-center gap-1 font-medium">
+                <GripVertical className="h-3 w-3" />
+                Presúvanie
+              </div>
+              <p>Uchyťte ikonu ≡ na ľubovoľnom prvku a pretiahnite ho na nové miesto.</p>
+              <p>Blok presunúť medzi Kategóriami: ikona ⇄.</p>
             </div>
 
             {/* Help */}
@@ -813,7 +1051,6 @@ export default function SektorySubjektovVizia() {
                   Panel: <span className="font-medium">{selectedPanel.name}</span>
                 </div>
               )}
-              {/* S názvom / Bez názvu toggle */}
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Typ riadku</label>
                 <div className="flex gap-1 p-1 bg-muted rounded-md w-fit">
@@ -891,6 +1128,48 @@ export default function SektorySubjektovVizia() {
                 data-testid="button-confirm-edit"
               >
                 {renameMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Uložiť"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Move Blok to another Kategória */}
+        <Dialog open={moveBlokOpen} onOpenChange={v => { setMoveBlokOpen(v); if (!v) { setMoveBlokTarget(null); setMoveBlokTargetKatId(""); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Presunúť Blok do inej Kategórie</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              {moveBlokTarget && (
+                <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                  Blok: <span className="font-medium">{moveBlokTarget.name}</span>
+                </div>
+              )}
+              <div>
+                <label className="text-sm font-medium mb-1 block">Cieľová Kategória</label>
+                <Select value={moveBlokTargetKatId} onValueChange={setMoveBlokTargetKatId}>
+                  <SelectTrigger data-testid="select-move-blok-target">
+                    <SelectValue placeholder="Vyberte kategóriu..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {kategorie.map(k => (
+                      <SelectItem key={k.id} value={String(k.id)} disabled={k.id === moveBlokTarget?.parentSectionId}>
+                        {k.name}
+                        {k.id === moveBlokTarget?.parentSectionId && " (aktuálna)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setMoveBlokOpen(false)}>Zrušiť</Button>
+              <Button
+                onClick={handleMoveBlok}
+                disabled={!moveBlokTargetKatId || Number(moveBlokTargetKatId) === moveBlokTarget?.parentSectionId || moveBlokMutation.isPending}
+                data-testid="button-confirm-move-blok"
+              >
+                {moveBlokMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Presunúť"}
               </Button>
             </DialogFooter>
           </DialogContent>
