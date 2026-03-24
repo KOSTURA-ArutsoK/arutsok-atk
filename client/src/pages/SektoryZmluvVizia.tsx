@@ -3,11 +3,15 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronRight, Layers, FolderOpen, LayoutGrid, SlidersHorizontal, Copy, Plus, X, AlignLeft, GripVertical } from "lucide-react";
+import {
+  ChevronRight, ChevronDown, Layers, FolderOpen, LayoutGrid,
+  AlignLeft, Copy, Plus, X, GripVertical, Search,
+} from "lucide-react";
 import type { Sector, Section, SectorProduct, ContractFolder, Panel, Parameter } from "@shared/schema";
 
 // --- Type for the full blueprint response ---
@@ -45,10 +49,11 @@ export default function SektoryZmluvVizia() {
   const { toast } = useToast();
 
   // --- Navigation state ---
-  const [sectorId, setSectorId] = useState<string>("none");
-  const [sectionId, setSectionId] = useState<string>("none");
-  const [productId, setProductId] = useState<string>("none");
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [activeFolderIdx, setActiveFolderIdx] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedSectors, setExpandedSectors] = useState<Record<number, boolean>>({});
+  const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({});
 
   // --- Selected items for toolbar ---
   const [selectedPanelId, setSelectedPanelId] = useState<number | null>(null);
@@ -74,28 +79,76 @@ export default function SektoryZmluvVizia() {
   const { data: allPanels = [] } = useQuery<Panel[]>({ queryKey: ["/api/panels"] });
   const { data: allParams = [] } = useQuery<Parameter[]>({ queryKey: ["/api/parameters"] });
 
-  const selProductId = productId !== "none" ? Number(productId) : null;
-
   const { data: blueprint, isLoading: bpLoading } = useQuery<FullBlueprint>({
-    queryKey: ["/api/sector-products", selProductId, "full-blueprint"],
-    queryFn: () => apiRequest("GET", `/api/sector-products/${selProductId}/full-blueprint`).then(r => r.json()),
-    enabled: !!selProductId,
+    queryKey: ["/api/sector-products", selectedProductId, "full-blueprint"],
+    queryFn: () => apiRequest("GET", `/api/sector-products/${selectedProductId}/full-blueprint`).then(r => r.json()),
+    enabled: !!selectedProductId,
   });
 
-  // --- Filtered navigation ---
-  const filteredSections = useMemo(() =>
-    sections.filter(s => s.sectorId === Number(sectorId)), [sections, sectorId]);
-  const filteredProducts = useMemo(() =>
-    sectorProducts.filter(p => p.sectionId === Number(sectionId)), [sectorProducts, sectionId]);
+  // Direct panels (without folder) — used as fallback when product has no folders
+  type DirectPanel = Panel & { parameters: (Parameter & { panelSortOrder: number })[] };
+  const { data: directPanels = [] } = useQuery<DirectPanel[]>({
+    queryKey: ["/api/sector-products", selectedProductId, "panels-with-parameters"],
+    queryFn: () => apiRequest("GET", `/api/sector-products/${selectedProductId}/panels-with-parameters`).then(r => r.json()),
+    enabled: !!selectedProductId,
+  });
 
   // --- Active folder ---
   const folders = blueprint?.folders || [];
   const activeFolder = folders[activeFolderIdx] || null;
 
-  // --- Breadcrumb ---
-  const selSector = sectors.find(s => s.id === Number(sectorId));
-  const selSection = sections.find(s => s.id === Number(sectionId));
-  const selProduct = sectorProducts.find(p => p.id === selProductId);
+  // --- No-folder fallback: show direct panels when folders is empty but panels exist ---
+  const hasFolders = folders.length > 0;
+  const hasDirectPanelsOnly = !hasFolders && directPanels.length > 0;
+  const hasNoStructure = !hasFolders && directPanels.length === 0;
+
+  // --- Selected product info ---
+  const selProduct = sectorProducts.find(p => p.id === selectedProductId);
+  const selSection = sections.find(s => s.id === selProduct?.sectionId);
+  const selSector = sectors.find(s => s.id === selSection?.sectorId);
+
+  // --- Tree structure for left panel ---
+  const activeSectors = useMemo(() => sectors.filter(s => !s.deletedAt), [sectors]);
+  const activeSections = useMemo(() => sections.filter(s => !s.deletedAt), [sections]);
+  const activeProducts = useMemo(() => sectorProducts.filter(p => !p.deletedAt), [sectorProducts]);
+
+  // Filter tree by search query
+  const lowerSearch = searchQuery.toLowerCase().trim();
+  const filteredTree = useMemo(() => {
+    if (!lowerSearch) return null; // null = show full tree without filter
+
+    const matchingProducts = activeProducts.filter(p =>
+      p.name.toLowerCase().includes(lowerSearch) ||
+      (p.abbreviation?.toLowerCase() || "").includes(lowerSearch)
+    );
+    const matchingSectionIds = new Set(matchingProducts.map(p => p.sectionId));
+    const matchingSections = activeSections.filter(s =>
+      s.name.toLowerCase().includes(lowerSearch) || matchingSectionIds.has(s.id)
+    );
+    const matchingSectorIds = new Set(matchingSections.map(s => s.sectorId).filter(Boolean));
+    const matchingSectors = activeSectors.filter(s =>
+      s.name.toLowerCase().includes(lowerSearch) || matchingSectorIds.has(s.id)
+    );
+
+    return { sectors: matchingSectors, sectionIds: new Set(matchingSections.map(s => s.id)), productSet: new Set(matchingProducts.map(p => p.id)) };
+  }, [lowerSearch, activeSectors, activeSections, activeProducts]);
+
+  const visibleSectors = filteredTree ? filteredTree.sectors : activeSectors;
+
+  const handleSelectProduct = useCallback((productId: number) => {
+    setSelectedProductId(productId);
+    setActiveFolderIdx(0);
+    setSelectedPanelId(null);
+    setSelectedParamId(null);
+  }, []);
+
+  const toggleSector = useCallback((sectorId: number) => {
+    setExpandedSectors(prev => ({ ...prev, [sectorId]: !prev[sectorId] }));
+  }, []);
+
+  const toggleSection = useCallback((sectionId: number) => {
+    setExpandedSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
+  }, []);
 
   // === MUTATIONS ===
 
@@ -103,7 +156,7 @@ export default function SektoryZmluvVizia() {
   const updateWidthMutation = useMutation({
     mutationFn: async ({ folderId, panelId, parameterId, width }: { folderId: number; panelId: number; parameterId: number; width: number }) => {
       const bp = blueprint;
-      if (!selProductId) return;
+      if (!selectedProductId) return;
 
       const existingBpId = bp?.blueprintId;
       const layoutJson = buildUpdatedLayoutJson(bp, folderId, panelId, parameterId, width);
@@ -112,12 +165,12 @@ export default function SektoryZmluvVizia() {
         return apiRequest("PUT", `/api/ui-blueprints/${existingBpId}`, { layoutJson }).then(r => r.json());
       } else {
         return apiRequest("POST", "/api/ui-blueprints", {
-          type: "PRODUCT", targetId: String(selProductId), layoutJson,
+          type: "PRODUCT", targetId: String(selectedProductId), layoutJson,
         }).then(r => r.json());
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selProductId, "full-blueprint"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selectedProductId, "full-blueprint"] });
     },
   });
 
@@ -125,7 +178,7 @@ export default function SektoryZmluvVizia() {
   const updatePanelWidthMutation = useMutation({
     mutationFn: async ({ folderId, panelId, width }: { folderId: number; panelId: number; width: number }) => {
       const bp = blueprint;
-      if (!selProductId) return;
+      if (!selectedProductId) return;
 
       const existingBpId = bp?.blueprintId;
       const layoutJson = buildUpdatedPanelWidthLayoutJson(bp, folderId, panelId, width);
@@ -134,12 +187,12 @@ export default function SektoryZmluvVizia() {
         return apiRequest("PUT", `/api/ui-blueprints/${existingBpId}`, { layoutJson }).then(r => r.json());
       } else {
         return apiRequest("POST", "/api/ui-blueprints", {
-          type: "PRODUCT", targetId: String(selProductId), layoutJson,
+          type: "PRODUCT", targetId: String(selectedProductId), layoutJson,
         }).then(r => r.json());
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selProductId, "full-blueprint"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selectedProductId, "full-blueprint"] });
     },
   });
 
@@ -149,10 +202,10 @@ export default function SektoryZmluvVizia() {
       const currentFolderIds = folders.map(f => f.id);
       const newIds = [...new Set([...currentFolderIds, ...folderIds])];
       const assignments = newIds.map((fid, idx) => ({ folderId: fid, sortOrder: idx }));
-      return apiRequest("PUT", `/api/sector-products/${selProductId}/folders`, { assignments }).then(r => r.json());
+      return apiRequest("PUT", `/api/sector-products/${selectedProductId}/folders`, { assignments }).then(r => r.json());
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selProductId, "full-blueprint"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selectedProductId, "full-blueprint"] });
       setAddFolderOpen(false);
       setSelectedFolderIds([]);
       toast({ title: "Priečinky pridané" });
@@ -163,10 +216,10 @@ export default function SektoryZmluvVizia() {
   const removeFolderMutation = useMutation({
     mutationFn: async (folderId: number) => {
       const remaining = folders.filter(f => f.id !== folderId).map((f, idx) => ({ folderId: f.id, sortOrder: idx }));
-      return apiRequest("PUT", `/api/sector-products/${selProductId}/folders`, { assignments: remaining }).then(r => r.json());
+      return apiRequest("PUT", `/api/sector-products/${selectedProductId}/folders`, { assignments: remaining }).then(r => r.json());
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selProductId, "full-blueprint"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selectedProductId, "full-blueprint"] });
       setActiveFolderIdx(0);
       toast({ title: "Priečinok odstránený" });
     },
@@ -182,7 +235,7 @@ export default function SektoryZmluvVizia() {
       return apiRequest("PUT", `/api/contract-folders/${activeFolder.id}/panels`, { assignments }).then(r => r.json());
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selProductId, "full-blueprint"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selectedProductId, "full-blueprint"] });
       setAddPanelOpen(false);
       setSelectedPanelIds([]);
       toast({ title: "Panely pridané" });
@@ -198,7 +251,7 @@ export default function SektoryZmluvVizia() {
       return apiRequest("PUT", `/api/contract-folders/${folderId}/panels`, { assignments: remaining }).then(r => r.json());
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selProductId, "full-blueprint"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selectedProductId, "full-blueprint"] });
       setSelectedPanelId(null);
       toast({ title: "Panel odstránený" });
     },
@@ -214,7 +267,7 @@ export default function SektoryZmluvVizia() {
       return apiRequest("PUT", `/api/panels/${panelId}/parameters`, { assignments }).then(r => r.json());
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selProductId, "full-blueprint"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selectedProductId, "full-blueprint"] });
       setAddParamOpen(false);
       setSelectedParamIds([]);
       toast({ title: "Parametre pridané" });
@@ -230,7 +283,7 @@ export default function SektoryZmluvVizia() {
       return apiRequest("PUT", `/api/panels/${panelId}/parameters`, { assignments: remaining }).then(r => r.json());
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selProductId, "full-blueprint"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sector-products", selectedProductId, "full-blueprint"] });
       setSelectedParamId(null);
       toast({ title: "Parameter odstránený" });
     },
@@ -285,16 +338,6 @@ export default function SektoryZmluvVizia() {
     return { folders: existing };
   }
 
-  const handleSectorChange = useCallback((val: string) => {
-    setSectorId(val); setSectionId("none"); setProductId("none"); setActiveFolderIdx(0);
-  }, []);
-  const handleSectionChange = useCallback((val: string) => {
-    setSectionId(val); setProductId("none"); setActiveFolderIdx(0);
-  }, []);
-  const handleProductChange = useCallback((val: string) => {
-    setProductId(val); setActiveFolderIdx(0); setSelectedPanelId(null); setSelectedParamId(null);
-  }, []);
-
   // Available panels/folders/params for dialogs
   const availableFolders = allFolders.filter(f => !folders.find(bf => bf.id === f.id));
   const availablePanels = allPanels.filter(p => !activeFolder?.panels.find(bp => bp.id === p.id));
@@ -302,55 +345,27 @@ export default function SektoryZmluvVizia() {
   const availableParams = allParams.filter(p => !selectedPanelForParams?.parameters.find(bp => bp.id === p.id));
 
   // Other products for clone
-  const otherProducts = sectorProducts.filter(p => p.id !== selProductId);
+  const otherProducts = sectorProducts.filter(p => p.id !== selectedProductId);
+
+  // Whether sector/section should be expanded in tree
+  function isSectorExpanded(sectorId: number) {
+    if (lowerSearch) return true;
+    return expandedSectors[sectorId] ?? false;
+  }
+  function isSectionExpanded(sectionId: number) {
+    if (lowerSearch) return true;
+    return expandedSections[sectionId] ?? false;
+  }
 
   return (
     <div className="flex flex-col h-full bg-background" data-testid="page-a-vizia">
-      {/* === TOP NAV === */}
+      {/* === TOP BAR === */}
       <div className="flex items-center gap-2 px-6 py-3 border-b bg-card flex-shrink-0">
         <Layers className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-medium text-muted-foreground mr-2">A-Vízia</span>
-
-        <Select value={sectorId} onValueChange={handleSectorChange}>
-          <SelectTrigger className="w-48 h-8 text-sm" data-testid="select-sector">
-            <SelectValue placeholder="Sektor..." />
-          </SelectTrigger>
-          <SelectContent>
-            {sectors.filter(s => !s.deletedAt).map(s => (
-              <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-
-        <Select value={sectionId} onValueChange={handleSectionChange} disabled={sectorId === "none"}>
-          <SelectTrigger className="w-44 h-8 text-sm" data-testid="select-section">
-            <SelectValue placeholder="Sekcia..." />
-          </SelectTrigger>
-          <SelectContent>
-            {filteredSections.filter(s => !s.deletedAt).map(s => (
-              <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-
-        <Select value={productId} onValueChange={handleProductChange} disabled={sectionId === "none"}>
-          <SelectTrigger className="w-52 h-8 text-sm" data-testid="select-product">
-            <SelectValue placeholder="Produkt..." />
-          </SelectTrigger>
-          <SelectContent>
-            {filteredProducts.filter(p => !p.deletedAt).map(p => (
-              <SelectItem key={p.id} value={String(p.id)}>{p.name}{p.abbreviation ? ` (${p.abbreviation})` : ""}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
+        <span className="text-sm font-semibold text-foreground">A-Vízia</span>
+        <span className="text-xs text-muted-foreground ml-1">— Builder šablón produktov</span>
         <div className="flex-1" />
-
-        {selProductId && (
+        {selectedProductId && (
           <Button variant="outline" size="sm" onClick={() => setCloneOpen(true)} data-testid="button-clone-product">
             <Copy className="h-3.5 w-3.5 mr-1.5" />
             Klonovať produkt
@@ -358,241 +373,386 @@ export default function SektoryZmluvVizia() {
         )}
       </div>
 
-      {/* === BREADCRUMB === */}
-      {selProductId && (
-        <div className="px-6 py-2 border-b bg-muted/30 flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
-          <span>{selSector?.name || "—"}</span>
-          <ChevronRight className="h-3 w-3" />
-          <span>{selSection?.name || "—"}</span>
-          <ChevronRight className="h-3 w-3" />
-          <span className="font-medium text-foreground">{selProduct?.name || "—"}</span>
-          {selProduct?.abbreviation && <Badge variant="secondary" className="ml-1 text-[10px] px-1">{selProduct.abbreviation}</Badge>}
-        </div>
-      )}
-
-      {/* === MAIN AREA === */}
+      {/* === MAIN TWO-PANEL LAYOUT === */}
       <div className="flex flex-1 overflow-hidden">
-        {/* === CANVAS === */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {!selProductId ? (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <Layers className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                <p className="text-sm">Vyberte Sektor → Sekciu → Produkt v navigácii vyššie</p>
-              </div>
-            </div>
-          ) : bpLoading ? (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-              Načítavam šablónu...
-            </div>
-          ) : (
-            <>
-              {/* Folder Tabs */}
-              <div className="flex items-center gap-1 px-6 pt-4 pb-0 border-b bg-card flex-shrink-0 flex-wrap">
-                {folders.map((folder, idx) => (
-                  <button
-                    key={folder.id}
-                    onClick={() => { setActiveFolderIdx(idx); setSelectedPanelId(null); setSelectedParamId(null); }}
-                    data-testid={`tab-folder-${folder.id}`}
-                    className={`flex items-center gap-1.5 px-4 py-2 text-sm border-b-2 transition-colors whitespace-nowrap ${
-                      activeFolderIdx === idx
-                        ? "border-primary text-primary font-medium"
-                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-                    }`}
-                  >
-                    <FolderOpen className="h-3.5 w-3.5" />
-                    {folder.name}
-                    {getDensityWarning(folder.panels.length, 1, 6, "Priečinok") && (
-                      <span className="text-amber-500 text-xs">⚠</span>
-                    )}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setAddFolderOpen(true)}
-                  className="flex items-center gap-1 px-3 py-2 text-sm text-muted-foreground hover:text-foreground border-b-2 border-transparent"
-                  data-testid="button-add-folder"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Priečinok
-                </button>
-              </div>
 
-              {/* Panel Grid */}
-              <div className="flex-1 overflow-auto p-6">
-                {!activeFolder ? (
-                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+        {/* === LEFT PANEL — Product Tree === */}
+        <div className="w-64 border-r bg-card flex-shrink-0 flex flex-col">
+          {/* Search */}
+          <div className="p-3 border-b">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Hľadaj produkt..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-8 h-8 text-sm"
+                data-testid="input-search-products"
+              />
+            </div>
+          </div>
+
+          {/* Tree */}
+          <div className="flex-1 overflow-y-auto py-1">
+            {visibleSectors.length === 0 && (
+              <p className="text-xs text-muted-foreground px-4 py-3">
+                {lowerSearch ? "Žiadne výsledky." : "Žiadne sektory."}
+              </p>
+            )}
+            {visibleSectors.map(sector => {
+              const sectorSections = activeSections.filter(s =>
+                s.sectorId === sector.id &&
+                (!filteredTree || filteredTree.sectionIds.has(s.id))
+              );
+              const expanded = isSectorExpanded(sector.id);
+
+              return (
+                <div key={sector.id} data-testid={`tree-sector-${sector.id}`}>
+                  {/* Sector row */}
+                  <button
+                    className="w-full flex items-center gap-1.5 px-3 py-1.5 hover:bg-muted/50 text-left transition-colors"
+                    onClick={() => toggleSector(sector.id)}
+                    data-testid={`toggle-sector-${sector.id}`}
+                  >
+                    {expanded
+                      ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    }
+                    <span className="text-sm font-medium truncate">{sector.name}</span>
+                  </button>
+
+                  {/* Sections */}
+                  {expanded && sectorSections.map(section => {
+                    const sectionProducts = activeProducts.filter(p =>
+                      p.sectionId === section.id &&
+                      (!filteredTree || filteredTree.productSet.has(p.id))
+                    );
+                    const secExpanded = isSectionExpanded(section.id);
+
+                    return (
+                      <div key={section.id} data-testid={`tree-section-${section.id}`}>
+                        {/* Section row */}
+                        <button
+                          className="w-full flex items-center gap-1.5 pl-7 pr-3 py-1.5 hover:bg-muted/50 text-left transition-colors"
+                          onClick={() => toggleSection(section.id)}
+                          data-testid={`toggle-section-${section.id}`}
+                        >
+                          {secExpanded
+                            ? <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            : <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                          }
+                          <span className="text-xs text-muted-foreground truncate">{section.name}</span>
+                        </button>
+
+                        {/* Products */}
+                        {secExpanded && sectionProducts.map(product => {
+                          const isSelected = selectedProductId === product.id;
+                          return (
+                            <button
+                              key={product.id}
+                              onClick={() => handleSelectProduct(product.id)}
+                              className={`w-full flex items-center gap-1.5 pl-12 pr-3 py-1 text-left transition-colors text-xs ${
+                                isSelected
+                                  ? "bg-primary/10 text-primary font-medium"
+                                  : "text-foreground hover:bg-muted/50"
+                              }`}
+                              data-testid={`product-item-${product.id}`}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-current flex-shrink-0 opacity-60" />
+                              <span className="truncate flex-1">{product.name}</span>
+                              {product.abbreviation && (
+                                <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                                  {product.abbreviation}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* === RIGHT PANEL — Blueprint Preview === */}
+        <div className="flex-1 flex overflow-hidden">
+
+          {/* === CANVAS === */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {!selectedProductId ? (
+              <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <Layers className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm">Vyberte produkt zo zoznamu vľavo</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Breadcrumb */}
+                <div className="px-6 py-2 border-b bg-muted/30 flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
+                  <span>{selSector?.name || "—"}</span>
+                  <ChevronRight className="h-3 w-3" />
+                  <span>{selSection?.name || "—"}</span>
+                  <ChevronRight className="h-3 w-3" />
+                  <span className="font-medium text-foreground">{selProduct?.name || "—"}</span>
+                  {selProduct?.abbreviation && (
+                    <Badge variant="secondary" className="ml-1 text-[10px] px-1">{selProduct.abbreviation}</Badge>
+                  )}
+                </div>
+
+                {bpLoading ? (
+                  <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+                    Načítavam šablónu...
+                  </div>
+                ) : hasNoStructure ? (
+                  /* === EMPTY STATE === */
+                  <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-6">
                     <FolderOpen className="h-10 w-10 mb-2 opacity-20" />
-                    <p className="text-sm">Žiadne priečinky. Pridajte prvý priečinok.</p>
+                    <p className="text-sm">Tento produkt zatiaľ nemá priradenú žiadnu štruktúru.</p>
                     <Button variant="outline" size="sm" className="mt-3" onClick={() => setAddFolderOpen(true)}>
                       <Plus className="h-3.5 w-3.5 mr-1.5" />
                       Pridať priečinok
                     </Button>
                   </div>
-                ) : (
-                  <>
-                    {/* Density warning */}
-                    {getDensityWarning(activeFolder.panels.length, 1, 6, "Priečinok") && (
-                      <div className="mb-4 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-3 py-2">
-                        ⚠ {getDensityWarning(activeFolder.panels.length, 1, 6, "Priečinok")}
-                      </div>
-                    )}
-
-                    {activeFolder.panels.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-48 text-muted-foreground border-2 border-dashed rounded-lg">
-                        <LayoutGrid className="h-8 w-8 mb-2 opacity-20" />
-                        <p className="text-sm">Žiadne panely v tomto priečinku.</p>
-                        <Button variant="outline" size="sm" className="mt-3" onClick={() => setAddPanelOpen(true)}>
-                          <Plus className="h-3.5 w-3.5 mr-1.5" />
-                          Pridať panel
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-wrap gap-4 items-start">
-                        {activeFolder.panels.map(panel => (
+                ) : hasDirectPanelsOnly ? (
+                  /* === DIRECT PANELS (no folders) === */
+                  <div className="flex-1 overflow-auto p-6">
+                    <p className="text-xs text-muted-foreground mb-4">Panely bez priečinka:</p>
+                    <div className="flex flex-wrap gap-4 items-start">
+                      {directPanels.map(panel => {
+                        const bpPanel: BpPanel = {
+                          ...panel,
+                          sortOrder: 0,
+                          gridColumns: 1,
+                          width: 50,
+                          parameters: panel.parameters.map(p => ({ ...p, sortOrder: p.panelSortOrder, width: 50 })),
+                        };
+                        return (
                           <PanelCard
                             key={panel.id}
-                            panel={panel}
-                            folderId={activeFolder.id}
+                            panel={bpPanel}
                             isSelected={selectedPanelId === panel.id}
                             selectedParamId={selectedParamId}
                             onSelectPanel={() => { setSelectedPanelId(panel.id === selectedPanelId ? null : panel.id); setSelectedParamId(null); }}
                             onSelectParam={(pid) => { setSelectedPanelId(panel.id); setSelectedParamId(pid === selectedParamId ? null : pid); }}
-                            onRemovePanel={() => removePanelMutation.mutate({ folderId: activeFolder.id, panelId: panel.id })}
-                            onRemoveParam={(pid) => removeParamMutation.mutate({ panelId: panel.id, parameterId: pid })}
+                            onRemovePanel={() => {}}
+                            onRemoveParam={() => {}}
                             onAddParams={() => { setSelectedPanelId(panel.id); setAddParamOpen(true); }}
-                            onWidthChange={(pid, w) => updateWidthMutation.mutate({ folderId: activeFolder.id, panelId: panel.id, parameterId: pid, width: w })}
-                            panelWidth={panel.width || 50}
                           />
-                        ))}
-                      </div>
-                    )}
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  /* === FOLDER TABS + PANELS === */
+                  <>
+                    {/* Folder Tabs */}
+                    <div className="flex items-center gap-1 px-6 pt-4 pb-0 border-b bg-card flex-shrink-0 flex-wrap">
+                      {folders.map((folder, idx) => (
+                        <button
+                          key={folder.id}
+                          onClick={() => { setActiveFolderIdx(idx); setSelectedPanelId(null); setSelectedParamId(null); }}
+                          data-testid={`tab-folder-${folder.id}`}
+                          className={`flex items-center gap-1.5 px-4 py-2 text-sm border-b-2 transition-colors whitespace-nowrap ${
+                            activeFolderIdx === idx
+                              ? "border-primary text-primary font-medium"
+                              : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+                          }`}
+                        >
+                          <FolderOpen className="h-3.5 w-3.5" />
+                          {folder.name}
+                          {getDensityWarning(folder.panels.length, 1, 6, "Priečinok") && (
+                            <span className="text-amber-500 text-xs">⚠</span>
+                          )}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setAddFolderOpen(true)}
+                        className="flex items-center gap-1 px-3 py-2 text-sm text-muted-foreground hover:text-foreground border-b-2 border-transparent"
+                        data-testid="button-add-folder"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Priečinok
+                      </button>
+                    </div>
+
+                    {/* Panel Grid */}
+                    <div className="flex-1 overflow-auto p-6">
+                      {!activeFolder ? (
+                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                          <FolderOpen className="h-10 w-10 mb-2 opacity-20" />
+                          <p className="text-sm">Žiadne panely v tomto priečinku.</p>
+                          <Button variant="outline" size="sm" className="mt-3" onClick={() => setAddFolderOpen(true)}>
+                            <Plus className="h-3.5 w-3.5 mr-1.5" />
+                            Pridať priečinok
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Density warning */}
+                          {getDensityWarning(activeFolder.panels.length, 1, 6, "Priečinok") && (
+                            <div className="mb-4 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-3 py-2">
+                              ⚠ {getDensityWarning(activeFolder.panels.length, 1, 6, "Priečinok")}
+                            </div>
+                          )}
+
+                          {activeFolder.panels.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground border-2 border-dashed rounded-lg">
+                              <LayoutGrid className="h-8 w-8 mb-2 opacity-20" />
+                              <p className="text-sm">Žiadne panely v tomto priečinku.</p>
+                              <Button variant="outline" size="sm" className="mt-3" onClick={() => setAddPanelOpen(true)}>
+                                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                                Pridať panel
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-4 items-start">
+                              {activeFolder.panels.map(panel => (
+                                <PanelCard
+                                  key={panel.id}
+                                  panel={panel}
+                                  isSelected={selectedPanelId === panel.id}
+                                  selectedParamId={selectedParamId}
+                                  onSelectPanel={() => { setSelectedPanelId(panel.id === selectedPanelId ? null : panel.id); setSelectedParamId(null); }}
+                                  onSelectParam={(pid) => { setSelectedPanelId(panel.id); setSelectedParamId(pid === selectedParamId ? null : pid); }}
+                                  onRemovePanel={() => removePanelMutation.mutate({ folderId: activeFolder.id, panelId: panel.id })}
+                                  onRemoveParam={(pid) => removeParamMutation.mutate({ panelId: panel.id, parameterId: pid })}
+                                  onAddParams={() => { setSelectedPanelId(panel.id); setAddParamOpen(true); }}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </>
                 )}
-              </div>
-            </>
-          )}
-        </div>
+              </>
+            )}
+          </div>
 
-        {/* === TOOLBAR === */}
-        {selProductId && (
-          <div className="w-56 border-l bg-card flex-shrink-0 flex flex-col p-4 gap-4 overflow-y-auto">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Pridať</p>
-              <div className="flex flex-col gap-1.5">
-                <Button variant="outline" size="sm" className="justify-start gap-2 h-8" onClick={() => setAddFolderOpen(true)} data-testid="toolbar-add-folder">
-                  <FolderOpen className="h-3.5 w-3.5" />
-                  Priečinok
-                </Button>
-                <Button variant="outline" size="sm" className="justify-start gap-2 h-8" onClick={() => setAddPanelOpen(true)} disabled={!activeFolder} data-testid="toolbar-add-panel">
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                  Panel
-                </Button>
-                <Button variant="outline" size="sm" className="justify-start gap-2 h-8" onClick={() => setAddParamOpen(true)} disabled={!selectedPanelId} data-testid="toolbar-add-param">
-                  <AlignLeft className="h-3.5 w-3.5" />
-                  Parameter
-                </Button>
-              </div>
-            </div>
-
-            {/* Width selector for selected panel */}
-            {selectedPanelId && !selectedParamId && activeFolder && (() => {
-              const panel = activeFolder.panels.find(p => p.id === selectedPanelId);
-              const currentWidth = panel?.width || 50;
-              return (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Šírka panelu</p>
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {PANEL_WIDTH_PRESETS.map(w => (
-                      <button
-                        key={w}
-                        onClick={() => updatePanelWidthMutation.mutate({ folderId: activeFolder.id, panelId: selectedPanelId, width: w })}
-                        data-testid={`panel-width-preset-${w}`}
-                        className={`px-2 py-1 text-xs rounded border transition-colors ${
-                          currentWidth === w
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "border-border hover:border-primary hover:text-primary"
-                        }`}
-                      >
-                        {w}%
-                      </button>
-                    ))}
-                  </div>
+          {/* === TOOLBAR === */}
+          {selectedProductId && (
+            <div className="w-56 border-l bg-card flex-shrink-0 flex flex-col p-4 gap-4 overflow-y-auto">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Pridať</p>
+                <div className="flex flex-col gap-1.5">
+                  <Button variant="outline" size="sm" className="justify-start gap-2 h-8" onClick={() => setAddFolderOpen(true)} data-testid="toolbar-add-folder">
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    Priečinok
+                  </Button>
+                  <Button variant="outline" size="sm" className="justify-start gap-2 h-8" onClick={() => setAddPanelOpen(true)} disabled={!activeFolder} data-testid="toolbar-add-panel">
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                    Panel
+                  </Button>
+                  <Button variant="outline" size="sm" className="justify-start gap-2 h-8" onClick={() => setAddParamOpen(true)} disabled={!selectedPanelId} data-testid="toolbar-add-param">
+                    <AlignLeft className="h-3.5 w-3.5" />
+                    Parameter
+                  </Button>
                 </div>
-              );
-            })()}
+              </div>
 
-            {/* Width selector for selected parameter */}
-            {selectedParamId && selectedPanelId && activeFolder && (() => {
-              const panel = activeFolder.panels.find(p => p.id === selectedPanelId);
-              const param = panel?.parameters.find(p => p.id === selectedParamId);
-              const currentWidth = param?.width || 50;
-              const otherParamsSum = (panel?.parameters || [])
-                .filter(p => p.id !== selectedParamId)
-                .reduce((sum, p) => sum + (p.width || 0), 0);
-              const remainder = 100 - otherParamsSum;
-              const allParamsSum = (panel?.parameters || [])
-                .reduce((sum, p) => sum + (p.width || 0), 0);
-              const sumOk = allParamsSum === 100;
+              {/* Width selector for selected panel */}
+              {selectedPanelId && !selectedParamId && activeFolder && (() => {
+                const panel = activeFolder.panels.find(p => p.id === selectedPanelId);
+                const currentWidth = panel?.width || 50;
+                return (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Šírka panelu</p>
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {PANEL_WIDTH_PRESETS.map(w => (
+                        <button
+                          key={w}
+                          onClick={() => updatePanelWidthMutation.mutate({ folderId: activeFolder.id, panelId: selectedPanelId, width: w })}
+                          data-testid={`panel-width-preset-${w}`}
+                          className={`px-2 py-1 text-xs rounded border transition-colors ${
+                            currentWidth === w
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "border-border hover:border-primary hover:text-primary"
+                          }`}
+                        >
+                          {w}%
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
-              return (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Šírka poľa</p>
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {PARAM_WIDTH_PRESETS.map(w => (
-                      <button
-                        key={w}
-                        onClick={() => updateWidthMutation.mutate({
+              {/* Width selector for selected parameter */}
+              {selectedParamId && selectedPanelId && activeFolder && (() => {
+                const panel = activeFolder.panels.find(p => p.id === selectedPanelId);
+                const param = panel?.parameters.find(p => p.id === selectedParamId);
+                const currentWidth = param?.width || 50;
+                const otherParamsSum = (panel?.parameters || [])
+                  .filter(p => p.id !== selectedParamId)
+                  .reduce((sum, p) => sum + (p.width || 0), 0);
+                const remainder = 100 - otherParamsSum;
+                const allParamsSum = (panel?.parameters || [])
+                  .reduce((sum, p) => sum + (p.width || 0), 0);
+                const sumOk = allParamsSum === 100;
+
+                return (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Šírka poľa</p>
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {PARAM_WIDTH_PRESETS.map(w => (
+                        <button
+                          key={w}
+                          onClick={() => updateWidthMutation.mutate({
+                            folderId: activeFolder.id,
+                            panelId: selectedPanelId,
+                            parameterId: selectedParamId,
+                            width: w,
+                          })}
+                          data-testid={`param-width-preset-${w}`}
+                          className={`px-2 py-1 text-xs rounded border transition-colors ${
+                            currentWidth === w
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "border-border hover:border-primary hover:text-primary"
+                          }`}
+                        >
+                          {w}%
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="number"
+                      min={5}
+                      max={100}
+                      value={currentWidth}
+                      onChange={(e) => {
+                        const val = Math.min(100, Math.max(5, Number(e.target.value)));
+                        updateWidthMutation.mutate({
                           folderId: activeFolder.id,
                           panelId: selectedPanelId,
                           parameterId: selectedParamId,
-                          width: w,
-                        })}
-                        data-testid={`param-width-preset-${w}`}
-                        className={`px-2 py-1 text-xs rounded border transition-colors ${
-                          currentWidth === w
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "border-border hover:border-primary hover:text-primary"
-                        }`}
-                      >
-                        {w}%
-                      </button>
-                    ))}
-                  </div>
-                  <input
-                    type="number"
-                    min={5}
-                    max={100}
-                    value={currentWidth}
-                    onChange={(e) => {
-                      const val = Math.min(100, Math.max(5, Number(e.target.value)));
-                      updateWidthMutation.mutate({
-                        folderId: activeFolder.id,
-                        panelId: selectedPanelId,
-                        parameterId: selectedParamId,
-                        width: val,
-                      });
-                    }}
-                    data-testid="param-width-custom-input"
-                    className="w-full text-xs border border-border rounded px-2 py-1 bg-background text-foreground mb-2 focus:outline-none focus:border-primary"
-                  />
-                  <p className="text-[11px] text-muted-foreground" data-testid="param-width-remainder">
-                    Zostatok: {remainder}%
-                  </p>
-                  {!sumOk && (
-                    <p className="text-[11px] text-amber-500 mt-1" data-testid="param-width-sum-warning">
-                      Súčet: {allParamsSum}% — {allParamsSum < 100 ? `chýba ${100 - allParamsSum}%` : `presahuje o ${allParamsSum - 100}%`}
+                          width: val,
+                        });
+                      }}
+                      data-testid="param-width-custom-input"
+                      className="w-full text-xs border border-border rounded px-2 py-1 bg-background text-foreground mb-2 focus:outline-none focus:border-primary"
+                    />
+                    <p className="text-[11px] text-muted-foreground" data-testid="param-width-remainder">
+                      Zostatok: {remainder}%
                     </p>
-                  )}
-                </div>
-              );
-            })()}
+                    {!sumOk && (
+                      <p className="text-[11px] text-amber-500 mt-1" data-testid="param-width-sum-warning">
+                        Súčet: {allParamsSum}% — {allParamsSum < 100 ? `chýba ${100 - allParamsSum}%` : `presahuje o ${allParamsSum - 100}%`}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
-            {/* Remove actions */}
-            {(selectedPanelId || activeFolder) && (
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Odstrániť</p>
-                <div className="flex flex-col gap-1.5">
-                  {activeFolder && (
+              {/* Remove actions */}
+              {activeFolder && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Odstrániť</p>
+                  <div className="flex flex-col gap-1.5">
                     <Button
                       variant="outline" size="sm"
                       className="justify-start gap-2 h-8 text-destructive hover:text-destructive hover:border-destructive"
@@ -602,37 +762,37 @@ export default function SektoryZmluvVizia() {
                       <X className="h-3.5 w-3.5" />
                       Priečinok
                     </Button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Density info */}
-            <div className="mt-auto">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Anti-Vata</p>
-              <div className="text-[11px] text-muted-foreground space-y-0.5">
-                <p>📁 3–7 priečinkov</p>
-                <p>📦 1–6 panelov</p>
-                <p>⚙ 5–15 parametrov</p>
-              </div>
-              {activeFolder && (
-                <div className="mt-2 text-[11px] space-y-0.5">
-                  <p className={activeFolder.panels.length > 6 || activeFolder.panels.length < 1 ? "text-amber-500" : "text-green-600"}>
-                    Panely: {activeFolder.panels.length}
-                  </p>
-                  {selectedPanelId && (() => {
-                    const p = activeFolder.panels.find(p => p.id === selectedPanelId);
-                    return p ? (
-                      <p className={p.parameters.length > 15 || p.parameters.length < 5 ? "text-amber-500" : "text-green-600"}>
-                        Parametre: {p.parameters.length}
-                      </p>
-                    ) : null;
-                  })()}
+                  </div>
                 </div>
               )}
+
+              {/* Density info */}
+              <div className="mt-auto">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Anti-Vata</p>
+                <div className="text-[11px] text-muted-foreground space-y-0.5">
+                  <p>📁 3–7 priečinkov</p>
+                  <p>📦 1–6 panelov</p>
+                  <p>⚙ 5–15 parametrov</p>
+                </div>
+                {activeFolder && (
+                  <div className="mt-2 text-[11px] space-y-0.5">
+                    <p className={activeFolder.panels.length > 6 || activeFolder.panels.length < 1 ? "text-amber-500" : "text-green-600"}>
+                      Panely: {activeFolder.panels.length}
+                    </p>
+                    {selectedPanelId && (() => {
+                      const p = activeFolder.panels.find(p => p.id === selectedPanelId);
+                      return p ? (
+                        <p className={p.parameters.length > 15 || p.parameters.length < 5 ? "text-amber-500" : "text-green-600"}>
+                          Parametre: {p.parameters.length}
+                        </p>
+                      ) : null;
+                    })()}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* === DIALOGS === */}
@@ -697,13 +857,7 @@ export default function SektoryZmluvVizia() {
           <DialogFooter>
             <Button variant="outline" onClick={() => { setAddPanelOpen(false); setSelectedPanelIds([]); }}>Zrušiť</Button>
             <Button
-              onClick={() => {
-                if (!selectedPanelId && activeFolder && allPanels.length > 0) {
-                  addPanelsMutation.mutate(selectedPanelIds);
-                } else {
-                  addPanelsMutation.mutate(selectedPanelIds);
-                }
-              }}
+              onClick={() => addPanelsMutation.mutate(selectedPanelIds)}
               disabled={selectedPanelIds.length === 0 || addPanelsMutation.isPending}
               data-testid="button-confirm-add-panels"
             >
@@ -789,7 +943,6 @@ export default function SektoryZmluvVizia() {
 // === PANEL CARD COMPONENT ===
 interface PanelCardProps {
   panel: BpPanel;
-  folderId: number;
   isSelected: boolean;
   selectedParamId: number | null;
   onSelectPanel: () => void;
@@ -797,15 +950,14 @@ interface PanelCardProps {
   onRemovePanel: () => void;
   onRemoveParam: (id: number) => void;
   onAddParams: () => void;
-  onWidthChange: (paramId: number, width: number) => void;
-  panelWidth: number;
 }
 
 function PanelCard({
-  panel, folderId, isSelected, selectedParamId,
-  onSelectPanel, onSelectParam, onRemovePanel, onRemoveParam, onAddParams, onWidthChange, panelWidth,
+  panel, isSelected, selectedParamId,
+  onSelectPanel, onSelectParam, onRemovePanel, onRemoveParam, onAddParams,
 }: PanelCardProps) {
   const paramWarning = getDensityWarning(panel.parameters.length, 5, 15, "Panel");
+  const panelWidth = panel.width || 50;
 
   return (
     <div
