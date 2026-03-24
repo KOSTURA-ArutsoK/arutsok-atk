@@ -90,6 +90,7 @@ export default function SektorySubjektovVizia() {
   const [newBlokName, setNewBlokName]                   = useState("");
   const [newPanelName, setNewPanelName]                 = useState("");
   const [newRiadokName, setNewRiadokName]               = useState("");
+  const [riadokHasName, setRiadokHasName]               = useState(true);
   const [editName, setEditName]                         = useState("");
 
   // ============================================================
@@ -220,17 +221,27 @@ export default function SektorySubjektovVizia() {
 
   const handleAddRiadok = () => {
     if (!selectedPanelId || !selectedKategoria) return;
-    const name = newRiadokName.trim() || `Riadok ${getRiadky(selectedPanelId).length + 1}`;
+    if (riadokHasName && !newRiadokName.trim()) return;
+    const name = riadokHasName ? newRiadokName.trim() : "";
     createMutation.mutate(
       { name, clientTypeId, sectionType: "riadok", parentSectionId: selectedPanelId, folderCategory: selectedKategoria.folderCategory },
-      { onSuccess: () => { toast({ title: "Riadok pridaný" }); setNewRiadokName(""); setAddRiadokOpen(false); } }
+      {
+        onSuccess: () => {
+          toast({ title: "Riadok pridaný" });
+          setNewRiadokName("");
+          setRiadokHasName(true);
+          setAddRiadokOpen(false);
+        }
+      }
     );
   };
 
   const handleEdit = () => {
-    if (!editTarget || !editName.trim()) return;
-    renameMutation.mutate({ id: editTarget.id, name: editName.trim() },
-      { onSuccess: () => { toast({ title: "Premenované" }); setEditName(""); setEditTarget(null); } }
+    if (!editTarget) return;
+    const isRiadok = editTarget.sectionType === "riadok";
+    if (!isRiadok && !editName.trim()) return;
+    renameMutation.mutate({ id: editTarget.id, name: isRiadok ? editName : editName.trim() },
+      { onSuccess: () => { toast({ title: "Uložené" }); setEditName(""); setEditTarget(null); } }
     );
   };
 
@@ -466,7 +477,11 @@ export default function SektorySubjektovVizia() {
                                                       >
                                                         <div className="flex items-center gap-1 mb-0.5">
                                                           <Rows3 className="h-2.5 w-2.5 text-muted-foreground/60 flex-shrink-0" />
-                                                          <span className="font-medium text-muted-foreground/80 flex-1 truncate">{riadok.name}</span>
+                                                          {riadok.name ? (
+                                                            <span className="font-medium text-muted-foreground/80 flex-1 truncate">{riadok.name}</span>
+                                                          ) : (
+                                                            <span className="text-muted-foreground/35 flex-1 italic text-[10px]">bez názvu</span>
+                                                          )}
                                                           <button
                                                             onClick={e => { e.stopPropagation(); openEdit(riadok); }}
                                                             className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/40 hover:text-foreground"
@@ -789,7 +804,7 @@ export default function SektorySubjektovVizia() {
         </Dialog>
 
         {/* Add Riadok */}
-        <Dialog open={addRiadokOpen} onOpenChange={setAddRiadokOpen}>
+        <Dialog open={addRiadokOpen} onOpenChange={v => { setAddRiadokOpen(v); if (!v) { setNewRiadokName(""); setRiadokHasName(true); } }}>
           <DialogContent>
             <DialogHeader><DialogTitle>Pridať Riadok</DialogTitle></DialogHeader>
             <div className="space-y-3 py-2">
@@ -798,23 +813,47 @@ export default function SektorySubjektovVizia() {
                   Panel: <span className="font-medium">{selectedPanel.name}</span>
                 </div>
               )}
+              {/* S názvom / Bez názvu toggle */}
               <div>
-                <label className="text-sm font-medium mb-1 block">Názov riadku <span className="text-muted-foreground font-normal">(voliteľné)</span></label>
-                <Input
-                  value={newRiadokName}
-                  onChange={e => setNewRiadokName(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") handleAddRiadok(); }}
-                  placeholder="napr. Riadok 1"
-                  data-testid="input-new-riadok-name"
-                  autoFocus
-                />
+                <label className="text-sm font-medium mb-1.5 block">Typ riadku</label>
+                <div className="flex gap-1 p-1 bg-muted rounded-md w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setRiadokHasName(true)}
+                    className={`px-3 py-1 rounded text-sm transition-all ${riadokHasName ? "bg-background shadow font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                    data-testid="toggle-riadok-s-nazvom"
+                  >
+                    S názvom
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRiadokHasName(false)}
+                    className={`px-3 py-1 rounded text-sm transition-all ${!riadokHasName ? "bg-background shadow font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                    data-testid="toggle-riadok-bez-nazvu"
+                  >
+                    Bez názvu
+                  </button>
+                </div>
               </div>
+              {riadokHasName && (
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Názov riadku</label>
+                  <Input
+                    value={newRiadokName}
+                    onChange={e => setNewRiadokName(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") handleAddRiadok(); }}
+                    placeholder="napr. Osobné údaje"
+                    data-testid="input-new-riadok-name"
+                    autoFocus
+                  />
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddRiadokOpen(false)}>Zrušiť</Button>
               <Button
                 onClick={handleAddRiadok}
-                disabled={!selectedPanelId || createMutation.isPending}
+                disabled={!selectedPanelId || createMutation.isPending || (riadokHasName && !newRiadokName.trim())}
                 data-testid="button-confirm-add-riadok"
               >
                 {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Pridať"}
@@ -831,18 +870,26 @@ export default function SektorySubjektovVizia() {
                 Premenovať {editTarget?.sectionType === "kategoria" ? "Kategóriu" : editTarget?.sectionType === "blok" ? "Blok" : editTarget?.sectionType === "riadok" ? "Riadok" : "Panel"}
               </DialogTitle>
             </DialogHeader>
-            <div className="py-2">
+            <div className="py-2 space-y-1.5">
               <Input
                 value={editName}
                 onChange={e => setEditName(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") handleEdit(); }}
+                placeholder={editTarget?.sectionType === "riadok" ? "Nechajte prázdne pre riadok bez názvu" : ""}
                 data-testid="input-edit-name"
                 autoFocus
               />
+              {editTarget?.sectionType === "riadok" && (
+                <p className="text-xs text-muted-foreground">Prázdne pole = riadok bez názvu</p>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setEditOpen(false)}>Zrušiť</Button>
-              <Button onClick={handleEdit} disabled={!editName.trim() || renameMutation.isPending} data-testid="button-confirm-edit">
+              <Button
+                onClick={handleEdit}
+                disabled={(editTarget?.sectionType !== "riadok" && !editName.trim()) || renameMutation.isPending}
+                data-testid="button-confirm-edit"
+              >
                 {renameMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Uložiť"}
               </Button>
             </DialogFooter>
