@@ -2126,15 +2126,6 @@ function CompanyDetailDialog({
                 <InfoRow label="Registrácia DPH" value={company.vatRegisteredAt ? formatDateSlovak(company.vatRegisteredAt) : "-"} testId="text-detail-vat-registered-at" />
               </div>
             )}
-            {company.description && (
-              <>
-                <Separator />
-                <div>
-                  <span className="text-xs text-muted-foreground">Čím sa firma zaoberá</span>
-                  <p className="text-sm mt-1 whitespace-pre-wrap" data-testid="text-detail-description">{company.description}</p>
-                </div>
-              </>
-            )}
             <Separator />
             <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
               <Clock className="w-3 h-3" />
@@ -2398,7 +2389,13 @@ function CompanyDetailDialog({
             />
           </TabsContent>
 
-          <TabsContent value="notes" className="mt-4">
+          <TabsContent value="notes" className="mt-4 space-y-4">
+            {company.description && (
+              <div>
+                <span className="text-xs text-muted-foreground">Charakteristika (Čím sa firma zaoberá)</span>
+                <p className="text-sm mt-1 whitespace-pre-wrap" data-testid="text-detail-description">{company.description}</p>
+              </div>
+            )}
             {company.notes ? (
               <div
                 className="prose prose-sm dark:prose-invert max-w-none p-3 rounded-md border border-border"
