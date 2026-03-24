@@ -12,6 +12,7 @@ import {
   LayoutGrid, AlignLeft, Plus, X,
   Layers, FolderOpen, Pencil, Info, Loader2, Tag,
   Rows3, Square, GripVertical, ArrowRightLeft,
+  ChevronRight, ChevronsDownUp, ChevronsUpDown,
 } from "lucide-react";
 import {
   DndContext,
@@ -71,7 +72,6 @@ function FieldTypeBadge({ type }: { type: string }) {
 
 // ============================================================
 // SortableItem — generic drag-and-drop wrapper
-// Uses render-prop pattern to pass drag handle attributes to children
 // ============================================================
 type DragHandleProps = {
   listeners: ReturnType<typeof useSortable>["listeners"];
@@ -99,7 +99,6 @@ function SortableItem({ id, children }: {
   );
 }
 
-// Grip handle button component
 function DragHandle({ listeners, attributes, testId }: {
   listeners: DragHandleProps["listeners"];
   attributes: DragHandleProps["attributes"];
@@ -129,7 +128,6 @@ export default function SektorySubjektovVizia() {
     document.title = "UI Subjektov (B-Vízia) | Štruktúra";
   }, []);
 
-  // DnD sensors (pointer only, 5px activation distance to prevent accidental drags)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
@@ -141,21 +139,48 @@ export default function SektorySubjektovVizia() {
 
   // Selection state
   const [selectedKategoriaId, setSelectedKategoriaId] = useState<number | null>(null);
-  const [selectedBlokId, setSelectedBlokId] = useState<number | null>(null);
-  const [selectedPanelId, setSelectedPanelId] = useState<number | null>(null);
-  const [selectedRiadokId, setSelectedRiadokId] = useState<number | null>(null);
+  const [selectedBlokId, setSelectedBlokId]           = useState<number | null>(null);
+  const [selectedPanelId, setSelectedPanelId]         = useState<number | null>(null);
+  const [selectedRiadokId, setSelectedRiadokId]       = useState<number | null>(null);
+
+  // ============================================================
+  // Collapse state
+  // collapsedKategorie: IDs whose bloky are HIDDEN (default empty = all expanded)
+  // expandedBloky/Panely/Riadky: IDs whose content is SHOWN (default empty = all collapsed)
+  // ============================================================
+  const [collapsedKategorie, setCollapsedKategorie] = useState<Set<number>>(new Set());
+  const [expandedBloky,      setExpandedBloky]      = useState<Set<number>>(new Set());
+  const [expandedPanely,     setExpandedPanely]     = useState<Set<number>>(new Set());
+  const [expandedRiadky,     setExpandedRiadky]     = useState<Set<number>>(new Set());
+
+  const toggleKategoria = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCollapsedKategorie(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  };
+  const toggleBlok = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedBloky(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  };
+  const togglePanel = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedPanely(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  };
+  const toggleRiadok = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedRiadky(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  };
 
   // Dialog state — add
-  const [addKategoriaOpen, setAddKategoriaOpen]     = useState(false);
-  const [addBlokOpen, setAddBlokOpen]               = useState(false);
-  const [addPanelOpen, setAddPanelOpen]             = useState(false);
-  const [addRiadokOpen, setAddRiadokOpen]           = useState(false);
-  const [editOpen, setEditOpen]                     = useState(false);
-  const [editTarget, setEditTarget]                 = useState<SubjectParamSection | null>(null);
+  const [addKategoriaOpen, setAddKategoriaOpen] = useState(false);
+  const [addBlokOpen, setAddBlokOpen]           = useState(false);
+  const [addPanelOpen, setAddPanelOpen]         = useState(false);
+  const [addRiadokOpen, setAddRiadokOpen]       = useState(false);
+  const [editOpen, setEditOpen]                 = useState(false);
+  const [editTarget, setEditTarget]             = useState<SubjectParamSection | null>(null);
 
   // Move blok dialog
-  const [moveBlokOpen, setMoveBlokOpen]             = useState(false);
-  const [moveBlokTarget, setMoveBlokTarget]         = useState<SubjectParamSection | null>(null);
+  const [moveBlokOpen, setMoveBlokOpen]               = useState(false);
+  const [moveBlokTarget, setMoveBlokTarget]           = useState<SubjectParamSection | null>(null);
   const [moveBlokTargetKatId, setMoveBlokTargetKatId] = useState<string>("");
 
   // Form inputs
@@ -168,7 +193,7 @@ export default function SektorySubjektovVizia() {
   const [editName, setEditName]                         = useState("");
 
   // ============================================================
-  // Query: sections for current clientType
+  // Queries
   // ============================================================
   const sectionsQK = ["/api/subject-param-sections", clientTypeId];
   const { data: allSections = [], isLoading: sectionsLoading } = useQuery<SubjectParamSection[]>({
@@ -178,7 +203,6 @@ export default function SektorySubjektovVizia() {
         .then(r => r.json()),
   });
 
-  // Query: parameters for current clientType (read-only display)
   const paramsQK = ["/api/subject-parameters", clientTypeId];
   const { data: allParams = [] } = useQuery<SubjectParameter[]>({
     queryKey: paramsQK,
@@ -215,14 +239,28 @@ export default function SektorySubjektovVizia() {
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
   // Counts for toolbar
-  const totalBloky   = useMemo(() => allSections.filter(s => s.sectionType === "blok").length, [allSections]);
-  const totalPanely  = useMemo(() => allSections.filter(s => s.sectionType === "panel").length, [allSections]);
-  const totalRiadky  = useMemo(() => allSections.filter(s => s.sectionType === "riadok").length, [allSections]);
-  const totalParams  = useMemo(() => allParams.length, [allParams]);
+  const totalBloky  = useMemo(() => allSections.filter(s => s.sectionType === "blok").length, [allSections]);
+  const totalPanely = useMemo(() => allSections.filter(s => s.sectionType === "panel").length, [allSections]);
+  const totalRiadky = useMemo(() => allSections.filter(s => s.sectionType === "riadok").length, [allSections]);
+  const totalParams = useMemo(() => allParams.length, [allParams]);
 
   const selectedKategoria = kategorie.find(k => k.id === selectedKategoriaId) ?? null;
   const selectedBlok      = selectedKategoria ? getBloky(selectedKategoria.id).find(b => b.id === selectedBlokId) ?? null : null;
   const selectedPanel     = selectedBlok ? getPanely(selectedBlok.id).find(p => p.id === selectedPanelId) ?? null : null;
+
+  // Collapse / expand all
+  const collapseAll = () => {
+    setCollapsedKategorie(new Set(kategorie.map(k => k.id)));
+    setExpandedBloky(new Set());
+    setExpandedPanely(new Set());
+    setExpandedRiadky(new Set());
+  };
+  const expandAll = () => {
+    setCollapsedKategorie(new Set());
+    setExpandedBloky(new Set(allSections.filter(s => s.sectionType === "blok").map(s => s.id)));
+    setExpandedPanely(new Set(allSections.filter(s => s.sectionType === "panel").map(s => s.id)));
+    setExpandedRiadky(new Set(allSections.filter(s => s.sectionType === "riadok").map(s => s.id)));
+  };
 
   // ============================================================
   // Mutations
@@ -377,12 +415,7 @@ export default function SektorySubjektovVizia() {
     const nextSortOrder = getRiadky(selectedPanelId).length * 10;
     createMutation.mutate(
       { name, clientTypeId, sectionType: "riadok", parentSectionId: selectedPanelId, folderCategory: selectedKategoria.folderCategory, sortOrder: nextSortOrder },
-      {
-        onSuccess: () => {
-          toast({ title: "Riadok pridaný" });
-          setNewRiadokName(""); setRiadokHasName(true); setAddRiadokOpen(false);
-        }
-      }
+      { onSuccess: () => { toast({ title: "Riadok pridaný" }); setNewRiadokName(""); setRiadokHasName(true); setAddRiadokOpen(false); } }
     );
   };
 
@@ -390,7 +423,8 @@ export default function SektorySubjektovVizia() {
     if (!editTarget) return;
     const isRiadok = editTarget.sectionType === "riadok";
     if (!isRiadok && !editName.trim()) return;
-    renameMutation.mutate({ id: editTarget.id, name: isRiadok ? editName : editName.trim() },
+    renameMutation.mutate(
+      { id: editTarget.id, name: isRiadok ? editName : editName.trim() },
       { onSuccess: () => { toast({ title: "Uložené" }); setEditName(""); setEditTarget(null); } }
     );
   };
@@ -426,29 +460,52 @@ export default function SektorySubjektovVizia() {
     setActiveCode(code);
     setSelectedKategoriaId(null); setSelectedBlokId(null);
     setSelectedPanelId(null); setSelectedRiadokId(null);
+    // Reset collapse state on type switch
+    setCollapsedKategorie(new Set());
+    setExpandedBloky(new Set());
+    setExpandedPanely(new Set());
+    setExpandedRiadky(new Set());
   };
 
   // ============================================================
   // Render helpers
   // ============================================================
-  function EditDeleteButtons({ section, stopProp = true }: { section: SubjectParamSection; stopProp?: boolean }) {
+  function EditDeleteButtons({ section }: { section: SubjectParamSection }) {
     return (
       <>
         <button
-          onClick={e => { if (stopProp) e.stopPropagation(); openEdit(section); }}
+          onClick={e => { e.stopPropagation(); openEdit(section); }}
           className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/50 hover:text-foreground transition-colors"
           data-testid={`button-edit-${section.sectionType}-${section.id}`}
         >
           <Pencil className="h-3 w-3" />
         </button>
         <button
-          onClick={e => { if (stopProp) e.stopPropagation(); handleDelete(section); }}
+          onClick={e => { e.stopPropagation(); handleDelete(section); }}
           className="h-5 w-5 flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground/50 transition-colors"
           data-testid={`button-delete-${section.sectionType}-${section.id}`}
         >
           <X className="h-3 w-3" />
         </button>
       </>
+    );
+  }
+
+  // Chevron button for collapse toggle
+  function CollapseToggle({ expanded, onToggle, testId }: {
+    expanded: boolean;
+    onToggle: (e: React.MouseEvent) => void;
+    testId?: string;
+  }) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex-shrink-0 h-5 w-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/50 hover:text-foreground transition-colors"
+        data-testid={testId}
+      >
+        <ChevronRight className={`h-3.5 w-3.5 transition-transform duration-150 ${expanded ? "rotate-90" : ""}`} />
+      </button>
     );
   }
 
@@ -510,12 +567,13 @@ export default function SektorySubjektovVizia() {
               /* ── KATEGÓRIE DnD ── */
               <DndContext sensors={sensors} onDragEnd={e => handleDragEndSections(e, kategorie)}>
                 <SortableContext items={kategorie.map(k => k.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     {kategorie.map(kat => {
-                      const isKatSel   = selectedKategoriaId === kat.id;
-                      const catStyle   = getCategoryStyle(kat.folderCategory);
-                      const catLabel   = getCategoryLabel(kat.folderCategory);
-                      const bloky      = getBloky(kat.id);
+                      const isKatSel    = selectedKategoriaId === kat.id;
+                      const catStyle    = getCategoryStyle(kat.folderCategory);
+                      const catLabel    = getCategoryLabel(kat.folderCategory);
+                      const bloky       = getBloky(kat.id);
+                      const katExpanded = !collapsedKategorie.has(kat.id);
 
                       return (
                         <SortableItem key={kat.id} id={kat.id}>
@@ -524,294 +582,352 @@ export default function SektorySubjektovVizia() {
                               className={`rounded-xl border-2 transition-all ${isKatSel ? "border-primary shadow-sm" : "border-border"}`}
                               data-testid={`section-kategoria-${kat.id}`}
                             >
-                              {/* Kategória header */}
+                              {/* ── Kategória header ── */}
                               <div
-                                className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer rounded-t-xl ${
+                                className={`flex items-center gap-1.5 px-3 py-2.5 cursor-pointer rounded-t-xl ${
                                   isKatSel ? "bg-primary/8" : "bg-muted/30 hover:bg-muted/50"
-                                }`}
+                                } ${!katExpanded ? "rounded-b-xl" : ""}`}
                                 onClick={() => {
                                   setSelectedKategoriaId(prev => prev === kat.id ? null : kat.id);
                                   setSelectedBlokId(null); setSelectedPanelId(null); setSelectedRiadokId(null);
                                 }}
                               >
                                 <DragHandle listeners={katL} attributes={katA} testId={`drag-handle-kategoria-${kat.id}`} />
+                                <CollapseToggle
+                                  expanded={katExpanded}
+                                  onToggle={e => toggleKategoria(kat.id, e)}
+                                  testId={`collapse-toggle-kategoria-${kat.id}`}
+                                />
                                 <Tag className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                <span className="font-bold text-sm flex-1">{kat.name}</span>
-                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border ${catStyle}`}>{catLabel}</Badge>
-                                <span className="text-xs text-muted-foreground">{bloky.length} blokov</span>
+                                <span className="font-bold text-sm flex-1 min-w-0 truncate">{kat.name}</span>
+                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border flex-shrink-0 ${catStyle}`}>{catLabel}</Badge>
+                                <span className="text-xs text-muted-foreground flex-shrink-0">{bloky.length} blokov</span>
+                                {/* Inline add blok — always visible even when collapsed */}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={e => { e.stopPropagation(); setSelectedKategoriaId(kat.id); setAddBlokOpen(true); }}
+                                      className="flex-shrink-0 h-5 w-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/40 hover:text-primary transition-colors"
+                                      data-testid={`button-inline-add-blok-${kat.id}`}
+                                    >
+                                      <Plus className="h-3 w-3" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">Pridať blok</TooltipContent>
+                                </Tooltip>
                                 <EditDeleteButtons section={kat} />
                               </div>
 
-                              {/* Bloky inside Kategória — each with its own DnD */}
-                              <div className="p-4 space-y-4">
-                                {bloky.length === 0 ? (
-                                  <div className="flex items-center justify-center h-12 border-2 border-dashed rounded text-muted-foreground/50 text-xs">
-                                    Žiadne bloky — vyberte Kategóriu a pridajte Blok z Toolbar-u
-                                  </div>
-                                ) : (
-                                  <DndContext sensors={sensors} onDragEnd={e => handleDragEndSections(e, getBloky(kat.id))}>
-                                    <SortableContext items={bloky.map(b => b.id)} strategy={verticalListSortingStrategy}>
-                                      <div className="space-y-4">
-                                        {bloky.map(blok => {
-                                          const isBlokSel = selectedBlokId === blok.id;
-                                          const panely    = getPanely(blok.id);
+                              {/* ── Kategória content (Bloky) — collapsible ── */}
+                              {katExpanded && (
+                                <div className="p-4 space-y-3">
+                                  {bloky.length === 0 ? (
+                                    <div className="flex items-center justify-center h-10 border-2 border-dashed rounded text-muted-foreground/40 text-xs">
+                                      Žiadne bloky — kliknite + v hlavičke kategórie
+                                    </div>
+                                  ) : (
+                                    <DndContext sensors={sensors} onDragEnd={e => handleDragEndSections(e, getBloky(kat.id))}>
+                                      <SortableContext items={bloky.map(b => b.id)} strategy={verticalListSortingStrategy}>
+                                        <div className="space-y-3">
+                                          {bloky.map(blok => {
+                                            const isBlokSel  = selectedBlokId === blok.id;
+                                            const panely     = getPanely(blok.id);
+                                            const blokExpanded = expandedBloky.has(blok.id);
 
-                                          return (
-                                            <SortableItem key={blok.id} id={blok.id}>
-                                              {({ listeners: blokL, attributes: blokA }) => (
-                                                <div
-                                                  className={`rounded-lg border-2 transition-all ${
-                                                    isBlokSel ? "border-primary/70 shadow-sm" : "border-border/70"
-                                                  }`}
-                                                  data-testid={`section-blok-${blok.id}`}
-                                                >
-                                                  {/* Blok header */}
+                                            return (
+                                              <SortableItem key={blok.id} id={blok.id}>
+                                                {({ listeners: blokL, attributes: blokA }) => (
                                                   <div
-                                                    className={`flex items-center gap-2 px-3 py-2 cursor-pointer rounded-t-md ${
-                                                      isBlokSel ? "bg-primary/6" : "bg-muted/20 hover:bg-muted/40"
+                                                    className={`rounded-lg border-2 transition-all ${
+                                                      isBlokSel ? "border-primary/70 shadow-sm" : "border-border/70"
                                                     }`}
-                                                    onClick={() => {
-                                                      setSelectedKategoriaId(kat.id);
-                                                      setSelectedBlokId(prev => prev === blok.id ? null : blok.id);
-                                                      setSelectedPanelId(null); setSelectedRiadokId(null);
-                                                    }}
+                                                    data-testid={`section-blok-${blok.id}`}
                                                   >
-                                                    <DragHandle listeners={blokL} attributes={blokA} testId={`drag-handle-blok-${blok.id}`} />
-                                                    <FolderOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                                    <span className="font-semibold text-sm flex-1">{blok.name}</span>
-                                                    <span className="text-xs text-muted-foreground">{panely.length} panelov</span>
-                                                    {/* Move to another Kategória */}
-                                                    <Tooltip>
-                                                      <TooltipTrigger asChild>
-                                                        <button
-                                                          type="button"
-                                                          onClick={e => openMoveBlok(blok, e)}
-                                                          className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/50 hover:text-foreground transition-colors"
-                                                          data-testid={`button-move-blok-${blok.id}`}
-                                                        >
-                                                          <ArrowRightLeft className="h-3 w-3" />
-                                                        </button>
-                                                      </TooltipTrigger>
-                                                      <TooltipContent side="top" className="text-xs">
-                                                        Presunúť do inej Kategórie
-                                                      </TooltipContent>
-                                                    </Tooltip>
-                                                    <EditDeleteButtons section={blok} />
-                                                  </div>
-
-                                                  {/* Panely inside Blok */}
-                                                  <div className="p-3">
-                                                    {panely.length === 0 ? (
-                                                      <div className="flex items-center justify-center h-10 border-2 border-dashed rounded text-muted-foreground/40 text-xs">
-                                                        Žiadne panely
-                                                      </div>
-                                                    ) : (
-                                                      <DndContext sensors={sensors} onDragEnd={e => handleDragEndSections(e, getPanely(blok.id))}>
-                                                        <SortableContext items={panely.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                                                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                                                            {panely.map(panel => {
-                                                              const isPanelSel   = selectedPanelId === panel.id;
-                                                              const riadky       = getRiadky(panel.id);
-                                                              const legacyParams = getParamsForPanel(panel.id);
-
-                                                              return (
-                                                                <SortableItem key={panel.id} id={panel.id}>
-                                                                  {({ listeners: panelL, attributes: panelA }) => (
-                                                                    <div
-                                                                      className={`border-2 rounded-lg flex flex-col transition-all cursor-pointer ${
-                                                                        isPanelSel ? "border-primary shadow-sm" : "border-border hover:border-muted-foreground/50"
-                                                                      }`}
-                                                                      onClick={() => {
-                                                                        setSelectedKategoriaId(kat.id);
-                                                                        setSelectedBlokId(blok.id);
-                                                                        setSelectedPanelId(prev => prev === panel.id ? null : panel.id);
-                                                                        setSelectedRiadokId(null);
-                                                                      }}
-                                                                      data-testid={`card-panel-${panel.id}`}
-                                                                    >
-                                                                      {/* Panel header */}
-                                                                      <div className={`flex items-center gap-1.5 px-2 py-2 rounded-t-md ${isPanelSel ? "bg-primary/5" : "bg-muted/30"}`}>
-                                                                        <DragHandle listeners={panelL} attributes={panelA} testId={`drag-handle-panel-${panel.id}`} />
-                                                                        <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                                                        <span className="text-sm font-medium flex-1 truncate">{panel.name}</span>
-                                                                        <EditDeleteButtons section={panel} />
-                                                                      </div>
-
-                                                                      {/* Riadky inside Panel */}
-                                                                      <div className="p-2 flex-1 min-h-[40px] space-y-1">
-                                                                        {riadky.length === 0 && legacyParams.length === 0 ? (
-                                                                          <div className="flex items-center justify-center h-8 text-muted-foreground/40 text-xs">
-                                                                            Žiadne riadky
-                                                                          </div>
-                                                                        ) : (
-                                                                          <>
-                                                                            <DndContext sensors={sensors} onDragEnd={e => handleDragEndSections(e, getRiadky(panel.id))}>
-                                                                              <SortableContext items={riadky.map(r => r.id)} strategy={verticalListSortingStrategy}>
-                                                                                {riadky.map(riadok => {
-                                                                                  const isRiadokSel = selectedRiadokId === riadok.id;
-                                                                                  const params = getParamsForRiadok(riadok.id);
-                                                                                  return (
-                                                                                    <SortableItem key={riadok.id} id={riadok.id}>
-                                                                                      {({ listeners: riadokL, attributes: riadokA }) => (
-                                                                                        <div
-                                                                                          className={`rounded border px-1.5 py-1 text-xs cursor-pointer transition-all ${
-                                                                                            isRiadokSel
-                                                                                              ? "border-primary/60 bg-primary/5"
-                                                                                              : "border-border/50 hover:border-muted-foreground/40 hover:bg-muted/20"
-                                                                                          }`}
-                                                                                          onClick={e => {
-                                                                                            e.stopPropagation();
-                                                                                            setSelectedKategoriaId(kat.id);
-                                                                                            setSelectedBlokId(blok.id);
-                                                                                            setSelectedPanelId(panel.id);
-                                                                                            setSelectedRiadokId(prev => prev === riadok.id ? null : riadok.id);
-                                                                                          }}
-                                                                                          data-testid={`card-riadok-${riadok.id}`}
-                                                                                        >
-                                                                                          <div className="flex items-center gap-1 mb-0.5">
-                                                                                            <DragHandle listeners={riadokL} attributes={riadokA} testId={`drag-handle-riadok-${riadok.id}`} />
-                                                                                            <Rows3 className="h-2.5 w-2.5 text-muted-foreground/60 flex-shrink-0" />
-                                                                                            {riadok.name ? (
-                                                                                              <span className="font-medium text-muted-foreground/80 flex-1 truncate">{riadok.name}</span>
-                                                                                            ) : (
-                                                                                              <span className="text-muted-foreground/35 flex-1 italic text-[10px]">bez názvu</span>
-                                                                                            )}
-                                                                                            <button
-                                                                                              onClick={e => { e.stopPropagation(); openEdit(riadok); }}
-                                                                                              className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/40 hover:text-foreground"
-                                                                                              data-testid={`button-edit-riadok-inline-${riadok.id}`}
-                                                                                            >
-                                                                                              <Pencil className="h-2.5 w-2.5" />
-                                                                                            </button>
-                                                                                            <button
-                                                                                              onClick={e => { e.stopPropagation(); handleDelete(riadok); }}
-                                                                                              className="h-4 w-4 flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground/40"
-                                                                                              data-testid={`button-delete-riadok-inline-${riadok.id}`}
-                                                                                            >
-                                                                                              <X className="h-2.5 w-2.5" />
-                                                                                            </button>
-                                                                                          </div>
-                                                                                          {/* Params inside Riadok — DnD */}
-                                                                                          {params.length > 0 ? (
-                                                                                            <DndContext sensors={sensors} onDragEnd={e => handleDragEndParams(e, getParamsForRiadok(riadok.id))}>
-                                                                                              <SortableContext items={params.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                                                                                                <div className="flex flex-col gap-0.5 mt-0.5 pl-3.5">
-                                                                                                  {params.map(param => (
-                                                                                                    <SortableItem key={param.id} id={param.id}>
-                                                                                                      {({ listeners: pL, attributes: pA }) => (
-                                                                                                        <div
-                                                                                                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:bg-muted/30 rounded px-0.5"
-                                                                                                          data-testid={`param-row-${param.id}`}
-                                                                                                        >
-                                                                                                          <button
-                                                                                                            type="button"
-                                                                                                            className="flex-shrink-0 text-muted-foreground/20 hover:text-muted-foreground/60 cursor-grab active:cursor-grabbing"
-                                                                                                            {...pL} {...pA}
-                                                                                                            onClick={e => e.stopPropagation()}
-                                                                                                          >
-                                                                                                            <GripVertical className="h-2.5 w-2.5" />
-                                                                                                          </button>
-                                                                                                          <AlignLeft className="h-2.5 w-2.5 opacity-50 flex-shrink-0" />
-                                                                                                          <span className="truncate max-w-[80px]">{param.label}</span>
-                                                                                                          <FieldTypeBadge type={param.fieldType} />
-                                                                                                          {param.isRequired && <span className="text-[9px] text-red-500 font-bold">*</span>}
-                                                                                                        </div>
-                                                                                                      )}
-                                                                                                    </SortableItem>
-                                                                                                  ))}
-                                                                                                </div>
-                                                                                              </SortableContext>
-                                                                                            </DndContext>
-                                                                                          ) : (
-                                                                                            <div className="pl-3.5 text-[10px] text-muted-foreground/40 italic">prázdny riadok</div>
-                                                                                          )}
-                                                                                        </div>
-                                                                                      )}
-                                                                                    </SortableItem>
-                                                                                  );
-                                                                                })}
-                                                                              </SortableContext>
-                                                                            </DndContext>
-
-                                                                            {/* Legacy params without rowId — also DnD sortable */}
-                                                                            {legacyParams.length > 0 && (
-                                                                              <div className="rounded border border-dashed border-amber-300/60 px-2 py-1">
-                                                                                <div className="text-[10px] text-amber-600/70 mb-0.5">Parametre bez riadku:</div>
-                                                                                <DndContext sensors={sensors} onDragEnd={e => handleDragEndParams(e, getParamsForPanel(panel.id))}>
-                                                                                  <SortableContext items={legacyParams.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                                                                                    {legacyParams.map(param => (
-                                                                                      <SortableItem key={param.id} id={param.id}>
-                                                                                        {({ listeners: pL, attributes: pA }) => (
-                                                                                          <div className="flex items-center gap-1 text-xs text-muted-foreground py-0.5 hover:bg-muted/30 rounded" data-testid={`param-row-${param.id}`}>
-                                                                                            <button type="button" className="text-muted-foreground/20 hover:text-muted-foreground/60 cursor-grab active:cursor-grabbing" {...pL} {...pA} onClick={e => e.stopPropagation()}>
-                                                                                              <GripVertical className="h-3 w-3" />
-                                                                                            </button>
-                                                                                            <AlignLeft className="h-3 w-3 opacity-50 flex-shrink-0" />
-                                                                                            <span className="flex-1 truncate">{param.label}</span>
-                                                                                            <FieldTypeBadge type={param.fieldType} />
-                                                                                          </div>
-                                                                                        )}
-                                                                                      </SortableItem>
-                                                                                    ))}
-                                                                                  </SortableContext>
-                                                                                </DndContext>
-                                                                              </div>
-                                                                            )}
-                                                                          </>
-                                                                        )}
-                                                                      </div>
-
-                                                                      {/* Panel footer */}
-                                                                      <div className="border-t px-3 py-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-                                                                        <Rows3 className="h-3 w-3" />
-                                                                        <span>{riadky.length} riadkov</span>
-                                                                        {legacyParams.length > 0 && (
-                                                                          <>
-                                                                            <span>·</span>
-                                                                            <span className="text-amber-600/70">{legacyParams.length} bez riadku</span>
-                                                                          </>
-                                                                        )}
-                                                                      </div>
-                                                                    </div>
-                                                                  )}
-                                                                </SortableItem>
-                                                              );
-                                                            })}
-                                                          </div>
-                                                        </SortableContext>
-                                                      </DndContext>
-                                                    )}
-
-                                                    {/* Add panel button */}
-                                                    <button
-                                                      onClick={() => { setSelectedKategoriaId(kat.id); setSelectedBlokId(blok.id); setAddPanelOpen(true); }}
-                                                      className="mt-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                                                      data-testid={`button-add-panel-to-blok-${blok.id}`}
+                                                    {/* ── Blok header ── */}
+                                                    <div
+                                                      className={`flex items-center gap-1.5 px-3 py-2 cursor-pointer rounded-t-md ${
+                                                        isBlokSel ? "bg-primary/6" : "bg-muted/20 hover:bg-muted/40"
+                                                      } ${!blokExpanded ? "rounded-b-md" : ""}`}
+                                                      onClick={() => {
+                                                        setSelectedKategoriaId(kat.id);
+                                                        setSelectedBlokId(prev => prev === blok.id ? null : blok.id);
+                                                        setSelectedPanelId(null); setSelectedRiadokId(null);
+                                                      }}
                                                     >
-                                                      <Plus className="h-3 w-3" />
-                                                      Pridať panel do tohto bloku
-                                                    </button>
-                                                  </div>
-                                                </div>
-                                              )}
-                                            </SortableItem>
-                                          );
-                                        })}
-                                      </div>
-                                    </SortableContext>
-                                  </DndContext>
-                                )}
+                                                      <DragHandle listeners={blokL} attributes={blokA} testId={`drag-handle-blok-${blok.id}`} />
+                                                      <CollapseToggle
+                                                        expanded={blokExpanded}
+                                                        onToggle={e => toggleBlok(blok.id, e)}
+                                                        testId={`collapse-toggle-blok-${blok.id}`}
+                                                      />
+                                                      <FolderOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                                      <span className="font-semibold text-sm flex-1 min-w-0 truncate">{blok.name}</span>
+                                                      <span className="text-xs text-muted-foreground flex-shrink-0">{panely.length} panelov</span>
+                                                      {/* Inline add panel */}
+                                                      <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                          <button
+                                                            type="button"
+                                                            onClick={e => { e.stopPropagation(); setSelectedKategoriaId(kat.id); setSelectedBlokId(blok.id); setAddPanelOpen(true); }}
+                                                            className="flex-shrink-0 h-5 w-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/40 hover:text-primary transition-colors"
+                                                            data-testid={`button-inline-add-panel-${blok.id}`}
+                                                          >
+                                                            <Plus className="h-3 w-3" />
+                                                          </button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="top" className="text-xs">Pridať panel</TooltipContent>
+                                                      </Tooltip>
+                                                      {/* Move blok */}
+                                                      <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                          <button
+                                                            type="button"
+                                                            onClick={e => openMoveBlok(blok, e)}
+                                                            className="flex-shrink-0 h-5 w-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/50 hover:text-foreground transition-colors"
+                                                            data-testid={`button-move-blok-${blok.id}`}
+                                                          >
+                                                            <ArrowRightLeft className="h-3 w-3" />
+                                                          </button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="top" className="text-xs">Presunúť do inej Kategórie</TooltipContent>
+                                                      </Tooltip>
+                                                      <EditDeleteButtons section={blok} />
+                                                    </div>
 
-                                {/* Add blok button */}
-                                <button
-                                  onClick={() => { setSelectedKategoriaId(kat.id); setAddBlokOpen(true); }}
-                                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                                  data-testid={`button-add-blok-to-kat-${kat.id}`}
-                                >
-                                  <Plus className="h-3 w-3" />
-                                  Pridať blok do tejto kategórie
-                                </button>
-                              </div>
+                                                    {/* ── Blok content (Panely) — collapsible ── */}
+                                                    {blokExpanded && (
+                                                      <div className="p-3">
+                                                        {panely.length === 0 ? (
+                                                          <div className="flex items-center justify-center h-10 border-2 border-dashed rounded text-muted-foreground/40 text-xs">
+                                                            Žiadne panely — kliknite + v hlavičke bloku
+                                                          </div>
+                                                        ) : (
+                                                          <DndContext sensors={sensors} onDragEnd={e => handleDragEndSections(e, getPanely(blok.id))}>
+                                                            <SortableContext items={panely.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                                                              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                                                {panely.map(panel => {
+                                                                  const isPanelSel   = selectedPanelId === panel.id;
+                                                                  const riadky       = getRiadky(panel.id);
+                                                                  const legacyParams = getParamsForPanel(panel.id);
+                                                                  const panelExpanded = expandedPanely.has(panel.id);
+
+                                                                  return (
+                                                                    <SortableItem key={panel.id} id={panel.id}>
+                                                                      {({ listeners: panelL, attributes: panelA }) => (
+                                                                        <div
+                                                                          className={`border-2 rounded-lg flex flex-col transition-all cursor-pointer ${
+                                                                            isPanelSel ? "border-primary shadow-sm" : "border-border hover:border-muted-foreground/50"
+                                                                          }`}
+                                                                          onClick={() => {
+                                                                            setSelectedKategoriaId(kat.id);
+                                                                            setSelectedBlokId(blok.id);
+                                                                            setSelectedPanelId(prev => prev === panel.id ? null : panel.id);
+                                                                            setSelectedRiadokId(null);
+                                                                          }}
+                                                                          data-testid={`card-panel-${panel.id}`}
+                                                                        >
+                                                                          {/* ── Panel header ── */}
+                                                                          <div className={`flex items-center gap-1.5 px-2 py-2 rounded-t-md ${isPanelSel ? "bg-primary/5" : "bg-muted/30"} ${!panelExpanded ? "rounded-b-md" : ""}`}>
+                                                                            <DragHandle listeners={panelL} attributes={panelA} testId={`drag-handle-panel-${panel.id}`} />
+                                                                            <CollapseToggle
+                                                                              expanded={panelExpanded}
+                                                                              onToggle={e => togglePanel(panel.id, e)}
+                                                                              testId={`collapse-toggle-panel-${panel.id}`}
+                                                                            />
+                                                                            <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                                                            <span className="text-sm font-medium flex-1 min-w-0 truncate">{panel.name}</span>
+                                                                            {/* Inline add riadok */}
+                                                                            <Tooltip>
+                                                                              <TooltipTrigger asChild>
+                                                                                <button
+                                                                                  type="button"
+                                                                                  onClick={e => { e.stopPropagation(); setSelectedKategoriaId(kat.id); setSelectedBlokId(blok.id); setSelectedPanelId(panel.id); setAddRiadokOpen(true); }}
+                                                                                  className="flex-shrink-0 h-4 w-4 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/40 hover:text-primary transition-colors"
+                                                                                  data-testid={`button-inline-add-riadok-${panel.id}`}
+                                                                                >
+                                                                                  <Plus className="h-2.5 w-2.5" />
+                                                                                </button>
+                                                                              </TooltipTrigger>
+                                                                              <TooltipContent side="top" className="text-xs">Pridať riadok</TooltipContent>
+                                                                            </Tooltip>
+                                                                            <EditDeleteButtons section={panel} />
+                                                                          </div>
+
+                                                                          {/* ── Panel content (Riadky) — collapsible ── */}
+                                                                          {panelExpanded && (
+                                                                            <>
+                                                                              <div className="p-2 flex-1 min-h-[40px] space-y-1">
+                                                                                {riadky.length === 0 && legacyParams.length === 0 ? (
+                                                                                  <div className="flex items-center justify-center h-8 text-muted-foreground/40 text-xs">
+                                                                                    Žiadne riadky
+                                                                                  </div>
+                                                                                ) : (
+                                                                                  <>
+                                                                                    <DndContext sensors={sensors} onDragEnd={e => handleDragEndSections(e, getRiadky(panel.id))}>
+                                                                                      <SortableContext items={riadky.map(r => r.id)} strategy={verticalListSortingStrategy}>
+                                                                                        {riadky.map(riadok => {
+                                                                                          const isRiadokSel  = selectedRiadokId === riadok.id;
+                                                                                          const params       = getParamsForRiadok(riadok.id);
+                                                                                          const riadokExpanded = expandedRiadky.has(riadok.id);
+                                                                                          return (
+                                                                                            <SortableItem key={riadok.id} id={riadok.id}>
+                                                                                              {({ listeners: riadokL, attributes: riadokA }) => (
+                                                                                                <div
+                                                                                                  className={`rounded border px-1.5 py-1 text-xs cursor-pointer transition-all ${
+                                                                                                    isRiadokSel
+                                                                                                      ? "border-primary/60 bg-primary/5"
+                                                                                                      : "border-border/50 hover:border-muted-foreground/40 hover:bg-muted/20"
+                                                                                                  }`}
+                                                                                                  onClick={e => {
+                                                                                                    e.stopPropagation();
+                                                                                                    setSelectedKategoriaId(kat.id);
+                                                                                                    setSelectedBlokId(blok.id);
+                                                                                                    setSelectedPanelId(panel.id);
+                                                                                                    setSelectedRiadokId(prev => prev === riadok.id ? null : riadok.id);
+                                                                                                  }}
+                                                                                                  data-testid={`card-riadok-${riadok.id}`}
+                                                                                                >
+                                                                                                  {/* Riadok header row */}
+                                                                                                  <div className="flex items-center gap-1 mb-0.5">
+                                                                                                    <DragHandle listeners={riadokL} attributes={riadokA} testId={`drag-handle-riadok-${riadok.id}`} />
+                                                                                                    {params.length > 0 && (
+                                                                                                      <CollapseToggle
+                                                                                                        expanded={riadokExpanded}
+                                                                                                        onToggle={e => toggleRiadok(riadok.id, e)}
+                                                                                                        testId={`collapse-toggle-riadok-${riadok.id}`}
+                                                                                                      />
+                                                                                                    )}
+                                                                                                    <Rows3 className="h-2.5 w-2.5 text-muted-foreground/60 flex-shrink-0" />
+                                                                                                    {riadok.name ? (
+                                                                                                      <span className="font-medium text-muted-foreground/80 flex-1 truncate">{riadok.name}</span>
+                                                                                                    ) : (
+                                                                                                      <span className="text-muted-foreground/35 flex-1 italic text-[10px]">bez názvu</span>
+                                                                                                    )}
+                                                                                                    {params.length > 0 && (
+                                                                                                      <span className="text-[10px] text-muted-foreground/50">{params.length}p</span>
+                                                                                                    )}
+                                                                                                    <button
+                                                                                                      onClick={e => { e.stopPropagation(); openEdit(riadok); }}
+                                                                                                      className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/40 hover:text-foreground"
+                                                                                                      data-testid={`button-edit-riadok-inline-${riadok.id}`}
+                                                                                                    >
+                                                                                                      <Pencil className="h-2.5 w-2.5" />
+                                                                                                    </button>
+                                                                                                    <button
+                                                                                                      onClick={e => { e.stopPropagation(); handleDelete(riadok); }}
+                                                                                                      className="h-4 w-4 flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground/40"
+                                                                                                      data-testid={`button-delete-riadok-inline-${riadok.id}`}
+                                                                                                    >
+                                                                                                      <X className="h-2.5 w-2.5" />
+                                                                                                    </button>
+                                                                                                  </div>
+                                                                                                  {/* Params inside Riadok — collapsible, DnD */}
+                                                                                                  {riadokExpanded && params.length > 0 && (
+                                                                                                    <DndContext sensors={sensors} onDragEnd={e => handleDragEndParams(e, getParamsForRiadok(riadok.id))}>
+                                                                                                      <SortableContext items={params.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                                                                                                        <div className="flex flex-col gap-0.5 mt-0.5 pl-3.5">
+                                                                                                          {params.map(param => (
+                                                                                                            <SortableItem key={param.id} id={param.id}>
+                                                                                                              {({ listeners: pL, attributes: pA }) => (
+                                                                                                                <div
+                                                                                                                  className="flex items-center gap-1 text-[10px] text-muted-foreground hover:bg-muted/30 rounded px-0.5"
+                                                                                                                  data-testid={`param-row-${param.id}`}
+                                                                                                                >
+                                                                                                                  <button
+                                                                                                                    type="button"
+                                                                                                                    className="flex-shrink-0 text-muted-foreground/20 hover:text-muted-foreground/60 cursor-grab active:cursor-grabbing"
+                                                                                                                    {...pL} {...pA}
+                                                                                                                    onClick={e => e.stopPropagation()}
+                                                                                                                  >
+                                                                                                                    <GripVertical className="h-2.5 w-2.5" />
+                                                                                                                  </button>
+                                                                                                                  <AlignLeft className="h-2.5 w-2.5 opacity-50 flex-shrink-0" />
+                                                                                                                  <span className="truncate max-w-[80px]">{param.label}</span>
+                                                                                                                  <FieldTypeBadge type={param.fieldType} />
+                                                                                                                  {param.isRequired && <span className="text-[9px] text-red-500 font-bold">*</span>}
+                                                                                                                </div>
+                                                                                                              )}
+                                                                                                            </SortableItem>
+                                                                                                          ))}
+                                                                                                        </div>
+                                                                                                      </SortableContext>
+                                                                                                    </DndContext>
+                                                                                                  )}
+                                                                                                  {!riadokExpanded && params.length === 0 && (
+                                                                                                    <div className="pl-3.5 text-[10px] text-muted-foreground/40 italic">prázdny riadok</div>
+                                                                                                  )}
+                                                                                                </div>
+                                                                                              )}
+                                                                                            </SortableItem>
+                                                                                          );
+                                                                                        })}
+                                                                                      </SortableContext>
+                                                                                    </DndContext>
+
+                                                                                    {/* Legacy params without rowId — also DnD sortable */}
+                                                                                    {legacyParams.length > 0 && (
+                                                                                      <div className="rounded border border-dashed border-amber-300/60 px-2 py-1">
+                                                                                        <div className="text-[10px] text-amber-600/70 mb-0.5">Parametre bez riadku:</div>
+                                                                                        <DndContext sensors={sensors} onDragEnd={e => handleDragEndParams(e, getParamsForPanel(panel.id))}>
+                                                                                          <SortableContext items={legacyParams.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                                                                                            {legacyParams.map(param => (
+                                                                                              <SortableItem key={param.id} id={param.id}>
+                                                                                                {({ listeners: pL, attributes: pA }) => (
+                                                                                                  <div className="flex items-center gap-1 text-xs text-muted-foreground py-0.5 hover:bg-muted/30 rounded" data-testid={`param-row-${param.id}`}>
+                                                                                                    <button type="button" className="text-muted-foreground/20 hover:text-muted-foreground/60 cursor-grab active:cursor-grabbing" {...pL} {...pA} onClick={e => e.stopPropagation()}>
+                                                                                                      <GripVertical className="h-3 w-3" />
+                                                                                                    </button>
+                                                                                                    <AlignLeft className="h-3 w-3 opacity-50 flex-shrink-0" />
+                                                                                                    <span className="flex-1 truncate">{param.label}</span>
+                                                                                                    <FieldTypeBadge type={param.fieldType} />
+                                                                                                  </div>
+                                                                                                )}
+                                                                                              </SortableItem>
+                                                                                            ))}
+                                                                                          </SortableContext>
+                                                                                        </DndContext>
+                                                                                      </div>
+                                                                                    )}
+                                                                                  </>
+                                                                                )}
+                                                                              </div>
+
+                                                                              {/* Panel footer */}
+                                                                              <div className="border-t px-3 py-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                                                                                <Rows3 className="h-3 w-3" />
+                                                                                <span>{riadky.length} riadkov</span>
+                                                                                {legacyParams.length > 0 && (
+                                                                                  <>
+                                                                                    <span>·</span>
+                                                                                    <span className="text-amber-600/70">{legacyParams.length} bez riadku</span>
+                                                                                  </>
+                                                                                )}
+                                                                              </div>
+                                                                            </>
+                                                                          )}
+                                                                        </div>
+                                                                      )}
+                                                                    </SortableItem>
+                                                                  );
+                                                                })}
+                                                              </div>
+                                                            </SortableContext>
+                                                          </DndContext>
+                                                        )}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                )}
+                                              </SortableItem>
+                                            );
+                                          })}
+                                        </div>
+                                      </SortableContext>
+                                    </DndContext>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                         </SortableItem>
@@ -862,6 +978,29 @@ export default function SektorySubjektovVizia() {
                 >
                   <Rows3 className="h-3.5 w-3.5" />
                   Riadok
+                </Button>
+              </div>
+            </div>
+
+            {/* Collapse / expand all */}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Zobrazenie</p>
+              <div className="flex gap-1.5">
+                <Button
+                  variant="outline" size="sm" className="flex-1 gap-1.5 h-8 text-xs"
+                  onClick={collapseAll}
+                  data-testid="toolbar-collapse-all"
+                >
+                  <ChevronsDownUp className="h-3.5 w-3.5" />
+                  Zbaliť
+                </Button>
+                <Button
+                  variant="outline" size="sm" className="flex-1 gap-1.5 h-8 text-xs"
+                  onClick={expandAll}
+                  data-testid="toolbar-expand-all"
+                >
+                  <ChevronsUpDown className="h-3.5 w-3.5" />
+                  Rozbaliť
                 </Button>
               </div>
             </div>
@@ -918,16 +1057,6 @@ export default function SektorySubjektovVizia() {
                   <span className="font-medium">{totalParams}</span>
                 </div>
               </div>
-            </div>
-
-            {/* DnD hint */}
-            <div className="rounded-md bg-muted/40 p-2 text-[10px] text-muted-foreground space-y-1">
-              <div className="flex items-center gap-1 font-medium">
-                <GripVertical className="h-3 w-3" />
-                Presúvanie
-              </div>
-              <p>Uchyťte ikonu ≡ na ľubovoľnom prvku a pretiahnite ho na nové miesto.</p>
-              <p>Blok presunúť medzi Kategóriami: ikona ⇄.</p>
             </div>
 
             {/* Help */}
