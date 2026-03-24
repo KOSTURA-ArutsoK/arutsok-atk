@@ -10,7 +10,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/hooks/use-toast";
 import {
   Users, LayoutGrid, AlignLeft, Plus, X,
-  Layers, FolderOpen, Pencil, Info, Loader2,
+  Layers, FolderOpen, Pencil, Info, Loader2, Tag,
+  Rows3, Square,
 } from "lucide-react";
 import type { SubjectParamSection, SubjectParameter } from "@shared/schema";
 
@@ -27,10 +28,10 @@ const SUBJECT_TYPES = [
 ];
 
 const FOLDER_CATEGORIES = [
-  { value: "povinne",    label: "Povinné",      color: "bg-red-100 text-red-700 border-red-300 dark:bg-red-950 dark:text-red-300 dark:border-red-700" },
-  { value: "doplnkove",  label: "Doplnkové",    color: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-700" },
-  { value: "volitelne",  label: "Voliteľné",    color: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-700" },
-  { value: "ine",        label: "Iné",          color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600" },
+  { value: "povinne",   label: "Povinné",   color: "bg-red-100 text-red-700 border-red-300 dark:bg-red-950 dark:text-red-300 dark:border-red-700" },
+  { value: "doplnkove", label: "Doplnkové", color: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-700" },
+  { value: "volitelne", label: "Voliteľné", color: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-700" },
+  { value: "ine",       label: "Iné",       color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600" },
 ];
 
 function getCategoryStyle(folderCategory: string) {
@@ -69,21 +70,27 @@ export default function SektorySubjektovVizia() {
   const activeType = SUBJECT_TYPES.find(t => t.code === activeCode)!;
   const clientTypeId = activeType.clientTypeId;
 
-  // Selection
-  const [selectedMegaBlokId, setSelectedMegaBlokId] = useState<number | null>(null);
+  // Selection state
+  const [selectedKategoriaId, setSelectedKategoriaId] = useState<number | null>(null);
+  const [selectedBlokId, setSelectedBlokId] = useState<number | null>(null);
   const [selectedPanelId, setSelectedPanelId] = useState<number | null>(null);
+  const [selectedRiadokId, setSelectedRiadokId] = useState<number | null>(null);
 
-  // Dialogs
-  const [addMegaBlokOpen, setAddMegaBlokOpen] = useState(false);
-  const [editMegaBlokOpen, setEditMegaBlokOpen] = useState(false);
-  const [addPanelOpen, setAddPanelOpen] = useState(false);
-  const [editPanelOpen, setEditPanelOpen] = useState(false);
+  // Dialog state
+  const [addKategoriaOpen, setAddKategoriaOpen]     = useState(false);
+  const [addBlokOpen, setAddBlokOpen]               = useState(false);
+  const [addPanelOpen, setAddPanelOpen]             = useState(false);
+  const [addRiadokOpen, setAddRiadokOpen]           = useState(false);
+  const [editOpen, setEditOpen]                     = useState(false);
+  const [editTarget, setEditTarget]                 = useState<SubjectParamSection | null>(null);
 
-  // Inputs
-  const [newMegaBlokName, setNewMegaBlokName] = useState("");
-  const [newMegaBlokCategory, setNewMegaBlokCategory] = useState("povinne");
-  const [editName, setEditName] = useState("");
-  const [newPanelName, setNewPanelName] = useState("");
+  // Form inputs
+  const [newKategoriaName, setNewKategoriaName]         = useState("");
+  const [newKategoriaCategory, setNewKategoriaCategory] = useState("povinne");
+  const [newBlokName, setNewBlokName]                   = useState("");
+  const [newPanelName, setNewPanelName]                 = useState("");
+  const [newRiadokName, setNewRiadokName]               = useState("");
+  const [editName, setEditName]                         = useState("");
 
   // ============================================================
   // Query: sections for current clientType
@@ -96,9 +103,7 @@ export default function SektorySubjektovVizia() {
         .then(r => r.json()),
   });
 
-  // ============================================================
   // Query: parameters for current clientType (read-only display)
-  // ============================================================
   const { data: allParams = [] } = useQuery<SubjectParameter[]>({
     queryKey: ["/api/subject-parameters", clientTypeId],
     queryFn: () =>
@@ -107,31 +112,42 @@ export default function SektorySubjektovVizia() {
   });
 
   // ============================================================
-  // Derived: Mega-Bloky and Panely
+  // Derived data — build tree
   // ============================================================
-  const megaBloky = useMemo(
-    () => allSections.filter(s => !s.isPanel).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+  const kategorie = useMemo(
+    () => allSections.filter(s => s.sectionType === "kategoria").sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
     [allSections]
   );
-
-  const getPanely = (megaBlokId: number) =>
-    allSections
-      .filter(s => s.isPanel && s.parentSectionId === megaBlokId)
+  const getBloky = (katId: number) =>
+    allSections.filter(s => s.sectionType === "blok" && s.parentSectionId === katId)
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
-  const getParams = (panelId: number) =>
-    allParams
-      .filter(p => p.panelId === panelId)
+  const getPanely = (blokId: number) =>
+    allSections.filter(s => s.sectionType === "panel" && s.parentSectionId === blokId)
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
-  const selectedMegaBlok = megaBloky.find(mb => mb.id === selectedMegaBlokId) ?? null;
-  const selectedPanel = selectedMegaBlok
-    ? getPanely(selectedMegaBlok.id).find(p => p.id === selectedPanelId) ?? null
-    : null;
+  const getRiadky = (panelId: number) =>
+    allSections.filter(s => s.sectionType === "riadok" && s.parentSectionId === panelId)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
-  // Total counts
-  const totalPanels = useMemo(() => allSections.filter(s => s.isPanel).length, [allSections]);
-  const totalParams = useMemo(() => allParams.filter(p => p.panelId != null).length, [allParams]);
+  const getParamsForRiadok = (riadokId: number) =>
+    allParams.filter(p => p.rowId === riadokId)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+  // Params without rowId (assigned to panel directly — legacy)
+  const getParamsForPanel = (panelId: number) =>
+    allParams.filter(p => p.panelId === panelId && !p.rowId)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+  // Counts for toolbar
+  const totalBloky   = useMemo(() => allSections.filter(s => s.sectionType === "blok").length, [allSections]);
+  const totalPanely  = useMemo(() => allSections.filter(s => s.sectionType === "panel").length, [allSections]);
+  const totalRiadky  = useMemo(() => allSections.filter(s => s.sectionType === "riadok").length, [allSections]);
+  const totalParams  = useMemo(() => allParams.length, [allParams]);
+
+  const selectedKategoria = kategorie.find(k => k.id === selectedKategoriaId) ?? null;
+  const selectedBlok      = selectedKategoria ? getBloky(selectedKategoria.id).find(b => b.id === selectedBlokId) ?? null : null;
+  const selectedPanel     = selectedBlok ? getPanely(selectedBlok.id).find(p => p.id === selectedPanelId) ?? null : null;
 
   // ============================================================
   // Mutations
@@ -143,8 +159,8 @@ export default function SektorySubjektovVizia() {
       const r = await apiRequest("POST", "/api/subject-param-sections", body);
       return r.json();
     },
-    onSuccess: () => { invalidate(); },
-    onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa vytvoriť sekciu.", variant: "destructive" }),
+    onSuccess: () => invalidate(),
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa vytvoriť.", variant: "destructive" }),
   });
 
   const renameMutation = useMutation({
@@ -152,7 +168,7 @@ export default function SektorySubjektovVizia() {
       const r = await apiRequest("PATCH", `/api/subject-param-sections/${id}`, { name });
       return r.json();
     },
-    onSuccess: () => { invalidate(); setEditMegaBlokOpen(false); setEditPanelOpen(false); },
+    onSuccess: () => { invalidate(); setEditOpen(false); },
     onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa premenovať.", variant: "destructive" }),
   });
 
@@ -166,8 +182,10 @@ export default function SektorySubjektovVizia() {
       return r.json().catch(() => ({}));
     },
     onSuccess: (_, id) => {
-      if (selectedMegaBlokId === id) { setSelectedMegaBlokId(null); setSelectedPanelId(null); }
-      if (selectedPanelId === id) setSelectedPanelId(null);
+      if (selectedKategoriaId === id) { setSelectedKategoriaId(null); setSelectedBlokId(null); setSelectedPanelId(null); setSelectedRiadokId(null); }
+      if (selectedBlokId === id) { setSelectedBlokId(null); setSelectedPanelId(null); setSelectedRiadokId(null); }
+      if (selectedPanelId === id) { setSelectedPanelId(null); setSelectedRiadokId(null); }
+      if (selectedRiadokId === id) setSelectedRiadokId(null);
       invalidate();
     },
     onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa vymazať.", variant: "destructive" }),
@@ -176,62 +194,92 @@ export default function SektorySubjektovVizia() {
   // ============================================================
   // Handlers
   // ============================================================
-  const handleAddMegaBlok = () => {
-    if (!newMegaBlokName.trim()) return;
+  const handleAddKategoria = () => {
+    if (!newKategoriaName.trim()) return;
     createMutation.mutate(
-      { name: newMegaBlokName.trim(), clientTypeId, isPanel: false, folderCategory: newMegaBlokCategory },
-      {
-        onSuccess: () => {
-          toast({ title: "Mega-Blok pridaný" });
-          setNewMegaBlokName("");
-          setNewMegaBlokCategory("povinne");
-          setAddMegaBlokOpen(false);
-        },
-      }
+      { name: newKategoriaName.trim(), clientTypeId, sectionType: "kategoria", folderCategory: newKategoriaCategory },
+      { onSuccess: () => { toast({ title: "Kategória pridaná" }); setNewKategoriaName(""); setNewKategoriaCategory("povinne"); setAddKategoriaOpen(false); } }
     );
   };
 
-  const handleEditSection = (id: number) => {
-    if (!editName.trim()) return;
-    renameMutation.mutate(
-      { id, name: editName.trim() },
-      { onSuccess: () => { toast({ title: "Premenované" }); setEditName(""); } }
+  const handleAddBlok = () => {
+    if (!newBlokName.trim() || !selectedKategoriaId || !selectedKategoria) return;
+    createMutation.mutate(
+      { name: newBlokName.trim(), clientTypeId, sectionType: "blok", parentSectionId: selectedKategoriaId, folderCategory: selectedKategoria.folderCategory },
+      { onSuccess: () => { toast({ title: "Blok pridaný" }); setNewBlokName(""); setAddBlokOpen(false); } }
     );
-  };
-
-  const handleDeleteSection = (id: number, isMegaBlok: boolean) => {
-    const label = isMegaBlok ? "Mega-Blok" : "Panel";
-    if (!window.confirm(`Naozaj vymazať ${label}?`)) return;
-    deleteMutation.mutate(id, {
-      onSuccess: () => toast({ title: `${label} vymazaný` }),
-    });
   };
 
   const handleAddPanel = () => {
-    if (!newPanelName.trim() || !selectedMegaBlokId || !selectedMegaBlok) return;
+    if (!newPanelName.trim() || !selectedBlokId || !selectedKategoria) return;
     createMutation.mutate(
-      {
-        name: newPanelName.trim(),
-        clientTypeId,
-        isPanel: true,
-        parentSectionId: selectedMegaBlokId,
-        folderCategory: selectedMegaBlok.folderCategory,
-      },
-      {
-        onSuccess: () => {
-          toast({ title: "Panel pridaný" });
-          setNewPanelName("");
-          setAddPanelOpen(false);
-        },
-      }
+      { name: newPanelName.trim(), clientTypeId, sectionType: "panel", parentSectionId: selectedBlokId, folderCategory: selectedKategoria.folderCategory },
+      { onSuccess: () => { toast({ title: "Panel pridaný" }); setNewPanelName(""); setAddPanelOpen(false); } }
     );
+  };
+
+  const handleAddRiadok = () => {
+    if (!selectedPanelId || !selectedKategoria) return;
+    const name = newRiadokName.trim() || `Riadok ${getRiadky(selectedPanelId).length + 1}`;
+    createMutation.mutate(
+      { name, clientTypeId, sectionType: "riadok", parentSectionId: selectedPanelId, folderCategory: selectedKategoria.folderCategory },
+      { onSuccess: () => { toast({ title: "Riadok pridaný" }); setNewRiadokName(""); setAddRiadokOpen(false); } }
+    );
+  };
+
+  const handleEdit = () => {
+    if (!editTarget || !editName.trim()) return;
+    renameMutation.mutate({ id: editTarget.id, name: editName.trim() },
+      { onSuccess: () => { toast({ title: "Premenované" }); setEditName(""); setEditTarget(null); } }
+    );
+  };
+
+  const handleDelete = (section: SubjectParamSection) => {
+    const typeLabels: Record<string, string> = { kategoria: "Kategóriu", blok: "Blok", panel: "Panel", riadok: "Riadok" };
+    const label = typeLabels[section.sectionType ?? "blok"] ?? "Sekciu";
+    if (!window.confirm(`Naozaj vymazať ${label} "${section.name}"?`)) return;
+    deleteMutation.mutate(section.id, {
+      onSuccess: () => toast({ title: `${label} vymazaný/á` }),
+    });
+  };
+
+  const openEdit = (section: SubjectParamSection) => {
+    setEditTarget(section);
+    setEditName(section.name);
+    setEditOpen(true);
   };
 
   const switchType = (code: string) => {
     setActiveCode(code);
-    setSelectedMegaBlokId(null);
+    setSelectedKategoriaId(null);
+    setSelectedBlokId(null);
     setSelectedPanelId(null);
+    setSelectedRiadokId(null);
   };
+
+  // ============================================================
+  // Render helpers
+  // ============================================================
+  function EditDeleteButtons({ section, stopProp = true }: { section: SubjectParamSection; stopProp?: boolean }) {
+    return (
+      <>
+        <button
+          onClick={e => { if (stopProp) e.stopPropagation(); openEdit(section); }}
+          className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/50 hover:text-foreground transition-colors"
+          data-testid={`button-edit-${section.sectionType}-${section.id}`}
+        >
+          <Pencil className="h-3 w-3" />
+        </button>
+        <button
+          onClick={e => { if (stopProp) e.stopPropagation(); handleDelete(section); }}
+          className="h-5 w-5 flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground/50 transition-colors"
+          data-testid={`button-delete-${section.sectionType}-${section.id}`}
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </>
+    );
+  }
 
   // ============================================================
   // Render
@@ -239,6 +287,7 @@ export default function SektorySubjektovVizia() {
   return (
     <TooltipProvider>
       <div className="flex flex-col h-full bg-background" data-testid="page-b-vizia">
+
         {/* === MASTER SWITCHER === */}
         <div className="flex items-center gap-1 px-6 py-3 border-b bg-card flex-shrink-0 flex-wrap">
           <Layers className="h-4 w-4 text-muted-foreground mr-2" />
@@ -264,6 +313,7 @@ export default function SektorySubjektovVizia() {
 
         {/* === MAIN AREA === */}
         <div className="flex flex-1 overflow-hidden">
+
           {/* === CANVAS === */}
           <div className="flex-1 overflow-auto p-6">
             {sectionsLoading ? (
@@ -271,186 +321,245 @@ export default function SektorySubjektovVizia() {
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Načítavam sekcie...
               </div>
-            ) : megaBloky.length === 0 ? (
+            ) : kategorie.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-muted-foreground border-2 border-dashed rounded-lg">
-                <Users className="h-10 w-10 mb-2 opacity-20" />
-                <p className="text-sm">Žiadne Mega-Bloky pre typ {activeType.label}.</p>
-                <p className="text-xs mt-1">Pridajte prvý Mega-Blok (sekciu) z Toolbar-u vpravo.</p>
+                <Tag className="h-10 w-10 mb-2 opacity-20" />
+                <p className="text-sm">Žiadne Kategórie pre typ {activeType.label}.</p>
+                <p className="text-xs mt-1">Pridajte prvú Kategóriu z Toolbar-u vpravo.</p>
                 <Button
                   variant="outline" size="sm" className="mt-3"
-                  onClick={() => setAddMegaBlokOpen(true)}
-                  data-testid="button-empty-add-megablok"
+                  onClick={() => setAddKategoriaOpen(true)}
+                  data-testid="button-empty-add-kategoria"
                 >
                   <Plus className="h-3.5 w-3.5 mr-1.5" />
-                  Pridať Mega-Blok
+                  Pridať Kategóriu
                 </Button>
               </div>
             ) : (
-              <div className="space-y-5">
-                {megaBloky.map(mb => {
-                  const isSelMb = selectedMegaBlokId === mb.id;
-                  const panely = getPanely(mb.id);
-                  const panelWarn = panely.length > 6 || (panely.length > 0 && panely.length < 2);
-                  const catStyle = getCategoryStyle(mb.folderCategory);
-                  const catLabel = getCategoryLabel(mb.folderCategory);
+              <div className="space-y-6">
+                {kategorie.map(kat => {
+                  const isKatSel   = selectedKategoriaId === kat.id;
+                  const catStyle   = getCategoryStyle(kat.folderCategory);
+                  const catLabel   = getCategoryLabel(kat.folderCategory);
+                  const bloky      = getBloky(kat.id);
+
                   return (
                     <div
-                      key={mb.id}
-                      className={`rounded-lg border-2 transition-all ${isSelMb ? "border-primary" : "border-border"}`}
-                      data-testid={`section-block-${mb.id}`}
+                      key={kat.id}
+                      className={`rounded-xl border-2 transition-all ${isKatSel ? "border-primary shadow-sm" : "border-border"}`}
+                      data-testid={`section-kategoria-${kat.id}`}
                     >
-                      {/* Mega-Blok header */}
+                      {/* Kategória header */}
                       <div
-                        className={`flex items-center gap-2 px-4 py-2.5 cursor-pointer rounded-t-md ${
-                          isSelMb ? "bg-primary/8" : "bg-muted/40 hover:bg-muted/60"
+                        className={`flex items-center gap-2 px-4 py-2.5 cursor-pointer rounded-t-xl ${
+                          isKatSel ? "bg-primary/8" : "bg-muted/30 hover:bg-muted/50"
                         }`}
                         onClick={() => {
-                          setSelectedMegaBlokId(prev => prev === mb.id ? null : mb.id);
-                          setSelectedPanelId(null);
+                          setSelectedKategoriaId(prev => prev === kat.id ? null : kat.id);
+                          setSelectedBlokId(null); setSelectedPanelId(null); setSelectedRiadokId(null);
                         }}
                       >
-                        <FolderOpen className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <span className="font-semibold text-sm flex-1">{mb.name}</span>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] px-1.5 py-0 border ${catStyle}`}
-                          data-testid={`badge-category-${mb.id}`}
-                        >
-                          {catLabel}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">{panely.length} panelov</span>
-                        {panelWarn && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="text-amber-500 text-xs cursor-help">⚠</span>
-                            </TooltipTrigger>
-                            <TooltipContent>Odporúčaný počet: 2–6 panelov</TooltipContent>
-                          </Tooltip>
-                        )}
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            setSelectedMegaBlokId(mb.id);
-                            setEditName(mb.name);
-                            setEditMegaBlokOpen(true);
-                          }}
-                          className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/50 hover:text-foreground transition-colors"
-                          data-testid={`button-edit-section-${mb.id}`}
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </button>
-                        <button
-                          onClick={e => { e.stopPropagation(); handleDeleteSection(mb.id, true); }}
-                          className="h-5 w-5 flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground/50 transition-colors"
-                          data-testid={`button-delete-section-${mb.id}`}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
+                        <Tag className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="font-bold text-sm flex-1">{kat.name}</span>
+                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border ${catStyle}`}>{catLabel}</Badge>
+                        <span className="text-xs text-muted-foreground">{bloky.length} blokov</span>
+                        <EditDeleteButtons section={kat} />
                       </div>
 
-                      {/* Panels grid */}
-                      <div className="p-4">
-                        {panely.length === 0 ? (
-                          <div className="flex items-center justify-center h-16 border-2 border-dashed rounded text-muted-foreground/50 text-xs">
-                            Žiadne panely — vyberte blok a pridajte panel z Toolbar-u
+                      {/* Bloky inside Kategória */}
+                      <div className="p-4 space-y-4">
+                        {bloky.length === 0 ? (
+                          <div className="flex items-center justify-center h-12 border-2 border-dashed rounded text-muted-foreground/50 text-xs">
+                            Žiadne bloky — vyberte Kategóriu a pridajte Blok z Toolbar-u
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                            {panely.map(panel => {
-                              const isPanelSel = selectedPanelId === panel.id;
-                              const params = getParams(panel.id);
-                              const paramWarn = params.length > 15 || (params.length > 0 && params.length < 5);
-                              return (
+                          bloky.map(blok => {
+                            const isBlokSel = selectedBlokId === blok.id;
+                            const panely    = getPanely(blok.id);
+
+                            return (
+                              <div
+                                key={blok.id}
+                                className={`rounded-lg border-2 transition-all ${
+                                  isBlokSel ? "border-primary/70 shadow-sm" : "border-border/70"
+                                }`}
+                                data-testid={`section-blok-${blok.id}`}
+                              >
+                                {/* Blok header */}
                                 <div
-                                  key={panel.id}
-                                  className={`border-2 rounded-lg flex flex-col transition-all cursor-pointer ${
-                                    isPanelSel ? "border-primary shadow-sm" : "border-border hover:border-muted-foreground/50"
+                                  className={`flex items-center gap-2 px-3 py-2 cursor-pointer rounded-t-md ${
+                                    isBlokSel ? "bg-primary/6" : "bg-muted/20 hover:bg-muted/40"
                                   }`}
                                   onClick={() => {
-                                    setSelectedMegaBlokId(mb.id);
-                                    setSelectedPanelId(prev => prev === panel.id ? null : panel.id);
+                                    setSelectedKategoriaId(kat.id);
+                                    setSelectedBlokId(prev => prev === blok.id ? null : blok.id);
+                                    setSelectedPanelId(null); setSelectedRiadokId(null);
                                   }}
-                                  data-testid={`card-panel-${panel.id}`}
                                 >
-                                  {/* Panel header */}
-                                  <div className={`flex items-center gap-2 px-3 py-2 rounded-t-md ${isPanelSel ? "bg-primary/5" : "bg-muted/30"}`}>
-                                    <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                    <span className="text-sm font-medium flex-1 truncate">{panel.name}</span>
-                                    {paramWarn && (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <span className="text-amber-500 text-xs cursor-help">⚠</span>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Odporúčaný počet: 5–15 parametrov</TooltipContent>
-                                      </Tooltip>
-                                    )}
-                                    <button
-                                      onClick={e => {
-                                        e.stopPropagation();
-                                        setSelectedMegaBlokId(mb.id);
-                                        setSelectedPanelId(panel.id);
-                                        setEditName(panel.name);
-                                        setEditPanelOpen(true);
-                                      }}
-                                      className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/50 hover:text-foreground transition-colors"
-                                      data-testid={`button-edit-panel-${panel.id}`}
-                                    >
-                                      <Pencil className="h-3 w-3" />
-                                    </button>
-                                    <button
-                                      onClick={e => { e.stopPropagation(); handleDeleteSection(panel.id, false); }}
-                                      className="h-5 w-5 flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground/50 transition-colors"
-                                      data-testid={`button-delete-panel-${panel.id}`}
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  </div>
-
-                                  {/* Parameter list (read-only) */}
-                                  <div className="p-2 flex-1 min-h-[56px]">
-                                    {params.length === 0 ? (
-                                      <div className="flex items-center justify-center h-10 text-muted-foreground/40 text-xs">
-                                        Žiadne parametre
-                                      </div>
-                                    ) : (
-                                      <div className="space-y-0.5">
-                                        {params.map(param => (
-                                          <div
-                                            key={param.id}
-                                            className="flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-muted-foreground"
-                                            data-testid={`param-row-${param.id}`}
-                                          >
-                                            <AlignLeft className="h-3 w-3 flex-shrink-0 opacity-50" />
-                                            <span className="flex-1 truncate">{param.label}</span>
-                                            <FieldTypeBadge type={param.fieldType} />
-                                            {param.isRequired && (
-                                              <span className="text-[9px] text-red-500 font-bold">*</span>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Footer */}
-                                  <div className="border-t px-3 py-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                                    <AlignLeft className="h-3 w-3" />
-                                    <span>{params.length} parametrov</span>
-                                  </div>
+                                  <FolderOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                  <span className="font-semibold text-sm flex-1">{blok.name}</span>
+                                  <span className="text-xs text-muted-foreground">{panely.length} panelov</span>
+                                  <EditDeleteButtons section={blok} />
                                 </div>
-                              );
-                            })}
-                          </div>
+
+                                {/* Panely grid inside Blok */}
+                                <div className="p-3">
+                                  {panely.length === 0 ? (
+                                    <div className="flex items-center justify-center h-10 border-2 border-dashed rounded text-muted-foreground/40 text-xs">
+                                      Žiadne panely
+                                    </div>
+                                  ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                      {panely.map(panel => {
+                                        const isPanelSel  = selectedPanelId === panel.id;
+                                        const riadky      = getRiadky(panel.id);
+                                        const legacyParams = getParamsForPanel(panel.id);
+
+                                        return (
+                                          <div
+                                            key={panel.id}
+                                            className={`border-2 rounded-lg flex flex-col transition-all cursor-pointer ${
+                                              isPanelSel ? "border-primary shadow-sm" : "border-border hover:border-muted-foreground/50"
+                                            }`}
+                                            onClick={() => {
+                                              setSelectedKategoriaId(kat.id);
+                                              setSelectedBlokId(blok.id);
+                                              setSelectedPanelId(prev => prev === panel.id ? null : panel.id);
+                                              setSelectedRiadokId(null);
+                                            }}
+                                            data-testid={`card-panel-${panel.id}`}
+                                          >
+                                            {/* Panel header */}
+                                            <div className={`flex items-center gap-2 px-3 py-2 rounded-t-md ${isPanelSel ? "bg-primary/5" : "bg-muted/30"}`}>
+                                              <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                              <span className="text-sm font-medium flex-1 truncate">{panel.name}</span>
+                                              <EditDeleteButtons section={panel} />
+                                            </div>
+
+                                            {/* Riadky inside Panel */}
+                                            <div className="p-2 flex-1 min-h-[40px] space-y-1">
+                                              {riadky.length === 0 && legacyParams.length === 0 ? (
+                                                <div className="flex items-center justify-center h-8 text-muted-foreground/40 text-xs">
+                                                  Žiadne riadky
+                                                </div>
+                                              ) : (
+                                                <>
+                                                  {riadky.map(riadok => {
+                                                    const isRiadokSel = selectedRiadokId === riadok.id;
+                                                    const params = getParamsForRiadok(riadok.id);
+                                                    return (
+                                                      <div
+                                                        key={riadok.id}
+                                                        className={`rounded border px-2 py-1 text-xs cursor-pointer transition-all ${
+                                                          isRiadokSel
+                                                            ? "border-primary/60 bg-primary/5"
+                                                            : "border-border/50 hover:border-muted-foreground/40 hover:bg-muted/20"
+                                                        }`}
+                                                        onClick={e => {
+                                                          e.stopPropagation();
+                                                          setSelectedKategoriaId(kat.id);
+                                                          setSelectedBlokId(blok.id);
+                                                          setSelectedPanelId(panel.id);
+                                                          setSelectedRiadokId(prev => prev === riadok.id ? null : riadok.id);
+                                                        }}
+                                                        data-testid={`card-riadok-${riadok.id}`}
+                                                      >
+                                                        <div className="flex items-center gap-1 mb-0.5">
+                                                          <Rows3 className="h-2.5 w-2.5 text-muted-foreground/60 flex-shrink-0" />
+                                                          <span className="font-medium text-muted-foreground/80 flex-1 truncate">{riadok.name}</span>
+                                                          <button
+                                                            onClick={e => { e.stopPropagation(); openEdit(riadok); }}
+                                                            className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/40 hover:text-foreground"
+                                                            data-testid={`button-edit-riadok-inline-${riadok.id}`}
+                                                          >
+                                                            <Pencil className="h-2.5 w-2.5" />
+                                                          </button>
+                                                          <button
+                                                            onClick={e => { e.stopPropagation(); handleDelete(riadok); }}
+                                                            className="h-4 w-4 flex items-center justify-center rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground/40"
+                                                            data-testid={`button-delete-riadok-inline-${riadok.id}`}
+                                                          >
+                                                            <X className="h-2.5 w-2.5" />
+                                                          </button>
+                                                        </div>
+                                                        {params.length > 0 ? (
+                                                          <div className="flex flex-wrap gap-1 mt-0.5 pl-3.5">
+                                                            {params.map(param => (
+                                                              <div
+                                                                key={param.id}
+                                                                className="flex items-center gap-1 text-[10px] text-muted-foreground"
+                                                                data-testid={`param-row-${param.id}`}
+                                                              >
+                                                                <AlignLeft className="h-2.5 w-2.5 opacity-50 flex-shrink-0" />
+                                                                <span className="truncate max-w-[80px]">{param.label}</span>
+                                                                <FieldTypeBadge type={param.fieldType} />
+                                                                {param.isRequired && <span className="text-[9px] text-red-500 font-bold">*</span>}
+                                                              </div>
+                                                            ))}
+                                                          </div>
+                                                        ) : (
+                                                          <div className="pl-3.5 text-[10px] text-muted-foreground/40 italic">prázdny riadok</div>
+                                                        )}
+                                                      </div>
+                                                    );
+                                                  })}
+                                                  {/* Legacy params without rowId */}
+                                                  {legacyParams.length > 0 && (
+                                                    <div className="rounded border border-dashed border-amber-300/60 px-2 py-1">
+                                                      <div className="text-[10px] text-amber-600/70 mb-0.5">Parametre bez riadku:</div>
+                                                      {legacyParams.map(param => (
+                                                        <div key={param.id} className="flex items-center gap-1 text-xs text-muted-foreground py-0.5" data-testid={`param-row-${param.id}`}>
+                                                          <AlignLeft className="h-3 w-3 opacity-50 flex-shrink-0" />
+                                                          <span className="flex-1 truncate">{param.label}</span>
+                                                          <FieldTypeBadge type={param.fieldType} />
+                                                        </div>
+                                                      ))}
+                                                    </div>
+                                                  )}
+                                                </>
+                                              )}
+                                            </div>
+
+                                            {/* Panel footer */}
+                                            <div className="border-t px-3 py-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                                              <Rows3 className="h-3 w-3" />
+                                              <span>{riadky.length} riadkov</span>
+                                              {legacyParams.length > 0 && (
+                                                <>
+                                                  <span>·</span>
+                                                  <span className="text-amber-600/70">{legacyParams.length} bez riadku</span>
+                                                </>
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+
+                                  {/* Add panel button */}
+                                  <button
+                                    onClick={() => { setSelectedKategoriaId(kat.id); setSelectedBlokId(blok.id); setAddPanelOpen(true); }}
+                                    className="mt-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                                    data-testid={`button-add-panel-to-blok-${blok.id}`}
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                    Pridať panel do tohto bloku
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })
                         )}
 
-                        {/* Add panel button */}
+                        {/* Add blok button */}
                         <button
-                          onClick={() => { setSelectedMegaBlokId(mb.id); setAddPanelOpen(true); }}
-                          className="mt-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                          data-testid={`button-add-panel-to-section-${mb.id}`}
+                          onClick={() => { setSelectedKategoriaId(kat.id); setAddBlokOpen(true); }}
+                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                          data-testid={`button-add-blok-to-kat-${kat.id}`}
                         >
                           <Plus className="h-3 w-3" />
-                          Pridať panel do tohto bloku
+                          Pridať blok do tejto kategórie
                         </button>
                       </div>
                     </div>
@@ -467,210 +576,279 @@ export default function SektorySubjektovVizia() {
               <div className="flex flex-col gap-1.5">
                 <Button
                   variant="outline" size="sm" className="justify-start gap-2 h-8"
-                  onClick={() => setAddMegaBlokOpen(true)}
-                  data-testid="toolbar-add-section"
+                  onClick={() => setAddKategoriaOpen(true)}
+                  data-testid="toolbar-add-kategoria"
                 >
-                  <FolderOpen className="h-3.5 w-3.5" />
-                  Mega-Blok
+                  <Tag className="h-3.5 w-3.5" />
+                  Kategória
                 </Button>
                 <Button
                   variant="outline" size="sm" className="justify-start gap-2 h-8"
-                  onClick={() => { if (selectedMegaBlokId) setAddPanelOpen(true); }}
-                  disabled={!selectedMegaBlokId}
+                  onClick={() => setAddBlokOpen(true)}
+                  disabled={!selectedKategoriaId}
+                  data-testid="toolbar-add-blok"
+                >
+                  <FolderOpen className="h-3.5 w-3.5" />
+                  Blok
+                </Button>
+                <Button
+                  variant="outline" size="sm" className="justify-start gap-2 h-8"
+                  onClick={() => setAddPanelOpen(true)}
+                  disabled={!selectedBlokId}
                   data-testid="toolbar-add-panel"
                 >
-                  <LayoutGrid className="h-3.5 w-3.5" />
+                  <Square className="h-3.5 w-3.5" />
                   Panel
+                </Button>
+                <Button
+                  variant="outline" size="sm" className="justify-start gap-2 h-8"
+                  onClick={() => setAddRiadokOpen(true)}
+                  disabled={!selectedPanelId}
+                  data-testid="toolbar-add-riadok"
+                >
+                  <Rows3 className="h-3.5 w-3.5" />
+                  Riadok
                 </Button>
               </div>
             </div>
 
-            {/* Category legend */}
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Kategórie</p>
-              <div className="space-y-1">
-                {FOLDER_CATEGORIES.map(cat => (
-                  <div key={cat.value} className="flex items-center gap-1.5">
-                    <span className={`inline-block h-2 w-2 rounded-sm border ${cat.color}`} />
-                    <span className="text-[11px] text-muted-foreground">{cat.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Anti-Vata */}
-            <div>
-              <div className="flex items-center gap-1 mb-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Anti-Vata</p>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-xs">
-                    <p className="font-semibold mb-1">Anti-Vata pravidlo</p>
-                    <p>Parametre priradené do panelov sa zobrazia v profile subjektu. Parametre mimo sekcií zostanú neviditeľné.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <div className="text-[11px] text-muted-foreground space-y-0.5">
-                <p>📦 2–6 panelov / blok</p>
-                <p>⚙ 5–15 parametrov / panel</p>
-              </div>
-              {selectedMegaBlok && (
-                <div className="mt-2 text-[11px] space-y-0.5 border-t pt-2">
-                  <p className="text-muted-foreground font-medium truncate">{selectedMegaBlok.name}</p>
-                  {(() => {
-                    const panely = getPanely(selectedMegaBlok.id);
-                    return (
-                      <p className={panely.length > 6 || (panely.length > 0 && panely.length < 2) ? "text-amber-500" : "text-green-600"}>
-                        Panely: {panely.length}
-                      </p>
-                    );
-                  })()}
+            {/* Selection context */}
+            {(selectedKategoriaId || selectedBlokId || selectedPanelId || selectedRiadokId) && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Výber</p>
+                <div className="space-y-1 text-xs">
+                  {selectedKategoria && (
+                    <div className="flex items-center gap-1 text-muted-foreground">
+                      <Tag className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{selectedKategoria.name}</span>
+                    </div>
+                  )}
+                  {selectedBlok && (
+                    <div className="flex items-center gap-1 text-muted-foreground pl-2">
+                      <FolderOpen className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{selectedBlok.name}</span>
+                    </div>
+                  )}
                   {selectedPanel && (
-                    <p className={getParams(selectedPanel.id).length > 15 || (getParams(selectedPanel.id).length > 0 && getParams(selectedPanel.id).length < 5) ? "text-amber-500" : "text-green-600"}>
-                      Parametre: {getParams(selectedPanel.id).length}
-                    </p>
+                    <div className="flex items-center gap-1 text-muted-foreground pl-4">
+                      <LayoutGrid className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{selectedPanel.name}</span>
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
-
-            {/* Stats */}
-            <div className="border-t pt-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Súhrn</p>
-              <div className="text-[11px] text-muted-foreground space-y-0.5">
-                <p>Mega-Bloky: <span className="text-foreground font-medium">{megaBloky.length}</span></p>
-                <p>Panely: <span className="text-foreground font-medium">{totalPanels}</span></p>
-                <p>Parametre: <span className="text-foreground font-medium">{totalParams}</span></p>
-              </div>
-            </div>
-
-            {(createMutation.isPending || renameMutation.isPending || deleteMutation.isPending) && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground border-t pt-3">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Ukladám...
               </div>
             )}
+
+            {/* Stats */}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Prehľad</p>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Kategórie</span>
+                  <span className="font-medium">{kategorie.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Bloky</span>
+                  <span className="font-medium">{totalBloky}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Panely</span>
+                  <span className="font-medium">{totalPanely}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Riadky</span>
+                  <span className="font-medium">{totalRiadky}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Parametre</span>
+                  <span className="font-medium">{totalParams}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Help */}
+            <div className="mt-auto">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground/60 cursor-help">
+                    <Info className="h-3 w-3" />
+                    <span>Hierarchia</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs max-w-48">
+                  Typ → Kategória → Blok → Panel → Riadok → Parameter
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
         </div>
 
-        {/* === DIALOGS === */}
+        {/* ============================================================ */}
+        {/* DIALOGS                                                       */}
+        {/* ============================================================ */}
 
-        {/* Add Mega-Blok */}
-        <Dialog open={addMegaBlokOpen} onOpenChange={open => { setAddMegaBlokOpen(open); if (!open) { setNewMegaBlokName(""); setNewMegaBlokCategory("povinne"); } }}>
+        {/* Add Kategória */}
+        <Dialog open={addKategoriaOpen} onOpenChange={setAddKategoriaOpen}>
           <DialogContent>
-            <DialogHeader><DialogTitle>Nový Mega-Blok (sekcia)</DialogTitle></DialogHeader>
-            <div className="space-y-3 py-1">
-              <Input
-                placeholder="Názov (napr. Identita, Financie, Dokumenty...)"
-                value={newMegaBlokName}
-                onChange={e => setNewMegaBlokName(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleAddMegaBlok()}
-                data-testid="input-new-section-name"
-                autoFocus
-              />
+            <DialogHeader><DialogTitle>Pridať Kategóriu</DialogTitle></DialogHeader>
+            <div className="space-y-3 py-2">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Kategória sekcie</label>
-                <Select value={newMegaBlokCategory} onValueChange={setNewMegaBlokCategory}>
-                  <SelectTrigger data-testid="select-category" className="h-8">
+                <label className="text-sm font-medium mb-1 block">Názov</label>
+                <Input
+                  value={newKategoriaName}
+                  onChange={e => setNewKategoriaName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") handleAddKategoria(); }}
+                  placeholder="napr. Povinné dokumenty"
+                  data-testid="input-new-kategoria-name"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Typ kategórie</label>
+                <Select value={newKategoriaCategory} onValueChange={setNewKategoriaCategory}>
+                  <SelectTrigger data-testid="select-new-kategoria-category">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {FOLDER_CATEGORIES.map(cat => (
-                      <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                    {FOLDER_CATEGORIES.map(c => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setAddMegaBlokOpen(false); setNewMegaBlokName(""); setNewMegaBlokCategory("povinne"); }}>Zrušiť</Button>
-              <Button
-                onClick={handleAddMegaBlok}
-                disabled={!newMegaBlokName.trim() || createMutation.isPending}
-                data-testid="button-confirm-add-section"
-              >
-                {createMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
-                Pridať
+              <Button variant="outline" onClick={() => setAddKategoriaOpen(false)}>Zrušiť</Button>
+              <Button onClick={handleAddKategoria} disabled={!newKategoriaName.trim() || createMutation.isPending} data-testid="button-confirm-add-kategoria">
+                {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Pridať"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* Edit Mega-Blok */}
-        <Dialog open={editMegaBlokOpen} onOpenChange={open => { setEditMegaBlokOpen(open); if (!open) setEditName(""); }}>
+        {/* Add Blok */}
+        <Dialog open={addBlokOpen} onOpenChange={setAddBlokOpen}>
           <DialogContent>
-            <DialogHeader><DialogTitle>Premenovať Mega-Blok</DialogTitle></DialogHeader>
-            <Input
-              value={editName}
-              onChange={e => setEditName(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && selectedMegaBlokId && handleEditSection(selectedMegaBlokId)}
-              autoFocus
-              data-testid="input-edit-section-name"
-            />
+            <DialogHeader><DialogTitle>Pridať Blok</DialogTitle></DialogHeader>
+            <div className="space-y-3 py-2">
+              {selectedKategoria && (
+                <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                  Kategória: <span className="font-medium">{selectedKategoria.name}</span>
+                </div>
+              )}
+              <div>
+                <label className="text-sm font-medium mb-1 block">Názov bloku</label>
+                <Input
+                  value={newBlokName}
+                  onChange={e => setNewBlokName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") handleAddBlok(); }}
+                  placeholder="napr. Základné údaje"
+                  data-testid="input-new-blok-name"
+                  autoFocus
+                />
+              </div>
+            </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setEditMegaBlokOpen(false)}>Zrušiť</Button>
-              <Button
-                onClick={() => selectedMegaBlokId && handleEditSection(selectedMegaBlokId)}
-                disabled={!editName.trim() || renameMutation.isPending}
-              >
-                Uložiť
+              <Button variant="outline" onClick={() => setAddBlokOpen(false)}>Zrušiť</Button>
+              <Button onClick={handleAddBlok} disabled={!newBlokName.trim() || !selectedKategoriaId || createMutation.isPending} data-testid="button-confirm-add-blok">
+                {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Pridať"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         {/* Add Panel */}
-        <Dialog open={addPanelOpen} onOpenChange={open => { setAddPanelOpen(open); if (!open) setNewPanelName(""); }}>
+        <Dialog open={addPanelOpen} onOpenChange={setAddPanelOpen}>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Nový panel v „{selectedMegaBlok?.name}"</DialogTitle>
-            </DialogHeader>
-            <Input
-              placeholder="Názov panelu (napr. Osobné údaje, Adresa...)"
-              value={newPanelName}
-              onChange={e => setNewPanelName(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleAddPanel()}
-              autoFocus
-              data-testid="input-new-panel-name"
-            />
+            <DialogHeader><DialogTitle>Pridať Panel</DialogTitle></DialogHeader>
+            <div className="space-y-3 py-2">
+              {selectedBlok && (
+                <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                  Blok: <span className="font-medium">{selectedBlok.name}</span>
+                </div>
+              )}
+              <div>
+                <label className="text-sm font-medium mb-1 block">Názov panelu</label>
+                <Input
+                  value={newPanelName}
+                  onChange={e => setNewPanelName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") handleAddPanel(); }}
+                  placeholder="napr. Adresa"
+                  data-testid="input-new-panel-name"
+                  autoFocus
+                />
+              </div>
+            </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setAddPanelOpen(false); setNewPanelName(""); }}>Zrušiť</Button>
-              <Button
-                onClick={handleAddPanel}
-                disabled={!newPanelName.trim() || createMutation.isPending}
-                data-testid="button-confirm-add-panel"
-              >
-                {createMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
-                Pridať
+              <Button variant="outline" onClick={() => setAddPanelOpen(false)}>Zrušiť</Button>
+              <Button onClick={handleAddPanel} disabled={!newPanelName.trim() || !selectedBlokId || createMutation.isPending} data-testid="button-confirm-add-panel">
+                {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Pridať"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* Edit Panel */}
-        <Dialog open={editPanelOpen} onOpenChange={open => { setEditPanelOpen(open); if (!open) setEditName(""); }}>
+        {/* Add Riadok */}
+        <Dialog open={addRiadokOpen} onOpenChange={setAddRiadokOpen}>
           <DialogContent>
-            <DialogHeader><DialogTitle>Premenovať panel</DialogTitle></DialogHeader>
-            <Input
-              value={editName}
-              onChange={e => setEditName(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && selectedPanelId && handleEditSection(selectedPanelId)}
-              autoFocus
-              data-testid="input-edit-panel-name"
-            />
+            <DialogHeader><DialogTitle>Pridať Riadok</DialogTitle></DialogHeader>
+            <div className="space-y-3 py-2">
+              {selectedPanel && (
+                <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                  Panel: <span className="font-medium">{selectedPanel.name}</span>
+                </div>
+              )}
+              <div>
+                <label className="text-sm font-medium mb-1 block">Názov riadku <span className="text-muted-foreground font-normal">(voliteľné)</span></label>
+                <Input
+                  value={newRiadokName}
+                  onChange={e => setNewRiadokName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") handleAddRiadok(); }}
+                  placeholder="napr. Riadok 1"
+                  data-testid="input-new-riadok-name"
+                  autoFocus
+                />
+              </div>
+            </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setEditPanelOpen(false)}>Zrušiť</Button>
+              <Button variant="outline" onClick={() => setAddRiadokOpen(false)}>Zrušiť</Button>
               <Button
-                onClick={() => selectedPanelId && handleEditSection(selectedPanelId)}
-                disabled={!editName.trim() || renameMutation.isPending}
+                onClick={handleAddRiadok}
+                disabled={!selectedPanelId || createMutation.isPending}
+                data-testid="button-confirm-add-riadok"
               >
-                Uložiť
+                {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Pridať"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Edit (rename) */}
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                Premenovať {editTarget?.sectionType === "kategoria" ? "Kategóriu" : editTarget?.sectionType === "blok" ? "Blok" : editTarget?.sectionType === "riadok" ? "Riadok" : "Panel"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-2">
+              <Input
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") handleEdit(); }}
+                data-testid="input-edit-name"
+                autoFocus
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditOpen(false)}>Zrušiť</Button>
+              <Button onClick={handleEdit} disabled={!editName.trim() || renameMutation.isPending} data-testid="button-confirm-edit">
+                {renameMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Uložiť"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </TooltipProvider>
   );

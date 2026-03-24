@@ -35,7 +35,7 @@ The system employs a modern full-stack architecture prioritizing data integrity,
 - **Dátová linka (OCR Module)**: Integrates Azure AI Document Intelligence for document processing, supporting bulk PDF upload, background processing, split-screen validation, and synonym confirmation.
 - **Dynamic Parameter System (EAV Architecture)**: A 6-level hierarchy for dynamic configuration of contract fields and form generation, supported by AI synonym mapping.
 - **A-Vízia Builder (Anti-Vata)**: Hierarchical product template builder managing folders, panels, and parameters, with blueprint layout stored in `ui_blueprints` table.
-- **B-Vízia Builder (Anti-Vata)**: Subject template builder managing mega-blocks, panels, and parameters, with CRUD entirely through PUT blueprint layoutJson.
+- **B-Vízia Builder (Anti-Vata)**: Subject template builder with a 5-level hierarchy: Typ → Kategória → Blok → Panel → Riadok → Parameter. All levels are stored in `subject_param_sections` using the `sectionType` field (kategoria/blok/panel/riadok). Parameters can reference a Riadok via `rowId`. Existing data (34 Bloky, 132 Panely) was auto-migrated to include Kategória entities derived from folderCategory combos.
 - **Rendering Engine (Blueprint-driven UI)**: `BlueprintRenderer` and `SubjectBlueprintSection` components render A-Vízia and B-Vízia blueprints respectively, supporting cross-pulling and graceful empty states.
 - **OS Subjekt Module**: Supports 8 subtypes for "Ostatné subjekty" with full dynamic parameter coverage and `subject_picker` field type for cross-subject UID linking.
 - **Web Routing Rules**: 1:N routing rules for OS Web/Digital Asset subjects, managed via `webRoutingRules` table and `WebRouterPanel` component.

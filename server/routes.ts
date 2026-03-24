@@ -16816,7 +16816,9 @@ export async function registerRoutes(
       if (!name || !clientTypeId) return res.status(400).json({ message: "name, clientTypeId required" });
       const code = req.body.code || generateAutoCode(name, "sec_");
       const folderCategory = req.body.folderCategory || "general";
-      const section = await storage.createSubjectParamSection({ ...req.body, code, folderCategory });
+      const sectionType = req.body.sectionType || (req.body.isPanel ? "panel" : "blok");
+      const isPanel = sectionType === "panel";
+      const section = await storage.createSubjectParamSection({ ...req.body, code, folderCategory, sectionType, isPanel });
       res.json(section);
     } catch (err: any) {
       console.error("Error creating subject param section:", err?.message || err);
