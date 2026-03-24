@@ -849,18 +849,6 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {canCreateSubjects(appUser) && (
-                        <SidebarMenuSubItem key="pridat-subjekt">
-                          <SidebarMenuSubButton
-                            className="py-1.5 text-primary hover:text-primary"
-                            data-testid="nav-pridat-subjekt"
-                            onClick={() => { window.location.href = '/pridat-subjekt'; }}
-                          >
-                            <UserPlus className="w-4 h-4" />
-                            <span className="text-[13px]">Pridať subjekt</span>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      )}
                       {klientiItems.map(item => (
                         <SidebarMenuSubItem key={item.href}>
                           <SidebarMenuSubButton
