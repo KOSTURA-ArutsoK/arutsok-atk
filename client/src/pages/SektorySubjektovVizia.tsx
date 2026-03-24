@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,10 @@ function FieldTypeBadge({ type }: { type: string }) {
 // ============================================================
 export default function SektorySubjektovVizia() {
   const { toast } = useToast();
+
+  useEffect(() => {
+    document.title = "UI Subjektov (B-Vízia) | Štruktúra";
+  }, []);
 
   const [activeCode, setActiveCode] = useState("FO");
   const [selectedSectionId, setSelectedSectionId] = useState<number | null>(null);
