@@ -1644,19 +1644,34 @@ export async function seedNsVsTemplates(): Promise<void> {
 
   for (const tpl of TEMPLATES_TO_SEED) {
     const [existing] = await db.select({ id: subjectTemplates.id }).from(subjectTemplates).where(eq(subjectTemplates.code, tpl.code));
-    if (existing) {
-      console.log(`[SEED] Template '${tpl.code}' already exists, skipping.`);
-      continue;
-    }
 
-    const [created] = await db.insert(subjectTemplates).values({
-      code: tpl.code,
-      name: tpl.name,
-      description: tpl.description,
-      clientTypeId: tpl.clientTypeId,
-      isDefault: true,
-      isActive: true,
-    }).returning();
+    let templateId: number;
+
+    if (existing) {
+      const [alreadyLinked] = await db
+        .select({ id: subjectTemplateParams.id })
+        .from(subjectTemplateParams)
+        .where(eq(subjectTemplateParams.templateId, existing.id))
+        .limit(1);
+
+      if (alreadyLinked) {
+        console.log(`[SEED] Template '${tpl.code}' already exists with params, skipping.`);
+        continue;
+      }
+
+      console.log(`[SEED] Template '${tpl.code}' exists but has 0 params — linking now.`);
+      templateId = existing.id;
+    } else {
+      const [created] = await db.insert(subjectTemplates).values({
+        code: tpl.code,
+        name: tpl.name,
+        description: tpl.description,
+        clientTypeId: tpl.clientTypeId,
+        isDefault: true,
+        isActive: true,
+      }).returning();
+      templateId = created.id;
+    }
 
     const params = await db.select({ id: subjectParameters.id, sortOrder: subjectParameters.sortOrder })
       .from(subjectParameters)
@@ -1665,7 +1680,7 @@ export async function seedNsVsTemplates(): Promise<void> {
 
     if (params.length > 0) {
       const entries = params.map(p => ({
-        templateId: created.id,
+        templateId,
         parameterId: p.id,
         sortOrder: p.sortOrder ?? 0,
         isRequired: false,
@@ -1675,7 +1690,7 @@ export async function seedNsVsTemplates(): Promise<void> {
       }
     }
 
-    console.log(`[SEED] Template '${tpl.code}' created with ${params.length} params.`);
+    console.log(`[SEED] Template '${tpl.code}' linked with ${params.length} params.`);
   }
 }
 
