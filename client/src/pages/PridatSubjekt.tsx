@@ -1615,12 +1615,18 @@ function FullPageEditor({
                     const editorFieldGroups: Record<string, { section: any; panelGroups: { panel: StaticPanel | null; fields: StaticField[] }[] }[]> = {
                       povinne: [], doplnkove: [], volitelne: [],
                     };
+                    const SZCO_HARDCODED_KEYS = new Set([
+                      'nazov_firmy', 'ico', 'dic', 'ic_dph',
+                      'meno', 'priezvisko', 'rodne_cislo',
+                      'email', 'telefon',
+                    ]);
                     const sectionsSorted = [...(typeSections || [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
                     for (const section of sectionsSorted) {
                       const category = (section as any).folderCategory || "volitelne";
                       const sectionFields = (typeFields || [])
                         .filter(f => (f.sectionId || 0) === section.id)
-                        .filter(f => isFieldVisible(f));
+                        .filter(f => isFieldVisible(f))
+                        .filter(f => !isSzcoType || !SZCO_HARDCODED_KEYS.has(f.fieldKey));
                       if (sectionFields.length === 0) continue;
                       const sectionPanels = typePanels
                         .filter(p => p.sectionId === section.id)
