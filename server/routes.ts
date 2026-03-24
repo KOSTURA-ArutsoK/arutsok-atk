@@ -5,7 +5,7 @@ import { api } from "@shared/routes";
 import { setupAuth, isAuthenticated } from "./auth";
 import { z } from "zod";
 import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory } from "@shared/schema";
-import type { DocEntry } from "@shared/schema";
+import type { DocEntry, WebRoutingRule } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, syncSubjectParameters, seedAssetPanels, seedEventAndEntityPanels, seedNsVsTemplates, cleanupZombieTemplateParams, ensureOsClientType } from "./seed-subject-params";
 import sharp from "sharp";
@@ -16616,7 +16616,7 @@ export async function registerRoutes(
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
-  app.post("/api/subjects/:id/web-routing-rules", isAuthenticated, async (req: any, res) => {
+  app.post("/api/subjects/:id/web-routing-rules", isAuthenticated, async (req, res) => {
     try {
       const subjectId = Number(req.params.id);
       const subject = await storage.getSubject(subjectId);
@@ -16629,7 +16629,7 @@ export async function registerRoutes(
       if (!targetSubject) {
         return res.status(422).json({ message: "Cieľový subjekt s týmto UID neexistuje" });
       }
-      let rule: any;
+      let rule: WebRoutingRule;
       try {
         rule = await storage.createWebRoutingRule({
           subjectId,
@@ -16638,10 +16638,9 @@ export async function registerRoutes(
           statusSmerovania: String(statusSmerovania || "Aktívne"),
           sortOrder: Number(sortOrder ?? 0),
         });
-      } catch (dbErr: any) {
-        if (dbErr?.code === "23505") {
-          return res.status(409).json({ message: "Kód produktu je už použitý pre tento web" });
-        }
+      } catch (dbErr: unknown) {
+        const isUniqueViolation = typeof dbErr === "object" && dbErr !== null && (dbErr as { code?: unknown }).code === "23505";
+        if (isUniqueViolation) return res.status(409).json({ message: "Kód produktu je už použitý pre tento web" });
         throw dbErr;
       }
       await logAudit(req, {
@@ -16655,7 +16654,7 @@ export async function registerRoutes(
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
-  app.patch("/api/web-routing-rules/:ruleId", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/web-routing-rules/:ruleId", isAuthenticated, async (req, res) => {
     try {
       const ruleId = Number(req.params.ruleId);
       const existing = await storage.getWebRoutingRuleById(ruleId);
@@ -16674,13 +16673,12 @@ export async function registerRoutes(
       if (targetHoldingUid !== undefined) updates.targetHoldingUid = String(targetHoldingUid).trim();
       if (statusSmerovania !== undefined) updates.statusSmerovania = String(statusSmerovania);
       if (sortOrder !== undefined) updates.sortOrder = Number(sortOrder);
-      let updated: any;
+      let updated: WebRoutingRule | undefined;
       try {
         updated = await storage.updateWebRoutingRule(ruleId, updates);
-      } catch (dbErr: any) {
-        if (dbErr?.code === "23505") {
-          return res.status(409).json({ message: "Kód produktu je už použitý pre tento web" });
-        }
+      } catch (dbErr: unknown) {
+        const isUniqueViolation = typeof dbErr === "object" && dbErr !== null && (dbErr as { code?: unknown }).code === "23505";
+        if (isUniqueViolation) return res.status(409).json({ message: "Kód produktu je už použitý pre tento web" });
         throw dbErr;
       }
       if (!updated) return res.status(404).json({ message: "Not found" });
@@ -16696,7 +16694,7 @@ export async function registerRoutes(
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
   });
 
-  app.delete("/api/web-routing-rules/:ruleId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/web-routing-rules/:ruleId", isAuthenticated, async (req, res) => {
     try {
       const ruleId = Number(req.params.ruleId);
       const existing = await storage.getWebRoutingRuleById(ruleId);
