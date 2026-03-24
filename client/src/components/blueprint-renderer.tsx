@@ -54,6 +54,55 @@ export interface FullBlueprint {
 }
 
 // ============================================================
+// Color schemes (Task #127 spec: Royal Blue / Emerald / Dark Grey / Red)
+// ============================================================
+export type ColorScheme = "holding" | "client" | "network" | "risk" | "default";
+
+const COLOR_SCHEME_STYLES: Record<ColorScheme, {
+  tabActive: string;
+  tabBorder: string;
+  panelHeader: string;
+  panelBorder: string;
+  crossPull: string;
+}> = {
+  holding: {
+    tabActive: "border-blue-500 text-blue-600",
+    tabBorder: "hover:border-blue-300",
+    panelHeader: "bg-blue-50/60 dark:bg-blue-900/20",
+    panelBorder: "border-blue-200/60 dark:border-blue-800/40",
+    crossPull: "border-blue-300/50 bg-blue-50/20 dark:bg-blue-900/10",
+  },
+  client: {
+    tabActive: "border-emerald-500 text-emerald-600",
+    tabBorder: "hover:border-emerald-300",
+    panelHeader: "bg-emerald-50/60 dark:bg-emerald-900/20",
+    panelBorder: "border-emerald-200/60 dark:border-emerald-800/40",
+    crossPull: "border-emerald-300/50 bg-emerald-50/20 dark:bg-emerald-900/10",
+  },
+  network: {
+    tabActive: "border-slate-500 text-slate-600",
+    tabBorder: "hover:border-slate-300",
+    panelHeader: "bg-slate-100/60 dark:bg-slate-800/30",
+    panelBorder: "border-slate-300/60 dark:border-slate-700/40",
+    crossPull: "border-slate-300/50 bg-slate-50/20 dark:bg-slate-800/10",
+  },
+  risk: {
+    tabActive: "border-red-500 text-red-600",
+    tabBorder: "hover:border-red-300",
+    panelHeader: "bg-red-50/60 dark:bg-red-900/20",
+    panelBorder: "border-red-200/60 dark:border-red-800/40",
+    crossPull: "border-red-300/50 bg-red-50/20 dark:bg-red-900/10",
+  },
+  default: {
+    tabActive: "border-primary text-primary",
+    tabBorder: "hover:border-muted-foreground/40",
+    panelHeader: "bg-muted/40",
+    panelBorder: "border-border",
+    crossPull: "border-blue-300/50 bg-blue-50/20 dark:bg-blue-900/10",
+  },
+};
+
+// ============================================================
 // Width to tailwind class
 // ============================================================
 function widthToColSpan(width: string): string {
@@ -76,9 +125,10 @@ interface ParamFieldProps {
   onChange: (panelId: number, paramId: number, value: string) => void;
   crossValue?: string;
   readOnly?: boolean;
+  crossPullClass?: string;
 }
 
-function ParamField({ param, panelId, value, onChange, crossValue, readOnly }: ParamFieldProps) {
+function ParamField({ param, panelId, value, onChange, crossValue, readOnly, crossPullClass }: ParamFieldProps) {
   const displayValue = value || crossValue || "";
   const isCrossPulled = !value && !!crossValue;
 
@@ -100,6 +150,7 @@ function ParamField({ param, panelId, value, onChange, crossValue, readOnly }: P
         onChange={(val) => !readOnly && onChange(panelId, param.id, val)}
         readOnly={readOnly}
         isCrossPulled={isCrossPulled}
+        crossPullClass={crossPullClass}
       />
       {param.helpText && (
         <p className="text-[10px] text-muted-foreground">{param.helpText}</p>
@@ -115,12 +166,13 @@ interface ParamInputProps {
   onChange: (val: string) => void;
   readOnly?: boolean;
   isCrossPulled?: boolean;
+  crossPullClass?: string;
 }
 
-function ParameterInput({ param, panelId, value, onChange, readOnly, isCrossPulled }: ParamInputProps) {
+function ParameterInput({ param, panelId, value, onChange, readOnly, isCrossPulled, crossPullClass }: ParamInputProps) {
   const baseClass = cn(
     "text-sm",
-    isCrossPulled && "border-blue-300/50 bg-blue-50/20 dark:bg-blue-900/10"
+    isCrossPulled && (crossPullClass || "border-blue-300/50 bg-blue-50/20 dark:bg-blue-900/10")
   );
 
   if (param.paramType === "textarea") {
@@ -212,14 +264,16 @@ interface PanelCardProps {
   onChange: (panelId: number, paramId: number, value: string) => void;
   crossPullValues?: Record<string, string>;
   readOnly?: boolean;
+  colors?: typeof COLOR_SCHEME_STYLES["default"];
 }
 
-function PanelCard({ panel, values, onChange, crossPullValues, readOnly }: PanelCardProps) {
+function PanelCard({ panel, values, onChange, crossPullValues, readOnly, colors }: PanelCardProps) {
   if (panel.parameters.length === 0) return null;
+  const c = colors || COLOR_SCHEME_STYLES["default"];
 
   return (
-    <div className="border rounded-lg overflow-hidden" data-testid={`blueprint-panel-${panel.id}`}>
-      <div className="flex items-center gap-2 px-3 py-2 bg-muted/40 border-b">
+    <div className={cn("border-2 rounded-lg overflow-hidden", c.panelBorder)} data-testid={`blueprint-panel-${panel.id}`}>
+      <div className={cn("flex items-center gap-2 px-3 py-2 border-b", c.panelHeader)}>
         <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-sm font-semibold">{panel.name}</span>
         {panel.description && (
@@ -240,6 +294,7 @@ function PanelCard({ panel, values, onChange, crossPullValues, readOnly }: Panel
               onChange={onChange}
               crossValue={crossPullValues?.[crossKey] || crossPullValues?.[param.name]}
               readOnly={readOnly}
+              crossPullClass={c.crossPull}
             />
           );
         })}
@@ -259,11 +314,13 @@ interface BlueprintRendererProps {
   crossPullValues?: Record<string, string>;
   readOnly?: boolean;
   compact?: boolean;
+  colorScheme?: ColorScheme;
 }
 
 export function BlueprintRenderer({
-  productId, values = {}, onChange, crossPullValues, readOnly, compact,
+  productId, values = {}, onChange, crossPullValues, readOnly, compact, colorScheme = "default",
 }: BlueprintRendererProps) {
+  const colors = COLOR_SCHEME_STYLES[colorScheme];
   const [activeTab, setActiveTab] = useState(0);
 
   const { data: blueprint, isLoading } = useQuery<FullBlueprint>({
@@ -295,7 +352,6 @@ export function BlueprintRenderer({
   }
 
   const activeFolder = blueprint.folders[activeTab] || blueprint.folders[0];
-  const allPanelsFlat = useMemo(() => blueprint.folders.flatMap(f => f.panels), [blueprint]);
 
   return (
     <div className="space-y-3" data-testid="blueprint-renderer">
@@ -310,8 +366,8 @@ export function BlueprintRenderer({
               className={cn(
                 "flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
                 activeTab === idx
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40"
+                  ? colors.tabActive
+                  : cn("border-transparent text-muted-foreground hover:text-foreground", colors.tabBorder)
               )}
             >
               <FolderOpen className="h-3.5 w-3.5" />
@@ -335,6 +391,7 @@ export function BlueprintRenderer({
               onChange={handleChange}
               crossPullValues={crossPullValues}
               readOnly={readOnly}
+              colors={colors}
             />
           ))
         )}
