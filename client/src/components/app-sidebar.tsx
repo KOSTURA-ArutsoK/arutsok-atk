@@ -101,6 +101,7 @@ const financieItems = [
   { href: "/provizie", icon: ArrowDownLeft, label: "Provizie" },
   { href: "/odmeny", icon: ArrowUpRight, label: "Odmeny" },
   { href: "/commissions", icon: Percent, label: "Sadzby" },
+  { href: "/holding-strom", icon: Network, label: "Holding strom" },
 ];
 
 const reportyItems = [
@@ -656,7 +657,6 @@ export function AppSidebar() {
                   { href: "/sektory-subjektov", icon: Database, label: "UI Subjektov (B)" },
                   { href: "/sektory-subjektov-vizia", icon: Database, label: "UI Subjektov (B-Vizia)" },
                   { href: "/profil-subjektu", icon: Users, label: "Profil subjektu" },
-                  { href: "/holding-strom", icon: Network, label: "Holding strom" },
                 ]}
                 location={location}
                 searchString={currentSearch}
