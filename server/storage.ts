@@ -257,8 +257,10 @@ export interface IStorage {
   checkDuplicates(params: { birthNumber?: string; spz?: string; vin?: string }): Promise<Subject[]>;
 
   getEntityLinks(subjectId: number): Promise<EntityLink[]>;
+  getAllEntityLinks(filters?: { relationType?: string; isArchived?: boolean; subjectId?: number }): Promise<EntityLink[]>;
   createEntityLink(data: InsertEntityLink): Promise<EntityLink>;
   closeEntityLink(id: number): Promise<EntityLink>;
+  updateEntityLink(id: number, data: Partial<InsertEntityLink>): Promise<EntityLink>;
 
   getSubjectHierarchy(subjectId: number): Promise<{ parents: Subject[]; children: Subject[] }>;
 
@@ -2016,6 +2018,17 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(entityLinks.dateFrom));
   }
 
+  async getAllEntityLinks(filters?: { relationType?: string; isArchived?: boolean; subjectId?: number }): Promise<EntityLink[]> {
+    const conditions = [];
+    if (filters?.relationType) conditions.push(eq(entityLinks.relationType, filters.relationType));
+    if (filters?.subjectId) conditions.push(or(eq(entityLinks.sourceId, filters.subjectId), eq(entityLinks.targetId, filters.subjectId))!);
+    const query = db.select().from(entityLinks);
+    if (conditions.length > 0) {
+      return await query.where(and(...conditions)).orderBy(desc(entityLinks.validFrom)).limit(200);
+    }
+    return await query.orderBy(desc(entityLinks.validFrom)).limit(200);
+  }
+
   async createEntityLink(data: InsertEntityLink): Promise<EntityLink> {
     const [link] = await db.insert(entityLinks).values(data).returning();
     return link;
@@ -2024,6 +2037,14 @@ export class DatabaseStorage implements IStorage {
   async closeEntityLink(id: number): Promise<EntityLink> {
     const [link] = await db.update(entityLinks)
       .set({ dateTo: new Date() })
+      .where(eq(entityLinks.id, id))
+      .returning();
+    return link;
+  }
+
+  async updateEntityLink(id: number, data: Partial<InsertEntityLink>): Promise<EntityLink> {
+    const [link] = await db.update(entityLinks)
+      .set(data)
       .where(eq(entityLinks.id, id))
       .returning();
     return link;

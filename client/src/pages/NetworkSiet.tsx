@@ -9,13 +9,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDateTimeSlovak, formatUid } from "@/lib/utils";
+import { RelationGraph } from "@/components/RelationGraph";
 import {
   Network, Users, Shield, Snowflake, ArrowRightLeft,
   Check, X, Clock, Search, ChevronDown, ChevronRight,
-  UserCheck, AlertTriangle, Eye, Loader2, Link2
+  UserCheck, AlertTriangle, Eye, Loader2, Link2, Plus, Archive, GitBranch
 } from "lucide-react";
 
 type NetworkSubject = {
@@ -131,6 +133,36 @@ function transferStatusBadge(status: string) {
   }
 }
 
+type EnrichedEntityLink = {
+  id: number;
+  sourceId: number;
+  targetId: number;
+  relationType: string;
+  label: string | null;
+  validFrom: string | null;
+  validTo: string | null;
+  isArchived: boolean;
+  source: { id: number; uid: string | null; type: string | null; firstName: string | null; lastName: string | null; companyName: string | null } | null;
+  target: { id: number; uid: string | null; type: string | null; firstName: string | null; lastName: string | null; companyName: string | null } | null;
+};
+
+const RELATION_TYPES = [
+  { value: "digital_portal_for", label: "Digitálny portál pre" },
+  { value: "official_owner", label: "Officiálny vlastník" },
+  { value: "sponsor_guardian", label: "Sponzor / Opatrovník" },
+  { value: "beneficiary_owner", label: "Konečný vlastník" },
+  { value: "parent_child", label: "Rodič / Dieťa" },
+  { value: "employer_employee", label: "Zamestnávateľ / Zamestnanec" },
+  { value: "shareholder", label: "Akcionár" },
+  { value: "statutory_officer", label: "Štatutár" },
+  { value: "contract_manager", label: "Správca zmluvy" },
+  { value: "referrer_primary", label: "Primárny odporúčateľ" },
+  { value: "referrer_stack", label: "Reťazec odporúčateľov" },
+  { value: "responsible_specialist", label: "Zodpovedný špecialista" },
+  { value: "referral_source", label: "Zdroj odporúčania" },
+  { value: "custom", label: "Vlastný typ" },
+];
+
 export default function NetworkSiet() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
@@ -144,6 +176,26 @@ export default function NetworkSiet() {
   const [reviewDialog, setReviewDialog] = useState<{ id: number; action: "approved" | "rejected" } | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
+
+  const [graphSelectedNodeId, setGraphSelectedNodeId] = useState<number | null>(null);
+  const [graphRelationTypeFilter, setGraphRelationTypeFilter] = useState("all");
+  const [graphArchivedFilter, setGraphArchivedFilter] = useState("active");
+  const [graphSubjectSearch, setGraphSubjectSearch] = useState("");
+  const [showAddLinkPanel, setShowAddLinkPanel] = useState(false);
+  const [addLinkForm, setAddLinkForm] = useState({
+    sourceSearch: "",
+    targetSearch: "",
+    sourceId: null as number | null,
+    targetId: null as number | null,
+    relationType: "custom",
+    label: "",
+    validFrom: "",
+    validTo: "",
+  });
+  const [sourceResults, setSourceResults] = useState<NetworkSubject[]>([]);
+  const [targetResults, setTargetResults] = useState<NetworkSubject[]>([]);
+  const [sourceDropdown, setSourceDropdown] = useState(false);
+  const [targetDropdown, setTargetDropdown] = useState(false);
 
   const { data: networkData, isLoading: loadingTree } = useQuery<{ root: any; links: NetworkLink[]; subjects: NetworkSubject[] }>({
     queryKey: ["/api/network/tree"],
@@ -191,6 +243,74 @@ export default function NetworkSiet() {
       setReviewNote("");
     },
   });
+
+  const entityLinksQueryParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (graphRelationTypeFilter !== "all") params.set("relationType", graphRelationTypeFilter);
+    if (graphArchivedFilter !== "all") params.set("isArchived", graphArchivedFilter === "archived" ? "true" : "false");
+    return params.toString();
+  }, [graphRelationTypeFilter, graphArchivedFilter]);
+
+  const { data: entityLinksData, isLoading: loadingEntityLinks } = useQuery<EnrichedEntityLink[]>({
+    queryKey: ["/api/entity-links", graphRelationTypeFilter, graphArchivedFilter],
+    queryFn: () => fetch(`/api/entity-links?${entityLinksQueryParams}`, { credentials: "include" }).then(r => r.json()),
+  });
+
+  const createEntityLinkMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/entity-links", data),
+    onSuccess: () => {
+      toast({ title: "Prepojenie vytvorené" });
+      queryClient.invalidateQueries({ queryKey: ["/api/entity-links"] });
+      setShowAddLinkPanel(false);
+      setAddLinkForm({ sourceSearch: "", targetSearch: "", sourceId: null, targetId: null, relationType: "custom", label: "", validFrom: "", validTo: "" });
+      setSourceResults([]);
+      setTargetResults([]);
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa vytvoriť prepojenie", variant: "destructive" });
+    },
+  });
+
+  const archiveEntityLinkMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("PATCH", `/api/entity-links/${id}`, { isArchived: true }),
+    onSuccess: () => {
+      toast({ title: "Prepojenie archivované" });
+      queryClient.invalidateQueries({ queryKey: ["/api/entity-links"] });
+    },
+  });
+
+  const searchSubjectsForGraph = useCallback(async (term: string, which: "source" | "target") => {
+    if (!term || term.length < 2) {
+      if (which === "source") setSourceResults([]);
+      else setTargetResults([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/subjects?search=${encodeURIComponent(term)}&limit=8`, { credentials: "include" });
+      const data = await res.json();
+      const items = Array.isArray(data) ? data : (data.subjects || data.data || []);
+      if (which === "source") { setSourceResults(items); setSourceDropdown(true); }
+      else { setTargetResults(items); setTargetDropdown(true); }
+    } catch { /* ignore */ }
+  }, []);
+
+  const filteredEntityLinks = useMemo(() => {
+    if (!entityLinksData) return [];
+    if (!graphSubjectSearch) return entityLinksData;
+    const term = graphSubjectSearch.toLowerCase();
+    return entityLinksData.filter(l => {
+      const sn = l.source ? `${l.source.firstName || ""} ${l.source.lastName || ""} ${l.source.companyName || ""}`.toLowerCase() : "";
+      const tn = l.target ? `${l.target.firstName || ""} ${l.target.lastName || ""} ${l.target.companyName || ""}`.toLowerCase() : "";
+      return sn.includes(term) || tn.includes(term);
+    });
+  }, [entityLinksData, graphSubjectSearch]);
+
+  const graphSelectedNode = useMemo(() => {
+    if (!graphSelectedNodeId || !entityLinksData) return null;
+    const allLinks = entityLinksData.filter(l => l.sourceId === graphSelectedNodeId || l.targetId === graphSelectedNodeId);
+    const subject = allLinks[0]?.source?.id === graphSelectedNodeId ? allLinks[0]?.source : allLinks[0]?.target;
+    return { subject, links: allLinks };
+  }, [graphSelectedNodeId, entityLinksData]);
 
   const subjectMap = useMemo(() => {
     const map = new Map<number, NetworkSubject>();
@@ -385,6 +505,9 @@ export default function NetworkSiet() {
           </TabsTrigger>
           <TabsTrigger value="transfers" data-testid="tab-transfers">
             <ArrowRightLeft className="w-4 h-4 mr-1" />Prestupové protokoly
+          </TabsTrigger>
+          <TabsTrigger value="relation-graph" data-testid="tab-relation-graph">
+            <GitBranch className="w-4 h-4 mr-1" />Sieť vzťahov
           </TabsTrigger>
         </TabsList>
 
@@ -771,6 +894,351 @@ export default function NetworkSiet() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="relation-graph">
+          <div className="flex gap-4">
+            <div className="flex-1 min-w-0 space-y-3">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+                      <GitBranch className="w-4 h-4" />
+                      Graf vzťahov
+                    </CardTitle>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-2 top-2.5 text-muted-foreground" />
+                        <Input
+                          placeholder="Subjekt..."
+                          value={graphSubjectSearch}
+                          onChange={e => setGraphSubjectSearch(e.target.value)}
+                          className="pl-7 w-40 text-xs h-8"
+                          data-testid="input-graph-subject-search"
+                        />
+                      </div>
+                      <Select value={graphRelationTypeFilter} onValueChange={setGraphRelationTypeFilter}>
+                        <SelectTrigger className="w-44 text-xs h-8" data-testid="select-graph-relation-type">
+                          <SelectValue placeholder="Typ vzťahu" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Všetky typy</SelectItem>
+                          {RELATION_TYPES.map(rt => (
+                            <SelectItem key={rt.value} value={rt.value}>{rt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={graphArchivedFilter} onValueChange={setGraphArchivedFilter}>
+                        <SelectTrigger className="w-32 text-xs h-8" data-testid="select-graph-archived">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Všetky</SelectItem>
+                          <SelectItem value="active">Aktívne</SelectItem>
+                          <SelectItem value="archived">Archivované</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                        onClick={() => setShowAddLinkPanel(p => !p)}
+                        data-testid="btn-add-link"
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" />
+                        Pridať prepojenie
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-2">
+                  {loadingEntityLinks ? (
+                    <div className="flex items-center justify-center h-[500px]">
+                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <RelationGraph
+                      links={filteredEntityLinks}
+                      onNodeClick={setGraphSelectedNodeId}
+                      selectedNodeId={graphSelectedNodeId}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs text-muted-foreground">Zoznam prepojení ({filteredEntityLinks.length})</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {filteredEntityLinks.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground text-sm">
+                      <GitBranch className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                      Žiadne prepojenia
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {filteredEntityLinks.map(link => {
+                        const srcName = link.source ? `${link.source.firstName || ""} ${link.source.lastName || ""} ${link.source.companyName || ""}`.trim() : "?";
+                        const tgtName = link.target ? `${link.target.firstName || ""} ${link.target.lastName || ""} ${link.target.companyName || ""}`.trim() : "?";
+                        return (
+                          <div
+                            key={link.id}
+                            className={`flex items-center gap-3 px-4 py-2.5 text-sm ${link.isArchived ? "opacity-50" : ""}`}
+                            data-testid={`entity-link-row-${link.id}`}
+                          >
+                            <span className="text-foreground font-medium min-w-[120px] truncate">{srcName}</span>
+                            <span className="text-xs text-muted-foreground shrink-0">→</span>
+                            <Badge variant="outline" className="text-[10px] px-1.5 shrink-0">
+                              {RELATION_TYPES.find(r => r.value === link.relationType)?.label || link.relationType}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground shrink-0">→</span>
+                            <span className="text-foreground min-w-[120px] truncate">{tgtName}</span>
+                            {link.label && <span className="text-xs text-muted-foreground italic truncate">{link.label}</span>}
+                            {link.isArchived && <Badge variant="outline" className="text-[10px] px-1.5 text-slate-400 border-slate-500/30 ml-auto shrink-0">Archív</Badge>}
+                            {!link.isArchived && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs text-muted-foreground ml-auto shrink-0"
+                                onClick={() => archiveEntityLinkMutation.mutate(link.id)}
+                                disabled={archiveEntityLinkMutation.isPending}
+                                data-testid={`btn-archive-link-${link.id}`}
+                              >
+                                <Archive className="w-3 h-3 mr-1" />
+                                Archivovať
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {(showAddLinkPanel || graphSelectedNodeId) && (
+              <div className="w-80 shrink-0 space-y-3">
+                {showAddLinkPanel && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Plus className="w-4 h-4 text-indigo-400" />
+                        Nové prepojenie
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Zdrojový subjekt</Label>
+                        <div className="relative">
+                          <Input
+                            placeholder="Hľadať subjekt..."
+                            value={addLinkForm.sourceSearch}
+                            onChange={e => {
+                              setAddLinkForm(p => ({ ...p, sourceSearch: e.target.value, sourceId: null }));
+                              searchSubjectsForGraph(e.target.value, "source");
+                            }}
+                            className="text-xs"
+                            data-testid="input-link-source"
+                          />
+                          {addLinkForm.sourceId && (
+                            <div className="absolute right-2 top-2">
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            </div>
+                          )}
+                          {sourceDropdown && sourceResults.length > 0 && (
+                            <div className="absolute z-20 w-full top-full mt-1 bg-popover border border-border rounded-md shadow-md max-h-48 overflow-y-auto">
+                              {sourceResults.map((s: NetworkSubject) => (
+                                <div
+                                  key={s.id}
+                                  className="px-3 py-2 text-xs hover:bg-accent cursor-pointer"
+                                  onClick={() => {
+                                    setAddLinkForm(p => ({ ...p, sourceId: s.id, sourceSearch: getSubjectName(s) }));
+                                    setSourceDropdown(false);
+                                  }}
+                                  data-testid={`source-option-${s.id}`}
+                                >
+                                  {getSubjectName(s)}
+                                  <span className="text-muted-foreground ml-1">{formatUid(s.uid)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Cieľový subjekt</Label>
+                        <div className="relative">
+                          <Input
+                            placeholder="Hľadať subjekt..."
+                            value={addLinkForm.targetSearch}
+                            onChange={e => {
+                              setAddLinkForm(p => ({ ...p, targetSearch: e.target.value, targetId: null }));
+                              searchSubjectsForGraph(e.target.value, "target");
+                            }}
+                            className="text-xs"
+                            data-testid="input-link-target"
+                          />
+                          {addLinkForm.targetId && (
+                            <div className="absolute right-2 top-2">
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            </div>
+                          )}
+                          {targetDropdown && targetResults.length > 0 && (
+                            <div className="absolute z-20 w-full top-full mt-1 bg-popover border border-border rounded-md shadow-md max-h-48 overflow-y-auto">
+                              {targetResults.map((s: NetworkSubject) => (
+                                <div
+                                  key={s.id}
+                                  className="px-3 py-2 text-xs hover:bg-accent cursor-pointer"
+                                  onClick={() => {
+                                    setAddLinkForm(p => ({ ...p, targetId: s.id, targetSearch: getSubjectName(s) }));
+                                    setTargetDropdown(false);
+                                  }}
+                                  data-testid={`target-option-${s.id}`}
+                                >
+                                  {getSubjectName(s)}
+                                  <span className="text-muted-foreground ml-1">{formatUid(s.uid)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Typ vzťahu</Label>
+                        <Select
+                          value={addLinkForm.relationType}
+                          onValueChange={v => setAddLinkForm(p => ({ ...p, relationType: v }))}
+                        >
+                          <SelectTrigger className="text-xs" data-testid="select-link-relation-type">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {RELATION_TYPES.map(rt => (
+                              <SelectItem key={rt.value} value={rt.value}>{rt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Popis (voliteľný)</Label>
+                        <Input
+                          placeholder="Vlastný popis vzťahu..."
+                          value={addLinkForm.label}
+                          onChange={e => setAddLinkForm(p => ({ ...p, label: e.target.value }))}
+                          className="text-xs"
+                          data-testid="input-link-label"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Platné od</Label>
+                          <Input
+                            type="date"
+                            value={addLinkForm.validFrom}
+                            onChange={e => setAddLinkForm(p => ({ ...p, validFrom: e.target.value }))}
+                            className="text-xs"
+                            data-testid="input-link-valid-from"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Platné do</Label>
+                          <Input
+                            type="date"
+                            value={addLinkForm.validTo}
+                            onChange={e => setAddLinkForm(p => ({ ...p, validTo: e.target.value }))}
+                            className="text-xs"
+                            data-testid="input-link-valid-to"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 text-xs"
+                          onClick={() => setShowAddLinkPanel(false)}
+                          data-testid="btn-link-cancel"
+                        >
+                          Zrušiť
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="flex-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                          disabled={!addLinkForm.sourceId || !addLinkForm.targetId || createEntityLinkMutation.isPending}
+                          onClick={() => createEntityLinkMutation.mutate({
+                            sourceId: addLinkForm.sourceId,
+                            targetId: addLinkForm.targetId,
+                            relationType: addLinkForm.relationType,
+                            label: addLinkForm.label || null,
+                            validFrom: addLinkForm.validFrom || undefined,
+                            validTo: addLinkForm.validTo || undefined,
+                          })}
+                          data-testid="btn-link-submit"
+                        >
+                          {createEntityLinkMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Vytvoriť"}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {graphSelectedNodeId && graphSelectedNode && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Eye className="w-4 h-4 text-blue-400" />
+                          Detail uzla
+                        </CardTitle>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setGraphSelectedNodeId(null)}>
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {graphSelectedNode.subject && (
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {getSubjectName(graphSelectedNode.subject as NetworkSubject)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{formatUid(graphSelectedNode.subject?.uid)}</p>
+                          <p className="text-xs text-muted-foreground">{graphSelectedNode.subject?.type?.toUpperCase()}</p>
+                        </div>
+                      )}
+                      <div className="space-y-1.5">
+                        <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Prepojenia ({graphSelectedNode.links.length})</p>
+                        {graphSelectedNode.links.map(link => {
+                          const other = link.sourceId === graphSelectedNodeId ? link.target : link.source;
+                          const isSource = link.sourceId === graphSelectedNodeId;
+                          return (
+                            <div key={link.id} className={`p-2 rounded border border-border text-xs ${link.isArchived ? "opacity-50" : ""}`} data-testid={`node-link-${link.id}`}>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-muted-foreground">{isSource ? "→" : "←"}</span>
+                                <span className="font-medium text-foreground">
+                                  {other ? `${other.firstName || ""} ${other.lastName || ""} ${other.companyName || ""}`.trim() : "?"}
+                                </span>
+                              </div>
+                              <Badge variant="outline" className="text-[10px] px-1.5 mt-1">
+                                {RELATION_TYPES.find(r => r.value === link.relationType)?.label || link.relationType}
+                              </Badge>
+                              {link.label && <p className="text-muted-foreground italic mt-1">{link.label}</p>}
+                              {link.isArchived && <span className="text-slate-400"> — Archivované</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 

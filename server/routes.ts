@@ -3409,23 +3409,81 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/entity-links", isAuthenticated, async (req: any, res) => {
+    try {
+      const { relationType, isArchived, subjectId } = req.query;
+      const filters: { relationType?: string; isArchived?: boolean; subjectId?: number } = {};
+      if (relationType && relationType !== "all") filters.relationType = relationType as string;
+      if (isArchived !== undefined) filters.isArchived = isArchived === "true";
+      if (subjectId) filters.subjectId = parseInt(subjectId as string);
+      const links = await storage.getAllEntityLinks(filters);
+      const subjectIds = new Set<number>();
+      for (const link of links) {
+        subjectIds.add(link.sourceId);
+        subjectIds.add(link.targetId);
+      }
+      const subjectMap = new Map<number, any>();
+      for (const sid of subjectIds) {
+        const s = await storage.getSubject(sid);
+        if (s) subjectMap.set(sid, { id: s.id, uid: s.uid, type: s.type, firstName: s.firstName, lastName: s.lastName, companyName: s.companyName, email: s.email });
+      }
+      const now = new Date();
+      const enriched = links.map(link => {
+        const isExpired = link.validTo && new Date(link.validTo) < now;
+        const effectiveArchived = link.isArchived || !!isExpired;
+        return {
+          ...link,
+          isArchived: effectiveArchived,
+          source: subjectMap.get(link.sourceId) || null,
+          target: subjectMap.get(link.targetId) || null,
+        };
+      });
+      const filtered = isArchived !== undefined
+        ? enriched.filter(l => l.isArchived === (isArchived === "true"))
+        : enriched;
+      res.json(filtered);
+    } catch {
+      res.status(500).json({ message: "Chyba pri nacitani prepojeni" });
+    }
+  });
+
   app.post("/api/entity-links", isAuthenticated, async (req: any, res) => {
     try {
-      const { sourceId, targetId } = req.body;
+      const { sourceId, targetId, relationType, label, validFrom, validTo } = req.body;
       if (!sourceId || !targetId) return res.status(400).json({ message: "sourceId a targetId su povinne" });
       if (sourceId === targetId) return res.status(400).json({ message: "Subjekt nemoze byt prepojeny sam so sebou" });
-      const existing = await storage.getEntityLinks(sourceId);
-      const duplicate = existing.find(l => !l.dateTo && ((l.sourceId === sourceId && l.targetId === targetId) || (l.sourceId === targetId && l.targetId === sourceId)));
-      if (duplicate) return res.status(400).json({ message: "Toto prepojenie uz existuje" });
       const link = await storage.createEntityLink({
         sourceId,
         targetId,
+        relationType: relationType || "custom",
+        label: label || null,
+        validFrom: validFrom ? new Date(validFrom) : new Date(),
+        validTo: validTo ? new Date(validTo) : null,
+        isArchived: false,
         dateFrom: new Date(),
         createdByUserId: req.appUser?.id || null,
       });
       res.json(link);
     } catch {
       res.status(500).json({ message: "Chyba pri vytvarani prepojenia" });
+    }
+  });
+
+  app.patch("/api/entity-links/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Neplatné ID" });
+      const { isArchived, label, relationType, validFrom, validTo } = req.body;
+      const updates: any = {};
+      if (isArchived !== undefined) updates.isArchived = isArchived;
+      if (label !== undefined) updates.label = label;
+      if (relationType !== undefined) updates.relationType = relationType;
+      if (validFrom !== undefined) updates.validFrom = validFrom ? new Date(validFrom) : null;
+      if (validTo !== undefined) updates.validTo = validTo ? new Date(validTo) : null;
+      const link = await storage.updateEntityLink(id, updates);
+      res.json(link);
+    } catch {
+      res.status(500).json({ message: "Chyba pri aktualizacii prepojenia" });
     }
   });
 
