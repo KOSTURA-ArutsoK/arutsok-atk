@@ -791,13 +791,11 @@ export default function SektorySubjektovVizia() {
                                                                                                   {/* Riadok header row */}
                                                                                                   <div className="flex items-center gap-1 mb-0.5">
                                                                                                     <DragHandle listeners={riadokL} attributes={riadokA} testId={`drag-handle-riadok-${riadok.id}`} />
-                                                                                                    {params.length > 0 && (
-                                                                                                      <CollapseToggle
-                                                                                                        expanded={riadokExpanded}
-                                                                                                        onToggle={e => toggleRiadok(riadok.id, e)}
-                                                                                                        testId={`collapse-toggle-riadok-${riadok.id}`}
-                                                                                                      />
-                                                                                                    )}
+                                                                                                    <CollapseToggle
+                                                                                                      expanded={riadokExpanded}
+                                                                                                      onToggle={e => toggleRiadok(riadok.id, e)}
+                                                                                                      testId={`collapse-toggle-riadok-${riadok.id}`}
+                                                                                                    />
                                                                                                     <Rows3 className="h-2.5 w-2.5 text-muted-foreground/60 flex-shrink-0" />
                                                                                                     {riadok.name ? (
                                                                                                       <span className="font-medium text-muted-foreground/80 flex-1 truncate">{riadok.name}</span>
@@ -823,7 +821,8 @@ export default function SektorySubjektovVizia() {
                                                                                                     </button>
                                                                                                   </div>
                                                                                                   {/* Params inside Riadok — collapsible, DnD */}
-                                                                                                  {riadokExpanded && params.length > 0 && (
+                                                                                                  {riadokExpanded && (
+                                                                                                    params.length > 0 ? (
                                                                                                     <DndContext sensors={sensors} onDragEnd={e => handleDragEndParams(e, getParamsForRiadok(riadok.id))}>
                                                                                                       <SortableContext items={params.map(p => p.id)} strategy={verticalListSortingStrategy}>
                                                                                                         <div className="flex flex-col gap-0.5 mt-0.5 pl-3.5">
@@ -853,9 +852,9 @@ export default function SektorySubjektovVizia() {
                                                                                                         </div>
                                                                                                       </SortableContext>
                                                                                                     </DndContext>
-                                                                                                  )}
-                                                                                                  {!riadokExpanded && params.length === 0 && (
-                                                                                                    <div className="pl-3.5 text-[10px] text-muted-foreground/40 italic">prázdny riadok</div>
+                                                                                                    ) : (
+                                                                                                      <div className="pl-3.5 text-[10px] text-muted-foreground/40 italic">žiadne parametre</div>
+                                                                                                    )
                                                                                                   )}
                                                                                                 </div>
                                                                                               )}
