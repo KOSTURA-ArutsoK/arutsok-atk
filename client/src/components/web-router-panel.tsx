@@ -320,7 +320,7 @@ function RuleRow({
           <AlertDialogHeader>
             <AlertDialogTitle>Odstrániť smerovanie?</AlertDialogTitle>
             <AlertDialogDescription>
-              Naozaj chcete odstrániť pravidlo <strong>{rule.apiProductSlug}</strong>? Akcia je nevratná.
+              Naozaj chcete odstrániť toto smerovanie? Akcia je nevratná.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
