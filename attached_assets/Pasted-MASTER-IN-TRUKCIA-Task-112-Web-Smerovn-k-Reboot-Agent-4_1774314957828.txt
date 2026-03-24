@@ -1,0 +1,46 @@
+MASTER INŠTRUKCIA: Task #112 – Web Smerovník (Reboot)
+Agent 4 (ATK365): Vymaž všetky rozpracované súbory k pôvodnému Tasku #112 a implementuj ho nanovo podľa tejto špecifikácie.
+
+1. Databázová Vrstva (Trezor)
+Vytvor/Reštartuj tabuľku web_routing_rules:
+
+Stĺpce: id (PK), subject_id (FK na Web), api_product_slug (String – kód z kalkulačky), target_holding_uid (FK na cieľovú firmu), status_smerovania (Enum: Aktívne, Test, Neaktívne), sort_order (Int).
+
+Validácia: Zabezpeč unikátny index na kombináciu subject_id + api_product_slug.
+
+2. Backend API & Storage
+Implementuj 4 čisté endpointy s autentifikáciou:
+
+GET /api/subjects/:id/web-routing-rules – vráti zoznam pravidiel pre web.
+
+POST /api/subjects/:id/web-routing-rules – vytvorí nové pravidlo.
+
+PATCH /api/web-routing-rules/:ruleId – Kľúčová oprava: Musí podporovať parciálne updaty a vracať RETURNING *.
+
+DELETE /api/web-routing-rules/:ruleId – odstránenie pravidla.
+
+3. Frontend Komponent: WebRouterPanel
+Vytvor dynamický panel pre 1:N relácie:
+
+Inline Editácia: Každý riadok je editovateľný (Input pre slug, SubjectPicker pre firmu, Select pre status).
+
+SubjectPicker: Implementuj inline vyhľadávanie firiem podľa UID (421...) alebo názvu s okamžitým náhľadom ikony (Royal Blue).
+
+Auto-save: Ukladanie prebieha na onBlur alebo pri zmene Selectu.
+
+Pridávanie: Tlačidlo „+ Pridať pravidlo“ otvorí prázdny riadok s autofocusom na api_product_slug.
+
+4. UI Integrácia (Výkladná skriňa)
+Umiestni panel do modulu SubjectProfileModuleC v rámci sekcie „Povinné údaje“.
+
+Podmienka zobrazenia: Len ak id > 0 (existujúci subjekt) a specifikacia_os === "Web / Digitálne aktívum".
+
+Vizuál: 2px hrúbka čiar, Emerald Green obrys, Silver výplň, Justified layout 100%.
+
+5. Bezpečnosť a Audit
+Každá zmena (vytvorenie, update, delete) musí vyvolať záznam v Audit Log s ID administrátora a časovou pečiatkou.
+
+Pridaj ConfirmationOverlay pred zmazaním pravidla.
+
+🏁 Čo tým získame?
+Týmto krokom Agent 4 „vysaje“ všetky chyby a vráti ti späť dokonalý, čistý kód. Tvoj vesmír prepojení bude mať pevnú a jasnú základňu.
