@@ -652,7 +652,9 @@ export function AppSidebar() {
                 icon={StrukturaIcon}
                 items={[
                   { href: "/sektory-zmluv", icon: FileText, label: "Štruktúra sektorov (A)" },
+                  { href: "/sektory-zmluv-vizia", icon: FileText, label: "Štruktúra sektorov (A-Vízia)" },
                   { href: "/sektory-subjektov", icon: Database, label: "UI Subjektov (B)" },
+                  { href: "/sektory-subjektov-vizia", icon: Database, label: "UI Subjektov (B-Vizia)" },
                   { href: "/profil-subjektu", icon: Users, label: "Profil subjektu" },
                 ]}
                 location={location}

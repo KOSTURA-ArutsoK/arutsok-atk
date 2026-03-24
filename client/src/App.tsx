@@ -71,6 +71,8 @@ import ObchodnePrilezitosti from "@/pages/ObchodnePrilezitosti";
 import NastavenieObchodnychPrilezitosti from "@/pages/NastavenieObchodnychPrilezitosti";
 import PridatSubjekt from "@/pages/PridatSubjekt";
 import Aaa from "@/pages/Aaa";
+import SektoryZmluvVizia from "@/pages/SektoryZmluvVizia";
+import SektorySubjektovVizia from "@/pages/SektorySubjektovVizia";
 import { AppShell } from "@/components/layout/AppShell";
 import { RedListNotificationPopup } from "@/components/red-list-notification-popup";
 import { BlackListNotificationPopup } from "@/components/black-list-notification-popup";
@@ -175,6 +177,8 @@ const PrivateObchodnePrilezitosti = () => <PrivateRoute><ObchodnePrilezitosti />
 const PrivateNastavenieObchodnychPrilezitosti = () => <PrivateRoute><NastavenieObchodnychPrilezitosti /></PrivateRoute>;
 const PrivatePridatSubjekt = () => <PrivateRoute><PridatSubjekt /></PrivateRoute>;
 const PrivateAaa = () => <PrivateRoute><Aaa /></PrivateRoute>;
+const PrivateSektoryZmluvVizia = () => <PrivateRoute><SektoryZmluvVizia /></PrivateRoute>;
+const PrivateSektorySubjektovVizia = () => <PrivateRoute><SektorySubjektovVizia /></PrivateRoute>;
 const PrivateClientProfile = () => <PrivateRoute><ClientProfilePage /></PrivateRoute>;
 
 function Router() {
@@ -246,6 +250,8 @@ function Router() {
       <Route path="/nastavenie-obchodnych-prilezitosti" component={PrivateNastavenieObchodnychPrilezitosti} />
       <Route path="/pridat-subjekt" component={PrivatePridatSubjekt} />
       <Route path="/aaa" component={PrivateAaa} />
+      <Route path="/sektory-zmluv-vizia" component={PrivateSektoryZmluvVizia} />
+      <Route path="/sektory-subjektov-vizia" component={PrivateSektorySubjektovVizia} />
       <Route component={NotFound} />
     </Switch>
   );
