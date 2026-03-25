@@ -154,7 +154,7 @@ export function RedListNotificationPopup() {
   const { data: appUser } = useAppUser();
   const [visible, setVisible] = useState(false);
 
-  const sessionKey = appUser?.id ? `homePopup_shown_${appUser.id}` : null;
+  const sessionKey = appUser?.id ? `homePopup_v2_${appUser.id}` : null;
 
   const { data, isLoading } = useQuery<HomePopupData>({
     queryKey: ["/api/home-popup-data"],
@@ -170,7 +170,6 @@ export function RedListNotificationPopup() {
     const loginStamp = (appUser as any)?.lastLoginAt ?? "unknown";
     const stored = sessionStorage.getItem(sessionKey);
     if (stored !== loginStamp) {
-      sessionStorage.setItem(sessionKey, loginStamp);
       setVisible(true);
     }
   }, [data, sessionKey, appUser]);
@@ -186,6 +185,10 @@ export function RedListNotificationPopup() {
   });
 
   function handleClose() {
+    if (sessionKey) {
+      const loginStamp = (appUser as any)?.lastLoginAt ?? "unknown";
+      sessionStorage.setItem(sessionKey, loginStamp);
+    }
     setVisible(false);
     markAllReadMutation.mutate();
   }
