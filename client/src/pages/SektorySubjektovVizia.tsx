@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   LayoutGrid, AlignLeft, Plus, X,
   Layers, FolderOpen, Pencil, Info, Loader2, Tag,
-  Rows3, Square, GripVertical, ArrowRightLeft,
+  Rows3, GripVertical, ArrowRightLeft,
   ChevronRight, ChevronsDownUp, ChevronsUpDown,
 } from "lucide-react";
 import {
@@ -1051,7 +1051,7 @@ export default function SektorySubjektovVizia() {
                   disabled={!selectedBlokId}
                   data-testid="toolbar-add-panel"
                 >
-                  <Square className="h-3.5 w-3.5" />
+                  <LayoutGrid className="h-3.5 w-3.5" />
                   Panel
                 </Button>
                 <Button
