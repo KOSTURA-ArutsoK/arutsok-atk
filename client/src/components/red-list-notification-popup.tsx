@@ -85,7 +85,7 @@ function Section({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         style={{
-          background: `rgba(${rgb}, 0.09)`,
+          background: hovered ? `rgba(${rgb}, 0.10)` : "transparent",
           transition: "background 0.2s ease",
         }}
         className="px-4 py-3"
