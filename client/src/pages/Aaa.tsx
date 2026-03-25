@@ -20,8 +20,8 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
         title="Pridať nového partnera"
         style={{
           position: "relative",
-          width: 180,
-          height: 207,
+          width: 280,
+          height: 80,
           background: "none",
           border: "none",
           padding: 0,
@@ -33,15 +33,15 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
         }}
       >
         <svg
-          width="180"
-          height="207"
-          viewBox="0 0 160 180"
+          width="280"
+          height="80"
+          viewBox="0 0 280 80"
           fill="none"
           style={{ position: "absolute", top: 0, left: 0, overflow: "visible" }}
         >
           <defs>
-            <filter id="amberGlowAaa" x="-60%" y="-60%" width="220%" height="220%">
-              <feGaussianBlur stdDeviation="16" result="blur" />
+            <filter id="amberGlowAaa" x="-30%" y="-60%" width="160%" height="220%">
+              <feGaussianBlur stdDeviation="12" result="blur" />
             </filter>
             <linearGradient id="hexGradAaa" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0%" stopColor="#0a1f3d" />
@@ -50,14 +50,14 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           </defs>
           {/* Glow */}
           <rect
-            x="21" y="22" width="118" height="136" rx="44"
+            x="8" y="8" width="264" height="64" rx="24"
             fill={isActive ? "rgba(0,255,80,1.0)" : "rgba(56,189,248,0.50)"}
             filter="url(#amberGlowAaa)"
             style={{ transition: "fill 0.2s ease" }}
           />
           {/* Tabletka */}
           <rect
-            x="21" y="22" width="118" height="136" rx="44"
+            x="1" y="1" width="278" height="78" rx="28"
             fill="url(#hexGradAaa)"
             stroke={isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)"}
             strokeWidth="2"
