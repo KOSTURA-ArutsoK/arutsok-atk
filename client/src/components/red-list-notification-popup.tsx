@@ -21,6 +21,11 @@ interface HomePopupData {
 }
 
 function SideGlow({ rect, rgb, showBottom = false }: { rect: DOMRect; rgb: string; showBottom?: boolean }) {
+  const originYPct = showBottom
+    ? Math.round((rect.height / 2 / (window.innerHeight - rect.top)) * 100)
+    : 50;
+  const centerXPct = Math.round(((rect.left + rect.width / 2) / window.innerWidth) * 100);
+
   return createPortal(
     <>
       <div
@@ -31,9 +36,7 @@ function SideGlow({ rect, rgb, showBottom = false }: { rect: DOMRect; rgb: strin
           width: rect.left,
           height: showBottom ? undefined : rect.height,
           bottom: showBottom ? 0 : undefined,
-          background: showBottom
-            ? `radial-gradient(ellipse at right top, rgba(${rgb}, 0.55) 0%, transparent 65%)`
-            : `radial-gradient(ellipse at right, rgba(${rgb}, 0.55) 0%, transparent 75%)`,
+          background: `radial-gradient(ellipse at 100% ${originYPct}%, rgba(${rgb}, 0.58) 0%, transparent 72%)`,
           pointerEvents: "none",
           zIndex: 201,
           transition: "opacity 0.25s ease",
@@ -47,9 +50,7 @@ function SideGlow({ rect, rgb, showBottom = false }: { rect: DOMRect; rgb: strin
           right: 0,
           height: showBottom ? undefined : rect.height,
           bottom: showBottom ? 0 : undefined,
-          background: showBottom
-            ? `radial-gradient(ellipse at left top, rgba(${rgb}, 0.55) 0%, transparent 65%)`
-            : `radial-gradient(ellipse at left, rgba(${rgb}, 0.55) 0%, transparent 75%)`,
+          background: `radial-gradient(ellipse at 0% ${originYPct}%, rgba(${rgb}, 0.58) 0%, transparent 72%)`,
           pointerEvents: "none",
           zIndex: 201,
           transition: "opacity 0.25s ease",
@@ -60,10 +61,10 @@ function SideGlow({ rect, rgb, showBottom = false }: { rect: DOMRect; rgb: strin
           style={{
             position: "fixed",
             top: rect.bottom,
-            left: rect.left,
-            width: rect.width,
+            left: 0,
+            right: 0,
             bottom: 0,
-            background: `radial-gradient(ellipse at top center, rgba(${rgb}, 0.50) 0%, transparent 70%)`,
+            background: `radial-gradient(ellipse at ${centerXPct}% 0%, rgba(${rgb}, 0.52) 0%, transparent 68%)`,
             pointerEvents: "none",
             zIndex: 201,
             transition: "opacity 0.25s ease",
