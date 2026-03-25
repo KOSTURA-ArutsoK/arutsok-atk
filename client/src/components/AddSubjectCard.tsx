@@ -25,8 +25,8 @@ export function AddSubjectCard({ onClick }: AddSubjectCardProps) {
         onTouchEnd={() => setPressed(false)}
         style={{
           position: "relative",
-          width: 250,
-          height: 100,
+          width: 300,
+          height: 50,
           background: "none",
           border: "none",
           padding: 0,
@@ -38,15 +38,15 @@ export function AddSubjectCard({ onClick }: AddSubjectCardProps) {
         }}
       >
         <svg
-          width="250"
-          height="100"
-          viewBox="0 0 250 100"
+          width="300"
+          height="50"
+          viewBox="0 0 300 50"
           fill="none"
           style={{ position: "absolute", top: 0, left: 0, overflow: "visible" }}
         >
           <defs>
-            <filter id="subjectGlow" x="-30%" y="-40%" width="160%" height="180%">
-              <feGaussianBlur stdDeviation="10" result="blur" />
+            <filter id="subjectGlow" x="-30%" y="-80%" width="160%" height="260%">
+              <feGaussianBlur stdDeviation="9" result="blur" />
             </filter>
             <linearGradient id="pillGradSubject" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0%" stopColor="#0a1f3d" />
@@ -55,14 +55,14 @@ export function AddSubjectCard({ onClick }: AddSubjectCardProps) {
           </defs>
           {/* Podsvietenie (glow) */}
           <rect
-            x="8" y="8" width="234" height="84" rx="22"
+            x="8" y="8" width="284" height="34" rx="17"
             fill={isActive ? "rgba(57,255,20,0.85)" : "rgba(56,189,248,0.45)"}
             filter="url(#subjectGlow)"
             style={{ transition: "fill 0.2s ease" }}
           />
           {/* Hlavná pilulka */}
           <rect
-            x="1" y="1" width="248" height="98" rx="24"
+            x="1" y="1" width="298" height="48" rx="24"
             fill="url(#pillGradSubject)"
             stroke={isActive ? "rgba(245,158,11,0.75)" : "rgba(245,158,11,0.35)"}
             strokeWidth="1.5"
@@ -70,7 +70,7 @@ export function AddSubjectCard({ onClick }: AddSubjectCardProps) {
           />
           {/* Vertikálne delítko */}
           <line
-            x1="100" y1="18" x2="100" y2="82"
+            x1="110" y1="10" x2="110" y2="40"
             stroke={isActive ? "rgba(245,158,11,0.60)" : "rgba(245,158,11,0.25)"}
             strokeWidth="1"
             style={{ transition: "stroke 0.15s ease" }}
@@ -80,7 +80,7 @@ export function AddSubjectCard({ onClick }: AddSubjectCardProps) {
         {/* Ľavá časť: ikona 👤 zlatá + plus */}
         <div style={{
           position: "absolute",
-          top: 0, left: 0, width: 100, bottom: 0,
+          top: 0, left: 0, width: 110, bottom: 0,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -109,7 +109,7 @@ export function AddSubjectCard({ onClick }: AddSubjectCardProps) {
         {/* Pravá časť: text */}
         <div style={{
           position: "absolute",
-          top: 0, left: 100, right: 0, bottom: 0,
+          top: 0, left: 110, right: 0, bottom: 0,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
