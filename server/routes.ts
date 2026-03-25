@@ -24,8 +24,6 @@ import { validateSlovakICO } from "@shared/ico-validator";
 import { scanUploadedFile, scanMultipleFiles, sanitizeExcelWorkbook, checkClamAvStatus } from "./services/file-security";
 import { ATK_SYSTEM_ID, ATK_SUPERADMIN_ID } from "@shared/constants";
 
-const ROOT_SYSTEM_UID = ATK_SYSTEM_ID;
-const SAMPLE_FO_UID = ATK_SUPERADMIN_ID;
 
 // Returns (or creates) a dedicated company-node subject (type='mycompany') for the given myCompany.
 // This subject acts as the intermediate node: Root → CompanyNode → Officers
@@ -165,7 +163,7 @@ async function linkSubjectToCompanyInNetwork(officerSubjectId: number, activeCom
 async function ensureCompanyLinkedToRoot(companyId: number) {
   const [rootSubj] = await db.select({ id: subjects.id })
     .from(subjects)
-    .where(and(eq(subjects.uid, ROOT_SYSTEM_UID), isNull(subjects.deletedAt)))
+    .where(and(eq(subjects.uid, ATK_SYSTEM_ID), isNull(subjects.deletedAt)))
     .limit(1);
   if (!rootSubj) return;
 
@@ -671,10 +669,10 @@ export async function registerRoutes(
         await db.update(states).set({ isActive: false }).where(eq(states.id, czState.id));
         console.log(`[SEED] Deactivated CZ state (code 420), id=${czState.id}`);
       }
-      const [rootSubj] = await db.select().from(subjects).where(and(eq(subjects.uid, ROOT_SYSTEM_UID), isNull(subjects.deletedAt))).limit(1);
+      const [rootSubj] = await db.select().from(subjects).where(and(eq(subjects.uid, ATK_SYSTEM_ID), isNull(subjects.deletedAt))).limit(1);
       if (rootSubj && rootSubj.type !== 'system') {
         await db.update(subjects).set({ type: 'system' }).where(eq(subjects.id, rootSubj.id));
-        console.log(`[SEED] Root subject (UID ${ROOT_SYSTEM_UID}) type changed from '${rootSubj.type}' to 'system'`);
+        console.log(`[SEED] Root subject (UID ${ATK_SYSTEM_ID}) type changed from '${rootSubj.type}' to 'system'`);
       }
 
       // Repair: Root → CompanyNode(type=mycompany) → Officers
@@ -3505,8 +3503,8 @@ export async function registerRoutes(
 
       // Guard: ATK_SUPERADMIN_ID je rezervované systémové UID.
       // Žiadny nový subjekt NESMIE dostať toto UID.
-      if (input.uid && input.uid.replace(/\D/g, "") === SAMPLE_FO_UID) {
-        return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je rezervované systémové UID (ATK_SUPERADMIN_ID) a nemôže byť pridelené novému subjektu.` });
+      if (input.uid && input.uid.replace(/\D/g, "") === ATK_SUPERADMIN_ID) {
+        return res.status(400).json({ message: `UID ${ATK_SUPERADMIN_ID} je rezervované systémové UID (ATK_SUPERADMIN_ID) a nemôže byť pridelené novému subjektu.` });
       }
 
       if (input.birthNumber && (input.type === "person" || input.type === "szco")) {
@@ -3643,17 +3641,17 @@ export async function registerRoutes(
       // Blokujeme: (1) priradenie tohto UID inému subjektu cez update, (2) zmenu typu subjektu s týmto UID.
       if (input.uid) {
         const normalizedUid = input.uid.replace(/\D/g, "");
-        if (normalizedUid === SAMPLE_FO_UID && original.uid !== SAMPLE_FO_UID) {
-          return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je rezervované systémové UID (ATK_SUPERADMIN_ID) a nemôže byť pridelené inému subjektu.` });
+        if (normalizedUid === ATK_SUPERADMIN_ID && original.uid !== ATK_SUPERADMIN_ID) {
+          return res.status(400).json({ message: `UID ${ATK_SUPERADMIN_ID} je rezervované systémové UID (ATK_SUPERADMIN_ID) a nemôže byť pridelené inému subjektu.` });
         }
       }
       // Block changing the UID of the reserved subject away from its reserved value
-      if (original.uid === SAMPLE_FO_UID && input.uid && input.uid !== SAMPLE_FO_UID) {
-        return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je rezervované systémové UID (ATK_SUPERADMIN_ID) – nie je možné ho zmeniť.` });
+      if (original.uid === ATK_SUPERADMIN_ID && input.uid && input.uid !== ATK_SUPERADMIN_ID) {
+        return res.status(400).json({ message: `UID ${ATK_SUPERADMIN_ID} je rezervované systémové UID (ATK_SUPERADMIN_ID) – nie je možné ho zmeniť.` });
       }
       // Block type change on the reserved subject
-      if (original.uid === SAMPLE_FO_UID && (input as any).type && (input as any).type !== "person") {
-        return res.status(400).json({ message: `Subjekt s rezervovaným UID ${SAMPLE_FO_UID} (ATK_SUPERADMIN_ID) nemôže zmeniť typ.` });
+      if (original.uid === ATK_SUPERADMIN_ID && (input as any).type && (input as any).type !== "person") {
+        return res.status(400).json({ message: `Subjekt s rezervovaným UID ${ATK_SUPERADMIN_ID} (ATK_SUPERADMIN_ID) nemôže zmeniť typ.` });
       }
 
       if (!isAdmin) {
@@ -21371,13 +21369,11 @@ export async function registerRoutes(
   app.get("/api/network/tree", isAuthenticated, async (req: any, res) => {
     try {
       const rootId = req.query.rootId ? parseInt(req.query.rootId as string) : null;
-      const SK_ROOT_UID = ROOT_SYSTEM_UID;
-
       let rootSubject: any = null;
       if (rootId) {
         [rootSubject] = await db.select().from(subjects).where(and(eq(subjects.id, rootId), isNull(subjects.deletedAt))).limit(1);
       } else {
-        [rootSubject] = await db.select().from(subjects).where(and(eq(subjects.uid, SK_ROOT_UID), isNull(subjects.deletedAt))).limit(1);
+        [rootSubject] = await db.select().from(subjects).where(and(eq(subjects.uid, ATK_SYSTEM_ID), isNull(subjects.deletedAt))).limit(1);
       }
 
       if (!rootSubject) {
