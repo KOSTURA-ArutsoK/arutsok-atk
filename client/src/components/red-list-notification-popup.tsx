@@ -50,19 +50,34 @@ function SideGlow({ rect, rgb, showBottom = false }: { rect: DOMRect; rgb: strin
         }}
       />
       {showBottom && (
-        <div
-          style={{
-            position: "fixed",
-            top: rect.bottom,
-            left: rect.left,
-            width: rect.width,
-            bottom: 0,
-            background: `radial-gradient(ellipse at top, rgba(${rgb}, 0.50) 0%, transparent 70%)`,
-            pointerEvents: "none",
-            zIndex: 201,
-            transition: "opacity 0.25s ease",
-          }}
-        />
+        <>
+          <div
+            style={{
+              position: "fixed",
+              top: rect.bottom,
+              left: 0,
+              width: rect.left + rect.width * 0.5,
+              bottom: 0,
+              background: `radial-gradient(ellipse at top right, rgba(${rgb}, 0.52) 0%, transparent 65%)`,
+              pointerEvents: "none",
+              zIndex: 201,
+              transition: "opacity 0.25s ease",
+            }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: rect.bottom,
+              left: rect.left + rect.width * 0.5,
+              right: 0,
+              bottom: 0,
+              background: `radial-gradient(ellipse at top left, rgba(${rgb}, 0.52) 0%, transparent 65%)`,
+              pointerEvents: "none",
+              zIndex: 201,
+              transition: "opacity 0.25s ease",
+            }}
+          />
+        </>
       )}
     </>,
     document.body
