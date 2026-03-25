@@ -20,7 +20,7 @@ const MAPPING_FIELDS = [
 ];
 
 const SUBJECT_TYPE_LABELS: Record<string, string> = {
-  person: "FO", szco: "SZČO", company: "PO", organization: "Org.",
+  person: "FO", szco: "SZČO", company: "PO", organization: "TS", state: "VS", os: "OS",
 };
 
 export default function BulkImport() {

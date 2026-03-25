@@ -224,7 +224,7 @@ function FullPageEditor({
     }
   }, [isPerson, dynamicValues["rodne_cislo"], initialData.baseValue]);
 
-  const editorClientTypeId = clientType?.code === 'SZCO' ? 3 : clientType?.code === 'PO' ? 4 : clientType?.code === 'NS' ? 5 : clientType?.code === 'VS' ? 6 : 1;
+  const editorClientTypeId = clientType?.code === 'SZCO' ? 3 : clientType?.code === 'PO' ? 4 : clientType?.code === 'NS' ? 5 : clientType?.code === 'VS' ? 6 : clientType?.code === 'OS' ? 7 : 1;
   const typeFields = getFieldsForClientTypeId(editorClientTypeId);
   const typeSections = getSectionsForClientTypeId(editorClientTypeId);
 
@@ -243,7 +243,7 @@ function FullPageEditor({
   const form = useForm<z.infer<typeof createSchema>>({
     resolver: zodResolver(createSchema),
     defaultValues: {
-      type: isPerson ? "person" : (clientType?.code === 'SZCO' ? "szco" : clientType?.code === 'NS' ? "organization" : clientType?.code === 'VS' ? "state" : "company"),
+      type: isPerson ? "person" : (clientType?.code === 'SZCO' ? "szco" : clientType?.code === 'NS' ? "organization" : clientType?.code === 'VS' ? "state" : clientType?.code === 'OS' ? "os" : "company"),
       isActive: true,
       firstName: "",
       lastName: "",
@@ -259,7 +259,7 @@ function FullPageEditor({
   if (!formResetDone.current && clientType && state && appUser?.activeCompanyId) {
     formResetDone.current = true;
     form.reset({
-      type: isPerson ? "person" : (clientType?.code === 'SZCO' ? "szco" : clientType?.code === 'NS' ? "organization" : clientType?.code === 'VS' ? "state" : "company"),
+      type: isPerson ? "person" : (clientType?.code === 'SZCO' ? "szco" : clientType?.code === 'NS' ? "organization" : clientType?.code === 'VS' ? "state" : clientType?.code === 'OS' ? "os" : "company"),
       isActive: true,
       firstName: "",
       lastName: "",

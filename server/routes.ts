@@ -13706,7 +13706,7 @@ export async function registerRoutes(
           ["Meno", `${subject.firstName || ""} ${subject.lastName || ""}`.trim()],
           ["Firma", subject.companyName || ""],
           ["UID", subject.uid || ""],
-          ["Typ", subject.type === "person" ? "FO" : subject.type === "szco" ? "SZČO" : "PO"],
+          ["Typ", subject.type === "person" ? "FO" : subject.type === "szco" ? "SZČO" : subject.type === "company" ? "PO" : subject.type === "organization" ? "TS" : subject.type === "state" ? "VS" : subject.type === "os" ? "OS" : "PO"],
           ["Email", subject.email || ""],
           ["Telefón", subject.phone || ""],
           ["IBAN", (subject as any).iban || ""],
@@ -16651,7 +16651,7 @@ export async function registerRoutes(
     try {
       const clientTypeId = req.query.clientTypeId ? Number(req.query.clientTypeId) : 1;
 
-      const typeMap: Record<number, string> = { 1: "person", 3: "szco", 4: "company" };
+      const typeMap: Record<number, string> = { 1: "person", 3: "szco", 4: "company", 5: "organization", 6: "state", 7: "os" };
       const subjectType = typeMap[clientTypeId] || "person";
 
       const subjectCount = await db.execute(sql`

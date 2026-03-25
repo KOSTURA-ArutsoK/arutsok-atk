@@ -77,7 +77,7 @@ const CHART_COLORS = [
 ];
 
 const DYNAMIC_FILTER_OPTIONS = [
-  { field: "subjectType", label: "Typ subjektu (FO/PO/SZČO)", module: "klienti" as const, type: "multiselect" as const },
+  { field: "subjectType", label: "Typ subjektu (FO/SZČO/PO/TS/VS/OS)", module: "klienti" as const, type: "multiselect" as const },
   { field: "listStatus", label: "Reputačný status", module: "klienti" as const, type: "select" as const },
   { field: "psc", label: "PSČ", module: "klienti" as const, type: "text" as const },
   { field: "premium", label: "Lehotné poistné (rozsah)", module: "zmluvy" as const, type: "range" as const },
@@ -107,7 +107,7 @@ function getFilterDisplayValue(f: DynamicFilter): string {
   if (f.type === "range") return `${f.value || "..."} - ${f.value2 || "..."}`;
   if (f.type === "dateRange") return `${f.value || "..."} - ${f.value2 || "..."}`;
   if (f.field === "subjectType") {
-    const map: Record<string, string> = { person: "FO", company: "PO", szco: "SZČO" };
+    const map: Record<string, string> = { person: "FO", company: "PO", szco: "SZČO", organization: "TS", state: "VS", os: "OS" };
     if (!f.value) return "...";
     return f.value.split(",").map(v => map[v] || v).join(", ");
   }
@@ -591,8 +591,11 @@ export default function Reports() {
                     <div className="flex gap-1">
                       {[
                         { val: "person", label: "FO" },
-                        { val: "company", label: "PO" },
                         { val: "szco", label: "SZČO" },
+                        { val: "company", label: "PO" },
+                        { val: "organization", label: "TS" },
+                        { val: "state", label: "VS" },
+                        { val: "os", label: "OS" },
                       ].map(opt => {
                         const selected = f.value.split(",").filter(Boolean);
                         const isActive = selected.includes(opt.val);

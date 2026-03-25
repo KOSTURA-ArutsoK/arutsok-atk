@@ -1357,7 +1357,7 @@ export default function ContractForm() {
     queryKey: ["/api/client-types"],
   });
 
-  const subjectTypeToClientCode: Record<string, string> = { person: "FO", company: "PO", szco: "SZCO" };
+  const subjectTypeToClientCode: Record<string, string> = { person: "FO", company: "PO", szco: "SZCO", organization: "NS", state: "VS", os: "OS" };
   const matchedClientTypeCode = selectedSubject?.type ? subjectTypeToClientCode[selectedSubject.type] || null : null;
   const matchedClientType = matchedClientTypeCode ? clientTypes?.find(ct => ct.code === matchedClientTypeCode) : null;
 

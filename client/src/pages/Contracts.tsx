@@ -2296,7 +2296,7 @@ export default function Contracts() {
   const [preSelectLastName, setPreSelectLastName] = useState("");
   const [preSelectTitleAfter, setPreSelectTitleAfter] = useState("");
   const [preSelectSaving, setPreSelectSaving] = useState(false);
-  const [preSelectSubjectType, setPreSelectSubjectType] = useState<"person" | "company" | "szco" | "organization" | "state">("person");
+  const [preSelectSubjectType, setPreSelectSubjectType] = useState<"person" | "company" | "szco" | "organization" | "state" | "os">("person");
   const [preSelectIco, setPreSelectIco] = useState("");
   const [preSelectBusinessName, setPreSelectBusinessName] = useState("");
   const [preSelectBirthNumber, setPreSelectBirthNumber] = useState("");
@@ -4191,7 +4191,7 @@ export default function Contracts() {
               return null;
             })();
             const resolvedSubjType = sub?.type || normalizedRawType || null;
-            const subjectType = resolvedSubjType === "person" ? "FO" : resolvedSubjType === "szco" ? "SZČO" : resolvedSubjType === "company" ? "PO" : "—";
+            const subjectType = resolvedSubjType === "person" ? "FO" : resolvedSubjType === "szco" ? "SZČO" : resolvedSubjType === "company" ? "PO" : resolvedSubjType === "organization" ? "TS" : resolvedSubjType === "state" ? "VS" : resolvedSubjType === "os" ? "OS" : "—";
             const subjectFullName = sub ? [sub.titleBefore, sub.firstName, sub.lastName, sub.titleAfter].filter(Boolean).join(" ") || sub.companyName || "—" : "—";
             const { specialist: rowSpec, recommenders: rowRecs } = getContractDistData(contract.id);
             const rowR1 = rowRecs[0]; const rowR2 = rowRecs[1]; const rowR3 = rowRecs[2];
@@ -5784,7 +5784,7 @@ export default function Contracts() {
   const preSelectSelectedProduct = products?.find(p => p.id.toString() === preSelectProductId);
   const preSelectAllowedSubjectTypes: string[] = (preSelectSelectedProduct as any)?.allowedSubjectTypes || [];
   const preSelectSubjectTypeBlocked = preSelectAllowedSubjectTypes.length > 0 && !preSelectAllowedSubjectTypes.includes(preSelectSubjectType);
-  const preSelectSubjectTypeLabel = (t: string) => t === "person" ? "FO" : t === "szco" ? "SZČO" : t === "company" ? "PO" : t === "organization" ? "TS" : t === "state" ? "VS" : t;
+  const preSelectSubjectTypeLabel = (t: string) => t === "person" ? "FO" : t === "szco" ? "SZČO" : t === "company" ? "PO" : t === "organization" ? "TS" : t === "state" ? "VS" : t === "os" ? "OS" : t;
 
   const handlePreSelectConfirm = async () => {
     if (!preSelectSubjectId && !preSelectIsValid) {
@@ -6063,7 +6063,7 @@ export default function Contracts() {
     if (sub) {
       const linkedFo = sub.linkedFoId ? subjects?.find(s => s.id === sub.linkedFoId) : undefined;
       setPreSelectSubjectId(String(sub.id));
-      setPreSelectSubjectType(sub.type as "person" | "company" | "szco" | "organization" | "state");
+      setPreSelectSubjectType(sub.type as "person" | "company" | "szco" | "organization" | "state" | "os");
       setPreSelectFirstName(sub.firstName || linkedFo?.firstName || "");
       setPreSelectLastName(sub.lastName || linkedFo?.lastName || "");
       setPreSelectTitleBefore(sub.titleBefore || linkedFo?.titleBefore || "");
@@ -7276,12 +7276,13 @@ export default function Contracts() {
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Typ subjektu</label>
                 {(() => {
-                  const subOpts: Array<{val: "person"|"szco"|"company"|"organization"|"state", label: string, icon: typeof User}> = [
+                  const subOpts: Array<{val: "person"|"szco"|"company"|"organization"|"state"|"os", label: string, icon: typeof User}> = [
                     {val:"person", label:"Fyzické osoby (FO)", icon: User},
                     {val:"szco", label:"Živnostníci (SZČO)", icon: Briefcase},
                     {val:"company", label:"Súkromný sektor (PO)", icon: Building2},
-                    {val:"organization", label:"Tretí sektor (Neziskovky)", icon: Building},
-                    {val:"state", label:"Verejný sektor (Štát)", icon: Landmark},
+                    {val:"organization", label:"Tretí sektor (TS)", icon: Building},
+                    {val:"state", label:"Verejný sektor (VS)", icon: Landmark},
+                    {val:"os", label:"Občianske združenia (OS)", icon: Building},
                   ];
                   const activeSubIdx = subOpts.findIndex(o => o.val === preSelectSubjectType);
                   const n = subOpts.length;
@@ -7336,7 +7337,7 @@ export default function Contracts() {
                               } else {
                                 setPreSelectShowNameFields(false);
                                 setPreSelectBirthNumber("");
-                                if (opt.val === "organization" || opt.val === "state") {
+                                if (opt.val === "organization" || opt.val === "state" || opt.val === "os") {
                                   setTimeout(() => {
                                     const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
                                     if (el) el.focus();
@@ -7344,7 +7345,7 @@ export default function Contracts() {
                                 }
                               }
                             }}
-                            onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : opt.val === "organization" ? "org" : opt.val === "state" ? "stat" : "po"}`}
+                            onKeyDown={(e) => handleSubKey(e, idx)} data-testid={`toggle-subject-type-${opt.val === "person" ? "fo" : opt.val === "szco" ? "szco" : opt.val === "organization" ? "org" : opt.val === "state" ? "stat" : opt.val === "os" ? "os" : "po"}`}
                           ><Icon className="w-3 h-3" />{opt.label}</button>
                         );
                       })}
@@ -7416,7 +7417,7 @@ export default function Contracts() {
                           if (preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 1) {
                             const s = preSelectFilteredSubjects[0];
                             setPreSelectSubjectId(s.id.toString());
-                            setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state");
+                            setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state" | "os");
                             setPreSelectTitleBefore((s as any).titleBefore || "");
                             setPreSelectFirstName(s.firstName || "");
                             setPreSelectLastName(s.lastName || "");
@@ -7521,7 +7522,7 @@ export default function Contracts() {
                       const linkedFo = (s as any).linkedFoId ? subjects?.find((sub: any) => sub.id === (s as any).linkedFoId) : null;
                       const doSelect = (focusNext?: boolean) => {
                         setPreSelectSubjectId(s.id.toString());
-                        setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state");
+                        setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state" | "os");
                         setPreSelectTitleBefore((s as any).titleBefore || (linkedFo as any)?.titleBefore || "");
                         setPreSelectFirstName(s.firstName || linkedFo?.firstName || "");
                         setPreSelectLastName(s.lastName || linkedFo?.lastName || "");
@@ -7827,7 +7828,7 @@ export default function Contracts() {
                   <div className="flex items-center justify-between gap-2 px-3 py-2 rounded border border-border/40 bg-muted/20">
                     <span className="text-xs text-muted-foreground">Rodné číslo</span>
                     <span className="text-xs text-amber-400 font-medium" data-testid="text-no-fo-info">
-                      Nemáme informácie o FO, ktorá vlastní {preSelectSubjectType === "szco" ? "SZČO" : preSelectSubjectType === "company" ? "PO" : preSelectSubjectType === "organization" ? "neziskovku" : "inštitúciu"}
+                      Nemáme informácie o FO, ktorá vlastní {preSelectSubjectType === "szco" ? "SZČO" : preSelectSubjectType === "company" ? "PO" : preSelectSubjectType === "organization" ? "neziskovku (TS)" : preSelectSubjectType === "os" ? "občianske združenie (OS)" : "inštitúciu (VS)"}
                     </span>
                   </div>
                 )}
@@ -8232,7 +8233,7 @@ export default function Contracts() {
                           if (preSelectSubjectSearch.trim() && preSelectFilteredSubjects.length === 1) {
                             const s = preSelectFilteredSubjects[0];
                             setPreSelectSubjectId(s.id.toString());
-                            setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state");
+                            setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state" | "os");
                             setPreSelectTitleBefore((s as any).titleBefore || "");
                             setPreSelectFirstName(s.firstName || "");
                             setPreSelectLastName(s.lastName || "");
@@ -8288,7 +8289,7 @@ export default function Contracts() {
                       const linkedFo2 = (s as any).linkedFoId ? subjects?.find((sub: any) => sub.id === (s as any).linkedFoId) : null;
                       const doSelect = (focusNext?: boolean) => {
                         setPreSelectSubjectId(s.id.toString());
-                        setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state");
+                        setPreSelectSubjectType(s.type as "person" | "company" | "szco" | "organization" | "state" | "os");
                         setPreSelectTitleBefore((s as any).titleBefore || (linkedFo2 as any)?.titleBefore || "");
                         setPreSelectFirstName(s.firstName || linkedFo2?.firstName || "");
                         setPreSelectLastName(s.lastName || linkedFo2?.lastName || "");
@@ -8492,7 +8493,7 @@ export default function Contracts() {
             )}
 
             {preSelectSubjectId && (
-              <p className="text-xs text-muted-foreground">Vybrany existujuci klient ({preSelectSubjectType === "person" ? "FO" : preSelectSubjectType === "szco" ? "SZČO" : preSelectSubjectType === "organization" ? "ORG" : preSelectSubjectType === "state" ? "ŠTÁT" : "PO"}) — polia su len na citanie. <button type="button" className="text-primary underline" onClick={() => { setPreSelectSubjectId(""); setPreSelectSubjectType("person"); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectBusinessName(""); setPreSelectIco(""); setPreSelectBirthNumber(""); setPreSelectShowNameFields(false); setPreSelectFoSearch(""); setPreSelectShowFoSearch(false); setPreSelectNoFoInfo(false); }} data-testid="button-deselect-subject">Zrusit vyber</button></p>
+              <p className="text-xs text-muted-foreground">Vybrany existujuci klient ({preSelectSubjectType === "person" ? "FO" : preSelectSubjectType === "szco" ? "SZČO" : preSelectSubjectType === "company" ? "PO" : preSelectSubjectType === "organization" ? "TS" : preSelectSubjectType === "state" ? "VS" : preSelectSubjectType === "os" ? "OS" : "PO"}) — polia su len na citanie. <button type="button" className="text-primary underline" onClick={() => { setPreSelectSubjectId(""); setPreSelectSubjectType("person"); setPreSelectTitleBefore(""); setPreSelectFirstName(""); setPreSelectLastName(""); setPreSelectTitleAfter(""); setPreSelectBusinessName(""); setPreSelectIco(""); setPreSelectBirthNumber(""); setPreSelectShowNameFields(false); setPreSelectFoSearch(""); setPreSelectShowFoSearch(false); setPreSelectNoFoInfo(false); }} data-testid="button-deselect-subject">Zrusit vyber</button></p>
             )}
 
             <div className="flex justify-between gap-2">
@@ -9132,7 +9133,7 @@ export default function Contracts() {
                         const name = s.type === "company" ? (s.companyName || "—") : `${s.firstName || ""} ${s.lastName || ""}`.trim() || "—";
                         return (
                           <button key={s.id} className="w-full text-left px-2 py-1.5 text-sm hover:bg-muted/50 flex items-center gap-2" onClick={() => { setQuickFixSubjectId(String(s.id)); setQuickFixSubjectSearch(""); }} data-testid={`button-qf-subject-${s.id}`}>
-                            <Badge variant="outline" className="text-[9px] shrink-0">{s.type === "person" ? "FO" : s.type === "szco" ? "SZČO" : "PO"}</Badge>
+                            <Badge variant="outline" className="text-[9px] shrink-0">{s.type === "person" ? "FO" : s.type === "szco" ? "SZČO" : s.type === "company" ? "PO" : s.type === "organization" ? "TS" : s.type === "state" ? "VS" : s.type === "os" ? "OS" : "PO"}</Badge>
                             <span>{name}</span>
                             <span className="text-muted-foreground text-xs ml-auto">{s.birthNumber || (s.details as any)?.ico || ""}</span>
                           </button>
@@ -9744,7 +9745,7 @@ export default function Contracts() {
                                             const isPartial = hasOcr || hasScans;
                                             const rowBg = isPartial ? "bg-orange-500/10" : "";
                                             const sub6 = subjects?.find(s => s.id === contract.subjectId);
-                                            const subType6 = sub6?.type === "person" ? "FO" : sub6?.type === "szco" ? "SZČO" : sub6?.type === "company" ? "PO" : "—";
+                                            const subType6 = sub6?.type === "person" ? "FO" : sub6?.type === "szco" ? "SZČO" : sub6?.type === "company" ? "PO" : sub6?.type === "organization" ? "TS" : sub6?.type === "state" ? "VS" : sub6?.type === "os" ? "OS" : "—";
                                             const subName6 = sub6 ? [sub6.titleBefore, sub6.firstName, sub6.lastName, sub6.titleAfter].filter(Boolean).join(" ") || sub6.companyName || "—" : "—";
                                             return (
                                               <tr key={contract.id} className={`border-b hover:bg-muted/20 ${rowBg}`} data-testid={`row-phase6-contract-${contract.id}`}>
