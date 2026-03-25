@@ -10,7 +10,7 @@ import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from 
 import { seedSubjectParameters, syncSubjectParameters, seedAssetPanels, seedEventAndEntityPanels, seedNsVsTemplates, cleanupZombieTemplateParams, ensureOsClientType } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
-import { eq, and, or, isNull, isNotNull, sql, inArray, desc, asc, gte, lte, lt } from "drizzle-orm";
+import { eq, and, or, isNull, isNotNull, sql, inArray, not, desc, asc, gte, lte, lt } from "drizzle-orm";
 import multer from "multer";
 import ExcelJS from "exceljs";
 import { parse as csvParse } from "csv-parse/sync";
@@ -20580,6 +20580,327 @@ export async function registerRoutes(
       await db.update(notificationQueue).set({ readAt: new Date(), status: "read" }).where(eq(notificationQueue.id, notifId));
       res.json({ success: true });
     } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  // Mark ALL unread notifications as read for current user
+  app.post("/api/notifications/mark-all-read", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.appUser;
+      if (!user) return res.status(401).json({ message: "Nie je prihlásený" });
+      await db.update(notificationQueue)
+        .set({ readAt: new Date(), status: "read" })
+        .where(and(
+          eq(notificationQueue.recipientUserId, user.id),
+          eq(notificationQueue.status, "sent")
+        ));
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
+  // Home popup aggregated data
+  app.get("/api/home-popup-data", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.appUser;
+      if (!user) return res.status(401).json({ message: "Nie je prihlásený" });
+
+      const adminUser = isAdmin(user);
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      type PopupItem = { type: string; label: string; detail?: string };
+      const urgent: PopupItem[] = [];
+      const info: PopupItem[] = [];
+      const good: PopupItem[] = [];
+      const interesting: PopupItem[] = [];
+
+      // === URGENT (červená) ===
+
+      // 1. Unread red/black list notifications
+      const urgentNotifs = await db.select().from(notificationQueue)
+        .where(and(
+          eq(notificationQueue.recipientUserId, user.id),
+          eq(notificationQueue.status, "sent"),
+          inArray(notificationQueue.notificationType, ["red_list_confirmed", "black_list_confirmed"])
+        ))
+        .orderBy(desc(notificationQueue.createdAt))
+        .limit(10);
+
+      for (const n of urgentNotifs) {
+        let parsed: any = {};
+        try { parsed = JSON.parse(n.message); } catch {}
+        urgent.push({
+          type: n.notificationType,
+          label: n.title,
+          detail: parsed.subjectName || parsed.reason || undefined,
+        });
+      }
+
+      // 2. Intervention contracts
+      const interventionStatusIds = (await db.select({ id: contractStatuses.id })
+        .from(contractStatuses)
+        .where(eq(contractStatuses.isIntervention, true))
+      ).map(s => s.id);
+
+      if (interventionStatusIds.length > 0) {
+        let interventionList = await db.select({
+          id: contracts.id,
+          contractNumber: contracts.contractNumber,
+          uid: contracts.uid,
+          klientUid: contracts.klientUid,
+          specialistaUid: contracts.specialistaUid,
+        }).from(contracts)
+          .where(and(inArray(contracts.statusId, interventionStatusIds), eq(contracts.isDeleted, false)))
+          .orderBy(desc(contracts.lastStatusUpdate))
+          .limit(20);
+
+        if (!adminUser && user.linkedSubjectId) {
+          const lnkSub = await db.select({ uid: subjects.uid }).from(subjects)
+            .where(eq(subjects.id, user.linkedSubjectId)).limit(1);
+          const uUid = lnkSub[0]?.uid || null;
+          const uIdStr = String(user.linkedSubjectId);
+          interventionList = interventionList.filter(c =>
+            c.specialistaUid === uIdStr || c.klientUid === uIdStr ||
+            (uUid && (c.specialistaUid === uUid || c.klientUid === uUid))
+          );
+        }
+        for (const c of interventionList.slice(0, 5)) {
+          urgent.push({ type: "intervention", label: `Intervencia: ${c.contractNumber || c.uid || `#${c.id}`}` });
+        }
+      }
+
+      // 3. Internal intervention (phase-7 contracts)
+      let phase7List = await db.select({
+        id: contracts.id,
+        contractNumber: contracts.contractNumber,
+        uid: contracts.uid,
+        klientUid: contracts.klientUid,
+        specialistaUid: contracts.specialistaUid,
+        subjectId: contracts.subjectId,
+      }).from(contracts)
+        .where(and(eq(contracts.lifecyclePhase, 7), eq(contracts.isDeleted, false)))
+        .orderBy(desc(contracts.lastStatusUpdate))
+        .limit(20);
+
+      if (!adminUser && user.linkedSubjectId) {
+        const lnk7 = await db.select({ uid: subjects.uid }).from(subjects)
+          .where(eq(subjects.id, user.linkedSubjectId)).limit(1);
+        const u7Uid = lnk7[0]?.uid || null;
+        const u7Str = String(user.linkedSubjectId);
+        phase7List = phase7List.filter(c =>
+          c.specialistaUid === u7Str || c.klientUid === u7Str ||
+          (u7Uid && (c.specialistaUid === u7Uid || c.klientUid === u7Uid)) ||
+          c.subjectId === user.linkedSubjectId
+        );
+      }
+      for (const c of phase7List.slice(0, 5)) {
+        urgent.push({ type: "internal_intervention", label: `Interná intervencia: ${c.contractNumber || c.uid || `#${c.id}`}` });
+      }
+
+      // 4. NBS report tasks (admin only)
+      const nbsItems: { period: string; year: number; daysLeft: number; periodLabel: string }[] = [];
+      if (adminUser) {
+        function getNbsDeadlineLocal(period: string, year: number): Date {
+          switch (period) {
+            case "1q": return new Date(year, 4, 31);
+            case "2q": return new Date(year, 7, 31);
+            case "3q": return new Date(year, 10, 30);
+            case "4q": return new Date(year + 1, 1, 28);
+            case "annual": return new Date(year + 1, 2, 31);
+            default: return new Date(year, 11, 31);
+          }
+        }
+        const cy = now.getFullYear();
+        const allNbs = await db.select().from(nbsReportStatuses)
+          .where(inArray(nbsReportStatuses.year, [cy, cy - 1]));
+        const periodLabelsMap: Record<string, string> = { "1q": "1Q", "2q": "2Q", "3q": "3Q", "4q": "4Q", "annual": "Ročný" };
+        for (const year of [cy, cy - 1]) {
+          for (const period of ["1q", "2q", "3q", "4q", "annual"]) {
+            const deadline = getNbsDeadlineLocal(period, year);
+            const daysLeft = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            if (daysLeft > 30) continue;
+            const report = allNbs.find(r => r.year === year && r.period === period);
+            if (!report || report.status !== "sent") {
+              nbsItems.push({ period, year, daysLeft, periodLabel: periodLabelsMap[period] || period });
+            }
+          }
+        }
+        for (const nbs of nbsItems.filter(n => n.daysLeft < 0)) {
+          urgent.push({
+            type: "nbs_overdue",
+            label: `NBS ${nbs.periodLabel} ${nbs.year} — po termíne`,
+            detail: `${Math.abs(nbs.daysLeft)} dní po termíne`,
+          });
+        }
+      }
+
+      // === INFO (modrá) ===
+
+      // 1. Other unread notifications (not red/black list)
+      const otherNotifs = await db.select().from(notificationQueue)
+        .where(and(
+          eq(notificationQueue.recipientUserId, user.id),
+          eq(notificationQueue.status, "sent"),
+          not(inArray(notificationQueue.notificationType, ["red_list_confirmed", "black_list_confirmed"]))
+        ))
+        .orderBy(desc(notificationQueue.createdAt))
+        .limit(5);
+
+      for (const n of otherNotifs) {
+        info.push({ type: n.notificationType, label: n.title });
+      }
+
+      // 2. Upcoming events (next 7 days)
+      const upcomingEvs = await storage.getUpcomingEvents(5);
+      for (const ev of upcomingEvs.slice(0, 5)) {
+        const dateStr = ev.startDate ? new Date(ev.startDate).toLocaleDateString("sk-SK") : "";
+        info.push({ type: "event", label: `Udalosť: ${ev.title}`, detail: dateStr || undefined });
+      }
+
+      // 3. Pending guarantor transfers
+      const pendingTransfers = await db.select({
+        id: guarantorTransferRequests.id,
+        subjectId: guarantorTransferRequests.subjectId,
+      }).from(guarantorTransferRequests)
+        .where(eq(guarantorTransferRequests.status, "pending_all_approvals"))
+        .limit(10);
+
+      const myTransfers = adminUser
+        ? pendingTransfers
+        : pendingTransfers.filter(t => t.subjectId === user.linkedSubjectId);
+      for (const t of myTransfers.slice(0, 3)) {
+        info.push({ type: "transfer", label: `Čakajúci prevod garanta #${t.id}` });
+      }
+
+      // 4. NBS tasks upcoming (0..30 days)
+      for (const nbs of nbsItems.filter(n => n.daysLeft >= 0 && n.daysLeft <= 30)) {
+        info.push({ type: "nbs_upcoming", label: `NBS ${nbs.periodLabel} ${nbs.year} — zostáva ${nbs.daysLeft} dní` });
+      }
+
+      // === GOOD (zelená — iba provízie a akceptácie) ===
+
+      // 1. Recent commissions for this user
+      const recentCommissions = await db.select({
+        id: commissions.id,
+        amount: commissions.amount,
+        currency: commissions.currency,
+        note: commissions.note,
+        status: commissions.status,
+      }).from(commissions)
+        .where(and(eq(commissions.agentId, user.id), gte(commissions.createdAt, thirtyDaysAgo)))
+        .orderBy(desc(commissions.createdAt))
+        .limit(5);
+
+      for (const c of recentCommissions) {
+        good.push({
+          type: "commission",
+          label: `Provízia: ${parseFloat(c.amount || "0").toFixed(2)} ${c.currency || "EUR"}`,
+          detail: c.note || c.status || undefined,
+        });
+      }
+
+      // 2. Recently accepted/commissionable contracts (last 30 days)
+      const commissionableStatusIds = (await db.select({ id: contractStatuses.id })
+        .from(contractStatuses)
+        .where(eq(contractStatuses.isCommissionable, true))
+      ).map(s => s.id);
+
+      if (commissionableStatusIds.length > 0) {
+        let acceptedList = await db.select({
+          id: contracts.id,
+          contractNumber: contracts.contractNumber,
+          uid: contracts.uid,
+          klientUid: contracts.klientUid,
+          specialistaUid: contracts.specialistaUid,
+          subjectId: contracts.subjectId,
+          companyId: contracts.companyId,
+        }).from(contracts)
+          .where(and(
+            eq(contracts.isDeleted, false),
+            inArray(contracts.statusId, commissionableStatusIds),
+            gte(contracts.lastStatusUpdate, thirtyDaysAgo)
+          ))
+          .orderBy(desc(contracts.lastStatusUpdate))
+          .limit(20);
+
+        if (!adminUser && user.linkedSubjectId) {
+          const lnkAcc = await db.select({ uid: subjects.uid }).from(subjects)
+            .where(eq(subjects.id, user.linkedSubjectId)).limit(1);
+          const uAccUid = lnkAcc[0]?.uid || null;
+          const uAccStr = String(user.linkedSubjectId);
+          acceptedList = acceptedList.filter(c =>
+            c.specialistaUid === uAccStr || c.klientUid === uAccStr ||
+            (uAccUid && (c.specialistaUid === uAccUid || c.klientUid === uAccUid)) ||
+            c.subjectId === user.linkedSubjectId
+          );
+        } else if (adminUser && user.activeCompanyId) {
+          acceptedList = acceptedList.filter(c => c.companyId === user.activeCompanyId);
+        }
+
+        for (const c of acceptedList.slice(0, 5)) {
+          good.push({ type: "accepted_contract", label: `Akceptovaná zmluva: ${c.contractNumber || c.uid || `#${c.id}`}` });
+        }
+      }
+
+      // === INTERESTING (žltá — najnovšie zmluvy a noví klienti) ===
+
+      // 1. New contracts (last 30 days)
+      const newContractsCond: any[] = [
+        eq(contracts.isDeleted, false),
+        gte(contracts.createdAt, thirtyDaysAgo),
+      ];
+      if (user.activeCompanyId) newContractsCond.push(eq(contracts.companyId, user.activeCompanyId));
+
+      const newContracts = await db.select({
+        id: contracts.id,
+        contractNumber: contracts.contractNumber,
+        uid: contracts.uid,
+      }).from(contracts)
+        .where(and(...newContractsCond))
+        .orderBy(desc(contracts.createdAt))
+        .limit(5);
+
+      for (const c of newContracts) {
+        interesting.push({ type: "new_contract", label: `Nová zmluva: ${c.contractNumber || c.uid || `#${c.id}`}` });
+      }
+
+      // 2. New clients (last 30 days)
+      const newSubjectsCond: any[] = [
+        isNull(subjects.deletedAt),
+        gte(subjects.createdAt, thirtyDaysAgo),
+        inArray(subjects.registrationStatus, ["klient", "tiper"]),
+      ];
+      if (user.activeCompanyId) newSubjectsCond.push(eq(subjects.myCompanyId, user.activeCompanyId));
+
+      const newSubjectsList = await db.select({
+        id: subjects.id,
+        firstName: subjects.firstName,
+        lastName: subjects.lastName,
+        companyName: subjects.companyName,
+        uid: subjects.uid,
+      }).from(subjects)
+        .where(and(...newSubjectsCond))
+        .orderBy(desc(subjects.createdAt))
+        .limit(5);
+
+      for (const s of newSubjectsList) {
+        const name = s.companyName || `${s.firstName || ""} ${s.lastName || ""}`.trim() || s.uid;
+        interesting.push({ type: "new_client", label: `Nový klient: ${name}` });
+      }
+
+      // === UNREAD NOTIF IDS ===
+      const allUnread = await db.select({ id: notificationQueue.id }).from(notificationQueue)
+        .where(and(eq(notificationQueue.recipientUserId, user.id), eq(notificationQueue.status, "sent")));
+      const unreadNotifIds = allUnread.map(n => n.id);
+
+      const hasAnyData = urgent.length > 0 || info.length > 0 || good.length > 0 || interesting.length > 0 || unreadNotifIds.length > 0;
+
+      res.json({ urgent, info, good, interesting, unreadNotifIds, hasAnyData });
+    } catch (err: any) {
+      console.error("[HOME-POPUP-DATA]", err);
       res.status(500).json({ message: err?.message || "Chyba" });
     }
   });

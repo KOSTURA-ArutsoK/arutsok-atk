@@ -1,96 +1,155 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState, useEffect } from "react";
-import { formatUid } from "@/lib/utils";
+import { useAppUser } from "@/hooks/use-app-user";
 
-interface RedListNotification {
-  id: number;
-  notificationType: string;
+interface PopupItem {
+  type: string;
+  label: string;
+  detail?: string;
+}
+
+interface HomePopupData {
+  urgent: PopupItem[];
+  info: PopupItem[];
+  good: PopupItem[];
+  interesting: PopupItem[];
+  unreadNotifIds: number[];
+  hasAnyData: boolean;
+}
+
+function Section({
+  title,
+  items,
+  colorClass,
+  borderClass,
+  glowRgb,
+}: {
   title: string;
-  message: string;
-  readAt: string | null;
+  items: PopupItem[];
+  colorClass: string;
+  borderClass: string;
+  glowRgb: string;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div
+      className={`rounded-lg border ${borderClass} p-3 space-y-1.5`}
+      style={{ boxShadow: `0 0 28px rgba(${glowRgb}, 0.22)` }}
+    >
+      <p className={`text-xs font-bold uppercase tracking-wider ${colorClass} mb-2`}>{title}</p>
+      {items.map((item, i) => (
+        <div key={i} className="flex flex-col gap-0.5">
+          <span className="text-sm text-foreground leading-snug">{item.label}</span>
+          {item.detail && (
+            <span className="text-xs text-muted-foreground leading-snug">{item.detail}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function RedListNotificationPopup() {
-  const [currentNotif, setCurrentNotif] = useState<RedListNotification | null>(null);
+  const { data: appUser } = useAppUser();
+  const [visible, setVisible] = useState(false);
 
-  const { data: notifications } = useQuery<RedListNotification[]>({
-    queryKey: ["/api/notifications/my"],
-    refetchOnWindowFocus: true,
+  const sessionKey = appUser?.id ? `homePopup_shown_${appUser.id}` : null;
+
+  const { data, isLoading } = useQuery<HomePopupData>({
+    queryKey: ["/api/home-popup-data"],
+    enabled: !!appUser?.id,
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 2,
   });
 
   useEffect(() => {
-    if (!notifications) return;
-    const unread = notifications.find(
-      (n: any) => n.notificationType === "red_list_confirmed" && !n.readAt
-    );
-    if (unread && (!currentNotif || currentNotif.id !== unread.id)) {
-      setCurrentNotif(unread);
+    if (!sessionKey) return;
+    if (!data?.hasAnyData) return;
+    const already = sessionStorage.getItem(sessionKey);
+    if (!already) {
+      setVisible(true);
     }
-  }, [notifications]);
+  }, [data, sessionKey]);
 
-  const markReadMutation = useMutation({
-    mutationFn: async (notifId: number) => {
-      return apiRequest("POST", `/api/notifications/${notifId}/read`);
+  const markAllReadMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/notifications/mark-all-read");
     },
     onSuccess: () => {
-      setCurrentNotif(null);
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/my"] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
     },
   });
 
-  if (!currentNotif) return null;
+  function handleClose() {
+    if (sessionKey) sessionStorage.setItem(sessionKey, "1");
+    setVisible(false);
+    markAllReadMutation.mutate();
+  }
 
-  let parsed: any = {};
-  try {
-    parsed = JSON.parse(currentNotif.message);
-  } catch {}
+  if (!visible || !data || isLoading) return null;
+
+  const { urgent, info, good, interesting } = data;
+  const hasContent = urgent.length > 0 || info.length > 0 || good.length > 0 || interesting.length > 0;
+  if (!hasContent) return null;
 
   return (
-    <Dialog open={true} onOpenChange={() => {}}>
-      <DialogContent className="max-w-md" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-orange-400">
-            <AlertTriangle className="w-5 h-5" />
-            Subjekt na červenom zozname
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 pt-2">
-          <div className="rounded border border-orange-800 bg-orange-950/50 p-4 space-y-3">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">ID kód:</span>
-                <span className="font-mono text-sm text-orange-300 font-semibold">{parsed.subjectUid || ""}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Subjekt:</span>
-                <span className="text-sm font-semibold text-orange-300">{parsed.subjectName || ""}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Dátum a čas presunu:</span>
-                <span className="text-sm">{parsed.confirmedAt || ""}</span>
-              </div>
-              <div>
-                <span className="text-xs text-muted-foreground">Dôvod:</span>
-                <p className="text-sm mt-1 text-orange-200">{parsed.reason || ""}</p>
-              </div>
-            </div>
-          </div>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div
+        className="relative w-full max-w-md mx-4 rounded-xl border border-border bg-background/95 shadow-2xl overflow-hidden"
+        style={{ maxHeight: "85vh" }}
+      >
+        <div className="px-5 py-4 border-b border-border">
+          <h2 className="text-base font-semibold text-foreground">Prehľad notifikácií</h2>
+        </div>
+
+        <div className="overflow-y-auto px-5 py-4 space-y-3" style={{ maxHeight: "calc(85vh - 120px)" }}>
+          <Section
+            title="Urgentné"
+            items={urgent}
+            colorClass="text-red-400"
+            borderClass="border-red-700 bg-red-950/20"
+            glowRgb="220, 38, 38"
+          />
+          <Section
+            title="Informácie"
+            items={info}
+            colorClass="text-blue-400"
+            borderClass="border-blue-700 bg-blue-950/20"
+            glowRgb="37, 99, 235"
+          />
+          <Section
+            title="Pozitívne"
+            items={good}
+            colorClass="text-green-400"
+            borderClass="border-green-700 bg-green-950/20"
+            glowRgb="22, 163, 74"
+          />
+          <Section
+            title="Novinky"
+            items={interesting}
+            colorClass="text-yellow-400"
+            borderClass="border-yellow-700 bg-yellow-950/20"
+            glowRgb="202, 138, 4"
+          />
+        </div>
+
+        <div className="px-5 py-3 border-t border-border">
           <Button
-            className="w-full bg-orange-700 hover:bg-orange-600"
-            onClick={() => markReadMutation.mutate(currentNotif.id)}
-            disabled={markReadMutation.isPending}
-            data-testid={`btn-ack-redlist-notif-${currentNotif.id}`}
+            className="w-full"
+            variant="default"
+            onClick={handleClose}
+            disabled={markAllReadMutation.isPending}
+            data-testid="btn-confirm-home-popup"
           >
-            {markReadMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
+            {markAllReadMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Rozumiem
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }
