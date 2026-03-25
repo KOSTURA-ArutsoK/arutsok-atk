@@ -3694,27 +3694,22 @@ export default function Contracts() {
                 ? () => {
                     if (effectivelyIncomplete) { openIncompleteEdit(contract); }
                     else if (nahratieView) {
-                      const docs = getProductDocsForContract(contract);
-                      if (docs.required.length > 0 || docs.optional.length > 0) {
-                        const saved = docChecklistSavedState[contract.id];
-                        const partial = docChecklistPartialState[contract.id];
-                        const initDoc = saved || partial;
-                        if (initDoc) {
-                          setDocChecklistCheckedReq(new Set(initDoc.req));
-                          setDocChecklistCheckedOpt(new Set(initDoc.opt));
-                          setDocChecklistExtraOpt(initDoc.extra);
-                          setDocChecklistCheckedExtra(new Set(initDoc.checkedExtra));
-                        } else {
-                          setDocChecklistCheckedReq(new Set());
-                          setDocChecklistCheckedOpt(new Set());
-                          setDocChecklistExtraOpt([]);
-                          setDocChecklistCheckedExtra(new Set());
-                        }
-                        setDocChecklistNewOpt("");
-                        setDocChecklistContract(contract);
+                      const saved = docChecklistSavedState[contract.id];
+                      const partial = docChecklistPartialState[contract.id];
+                      const initDoc = saved || partial;
+                      if (initDoc) {
+                        setDocChecklistCheckedReq(new Set(initDoc.req));
+                        setDocChecklistCheckedOpt(new Set(initDoc.opt));
+                        setDocChecklistExtraOpt(initDoc.extra);
+                        setDocChecklistCheckedExtra(new Set(initDoc.checkedExtra));
                       } else {
-                        if (!isSelected) setSelectedIds(prev => [...prev, contract.id]);
+                        setDocChecklistCheckedReq(new Set());
+                        setDocChecklistCheckedOpt(new Set());
+                        setDocChecklistExtraOpt([]);
+                        setDocChecklistCheckedExtra(new Set());
                       }
+                      setDocChecklistNewOpt("");
+                      setDocChecklistContract(contract);
                     } else {
                       setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]);
                     }
@@ -3754,30 +3749,25 @@ export default function Contracts() {
                         onCheckedChange={() => {
                           if (!effectivelyIncomplete) {
                             if (nahratieView) {
-                              const docs = getProductDocsForContract(contract);
-                              if (docs.required.length > 0 || docs.optional.length > 0) {
-                                if (isSelected) {
-                                  setSelectedIds(prev => prev.filter(id => id !== contract.id));
-                                } else {
-                                  const saved = docChecklistSavedState[contract.id];
-                                  const partial = docChecklistPartialState[contract.id];
-                                  const initDoc = saved || partial;
-                                  if (initDoc) {
-                                    setDocChecklistCheckedReq(new Set(initDoc.req));
-                                    setDocChecklistCheckedOpt(new Set(initDoc.opt));
-                                    setDocChecklistExtraOpt(initDoc.extra);
-                                    setDocChecklistCheckedExtra(new Set(initDoc.checkedExtra));
-                                  } else {
-                                    setDocChecklistCheckedReq(new Set());
-                                    setDocChecklistCheckedOpt(new Set());
-                                    setDocChecklistExtraOpt([]);
-                                    setDocChecklistCheckedExtra(new Set());
-                                  }
-                                  setDocChecklistNewOpt("");
-                                  setDocChecklistContract(contract);
-                                }
+                              if (isSelected) {
+                                setSelectedIds(prev => prev.filter(id => id !== contract.id));
                               } else {
-                                setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]);
+                                const saved = docChecklistSavedState[contract.id];
+                                const partial = docChecklistPartialState[contract.id];
+                                const initDoc = saved || partial;
+                                if (initDoc) {
+                                  setDocChecklistCheckedReq(new Set(initDoc.req));
+                                  setDocChecklistCheckedOpt(new Set(initDoc.opt));
+                                  setDocChecklistExtraOpt(initDoc.extra);
+                                  setDocChecklistCheckedExtra(new Set(initDoc.checkedExtra));
+                                } else {
+                                  setDocChecklistCheckedReq(new Set());
+                                  setDocChecklistCheckedOpt(new Set());
+                                  setDocChecklistExtraOpt([]);
+                                  setDocChecklistCheckedExtra(new Set());
+                                }
+                                setDocChecklistNewOpt("");
+                                setDocChecklistContract(contract);
                               }
                             } else {
                               setSelectedIds(prev => prev.includes(contract.id) ? prev.filter(id => id !== contract.id) : [...prev, contract.id]);
