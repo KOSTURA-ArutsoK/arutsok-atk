@@ -10,7 +10,7 @@ import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from 
 import { seedSubjectParameters, syncSubjectParameters, seedAssetPanels, seedEventAndEntityPanels, seedNsVsTemplates, cleanupZombieTemplateParams, ensureOsClientType } from "./seed-subject-params";
 import sharp from "sharp";
 import { db } from "./db";
-import { eq, and, or, isNull, isNotNull, sql, inArray, not, desc, asc, gte, lte, lt } from "drizzle-orm";
+import { eq, and, or, isNull, isNotNull, sql, inArray, not, desc, asc, gte, lte, lt, count } from "drizzle-orm";
 import multer from "multer";
 import ExcelJS from "exceljs";
 import { parse as csvParse } from "csv-parse/sync";
@@ -6544,7 +6544,22 @@ export async function registerRoutes(
 
   // === CONTRACT INVENTORIES ===
   app.get(api.contractInventoriesApi.list.path, isAuthenticated, async (req: any, res) => {
-    res.json(await storage.getContractInventories(getEnforcedStateId(req)));
+    const inventoryList = await storage.getContractInventories(getEnforcedStateId(req));
+    if (inventoryList.length === 0) return res.json([]);
+    // Attach contractCount per inventory (non-deleted contracts only); filter out empty inventories
+    const counts = await db
+      .select({ inventoryId: contracts.inventoryId, count: count() })
+      .from(contracts)
+      .where(and(
+        eq(contracts.isDeleted, false),
+        inArray(contracts.inventoryId, inventoryList.map(i => i.id))
+      ))
+      .groupBy(contracts.inventoryId);
+    const countMap = new Map(counts.map(r => [r.inventoryId, Number(r.count)]));
+    const withCounts = inventoryList
+      .map(inv => ({ ...inv, contractCount: countMap.get(inv.id) ?? 0 }))
+      .filter(inv => inv.contractCount > 0);
+    res.json(withCounts);
   });
 
   app.post(api.contractInventoriesApi.create.path, isAuthenticated, async (req: any, res) => {
