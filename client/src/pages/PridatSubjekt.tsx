@@ -66,7 +66,7 @@ const createSchema = insertSubjectSchema.extend({
   myCompanyId: z.coerce.number().min(1, "Povinne"),
 });
 
-type InitialData = {
+export type InitialData = {
   clientTypeCode: string;
   stateId: number;
   baseValue: string;
@@ -83,7 +83,7 @@ type InitialData = {
   };
 };
 
-function FullPageEditor({
+export function FullPageEditor({
   initialData,
   onCancel,
 }: {

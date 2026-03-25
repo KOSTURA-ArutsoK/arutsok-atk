@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
+import { FullPageEditor, type InitialData } from "@/pages/PridatSubjekt";
 import {
   UserPlus, User, Briefcase, Building2, Landmark, Network, Library,
   Loader2, CheckCircle2, AlertTriangle, ExternalLink, ChevronRight,
@@ -664,6 +665,7 @@ export default function Aaa() {
   const [, navigate] = useLocation();
   const [subjectType, setSubjectType] = useState<SubjectType>("person");
   const [sliderVisible, setSliderVisible] = useState(false);
+  const [formData, setFormData] = useState<InitialData | null>(null);
 
   const selectedOpt = SUBJECT_TYPE_OPTS.find(o => o.val === subjectType)!;
 
@@ -672,14 +674,24 @@ export default function Aaa() {
   }
 
   function handleProceed(data: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: AresLookup }) {
-    try {
-      sessionStorage.setItem("pridat_subjekt_data", JSON.stringify(data));
-    } catch {}
-    navigate("/pridat-subjekt");
+    setFormData(data);
   }
 
   function handleViewSubject(id: number) {
     navigate(`/subjekty/${id}`);
+  }
+
+  function handleCancelForm() {
+    setFormData(null);
+  }
+
+  if (formData) {
+    return (
+      <FullPageEditor
+        initialData={formData}
+        onCancel={handleCancelForm}
+      />
+    );
   }
 
   return (
