@@ -709,7 +709,7 @@ export default function Aaa() {
         <AddPartnerHexButton onClick={handleButtonClick} />
       </div>
 
-      {!sliderVisible && <div className="mt-6"><SubjectInfoBubble opt={selectedOpt} /></div>}
+      {!sliderVisible && <div style={{ marginTop: "26px" }}><SubjectInfoBubble opt={selectedOpt} /></div>}
 
       {sliderVisible && (
         <>
