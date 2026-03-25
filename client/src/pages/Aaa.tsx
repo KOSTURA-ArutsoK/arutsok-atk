@@ -224,7 +224,6 @@ function InlineRegistrationRow({
   const [icoError, setIcoError] = useState<string | null>(null);
   const [aresLookup, setAresLookup] = useState<AresLookup | null>(null);
   const [aresLoading, setAresLoading] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const proceedRef = useRef<HTMLButtonElement>(null);
 
@@ -327,10 +326,12 @@ function InlineRegistrationRow({
       }
       setIcoError(null);
       performDuplicateCheck(value);
-      setAresLoading(true);
-      const normalizedIco = result.normalized || digits;
-      const lookupType = opt.clientTypeCode === "SZCO" ? "szco" : "company";
-      fetch(`/api/lookup/ico/${encodeURIComponent(normalizedIco)}?type=${lookupType}`, { credentials: "include" })
+      const aresTypes = ["SZCO", "PO", "NS"];
+      if (aresTypes.includes(opt.clientTypeCode)) {
+        setAresLoading(true);
+        const normalizedIco = result.normalized || digits;
+        const lookupType = opt.clientTypeCode === "SZCO" ? "szco" : "company";
+        fetch(`/api/lookup/ico/${encodeURIComponent(normalizedIco)}?type=${lookupType}`, { credentials: "include" })
         .then(r => r.json())
         .then(data => {
           if (data.found) {
@@ -341,6 +342,7 @@ function InlineRegistrationRow({
         })
         .catch(() => setAresLookup({ found: false, message: "Chyba pri vyhľadávaní v registroch" }))
         .finally(() => setAresLoading(false));
+      }
     }
   }, [value, isRc, isIco, opt.clientTypeCode, performDuplicateCheck]);
 
