@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, CheckCircle2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState, useEffect } from "react";
 import { useAppUser } from "@/hooks/use-app-user";
@@ -33,21 +33,29 @@ function Section({
   borderClass: string;
   glowRgb: string;
 }) {
-  if (items.length === 0) return null;
   return (
     <div
-      className={`rounded-lg border ${borderClass} p-3 space-y-1.5`}
-      style={{ boxShadow: `0 0 28px rgba(${glowRgb}, 0.22)` }}
+      className={`rounded-lg border ${borderClass} p-3`}
+      style={{ boxShadow: `0 0 28px rgba(${glowRgb}, 0.25)` }}
     >
       <p className={`text-xs font-bold uppercase tracking-wider ${colorClass} mb-2`}>{title}</p>
-      {items.map((item, i) => (
-        <div key={i} className="flex flex-col gap-0.5">
-          <span className="text-sm text-foreground leading-snug">{item.label}</span>
-          {item.detail && (
-            <span className="text-xs text-muted-foreground leading-snug">{item.detail}</span>
-          )}
+      {items.length === 0 ? (
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+          <span className="text-xs">Všetko v poriadku ✓</span>
         </div>
-      ))}
+      ) : (
+        <div className="space-y-1.5">
+          {items.map((item, i) => (
+            <div key={i} className="flex flex-col gap-0.5">
+              <span className="text-sm text-foreground leading-snug">{item.label}</span>
+              {item.detail && (
+                <span className="text-xs text-muted-foreground leading-snug">{item.detail}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -67,7 +75,7 @@ export function RedListNotificationPopup() {
 
   useEffect(() => {
     if (!sessionKey) return;
-    if (!data?.hasAnyData) return;
+    if (!data) return;
     const already = sessionStorage.getItem(sessionKey);
     if (!already) {
       setVisible(true);
@@ -93,20 +101,21 @@ export function RedListNotificationPopup() {
   if (!visible || !data || isLoading) return null;
 
   const { urgent, info, good, interesting } = data;
-  const hasContent = urgent.length > 0 || info.length > 0 || good.length > 0 || interesting.length > 0;
-  if (!hasContent) return null;
+  const firstName = appUser?.name?.split(" ")[0] || appUser?.username || "Dobrý deň";
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div
         className="relative w-full max-w-md mx-4 rounded-xl border border-border bg-background/95 shadow-2xl overflow-hidden"
-        style={{ maxHeight: "85vh" }}
+        style={{ maxHeight: "90vh" }}
       >
         <div className="px-5 py-4 border-b border-border">
-          <h2 className="text-base font-semibold text-foreground">Prehľad notifikácií</h2>
+          <h2 className="text-base font-semibold text-foreground">
+            Prehľad — dobrý deň, {firstName}
+          </h2>
         </div>
 
-        <div className="overflow-y-auto px-5 py-4 space-y-3" style={{ maxHeight: "calc(85vh - 120px)" }}>
+        <div className="overflow-y-auto px-5 py-4 space-y-3" style={{ maxHeight: "calc(90vh - 116px)" }}>
           <Section
             title="Urgentné"
             items={urgent}
@@ -146,7 +155,7 @@ export function RedListNotificationPopup() {
             data-testid="btn-confirm-home-popup"
           >
             {markAllReadMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-            Rozumiem
+            Zavrieť
           </Button>
         </div>
       </div>
