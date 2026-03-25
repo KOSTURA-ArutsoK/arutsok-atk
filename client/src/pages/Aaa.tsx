@@ -1,5 +1,3 @@
-import { AddSubjectCard } from "@/components/AddSubjectCard";
-
 export default function Aaa() {
   return (
     <div className="p-6">
@@ -9,8 +7,6 @@ export default function Aaa() {
       <p className="text-sm text-muted-foreground mb-8">
         Toto okno slúži na registráciu nového partnera.
       </p>
-
-      <AddSubjectCard onClick={() => {}} />
     </div>
   );
 }
