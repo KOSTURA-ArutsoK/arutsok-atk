@@ -280,8 +280,6 @@ function InlineRegistrationRow({
   }, []);
 
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
     if (!value.trim()) {
       setDuplicateInfo(null);
       setDuplicateChecked(false);
