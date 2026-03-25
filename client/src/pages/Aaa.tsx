@@ -72,7 +72,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           flexDirection: "row",
           alignItems: "stretch",
         }}>
-          {/* Ľavá polovica — ikona vycentrovaná */}
+          {/* Ľavá 1/3 — ikona vycentrovaná */}
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <UserPlus
               size={28}
@@ -93,8 +93,8 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
             transition: "background 0.15s ease",
             flexShrink: 0,
           }} />
-          {/* Pravá polovica — text vycentrovaný */}
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {/* Pravá 2/3 — text vycentrovaný */}
+          <div style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{
               fontFamily: "sans-serif",
               fontSize: 12,
