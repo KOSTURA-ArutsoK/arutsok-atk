@@ -64,7 +64,7 @@ function SubjectTypeSlider({
             data-testid={`toggle-subject-type-aaa-${opt.val}`}
           >
             <Icon className="w-3 h-3 shrink-0" />
-            <span className="truncate">{opt.label}</span>
+            <span className="text-center leading-tight">{opt.label}</span>
           </button>
         );
       })}
