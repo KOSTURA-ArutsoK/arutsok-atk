@@ -5672,6 +5672,26 @@ export async function registerRoutes(
           });
           rejectedCount++;
         }
+
+        // Auto-close inventories where ALL contracts are now rejected (phase 3)
+        const rejectedInventoryIds = new Set<number>();
+        for (const rid of rejectedIds) {
+          const rejId = Number(rid);
+          const [rc] = await db.select({ inventoryId: contracts.inventoryId }).from(contracts).where(eq(contracts.id, rejId)).limit(1);
+          if (rc?.inventoryId) rejectedInventoryIds.add(rc.inventoryId);
+        }
+        for (const invId of rejectedInventoryIds) {
+          const remaining = await db.select({ id: contracts.id }).from(contracts).where(
+            and(
+              eq(contracts.inventoryId, invId),
+              eq(contracts.isDeleted, false),
+              not(eq(contracts.lifecyclePhase, 3)),
+            )
+          ).limit(1);
+          if (remaining.length === 0) {
+            await db.update(contractInventories).set({ isClosed: true, updatedAt: now }).where(eq(contractInventories.id, invId));
+          }
+        }
       }
 
       res.json({ moved: results.length, rejected: rejectedCount, contracts: results });
