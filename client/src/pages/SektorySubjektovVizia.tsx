@@ -183,6 +183,11 @@ export default function SektorySubjektovVizia() {
   const [moveBlokTarget, setMoveBlokTarget]           = useState<SubjectParamSection | null>(null);
   const [moveBlokTargetKatId, setMoveBlokTargetKatId] = useState<string>("");
 
+  // Move param to another row dialog
+  const [moveParamOpen, setMoveParamOpen]                 = useState(false);
+  const [moveParamTarget, setMoveParamTarget]             = useState<SubjectParameter | null>(null);
+  const [moveParamTargetRiadokId, setMoveParamTargetRiadokId] = useState<string>("");
+
   // Form inputs
   const [newKategoriaName, setNewKategoriaName]         = useState("");
   const [newKategoriaCategory, setNewKategoriaCategory] = useState("povinne");
@@ -337,6 +342,22 @@ export default function SektorySubjektovVizia() {
     onError: () => { invalidateParams(); toast({ title: "Chyba pri ukladaní poradia", variant: "destructive" }); },
   });
 
+  const moveParamMutation = useMutation({
+    mutationFn: async ({ id, rowId, sortOrder }: { id: number; rowId: number | null; sortOrder: number }) => {
+      const r = await apiRequest("PATCH", `/api/subject-parameters/${id}`, { rowId, sortOrder });
+      if (!r.ok) { const b = await r.json().catch(() => ({})); throw new Error(b.message || "Chyba"); }
+      return r.json();
+    },
+    onSuccess: () => {
+      invalidateParams();
+      setMoveParamOpen(false);
+      setMoveParamTarget(null);
+      setMoveParamTargetRiadokId("");
+      toast({ title: "Parameter presunutý" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message, variant: "destructive" }),
+  });
+
   // ============================================================
   // Reorder helpers — optimistic update then API call
   // ============================================================
@@ -449,6 +470,44 @@ export default function SektorySubjektovVizia() {
     setMoveBlokTarget(blok);
     setMoveBlokTargetKatId(String(blok.parentSectionId ?? ""));
     setMoveBlokOpen(true);
+  };
+
+  // Get all riadky in the same panel as a parameter (for the move-param dialog)
+  const getRiadkyForParam = (param: SubjectParameter): SubjectParamSection[] => {
+    let panelId: number | null = null;
+    if (param.rowId) {
+      const riadok = allSections.find(s => s.id === param.rowId);
+      panelId = riadok?.parentSectionId ?? null;
+    } else {
+      panelId = param.panelId ?? null;
+    }
+    if (!panelId) return [];
+    return getRiadky(panelId);
+  };
+
+  const openMoveParam = (param: SubjectParameter, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMoveParamTarget(param);
+    // Default: current riadok or "none"
+    setMoveParamTargetRiadokId(param.rowId ? String(param.rowId) : "none");
+    setMoveParamOpen(true);
+  };
+
+  const handleMoveParam = () => {
+    if (!moveParamTarget || !moveParamTargetRiadokId) return;
+    const targetRowId = moveParamTargetRiadokId === "none" ? null : Number(moveParamTargetRiadokId);
+    // Compute new sortOrder: append at end of target list
+    let newSortOrder: number;
+    if (targetRowId === null) {
+      // Going to panel-level (no row) — find existing panel-level params in same panel
+      const panelId = moveParamTarget.panelId ?? null;
+      const existing = panelId ? getParamsForPanel(panelId) : [];
+      newSortOrder = (existing.length + 1) * 10;
+    } else {
+      const existing = getParamsForRiadok(targetRowId);
+      newSortOrder = (existing.length + 1) * 10;
+    }
+    moveParamMutation.mutate({ id: moveParamTarget.id, rowId: targetRowId, sortOrder: newSortOrder });
   };
 
   const handleMoveBlok = () => {
@@ -845,6 +904,19 @@ export default function SektorySubjektovVizia() {
                                                                                                                   <span className="truncate max-w-[80px]">{param.label}</span>
                                                                                                                   <FieldTypeBadge type={param.fieldType} />
                                                                                                                   {param.isRequired && <span className="text-[9px] text-red-500 font-bold">*</span>}
+                                                                                                                  <Tooltip>
+                                                                                                                    <TooltipTrigger asChild>
+                                                                                                                      <button
+                                                                                                                        type="button"
+                                                                                                                        onClick={e => openMoveParam(param, e)}
+                                                                                                                        className="flex-shrink-0 h-3.5 w-3.5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/30 hover:text-primary transition-colors"
+                                                                                                                        data-testid={`button-move-param-${param.id}`}
+                                                                                                                      >
+                                                                                                                        <ArrowRightLeft className="h-2.5 w-2.5" />
+                                                                                                                      </button>
+                                                                                                                    </TooltipTrigger>
+                                                                                                                    <TooltipContent side="top" className="text-xs">Presunúť do iného riadku</TooltipContent>
+                                                                                                                  </Tooltip>
                                                                                                                 </div>
                                                                                                               )}
                                                                                                             </SortableItem>
@@ -880,6 +952,19 @@ export default function SektorySubjektovVizia() {
                                                                                                     <AlignLeft className="h-3 w-3 opacity-50 flex-shrink-0" />
                                                                                                     <span className="flex-1 truncate">{param.label}</span>
                                                                                                     <FieldTypeBadge type={param.fieldType} />
+                                                                                                    <Tooltip>
+                                                                                                      <TooltipTrigger asChild>
+                                                                                                        <button
+                                                                                                          type="button"
+                                                                                                          onClick={e => openMoveParam(param, e)}
+                                                                                                          className="flex-shrink-0 h-4 w-4 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/30 hover:text-primary transition-colors"
+                                                                                                          data-testid={`button-move-param-${param.id}`}
+                                                                                                        >
+                                                                                                          <ArrowRightLeft className="h-3 w-3" />
+                                                                                                        </button>
+                                                                                                      </TooltipTrigger>
+                                                                                                      <TooltipContent side="top" className="text-xs">Presunúť do riadku</TooltipContent>
+                                                                                                    </Tooltip>
                                                                                                   </div>
                                                                                                 )}
                                                                                               </SortableItem>
@@ -1309,6 +1394,61 @@ export default function SektorySubjektovVizia() {
                 data-testid="button-confirm-move-blok"
               >
                 {moveBlokMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Presunúť"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Move Param to another Row */}
+        <Dialog open={moveParamOpen} onOpenChange={v => { setMoveParamOpen(v); if (!v) { setMoveParamTarget(null); setMoveParamTargetRiadokId(""); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Presunúť parameter do iného riadku</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              {moveParamTarget && (
+                <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5 space-y-0.5">
+                  <div>Parameter: <span className="font-medium">{moveParamTarget.label}</span></div>
+                  {moveParamTarget.rowId ? (
+                    <div>Aktuálny riadok: <span className="font-medium">{allSections.find(s => s.id === moveParamTarget.rowId)?.name || `#${moveParamTarget.rowId}`}</span></div>
+                  ) : (
+                    <div className="text-amber-600/80">Aktuálne: bez riadku (panel-level)</div>
+                  )}
+                </div>
+              )}
+              <div>
+                <label className="text-sm font-medium mb-1 block">Cieľový Riadok</label>
+                <Select value={moveParamTargetRiadokId} onValueChange={setMoveParamTargetRiadokId}>
+                  <SelectTrigger data-testid="select-move-param-target">
+                    <SelectValue placeholder="Vyberte riadok..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      — Bez riadku (panel-level)
+                    </SelectItem>
+                    {moveParamTarget && getRiadkyForParam(moveParamTarget).map(r => (
+                      <SelectItem key={r.id} value={String(r.id)}>
+                        {r.name || <span className="italic text-muted-foreground">bez názvu</span>}
+                        {r.id === moveParamTarget.rowId && " (aktuálny)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setMoveParamOpen(false)}>Zrušiť</Button>
+              <Button
+                onClick={handleMoveParam}
+                disabled={
+                  !moveParamTargetRiadokId ||
+                  (moveParamTargetRiadokId === "none" && !moveParamTarget?.rowId) ||
+                  (moveParamTargetRiadokId !== "none" && Number(moveParamTargetRiadokId) === moveParamTarget?.rowId) ||
+                  moveParamMutation.isPending
+                }
+                data-testid="button-confirm-move-param"
+              >
+                {moveParamMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Presunúť"}
               </Button>
             </DialogFooter>
           </DialogContent>
