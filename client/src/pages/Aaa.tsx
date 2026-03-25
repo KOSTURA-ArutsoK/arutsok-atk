@@ -678,7 +678,7 @@ export default function Aaa() {
 
       <AddPartnerHexButton onClick={handleButtonClick} />
 
-      <SubjectInfoBubble opt={selectedOpt} />
+      {!sliderVisible && <SubjectInfoBubble opt={selectedOpt} />}
 
       {sliderVisible && (
         <>
