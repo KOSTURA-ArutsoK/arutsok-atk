@@ -678,9 +678,11 @@ export default function Aaa() {
 
       <AddPartnerHexButton onClick={handleButtonClick} />
 
+      <SubjectInfoBubble opt={selectedOpt} />
+
       {sliderVisible && (
         <>
-          <div className="mt-6">
+          <div className="mt-4">
             <SubjectTypeSlider value={subjectType} onChange={setSubjectType} />
           </div>
           <InlineRegistrationRow
@@ -690,8 +692,6 @@ export default function Aaa() {
           />
         </>
       )}
-
-      <SubjectInfoBubble opt={selectedOpt} />
     </div>
   );
 }
