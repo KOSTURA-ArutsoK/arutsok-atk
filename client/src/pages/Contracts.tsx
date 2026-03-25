@@ -5827,7 +5827,7 @@ export default function Contracts() {
         if (preSelectSubjectType === "person" && preSelectBirthNumber.trim()) {
           subjectData.birthNumber = preSelectBirthNumber.trim();
         }
-        if (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") {
+        if (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state" || preSelectSubjectType === "os") {
           subjectData.companyName = preSelectBusinessName.trim() || null;
           if (preSelectIco.trim()) {
             subjectData.details = { ico: preSelectIco.trim() };
@@ -6079,7 +6079,7 @@ export default function Contracts() {
         setPreSelectSubjectSearch(subIco || sub.companyName || `${sub.firstName || ""} ${sub.lastName || ""}`.trim());
       }
       // Pre SZČO/org/štát — zobraziť FO osobu ak existuje
-      if ((sub.type === "szco" || sub.type === "organization" || sub.type === "state") && (sub.firstName || sub.lastName || linkedFo?.firstName || linkedFo?.lastName)) {
+      if ((sub.type === "szco" || sub.type === "organization" || sub.type === "state" || sub.type === "os") && (sub.firstName || sub.lastName || linkedFo?.firstName || linkedFo?.lastName)) {
         setPreSelectShowNameFields(true);
       }
     } else {
@@ -7371,15 +7371,15 @@ export default function Contracts() {
             )}
 
             {/* ══════ SZCO/PO/TS/VS — dva rámčeky ══════ */}
-            {(preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && !preSelectSubjectId && (
+            {(preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state" || preSelectSubjectType === "os") && !preSelectSubjectId && (
               <>
               {/* Rámček 1: Entita (SZCO/PO/TS/VS) + vyhľadávanie */}
               {!preSelectIcoLookup?.found && (
-              <div className={`border rounded-md p-3 space-y-2 ${preSelectSubjectType === "szco" ? "border-amber-500/40" : preSelectSubjectType === "organization" ? "border-green-500/40" : preSelectSubjectType === "state" ? "border-cyan-500/40" : "border-purple-500/40"}`}>
+              <div className={`border rounded-md p-3 space-y-2 ${preSelectSubjectType === "szco" ? "border-amber-500/40" : preSelectSubjectType === "organization" || preSelectSubjectType === "os" ? "border-green-500/40" : preSelectSubjectType === "state" ? "border-cyan-500/40" : "border-purple-500/40"}`}>
                 <div className="flex items-center gap-1.5 text-xs font-semibold mb-1">
-                  {preSelectSubjectType === "szco" ? <Briefcase className="w-3.5 h-3.5 text-amber-400" /> : preSelectSubjectType === "organization" ? <Building className="w-3.5 h-3.5 text-green-400" /> : preSelectSubjectType === "state" ? <Landmark className="w-3.5 h-3.5 text-cyan-400" /> : <Building2 className="w-3.5 h-3.5 text-purple-400" />}
-                  <span className={preSelectSubjectType === "szco" ? "text-amber-400" : preSelectSubjectType === "organization" ? "text-green-400" : preSelectSubjectType === "state" ? "text-cyan-400" : "text-purple-400"}>
-                    {preSelectSubjectType === "szco" ? "Živnosť (SZČO)" : preSelectSubjectType === "organization" ? "Organizácia (TS)" : preSelectSubjectType === "state" ? "Inštitúcia (VS)" : "Spoločnosť (PO)"}
+                  {preSelectSubjectType === "szco" ? <Briefcase className="w-3.5 h-3.5 text-amber-400" /> : preSelectSubjectType === "organization" || preSelectSubjectType === "os" ? <Building className="w-3.5 h-3.5 text-green-400" /> : preSelectSubjectType === "state" ? <Landmark className="w-3.5 h-3.5 text-cyan-400" /> : <Building2 className="w-3.5 h-3.5 text-purple-400" />}
+                  <span className={preSelectSubjectType === "szco" ? "text-amber-400" : preSelectSubjectType === "organization" || preSelectSubjectType === "os" ? "text-green-400" : preSelectSubjectType === "state" ? "text-cyan-400" : "text-purple-400"}>
+                    {preSelectSubjectType === "szco" ? "Živnosť (SZČO)" : preSelectSubjectType === "organization" ? "Organizácia (TS)" : preSelectSubjectType === "state" ? "Inštitúcia (VS)" : preSelectSubjectType === "os" ? "Občianske združenie (OS)" : "Spoločnosť (PO)"}
                   </span>
                 </div>
                 {/* Vyhľadávanie */}
@@ -7465,7 +7465,7 @@ export default function Contracts() {
                                 if (preSelectSubjectType === "company" && refRegisterButton.current && !refRegisterButton.current.disabled) {
                                   refRegisterButton.current.focus(); return;
                                 }
-                                if (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") {
+                                if (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state" || preSelectSubjectType === "os") {
                                   const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
                                   if (el) { el.focus(); return; }
                                 }
@@ -7533,7 +7533,7 @@ export default function Contracts() {
                         setPreSelectShowNameFields(true);
                         if (focusNext) setTimeout(() => {
                           const sType = s.type as string;
-                          if (sType === "szco" || sType === "company" || sType === "organization" || sType === "state") {
+                          if (sType === "szco" || sType === "company" || sType === "organization" || sType === "state" || sType === "os") {
                             const el = document.querySelector('[data-testid="input-preselect-business-name"]') as HTMLElement;
                             if (el) { el.focus(); return; }
                           }
@@ -7653,7 +7653,7 @@ export default function Contracts() {
                 </div>
                 {/* Názov entity */}
                 <div className="space-y-1">
-                  <label className="text-xs font-medium flex items-center gap-1">{preSelectSubjectType === "szco" ? "Názov živnosti" : preSelectSubjectType === "organization" ? "Názov organizácie/nadácie" : preSelectSubjectType === "state" ? "Názov inštitúcie" : "Názov spoločnosti"} * {isFieldMissing("business-name") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
+                  <label className="text-xs font-medium flex items-center gap-1">{preSelectSubjectType === "szco" ? "Názov živnosti" : preSelectSubjectType === "organization" ? "Názov organizácie/nadácie" : preSelectSubjectType === "state" ? "Názov inštitúcie" : preSelectSubjectType === "os" ? "Názov občianskeho združenia" : "Názov spoločnosti"} * {isFieldMissing("business-name") && <AlertTriangle className="w-3 h-3 text-red-500" />}</label>
                   <Input
                     ref={refBusinessNameInput}
                     value={preSelectBusinessName}
@@ -7668,7 +7668,7 @@ export default function Contracts() {
                       setPreSelectTitleAfter("");
                       setPreSelectBirthNumber("");
                     }}
-                    placeholder={preSelectSubjectType === "szco" ? "Názov živnosti" : preSelectSubjectType === "organization" ? "Názov organizácie/nadácie" : preSelectSubjectType === "state" ? "Názov verejnej inštitúcie" : "Názov spoločnosti"}
+                    placeholder={preSelectSubjectType === "szco" ? "Názov živnosti" : preSelectSubjectType === "organization" ? "Názov organizácie/nadácie" : preSelectSubjectType === "state" ? "Názov verejnej inštitúcie" : preSelectSubjectType === "os" ? "Názov občianskeho združenia" : "Názov spoločnosti"}
                     readOnly={!!preSelectSubjectId}
                     className={isFieldMissing("business-name") ? "border-red-500 ring-red-500/30" : ""}
                     onKeyDown={(e) => {
@@ -8423,15 +8423,15 @@ export default function Contracts() {
               </div>
             )}
 
-            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && preSelectBusinessName && (
+            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state" || preSelectSubjectType === "os") && preSelectBusinessName && (
               <div className="flex items-center gap-2 px-3 py-2 rounded border border-border/40 bg-muted/20">
-                <span className="text-xs text-muted-foreground">{preSelectSubjectType === "szco" ? "Živnosť:" : preSelectSubjectType === "company" ? "Spoločnosť:" : preSelectSubjectType === "organization" ? "Organizácia:" : "Inštitúcia:"}</span>
+                <span className="text-xs text-muted-foreground">{preSelectSubjectType === "szco" ? "Živnosť:" : preSelectSubjectType === "company" ? "Spoločnosť:" : preSelectSubjectType === "organization" ? "Organizácia (TS):" : preSelectSubjectType === "os" ? "Združenie (OS):" : "Inštitúcia:"}</span>
                 <span className="text-sm font-medium" data-testid="text-preselect-business-name-readonly">{preSelectBusinessName}</span>
                 {preSelectIco && <span className="text-xs text-muted-foreground font-mono ml-auto">IČO: {preSelectIco}</span>}
               </div>
             )}
 
-            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && (preSelectFirstName || preSelectLastName) && (
+            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state" || preSelectSubjectType === "os") && (preSelectFirstName || preSelectLastName) && (
               <div className="flex items-center gap-2 px-3 py-2 rounded border border-blue-500/30 bg-blue-500/5">
                 <User className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                 <span className="text-xs text-muted-foreground">FO vlastník:</span>
@@ -8440,7 +8440,7 @@ export default function Contracts() {
               </div>
             )}
 
-            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && !preSelectFirstName && !preSelectLastName && (
+            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "company" || preSelectSubjectType === "organization" || preSelectSubjectType === "state" || preSelectSubjectType === "os") && !preSelectFirstName && !preSelectLastName && (
               <div className="flex items-center gap-2 px-3 py-2 rounded border border-amber-500/30 bg-amber-500/10">
                 <span className="text-xs text-amber-400" data-testid="text-preselect-no-fo-readonly">Nemáme informácie o FO vlastníkovi</span>
               </div>
@@ -8485,7 +8485,7 @@ export default function Contracts() {
               </div>
             )}
 
-            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "organization" || preSelectSubjectType === "state") && preSelectBirthNumber && (
+            {preSelectSubjectId && (preSelectSubjectType === "szco" || preSelectSubjectType === "organization" || preSelectSubjectType === "state" || preSelectSubjectType === "os") && preSelectBirthNumber && (
               <div className="flex items-center gap-2 px-3 py-2 rounded border border-border/40 bg-muted/20">
                 <span className="text-xs text-muted-foreground">RČ vlastníka:</span>
                 <span className="text-sm font-mono" data-testid="text-preselect-fo-rc-readonly">{preSelectBirthNumber}</span>
