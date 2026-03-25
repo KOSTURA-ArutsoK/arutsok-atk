@@ -705,7 +705,7 @@ export default function Aaa() {
         </p>
       </div>
 
-      <div className="mt-14">
+      <div style={{ marginTop: "54px" }}>
         <AddPartnerHexButton onClick={handleButtonClick} />
       </div>
 
