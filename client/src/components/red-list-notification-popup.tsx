@@ -38,15 +38,11 @@ function Section({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        borderLeft: `5px solid rgba(${rgb}, 0.80)`,
-        borderRight: `5px solid rgba(${rgb}, 0.80)`,
-        borderTop: "none",
-        borderBottom: "none",
-        background: `rgba(${rgb}, 0.09)`,
-        boxShadow: hovered
-          ? `-18px 0 28px rgba(${rgb}, 0.45), 18px 0 28px rgba(${rgb}, 0.45)`
-          : "none",
-        transition: "box-shadow 0.25s ease",
+        border: "none",
+        background: hovered
+          ? `linear-gradient(to bottom, rgba(${rgb},0.22) 0%, rgba(${rgb},0.07) 18%, rgba(${rgb},0.07) 82%, rgba(${rgb},0.22) 100%), linear-gradient(to right, rgba(${rgb},0.60) 0%, rgba(${rgb},0.10) 20%, rgba(${rgb},0.10) 80%, rgba(${rgb},0.60) 100%)`
+          : `linear-gradient(to bottom, rgba(${rgb},0.12) 0%, rgba(${rgb},0.06) 18%, rgba(${rgb},0.06) 82%, rgba(${rgb},0.12) 100%), linear-gradient(to right, rgba(${rgb},0.36) 0%, rgba(${rgb},0.08) 20%, rgba(${rgb},0.08) 80%, rgba(${rgb},0.36) 100%)`,
+        transition: "background 0.25s ease",
       }}
       className="px-4 py-3"
     >
