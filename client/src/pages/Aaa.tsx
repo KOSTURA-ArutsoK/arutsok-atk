@@ -1,3 +1,125 @@
+import { useState } from "react";
+import { Handshake, Plus } from "lucide-react";
+
+function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  const [pressed, setPressed] = useState(false);
+
+  const hexPath =
+    "M 73,26 Q 80,22 87,26 " +
+    "L 132,52 Q 139,56 139,64 " +
+    "L 139,116 Q 139,124 132,128 " +
+    "L 87,154 Q 80,158 73,154 " +
+    "L 28,128 Q 21,124 21,116 " +
+    "L 21,64 Q 21,56 28,52 Z";
+
+  const isActive = hovered || pressed;
+
+  return (
+    <div className="flex items-center justify-center w-full" style={{ marginTop: -18, paddingBottom: 4 }}>
+      <button
+        type="button"
+        onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => { setHovered(false); setPressed(false); }}
+        onMouseDown={() => setPressed(true)}
+        onMouseUp={() => setPressed(false)}
+        data-testid="button-add-partner-aaa"
+        title="Pridať nového partnera"
+        style={{
+          position: "relative",
+          width: 180,
+          height: 207,
+          background: "none",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          outline: "none",
+          userSelect: "none",
+          transition: "transform 0.15s ease",
+          transform: pressed ? "scale(0.96)" : hovered ? "scale(1.05)" : "scale(1)",
+        }}
+      >
+        <svg
+          width="180"
+          height="207"
+          viewBox="0 0 160 180"
+          fill="none"
+          style={{ position: "absolute", top: 0, left: 0, overflow: "visible" }}
+        >
+          <defs>
+            <filter id="amberGlowAaa" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="16" result="blur" />
+            </filter>
+            <linearGradient id="hexGradAaa" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#0a1f3d" />
+              <stop offset="100%" stopColor="#1a3f80" />
+            </linearGradient>
+          </defs>
+          <path
+            d={hexPath}
+            fill={isActive ? "rgba(0,255,80,1.0)" : "rgba(56,189,248,0.50)"}
+            filter="url(#amberGlowAaa)"
+            style={{ transition: "fill 0.2s ease" }}
+          />
+          <path
+            d={hexPath}
+            fill="url(#hexGradAaa)"
+            stroke={isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)"}
+            strokeWidth="2"
+            style={{ transition: "stroke 0.15s ease" }}
+          />
+        </svg>
+
+        <div style={{
+          position: "absolute",
+          top: 0, left: 0, right: 0, bottom: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 9,
+        }}>
+          <div style={{ position: "relative", display: "inline-flex" }}>
+            <Handshake
+              size={46}
+              strokeWidth={1.4}
+              style={{
+                color: "#FFBF00",
+                filter: `drop-shadow(0 0 8px rgba(255,191,0,${isActive ? 0.95 : 0.55}))`,
+                transition: "filter 0.15s ease",
+                display: "block",
+              }}
+            />
+            <Plus
+              size={14}
+              strokeWidth={2.5}
+              style={{
+                position: "absolute",
+                top: -6,
+                right: -9,
+                color: "#FFBF00",
+                filter: "drop-shadow(0 0 5px #FFBF00)",
+              }}
+            />
+          </div>
+          <span style={{
+            fontFamily: "sans-serif",
+            fontSize: 11,
+            fontWeight: 800,
+            color: "#b8d0f0",
+            letterSpacing: "0.05em",
+            textAlign: "center",
+            lineHeight: 1.2,
+          }}>
+            Pridať partnera
+          </span>
+        </div>
+      </button>
+    </div>
+  );
+}
+
 export default function Aaa() {
   return (
     <div className="p-6">
@@ -7,6 +129,8 @@ export default function Aaa() {
       <p className="text-sm text-muted-foreground mb-8">
         Toto okno slúži na registráciu nového partnera.
       </p>
+
+      <AddPartnerHexButton onClick={() => {}} />
     </div>
   );
 }
