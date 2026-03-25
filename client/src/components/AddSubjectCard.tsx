@@ -56,24 +56,22 @@ export function AddSubjectCard({ onClick }: AddSubjectCardProps) {
           {/* Podsvietenie (glow) */}
           <rect
             x="8" y="8" width="264" height="64" rx="20"
-            fill={isActive ? "rgba(57,255,20,0.85)" : "rgba(56,189,248,0.45)"}
+            fill={hovered ? "rgba(57,255,20,0.85)" : "rgba(56,189,248,0.45)"}
             filter="url(#subjectGlow)"
-            style={{ transition: "fill 0.2s ease" }}
+            style={{ transition: "fill 0.25s ease" }}
           />
           {/* Hlavná pilulka */}
           <rect
             x="1" y="1" width="278" height="78" rx="24"
             fill="url(#pillGradSubject)"
-            stroke={isActive ? "rgba(245,158,11,0.75)" : "rgba(245,158,11,0.35)"}
+            stroke="rgba(245,158,11,0.35)"
             strokeWidth="1.5"
-            style={{ transition: "stroke 0.15s ease" }}
           />
           {/* Vertikálne delítko */}
           <line
             x1="100" y1="14" x2="100" y2="66"
-            stroke={isActive ? "rgba(245,158,11,0.60)" : "rgba(245,158,11,0.25)"}
+            stroke="rgba(245,158,11,0.25)"
             strokeWidth="1"
-            style={{ transition: "stroke 0.15s ease" }}
           />
         </svg>
 
