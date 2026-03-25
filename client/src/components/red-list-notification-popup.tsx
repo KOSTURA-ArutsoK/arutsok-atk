@@ -114,7 +114,7 @@ function Section({
 }
 
 function CloseSection({ onClose, isPending }: { onClose: () => void; isPending: boolean }) {
-  const rgb = "22, 163, 74";
+  const rgb = "255, 255, 255";
   const [hovered, setHovered] = useState(false);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -133,17 +133,17 @@ function CloseSection({ onClose, isPending }: { onClose: () => void; isPending: 
         onClick={!isPending ? onClose : undefined}
         data-testid="btn-confirm-home-popup"
         style={{
-          background: hovered ? `rgba(${rgb}, 0.14)` : "transparent",
-          borderTop: `1px solid rgba(${rgb}, 0.30)`,
+          background: hovered ? `rgba(${rgb}, 0.10)` : "transparent",
+          borderTop: "1px solid rgba(255,255,255,0.12)",
           cursor: isPending ? "default" : "pointer",
           transition: "background 0.2s ease",
         }}
         className="px-4 py-3 flex items-center justify-center gap-2"
       >
         {isPending
-          ? <Loader2 className="w-4 h-4 animate-spin text-green-400" />
+          ? <Loader2 className="w-4 h-4 animate-spin text-foreground" />
           : null}
-        <span className="text-sm font-semibold text-green-400 uppercase tracking-wider">Zavrieť</span>
+        <span className="text-sm font-semibold text-foreground uppercase tracking-wider">Zavrieť</span>
       </div>
       {hovered && rect && <SideGlow rect={rect} rgb={rgb} />}
     </>
