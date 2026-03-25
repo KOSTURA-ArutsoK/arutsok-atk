@@ -695,7 +695,7 @@ export default function Aaa() {
   }
 
   return (
-    <div className="space-y-6">
+    <div>
       <div>
         <h1 className="text-2xl font-semibold" data-testid="text-aaa-title">
           Pridať subjekt
@@ -709,11 +709,11 @@ export default function Aaa() {
         <AddPartnerHexButton onClick={handleButtonClick} />
       </div>
 
-      {!sliderVisible && <SubjectInfoBubble opt={selectedOpt} />}
+      {!sliderVisible && <div className="mt-6"><SubjectInfoBubble opt={selectedOpt} /></div>}
 
       {sliderVisible && (
         <>
-          <div className="mt-4">
+          <div className="mt-6">
             <SubjectTypeSlider value={subjectType} onChange={setSubjectType} />
           </div>
           <InlineRegistrationRow
