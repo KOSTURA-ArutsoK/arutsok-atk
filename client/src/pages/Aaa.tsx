@@ -685,15 +685,6 @@ export default function Aaa() {
     setFormData(null);
   }
 
-  if (formData) {
-    return (
-      <FullPageEditor
-        initialData={formData}
-        onCancel={handleCancelForm}
-      />
-    );
-  }
-
   return (
     <div>
       <div>
@@ -709,9 +700,13 @@ export default function Aaa() {
         <AddPartnerHexButton onClick={handleButtonClick} />
       </div>
 
-      {!sliderVisible && <div style={{ marginTop: "26px" }}><SubjectInfoBubble opt={selectedOpt} /></div>}
+      {!sliderVisible && !formData && (
+        <div style={{ marginTop: "26px" }}>
+          <SubjectInfoBubble opt={selectedOpt} />
+        </div>
+      )}
 
-      {sliderVisible && (
+      {sliderVisible && !formData && (
         <>
           <div className="mt-6">
             <SubjectTypeSlider value={subjectType} onChange={setSubjectType} />
@@ -722,6 +717,15 @@ export default function Aaa() {
             onViewSubject={handleViewSubject}
           />
         </>
+      )}
+
+      {formData && (
+        <div className="mt-8">
+          <FullPageEditor
+            initialData={formData}
+            onCancel={handleCancelForm}
+          />
+        </div>
       )}
     </div>
   );
