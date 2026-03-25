@@ -20615,6 +20615,7 @@ export async function registerRoutes(
       const urgent: PopupItem[] = [];
       const info: PopupItem[] = [];
       const good: PopupItem[] = [];
+      const news: PopupItem[] = [];
 
       // === URGENT (červená) ===
 
@@ -20881,7 +20882,9 @@ export async function registerRoutes(
         good.push({ type: "archived_contract", label: `Archivovaná zmluva: ${c.contractNumber || c.uid || `#${c.id}`}` });
       }
 
-      // 4. New clients/subjects (last 30 days) — part of "good/novinky"
+      // === NOVINKY (žltá) ===
+
+      // New clients/subjects (last 30 days)
       const newSubjectsCond: any[] = [
         isNull(subjects.deletedAt),
         gte(subjects.createdAt, thirtyDaysAgo),
@@ -20902,7 +20905,7 @@ export async function registerRoutes(
 
       for (const s of newSubjectsList) {
         const name = s.companyName || `${s.firstName || ""} ${s.lastName || ""}`.trim() || s.uid;
-        good.push({ type: "new_client", label: `Nový klient: ${name}` });
+        news.push({ type: "new_client", label: `Nový klient: ${name}` });
       }
 
       // === UNREAD NOTIF IDS ===
@@ -20910,9 +20913,9 @@ export async function registerRoutes(
         .where(and(eq(notificationQueue.recipientUserId, user.id), eq(notificationQueue.status, "sent")));
       const unreadNotifIds = allUnread.map(n => n.id);
 
-      const hasAnyData = urgent.length > 0 || info.length > 0 || good.length > 0 || unreadNotifIds.length > 0;
+      const hasAnyData = urgent.length > 0 || info.length > 0 || good.length > 0 || news.length > 0 || unreadNotifIds.length > 0;
 
-      res.json({ urgent, info, good, unreadNotifIds, hasAnyData });
+      res.json({ urgent, info, good, news, unreadNotifIds, hasAnyData });
     } catch (err: any) {
       console.error("[HOME-POPUP-DATA]", err);
       res.status(500).json({ message: err?.message || "Chyba" });

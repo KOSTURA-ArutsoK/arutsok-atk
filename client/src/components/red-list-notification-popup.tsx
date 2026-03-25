@@ -15,6 +15,7 @@ interface HomePopupData {
   urgent: PopupItem[];
   info: PopupItem[];
   good: PopupItem[];
+  news: PopupItem[];
   unreadNotifIds: number[];
   hasAnyData: boolean;
 }
@@ -23,19 +24,25 @@ function Section({
   title,
   items,
   colorClass,
-  borderClass,
+  borderRgb,
+  bgRgb,
   glowRgb,
 }: {
   title: string;
   items: PopupItem[];
   colorClass: string;
-  borderClass: string;
+  borderRgb: string;
+  bgRgb: string;
   glowRgb: string;
 }) {
   return (
     <div
-      className={`rounded-lg border ${borderClass} p-3`}
-      style={{ boxShadow: `0 0 28px rgba(${glowRgb}, 0.25)` }}
+      style={{
+        border: `5px solid rgba(${borderRgb}, 0.75)`,
+        background: `rgba(${bgRgb}, 0.10)`,
+        boxShadow: `0 0 32px rgba(${glowRgb}, 0.28)`,
+      }}
+      className="p-3"
     >
       <p className={`text-xs font-bold uppercase tracking-wider ${colorClass} mb-2`}>{title}</p>
       {items.length === 0 ? (
@@ -101,7 +108,7 @@ export function RedListNotificationPopup() {
 
   if (!visible || !data || isLoading) return null;
 
-  const { urgent, info, good } = data;
+  const { urgent, info, good, news = [] } = data;
   const firstName = appUser?.firstName || appUser?.username || "";
 
   return (
@@ -116,26 +123,37 @@ export function RedListNotificationPopup() {
           </h2>
         </div>
 
-        <div className="overflow-y-auto px-5 py-4 space-y-3" style={{ maxHeight: "calc(90vh - 116px)" }}>
+        <div className="overflow-y-auto py-3 space-y-3" style={{ maxHeight: "calc(90vh - 116px)" }}>
           <Section
             title="Urgentné"
             items={urgent}
             colorClass="text-red-400"
-            borderClass="border-red-700 bg-red-950/20"
+            borderRgb="220, 38, 38"
+            bgRgb="220, 38, 38"
             glowRgb="220, 38, 38"
           />
           <Section
             title="Informácie"
             items={info}
             colorClass="text-blue-400"
-            borderClass="border-blue-700 bg-blue-950/20"
+            borderRgb="37, 99, 235"
+            bgRgb="37, 99, 235"
             glowRgb="37, 99, 235"
           />
           <Section
-            title="Pozitívne a novinky"
+            title="Novinky"
+            items={news}
+            colorClass="text-amber-400"
+            borderRgb="217, 119, 6"
+            bgRgb="217, 119, 6"
+            glowRgb="217, 119, 6"
+          />
+          <Section
+            title="Pozitívne"
             items={good}
             colorClass="text-green-400"
-            borderClass="border-green-700 bg-green-950/20"
+            borderRgb="22, 163, 74"
+            bgRgb="22, 163, 74"
             glowRgb="22, 163, 74"
           />
         </div>
