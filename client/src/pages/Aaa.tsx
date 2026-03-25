@@ -58,13 +58,13 @@ function SubjectTypeSlider({
             aria-checked={isActive}
             tabIndex={isActive ? 0 : -1}
             title={opt.label}
-            className={`relative z-10 flex-1 flex items-center justify-center gap-1 px-1 py-1.5 text-xs font-medium rounded transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground/80"}`}
+            className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground/80"}`}
             onClick={() => onChange(opt.val)}
             onKeyDown={(e) => handleKey(e, idx)}
             data-testid={`toggle-subject-type-aaa-${opt.val}`}
           >
             <Icon className="w-3 h-3 shrink-0" />
-            <span className="truncate">{opt.shortLabel}</span>
+            <span className="truncate">{opt.label}</span>
           </button>
         );
       })}
@@ -197,10 +197,8 @@ export default function Aaa() {
 
       <AddPartnerHexButton onClick={() => {}} />
 
-      <div className="flex justify-center mt-3">
-        <div style={{ width: 280 }}>
-          <SubjectTypeSlider value={subjectType} onChange={setSubjectType} />
-        </div>
+      <div className="mt-3">
+        <SubjectTypeSlider value={subjectType} onChange={setSubjectType} />
       </div>
     </div>
   );
