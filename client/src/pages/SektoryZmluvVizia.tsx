@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import {
-  ChevronRight, ChevronDown, Layers, FolderOpen, LayoutGrid,
+  ChevronRight, ChevronDown, ChevronLeft, Layers, FolderOpen, LayoutGrid,
   AlignLeft, Copy, Plus, X, GripVertical, Search,
 } from "lucide-react";
 import type { Sector, Section, SectorProduct, ContractFolder, Panel, Parameter } from "@shared/schema";
@@ -54,6 +54,10 @@ export default function SektoryZmluvVizia() {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedSectors, setExpandedSectors] = useState<Record<number, boolean>>({});
   const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({});
+
+  // --- Panel collapse state ---
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
 
   // --- Selected items for toolbar ---
   const [selectedPanelId, setSelectedPanelId] = useState<number | null>(null);
@@ -377,104 +381,120 @@ export default function SektoryZmluvVizia() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* === LEFT PANEL — Product Tree === */}
-        <div className="w-64 border-r bg-card flex-shrink-0 flex flex-col">
-          {/* Search */}
-          <div className="p-3 border-b">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Hľadaj produkt..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="pl-8 h-8 text-sm"
-                data-testid="input-search-products"
-              />
+        <div className="flex flex-shrink-0 relative">
+          {/* Panel content */}
+          <div className={`border-r bg-card flex flex-col transition-all duration-150 ${leftPanelCollapsed ? "w-0 overflow-hidden" : "w-64"}`}>
+            {/* Search */}
+            <div className="p-3 border-b">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Hľadaj produkt..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="pl-8 h-8 text-sm"
+                  data-testid="input-search-products"
+                />
+              </div>
+            </div>
+
+            {/* Tree */}
+            <div className="flex-1 overflow-y-auto py-1">
+              {visibleSectors.length === 0 && (
+                <p className="text-xs text-muted-foreground px-4 py-3">
+                  {lowerSearch ? "Žiadne výsledky." : "Žiadne sektory."}
+                </p>
+              )}
+              {visibleSectors.map(sector => {
+                const sectorSections = activeSections.filter(s =>
+                  s.sectorId === sector.id &&
+                  (!filteredTree || filteredTree.sectionIds.has(s.id))
+                );
+                const expanded = isSectorExpanded(sector.id);
+
+                return (
+                  <div key={sector.id} data-testid={`tree-sector-${sector.id}`}>
+                    {/* Sector row */}
+                    <button
+                      className="w-full flex items-center gap-1.5 px-3 py-1.5 hover:bg-muted/50 text-left transition-colors"
+                      onClick={() => toggleSector(sector.id)}
+                      data-testid={`toggle-sector-${sector.id}`}
+                    >
+                      {expanded
+                        ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                        : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      }
+                      <span className="text-sm font-medium truncate">{sector.name}</span>
+                    </button>
+
+                    {/* Sections */}
+                    {expanded && sectorSections.map(section => {
+                      const sectionProducts = activeProducts.filter(p =>
+                        p.sectionId === section.id &&
+                        (!filteredTree || filteredTree.productSet.has(p.id))
+                      );
+                      const secExpanded = isSectionExpanded(section.id);
+
+                      return (
+                        <div key={section.id} data-testid={`tree-section-${section.id}`}>
+                          {/* Section row */}
+                          <button
+                            className="w-full flex items-center gap-1.5 pl-7 pr-3 py-1.5 hover:bg-muted/50 text-left transition-colors"
+                            onClick={() => toggleSection(section.id)}
+                            data-testid={`toggle-section-${section.id}`}
+                          >
+                            {secExpanded
+                              ? <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                              : <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            }
+                            <span className="text-xs text-muted-foreground truncate">{section.name}</span>
+                          </button>
+
+                          {/* Products */}
+                          {secExpanded && sectionProducts.map(product => {
+                            const isSelected = selectedProductId === product.id;
+                            return (
+                              <button
+                                key={product.id}
+                                onClick={() => handleSelectProduct(product.id)}
+                                className={`w-full flex items-center gap-1.5 pl-12 pr-3 py-1 text-left transition-colors text-xs ${
+                                  isSelected
+                                    ? "bg-primary/10 text-primary font-medium"
+                                    : "text-foreground hover:bg-muted/50"
+                                }`}
+                                data-testid={`product-item-${product.id}`}
+                              >
+                                <span className="h-1.5 w-1.5 rounded-full bg-current flex-shrink-0 opacity-60" />
+                                <span className="truncate flex-1">{product.name}</span>
+                                {product.abbreviation && (
+                                  <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                                    {product.abbreviation}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* Tree */}
-          <div className="flex-1 overflow-y-auto py-1">
-            {visibleSectors.length === 0 && (
-              <p className="text-xs text-muted-foreground px-4 py-3">
-                {lowerSearch ? "Žiadne výsledky." : "Žiadne sektory."}
-              </p>
-            )}
-            {visibleSectors.map(sector => {
-              const sectorSections = activeSections.filter(s =>
-                s.sectorId === sector.id &&
-                (!filteredTree || filteredTree.sectionIds.has(s.id))
-              );
-              const expanded = isSectorExpanded(sector.id);
-
-              return (
-                <div key={sector.id} data-testid={`tree-sector-${sector.id}`}>
-                  {/* Sector row */}
-                  <button
-                    className="w-full flex items-center gap-1.5 px-3 py-1.5 hover:bg-muted/50 text-left transition-colors"
-                    onClick={() => toggleSector(sector.id)}
-                    data-testid={`toggle-sector-${sector.id}`}
-                  >
-                    {expanded
-                      ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                      : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                    }
-                    <span className="text-sm font-medium truncate">{sector.name}</span>
-                  </button>
-
-                  {/* Sections */}
-                  {expanded && sectorSections.map(section => {
-                    const sectionProducts = activeProducts.filter(p =>
-                      p.sectionId === section.id &&
-                      (!filteredTree || filteredTree.productSet.has(p.id))
-                    );
-                    const secExpanded = isSectionExpanded(section.id);
-
-                    return (
-                      <div key={section.id} data-testid={`tree-section-${section.id}`}>
-                        {/* Section row */}
-                        <button
-                          className="w-full flex items-center gap-1.5 pl-7 pr-3 py-1.5 hover:bg-muted/50 text-left transition-colors"
-                          onClick={() => toggleSection(section.id)}
-                          data-testid={`toggle-section-${section.id}`}
-                        >
-                          {secExpanded
-                            ? <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                            : <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                          }
-                          <span className="text-xs text-muted-foreground truncate">{section.name}</span>
-                        </button>
-
-                        {/* Products */}
-                        {secExpanded && sectionProducts.map(product => {
-                          const isSelected = selectedProductId === product.id;
-                          return (
-                            <button
-                              key={product.id}
-                              onClick={() => handleSelectProduct(product.id)}
-                              className={`w-full flex items-center gap-1.5 pl-12 pr-3 py-1 text-left transition-colors text-xs ${
-                                isSelected
-                                  ? "bg-primary/10 text-primary font-medium"
-                                  : "text-foreground hover:bg-muted/50"
-                              }`}
-                              data-testid={`product-item-${product.id}`}
-                            >
-                              <span className="h-1.5 w-1.5 rounded-full bg-current flex-shrink-0 opacity-60" />
-                              <span className="truncate flex-1">{product.name}</span>
-                              {product.abbreviation && (
-                                <span className="text-[10px] text-muted-foreground flex-shrink-0">
-                                  {product.abbreviation}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
+          {/* Left panel toggle button */}
+          <button
+            onClick={() => setLeftPanelCollapsed(c => !c)}
+            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-full z-10 flex items-center justify-center w-5 h-10 bg-card border border-l-0 rounded-r text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            title={leftPanelCollapsed ? "Zobraziť strom" : "Skryť strom"}
+            data-testid="toggle-left-panel"
+          >
+            {leftPanelCollapsed
+              ? <ChevronRight className="h-3 w-3" />
+              : <ChevronLeft className="h-3 w-3" />
+            }
+          </button>
         </div>
 
         {/* === RIGHT PANEL — Blueprint Preview === */}
@@ -636,7 +656,20 @@ export default function SektoryZmluvVizia() {
 
           {/* === TOOLBAR === */}
           {selectedProductId && (
-            <div className="w-56 border-l bg-card flex-shrink-0 flex flex-col p-4 gap-4 overflow-y-auto">
+            <div className="flex flex-shrink-0 relative">
+              {/* Right panel toggle button */}
+              <button
+                onClick={() => setRightPanelCollapsed(c => !c)}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full z-10 flex items-center justify-center w-5 h-10 bg-card border border-r-0 rounded-l text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                title={rightPanelCollapsed ? "Zobraziť toolbar" : "Skryť toolbar"}
+                data-testid="toggle-right-panel"
+              >
+                {rightPanelCollapsed
+                  ? <ChevronLeft className="h-3 w-3" />
+                  : <ChevronRight className="h-3 w-3" />
+                }
+              </button>
+            <div className={`border-l bg-card flex flex-col gap-4 overflow-y-auto transition-all duration-150 ${rightPanelCollapsed ? "w-0 overflow-hidden p-0" : "w-56 p-4"}`}>
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Pridať</p>
                 <div className="flex flex-col gap-1.5">
@@ -790,6 +823,7 @@ export default function SektoryZmluvVizia() {
                   </div>
                 )}
               </div>
+            </div>
             </div>
           )}
         </div>
