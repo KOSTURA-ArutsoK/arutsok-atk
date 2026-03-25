@@ -9,8 +9,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, CalendarDays, FileBarChart, ClipboardCheck, CheckCircle2, Loader2 } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { isAdmin as checkIsAdmin } from "@/lib/utils";
 
@@ -21,7 +20,6 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { ContextSelectorOverlay } from "@/components/context-selector-overlay";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,148 +40,6 @@ function getSidebarDefault(): boolean {
   return true;
 }
 
-function WelcomeModal({ open, onClose, firstName, onNavigate }: {
-  open: boolean;
-  onClose: () => void;
-  firstName?: string | null;
-  onNavigate: (path: string) => void;
-}) {
-  const { data, isLoading } = useQuery<any>({
-    queryKey: ["/api/my-tasks"],
-    enabled: open,
-  });
-
-  type TaskItem = { icon: JSX.Element; label: string; badge?: string; badgeColor?: string; path: string; urgent?: boolean };
-  const items: TaskItem[] = [];
-
-  if (data) {
-    (data.nbsReportTasks ?? []).forEach((t: any) => {
-      const overdue = t.daysLeft < 0;
-      const urgent = t.daysLeft <= 14;
-      if (t.status !== "sent") {
-        const badge = overdue ? `po termíne` : t.daysLeft === 0 ? "dnes" : `${t.daysLeft} dní`;
-        items.push({
-          icon: <FileBarChart className={`w-4 h-4 flex-shrink-0 ${overdue ? "text-red-500" : urgent ? "text-orange-500" : "text-blue-500"}`} />,
-          label: `NBS report: ${t.periodLabel} ${t.year}`,
-          badge,
-          badgeColor: overdue ? "text-red-500" : urgent ? "text-orange-500" : "text-blue-500",
-          path: "/nbs-report",
-          urgent: overdue || urgent,
-        });
-      }
-    });
-
-    (data.companiesWithoutOfficers ?? []).forEach((c: any) => {
-      items.push({
-        icon: <Building2 className="w-4 h-4 flex-shrink-0 text-amber-500" />,
-        label: `Bez štatutára: ${c.name}`,
-        badge: "chýba",
-        badgeColor: "text-amber-500",
-        path: `/subjects/${c.id}`,
-        urgent: true,
-      });
-    });
-
-    (data.tasks ?? []).forEach((t: any) => {
-      items.push({
-        icon: <ClipboardCheck className="w-4 h-4 flex-shrink-0 text-purple-500" />,
-        label: `Prestup: krok ${t.currentStep?.step ?? "?"} — ${t.currentStep?.stepName ?? ""}`,
-        badge: "čaká",
-        badgeColor: "text-purple-500",
-        path: "/moje-ulohy",
-        urgent: true,
-      });
-    });
-
-    (data.interventions ?? []).forEach((c: any) => {
-      items.push({
-        icon: <AlertTriangle className="w-4 h-4 flex-shrink-0 text-orange-500" />,
-        label: `Intervencia: zmluva ${c.contractNumber || c.uid || c.id}`,
-        badge: "intervencia",
-        badgeColor: "text-orange-500",
-        path: `/contracts/${c.id}/edit`,
-        urgent: true,
-      });
-    });
-
-    (data.rejectedContracts ?? []).forEach((c: any) => {
-      items.push({
-        icon: <AlertTriangle className="w-4 h-4 flex-shrink-0 text-red-500" />,
-        label: `Zamietnutá zmluva: ${c.contractNumber || c.uid || c.id}`,
-        badge: "zamietnutá",
-        badgeColor: "text-red-500",
-        path: `/contracts/${c.id}/edit`,
-        urgent: true,
-      });
-    });
-
-    const today = new Date().toDateString();
-    (data.upcomingEvents ?? []).slice(0, 2).forEach((e: any) => {
-      const isToday = new Date(e.startDate).toDateString() === today;
-      items.push({
-        icon: <CalendarDays className={`w-4 h-4 flex-shrink-0 ${isToday ? "text-red-500" : "text-blue-400"}`} />,
-        label: e.title,
-        badge: isToday ? "dnes" : undefined,
-        badgeColor: "text-red-500",
-        path: "/kalendar",
-        urgent: isToday,
-      });
-    });
-  }
-
-  const sorted = [...items].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
-
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md p-0 overflow-hidden" style={{ border: "5px solid #ef4444", borderRadius: "12px" }} data-testid="dialog-welcome">
-        <DialogDescription className="sr-only">Uvítacie okno s najdôležitejšími úlohami</DialogDescription>
-        <div className="bg-red-500 px-6 py-4">
-          <DialogTitle className="text-white text-lg font-bold">Vitajte v systéme ArutsoK 👋</DialogTitle>
-          <p className="text-red-100 text-sm mt-0.5">
-            {firstName ? `Ahoj, ${firstName}!` : "Ahoj!"} Tu sú vaše najdôležitejšie úlohy:
-          </p>
-        </div>
-        <div className="px-6 py-4 space-y-1 max-h-80 overflow-y-auto">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : sorted.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-6 text-center">
-              <CheckCircle2 className="w-8 h-8 text-green-500" />
-              <p className="text-sm font-medium text-green-600">Všetky úlohy splnené!</p>
-              <p className="text-xs text-muted-foreground">Momentálne nemáte žiadne čakajúce úlohy.</p>
-            </div>
-          ) : sorted.map((item, i) => (
-            <button
-              key={i}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors text-left group"
-              onClick={() => onNavigate(item.path)}
-              data-testid={`button-welcome-task-${i}`}
-            >
-              {item.icon}
-              <span className="text-sm flex-1 min-w-0 truncate group-hover:text-foreground">{item.label}</span>
-              {item.badge && (
-                <span className={`text-xs font-semibold shrink-0 ${item.badgeColor}`}>{item.badge}</span>
-              )}
-            </button>
-          ))}
-        </div>
-        <div className="px-6 pb-4 pt-1 border-t flex gap-2">
-          <Button variant="outline" className="flex-1 text-sm" onClick={() => onNavigate("/moje-ulohy")} data-testid="button-welcome-goto-tasks">
-            Moje úlohy
-          </Button>
-          <Button variant="ghost" className="flex-1 text-muted-foreground text-sm" onClick={onClose} data-testid="button-welcome-close">
-            Zavrieť
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-let _welcomeShownForUserId: number | undefined = undefined;
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const { data: appUser } = useAppUser();
@@ -198,8 +54,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(getSidebarDefault);
-  const [welcomeOpen, setWelcomeOpen] = useState(false);
-  const [, navigate] = useLocation();
 
   const handleSidebarChange = useCallback((open: boolean) => {
     setSidebarOpen(open);
@@ -460,18 +314,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       );
     }
   }, [appUser?.id]);
-
-  useEffect(() => {
-    const currentId = appUser?.id;
-    if (!currentId) {
-      _welcomeShownForUserId = undefined;
-      return;
-    }
-    if (!isClientUser && _welcomeShownForUserId !== currentId) {
-      _welcomeShownForUserId = currentId;
-      setWelcomeOpen(true);
-    }
-  }, [appUser?.id, isClientUser]);
 
   const securityWarningSpokenRef = useRef(false);
   useEffect(() => {
@@ -895,13 +737,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onClose={() => setContextOverlayOpen(false)}
       />
       {warningOverlay}
-
-      <WelcomeModal
-        open={welcomeOpen}
-        onClose={() => setWelcomeOpen(false)}
-        firstName={appUser?.firstName}
-        onNavigate={(path) => { setWelcomeOpen(false); navigate(path); }}
-      />
     </SidebarProvider>
   );
 }
