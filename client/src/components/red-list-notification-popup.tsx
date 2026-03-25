@@ -15,7 +15,6 @@ interface HomePopupData {
   urgent: PopupItem[];
   info: PopupItem[];
   good: PopupItem[];
-  interesting: PopupItem[];
   unreadNotifIds: number[];
   hasAnyData: boolean;
 }
@@ -76,6 +75,7 @@ export function RedListNotificationPopup() {
   useEffect(() => {
     if (!sessionKey) return;
     if (!data) return;
+    if (!data.hasAnyData && data.unreadNotifIds.length === 0) return;
     const already = sessionStorage.getItem(sessionKey);
     if (!already) {
       setVisible(true);
@@ -100,8 +100,8 @@ export function RedListNotificationPopup() {
 
   if (!visible || !data || isLoading) return null;
 
-  const { urgent, info, good, interesting } = data;
-  const firstName = appUser?.name?.split(" ")[0] || appUser?.username || "Dobrý deň";
+  const { urgent, info, good } = data;
+  const firstName = appUser?.firstName || appUser?.username || "";
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -111,7 +111,7 @@ export function RedListNotificationPopup() {
       >
         <div className="px-5 py-4 border-b border-border">
           <h2 className="text-base font-semibold text-foreground">
-            Prehľad — dobrý deň, {firstName}
+            Prehľad — dobrý deň{firstName ? `, ${firstName}` : ""}
           </h2>
         </div>
 
@@ -131,18 +131,11 @@ export function RedListNotificationPopup() {
             glowRgb="37, 99, 235"
           />
           <Section
-            title="Pozitívne"
+            title="Pozitívne a novinky"
             items={good}
             colorClass="text-green-400"
             borderClass="border-green-700 bg-green-950/20"
             glowRgb="22, 163, 74"
-          />
-          <Section
-            title="Novinky"
-            items={interesting}
-            colorClass="text-yellow-400"
-            borderClass="border-yellow-700 bg-yellow-950/20"
-            glowRgb="202, 138, 4"
           />
         </div>
 

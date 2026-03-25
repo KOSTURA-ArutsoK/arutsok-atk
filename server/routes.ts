@@ -20615,7 +20615,6 @@ export async function registerRoutes(
       const urgent: PopupItem[] = [];
       const info: PopupItem[] = [];
       const good: PopupItem[] = [];
-      const interesting: PopupItem[] = [];
 
       // === URGENT (červená) ===
 
@@ -20845,9 +20844,7 @@ export async function registerRoutes(
         }
       }
 
-      // === INTERESTING (žltá — najnovšie zmluvy a noví klienti) ===
-
-      // 1. New contracts (last 30 days)
+      // 3. New contracts (last 30 days) — part of "good/novinky"
       const newContractsCond: any[] = [
         eq(contracts.isDeleted, false),
         gte(contracts.createdAt, thirtyDaysAgo),
@@ -20864,10 +20861,10 @@ export async function registerRoutes(
         .limit(5);
 
       for (const c of newContracts) {
-        interesting.push({ type: "new_contract", label: `Nová zmluva: ${c.contractNumber || c.uid || `#${c.id}`}` });
+        good.push({ type: "new_contract", label: `Nová zmluva: ${c.contractNumber || c.uid || `#${c.id}`}` });
       }
 
-      // 2. New clients (last 30 days)
+      // 4. New clients/subjects (last 30 days) — part of "good/novinky"
       const newSubjectsCond: any[] = [
         isNull(subjects.deletedAt),
         gte(subjects.createdAt, thirtyDaysAgo),
@@ -20888,7 +20885,7 @@ export async function registerRoutes(
 
       for (const s of newSubjectsList) {
         const name = s.companyName || `${s.firstName || ""} ${s.lastName || ""}`.trim() || s.uid;
-        interesting.push({ type: "new_client", label: `Nový klient: ${name}` });
+        good.push({ type: "new_client", label: `Nový klient: ${name}` });
       }
 
       // === UNREAD NOTIF IDS ===
@@ -20896,9 +20893,9 @@ export async function registerRoutes(
         .where(and(eq(notificationQueue.recipientUserId, user.id), eq(notificationQueue.status, "sent")));
       const unreadNotifIds = allUnread.map(n => n.id);
 
-      const hasAnyData = urgent.length > 0 || info.length > 0 || good.length > 0 || interesting.length > 0 || unreadNotifIds.length > 0;
+      const hasAnyData = urgent.length > 0 || info.length > 0 || good.length > 0 || unreadNotifIds.length > 0;
 
-      res.json({ urgent, info, good, interesting, unreadNotifIds, hasAnyData });
+      res.json({ urgent, info, good, unreadNotifIds, hasAnyData });
     } catch (err: any) {
       console.error("[HOME-POPUP-DATA]", err);
       res.status(500).json({ message: err?.message || "Chyba" });
