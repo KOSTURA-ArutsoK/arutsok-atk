@@ -1338,7 +1338,7 @@ export class DatabaseStorage implements IStorage {
       contractCount: contractCountSub,
     }).from(subjects);
 
-    const rows = await query.where(and(...conditions)).orderBy(asc(subjects.uid), asc(subjects.id));
+    const rows = await query.where(and(...conditions)).orderBy(desc(subjects.id), desc(subjects.uid));
 
     return rows.map(r => ({ ...r.subject, contractCount: r.contractCount ?? 0 }));
   }
