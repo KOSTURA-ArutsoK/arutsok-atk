@@ -26,7 +26,7 @@ export function AddSubjectCard({ onClick }: AddSubjectCardProps) {
         style={{
           position: "relative",
           width: 250,
-          height: 150,
+          height: 100,
           background: "none",
           border: "none",
           padding: 0,
@@ -39,45 +39,45 @@ export function AddSubjectCard({ onClick }: AddSubjectCardProps) {
       >
         <svg
           width="250"
-          height="150"
-          viewBox="0 0 250 150"
+          height="100"
+          viewBox="0 0 250 100"
           fill="none"
           style={{ position: "absolute", top: 0, left: 0, overflow: "visible" }}
         >
           <defs>
-            <filter id="subjectGlow" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="12" result="blur" />
+            <filter id="subjectGlow" x="-30%" y="-40%" width="160%" height="180%">
+              <feGaussianBlur stdDeviation="10" result="blur" />
             </filter>
             <linearGradient id="pillGradSubject" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#071a0f" />
-              <stop offset="100%" stopColor="#0f3d1a" />
+              <stop offset="0%" stopColor="#0a1f3d" />
+              <stop offset="100%" stopColor="#1a3f80" />
             </linearGradient>
           </defs>
-          {/* Zelené podsvietenie (glow) */}
+          {/* Podsvietenie (glow) */}
           <rect
-            x="10" y="10" width="230" height="130" rx="28"
-            fill={isActive ? "rgba(57,255,20,0.90)" : "rgba(34,197,94,0.55)"}
+            x="8" y="8" width="234" height="84" rx="22"
+            fill={isActive ? "rgba(57,255,20,0.85)" : "rgba(56,189,248,0.45)"}
             filter="url(#subjectGlow)"
             style={{ transition: "fill 0.2s ease" }}
           />
           {/* Hlavná pilulka */}
           <rect
-            x="1" y="1" width="248" height="148" rx="30"
+            x="1" y="1" width="248" height="98" rx="24"
             fill="url(#pillGradSubject)"
-            stroke={isActive ? "rgba(34,197,94,0.85)" : "rgba(34,197,94,0.40)"}
+            stroke={isActive ? "rgba(245,158,11,0.75)" : "rgba(245,158,11,0.35)"}
             strokeWidth="1.5"
             style={{ transition: "stroke 0.15s ease" }}
           />
           {/* Vertikálne delítko */}
           <line
-            x1="100" y1="28" x2="100" y2="122"
-            stroke={isActive ? "rgba(34,197,94,0.70)" : "rgba(34,197,94,0.30)"}
+            x1="100" y1="18" x2="100" y2="82"
+            stroke={isActive ? "rgba(245,158,11,0.60)" : "rgba(245,158,11,0.25)"}
             strokeWidth="1"
             style={{ transition: "stroke 0.15s ease" }}
           />
         </svg>
 
-        {/* Ľavá časť: ikona 👤 + plus */}
+        {/* Ľavá časť: ikona 👤 zlatá + plus */}
         <div style={{
           position: "absolute",
           top: 0, left: 0, width: 100, bottom: 0,
@@ -87,18 +87,18 @@ export function AddSubjectCard({ onClick }: AddSubjectCardProps) {
         }}>
           <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
             <span style={{
-              fontSize: 34,
+              fontSize: 30,
               lineHeight: 1,
-              filter: `drop-shadow(0 0 8px rgba(57,255,20,${isActive ? 1.0 : 0.55}))`,
-              transition: "filter 0.15s ease",
+              filter: "sepia(1) saturate(4) hue-rotate(5deg) brightness(1.15) drop-shadow(0 0 6px rgba(255,191,0,0.8))",
+              display: "block",
             }}>👤</span>
             <Plus
-              size={13}
+              size={12}
               strokeWidth={3}
               style={{
                 position: "absolute",
-                top: -4,
-                right: -9,
+                top: -3,
+                right: -8,
                 color: "#FFBF00",
                 filter: "drop-shadow(0 0 4px #FFBF00)",
               }}
