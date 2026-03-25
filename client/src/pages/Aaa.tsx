@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { UserPlus, User, Briefcase, Building2, Building, Landmark, Heart, Users } from "lucide-react";
+import { UserPlus, User, Briefcase, Building2, Building, Landmark, Network, Library } from "lucide-react";
 
 type SubjectType = "person" | "szco" | "company" | "organization" | "state" | "os";
 
@@ -7,9 +7,9 @@ const SUBJECT_TYPE_OPTS: Array<{ val: SubjectType; label: string; shortLabel: st
   { val: "person",       label: "Fyzické osoby (FO)",         shortLabel: "FO",   icon: User },
   { val: "szco",         label: "Živnostníci (SZČO)",         shortLabel: "SZČO", icon: Briefcase },
   { val: "company",      label: "Súkromný sektor (PO)",       shortLabel: "PO",   icon: Building2 },
-  { val: "organization", label: "Tretí sektor (TS)",          shortLabel: "TS",   icon: Heart },
+  { val: "organization", label: "Tretí sektor (TS)",          shortLabel: "TS",   icon: Network },
   { val: "state",        label: "Verejný sektor (VS)",        shortLabel: "VS",   icon: Landmark },
-  { val: "os",           label: "Občianske združenia (OS)",   shortLabel: "OS",   icon: Users },
+  { val: "os",           label: "Ostatné subjekty (OS)",      shortLabel: "OS",   icon: Library },
 ];
 
 function SubjectTypeSlider({

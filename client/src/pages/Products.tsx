@@ -452,7 +452,7 @@ function ProductFormDialog({
                   { val: "company", label: "PO", desc: "Právnická osoba" },
                   { val: "organization", label: "TS", desc: "Tretí sektor (nadácia)" },
                   { val: "state", label: "VS", desc: "Verejný sektor" },
-                  { val: "os", label: "OS", desc: "Občianske združenie" },
+                  { val: "os", label: "OS", desc: "Ostatné subjekty" },
                 ] as const).map(opt => {
                   const active = allowedSubjectTypes.includes(opt.val);
                   return (

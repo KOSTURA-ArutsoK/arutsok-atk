@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatUid, isArchitekt } from "@/lib/utils";
 import {
-  Building2, User, Briefcase, Shield, Network, Heart, Users,
+  Building2, User, Briefcase, Shield, Network, Library,
   ChevronRight, ChevronDown, Search, Loader2,
   Link2, Unlink, RefreshCw, X,
 } from "lucide-react";
@@ -54,8 +54,8 @@ function getSubjectName(node: TreeNode): string {
 function getTypeIcon(type: string) {
   switch (type) {
     case "company": return <Building2 className="w-3.5 h-3.5 shrink-0" />;
-    case "organization": return <Heart className="w-3.5 h-3.5 shrink-0" />;
-    case "os": return <Users className="w-3.5 h-3.5 shrink-0" />;
+    case "organization": return <Network className="w-3.5 h-3.5 shrink-0" />;
+    case "os": return <Library className="w-3.5 h-3.5 shrink-0" />;
     case "szco": return <Briefcase className="w-3.5 h-3.5 shrink-0" />;
     case "system": return <Shield className="w-3.5 h-3.5 shrink-0" />;
     default: return <User className="w-3.5 h-3.5 shrink-0" />;
