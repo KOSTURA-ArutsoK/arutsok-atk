@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Handshake, Plus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 
 function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
@@ -75,25 +75,14 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           gap: 9,
         }}>
           <div style={{ position: "relative", display: "inline-flex" }}>
-            <Handshake
-              size={46}
+            <UserPlus
+              size={36}
               strokeWidth={1.4}
               style={{
                 color: "#FFBF00",
                 filter: `drop-shadow(0 0 8px rgba(255,191,0,${isActive ? 0.95 : 0.55}))`,
                 transition: "filter 0.15s ease",
                 display: "block",
-              }}
-            />
-            <Plus
-              size={14}
-              strokeWidth={2.5}
-              style={{
-                position: "absolute",
-                top: -6,
-                right: -9,
-                color: "#FFBF00",
-                filter: "drop-shadow(0 0 5px #FFBF00)",
               }}
             />
           </div>
