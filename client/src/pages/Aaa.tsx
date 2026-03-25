@@ -70,40 +70,42 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           top: 0, left: 0, right: 0, bottom: 0,
           display: "flex",
           flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 0,
+          alignItems: "stretch",
         }}>
-          <UserPlus
-            size={28}
-            strokeWidth={1.4}
-            style={{
-              color: "#FFBF00",
-              filter: `drop-shadow(0 0 7px rgba(255,191,0,${isActive ? 0.95 : 0.55}))`,
-              transition: "filter 0.15s ease",
-              flexShrink: 0,
-              marginRight: 14,
-            }}
-          />
+          {/* Ľavá polovica — ikona vycentrovaná */}
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <UserPlus
+              size={28}
+              strokeWidth={1.4}
+              style={{
+                color: "#FFBF00",
+                filter: `drop-shadow(0 0 7px rgba(255,191,0,${isActive ? 0.95 : 0.55}))`,
+                transition: "filter 0.15s ease",
+              }}
+            />
+          </div>
           {/* Zvislá čiarka */}
           <div style={{
-            width: 1,
-            height: 32,
-            background: isActive ? "rgba(245,158,11,0.60)" : "rgba(245,158,11,0.28)",
+            width: 3,
+            margin: "12px 0",
+            borderRadius: 2,
+            background: isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)",
             transition: "background 0.15s ease",
             flexShrink: 0,
-            marginRight: 14,
           }} />
-          <span style={{
-            fontFamily: "sans-serif",
-            fontSize: 12,
-            fontWeight: 800,
-            color: "#b8d0f0",
-            letterSpacing: "0.05em",
-            whiteSpace: "nowrap",
-          }}>
-            Pridať subjekt
-          </span>
+          {/* Pravá polovica — text vycentrovaný */}
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{
+              fontFamily: "sans-serif",
+              fontSize: 12,
+              fontWeight: 800,
+              color: "#b8d0f0",
+              letterSpacing: "0.05em",
+              whiteSpace: "nowrap",
+            }}>
+              Pridať subjekt
+            </span>
+          </div>
         </div>
       </button>
     </div>
