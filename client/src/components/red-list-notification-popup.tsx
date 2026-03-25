@@ -78,6 +78,7 @@ export function RedListNotificationPopup() {
     if (!data.hasAnyData && data.unreadNotifIds.length === 0) return;
     const already = sessionStorage.getItem(sessionKey);
     if (!already) {
+      sessionStorage.setItem(sessionKey, "1");
       setVisible(true);
     }
   }, [data, sessionKey]);
@@ -93,7 +94,6 @@ export function RedListNotificationPopup() {
   });
 
   function handleClose() {
-    if (sessionKey) sessionStorage.setItem(sessionKey, "1");
     setVisible(false);
     markAllReadMutation.mutate();
   }
