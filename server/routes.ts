@@ -22,13 +22,10 @@ import { detectAmbiguousName } from "./name-parser";
 import { validateSlovakRC } from "@shared/rc-validator";
 import { validateSlovakICO } from "@shared/ico-validator";
 import { scanUploadedFile, scanMultipleFiles, sanitizeExcelWorkbook, checkClamAvStatus } from "./services/file-security";
+import { ATK_SYSTEM_ID, ATK_SUPERADMIN_ID } from "@shared/constants";
 
-const ROOT_SYSTEM_UID = "421000000000000";
-
-// UID vyhradené výhradne pre vzorovú Fyzickú Osobu (FO) v seed dátach.
-// Toto UID sa NIKDY nesmie prideliť subjektu iného typu (NS, VS, mycompany, system).
-// Akákoľvek operácia, ktorá by nastavila toto UID inému subjektu, musí byť odmietnutá.
-const SAMPLE_FO_UID = "421000000000002";
+const ROOT_SYSTEM_UID = ATK_SYSTEM_ID;
+const SAMPLE_FO_UID = ATK_SUPERADMIN_ID;
 
 // Returns (or creates) a dedicated company-node subject (type='mycompany') for the given myCompany.
 // This subject acts as the intermediate node: Root → CompanyNode → Officers
@@ -608,7 +605,8 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
+  console.log(`[ATK] System ArutsoK initialized (UID 421\u202F000\u202F000\u202F000\u202F000)`);
+
   const LIFECYCLE_PHASES: Record<number, string> = {
     1: "Nahratá - čaká na odoslanie",
     2: "Odoslané na sprievodke",
@@ -3505,10 +3503,10 @@ export async function registerRoutes(
 
       if (input.uid) input.uid = input.uid.replace(/\D/g, "");
 
-      // Guard: SAMPLE_FO_UID je rezervované výhradne pre existujúcu vzorovú FO.
-      // Žiadny nový subjekt NESMIE dostať toto UID – ani keď je person.
+      // Guard: ATK_SUPERADMIN_ID je rezervované systémové UID.
+      // Žiadny nový subjekt NESMIE dostať toto UID.
       if (input.uid && input.uid.replace(/\D/g, "") === SAMPLE_FO_UID) {
-        return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je rezervované pre existujúcu vzorovú fyzickú osobu a nemôže byť pridelené novému subjektu.` });
+        return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je rezervované systémové UID (ATK_SUPERADMIN_ID) a nemôže byť pridelené novému subjektu.` });
       }
 
       if (input.birthNumber && (input.type === "person" || input.type === "szco")) {
@@ -3641,21 +3639,21 @@ export async function registerRoutes(
 
       if (input.uid) input.uid = input.uid.replace(/\D/g, "");
 
-      // Guard: SAMPLE_FO_UID je rezervované výhradne pre vzorovú FO.
-      // Blokujeme: (1) priradenie tohto UID inému subjektu cez update, (2) zmenu typu vzorovej FO.
+      // Guard: ATK_SUPERADMIN_ID je rezervované systémové UID.
+      // Blokujeme: (1) priradenie tohto UID inému subjektu cez update, (2) zmenu typu subjektu s týmto UID.
       if (input.uid) {
         const normalizedUid = input.uid.replace(/\D/g, "");
         if (normalizedUid === SAMPLE_FO_UID && original.uid !== SAMPLE_FO_UID) {
-          return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je rezervované pre vzorovú FO a nemôže byť pridelené inému subjektu.` });
+          return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je rezervované systémové UID (ATK_SUPERADMIN_ID) a nemôže byť pridelené inému subjektu.` });
         }
       }
-      // Block changing the UID of the sample FO away from its reserved value
+      // Block changing the UID of the reserved subject away from its reserved value
       if (original.uid === SAMPLE_FO_UID && input.uid && input.uid !== SAMPLE_FO_UID) {
-        return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je rezervované – vzorová FO nemôže zmeniť svoje UID.` });
+        return res.status(400).json({ message: `UID ${SAMPLE_FO_UID} je rezervované systémové UID (ATK_SUPERADMIN_ID) – nie je možné ho zmeniť.` });
       }
-      // Block type change on the sample FO subject
+      // Block type change on the reserved subject
       if (original.uid === SAMPLE_FO_UID && (input as any).type && (input as any).type !== "person") {
-        return res.status(400).json({ message: `Vzorová FO s UID ${SAMPLE_FO_UID} nemôže zmeniť typ subjektu.` });
+        return res.status(400).json({ message: `Subjekt s rezervovaným UID ${SAMPLE_FO_UID} (ATK_SUPERADMIN_ID) nemôže zmeniť typ.` });
       }
 
       if (!isAdmin) {

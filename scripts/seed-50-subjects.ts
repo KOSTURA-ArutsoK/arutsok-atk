@@ -11,14 +11,13 @@ import {
   products,
   appUsers,
 } from "../shared/schema";
+import { ATK_SUPERADMIN_ID } from "../shared/constants";
 
 const { Pool } = pg;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const db = drizzle(pool);
 
-// UID vyhradené výhradne pre vzorovú Fyzickú Osobu (FO) v seed dátach.
-// NESMIE byť pridelené subjektom iného typu (NS=5, VS=6, mycompany, system).
-const SAMPLE_FO_UID = "421000000000002";
+const SAMPLE_FO_UID = ATK_SUPERADMIN_ID;
 
 const SK_FIRST_NAMES_M = ["Ján", "Peter", "Martin", "Tomáš", "Marek", "Lukáš", "Michal", "Jakub", "Štefan", "Andrej", "Vladimír", "Rastislav", "Igor", "Milan", "Robert", "Dušan", "Roman", "Jozef", "Pavol", "Daniel"];
 const SK_FIRST_NAMES_F = ["Mária", "Jana", "Eva", "Anna", "Katarína", "Zuzana", "Monika", "Lucia", "Martina", "Veronika", "Petra", "Iveta", "Andrea", "Elena", "Silvia"];

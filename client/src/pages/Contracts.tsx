@@ -12,6 +12,7 @@ import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation, useSearch } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer, ImportLog } from "@shared/schema";
 import { validateSlovakICO } from "@shared/ico-validator";
+import { ATK_SYSTEM_ID } from "@shared/constants";
 import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, AlertCircle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building, Building2, ArrowLeftRight, Info, Download, Landmark } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
@@ -939,8 +940,8 @@ function ContractFormDialog({
                   <div className="space-y-1">
                     <div className="flex items-center justify-between gap-1">
                       <label className="text-xs text-muted-foreground">UID specialistu</label>
-                      <button type="button" className="text-[10px] font-mono text-primary/60 hover:text-primary transition-colors" onClick={() => { setSpecialistUid(expandUid("421000000000000")); setRewardSearchSpecialist(""); }} title="Hlava systému SK" data-testid="btn-root-uid-specialist">
-                        Hlava: {formatUid("421000000000000")}
+                      <button type="button" className="text-[10px] font-mono text-primary/60 hover:text-primary transition-colors" onClick={() => { setSpecialistUid(expandUid(ATK_SYSTEM_ID)); setRewardSearchSpecialist(""); }} title="Hlava systému SK" data-testid="btn-root-uid-specialist">
+                        Hlava: {formatUid(ATK_SYSTEM_ID)}
                       </button>
                     </div>
                     <div className="relative">
@@ -1038,8 +1039,8 @@ function ContractFormDialog({
                     <div className="space-y-1">
                       <div className="flex items-center justify-between gap-1">
                         <label className="text-xs text-muted-foreground">UID odporucitela</label>
-                        <button type="button" className="text-[10px] font-mono text-primary/60 hover:text-primary transition-colors" onClick={() => { setNewRecommenderUid(expandUid("421000000000000")); setRewardSearchRecommender(""); }} title="Hlava systému SK" data-testid="btn-root-uid-recommender">
-                          Hlava: {formatUid("421000000000000")}
+                        <button type="button" className="text-[10px] font-mono text-primary/60 hover:text-primary transition-colors" onClick={() => { setNewRecommenderUid(expandUid(ATK_SYSTEM_ID)); setRewardSearchRecommender(""); }} title="Hlava systému SK" data-testid="btn-root-uid-recommender">
+                          Hlava: {formatUid(ATK_SYSTEM_ID)}
                         </button>
                       </div>
                       <div className="relative">
@@ -2707,7 +2708,7 @@ export default function Contracts() {
   const lookupSubjectByUid = (uid: string): { found: boolean; label: string } => {
     if (!uid.trim()) return { found: false, label: "" };
     const normalizedUid = uid.replace(/\s/g, "");
-    if (normalizedUid === "421000000000000") {
+    if (normalizedUid === ATK_SYSTEM_ID) {
       return { found: true, label: "ArutsoK — ATK" };
     }
     const subj = (subjects || []).find(s => (s.uid || "").replace(/\s/g, "") === normalizedUid && !s.deletedAt);
