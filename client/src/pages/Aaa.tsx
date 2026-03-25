@@ -1,7 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
-import { UserPlus, User, Briefcase, Building2, Landmark, Network, Library } from "lucide-react";
-import { InitialRegistrationModal } from "@/components/initial-registration-modal";
+import {
+  UserPlus, User, Briefcase, Building2, Landmark, Network, Library,
+  Loader2, CheckCircle2, AlertTriangle, ExternalLink, ChevronRight,
+} from "lucide-react";
+import { useAppUser } from "@/hooks/use-app-user";
+import { apiRequest } from "@/lib/queryClient";
+import { validateSlovakRC } from "@shared/rc-validator";
+import { validateSlovakICO } from "@shared/ico-validator";
+import { formatUid } from "@/lib/utils";
 
 type SubjectType = "person" | "szco" | "company" | "organization" | "state" | "os";
 
@@ -11,6 +18,7 @@ const SUBJECT_TYPE_OPTS: Array<{
   shortLabel: string;
   icon: typeof User;
   clientTypeCode: string;
+  baseParam: "rc" | "ico" | "id";
   bubbleTitle: string;
   bubbleDesc: string;
   bubbleSteps: string[];
@@ -21,6 +29,7 @@ const SUBJECT_TYPE_OPTS: Array<{
     shortLabel: "FO",
     icon: User,
     clientTypeCode: "FO",
+    baseParam: "rc",
     bubbleTitle: "Registrácia fyzickej osoby (FO)",
     bubbleDesc: "Fyzická osoba je občan, ktorý nie je podnikateľom. Do tejto kategórie patria všetci bežní klienti — napríklad poistenci, sporiteľia alebo dlžníci.",
     bubbleSteps: [
@@ -36,6 +45,7 @@ const SUBJECT_TYPE_OPTS: Array<{
     shortLabel: "SZČO",
     icon: Briefcase,
     clientTypeCode: "SZCO",
+    baseParam: "ico",
     bubbleTitle: "Registrácia živnostníka (SZČO)",
     bubbleDesc: "Samostatne zárobkovo činná osoba (živnostník) podniká na vlastné meno. Registrujte sem všetkých klientov s platným živnostenským listom.",
     bubbleSteps: [
@@ -51,6 +61,7 @@ const SUBJECT_TYPE_OPTS: Array<{
     shortLabel: "PO",
     icon: Building2,
     clientTypeCode: "PO",
+    baseParam: "ico",
     bubbleTitle: "Registrácia právnickej osoby — súkromný sektor (PO)",
     bubbleDesc: "Právnická osoba v súkromnom sektore — s.r.o., a.s., k.s. a iné obchodné spoločnosti zapísané v Obchodnom registri SR.",
     bubbleSteps: [
@@ -66,6 +77,7 @@ const SUBJECT_TYPE_OPTS: Array<{
     shortLabel: "TS",
     icon: Network,
     clientTypeCode: "NS",
+    baseParam: "ico",
     bubbleTitle: "Registrácia subjektu tretieho sektora (TS)",
     bubbleDesc: "Neziskové organizácie, nadácie, občianske združenia a iné subjekty tretieho sektora, ktoré nie sú štátne ani komerčné.",
     bubbleSteps: [
@@ -81,6 +93,7 @@ const SUBJECT_TYPE_OPTS: Array<{
     shortLabel: "VS",
     icon: Landmark,
     clientTypeCode: "VS",
+    baseParam: "ico",
     bubbleTitle: "Registrácia subjektu verejného sektora (VS)",
     bubbleDesc: "Štátne inštitúcie, ministerstvá, školy, nemocnice, obce, mestá a ďalšie organizácie financované z verejných zdrojov.",
     bubbleSteps: [
@@ -96,16 +109,42 @@ const SUBJECT_TYPE_OPTS: Array<{
     shortLabel: "OS",
     icon: Library,
     clientTypeCode: "OS",
+    baseParam: "id",
     bubbleTitle: "Registrácia ostatného subjektu (OS)",
     bubbleDesc: "Sem patria subjekty, ktoré nespadajú do žiadnej z predchádzajúcich kategórií — napríklad cirkvi, náboženské spoločnosti, politické strany a iné špecifické organizácie.",
     bubbleSteps: [
-      "Zadajte IČO subjektu — systém overí duplicitu.",
+      "Zadajte identifikátor subjektu — systém overí duplicitu.",
       "Vyberte krajinu registrácie.",
       "Vyplňte názov, sídlo a ďalšie povinné polia.",
       "Uložte záznam — subjekt sa objaví v Zozname klientov.",
     ],
   },
 ];
+
+type AresLookup = {
+  found: boolean;
+  name?: string;
+  street?: string;
+  streetNumber?: string;
+  zip?: string;
+  city?: string;
+  legalForm?: string;
+  dic?: string;
+  source?: string;
+  directors?: { name: string; role: string; titleBefore?: string; firstName?: string; lastName?: string; titleAfter?: string }[];
+  message?: string;
+};
+
+type DuplicateInfo = {
+  name: string;
+  uid: string;
+  id: number;
+  matchedField?: string;
+  managerName?: string | null;
+  managerId?: number | null;
+  isBlacklisted?: boolean;
+  blacklistMessage?: string;
+};
 
 function SubjectTypeSlider({
   value,
@@ -163,6 +202,304 @@ function SubjectTypeSlider({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+function InlineRegistrationRow({
+  opt,
+  onProceed,
+  onViewSubject,
+}: {
+  opt: typeof SUBJECT_TYPE_OPTS[0];
+  onProceed: (data: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: AresLookup }) => void;
+  onViewSubject: (id: number) => void;
+}) {
+  const { data: appUser } = useAppUser();
+  const [value, setValue] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState<DuplicateInfo | null>(null);
+  const [duplicateChecked, setDuplicateChecked] = useState(false);
+  const [rcError, setRcError] = useState<string | null>(null);
+  const [icoError, setIcoError] = useState<string | null>(null);
+  const [aresLookup, setAresLookup] = useState<AresLookup | null>(null);
+  const [aresLoading, setAresLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const proceedRef = useRef<HTMLButtonElement>(null);
+
+  const isRc = opt.baseParam === "rc";
+  const isIco = opt.baseParam === "ico";
+  const isId = opt.baseParam === "id";
+
+  const inputLabel = isRc ? "Rodné číslo" : isIco ? "IČO" : "Identifikátor";
+  const inputPlaceholder = isRc ? "napr. 900101/1234" : isIco ? "napr. 12345678" : "Číslo registrácie / ID...";
+
+  useEffect(() => {
+    setValue("");
+    setDuplicateInfo(null);
+    setDuplicateChecked(false);
+    setRcError(null);
+    setIcoError(null);
+    setAresLookup(null);
+    setAresLoading(false);
+    setTimeout(() => inputRef.current?.focus(), 80);
+  }, [opt.val]);
+
+  const performDuplicateCheck = useCallback(async (val: string) => {
+    if (!val.trim()) {
+      setDuplicateInfo(null);
+      setDuplicateChecked(false);
+      return;
+    }
+    setChecking(true);
+    try {
+      const trimmed = val.trim();
+      const res = await apiRequest("POST", "/api/subjects/check-duplicate", { birthNumber: trimmed, ico: trimmed });
+      const data = await res.json();
+      if (data.isDuplicate) {
+        setDuplicateInfo({
+          name: data.subject.name,
+          uid: data.subject.uid,
+          id: data.subject.id,
+          matchedField: data.subject.matchedField,
+          managerName: data.managerName,
+          managerId: data.managerId,
+          isBlacklisted: data.isBlacklisted,
+          blacklistMessage: data.message,
+        });
+      } else {
+        setDuplicateInfo(null);
+        setTimeout(() => proceedRef.current?.focus(), 50);
+      }
+      setDuplicateChecked(true);
+    } catch {
+      setDuplicateInfo(null);
+      setDuplicateChecked(true);
+    } finally {
+      setChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (!value.trim()) {
+      setDuplicateInfo(null);
+      setDuplicateChecked(false);
+      setRcError(null);
+      setIcoError(null);
+      setAresLookup(null);
+      return;
+    }
+
+    if (isRc) {
+      setIcoError(null);
+      setAresLookup(null);
+      const digits = value.replace(/[^0-9]/g, "");
+      if (digits.length < 9) {
+        setRcError(null);
+        setDuplicateChecked(false);
+        return;
+      }
+      const result = validateSlovakRC(value);
+      if (!result.valid) {
+        setRcError(result.error || "Neplatné rodné číslo");
+        setDuplicateChecked(false);
+        return;
+      }
+      setRcError(null);
+      performDuplicateCheck(value);
+    } else if (isId) {
+      setRcError(null);
+      setIcoError(null);
+      setAresLookup(null);
+      setDuplicateChecked(false);
+      debounceRef.current = setTimeout(() => performDuplicateCheck(value), 500);
+      return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    } else if (isIco) {
+      setRcError(null);
+      const digits = value.replace(/[\s\/-]/g, "");
+      if (digits.length < 1) {
+        setIcoError(null);
+        setDuplicateChecked(false);
+        setAresLookup(null);
+        return;
+      }
+      const result = validateSlovakICO(value);
+      if (!result.valid) {
+        setIcoError(result.error || "Neplatné IČO");
+        setDuplicateChecked(false);
+        setAresLookup(null);
+        return;
+      }
+      setIcoError(null);
+      performDuplicateCheck(value);
+      setAresLoading(true);
+      const normalizedIco = result.normalized || digits;
+      const lookupType = opt.clientTypeCode === "SZCO" ? "szco" : "company";
+      fetch(`/api/lookup/ico/${encodeURIComponent(normalizedIco)}?type=${lookupType}`, { credentials: "include" })
+        .then(r => r.json())
+        .then(data => {
+          if (data.found) {
+            setAresLookup(data);
+          } else {
+            setAresLookup({ found: false, message: data.message || "Subjekt nenájdený v štátnych registroch" });
+          }
+        })
+        .catch(() => setAresLookup({ found: false, message: "Chyba pri vyhľadávaní v registroch" }))
+        .finally(() => setAresLoading(false));
+    }
+  }, [value, isRc, isIco, isId, opt.clientTypeCode, performDuplicateCheck]);
+
+  const canProceed = !!(appUser?.activeStateId && value.trim() && duplicateChecked && !duplicateInfo && !rcError && !icoError);
+
+  function handleProceed() {
+    if (!canProceed) return;
+    onProceed({
+      clientTypeCode: opt.clientTypeCode,
+      stateId: appUser?.activeStateId || 0,
+      baseValue: value.trim(),
+      aresData: aresLookup?.found ? aresLookup : undefined,
+    });
+  }
+
+  return (
+    <div className="mt-3 rounded-xl border border-border/60 bg-background p-4 shadow-sm" data-testid="inline-registration-row">
+      <div className="flex items-center gap-2 mb-3">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide" htmlFor="inline-reg-input">
+          {inputLabel}
+        </label>
+      </div>
+
+      <div className="relative">
+        <input
+          id="inline-reg-input"
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && canProceed && !checking) handleProceed(); }}
+          placeholder={inputPlaceholder}
+          autoComplete="off"
+          data-testid="input-inline-reg-value"
+          className={`w-full rounded-md border px-3 py-2 text-sm bg-background outline-none transition-colors pr-9
+            ${rcError || icoError
+              ? "border-red-500 focus:border-red-500"
+              : "border-border focus:border-primary"}`}
+        />
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+          {(checking || aresLoading) && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+          {!checking && !aresLoading && (rcError || icoError) && <AlertTriangle className="w-4 h-4 text-red-500" />}
+          {!checking && !aresLoading && duplicateChecked && !duplicateInfo && !rcError && !icoError && value.trim() && (
+            <CheckCircle2 className="w-4 h-4 text-green-500" />
+          )}
+        </div>
+      </div>
+
+      {rcError && (
+        <p className="text-xs text-red-500 mt-1.5" data-testid="text-rc-error">{rcError}</p>
+      )}
+      {icoError && (
+        <p className="text-xs text-red-500 mt-1.5" data-testid="text-ico-error">{icoError}</p>
+      )}
+
+      {aresLoading && (
+        <div className="flex items-center gap-2 mt-2" data-testid="text-registry-loading">
+          <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
+          <span className="text-xs text-blue-400">Preberám údaje z registra...</span>
+        </div>
+      )}
+
+      {aresLookup?.found && (
+        <div className="mt-3 bg-blue-500/10 border border-blue-500/30 rounded-md p-3 space-y-1" data-testid="ares-lookup-result">
+          <div className="flex items-center gap-2 justify-between">
+            <div className="flex items-center gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span className="text-xs font-semibold text-blue-400">
+                {aresLookup.source === "ORSR" ? "Obchodný register SR" : aresLookup.source === "ZRSR" ? "Živnostenský register SR" : "Register"}
+              </span>
+            </div>
+          </div>
+          {aresLookup.name && <p className="text-sm font-medium">{aresLookup.name}</p>}
+          {(aresLookup.street || aresLookup.city) && (
+            <p className="text-xs text-muted-foreground">
+              {[aresLookup.street, aresLookup.streetNumber].filter(Boolean).join(" ")}
+              {(aresLookup.street || aresLookup.streetNumber) && (aresLookup.zip || aresLookup.city) ? ", " : ""}
+              {[aresLookup.zip, aresLookup.city].filter(Boolean).join(" ")}
+            </p>
+          )}
+          {aresLookup.legalForm && (
+            <p className="text-[10px] text-muted-foreground">
+              {aresLookup.legalForm}{aresLookup.dic ? ` | DIČ: ${aresLookup.dic}` : ""}
+            </p>
+          )}
+          {aresLookup.directors && aresLookup.directors.length > 0 && (
+            <div className="mt-1 pt-1 border-t border-blue-500/20">
+              <p className="text-[10px] font-semibold text-blue-400/80 mb-0.5">Štatutári / Konatelia:</p>
+              {aresLookup.directors.slice(0, 5).map((dir, i) => (
+                <p key={i} className="text-[10px] text-muted-foreground">
+                  {[dir.titleBefore, dir.firstName, dir.lastName, dir.titleAfter].filter(Boolean).join(" ") || dir.name}
+                  {dir.role ? <span className="text-[9px] text-blue-400/60 ml-1">({dir.role})</span> : null}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {aresLookup && !aresLookup.found && !icoError && (
+        <p className="text-xs text-muted-foreground mt-2">{aresLookup.message}</p>
+      )}
+
+      {duplicateInfo && (
+        <div className={`mt-3 border rounded-md p-3 space-y-2 ${duplicateInfo.isBlacklisted ? "bg-red-900/20 border-red-500/50" : "bg-destructive/10 border-destructive/30"}`} data-testid="duplicate-warning">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className={`w-4 h-4 shrink-0 ${duplicateInfo.isBlacklisted ? "text-red-500" : "text-destructive"}`} />
+            <span className={`text-sm font-semibold ${duplicateInfo.isBlacklisted ? "text-red-500" : "text-destructive"}`}>
+              {duplicateInfo.isBlacklisted ? "Registráciu nie je možné dokončiť" : "Klient už existuje"}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {duplicateInfo.name}{" "}
+            <span className="font-mono text-xs">[ {formatUid(duplicateInfo.uid)} ]</span>
+            {duplicateInfo.matchedField && (
+              <span className="text-xs ml-1">(zhoda: {duplicateInfo.matchedField})</span>
+            )}
+          </p>
+          {duplicateInfo.isBlacklisted && (
+            <p className="text-xs text-red-400 font-medium" data-testid="text-blacklist-message">{duplicateInfo.blacklistMessage}</p>
+          )}
+          {duplicateInfo.managerName && !duplicateInfo.isBlacklisted && (
+            <p className="text-xs text-muted-foreground" data-testid="text-duplicate-manager">
+              Správca: <span className="font-semibold text-foreground">{duplicateInfo.managerName}</span>
+            </p>
+          )}
+          {!duplicateInfo.isBlacklisted && (
+            <button
+              type="button"
+              onClick={() => onViewSubject(duplicateInfo.id)}
+              className="flex items-center gap-1.5 text-xs border border-border rounded px-2.5 py-1.5 hover:bg-muted/50 transition-colors"
+              data-testid="button-go-to-client"
+            >
+              <ExternalLink className="w-3 h-3" />
+              Prejsť na kartu klienta
+            </button>
+          )}
+        </div>
+      )}
+
+      {canProceed && !checking && (
+        <button
+          ref={proceedRef}
+          type="button"
+          onClick={handleProceed}
+          data-testid="button-continue-reg"
+          className="mt-3 flex items-center gap-2 w-full justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all duration-150"
+        >
+          Pokračovať
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      )}
     </div>
   );
 }
@@ -320,17 +657,14 @@ export default function Aaa() {
   const [, navigate] = useLocation();
   const [subjectType, setSubjectType] = useState<SubjectType>("person");
   const [sliderVisible, setSliderVisible] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  // bubble is always visible by default
 
   const selectedOpt = SUBJECT_TYPE_OPTS.find(o => o.val === subjectType)!;
 
   function handleButtonClick() {
     setSliderVisible(true);
-    setModalOpen(true);
   }
 
-  function handleProceed(data: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: unknown }) {
+  function handleProceed(data: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: AresLookup }) {
     try {
       sessionStorage.setItem("pridat_subjekt_data", JSON.stringify(data));
     } catch {}
@@ -353,20 +687,19 @@ export default function Aaa() {
       <AddPartnerHexButton onClick={handleButtonClick} />
 
       {sliderVisible && (
-        <div className="mt-6">
-          <SubjectTypeSlider value={subjectType} onChange={setSubjectType} />
-        </div>
+        <>
+          <div className="mt-6">
+            <SubjectTypeSlider value={subjectType} onChange={setSubjectType} />
+          </div>
+          <InlineRegistrationRow
+            opt={selectedOpt}
+            onProceed={handleProceed}
+            onViewSubject={handleViewSubject}
+          />
+        </>
       )}
 
       <SubjectInfoBubble opt={selectedOpt} />
-
-      <InitialRegistrationModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        initialType={selectedOpt.clientTypeCode}
-        onProceed={handleProceed}
-        onViewSubject={handleViewSubject}
-      />
     </div>
   );
 }
