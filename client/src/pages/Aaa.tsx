@@ -17,7 +17,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
         onMouseDown={() => setPressed(true)}
         onMouseUp={() => setPressed(false)}
         data-testid="button-add-partner-aaa"
-        title="Pridať nového subjektu"
+        title="Pridať nový subjekt"
         style={{
           position: "relative",
           width: 280,
