@@ -2,7 +2,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useAppUser } from "@/hooks/use-app-user";
 
 interface PopupItem {
@@ -20,6 +21,40 @@ interface HomePopupData {
   hasAnyData: boolean;
 }
 
+function SideGlow({ rect, rgb }: { rect: DOMRect; rgb: string }) {
+  return createPortal(
+    <>
+      <div
+        style={{
+          position: "fixed",
+          top: rect.top,
+          left: 0,
+          width: rect.left,
+          height: rect.height,
+          background: `radial-gradient(ellipse at right, rgba(${rgb}, 0.55) 0%, transparent 75%)`,
+          pointerEvents: "none",
+          zIndex: 201,
+          transition: "opacity 0.25s ease",
+        }}
+      />
+      <div
+        style={{
+          position: "fixed",
+          top: rect.top,
+          left: rect.right,
+          right: 0,
+          height: rect.height,
+          background: `radial-gradient(ellipse at left, rgba(${rgb}, 0.55) 0%, transparent 75%)`,
+          pointerEvents: "none",
+          zIndex: 201,
+          transition: "opacity 0.25s ease",
+        }}
+      />
+    </>,
+    document.body
+  );
+}
+
 function Section({
   title,
   items,
@@ -32,39 +67,50 @@ function Section({
   rgb: string;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  function handleMouseEnter() {
+    if (ref.current) setRect(ref.current.getBoundingClientRect());
+    setHovered(true);
+  }
+  function handleMouseLeave() {
+    setHovered(false);
+  }
 
   return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        border: "none",
-        background: hovered
-          ? `linear-gradient(to bottom, rgba(${rgb},0.22) 0%, rgba(${rgb},0.07) 18%, rgba(${rgb},0.07) 82%, rgba(${rgb},0.22) 100%), linear-gradient(to right, rgba(${rgb},0.60) 0%, rgba(${rgb},0.10) 20%, rgba(${rgb},0.10) 80%, rgba(${rgb},0.60) 100%)`
-          : `linear-gradient(to bottom, rgba(${rgb},0.12) 0%, rgba(${rgb},0.06) 18%, rgba(${rgb},0.06) 82%, rgba(${rgb},0.12) 100%), linear-gradient(to right, rgba(${rgb},0.36) 0%, rgba(${rgb},0.08) 20%, rgba(${rgb},0.08) 80%, rgba(${rgb},0.36) 100%)`,
-        transition: "background 0.25s ease",
-      }}
-      className="px-4 py-3"
-    >
-      <p className={`text-xs font-bold uppercase tracking-wider ${colorClass} mb-2`}>{title}</p>
-      {items.length === 0 ? (
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
-          <span className="text-xs">Všetko v poriadku ✓</span>
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          {items.map((item, i) => (
-            <div key={i} className="flex flex-col gap-0.5">
-              <span className="text-sm text-foreground leading-snug">{item.label}</span>
-              {item.detail && (
-                <span className="text-xs text-muted-foreground leading-snug">{item.detail}</span>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    <>
+      <div
+        ref={ref}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        style={{
+          background: `rgba(${rgb}, 0.09)`,
+          transition: "background 0.2s ease",
+        }}
+        className="px-4 py-3"
+      >
+        <p className={`text-xs font-bold uppercase tracking-wider ${colorClass} mb-2`}>{title}</p>
+        {items.length === 0 ? (
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+            <span className="text-xs">Všetko v poriadku ✓</span>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {items.map((item, i) => (
+              <div key={i} className="flex flex-col gap-0.5">
+                <span className="text-sm text-foreground leading-snug">{item.label}</span>
+                {item.detail && (
+                  <span className="text-xs text-muted-foreground leading-snug">{item.detail}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {hovered && rect && <SideGlow rect={rect} rgb={rgb} />}
+    </>
   );
 }
 
@@ -126,10 +172,10 @@ export function RedListNotificationPopup() {
         </div>
 
         <div className="overflow-y-auto" style={{ maxHeight: "calc(90vh - 116px)" }}>
-          <Section title="Urgentné"  items={urgent} colorClass="text-red-400"   rgb="220, 38, 38" />
+          <Section title="Urgentné"   items={urgent} colorClass="text-red-400"   rgb="220, 38, 38" />
           <Section title="Informácie" items={info}   colorClass="text-blue-400"  rgb="37, 99, 235" />
-          <Section title="Novinky"   items={news}   colorClass="text-amber-400" rgb="217, 119, 6" />
-          <Section title="Pozitívne" items={good}   colorClass="text-green-400" rgb="22, 163, 74" />
+          <Section title="Novinky"    items={news}   colorClass="text-amber-400" rgb="217, 119, 6" />
+          <Section title="Pozitívne"  items={good}   colorClass="text-green-400" rgb="22, 163, 74" />
         </div>
 
         <div className="px-5 py-3 border-t border-border">
