@@ -20,7 +20,7 @@ interface HomePopupData {
   hasAnyData: boolean;
 }
 
-function SideGlow({ rect, rgb }: { rect: DOMRect; rgb: string }) {
+function SideGlow({ rect, rgb, showBottom = false }: { rect: DOMRect; rgb: string; showBottom?: boolean }) {
   return createPortal(
     <>
       <div
@@ -49,6 +49,21 @@ function SideGlow({ rect, rgb }: { rect: DOMRect; rgb: string }) {
           transition: "opacity 0.25s ease",
         }}
       />
+      {showBottom && (
+        <div
+          style={{
+            position: "fixed",
+            top: rect.bottom,
+            left: rect.left,
+            width: rect.width,
+            bottom: 0,
+            background: `radial-gradient(ellipse at top, rgba(${rgb}, 0.50) 0%, transparent 70%)`,
+            pointerEvents: "none",
+            zIndex: 201,
+            transition: "opacity 0.25s ease",
+          }}
+        />
+      )}
     </>,
     document.body
   );
@@ -145,7 +160,7 @@ function CloseSection({ onClose, isPending }: { onClose: () => void; isPending: 
           : null}
         <span className="text-sm font-semibold text-foreground uppercase tracking-wider">Zavrieť</span>
       </div>
-      {hovered && rect && <SideGlow rect={rect} rgb={rgb} />}
+      {hovered && rect && <SideGlow rect={rect} rgb={rgb} showBottom />}
     </>
   );
 }
