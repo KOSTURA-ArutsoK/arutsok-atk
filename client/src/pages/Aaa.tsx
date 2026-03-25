@@ -5,14 +5,6 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
 
-  const hexPath =
-    "M 73,26 Q 80,22 87,26 " +
-    "L 132,52 Q 139,56 139,64 " +
-    "L 139,116 Q 139,124 132,128 " +
-    "L 87,154 Q 80,158 73,154 " +
-    "L 28,128 Q 21,124 21,116 " +
-    "L 21,64 Q 21,56 28,52 Z";
-
   const isActive = hovered || pressed;
 
   return (
@@ -56,14 +48,16 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
               <stop offset="100%" stopColor="#1a3f80" />
             </linearGradient>
           </defs>
-          <path
-            d={hexPath}
+          {/* Glow */}
+          <rect
+            x="21" y="22" width="118" height="136" rx="44"
             fill={isActive ? "rgba(0,255,80,1.0)" : "rgba(56,189,248,0.50)"}
             filter="url(#amberGlowAaa)"
             style={{ transition: "fill 0.2s ease" }}
           />
-          <path
-            d={hexPath}
+          {/* Tabletka */}
+          <rect
+            x="21" y="22" width="118" height="136" rx="44"
             fill="url(#hexGradAaa)"
             stroke={isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)"}
             strokeWidth="2"
