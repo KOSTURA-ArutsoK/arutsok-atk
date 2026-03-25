@@ -1,5 +1,76 @@
 import { useState } from "react";
-import { UserPlus } from "lucide-react";
+import { UserPlus, User, Briefcase, Building2, Building, Landmark } from "lucide-react";
+
+type SubjectType = "person" | "szco" | "company" | "organization" | "state" | "os";
+
+const SUBJECT_TYPE_OPTS: Array<{ val: SubjectType; label: string; shortLabel: string; icon: typeof User }> = [
+  { val: "person",       label: "Fyzické osoby (FO)",         shortLabel: "FO",   icon: User },
+  { val: "szco",         label: "Živnostníci (SZČO)",         shortLabel: "SZČO", icon: Briefcase },
+  { val: "company",      label: "Súkromný sektor (PO)",       shortLabel: "PO",   icon: Building2 },
+  { val: "organization", label: "Tretí sektor (TS)",          shortLabel: "TS",   icon: Building },
+  { val: "state",        label: "Verejný sektor (VS)",        shortLabel: "VS",   icon: Landmark },
+  { val: "os",           label: "Občianske združenia (OS)",   shortLabel: "OS",   icon: Building },
+];
+
+function SubjectTypeSlider({
+  value,
+  onChange,
+}: {
+  value: SubjectType;
+  onChange: (v: SubjectType) => void;
+}) {
+  const n = SUBJECT_TYPE_OPTS.length;
+  const activeIdx = SUBJECT_TYPE_OPTS.findIndex(o => o.val === value);
+
+  const handleKey = (e: React.KeyboardEvent, idx: number) => {
+    let next = -1;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); next = (idx + 1) % n; }
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); next = (idx + n - 1) % n; }
+    if (next >= 0) {
+      onChange(SUBJECT_TYPE_OPTS[next].val);
+      const btns = (e.currentTarget.closest('[role="radiogroup"]') as HTMLElement)?.querySelectorAll('button[role="radio"]');
+      (btns?.[next] as HTMLElement)?.focus();
+    }
+  };
+
+  return (
+    <div
+      className="relative w-full flex p-0.5 bg-muted/40 rounded border border-border/60"
+      role="radiogroup"
+      aria-label="Typ subjektu"
+      data-testid="toggle-subject-type-aaa"
+    >
+      <div
+        className="absolute top-0.5 bottom-0.5 rounded bg-background shadow border border-border/50 transition-all duration-200 ease-out"
+        style={{
+          width: `calc((100% - 4px) / ${n})`,
+          left: `calc(2px + ${activeIdx >= 0 ? activeIdx : 0} * (100% - 4px) / ${n})`,
+        }}
+      />
+      {SUBJECT_TYPE_OPTS.map((opt, idx) => {
+        const Icon = opt.icon;
+        const isActive = value === opt.val;
+        return (
+          <button
+            key={opt.val}
+            type="button"
+            role="radio"
+            aria-checked={isActive}
+            tabIndex={isActive ? 0 : -1}
+            title={opt.label}
+            className={`relative z-10 flex-1 flex items-center justify-center gap-1 px-1 py-1.5 text-xs font-medium rounded transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground/80"}`}
+            onClick={() => onChange(opt.val)}
+            onKeyDown={(e) => handleKey(e, idx)}
+            data-testid={`toggle-subject-type-aaa-${opt.val}`}
+          >
+            <Icon className="w-3 h-3 shrink-0" />
+            <span className="truncate">{opt.shortLabel}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
@@ -113,6 +184,8 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
 }
 
 export default function Aaa() {
+  const [subjectType, setSubjectType] = useState<SubjectType>("person");
+
   return (
     <div className="p-6">
       <h1 className="text-2xl font-semibold mb-2" data-testid="text-aaa-title">
@@ -123,6 +196,12 @@ export default function Aaa() {
       </p>
 
       <AddPartnerHexButton onClick={() => {}} />
+
+      <div className="flex justify-center mt-3">
+        <div style={{ width: 280 }}>
+          <SubjectTypeSlider value={subjectType} onChange={setSubjectType} />
+        </div>
+      </div>
     </div>
   );
 }
