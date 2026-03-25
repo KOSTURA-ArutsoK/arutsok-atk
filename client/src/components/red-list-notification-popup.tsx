@@ -23,42 +23,16 @@ interface HomePopupData {
 function SideGlow({ rect, rgb, showBottom = false }: { rect: DOMRect; rgb: string; showBottom?: boolean }) {
   return createPortal(
     <>
-      <div
-        style={{
-          position: "fixed",
-          top: rect.top,
-          left: 0,
-          width: rect.left,
-          height: rect.height,
-          background: `radial-gradient(ellipse at right, rgba(${rgb}, 0.55) 0%, transparent 75%)`,
-          pointerEvents: "none",
-          zIndex: 201,
-          transition: "opacity 0.25s ease",
-        }}
-      />
-      <div
-        style={{
-          position: "fixed",
-          top: rect.top,
-          left: rect.right,
-          right: 0,
-          height: rect.height,
-          background: `radial-gradient(ellipse at left, rgba(${rgb}, 0.55) 0%, transparent 75%)`,
-          pointerEvents: "none",
-          zIndex: 201,
-          transition: "opacity 0.25s ease",
-        }}
-      />
-      {showBottom && (
+      {showBottom ? (
         <>
           <div
             style={{
               position: "fixed",
-              top: rect.bottom,
+              top: rect.top,
               left: 0,
-              width: rect.left + rect.width * 0.5,
+              width: rect.left + 2,
               bottom: 0,
-              background: `radial-gradient(ellipse at top right, rgba(${rgb}, 0.52) 0%, transparent 65%)`,
+              background: `radial-gradient(ellipse 120px 120px at right ${Math.round(rect.height / 2)}px, rgba(${rgb}, 0.60) 0%, transparent 100%)`,
               pointerEvents: "none",
               zIndex: 201,
               transition: "opacity 0.25s ease",
@@ -67,11 +41,40 @@ function SideGlow({ rect, rgb, showBottom = false }: { rect: DOMRect; rgb: strin
           <div
             style={{
               position: "fixed",
-              top: rect.bottom,
-              left: rect.left + rect.width * 0.5,
+              top: rect.top,
+              left: rect.right - 2,
               right: 0,
               bottom: 0,
-              background: `radial-gradient(ellipse at top left, rgba(${rgb}, 0.52) 0%, transparent 65%)`,
+              background: `radial-gradient(ellipse 120px 120px at left ${Math.round(rect.height / 2)}px, rgba(${rgb}, 0.60) 0%, transparent 100%)`,
+              pointerEvents: "none",
+              zIndex: 201,
+              transition: "opacity 0.25s ease",
+            }}
+          />
+        </>
+      ) : (
+        <>
+          <div
+            style={{
+              position: "fixed",
+              top: rect.top,
+              left: 0,
+              width: rect.left,
+              height: rect.height,
+              background: `radial-gradient(ellipse at right, rgba(${rgb}, 0.55) 0%, transparent 75%)`,
+              pointerEvents: "none",
+              zIndex: 201,
+              transition: "opacity 0.25s ease",
+            }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: rect.top,
+              left: rect.right,
+              right: 0,
+              height: rect.height,
+              background: `radial-gradient(ellipse at left, rgba(${rgb}, 0.55) 0%, transparent 75%)`,
               pointerEvents: "none",
               zIndex: 201,
               transition: "opacity 0.25s ease",
