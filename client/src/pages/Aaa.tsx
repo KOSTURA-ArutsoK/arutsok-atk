@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { UserPlus, User, Briefcase, Building2, Building, Landmark, Network, Library } from "lucide-react";
+import { useLocation } from "wouter";
+import { UserPlus, User, Briefcase, Building2, Landmark, Network, Library } from "lucide-react";
+import { InitialRegistrationModal } from "@/components/initial-registration-modal";
 
 type SubjectType = "person" | "szco" | "company" | "organization" | "state" | "os";
 
-const SUBJECT_TYPE_OPTS: Array<{ val: SubjectType; label: string; shortLabel: string; icon: typeof User }> = [
-  { val: "person",       label: "Fyzické osoby (FO)",         shortLabel: "FO",   icon: User },
-  { val: "szco",         label: "Živnostníci (SZČO)",         shortLabel: "SZČO", icon: Briefcase },
-  { val: "company",      label: "Súkromný sektor (PO)",       shortLabel: "PO",   icon: Building2 },
-  { val: "organization", label: "Tretí sektor (TS)",          shortLabel: "TS",   icon: Network },
-  { val: "state",        label: "Verejný sektor (VS)",        shortLabel: "VS",   icon: Landmark },
-  { val: "os",           label: "Ostatné subjekty (OS)",      shortLabel: "OS",   icon: Library },
+const SUBJECT_TYPE_OPTS: Array<{ val: SubjectType; label: string; shortLabel: string; icon: typeof User; clientTypeCode: string }> = [
+  { val: "person",       label: "Fyzické osoby (FO)",         shortLabel: "FO",   icon: User,      clientTypeCode: "FO"   },
+  { val: "szco",         label: "Živnostníci (SZČO)",         shortLabel: "SZČO", icon: Briefcase, clientTypeCode: "SZCO" },
+  { val: "company",      label: "Súkromný sektor (PO)",       shortLabel: "PO",   icon: Building2, clientTypeCode: "PO"   },
+  { val: "organization", label: "Tretí sektor (TS)",          shortLabel: "TS",   icon: Network,   clientTypeCode: "NS"   },
+  { val: "state",        label: "Verejný sektor (VS)",        shortLabel: "VS",   icon: Landmark,  clientTypeCode: "VS"   },
+  { val: "os",           label: "Ostatné subjekty (OS)",      shortLabel: "OS",   icon: Library,   clientTypeCode: "OS"   },
 ];
 
 function SubjectTypeSlider({
@@ -197,7 +199,22 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
 }
 
 export default function Aaa() {
+  const [, navigate] = useLocation();
   const [subjectType, setSubjectType] = useState<SubjectType>("person");
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const selectedOpt = SUBJECT_TYPE_OPTS.find(o => o.val === subjectType)!;
+
+  function handleProceed(data: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: unknown }) {
+    try {
+      sessionStorage.setItem("pridat_subjekt_data", JSON.stringify(data));
+    } catch {}
+    navigate("/pridat-subjekt");
+  }
+
+  function handleViewSubject(id: number) {
+    navigate(`/subjekty/${id}`);
+  }
 
   return (
     <div className="p-6">
@@ -208,11 +225,19 @@ export default function Aaa() {
         Toto okno slúži na registráciu nového subjektu.
       </p>
 
-      <AddPartnerHexButton onClick={() => {}} />
+      <AddPartnerHexButton onClick={() => setModalOpen(true)} />
 
       <div className="mt-6">
         <SubjectTypeSlider value={subjectType} onChange={setSubjectType} />
       </div>
+
+      <InitialRegistrationModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        initialType={selectedOpt.clientTypeCode}
+        onProceed={handleProceed}
+        onViewSubject={handleViewSubject}
+      />
     </div>
   );
 }

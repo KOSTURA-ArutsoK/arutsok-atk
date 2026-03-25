@@ -41,16 +41,22 @@ export function InitialRegistrationModal({
   onOpenChange,
   onProceed,
   onViewSubject,
+  initialType,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onProceed: (data: ProceedData) => void;
   onViewSubject: (id: number) => void;
+  initialType?: string;
 }) {
   const { data: appUser } = useAppUser();
   const { data: clientTypes } = useQuery<ClientType[]>({ queryKey: ["/api/client-types"] });
 
-  const [selectedType, setSelectedType] = useState("");
+  const [selectedType, setSelectedType] = useState(initialType || "");
+
+  useEffect(() => {
+    if (open && initialType) setSelectedType(initialType);
+  }, [open, initialType]);
   const [baseValue, setBaseValue] = useState("");
   const [checking, setChecking] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState<{ name: string; uid: string; id: number; matchedField?: string; managerName?: string | null; managerId?: number | null; isBlacklisted?: boolean; blacklistMessage?: string } | null>(null);
