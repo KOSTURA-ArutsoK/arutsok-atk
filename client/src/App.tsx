@@ -70,7 +70,7 @@ import ReportyNBS from "@/pages/ReportyNBS";
 import ObchodnePrilezitosti from "@/pages/ObchodnePrilezitosti";
 import NastavenieObchodnychPrilezitosti from "@/pages/NastavenieObchodnychPrilezitosti";
 import PridatSubjekt from "@/pages/PridatSubjekt";
-import Aaa from "@/pages/Aaa";
+import NovySubjekt from "@/pages/NovySubjekt";
 import SektoryZmluvVizia from "@/pages/SektoryZmluvVizia";
 import SektorySubjektovVizia from "@/pages/SektorySubjektovVizia";
 import HoldingTree from "@/pages/HoldingTree";
@@ -177,7 +177,7 @@ const PrivateReportyNBS = () => <PrivateRoute><ReportyNBS /></PrivateRoute>;
 const PrivateObchodnePrilezitosti = () => <PrivateRoute><ObchodnePrilezitosti /></PrivateRoute>;
 const PrivateNastavenieObchodnychPrilezitosti = () => <PrivateRoute><NastavenieObchodnychPrilezitosti /></PrivateRoute>;
 const PrivatePridatSubjekt = () => <PrivateRoute><PridatSubjekt /></PrivateRoute>;
-const PrivateAaa = () => <PrivateRoute><Aaa /></PrivateRoute>;
+const PrivateNovySubjekt = () => <PrivateRoute><NovySubjekt /></PrivateRoute>;
 const PrivateSektoryZmluvVizia = () => <PrivateRoute><SektoryZmluvVizia /></PrivateRoute>;
 const PrivateSektorySubjektovVizia = () => <PrivateRoute><SektorySubjektovVizia /></PrivateRoute>;
 const PrivateHoldingTree = () => <PrivateRoute><HoldingTree /></PrivateRoute>;
@@ -251,7 +251,7 @@ function Router() {
       <Route path="/obchodne-prilezitosti" component={PrivateObchodnePrilezitosti} />
       <Route path="/nastavenie-obchodnych-prilezitosti" component={PrivateNastavenieObchodnychPrilezitosti} />
       <Route path="/pridat-subjekt" component={PrivatePridatSubjekt} />
-      <Route path="/aaa" component={PrivateAaa} />
+      <Route path="/aaa" component={PrivateNovySubjekt} />
       <Route path="/sektory-zmluv-vizia" component={PrivateSektoryZmluvVizia} />
       <Route path="/sektory-subjektov-vizia" component={PrivateSektorySubjektovVizia} />
       <Route path="/holding-strom" component={PrivateHoldingTree} />

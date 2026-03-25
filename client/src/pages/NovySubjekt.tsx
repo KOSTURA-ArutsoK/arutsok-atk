@@ -661,7 +661,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export default function Aaa() {
+export default function NovySubjekt() {
   const [, navigate] = useLocation();
   const [subjectType, setSubjectType] = useState<SubjectType>("person");
   const [sliderVisible, setSliderVisible] = useState(false);
