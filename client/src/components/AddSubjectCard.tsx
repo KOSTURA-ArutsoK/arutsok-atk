@@ -122,7 +122,7 @@ export function AddSubjectCard({ onClick }: AddSubjectCardProps) {
             letterSpacing: "0.05em",
             whiteSpace: "nowrap",
           }}>
-            Pridať subjekt
+            Pridať partnera
           </span>
         </div>
       </button>

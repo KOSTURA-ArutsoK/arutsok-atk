@@ -860,7 +860,7 @@ export function AppSidebar() {
                         >
                           <Link href="/aaa">
                             <span style={{ fontSize: 13, lineHeight: 1 }}>👤➕</span>
-                            <span className="text-[13px]">Pridať subjekt</span>
+                            <span className="text-[13px]">Pridať partnera</span>
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
