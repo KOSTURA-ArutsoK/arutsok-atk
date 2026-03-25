@@ -3671,13 +3671,16 @@ export default function Contracts() {
               const warnNegativeProposal = !!(contract.proposalNumber && contract.proposalNumber.trim().startsWith('-'));
               const effectivelyIncomplete = isIncomplete || warnPartner || warnProduct || warnContractType || warnSignedDate || warnNumber || warnSpecialist || warnSumNot100 || warnRcIco || warnMeno || warnPriezvisko || warnNazov || warnNegativeProposal;
               const isRerouteSelected = showRerouteCheckbox && rerouteSelectedIds.includes(contract.id);
-              const hasSprPartialDocs = !isSelected && !isRerouteSelected && !!docChecklistPartialState[contract.id];
+              const isCentralAccepted = !!centralAcceptOpts?.acceptedIds.has(contract.id);
+              const hasSprPartialDocs = !isSelected && !isRerouteSelected && !isCentralAccepted && !!docChecklistPartialState[contract.id];
               const rowBg = effectivelyIncomplete
                 ? "bg-red-500/10 border-l-2 border-l-red-500"
                 : isRerouteSelected
                 ? "bg-primary/10 border-l-2 border-l-primary"
                 : isSelected
                 ? "bg-green-900/25 hover:bg-green-900/35 border-l-2 border-l-green-900"
+                : isCentralAccepted
+                ? "bg-green-600/15 hover:bg-green-600/20 border-l-2 border-l-green-600"
                 : hasSprPartialDocs
                 ? "bg-blue-500/15 hover:bg-blue-500/20 border-l-2 border-l-blue-500"
                 : "";
@@ -6704,6 +6707,11 @@ export default function Contracts() {
           checkedExtra: Array.from(phase5DocCheckedExtra),
         }
       }));
+      setCentralAcceptedIds(prev => {
+        const next = new Set(prev);
+        next.add(c.id);
+        return next;
+      });
       setPhase5DocContract(null);
     };
     const clearDocs = () => {
