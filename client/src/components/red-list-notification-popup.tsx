@@ -76,12 +76,13 @@ export function RedListNotificationPopup() {
     if (!sessionKey) return;
     if (!data) return;
     if (!data.hasAnyData && data.unreadNotifIds.length === 0) return;
-    const already = sessionStorage.getItem(sessionKey);
-    if (!already) {
-      sessionStorage.setItem(sessionKey, "1");
+    const loginStamp = (appUser as any)?.lastLoginAt ?? "unknown";
+    const stored = sessionStorage.getItem(sessionKey);
+    if (stored !== loginStamp) {
+      sessionStorage.setItem(sessionKey, loginStamp);
       setVisible(true);
     }
-  }, [data, sessionKey]);
+  }, [data, sessionKey, appUser]);
 
   const markAllReadMutation = useMutation({
     mutationFn: async () => {
