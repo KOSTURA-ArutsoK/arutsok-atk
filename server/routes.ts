@@ -605,7 +605,7 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  console.log(`[ATK] System ArutsoK initialized (UID 421\u202F000\u202F000\u202F000\u202F000)`);
+  console.log(`[ATK] System ArutsoK initialized (UID ${ATK_SYSTEM_ID.replace(/(\d{3})(?=\d)/g, "$1\u202F")})`);
 
   const LIFECYCLE_PHASES: Record<number, string> = {
     1: "Nahratá - čaká na odoslanie",
@@ -663,8 +663,8 @@ export async function registerRoutes(
     try {
       const [existing] = await db.select().from(globalCounters).where(eq(globalCounters.counterName, 'master_root_sk'));
       if (!existing) {
-        await db.insert(globalCounters).values({ counterName: 'master_root_sk', currentValue: 421000000000000 });
-        console.log("[SEED] Master Root SK (421 000 000 000 000) seeded into global_counters");
+        await db.insert(globalCounters).values({ counterName: 'master_root_sk', currentValue: Number(ATK_SYSTEM_ID) });
+        console.log(`[SEED] Master Root SK (${ATK_SYSTEM_ID}) seeded into global_counters`);
       }
       const czStates = await db.select().from(states).where(eq(states.code, '420'));
       for (const czState of czStates) {

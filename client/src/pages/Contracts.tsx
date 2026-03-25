@@ -4641,7 +4641,7 @@ export default function Contracts() {
           </div>
 
           <div className="bg-muted/30 rounded px-2 py-1 font-mono text-[9px] text-muted-foreground">
-            <span className="text-foreground/60">Ukážka FO:</span> Allianz | PZP Auto | Nova | 10.03.2026 | N-2024-001 | | <span className="text-amber-400">FO</span> | 850101/1234 | Ing. | Ján | Novák | | | | 421000000000002 | 100 | | | | <br/>
+            <span className="text-foreground/60">Ukážka FO:</span> Allianz | PZP Auto | Nova | 10.03.2026 | N-2024-001 | | <span className="text-amber-400">FO</span> | 850101/1234 | Ing. | Ján | Novák | | | | {ATK_SUPERADMIN_ID} | 100 | | | | <br/>
             <span className="text-foreground/60">Ukážka PO:</span> ČSOB | Poistenie | Zmenova | 15.01.2026 | | Z-050 | <span className="text-amber-400">PO</span> | 900101/0012 | Ing. | Mária | Kováčová | PhD. | 12345678 | ABC s.r.o. | 421000000000001 | 80 | 421000000000004 | 20 | |
           </div>
 
