@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useColumnVisibility, type ColumnDef } from "@/hooks/use-column-visibility";
 import { ColumnManager } from "@/components/column-manager";
 import type { ContractInventory } from "@shared/schema";
-import { Pencil, Loader2, Printer, Circle, ChevronDown, Plus, Search, Ban, AlertTriangle } from "lucide-react";
+import { Pencil, Loader2, Printer, Circle, ChevronDown, Search, Ban, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -111,24 +111,9 @@ type InventoryContractRow = {
 };
 
 function InlineInventoryDetail({ inventory, onEmpty }: { inventory: ContractInventory; onEmpty?: (id: number) => void }) {
-  const { toast } = useToast();
   const { data: contracts, isLoading } = useQuery<InventoryContractRow[]>({
     queryKey: ["/api/contract-inventories", inventory.id, "contracts"],
     queryFn: () => fetch(`/api/contract-inventories/${inventory.id}/contracts`, { credentials: "include" }).then(r => r.json()),
-  });
-
-  const [selectedObjIds, setSelectedObjIds] = useState<Set<number>>(new Set());
-
-  const rerouteMutation = useMutation({
-    mutationFn: (contractIds: number[]) =>
-      apiRequest("POST", "/api/contract-inventories/reroute-objections", { contractIds }),
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/contract-inventories", inventory.id, "contracts"] });
-      setSelectedObjIds(new Set());
-      toast({ title: "Úspech", description: `Vytvorený nový odovzdávací protokol - Sprievodka č. ${data.sequenceNumber} s ${data.rerouted} zmluvami` });
-    },
-    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť nový protokol", variant: "destructive" }),
   });
 
   useEffect(() => {
@@ -156,22 +141,6 @@ function InlineInventoryDetail({ inventory, onEmpty }: { inventory: ContractInve
 
   const objectionContracts = contracts.filter(c => c.lifecyclePhase === 3);
   const hasObjections = objectionContracts.length > 0;
-
-  function toggleObjSelection(id: number) {
-    setSelectedObjIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleAllObjections() {
-    if (selectedObjIds.size === objectionContracts.length) {
-      setSelectedObjIds(new Set());
-    } else {
-      setSelectedObjIds(new Set(objectionContracts.map(c => c.id)));
-    }
-  }
 
   return (
     <div className="space-y-3">
@@ -229,52 +198,19 @@ function InlineInventoryDetail({ inventory, onEmpty }: { inventory: ContractInve
 
       {hasObjections && (
         <div className="border border-red-500/30 rounded bg-red-500/5 dark:bg-red-900/10 p-3 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Circle className="w-2.5 h-2.5 fill-red-500 text-red-500" />
-              <span className="text-xs font-semibold text-red-600 dark:text-red-400">
-                Neprijaté zmluvy – výhrady ({objectionContracts.length})
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 text-[10px] px-2"
-                onClick={toggleAllObjections}
-                data-testid="button-toggle-all-objections"
-              >
-                {selectedObjIds.size === objectionContracts.length ? "Odznačiť všetky" : "Označiť všetky"}
-              </Button>
-              <Button
-                size="sm"
-                variant="default"
-                className="h-6 text-[10px] px-2 bg-red-600 hover:bg-red-700"
-                disabled={selectedObjIds.size === 0 || rerouteMutation.isPending}
-                onClick={() => rerouteMutation.mutate(Array.from(selectedObjIds))}
-                data-testid="button-reroute-objections"
-              >
-                {rerouteMutation.isPending ? (
-                  <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                ) : (
-                  <Plus className="w-3 h-3 mr-1" />
-                )}
-                Vytvoriť novú sprievodku ({selectedObjIds.size})
-              </Button>
-            </div>
+          <div className="flex items-center gap-2">
+            <Circle className="w-2.5 h-2.5 fill-red-500 text-red-500" />
+            <span className="text-xs font-semibold text-red-600 dark:text-red-400">
+              Neprijaté zmluvy – výhrady ({objectionContracts.length})
+            </span>
           </div>
           <div className="space-y-0.5">
             {objectionContracts.map(c => (
-              <label
+              <div
                 key={c.id}
-                className="flex items-center gap-2 py-0.5 px-1 rounded hover:bg-red-500/10 cursor-pointer"
-                data-testid={`checkbox-objection-${c.id}`}
+                className="flex items-center gap-2 py-0.5 px-1"
+                data-testid={`row-objection-${c.id}`}
               >
-                <Checkbox
-                  checked={selectedObjIds.has(c.id)}
-                  onCheckedChange={() => toggleObjSelection(c.id)}
-                  className="w-3.5 h-3.5"
-                />
                 <Circle className="w-2 h-2 fill-red-500 text-red-500 shrink-0" />
                 <span className="text-xs font-mono">{c.contractNumber || c.proposalNumber || "—"}</span>
                 <span className="text-[10px] text-muted-foreground inline-flex items-center gap-0.5">
@@ -282,7 +218,7 @@ function InlineInventoryDetail({ inventory, onEmpty }: { inventory: ContractInve
                   {c.subjectListStatus === "cierny" && <Ban className="w-2.5 h-2.5 text-red-500" />}
                   {c.subjectListStatus === "cerveny" && <AlertTriangle className="w-2.5 h-2.5 text-orange-500" />}
                 </span>
-              </label>
+              </div>
             ))}
           </div>
         </div>
@@ -628,11 +564,6 @@ export default function ContractInventories() {
   const handleReorder = (items: { id: number | string; sortOrder: number }[]) => {
     reorderMutation.mutate(items.map(i => ({ id: Number(i.id), sortOrder: i.sortOrder })));
   };
-
-  function openCreate() {
-    setEditingInventory(null);
-    setDialogOpen(true);
-  }
 
   function openEdit(inventory: ContractInventory) {
     setEditingInventory(inventory);
