@@ -1,17 +1,110 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { UserPlus, User, Briefcase, Building2, Landmark, Network, Library } from "lucide-react";
+import { UserPlus, User, Briefcase, Building2, Landmark, Network, Library, ChevronRight } from "lucide-react";
 import { InitialRegistrationModal } from "@/components/initial-registration-modal";
 
 type SubjectType = "person" | "szco" | "company" | "organization" | "state" | "os";
 
-const SUBJECT_TYPE_OPTS: Array<{ val: SubjectType; label: string; shortLabel: string; icon: typeof User; clientTypeCode: string }> = [
-  { val: "person",       label: "Fyzické osoby (FO)",         shortLabel: "FO",   icon: User,      clientTypeCode: "FO"   },
-  { val: "szco",         label: "Živnostníci (SZČO)",         shortLabel: "SZČO", icon: Briefcase, clientTypeCode: "SZCO" },
-  { val: "company",      label: "Súkromný sektor (PO)",       shortLabel: "PO",   icon: Building2, clientTypeCode: "PO"   },
-  { val: "organization", label: "Tretí sektor (TS)",          shortLabel: "TS",   icon: Network,   clientTypeCode: "NS"   },
-  { val: "state",        label: "Verejný sektor (VS)",        shortLabel: "VS",   icon: Landmark,  clientTypeCode: "VS"   },
-  { val: "os",           label: "Ostatné subjekty (OS)",      shortLabel: "OS",   icon: Library,   clientTypeCode: "OS"   },
+const SUBJECT_TYPE_OPTS: Array<{
+  val: SubjectType;
+  label: string;
+  shortLabel: string;
+  icon: typeof User;
+  clientTypeCode: string;
+  bubbleTitle: string;
+  bubbleDesc: string;
+  bubbleSteps: string[];
+}> = [
+  {
+    val: "person",
+    label: "Fyzické osoby (FO)",
+    shortLabel: "FO",
+    icon: User,
+    clientTypeCode: "FO",
+    bubbleTitle: "Registrácia fyzickej osoby (FO)",
+    bubbleDesc: "Fyzická osoba je občan, ktorý nie je podnikateľom. Do tejto kategórie patria všetci bežní klienti — napríklad poistenci, sporiteľia alebo dlžníci.",
+    bubbleSteps: [
+      "Zadajte rodné číslo klienta — systém overí, či subjekt už existuje.",
+      "Vyberte krajinu registrácie (najčastejšie Slovensko).",
+      "Vyplňte osobné údaje: meno, adresu, kontakt a ďalšie povinné polia.",
+      "Uložte záznam — klient sa objaví v Zozname klientov.",
+    ],
+  },
+  {
+    val: "szco",
+    label: "Živnostníci (SZČO)",
+    shortLabel: "SZČO",
+    icon: Briefcase,
+    clientTypeCode: "SZCO",
+    bubbleTitle: "Registrácia živnostníka (SZČO)",
+    bubbleDesc: "Samostatne zárobkovo činná osoba (živnostník) podniká na vlastné meno. Registrujte sem všetkých klientov s platným živnostenským listom.",
+    bubbleSteps: [
+      "Zadajte IČO živnostníka — systém overí duplicitu a príp. doplní údaje z registra.",
+      "Vyberte krajinu registrácie.",
+      "Vyplňte obchodné meno, miesto podnikania, kontaktné údaje a ďalšie povinné polia.",
+      "Uložte záznam — živnostník sa objaví v Zozname klientov.",
+    ],
+  },
+  {
+    val: "company",
+    label: "Súkromný sektor (PO)",
+    shortLabel: "PO",
+    icon: Building2,
+    clientTypeCode: "PO",
+    bubbleTitle: "Registrácia právnickej osoby — súkromný sektor (PO)",
+    bubbleDesc: "Právnická osoba v súkromnom sektore — s.r.o., a.s., k.s. a iné obchodné spoločnosti zapísané v Obchodnom registri SR.",
+    bubbleSteps: [
+      "Zadajte IČO spoločnosti — systém overí duplicitu a príp. načíta údaje z ARES / OR.",
+      "Vyberte krajinu sídla.",
+      "Vyplňte obchodné meno, sídlo, konateľov a ďalšie povinné polia.",
+      "Uložte záznam — spoločnosť sa objaví v Zozname klientov.",
+    ],
+  },
+  {
+    val: "organization",
+    label: "Tretí sektor (TS)",
+    shortLabel: "TS",
+    icon: Network,
+    clientTypeCode: "NS",
+    bubbleTitle: "Registrácia subjektu tretieho sektora (TS)",
+    bubbleDesc: "Neziskové organizácie, nadácie, občianske združenia a iné subjekty tretieho sektora, ktoré nie sú štátne ani komerčné.",
+    bubbleSteps: [
+      "Zadajte IČO organizácie — systém overí duplicitu.",
+      "Vyberte krajinu registrácie.",
+      "Vyplňte názov, sídlo, typ organizácie a ďalšie povinné polia.",
+      "Uložte záznam — organizácia sa objaví v Zozname klientov.",
+    ],
+  },
+  {
+    val: "state",
+    label: "Verejný sektor (VS)",
+    shortLabel: "VS",
+    icon: Landmark,
+    clientTypeCode: "VS",
+    bubbleTitle: "Registrácia subjektu verejného sektora (VS)",
+    bubbleDesc: "Štátne inštitúcie, ministerstvá, školy, nemocnice, obce, mestá a ďalšie organizácie financované z verejných zdrojov.",
+    bubbleSteps: [
+      "Zadajte IČO inštitúcie — systém overí duplicitu.",
+      "Vyberte krajinu registrácie.",
+      "Vyplňte názov, sídlo, typ inštitúcie a ďalšie povinné polia.",
+      "Uložte záznam — inštitúcia sa objaví v Zozname klientov.",
+    ],
+  },
+  {
+    val: "os",
+    label: "Ostatné subjekty (OS)",
+    shortLabel: "OS",
+    icon: Library,
+    clientTypeCode: "OS",
+    bubbleTitle: "Registrácia ostatného subjektu (OS)",
+    bubbleDesc: "Sem patria subjekty, ktoré nespadajú do žiadnej z predchádzajúcich kategórií — napríklad cirkvi, náboženské spoločnosti, politické strany a iné špecifické organizácie.",
+    bubbleSteps: [
+      "Zadajte IČO subjektu — systém overí duplicitu.",
+      "Vyberte krajinu registrácie.",
+      "Vyplňte názov, sídlo a ďalšie povinné polia.",
+      "Uložte záznam — subjekt sa objaví v Zozname klientov.",
+    ],
+  },
 ];
 
 function SubjectTypeSlider({
@@ -74,6 +167,51 @@ function SubjectTypeSlider({
   );
 }
 
+function SubjectInfoBubble({
+  opt,
+  onRegister,
+}: {
+  opt: typeof SUBJECT_TYPE_OPTS[0];
+  onRegister: () => void;
+}) {
+  const Icon = opt.icon;
+  return (
+    <div
+      className="mt-4 rounded-xl border border-border/60 bg-muted/30 p-5 shadow-sm"
+      data-testid="bubble-subject-info"
+    >
+      <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10 shrink-0">
+          <Icon className="w-5 h-5 text-primary" />
+        </div>
+        <h2 className="text-sm font-semibold leading-tight">{opt.bubbleTitle}</h2>
+      </div>
+      <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+        {opt.bubbleDesc}
+      </p>
+      <ol className="space-y-2 mb-5">
+        {opt.bubbleSteps.map((step, i) => (
+          <li key={i} className="flex gap-2.5 text-sm">
+            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/15 text-primary text-xs font-bold shrink-0 mt-0.5">
+              {i + 1}
+            </span>
+            <span className="text-muted-foreground leading-snug">{step}</span>
+          </li>
+        ))}
+      </ol>
+      <button
+        type="button"
+        onClick={onRegister}
+        data-testid="button-start-registration"
+        className="flex items-center gap-2 w-full justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all duration-150"
+      >
+        Začať registráciu
+        <ChevronRight className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
 function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
@@ -127,7 +265,6 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
               <stop offset="100%" stopColor="#1a3f80" />
             </linearGradient>
           </defs>
-          {/* Glow */}
           <rect
             x="8" y="8" width="264" height="64" rx="24"
             fill={isActive ? "rgba(0,255,60,1.0)" : "rgba(56,189,248,0.45)"}
@@ -141,7 +278,6 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
               filter="url(#glowAaaHover)"
             />
           )}
-          {/* Tabletka */}
           <rect
             x="1" y="1" width="278" height="78" rx="28"
             fill="url(#hexGradAaa)"
@@ -158,7 +294,6 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           flexDirection: "row",
           alignItems: "stretch",
         }}>
-          {/* Ľavá 1/3 (93px) — ikona vycentrovaná */}
           <div style={{ width: 93, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <UserPlus
               size={28}
@@ -170,7 +305,6 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
               }}
             />
           </div>
-          {/* Zvislá čiarka */}
           <div style={{
             width: 3,
             margin: "12px 0",
@@ -179,7 +313,6 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
             transition: "background 0.15s ease",
             flexShrink: 0,
           }} />
-          {/* Pravá 2/3 (184px) — text vycentrovaný */}
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{
               fontFamily: "sans-serif",
@@ -201,9 +334,14 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
 export default function Aaa() {
   const [, navigate] = useLocation();
   const [subjectType, setSubjectType] = useState<SubjectType>("person");
+  const [sliderVisible, setSliderVisible] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
   const selectedOpt = SUBJECT_TYPE_OPTS.find(o => o.val === subjectType)!;
+
+  function handleButtonClick() {
+    setSliderVisible(true);
+  }
 
   function handleProceed(data: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: unknown }) {
     try {
@@ -225,11 +363,20 @@ export default function Aaa() {
         Toto okno slúži na registráciu nového subjektu.
       </p>
 
-      <AddPartnerHexButton onClick={() => setModalOpen(true)} />
+      <AddPartnerHexButton onClick={handleButtonClick} />
 
-      <div className="mt-6">
-        <SubjectTypeSlider value={subjectType} onChange={setSubjectType} />
-      </div>
+      {sliderVisible && (
+        <>
+          <div className="mt-6">
+            <SubjectTypeSlider value={subjectType} onChange={setSubjectType} />
+          </div>
+
+          <SubjectInfoBubble
+            opt={selectedOpt}
+            onRegister={() => setModalOpen(true)}
+          />
+        </>
+      )}
 
       <InitialRegistrationModal
         open={modalOpen}
