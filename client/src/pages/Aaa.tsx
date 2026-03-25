@@ -705,7 +705,7 @@ export default function Aaa() {
         </p>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-14">
         <AddPartnerHexButton onClick={handleButtonClick} />
       </div>
 
