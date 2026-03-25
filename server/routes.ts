@@ -5638,6 +5638,7 @@ export async function registerRoutes(
 
       let rejectedCount = 0;
       const { rejectedIds } = req.body;
+      const rejectedInventoryIds = new Set<number>();
       if (Array.isArray(rejectedIds) && rejectedIds.length > 0) {
         for (const rid of rejectedIds) {
           const rejId = Number(rid);
@@ -5646,6 +5647,9 @@ export async function registerRoutes(
           if (appUser?.activeCompanyId) rejConditions.push(eq(contracts.companyId, appUser.activeCompanyId));
           const [rejContract] = await db.select().from(contracts).where(and(...rejConditions));
           if (!rejContract) continue;
+
+          // Collect inventory ID from already-validated contract (respects access scoping)
+          if (rejContract.inventoryId) rejectedInventoryIds.add(rejContract.inventoryId);
 
           await db.update(contracts).set({
             lifecyclePhase: 3,
@@ -5673,13 +5677,7 @@ export async function registerRoutes(
           rejectedCount++;
         }
 
-        // Auto-close inventories where ALL contracts are now rejected (phase 3)
-        const rejectedInventoryIds = new Set<number>();
-        for (const rid of rejectedIds) {
-          const rejId = Number(rid);
-          const [rc] = await db.select({ inventoryId: contracts.inventoryId }).from(contracts).where(eq(contracts.id, rejId)).limit(1);
-          if (rc?.inventoryId) rejectedInventoryIds.add(rc.inventoryId);
-        }
+        // Auto-close inventories where ALL contracts are now in phase 3 (rejected)
         for (const invId of rejectedInventoryIds) {
           const remaining = await db.select({ id: contracts.id }).from(contracts).where(
             and(
