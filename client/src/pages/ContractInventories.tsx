@@ -110,7 +110,7 @@ type InventoryContractRow = {
   subjectRedListCompanyId: number | null;
 };
 
-function InlineInventoryDetail({ inventory }: { inventory: ContractInventory }) {
+function InlineInventoryDetail({ inventory, onEmpty }: { inventory: ContractInventory; onEmpty?: (id: number) => void }) {
   const { toast } = useToast();
   const { data: contracts, isLoading } = useQuery<InventoryContractRow[]>({
     queryKey: ["/api/contract-inventories", inventory.id, "contracts"],
@@ -131,6 +131,12 @@ function InlineInventoryDetail({ inventory }: { inventory: ContractInventory }) 
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť nový protokol", variant: "destructive" }),
   });
 
+  useEffect(() => {
+    if (!isLoading && contracts !== undefined && contracts.length === 0) {
+      onEmpty?.(inventory.id);
+    }
+  }, [isLoading, contracts, inventory.id, onEmpty]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-4">
@@ -143,7 +149,7 @@ function InlineInventoryDetail({ inventory }: { inventory: ContractInventory }) 
   if (!contracts || contracts.length === 0) {
     return (
       <p className="text-xs text-muted-foreground text-center py-4" data-testid="text-no-inventory-contracts">
-        Žiadne zmluvy v tejto sprievodke
+        Táto sprievodka neobsahuje žiadne zmluvy a bude automaticky odstránená.
       </p>
     );
   }
@@ -575,7 +581,17 @@ export default function ContractInventories() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingInventory, setEditingInventory] = useState<ContractInventory | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [emptyInventoryIds, setEmptyInventoryIds] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+
+  const handleInventoryEmpty = useCallback((id: number) => {
+    setEmptyInventoryIds(prev => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
 
   const { data: inventories, isLoading } = useQuery<ContractInventory[]>({
     queryKey: ["/api/contract-inventories"],
@@ -701,15 +717,17 @@ export default function ContractInventories() {
                   </div>
                   {columnVisibility.isVisible("status") && (
                     <div className="flex items-center gap-1 shrink-0" data-testid={`badge-inventory-status-${inventory.id}`}>
-                      {inventory.isClosed ? (
+                      {emptyInventoryIds.has(inventory.id) ? (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground text-muted-foreground" data-testid={`badge-inventory-empty-${inventory.id}`}>Prázdna</Badge>
+                      ) : inventory.isClosed ? (
                         <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Uzavretá</Badge>
                       ) : (
                         <Badge className="bg-green-600 text-white text-[10px] px-1.5 py-0">Otvorená</Badge>
                       )}
-                      {inventory.isAccepted && (
+                      {!emptyInventoryIds.has(inventory.id) && inventory.isAccepted && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500 text-blue-500">Prijatá</Badge>
                       )}
-                      {inventory.isDispatched && !inventory.isAccepted && (
+                      {!emptyInventoryIds.has(inventory.id) && inventory.isDispatched && !inventory.isAccepted && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500 text-amber-500">Odoslaná</Badge>
                       )}
                     </div>
@@ -734,7 +752,7 @@ export default function ContractInventories() {
                 </div>
                 {isExpanded && (
                   <div className="border-t border-border/60 px-5 py-4 bg-muted/10 dark:bg-muted/5 rounded-b-lg">
-                    <InlineInventoryDetail inventory={inventory} />
+                    <InlineInventoryDetail inventory={inventory} onEmpty={handleInventoryEmpty} />
                   </div>
                 )}
               </div>

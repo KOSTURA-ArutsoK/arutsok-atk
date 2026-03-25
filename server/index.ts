@@ -3,8 +3,8 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { db } from "./db";
-import { subjectParameters } from "@shared/schema";
-import { inArray, like, or, eq } from "drizzle-orm";
+import { subjectParameters, contractInventories, contracts } from "@shared/schema";
+import { inArray, like, or, eq, notInArray, sql } from "drizzle-orm";
 
 const app = express();
 const httpServer = createServer(app);
@@ -85,6 +85,29 @@ app.use((req, res, next) => {
       ));
   } catch (e) {
     console.warn("[startup] Could not hide legacy duplicate params:", e);
+  }
+
+  // Startup cleanup: delete contract inventories that have no contracts (orphaned/empty)
+  try {
+    const inventoriesWithContracts = await db
+      .selectDistinct({ inventoryId: contracts.inventoryId })
+      .from(contracts)
+      .where(eq(contracts.isDeleted, false));
+    const activeInventoryIds = inventoriesWithContracts
+      .map(r => r.inventoryId)
+      .filter((id): id is number => id !== null && id !== undefined);
+    const deleted = await db.delete(contractInventories)
+      .where(
+        activeInventoryIds.length > 0
+          ? notInArray(contractInventories.id, activeInventoryIds)
+          : sql`1=1`
+      )
+      .returning({ id: contractInventories.id });
+    if (deleted.length > 0) {
+      console.log(`[CLEANUP] Deleted ${deleted.length} empty inventory records: ${deleted.map(r => r.id).join(", ")}`);
+    }
+  } catch (e) {
+    console.warn("[startup] Could not clean up empty inventories:", e);
   }
 
   await registerRoutes(httpServer, app);

@@ -5123,8 +5123,22 @@ export async function registerRoutes(
         }
       }
 
+      const oldInventoryId = contract.inventoryId;
       await db.update(contracts).set(updateData).where(eq(contracts.id, contractId));
       const [updated] = await db.select().from(contracts).where(eq(contracts.id, contractId));
+
+      // If inventoryId changed, clean up old inventory if it became empty
+      const newInventoryId = updateData.inventoryId !== undefined ? updateData.inventoryId : contract.inventoryId;
+      if (oldInventoryId && oldInventoryId !== newInventoryId) {
+        const remaining = await db.select({ id: contracts.id }).from(contracts)
+          .where(and(eq(contracts.inventoryId, oldInventoryId), eq(contracts.isDeleted, false)))
+          .limit(1);
+        if (remaining.length === 0) {
+          await db.delete(contractInventories).where(eq(contractInventories.id, oldInventoryId));
+          console.log(`[CLEANUP] Deleted empty inventory ID ${oldInventoryId} after contract ${contractId} moved to inventory ${newInventoryId ?? 'null'}`);
+        }
+      }
+
       res.json(updated);
     } catch (err: any) {
       console.error("PATCH /api/contracts/:id error:", err);
@@ -6730,6 +6744,18 @@ export async function registerRoutes(
       if (!target) {
         return res.status(404).json({ message: "Sprievodka nenajdena" });
       }
+
+      // Collect old inventoryIds before reassigning (to detect orphaned inventories after dispatch)
+      const oldInventoryIds = new Set<number>();
+      if (validContractIds.length > 0) {
+        const oldRows = await db.select({ inventoryId: contracts.inventoryId })
+          .from(contracts)
+          .where(and(inArray(contracts.id, validContractIds), isNotNull(contracts.inventoryId)));
+        for (const r of oldRows) {
+          if (r.inventoryId && r.inventoryId !== inventoryId) oldInventoryIds.add(r.inventoryId);
+        }
+      }
+
       const seqNum = await storage.getNextCounterValue("sprievodka_sequence");
       const dispatchedAt = new Date();
       await storage.updateContractInventory(inventoryId, { 
@@ -6739,6 +6765,18 @@ export async function registerRoutes(
         dispatchedAt,
       } as any);
       await storage.bulkAssignContractsToInventory(inventoryId, validContractIds, dispatchedAt);
+
+      // Delete any old inventories that are now empty
+      for (const oldInvId of oldInventoryIds) {
+        const remaining = await db.select({ id: contracts.id }).from(contracts)
+          .where(and(eq(contracts.inventoryId, oldInvId), eq(contracts.isDeleted, false)))
+          .limit(1);
+        if (remaining.length === 0) {
+          await db.delete(contractInventories).where(eq(contractInventories.id, oldInvId));
+          console.log(`[CLEANUP] Deleted empty inventory ID ${oldInvId} after dispatch to inventory ${inventoryId}`);
+        }
+      }
+
       await logAudit(req, {
         action: "CREATE",
         module: "sprievodka_dispatch",
