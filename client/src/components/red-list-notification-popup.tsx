@@ -24,25 +24,31 @@ function Section({
   title,
   items,
   colorClass,
-  borderRgb,
-  bgRgb,
-  glowRgb,
+  rgb,
 }: {
   title: string;
   items: PopupItem[];
   colorClass: string;
-  borderRgb: string;
-  bgRgb: string;
-  glowRgb: string;
+  rgb: string;
 }) {
+  const [hovered, setHovered] = useState(false);
+
   return (
     <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
-        border: `5px solid rgba(${borderRgb}, 0.75)`,
-        background: `rgba(${bgRgb}, 0.10)`,
-        boxShadow: `0 0 32px rgba(${glowRgb}, 0.28)`,
+        borderLeft: `5px solid rgba(${rgb}, 0.80)`,
+        borderRight: `5px solid rgba(${rgb}, 0.80)`,
+        borderTop: "none",
+        borderBottom: "none",
+        background: `rgba(${rgb}, 0.09)`,
+        boxShadow: hovered
+          ? `-18px 0 28px rgba(${rgb}, 0.45), 18px 0 28px rgba(${rgb}, 0.45)`
+          : "none",
+        transition: "box-shadow 0.25s ease",
       }}
-      className="p-3"
+      className="px-4 py-3"
     >
       <p className={`text-xs font-bold uppercase tracking-wider ${colorClass} mb-2`}>{title}</p>
       {items.length === 0 ? (
@@ -123,39 +129,11 @@ export function RedListNotificationPopup() {
           </h2>
         </div>
 
-        <div className="overflow-y-auto py-3 space-y-3" style={{ maxHeight: "calc(90vh - 116px)" }}>
-          <Section
-            title="Urgentné"
-            items={urgent}
-            colorClass="text-red-400"
-            borderRgb="220, 38, 38"
-            bgRgb="220, 38, 38"
-            glowRgb="220, 38, 38"
-          />
-          <Section
-            title="Informácie"
-            items={info}
-            colorClass="text-blue-400"
-            borderRgb="37, 99, 235"
-            bgRgb="37, 99, 235"
-            glowRgb="37, 99, 235"
-          />
-          <Section
-            title="Novinky"
-            items={news}
-            colorClass="text-amber-400"
-            borderRgb="217, 119, 6"
-            bgRgb="217, 119, 6"
-            glowRgb="217, 119, 6"
-          />
-          <Section
-            title="Pozitívne"
-            items={good}
-            colorClass="text-green-400"
-            borderRgb="22, 163, 74"
-            bgRgb="22, 163, 74"
-            glowRgb="22, 163, 74"
-          />
+        <div className="overflow-y-auto" style={{ maxHeight: "calc(90vh - 116px)" }}>
+          <Section title="Urgentné"  items={urgent} colorClass="text-red-400"   rgb="220, 38, 38" />
+          <Section title="Informácie" items={info}   colorClass="text-blue-400"  rgb="37, 99, 235" />
+          <Section title="Novinky"   items={news}   colorClass="text-amber-400" rgb="217, 119, 6" />
+          <Section title="Pozitívne" items={good}   colorClass="text-green-400" rgb="22, 163, 74" />
         </div>
 
         <div className="px-5 py-3 border-t border-border">
