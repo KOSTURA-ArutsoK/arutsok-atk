@@ -82,7 +82,7 @@ export function RedListNotificationPopup() {
     queryKey: ["/api/home-popup-data"],
     enabled: !!appUser?.id,
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 2,
+    staleTime: 0,
   });
 
   useEffect(() => {

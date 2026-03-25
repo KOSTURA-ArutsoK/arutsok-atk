@@ -43,6 +43,8 @@ export function useAuth() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/app-user/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/home-popup-data"] });
     },
   });
 
