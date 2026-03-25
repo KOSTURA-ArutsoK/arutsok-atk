@@ -64,8 +64,9 @@ export function AddSubjectCard({ onClick }: AddSubjectCardProps) {
           <rect
             x="1" y="1" width="278" height="78" rx="24"
             fill="url(#pillGradSubject)"
-            stroke="rgba(245,158,11,0.35)"
+            stroke={hovered ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)"}
             strokeWidth="1.5"
+            style={{ transition: "stroke 0.15s ease" }}
           />
           {/* Vertikálne delítko */}
           <line
