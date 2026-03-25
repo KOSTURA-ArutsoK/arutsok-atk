@@ -1,5 +1,4 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState, useEffect, useRef } from "react";
@@ -114,6 +113,43 @@ function Section({
   );
 }
 
+function CloseSection({ onClose, isPending }: { onClose: () => void; isPending: boolean }) {
+  const rgb = "22, 163, 74";
+  const [hovered, setHovered] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  function handleMouseEnter() {
+    if (ref.current) setRect(ref.current.getBoundingClientRect());
+    setHovered(true);
+  }
+
+  return (
+    <>
+      <div
+        ref={ref}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => setHovered(false)}
+        onClick={!isPending ? onClose : undefined}
+        data-testid="btn-confirm-home-popup"
+        style={{
+          background: hovered ? `rgba(${rgb}, 0.14)` : "transparent",
+          borderTop: `1px solid rgba(${rgb}, 0.30)`,
+          cursor: isPending ? "default" : "pointer",
+          transition: "background 0.2s ease",
+        }}
+        className="px-4 py-3 flex items-center justify-center gap-2"
+      >
+        {isPending
+          ? <Loader2 className="w-4 h-4 animate-spin text-green-400" />
+          : null}
+        <span className="text-sm font-semibold text-green-400 uppercase tracking-wider">Zavrieť</span>
+      </div>
+      {hovered && rect && <SideGlow rect={rect} rgb={rgb} />}
+    </>
+  );
+}
+
 export function RedListNotificationPopup() {
   const { data: appUser } = useAppUser();
   const [visible, setVisible] = useState(false);
@@ -178,18 +214,7 @@ export function RedListNotificationPopup() {
           <Section title="Pozitívne"  items={good}   colorClass="text-green-400" rgb="22, 163, 74" />
         </div>
 
-        <div className="px-5 py-3 border-t border-border">
-          <Button
-            className="w-full"
-            variant="default"
-            onClick={handleClose}
-            disabled={markAllReadMutation.isPending}
-            data-testid="btn-confirm-home-popup"
-          >
-            {markAllReadMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-            Zavrieť
-          </Button>
-        </div>
+        <CloseSection onClose={handleClose} isPending={markAllReadMutation.isPending} />
       </div>
     </div>
   );
