@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { UserPlus, User, Briefcase, Building2, Landmark, Network, Library, ChevronRight } from "lucide-react";
+import { UserPlus, User, Briefcase, Building2, Landmark, Network, Library } from "lucide-react";
 import { InitialRegistrationModal } from "@/components/initial-registration-modal";
 
 type SubjectType = "person" | "szco" | "company" | "organization" | "state" | "os";
@@ -167,13 +167,7 @@ function SubjectTypeSlider({
   );
 }
 
-function SubjectInfoBubble({
-  opt,
-  onRegister,
-}: {
-  opt: typeof SUBJECT_TYPE_OPTS[0];
-  onRegister: () => void;
-}) {
+function SubjectInfoBubble({ opt }: { opt: typeof SUBJECT_TYPE_OPTS[0] }) {
   const Icon = opt.icon;
   return (
     <div
@@ -189,7 +183,7 @@ function SubjectInfoBubble({
       <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
         {opt.bubbleDesc}
       </p>
-      <ol className="space-y-2 mb-5">
+      <ol className="space-y-2">
         {opt.bubbleSteps.map((step, i) => (
           <li key={i} className="flex gap-2.5 text-sm">
             <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary/15 text-primary text-xs font-bold shrink-0 mt-0.5">
@@ -199,15 +193,6 @@ function SubjectInfoBubble({
           </li>
         ))}
       </ol>
-      <button
-        type="button"
-        onClick={onRegister}
-        data-testid="button-start-registration"
-        className="flex items-center gap-2 w-full justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all duration-150"
-      >
-        Začať registráciu
-        <ChevronRight className="w-4 h-4" />
-      </button>
     </div>
   );
 }
@@ -336,11 +321,13 @@ export default function Aaa() {
   const [subjectType, setSubjectType] = useState<SubjectType>("person");
   const [sliderVisible, setSliderVisible] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  // bubble is always visible by default
 
   const selectedOpt = SUBJECT_TYPE_OPTS.find(o => o.val === subjectType)!;
 
   function handleButtonClick() {
     setSliderVisible(true);
+    setModalOpen(true);
   }
 
   function handleProceed(data: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: unknown }) {
@@ -366,17 +353,12 @@ export default function Aaa() {
       <AddPartnerHexButton onClick={handleButtonClick} />
 
       {sliderVisible && (
-        <>
-          <div className="mt-6">
-            <SubjectTypeSlider value={subjectType} onChange={setSubjectType} />
-          </div>
-
-          <SubjectInfoBubble
-            opt={selectedOpt}
-            onRegister={() => setModalOpen(true)}
-          />
-        </>
+        <div className="mt-6">
+          <SubjectTypeSlider value={subjectType} onChange={setSubjectType} />
+        </div>
       )}
+
+      <SubjectInfoBubble opt={selectedOpt} />
 
       <InitialRegistrationModal
         open={modalOpen}
