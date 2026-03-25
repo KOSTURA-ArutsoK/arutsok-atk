@@ -693,7 +693,9 @@ export default function Aaa() {
         </p>
       </div>
 
-      <AddPartnerHexButton onClick={handleButtonClick} />
+      <div className="mt-6">
+        <AddPartnerHexButton onClick={handleButtonClick} />
+      </div>
 
       {!sliderVisible && <SubjectInfoBubble opt={selectedOpt} />}
 
