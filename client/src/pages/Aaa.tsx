@@ -103,7 +103,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           transform: pressed ? "scale(0.96)" : hovered ? "scale(1.05)" : "scale(1)",
           filter: isActive
             ? "drop-shadow(0 0 10px rgba(0,220,60,0.55)) drop-shadow(0 0 22px rgba(0,220,60,0.25))"
-            : "drop-shadow(0 0 8px rgba(56,189,248,0.30))",
+            : "drop-shadow(0 0 10px rgba(56,189,248,0.50))",
         }}
       >
         <svg
