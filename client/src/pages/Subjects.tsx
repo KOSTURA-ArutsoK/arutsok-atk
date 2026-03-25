@@ -2857,7 +2857,7 @@ export default function Subjects() {
           <SmartFilterBar filter={tableFilter} />
           <ColumnManager columnVisibility={columnVisibility} />
           {canCreateSubjects(appUser) && (
-            <Button onClick={() => setIsInitModalOpen(true)} data-testid="button-add-subject">
+            <Button onClick={() => { window.location.href = '/aaa'; }} data-testid="button-add-subject">
               <Plus className="w-4 h-4 mr-2" />
               Novy subjekt
             </Button>
