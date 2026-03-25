@@ -445,6 +445,7 @@ function ProductFormDialog({
                   { val: "company", label: "PO", desc: "Právnická osoba" },
                   { val: "organization", label: "TS", desc: "Tretí sektor (nadácia)" },
                   { val: "state", label: "VS", desc: "Verejný sektor" },
+                  { val: "os", label: "OS", desc: "Občianske združenie" },
                 ] as const).map(opt => {
                   const active = allowedSubjectTypes.includes(opt.val);
                   return (
@@ -471,7 +472,7 @@ function ProductFormDialog({
               {allowedSubjectTypes.length > 0 && (
                 <p className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1">
                   <span>⚠</span>
-                  Produkt bude dostupný len pre: {allowedSubjectTypes.map(t => t === "person" ? "FO" : t === "szco" ? "SZČO" : t === "company" ? "PO" : t === "organization" ? "TS" : "VS").join(", ")}. Zmluvy s iným typom subjektu budú odmietnuté.
+                  Produkt bude dostupný len pre: {allowedSubjectTypes.map(t => t === "person" ? "FO" : t === "szco" ? "SZČO" : t === "company" ? "PO" : t === "organization" ? "TS" : t === "state" ? "VS" : "OS").join(", ")}. Zmluvy s iným typom subjektu budú odmietnuté.
                 </p>
               )}
             </div>
