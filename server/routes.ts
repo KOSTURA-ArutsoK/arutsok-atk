@@ -20844,24 +20844,41 @@ export async function registerRoutes(
         }
       }
 
-      // 3. New contracts (last 30 days) — part of "good/novinky"
-      const newContractsCond: any[] = [
+      // 3. Archived contracts (lifecyclePhase=8, last 30 days) — recently archived
+      const archivedContractsCond: any[] = [
         eq(contracts.isDeleted, false),
-        gte(contracts.createdAt, thirtyDaysAgo),
+        eq(contracts.lifecyclePhase, 8),
+        gte(contracts.lastStatusUpdate, thirtyDaysAgo),
       ];
-      if (user.activeCompanyId) newContractsCond.push(eq(contracts.companyId, user.activeCompanyId));
+      if (user.activeCompanyId) archivedContractsCond.push(eq(contracts.companyId, user.activeCompanyId));
 
-      const newContracts = await db.select({
+      let archivedContracts = await db.select({
         id: contracts.id,
         contractNumber: contracts.contractNumber,
         uid: contracts.uid,
+        klientUid: contracts.klientUid,
+        specialistaUid: contracts.specialistaUid,
+        subjectId: contracts.subjectId,
+        companyId: contracts.companyId,
       }).from(contracts)
-        .where(and(...newContractsCond))
-        .orderBy(desc(contracts.createdAt))
-        .limit(5);
+        .where(and(...archivedContractsCond))
+        .orderBy(desc(contracts.lastStatusUpdate))
+        .limit(10);
 
-      for (const c of newContracts) {
-        good.push({ type: "new_contract", label: `Nová zmluva: ${c.contractNumber || c.uid || `#${c.id}`}` });
+      if (!adminUser && user.linkedSubjectId) {
+        const lnkArch = await db.select({ uid: subjects.uid }).from(subjects)
+          .where(eq(subjects.id, user.linkedSubjectId)).limit(1);
+        const uArchUid = lnkArch[0]?.uid || null;
+        const uArchStr = String(user.linkedSubjectId);
+        archivedContracts = archivedContracts.filter(c =>
+          c.specialistaUid === uArchStr || c.klientUid === uArchStr ||
+          (uArchUid && (c.specialistaUid === uArchUid || c.klientUid === uArchUid)) ||
+          c.subjectId === user.linkedSubjectId
+        );
+      }
+
+      for (const c of archivedContracts.slice(0, 5)) {
+        good.push({ type: "archived_contract", label: `Archivovaná zmluva: ${c.contractNumber || c.uid || `#${c.id}`}` });
       }
 
       // 4. New clients/subjects (last 30 days) — part of "good/novinky"
