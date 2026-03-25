@@ -109,11 +109,11 @@ const SUBJECT_TYPE_OPTS: Array<{
     shortLabel: "OS",
     icon: Library,
     clientTypeCode: "OS",
-    baseParam: "id",
+    baseParam: "ico",
     bubbleTitle: "Registrácia ostatného subjektu (OS)",
     bubbleDesc: "Sem patria subjekty, ktoré nespadajú do žiadnej z predchádzajúcich kategórií — napríklad cirkvi, náboženské spoločnosti, politické strany a iné špecifické organizácie.",
     bubbleSteps: [
-      "Zadajte identifikátor subjektu — systém overí duplicitu.",
+      "Zadajte IČO subjektu — systém overí duplicitu.",
       "Vyberte krajinu registrácie.",
       "Vyplňte názov, sídlo a ďalšie povinné polia.",
       "Uložte záznam — subjekt sa objaví v Zozname klientov.",
@@ -230,10 +230,9 @@ function InlineRegistrationRow({
 
   const isRc = opt.baseParam === "rc";
   const isIco = opt.baseParam === "ico";
-  const isId = opt.baseParam === "id";
 
-  const inputLabel = isRc ? "Rodné číslo" : isIco ? "IČO" : "Identifikátor";
-  const inputPlaceholder = isRc ? "napr. 900101/1234" : isIco ? "napr. 12345678" : "Číslo registrácie / ID...";
+  const inputLabel = isRc ? "Rodné číslo" : "IČO";
+  const inputPlaceholder = isRc ? "napr. 900101/1234" : "napr. 12345678";
 
   useEffect(() => {
     setValue("");
@@ -310,13 +309,6 @@ function InlineRegistrationRow({
       }
       setRcError(null);
       performDuplicateCheck(value);
-    } else if (isId) {
-      setRcError(null);
-      setIcoError(null);
-      setAresLookup(null);
-      setDuplicateChecked(false);
-      debounceRef.current = setTimeout(() => performDuplicateCheck(value), 500);
-      return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
     } else if (isIco) {
       setRcError(null);
       const digits = value.replace(/[\s\/-]/g, "");
@@ -350,7 +342,7 @@ function InlineRegistrationRow({
         .catch(() => setAresLookup({ found: false, message: "Chyba pri vyhľadávaní v registroch" }))
         .finally(() => setAresLoading(false));
     }
-  }, [value, isRc, isIco, isId, opt.clientTypeCode, performDuplicateCheck]);
+  }, [value, isRc, isIco, opt.clientTypeCode, performDuplicateCheck]);
 
   const canProceed = !!(appUser?.activeStateId && value.trim() && duplicateChecked && !duplicateInfo && !rcError && !icoError);
 
