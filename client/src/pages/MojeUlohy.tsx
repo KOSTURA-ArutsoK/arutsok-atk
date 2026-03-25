@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTimeSlovak } from "@/lib/utils";
-import { Loader2, Check, X, ClipboardCheck, FileText, Download, AlertTriangle, ExternalLink, XCircle, CalendarDays, FileBarChart, Building2, ShieldAlert } from "lucide-react";
+import { Loader2, Check, X, ClipboardCheck, FileText, Download, AlertTriangle, ExternalLink, XCircle, CalendarDays, FileBarChart, Building2, ShieldAlert, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -93,6 +93,13 @@ interface CompanyWithoutOfficers {
   uid: string | null;
 }
 
+interface ProductWithoutDocs {
+  id: number;
+  name: string;
+  code: string;
+  partnerId: number | null;
+}
+
 interface MyTasksResponse {
   tasks: TransferTask[];
   subjects: SubjectInfo[];
@@ -104,6 +111,7 @@ interface MyTasksResponse {
   upcomingEvents: CalendarEvent[];
   nbsReportTasks?: NbsReportTask[];
   companiesWithoutOfficers?: CompanyWithoutOfficers[];
+  productsWithoutDocs?: ProductWithoutDocs[];
 }
 
 function getSubjectName(sub: SubjectInfo | undefined): string {
@@ -356,9 +364,10 @@ export default function MojeUlohy() {
   const upcomingEvents = data?.upcomingEvents || [];
   const nbsReportTasks = data?.nbsReportTasks || [];
   const companiesWithoutOfficers = data?.companiesWithoutOfficers || [];
+  const productsWithoutDocs = data?.productsWithoutDocs || [];
   const subjectMap = new Map((data?.subjects || []).map(s => [s.id, s]));
   const statusMap = new Map(interventionStatuses.map(s => [s.id, s.name]));
-  const nonCalendarCount = tasks.length + interventions.length + internalInterventions.length + rejectedContracts.length + archivedContracts.length + nbsReportTasks.length + companiesWithoutOfficers.length;
+  const nonCalendarCount = tasks.length + interventions.length + internalInterventions.length + rejectedContracts.length + archivedContracts.length + nbsReportTasks.length + companiesWithoutOfficers.length + productsWithoutDocs.length;
   const totalCount = nonCalendarCount + upcomingEvents.length;
 
   const urgentNbs = nbsReportTasks.filter(t => t.daysLeft <= 14);
@@ -402,6 +411,51 @@ export default function MojeUlohy() {
               blinkActive={nbsBlinkActive}
               navigate={navigate}
             />
+          )}
+
+          {productsWithoutDocs.length > 0 && (
+            <div className="space-y-4" data-testid="products-without-docs-section">
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-amber-500 animate-pulse" />
+                <h2 className="text-lg font-semibold">Produkty bez dokumentácie</h2>
+                <Badge variant="outline" className="border-amber-500 text-amber-400" data-testid="products-without-docs-count">
+                  {productsWithoutDocs.length}
+                </Badge>
+              </div>
+              <div className="space-y-3">
+                {productsWithoutDocs.map(product => (
+                  <Card
+                    key={product.id}
+                    className="border-l-4 border-l-amber-500 cursor-pointer hover:bg-muted/30 transition-colors"
+                    onClick={() => navigate(`/products`)}
+                    data-testid={`product-without-docs-card-${product.id}`}
+                  >
+                    <CardContent className="py-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Package className="w-4 h-4 shrink-0 text-amber-400" />
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm" data-testid={`product-without-docs-name-${product.id}`}>
+                              {product.name}
+                              <span className="ml-2 text-xs font-mono text-muted-foreground">{product.code}</span>
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Produkt nemá vyplnenú žiadnu dokumentáciu — doplňte povinné a nepovinné dokumenty
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="outline" className="border-amber-500 text-amber-400 text-[10px]">
+                            Chýba dokumentácia
+                          </Badge>
+                          <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
           )}
 
           {companiesWithoutOfficers.length > 0 && (

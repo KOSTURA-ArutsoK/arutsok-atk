@@ -264,8 +264,15 @@ function ProductFormDialog({
     mutationFn: (data: any) => apiRequest("PUT", `/api/products/${editingProduct?.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      toast({ title: "Uspech", description: "Produkt aktualizovany" });
-      onOpenChange(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/my-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-tasks/count"] });
+      if (activeTab === "info") {
+        toast({ title: "Uložené", description: "Produkt uložený — doplňte dokumentáciu" });
+        setActiveTab("dokumentacia");
+      } else {
+        toast({ title: "Uspech", description: "Produkt aktualizovany" });
+        onOpenChange(false);
+      }
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa aktualizovat produkt", variant: "destructive" }),
   });
@@ -627,6 +634,11 @@ function ProductFormDialog({
               <DocBubble color="red" label="Povinné" docs={requiredDocumentsPartner} setDocs={setRequiredDocumentsPartner} inputValue={newDocPartnerName} setInputValue={setNewDocPartnerName} placeholder="Povinný dokument..." testIdPrefix="partner-req" copyTargets={[setRequiredDocuments, setRequiredDocumentsReceived]} />
               <DocBubble color="blue" label="Nepovinné" docs={optionalDocumentsPartner} setDocs={setOptionalDocumentsPartner} inputValue={newOptDocPartnerName} setInputValue={setNewOptDocPartnerName} placeholder="Nepovinný dokument..." testIdPrefix="partner-opt" copyTargets={[setOptionalDocuments, setOptionalDocumentsReceived]} />
             </div>
+          </div>
+          <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t">
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-product-docs-cancel">
+              Zavrieť bez uloženia
+            </Button>
           </div>
         </div>
         <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />

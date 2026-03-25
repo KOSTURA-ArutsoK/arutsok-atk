@@ -22221,12 +22221,33 @@ export async function registerRoutes(
       const withOfficerSet = new Set(companiesWithOfficerUid.map(r => r.companyId));
       const companiesWithoutOfficers = allActiveCompanies.filter(c => !withOfficerSet.has(c.id));
 
+      let productsWithoutDocs: { id: number; name: string; code: string; partnerId: number | null }[] = [];
+      if (isAdmin(appUser)) {
+        const allProds = await db.select({
+          id: products.id, name: products.name, code: products.code, partnerId: products.partnerId,
+          requiredDocuments: products.requiredDocuments,
+          optionalDocuments: products.optionalDocuments,
+          requiredDocumentsReceived: products.requiredDocumentsReceived,
+          optionalDocumentsReceived: products.optionalDocumentsReceived,
+          requiredDocumentsPartner: products.requiredDocumentsPartner,
+          optionalDocumentsPartner: products.optionalDocumentsPartner,
+        }).from(products).where(eq(products.isDeleted, false));
+        productsWithoutDocs = allProds
+          .filter(p => {
+            const total = (p.requiredDocuments?.length || 0) + (p.optionalDocuments?.length || 0) +
+              (p.requiredDocumentsReceived?.length || 0) + (p.optionalDocumentsReceived?.length || 0) +
+              (p.requiredDocumentsPartner?.length || 0) + (p.optionalDocumentsPartner?.length || 0);
+            return total === 0;
+          })
+          .map(p => ({ id: p.id, name: p.name, code: p.code, partnerId: p.partnerId ?? null }));
+      }
+
       res.json({
         tasks, subjects: relatedSubjects,
         interventions: dedupedInterventions, interventionStatuses: statusList,
         internalInterventions, rejectedContracts, archivedContracts,
         upcomingEvents, nbsReportTasks,
-        companiesWithoutOfficers,
+        companiesWithoutOfficers, productsWithoutDocs,
       });
     } catch (err: any) {
       console.error("[MY-TASKS ERROR]", err);
@@ -22409,7 +22430,26 @@ export async function registerRoutes(
         }
       }
 
-      const nonCalendarCount = transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount + companiesWithoutOfficersCount + nbsReportCount;
+      let productsWithoutDocsCount = 0;
+      if (isAdmin(appUser)) {
+        const allProdsCount = await db.select({
+          id: products.id,
+          requiredDocuments: products.requiredDocuments,
+          optionalDocuments: products.optionalDocuments,
+          requiredDocumentsReceived: products.requiredDocumentsReceived,
+          optionalDocumentsReceived: products.optionalDocumentsReceived,
+          requiredDocumentsPartner: products.requiredDocumentsPartner,
+          optionalDocumentsPartner: products.optionalDocumentsPartner,
+        }).from(products).where(eq(products.isDeleted, false));
+        productsWithoutDocsCount = allProdsCount.filter(p => {
+          const total = (p.requiredDocuments?.length || 0) + (p.optionalDocuments?.length || 0) +
+            (p.requiredDocumentsReceived?.length || 0) + (p.optionalDocumentsReceived?.length || 0) +
+            (p.requiredDocumentsPartner?.length || 0) + (p.optionalDocumentsPartner?.length || 0);
+          return total === 0;
+        }).length;
+      }
+
+      const nonCalendarCount = transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount + companiesWithoutOfficersCount + nbsReportCount + productsWithoutDocsCount;
 
       let unprocessedAcceptedSprievodkyCount = 0;
       const cutoff14 = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
