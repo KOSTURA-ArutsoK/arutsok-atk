@@ -63,6 +63,7 @@ import {
   User,
   Plus,
   FileSignature,
+  UserPlus,
 } from "lucide-react";
 import {
   Sidebar,
@@ -859,8 +860,8 @@ export function AppSidebar() {
                           className="py-1.5"
                         >
                           <Link href="/aaa">
-                            <span style={{ fontSize: 13, lineHeight: 1 }}>👤➕</span>
-                            <span className="text-[13px]">Pridať partnera</span>
+                            <UserPlus className="w-4 h-4" />
+                            <span className="text-[13px]">Pridať subjekt</span>
                           </Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>

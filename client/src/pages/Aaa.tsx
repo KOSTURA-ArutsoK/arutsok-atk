@@ -17,7 +17,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
         onMouseDown={() => setPressed(true)}
         onMouseUp={() => setPressed(false)}
         data-testid="button-add-partner-aaa"
-        title="Pridať nového partnera"
+        title="Pridať nového subjektu"
         style={{
           position: "relative",
           width: 280,
@@ -106,7 +106,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
             textAlign: "center",
             lineHeight: 1.2,
           }}>
-            Pridať partnera
+            Pridať subjekt
           </span>
         </div>
       </button>
@@ -118,10 +118,10 @@ export default function Aaa() {
   return (
     <div className="p-6">
       <h1 className="text-2xl font-semibold mb-2" data-testid="text-aaa-title">
-        Pridať partnera
+        Pridať subjekt
       </h1>
       <p className="text-sm text-muted-foreground mb-8">
-        Toto okno slúži na registráciu nového partnera.
+        Toto okno slúži na registráciu nového subjektu.
       </p>
 
       <AddPartnerHexButton onClick={() => {}} />
