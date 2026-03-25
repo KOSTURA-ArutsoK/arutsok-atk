@@ -99,9 +99,11 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           cursor: "pointer",
           outline: "none",
           userSelect: "none",
-          transition: "transform 0.15s ease, filter 0.2s ease",
+          transition: "transform 0.15s ease, filter 0.25s ease",
           transform: pressed ? "scale(0.96)" : hovered ? "scale(1.05)" : "scale(1)",
-          filter: isActive ? "drop-shadow(0 0 18px rgba(0,255,60,0.85)) drop-shadow(0 0 40px rgba(0,255,60,0.45))" : "none",
+          filter: isActive
+            ? "drop-shadow(0 0 10px rgba(0,220,60,0.55)) drop-shadow(0 0 22px rgba(0,220,60,0.25))"
+            : "drop-shadow(0 0 8px rgba(56,189,248,0.30))",
         }}
       >
         <svg
@@ -115,8 +117,8 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
             <filter id="glowAaaRest" x="-30%" y="-60%" width="160%" height="220%">
               <feGaussianBlur stdDeviation="10" result="blur" />
             </filter>
-            <filter id="glowAaaHover" x="-50%" y="-100%" width="200%" height="300%">
-              <feGaussianBlur stdDeviation="20" result="blur" />
+            <filter id="glowAaaHover" x="-40%" y="-80%" width="180%" height="260%">
+              <feGaussianBlur stdDeviation="14" result="blur" />
             </filter>
             <linearGradient id="hexGradAaa" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0%" stopColor="#0a1f3d" />
@@ -133,7 +135,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           {isActive && (
             <rect
               x="8" y="8" width="264" height="64" rx="24"
-              fill="rgba(0,255,60,0.55)"
+              fill="rgba(0,220,60,0.25)"
               filter="url(#glowAaaHover)"
             />
           )}
