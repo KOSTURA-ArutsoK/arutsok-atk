@@ -13,7 +13,7 @@ import { useLocation, useSearch } from "wouter";
 import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer, ImportLog } from "@shared/schema";
 import { validateSlovakICO } from "@shared/ico-validator";
 import { ATK_SYSTEM_ID, ATK_SUPERADMIN_ID } from "@shared/constants";
-import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, AlertCircle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building, Building2, ArrowLeftRight, Info, Download, Landmark } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, AlertCircle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building, Building2, ArrowLeftRight, Info, Download, Landmark, Heart } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { BlueprintRenderer, ContractBlueprintView } from "@/components/blueprint-renderer";
@@ -7279,9 +7279,9 @@ export default function Contracts() {
                     {val:"person", label:"Fyzické osoby (FO)", icon: User},
                     {val:"szco", label:"Živnostníci (SZČO)", icon: Briefcase},
                     {val:"company", label:"Súkromný sektor (PO)", icon: Building2},
-                    {val:"organization", label:"Tretí sektor (TS)", icon: Building},
+                    {val:"organization", label:"Tretí sektor (TS)", icon: Heart},
                     {val:"state", label:"Verejný sektor (VS)", icon: Landmark},
-                    {val:"os", label:"Občianske združenia (OS)", icon: Building},
+                    {val:"os", label:"Občianske združenia (OS)", icon: Users},
                   ];
                   const activeSubIdx = subOpts.findIndex(o => o.val === preSelectSubjectType);
                   const n = subOpts.length;
@@ -7376,7 +7376,7 @@ export default function Contracts() {
               {!preSelectIcoLookup?.found && (
               <div className={`border rounded-md p-3 space-y-2 ${preSelectSubjectType === "szco" ? "border-amber-500/40" : preSelectSubjectType === "organization" || preSelectSubjectType === "os" ? "border-green-500/40" : preSelectSubjectType === "state" ? "border-cyan-500/40" : "border-purple-500/40"}`}>
                 <div className="flex items-center gap-1.5 text-xs font-semibold mb-1">
-                  {preSelectSubjectType === "szco" ? <Briefcase className="w-3.5 h-3.5 text-amber-400" /> : preSelectSubjectType === "organization" || preSelectSubjectType === "os" ? <Building className="w-3.5 h-3.5 text-green-400" /> : preSelectSubjectType === "state" ? <Landmark className="w-3.5 h-3.5 text-cyan-400" /> : <Building2 className="w-3.5 h-3.5 text-purple-400" />}
+                  {preSelectSubjectType === "szco" ? <Briefcase className="w-3.5 h-3.5 text-amber-400" /> : preSelectSubjectType === "organization" ? <Heart className="w-3.5 h-3.5 text-green-400" /> : preSelectSubjectType === "os" ? <Users className="w-3.5 h-3.5 text-green-400" /> : preSelectSubjectType === "state" ? <Landmark className="w-3.5 h-3.5 text-cyan-400" /> : <Building2 className="w-3.5 h-3.5 text-purple-400" />}
                   <span className={preSelectSubjectType === "szco" ? "text-amber-400" : preSelectSubjectType === "organization" || preSelectSubjectType === "os" ? "text-green-400" : preSelectSubjectType === "state" ? "text-cyan-400" : "text-purple-400"}>
                     {preSelectSubjectType === "szco" ? "Živnosť (SZČO)" : preSelectSubjectType === "organization" ? "Organizácia (TS)" : preSelectSubjectType === "state" ? "Inštitúcia (VS)" : preSelectSubjectType === "os" ? "Občianske združenie (OS)" : "Spoločnosť (PO)"}
                   </span>
