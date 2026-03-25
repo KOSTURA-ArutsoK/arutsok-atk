@@ -58,12 +58,12 @@ function SubjectTypeSlider({
             aria-checked={isActive}
             tabIndex={isActive ? 0 : -1}
             title={opt.label}
-            className={`relative z-10 flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-3 text-xs font-medium rounded transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground/80"}`}
+            className={`relative z-10 flex-1 min-w-0 flex flex-col items-center justify-center gap-1 px-2 py-2.5 text-xs font-medium rounded transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground/80"}`}
             onClick={() => onChange(opt.val)}
             onKeyDown={(e) => handleKey(e, idx)}
             data-testid={`toggle-subject-type-aaa-${opt.val}`}
           >
-            <Icon className="w-3 h-3 shrink-0" />
+            <Icon className="w-3.5 h-3.5 shrink-0" />
             <span className="text-center leading-tight">{opt.label}</span>
           </button>
         );
