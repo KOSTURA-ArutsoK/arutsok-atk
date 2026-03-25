@@ -2105,8 +2105,8 @@ export class DatabaseStorage implements IStorage {
 
   async getProducts(includeDeleted?: boolean) {
     const productList = includeDeleted
-      ? await db.select().from(products)
-      : await db.select().from(products).where(eq(products.isDeleted, false));
+      ? await db.select().from(products).orderBy(desc(products.createdAt))
+      : await db.select().from(products).where(eq(products.isDeleted, false)).orderBy(desc(products.createdAt));
     const countRows = await db.execute(
       sql`SELECT product_id, COUNT(*) as cnt FROM contracts WHERE product_id IS NOT NULL AND is_deleted = false GROUP BY product_id`
     );
