@@ -251,7 +251,7 @@ function Router() {
       <Route path="/obchodne-prilezitosti" component={PrivateObchodnePrilezitosti} />
       <Route path="/nastavenie-obchodnych-prilezitosti" component={PrivateNastavenieObchodnychPrilezitosti} />
       <Route path="/pridat-subjekt" component={PrivatePridatSubjekt} />
-      <Route path="/aaa" component={PrivateNovySubjekt} />
+      <Route path="/novy-subjekt" component={PrivateNovySubjekt} />
       <Route path="/sektory-zmluv-vizia" component={PrivateSektoryZmluvVizia} />
       <Route path="/sektory-subjektov-vizia" component={PrivateSektorySubjektovVizia} />
       <Route path="/holding-strom" component={PrivateHoldingTree} />

@@ -855,11 +855,11 @@ export function AppSidebar() {
                       <SidebarMenuSubItem key="aaa">
                         <SidebarMenuSubButton
                           asChild
-                          isActive={location === '/aaa'}
+                          isActive={location === '/novy-subjekt'}
                           data-testid="nav-aaa"
                           className="py-1.5"
                         >
-                          <Link href="/aaa">
+                          <Link href="/novy-subjekt">
                             <UserPlus className="w-4 h-4" />
                             <span className="text-[13px]">Pridať subjekt</span>
                           </Link>
