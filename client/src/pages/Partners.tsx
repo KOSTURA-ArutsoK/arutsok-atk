@@ -343,7 +343,6 @@ const PARTNER_COLUMNS: ColumnDef[] = [
   { key: "uid", label: "UID" },
   { key: "name", label: "Nazov" },
   { key: "code", label: "Kod" },
-  { key: "specialization", label: "Zameranie" },
   { key: "ico", label: "ICO" },
   { key: "city", label: "Mesto" },
   { key: "collaborationDate", label: "Datum spoluprace" },
@@ -353,7 +352,6 @@ const PARTNER_FILTER_COLUMNS: SmartColumnDef[] = [
   { key: "uid", label: "UID", type: "text" },
   { key: "name", label: "Nazov", type: "text" },
   { key: "code", label: "Kod", type: "text" },
-  { key: "specialization", label: "Zameranie", type: "text" },
   { key: "ico", label: "ICO", type: "text" },
   { key: "city", label: "Mesto", type: "text" },
   { key: "collaborationDate", label: "Datum spoluprace", type: "date" },
@@ -785,7 +783,6 @@ function PartnerUnifiedDialog({
       name: "",
       code: "",
       subjectType: undefined,
-      specialization: "",
       ico: "",
       dic: "",
       icDph: "",
@@ -798,7 +795,6 @@ function PartnerUnifiedDialog({
       postalCode: "",
       city: "",
       stateId: undefined,
-      description: "",
       notes: "",
       collaborationDate: undefined,
       corrStreet: "",
@@ -830,7 +826,6 @@ function PartnerUnifiedDialog({
           name: editingPartner.name,
           code: editingPartner.code || "",
           subjectType: ep.subjectType || undefined,
-          specialization: editingPartner.specialization || "",
           ico: editingPartner.ico || "",
           dic: editingPartner.dic || "",
           icDph: editingPartner.icDph || "",
@@ -843,7 +838,6 @@ function PartnerUnifiedDialog({
           postalCode: editingPartner.postalCode || "",
           city: editingPartner.city || "",
           stateId: editingPartner.stateId || undefined,
-          description: editingPartner.description || "",
           notes: editingPartner.notes || "",
           collaborationDate: editingPartner.collaborationDate ? new Date(editingPartner.collaborationDate).toISOString().split("T")[0] : "",
           corrStreet: ep.corrStreet || "",
@@ -880,7 +874,6 @@ function PartnerUnifiedDialog({
           name: "",
           code: "",
           subjectType: undefined,
-          specialization: "",
           ico: "",
           dic: "",
           icDph: "",
@@ -893,7 +886,6 @@ function PartnerUnifiedDialog({
           postalCode: "",
           city: "",
           stateId: appUser?.activeStateId || undefined,
-          description: "",
           notes: "",
           collaborationDate: undefined,
           corrStreet: "",
@@ -984,7 +976,6 @@ function PartnerUnifiedDialog({
       }
       if (data.zip) form.setValue("postalCode", data.zip);
       if (data.city) form.setValue("city", data.city);
-      if (data.legalForm) form.setValue("description", data.legalForm);
       const currentDic = form.getValues("dic");
       if (data.dic && (!currentDic || !currentDic.trim())) {
         form.setValue("dic", data.dic);
@@ -1348,6 +1339,7 @@ function PartnerUnifiedDialog({
                         <SelectItem value="po">PO — Súkromný sektor</SelectItem>
                         <SelectItem value="ns">NS — Tretí sektor (neziskovky)</SelectItem>
                         <SelectItem value="vs">VS — Verejný sektor (štát)</SelectItem>
+                        <SelectItem value="os">OS — Ostatné subjekty</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -1481,25 +1473,6 @@ function PartnerUnifiedDialog({
                     <FormControl>
                       <Input type="date" value={field.value || ""} onChange={(e) => field.onChange(e.target.value || null)} data-testid="input-partner-founded-date" />
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-
-                <Separator />
-
-                {/* Partner-specific fields */}
-                <FormField control={form.control} name="specialization" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Zameranie partnera</FormLabel>
-                    <FormControl><Input {...field} value={field.value || ""} placeholder="napr. Poistenie, Reality, SFA..." data-testid="input-partner-specialization" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-
-                <FormField control={form.control} name="description" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Charakteristika / popis</FormLabel>
-                    <FormControl><Textarea {...field} value={field.value || ""} rows={3} data-testid="input-partner-description" /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -2565,7 +2538,6 @@ export default function Partners() {
                 {columnVisibility.isVisible("uid") && <TableHead sortKey="uid" sortDirection={sortKey === "uid" ? sortDirection : null} onSort={requestSort}>UID</TableHead>}
                 {columnVisibility.isVisible("name") && <TableHead sortKey="name" sortDirection={sortKey === "name" ? sortDirection : null} onSort={requestSort}>Názov</TableHead>}
                 {columnVisibility.isVisible("code") && <TableHead sortKey="code" sortDirection={sortKey === "code" ? sortDirection : null} onSort={requestSort}>Kód</TableHead>}
-                {columnVisibility.isVisible("specialization") && <TableHead sortKey="specialization" sortDirection={sortKey === "specialization" ? sortDirection : null} onSort={requestSort}>Zameranie</TableHead>}
                 {columnVisibility.isVisible("ico") && <TableHead sortKey="ico" sortDirection={sortKey === "ico" ? sortDirection : null} onSort={requestSort}>IČO</TableHead>}
                 {columnVisibility.isVisible("city") && <TableHead sortKey="city" sortDirection={sortKey === "city" ? sortDirection : null} onSort={requestSort}>Mesto</TableHead>}
                 {columnVisibility.isVisible("collaborationDate") && <TableHead sortKey="collaborationDate" sortDirection={sortKey === "collaborationDate" ? sortDirection : null} onSort={requestSort}>Dátum spolupráce</TableHead>}
@@ -2595,7 +2567,6 @@ export default function Partners() {
                       </TableCell>
                     )}
                     {columnVisibility.isVisible("code") && <TableCell className="align-middle">{partner.code ? <Badge variant="secondary" className="font-mono">{partner.code}</Badge> : "-"}</TableCell>}
-                    {columnVisibility.isVisible("specialization") && <TableCell className="text-sm align-middle">{partner.specialization || "-"}</TableCell>}
                     {columnVisibility.isVisible("ico") && <TableCell className="text-sm align-middle">{partner.ico || "-"}</TableCell>}
                     {columnVisibility.isVisible("city") && <TableCell className="text-sm align-middle">{partner.city || "-"}</TableCell>}
                     {columnVisibility.isVisible("collaborationDate") && <TableCell className="text-xs text-muted-foreground align-middle">{formatDateSlovak(partner.collaborationDate)}</TableCell>}
