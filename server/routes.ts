@@ -5134,8 +5134,8 @@ export async function registerRoutes(
           .where(and(eq(contracts.inventoryId, oldInventoryId), eq(contracts.isDeleted, false)))
           .limit(1);
         if (remaining.length === 0) {
-          await db.delete(contractInventories).where(eq(contractInventories.id, oldInventoryId));
-          console.log(`[CLEANUP] Deleted empty inventory ID ${oldInventoryId} after contract ${contractId} moved to inventory ${newInventoryId ?? 'null'}`);
+          await storage.deleteContractInventory(oldInventoryId);
+          console.log(`[CLEANUP] Soft-deleted empty inventory ID ${oldInventoryId} after contract ${contractId} moved to inventory ${newInventoryId ?? 'null'}`);
         }
       }
 
@@ -6787,8 +6787,8 @@ export async function registerRoutes(
           .where(and(eq(contracts.inventoryId, oldInvId), eq(contracts.isDeleted, false)))
           .limit(1);
         if (remaining.length === 0) {
-          await db.delete(contractInventories).where(eq(contractInventories.id, oldInvId));
-          console.log(`[CLEANUP] Deleted empty inventory ID ${oldInvId} after dispatch to inventory ${inventoryId}`);
+          await storage.deleteContractInventory(oldInvId);
+          console.log(`[CLEANUP] Soft-deleted empty inventory ID ${oldInvId} after dispatch to inventory ${inventoryId}`);
         }
       }
 

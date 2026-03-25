@@ -4,7 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { db } from "./db";
 import { subjectParameters, contractInventories, contracts } from "@shared/schema";
-import { inArray, like, or, eq, notInArray, sql } from "drizzle-orm";
+import { inArray, like, or, eq, isNull, and } from "drizzle-orm";
 
 const app = express();
 const httpServer = createServer(app);
@@ -87,24 +87,29 @@ app.use((req, res, next) => {
     console.warn("[startup] Could not hide legacy duplicate params:", e);
   }
 
-  // Startup cleanup: delete contract inventories that have no contracts (orphaned/empty)
+  // Startup cleanup: soft-delete contract inventories that have no non-deleted contracts (orphaned/empty)
   try {
-    const inventoriesWithContracts = await db
-      .selectDistinct({ inventoryId: contracts.inventoryId })
-      .from(contracts)
-      .where(eq(contracts.isDeleted, false));
-    const activeInventoryIds = inventoriesWithContracts
-      .map(r => r.inventoryId)
-      .filter((id): id is number => id !== null && id !== undefined);
-    const deleted = await db.delete(contractInventories)
-      .where(
-        activeInventoryIds.length > 0
-          ? notInArray(contractInventories.id, activeInventoryIds)
-          : sql`1=1`
-      )
-      .returning({ id: contractInventories.id });
-    if (deleted.length > 0) {
-      console.log(`[CLEANUP] Deleted ${deleted.length} empty inventory records: ${deleted.map(r => r.id).join(", ")}`);
+    const allActive = await db
+      .select({ id: contractInventories.id })
+      .from(contractInventories)
+      .where(isNull(contractInventories.deletedAt));
+    if (allActive.length > 0) {
+      const withContracts = await db
+        .selectDistinct({ inventoryId: contracts.inventoryId })
+        .from(contracts)
+        .where(and(
+          eq(contracts.isDeleted, false),
+          inArray(contracts.inventoryId, allActive.map(r => r.id))
+        ));
+      const activeIds = new Set(withContracts.map(r => r.inventoryId).filter((id): id is number => id !== null && id !== undefined));
+      const emptyIds = allActive.map(r => r.id).filter(id => !activeIds.has(id));
+      if (emptyIds.length > 0) {
+        const now = new Date();
+        await db.update(contractInventories)
+          .set({ deletedAt: now })
+          .where(inArray(contractInventories.id, emptyIds));
+        console.log(`[CLEANUP] Soft-deleted ${emptyIds.length} empty inventory records: ${emptyIds.join(", ")}`);
+      }
     }
   } catch (e) {
     console.warn("[startup] Could not clean up empty inventories:", e);
