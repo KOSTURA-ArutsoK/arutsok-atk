@@ -386,7 +386,7 @@ export async function setupAuth(app: Express) {
           lastName: s.lastName,
           companyName: s.companyName,
           type: s.type,
-          phone: s.phone ? maskPhone(s.phone) : null,
+          phone: s.phone ?? null,
           isShadow,
           isAdult: adultStatus,
           hasRisk: s.listStatus === "cerveny",
@@ -477,7 +477,7 @@ export async function setupAuth(app: Express) {
             documentHint = doc ? { documentType: doc.documentType, masked: doc.documentNumber ? maskDocNumber(doc.documentNumber) : null } : { documentType: null, masked: null };
           }
         }
-        return { id: s.id, uid: s.uid, firstName: s.firstName, lastName: s.lastName, companyName: s.companyName, type: s.type, phone: s.phone ? maskPhone(s.phone) : null, isShadow, isAdult: adultStatus, hasRisk: s.listStatus === "cerveny", documentHint };
+        return { id: s.id, uid: s.uid, firstName: s.firstName, lastName: s.lastName, companyName: s.companyName, type: s.type, phone: s.phone ?? null, isShadow, isAdult: adultStatus, hasRisk: s.listStatus === "cerveny", documentHint };
       };
 
       const peerMetas = await Promise.all(peerSubjectsRaw.map((s) => buildMeta(s, false)));
@@ -544,7 +544,7 @@ export async function setupAuth(app: Express) {
           if (err) return res.status(500).json({ message: "Chyba session" });
           res.json({
             nextStep: "phone_verify",
-            selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ? maskPhone(selected.phone) : null },
+            selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ?? null },
           });
         });
       }
@@ -634,7 +634,7 @@ export async function setupAuth(app: Express) {
             await writeLoginAudit(user.id, selected.id, name, "DIRECT", "szco_fo_same_rc", ip);
             return req.session.save((err) => {
               if (err) return res.status(500).json({ message: "Chyba session" });
-              res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ? maskPhone(selected.phone) : null } });
+              res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ?? null } });
             });
           }
         }
@@ -687,7 +687,7 @@ export async function setupAuth(app: Express) {
             await writeLoginAudit(user.id, foSubject.id, subjectDisplayName(foSubject), "ENTITY_DIRECT", "single_officer_direct", ip, selected.id, { foUid: foSubject.uid, entityType: selected.type });
             return req.session.save((err) => {
               if (err) return res.status(500).json({ message: "Chyba session" });
-              res.json({ nextStep: "phone_verify", selectedSubject: { id: foSubject.id, firstName: foSubject.firstName, lastName: foSubject.lastName, phone: foSubject.phone ? maskPhone(foSubject.phone) : null } });
+              res.json({ nextStep: "phone_verify", selectedSubject: { id: foSubject.id, firstName: foSubject.firstName, lastName: foSubject.lastName, phone: foSubject.phone ?? null } });
             });
           }
         }
@@ -698,7 +698,7 @@ export async function setupAuth(app: Express) {
         await writeLoginAudit(user.id, selected.id, name, "DIRECT", null, ip);
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba session" });
-          res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, companyName: selected.companyName, phone: selected.phone ? maskPhone(selected.phone) : null } });
+          res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, companyName: selected.companyName, phone: selected.phone ?? null } });
         });
       }
 
@@ -708,7 +708,7 @@ export async function setupAuth(app: Express) {
         await writeLoginAudit(user.id, selected.id, name, "DIRECT", "minor_direct", ip);
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba session" });
-          res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ? maskPhone(selected.phone) : null } });
+          res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ?? null } });
         });
       }
 
@@ -740,7 +740,7 @@ export async function setupAuth(app: Express) {
             req.session.loginSubjectId = selected.id;
             req.session.loginStep = "sms_verify";
             req.session.pendingSmsCode = code;
-            req.session.pendingSubjectPhone = selected.phone ? maskPhone(selected.phone) : null;
+            req.session.pendingSubjectPhone = selected.phone ?? null;
             return req.session.save((err) => {
               if (err) return res.status(500).json({ message: "Chyba session" });
               res.json({ nextStep: "sms_verify", maskedPhone: req.session.pendingSubjectPhone });
@@ -761,7 +761,7 @@ export async function setupAuth(app: Express) {
       await writeLoginAudit(user.id, selected.id, name, "DIRECT", null, ip);
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
-        res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ? maskPhone(selected.phone) : null } });
+        res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ?? null } });
       });
     } catch (err) {
       console.error("Select subject error:", err);
@@ -876,7 +876,7 @@ export async function setupAuth(app: Express) {
             id: foundFo!.id,
             firstName: foundFo!.firstName,
             lastName: foundFo!.lastName,
-            phone: foundFo!.phone ? maskPhone(foundFo!.phone) : null,
+            phone: foundFo!.phone ?? null,
           },
         });
       });
