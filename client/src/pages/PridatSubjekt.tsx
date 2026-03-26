@@ -1567,29 +1567,6 @@ export function FullPageEditor({
                     </>
                   )}
 
-                  <div className="flex flex-wrap gap-4 items-end">
-                    <FormField control={form.control} name="email" render={({ field }) => (
-                      <FormItem className="flex-1 min-w-[180px]">
-                        <FormLabel>Email</FormLabel>
-                        <FormControl><Input type="email" {...field} value={field.value || ""} data-testid="input-subject-email" /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="phone" render={({ field }) => (
-                      <FormItem className="w-[200px] min-w-[160px] shrink-0">
-                        <FormLabel>Telefón</FormLabel>
-                        <PhoneInput
-                          value={field.value || ""}
-                          onChange={field.onChange}
-                          onBlur={field.onBlur}
-                          initialDialCode={allStates?.find(s => s.id === appUser?.activeStateId)?.code}
-                          data-testid="input-subject-phone"
-                        />
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                  </div>
-
                   {typeFields && typeFields.length > 0 && (() => {
                     const typePanels = getPanelsForClientTypeId(editorClientTypeId);
                     const editorFieldGroups: Record<string, { section: any; panelGroups: { panel: StaticPanel | null; fields: StaticField[] }[] }[]> = {
