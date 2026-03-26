@@ -23512,7 +23512,7 @@ async function seedDatabase() {
   }
 
   // ── Seed empty ui_blueprints for all non-FO subject types ──────────────────
-  const SUBJECT_BLUEPRINT_CODES = ["FO", "SZCO", "PO", "NS", "VS", "OS"];
+  const SUBJECT_BLUEPRINT_CODES = ["FO", "SZCO", "PO", "TS", "VS", "OS"];
   for (const code of SUBJECT_BLUEPRINT_CODES) {
     const existing = await storage.getUiBlueprint("SUBJECT", code);
     if (!existing) {
