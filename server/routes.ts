@@ -7326,8 +7326,10 @@ export async function registerRoutes(
         createData.companyId = appUser.activeCompanyId;
       }
 
-      // Derive specialistaUid (and szcoUid for SZČO) from the user's active identity if not explicitly provided
-      if (!createData.specialistaUid && appUser) {
+      // Derive specialistaUid and/or szcoUid from the user's active identity if not explicitly provided.
+      // specialistaUid and szcoUid are evaluated independently so that SZČO identity always sets szcoUid
+      // even when the frontend already sent specialistaUid.
+      if (appUser) {
         if (appUser.activeSubjectId) {
           const [activeSubj] = await db
             .select({ uid: subjects.uid, type: subjects.type })
@@ -7335,10 +7337,8 @@ export async function registerRoutes(
             .where(and(eq(subjects.id, appUser.activeSubjectId), isNull(subjects.deletedAt)))
             .limit(1);
           if (activeSubj?.uid) {
-            createData.specialistaUid = activeSubj.uid;
-            if (activeSubj.type === "szco" && !createData.szcoUid) {
-              createData.szcoUid = activeSubj.uid;
-            }
+            if (!createData.specialistaUid) createData.specialistaUid = activeSubj.uid;
+            if (activeSubj.type === "szco" && !createData.szcoUid) createData.szcoUid = activeSubj.uid;
           }
         } else if (appUser.activeCompanyId) {
           const [activeMc] = await db
@@ -7346,9 +7346,7 @@ export async function registerRoutes(
             .from(myCompanies)
             .where(eq(myCompanies.id, appUser.activeCompanyId))
             .limit(1);
-          if (activeMc?.uid) {
-            createData.specialistaUid = activeMc.uid;
-          }
+          if (activeMc?.uid && !createData.specialistaUid) createData.specialistaUid = activeMc.uid;
         } else if (appUser.linkedSubjectId) {
           // FO context (both activeSubjectId and activeCompanyId are null)
           const [foSubj] = await db
@@ -7356,9 +7354,7 @@ export async function registerRoutes(
             .from(subjects)
             .where(and(eq(subjects.id, appUser.linkedSubjectId), isNull(subjects.deletedAt)))
             .limit(1);
-          if (foSubj?.uid) {
-            createData.specialistaUid = foSubj.uid;
-          }
+          if (foSubj?.uid && !createData.specialistaUid) createData.specialistaUid = foSubj.uid;
         }
       }
 
@@ -7782,6 +7778,37 @@ export async function registerRoutes(
       let incompleteCount = 0;
       let duplicateCount = 0;
 
+      // Resolve the importer's active identity UID once (used as fallback for missing specialistaUid per row)
+      let importerSpecialistaUid: string | null = null;
+      let importerSzcoUid: string | null = null;
+      if (appUser) {
+        if (appUser.activeSubjectId) {
+          const [activeSubj] = await db
+            .select({ uid: subjects.uid, type: subjects.type })
+            .from(subjects)
+            .where(and(eq(subjects.id, appUser.activeSubjectId), isNull(subjects.deletedAt)))
+            .limit(1);
+          if (activeSubj?.uid) {
+            importerSpecialistaUid = activeSubj.uid;
+            if (activeSubj.type === "szco") importerSzcoUid = activeSubj.uid;
+          }
+        } else if (appUser.activeCompanyId) {
+          const [activeMc] = await db
+            .select({ uid: myCompanies.uid })
+            .from(myCompanies)
+            .where(eq(myCompanies.id, appUser.activeCompanyId))
+            .limit(1);
+          if (activeMc?.uid) importerSpecialistaUid = activeMc.uid;
+        } else if (appUser.linkedSubjectId) {
+          const [foSubj] = await db
+            .select({ uid: subjects.uid })
+            .from(subjects)
+            .where(and(eq(subjects.id, appUser.linkedSubjectId), isNull(subjects.deletedAt)))
+            .limit(1);
+          if (foSubj?.uid) importerSpecialistaUid = foSubj.uid;
+        }
+      }
+
       for (let i = 0; i < rawRows.length; i++) {
         const rowData = rawRows[i];
         const rowNum = i + 2;
@@ -7896,7 +7923,11 @@ export async function registerRoutes(
             continue;
           }
 
-          const specialistaUid = normalizeImportUid(rowData["specialista"] || rowData["specialist"] || rowData["specialista_uid"] || null);
+          const specialistaUidFromRow = normalizeImportUid(rowData["specialista"] || rowData["specialist"] || rowData["specialista_uid"] || null);
+          // Apply active-identity fallback: if row has no specialist UID, use importer's active identity
+          const specialistaUid = specialistaUidFromRow || importerSpecialistaUid || null;
+          // szco_uid: use row value if present, else use importerSzcoUid (only set when active identity is SZČO)
+          const szcoUidFromImport = specialistaUidFromRow ? null : importerSzcoUid;
           const specialistaPodiel = rowData["specialista_podiel"] || rowData["specialist_percentage"] || rowData["specialista_pct"] || rowData["specialista_%"] || null;
           const odporucitelUid = normalizeImportUid(rowData["odporucitel"] || rowData["recommender"] || rowData["odporucitel1_uid"] || null);
           const odporucitelPodiel = rowData["odporucitel_podiel"] || rowData["recommender_percentage"] || rowData["odporucitel1_pct"] || rowData["odporucitel1_%"] || null;
@@ -8186,6 +8217,9 @@ export async function registerRoutes(
             importedAt: new Date(),
             importBatchId: batchId,
             importedRawData,
+            // Active-identity derived fields (row value takes priority; fallback to importer's active identity)
+            specialistaUid: specialistaUid || null,
+            szcoUid: szcoUidFromImport || null,
           };
 
           const warnings: string[] = [];
