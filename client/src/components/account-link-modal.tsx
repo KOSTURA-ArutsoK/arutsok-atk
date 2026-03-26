@@ -60,7 +60,14 @@ async function apiPost<T>(url: string, payload?: unknown): Promise<T> {
 
 async function apiGet<T>(url: string): Promise<T> {
   const res = await fetch(url, { credentials: "include" });
-  if (!res.ok) return [] as unknown as T;
+  if (!res.ok) {
+    let message = res.statusText || "Chyba servera";
+    try {
+      const body = await res.json();
+      if (typeof body?.message === "string") message = body.message;
+    } catch {}
+    throw new Error(message);
+  }
   return res.json() as Promise<T>;
 }
 
