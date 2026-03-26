@@ -672,34 +672,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             <div className="flex-1" />
 
-            {(() => {
-              const activeCtx = userContexts?.find((c: any) => c.isCurrent);
-              if (!activeCtx) return null;
-              const isSubjectCtx = ["szco", "po", "ts", "vs", "os"].includes(activeCtx.contextType);
-              const isCompanyCtx = activeCtx.contextType === "officer_company";
-              const badgeColor = isSubjectCtx
-                ? "bg-violet-900/40 border-violet-700/50 text-violet-200"
-                : isCompanyCtx
-                  ? "bg-blue-900/40 border-blue-700/50 text-blue-200"
-                  : "bg-emerald-900/30 border-emerald-700/40 text-emerald-200";
-              const typeTag = isSubjectCtx
-                ? (activeCtx.contextType === "szco" ? "SZČO" : activeCtx.contextType === "po" ? "PO" : activeCtx.contextType === "vs" ? "VS" : activeCtx.contextType === "ts" ? "TS" : "OS")
-                : isCompanyCtx ? "PO" : "FO";
-              return (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div
-                      className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full text-[11px] font-medium border ${badgeColor}`}
-                      data-testid="badge-active-identity"
-                    >
-                      <span className="opacity-70">{typeTag}</span>
-                      <span className="truncate max-w-[120px]">{activeCtx.label}</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>{activeCtx.subLabel}</TooltipContent>
-                </Tooltip>
-              );
-            })()}
 
             <div
               key="idle-timer"
@@ -767,6 +739,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-3 py-1">Prihlásiť sa ako</DropdownMenuLabel>
                     {userContexts.map((ctx: any, idx: number) => {
+                      if (ctx.isCurrent) return null;
                       const isCompany = ctx.contextType === "officer_company";
                       const isLinked = ctx.contextType === "linked_account";
                       const isFo = ctx.contextType === "fo";
