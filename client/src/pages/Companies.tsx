@@ -178,6 +178,8 @@ const COMPANY_COLUMNS: ColumnDef[] = [
   { key: "ico", label: "IČO" },
   { key: "subjectType", label: "Typ subjektu" },
   { key: "foundedDate", label: "Dátum založenia" },
+  { key: "email", label: "Email" },
+  { key: "phone", label: "Telefón" },
 ];
 
 const COMPANY_FILTER_COLUMNS: SmartColumnDef[] = [
@@ -209,6 +211,8 @@ const formSchema = insertMyCompanySchema.extend({
   foundedDate: z.string().nullable().optional(),
   vatParagraph: z.string().optional(),
   vatRegisteredAt: z.string().nullable().optional(),
+  email: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -696,6 +700,8 @@ function CompanyFormDialog({
           foundedDate: (editingCompany as any).foundedDate ? new Date((editingCompany as any).foundedDate).toISOString().split("T")[0] : null,
           vatParagraph: editingCompany.vatParagraph || "",
           vatRegisteredAt: editingCompany.vatRegisteredAt ? new Date(editingCompany.vatRegisteredAt).toISOString().split("T")[0] : null,
+          email: (editingCompany as any).email || "",
+          phone: (editingCompany as any).phone || "",
         });
         setNotesHtml(editingCompany.notes || "");
       } else {
@@ -726,6 +732,8 @@ function CompanyFormDialog({
           foundedDate: null,
           vatParagraph: "",
           vatRegisteredAt: null,
+          email: "",
+          phone: "",
         });
         setNotesHtml("");
       }
@@ -1166,6 +1174,29 @@ function CompanyFormDialog({
                     <FormMessage />
                   </FormItem>
                 )} />
+                <div className="flex gap-3">
+                  <FormField control={form.control} name="email" render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormLabel>Email</FormLabel>
+                      <FormControl><Input {...field} value={field.value || ""} type="email" data-testid="input-company-email" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="phone" render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormLabel>Telefón</FormLabel>
+                      <FormControl>
+                        <PhoneInput
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          initialDialCode={allStates?.find(s => s.id === appUser?.activeStateId)?.code}
+                          data-testid="input-company-phone"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
               </TabsContent>
 
               <TabsContent value="address" className="space-y-6 mt-4">
@@ -2118,6 +2149,8 @@ function CompanyDetailDialog({
               <InfoRow label="Kód firmy" value={company.code} mono testId="text-detail-code" />
               <InfoRow label="Typ subjektu" value={(company as any).subjectType ? (company as any).subjectType.toUpperCase() : "-"} testId="text-detail-subject-type" />
               <InfoRow label="Dátum založenia" value={(company as any).foundedDate ? formatDateSlovak((company as any).foundedDate) : "-"} testId="text-detail-founded-date" />
+              <InfoRow label="Email" value={(company as any).email || "-"} testId="text-detail-email" />
+              <InfoRow label="Telefón" value={(company as any).phone || "-"} testId="text-detail-phone" />
             </div>
             {company.icDph && (
               <div className="grid grid-cols-3 gap-4">
@@ -2533,8 +2566,10 @@ export default function Companies() {
     columnVisibility.isVisible("name"),
     columnVisibility.isVisible("uid"),
     columnVisibility.isVisible("ico"),
-    columnVisibility.isVisible("city"),
-    columnVisibility.isVisible("state"),
+    columnVisibility.isVisible("subjectType"),
+    columnVisibility.isVisible("foundedDate"),
+    columnVisibility.isVisible("email"),
+    columnVisibility.isVisible("phone"),
   ].filter(Boolean).length + 1;
 
   function renderCompanyRow(company: MyCompany) {
@@ -2561,6 +2596,8 @@ export default function Companies() {
         {columnVisibility.isVisible("ico") && <TableCell className="font-mono text-sm">{company.ico || "-"}</TableCell>}
         {columnVisibility.isVisible("subjectType") && <TableCell className="text-sm">{(company as any).subjectType || "-"}</TableCell>}
         {columnVisibility.isVisible("foundedDate") && <TableCell className="text-sm">{formatDateSlovak((company as any).foundedDate)}</TableCell>}
+        {columnVisibility.isVisible("email") && <TableCell className="text-sm">{(company as any).email || "-"}</TableCell>}
+        {columnVisibility.isVisible("phone") && <TableCell className="text-sm">{(company as any).phone || "-"}</TableCell>}
         <TableCell>
           <div className="flex items-center gap-1">
             <Button type="button" size="icon" variant="ghost" onClick={() => setViewTarget(company)} data-testid={`button-view-${company.id}`}><Eye className="w-4 h-4" /></Button>
@@ -2602,6 +2639,8 @@ export default function Companies() {
                 {columnVisibility.isVisible("ico") && <TableHead>IČO</TableHead>}
                 {columnVisibility.isVisible("subjectType") && <TableHead>Typ subjektu</TableHead>}
                 {columnVisibility.isVisible("foundedDate") && <TableHead>Dátum založenia</TableHead>}
+                {columnVisibility.isVisible("email") && <TableHead>Email</TableHead>}
+                {columnVisibility.isVisible("phone") && <TableHead>Telefón</TableHead>}
                 <TableHead className="w-[160px]">Akcie</TableHead>
               </TableRow>
             </TableHeader>
