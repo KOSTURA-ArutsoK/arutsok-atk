@@ -726,11 +726,13 @@ export async function setupAuth(app: Express) {
         }
 
         if (!hasAnotherAdultFo) {
+          // Compare phone only against other PERSON-type subjects (mycompany/entity subjects naturally share the owner's phone — they must not block SMS auth)
           const selectedPhone = selected.phone?.replace(/\D/g, "") || "";
-          const otherPhones = allPeers
-            .filter((p) => p.id !== selected.id && p.phone)
+          const otherPersonPhones = allPeers
+            .filter((p) => p.id !== selected.id && isPerson(p.type) && p.phone)
             .map((p) => p.phone!.replace(/\D/g, ""));
-          const hasUniquePhone = selectedPhone && otherPhones.length > 0 && !otherPhones.includes(selectedPhone);
+          // Unique if no other FO/SZČO in cluster shares the same phone
+          const hasUniquePhone = !!selectedPhone && !otherPersonPhones.includes(selectedPhone);
 
           if (hasUniquePhone) {
             const code = Math.floor(100000 + Math.random() * 900000).toString();
