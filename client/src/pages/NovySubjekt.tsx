@@ -542,22 +542,36 @@ function SubjectInfoBubble({ opt }: { opt: typeof SUBJECT_TYPE_OPTS[0] }) {
   );
 }
 
-function AddPartnerHexButton({ onClick, isFormActive }: { onClick: () => void; isFormActive?: boolean }) {
+function AddPartnerHexButton({
+  onClick,
+  isFormActive,
+  isFormReady,
+  isBlinking,
+  label,
+}: {
+  onClick: () => void;
+  isFormActive?: boolean;
+  isFormReady?: boolean;
+  isBlinking?: boolean;
+  label?: string;
+}) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
 
   const isHovered = hovered || pressed;
 
-  // Three exclusive color states:
-  // "red"   – formulár aktívny (Pokračovať stlačené), trvalý
-  // "green" – myška na tlačidle, formulár ešte nie je aktívny
-  // "blue"  – idle (myška mimo tlačidla)
-  const colorMode: "red" | "green" | "blue" = isHovered ? (isFormActive ? "red" : "green") : "blue";
+  // Color logic:
+  // No formData  → idle=blue, hover=green
+  // formData+!ready → always red (idle=medium, hover=intense)
+  // formData+ready  → always green (idle=medium, hover=intense)
+  const colorMode: "red" | "green" | "blue" =
+    !isFormActive ? (isHovered ? "green" : "blue") :
+    isFormReady   ? "green" : "red";
 
   const GLOW_RGB = { red: "255,30,30", green: "0,220,60", blue: "0,150,255" }[colorMode];
-  const FILL_OP  = { red: 0.90, green: 1.0, blue: 0.28 }[colorMode];
-  const SHADOW1  = { red: 0.70, green: 0.55, blue: 0.35 }[colorMode];
-  const SHADOW2  = { red: 0.40, green: 0.25, blue: 0.18 }[colorMode];
+  const FILL_OP  = colorMode === "blue" ? 0.28 : isHovered ? (colorMode === "green" ? 1.0 : 0.90) : 0.45;
+  const SHADOW1  = { red: 0.60, green: 0.50, blue: 0.35 }[colorMode];
+  const SHADOW2  = { red: 0.35, green: 0.22, blue: 0.18 }[colorMode];
 
   return (
     <div className="flex items-center justify-center w-full" style={{ marginTop: -18, paddingBottom: 4 }}>
@@ -569,7 +583,7 @@ function AddPartnerHexButton({ onClick, isFormActive }: { onClick: () => void; i
         onMouseDown={() => setPressed(true)}
         onMouseUp={() => setPressed(false)}
         data-testid="button-add-partner-aaa"
-        title="Pridať nový subjekt"
+        title={label ?? "Pridať nový subjekt"}
         style={{
           position: "relative",
           width: 280,
@@ -583,6 +597,7 @@ function AddPartnerHexButton({ onClick, isFormActive }: { onClick: () => void; i
           transition: "transform 0.15s ease, filter 0.25s ease",
           transform: pressed ? "scale(0.96)" : isHovered ? "scale(1.05)" : "scale(1)",
           filter: `drop-shadow(0 0 12px rgba(${GLOW_RGB},${SHADOW1})) drop-shadow(0 0 26px rgba(${GLOW_RGB},${SHADOW2}))`,
+          animation: isBlinking ? "nsBlink 0.9s ease-in-out" : undefined,
         }}
       >
         <svg
@@ -659,7 +674,7 @@ function AddPartnerHexButton({ onClick, isFormActive }: { onClick: () => void; i
               letterSpacing: "0.05em",
               whiteSpace: "nowrap",
             }}>
-              Pridať subjekt
+              {label ?? "Pridať subjekt"}
             </span>
           </div>
         </div>
@@ -673,8 +688,25 @@ export default function NovySubjekt() {
   const [subjectType, setSubjectType] = useState<SubjectType>("person");
   const [sliderVisible, setSliderVisible] = useState(false);
   const [formData, setFormData] = useState<InitialData | null>(null);
+  const [formReady, setFormReady] = useState(false);
+  const [isBlinking, setIsBlinking] = useState(false);
+  const prevFormDataRef = useRef<boolean>(false);
 
   const selectedOpt = SUBJECT_TYPE_OPTS.find(o => o.val === subjectType)!;
+
+  useEffect(() => {
+    const wasSet = prevFormDataRef.current;
+    const isSet = !!formData;
+    prevFormDataRef.current = isSet;
+    if (isSet && !wasSet) {
+      setIsBlinking(true);
+      const t = setTimeout(() => setIsBlinking(false), 900);
+      return () => clearTimeout(t);
+    }
+    if (!isSet) {
+      setFormReady(false);
+    }
+  }, [formData]);
 
   function handleButtonClick() {
     setSliderVisible(true);
@@ -693,47 +725,58 @@ export default function NovySubjekt() {
   }
 
   return (
-    <div>
-      <div>
-        <h1 className="text-2xl font-semibold" data-testid="text-aaa-title">
-          Pridať subjekt
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Toto okno slúži na registráciu nového subjektu.
-        </p>
-      </div>
-
-      <div style={{ marginTop: "46px" }}>
-        <AddPartnerHexButton onClick={handleButtonClick} isFormActive={!!formData} />
-      </div>
-
-      {!sliderVisible && !formData && (
-        <div style={{ marginTop: "26px" }}>
-          <SubjectInfoBubble opt={selectedOpt} />
+    <div className="flex flex-col h-full -m-4 md:-m-6">
+      <div className="px-4 pt-4 md:px-6 md:pt-6 pb-2 flex-shrink-0 bg-background">
+        <div>
+          <h1 className="text-2xl font-semibold" data-testid="text-aaa-title">
+            Pridať subjekt
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Toto okno slúži na registráciu nového subjektu.
+          </p>
         </div>
-      )}
 
-      {sliderVisible && !formData && (
-        <>
-          <div className="mt-6">
-            <SubjectTypeSlider value={subjectType} onChange={setSubjectType} />
+        <div style={{ marginTop: "46px" }}>
+          <AddPartnerHexButton
+            onClick={handleButtonClick}
+            isFormActive={!!formData}
+            isFormReady={formReady}
+            isBlinking={isBlinking}
+            label={formData ? "Registrovať subjekt" : "Pridať subjekt"}
+          />
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 pb-4 md:px-6 md:pb-6">
+        {!sliderVisible && !formData && (
+          <div style={{ marginTop: "26px" }}>
+            <SubjectInfoBubble opt={selectedOpt} />
           </div>
-          <InlineRegistrationRow
-            opt={selectedOpt}
-            onProceed={handleProceed}
-            onViewSubject={handleViewSubject}
-          />
-        </>
-      )}
+        )}
 
-      {formData && (
-        <div className="mt-8">
-          <FullPageEditor
-            initialData={formData}
-            onCancel={handleCancelForm}
-          />
-        </div>
-      )}
+        {sliderVisible && !formData && (
+          <>
+            <div className="mt-6">
+              <SubjectTypeSlider value={subjectType} onChange={setSubjectType} />
+            </div>
+            <InlineRegistrationRow
+              opt={selectedOpt}
+              onProceed={handleProceed}
+              onViewSubject={handleViewSubject}
+            />
+          </>
+        )}
+
+        {formData && (
+          <div className="mt-8">
+            <FullPageEditor
+              initialData={formData}
+              onCancel={handleCancelForm}
+              onValidityChange={setFormReady}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

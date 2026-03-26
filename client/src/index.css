@@ -404,6 +404,16 @@ body[style*="overflow:hidden"] main {
   border-radius: calc(var(--radius) - 2px);
 }
 
+@keyframes nsBlink {
+  0%   { opacity: 1; }
+  16%  { opacity: 0.08; }
+  33%  { opacity: 1; }
+  50%  { opacity: 0.08; }
+  67%  { opacity: 1; }
+  84%  { opacity: 0.08; }
+  100% { opacity: 1; }
+}
+
 @keyframes blinkOrangeBtn {
   0%, 100% { background-color: hsl(25 95% 48%); box-shadow: 0 0 0 4px hsl(25 95% 48% / 0.45); }
   50%       { background-color: hsl(25 60% 22%); box-shadow: 0 0 0 1px hsl(25 95% 48% / 0.1); }
