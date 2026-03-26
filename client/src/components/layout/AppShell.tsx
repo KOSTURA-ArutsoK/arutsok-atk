@@ -165,18 +165,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!appUser || contextInitRef.current || isClientUser || !allStates || userContexts === undefined) return;
     contextInitRef.current = true;
 
-    // Server-authoritative FO check: if the server says FO is the current context,
-    // skip company auto-selection entirely (user intentionally switched to FO)
-    const currentCtx = userContexts.find((c: any) => c.isCurrent);
-    if (currentCtx?.contextType === "fo") {
+    // Two-layer model: subject identity never requires company auto-selection
+    if ((appUser as any).activeSubjectId) {
       localStorage.removeItem("atk_context_fo");
       return;
     }
 
-    // Clear stale FO flag when a company/subject is active
-    if (appUser.activeCompanyId || (appUser as any).activeSubjectId) {
+    // If user intentionally chose FO mode (both null but has other contexts available),
+    // skip auto-init. Distinguish from a new user who has only the FO entry.
+    const currentCtx = userContexts.find((c: any) => c.isCurrent);
+    const hasOtherContexts = userContexts.some((c: any) => c.contextType !== "fo");
+    if (currentCtx?.contextType === "fo" && hasOtherContexts) {
       localStorage.removeItem("atk_context_fo");
+      return;
     }
+
+    localStorage.removeItem("atk_context_fo");
 
     {
       const needsFullContext = !appUser.activeStateId || !appUser.activeCompanyId;
@@ -390,13 +394,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     ? `${(appUser.firstName || "U")[0]}${(appUser.lastName || "")[0] || ""}`.toUpperCase()
     : "U";
 
-  // When a non-FO context is active, the primary display identity is the active context
-  const activeCtxEntry = userContexts?.find((c: any) => c.isCurrent);
-  const isNonFoContext = activeCtxEntry && activeCtxEntry.contextType !== "fo";
-  const activeIdentityLabel = isNonFoContext ? activeCtxEntry.label : displayName;
-  const activeIdentitySubLabel = isNonFoContext ? activeCtxEntry.subLabel : null;
-  const activeIdentityInitials = isNonFoContext
-    ? activeCtxEntry.label.split(/[\s,\.]+/).filter(Boolean).slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join("")
+  // Two-layer model: identity (activeSubjectId) and working context (activeCompanyId) are independent.
+  // Avatar and identity display are driven ONLY by activeSubjectId — company switching never changes identity.
+  const hasSubjectIdentity = !!(appUser as any)?.activeSubjectId;
+  const activeIdentityEntry = hasSubjectIdentity
+    ? userContexts?.find((c: any) => c.subjectId === (appUser as any).activeSubjectId)
+    : null;
+  const isNonFoContext = hasSubjectIdentity;
+  const activeIdentityLabel = activeIdentityEntry?.label ?? (isNonFoContext ? displayName : displayName);
+  const activeIdentitySubLabel = activeIdentityEntry?.subLabel ?? null;
+  const activeIdentityInitials = activeIdentityEntry
+    ? activeIdentityEntry.label.split(/[\s,\.]+/).filter(Boolean).slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join("")
     : initials;
 
   const profilePhotoUrl = userProfile?.photoUrl || user?.profileImageUrl || undefined;

@@ -1899,7 +1899,7 @@ export async function setupAuth(app: Express) {
               type: co.subjectType ?? "po",
               uid: co.uid ?? null,
               ico: co.ico ?? null,
-              isCurrent: currentUser.activeCompanyId === co.id,
+              isCurrent: currentUser.activeSubjectId === null && currentUser.activeCompanyId === co.id,
             });
           }
         }

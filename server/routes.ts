@@ -1182,9 +1182,8 @@ export async function registerRoutes(
       if (validated.activeDivisionId === null) updates.activeDivisionId = null;
       if (validated.activeSubjectId !== undefined) updates.activeSubjectId = validated.activeSubjectId;
       if (validated.activeSubjectId === null) updates.activeSubjectId = null;
-      // Mutual exclusion: setting activeSubjectId clears activeCompanyId and vice versa
-      if (validated.activeSubjectId != null) updates.activeCompanyId = null;
-      if (validated.activeCompanyId != null) updates.activeSubjectId = null;
+      // Two-layer model: identity (activeSubjectId) and context (activeCompanyId) are independent.
+      // Company switcher sets only activeCompanyId; identity switch explicitly sends both fields.
       // Security: verify activeSubjectId is in allowed contexts (always enforced)
       if (validated.activeSubjectId != null) {
         const isAdminUser = appUser.role === "admin" || appUser.role === "superadmin";
