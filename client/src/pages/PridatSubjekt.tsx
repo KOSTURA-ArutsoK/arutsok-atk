@@ -449,8 +449,8 @@ export const FullPageEditor = forwardRef<FullPageEditorHandle, FullPageEditorPro
   }
 
   useImperativeHandle(ref, () => ({
-    submit: () => { form.handleSubmit(onSubmit)(); },
-  }), [form, onSubmit]);
+    submit: () => { if (!isPending) form.handleSubmit(onSubmit)(); },
+  }), [form, onSubmit, isPending]);
 
   return (
     <div className="space-y-4">
