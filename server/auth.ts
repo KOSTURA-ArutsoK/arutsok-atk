@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
 import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts } from "@shared/schema";
-import { eq, and, or, isNull, isNotNull, gte, desc, inArray } from "drizzle-orm";
+import { eq, and, or, isNull, isNotNull, gte, desc, inArray, sql } from "drizzle-orm";
 import { storage } from "./storage";
 import { decryptField } from "./crypto";
 
@@ -1288,7 +1288,7 @@ export async function setupAuth(app: Express) {
         subjFirstName: subjects.firstName,
         subjLastName: subjects.lastName,
         type: subjects.type,
-        ico: subjects.ico,
+        ico: sql<string | null>`${subjects.details}->>'ico'`,
         uid: subjects.uid,
         birthNumber: subjects.birthNumber,
       }).from(appUsers)
@@ -1336,7 +1336,7 @@ export async function setupAuth(app: Express) {
           subjLastName: subjects.lastName,
           subjCompanyName: subjects.companyName,
           type: subjects.type,
-          ico: subjects.ico,
+          ico: sql<string | null>`${subjects.details}->>'ico'`,
           uid: subjects.uid,
         }).from(appUsers)
           .leftJoin(subjects, and(eq(subjects.id, appUsers.linkedSubjectId!), isNull(subjects.deletedAt)))
