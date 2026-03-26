@@ -4,8 +4,9 @@ import type { Express, RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
-import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers } from "@shared/schema";
+import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks } from "@shared/schema";
 import { eq, and, isNull, isNotNull, gte, desc, inArray } from "drizzle-orm";
+import { storage } from "./storage";
 import { decryptField } from "./crypto";
 
 declare module "express-session" {
@@ -20,6 +21,12 @@ declare module "express-session" {
     pendingEntityCandidateIds?: number[];
     entityRcAttempts?: number;
     loginActingAsEntityId?: number;
+    pendingAccountLinkUserId?: number;
+    pendingAccountLinkOtp?: string;
+    pendingAccountLinkExpiry?: number;
+    pendingAccountLinkAttempts?: number;
+    pendingAccountLinkIsReactivation?: boolean;
+    pendingAccountLinkMethod?: "email" | "sms";
   }
 }
 
@@ -1062,6 +1069,318 @@ export async function setupAuth(app: Express) {
         res.status(500).json({ message: "Interná chyba" });
       });
   });
+
+  // ============================================================
+  // ACCOUNT LINKING & SWITCHING
+  // ============================================================
+
+  app.post("/api/account-link/initiate", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const { targetEmail, rc } = req.body;
+      if (!targetEmail || !rc) {
+        return res.status(400).json({ message: "Vyžaduje sa email a rodné číslo" });
+      }
+      const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
+      if (!currentUser) return res.status(401).json({ message: "Používateľ nenájdený" });
+
+      if (!currentUser.linkedSubjectId) {
+        return res.status(403).json({ message: "Váš účet nemá priradenú identitu. Kontaktujte správcu." });
+      }
+      const [currentSubject] = await db.select().from(subjects).where(eq(subjects.id, currentUser.linkedSubjectId));
+      if (!currentSubject || !currentSubject.birthNumber) {
+        return res.status(403).json({ message: "Váš profil nemá evidované rodné číslo. Kontaktujte správcu." });
+      }
+      const currentRc = decryptField(currentSubject.birthNumber);
+      const cleanRc = rc.replace(/[\s\/]/g, "");
+      const cleanCurrentRc = currentRc?.replace(/[\s\/]/g, "") ?? "";
+      if (cleanCurrentRc !== cleanRc) {
+        return res.status(403).json({ message: "Zadané rodné číslo nezodpovedá vášmu profilu" });
+      }
+
+      const targetEmailLower = (targetEmail as string).toLowerCase().trim();
+      const [targetUser] = await db.select().from(appUsers).where(eq(appUsers.email, targetEmailLower));
+      if (!targetUser) return res.status(404).json({ message: "Účet s týmto emailom neexistuje" });
+      if (targetUser.id === req.session.userId) {
+        return res.status(400).json({ message: "Nemôžete prepojiť účet sám so sebou" });
+      }
+
+      const existingLink = await storage.getAccountLink(req.session.userId, targetUser.id);
+      let isReactivation = false;
+      if (existingLink) {
+        if (existingLink.status === "verified" && existingLink.isActive) {
+          return res.status(409).json({ message: "Prepojenie s týmto účtom už existuje" });
+        }
+        if (existingLink.status === "verified" && !existingLink.isActive) {
+          isReactivation = true;
+        }
+      }
+
+      const device = detectDeviceType(req.headers["user-agent"] || "");
+      const method = device === "mobile" ? "email" : "sms";
+      const otp = generateOtp();
+      const expiry = Date.now() + 10 * 60 * 1000;
+
+      req.session.pendingAccountLinkUserId = targetUser.id;
+      req.session.pendingAccountLinkOtp = otp;
+      req.session.pendingAccountLinkExpiry = expiry;
+      req.session.pendingAccountLinkAttempts = 0;
+      req.session.pendingAccountLinkIsReactivation = isReactivation;
+      req.session.pendingAccountLinkMethod = method;
+
+      let targetSubject: typeof subjects.$inferSelect | null = null;
+      if (targetUser.linkedSubjectId) {
+        const [ts] = await db.select().from(subjects).where(eq(subjects.id, targetUser.linkedSubjectId));
+        targetSubject = ts ?? null;
+      }
+
+      if (method === "email") {
+        console.log(`[ACCOUNT-LINK OTP] Email to ${targetEmailLower}: ${otp}`);
+      } else {
+        const phone = targetUser.phone || (targetSubject?.phone ?? null);
+        console.log(`[ACCOUNT-LINK OTP] SMS to ${phone || targetEmailLower}: ${otp}`);
+      }
+
+      const maskedTarget = method === "email"
+        ? targetEmailLower.replace(/^(.{2}).*(@.*)$/, "$1***$2")
+        : (targetUser.phone ? maskPhone(targetUser.phone) : targetEmailLower);
+
+      const targetName = targetSubject
+        ? `${targetSubject.firstName ?? ""} ${targetSubject.lastName ?? ""}`.trim() || targetSubject.companyName || targetUser.email
+        : (targetUser.firstName ? `${targetUser.firstName} ${targetUser.lastName ?? ""}`.trim() : targetUser.email);
+
+      return req.session.save((err) => {
+        if (err) return res.status(500).json({ message: "Chyba pri ukladaní session" });
+        res.json({ method, maskedTarget, targetName, isReactivation });
+      });
+    } catch (err) {
+      console.error("[ACCOUNT-LINK INITIATE]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.post("/api/account-link/verify", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const { otp } = req.body;
+      if (!otp) return res.status(400).json({ message: "Vyžaduje sa OTP kód" });
+
+      const { pendingAccountLinkUserId, pendingAccountLinkOtp, pendingAccountLinkExpiry, pendingAccountLinkIsReactivation, pendingAccountLinkMethod } = req.session;
+
+      if (!pendingAccountLinkUserId || !pendingAccountLinkOtp) {
+        return res.status(400).json({ message: "Žiadna čakajúca žiadosť o prepojenie" });
+      }
+      if (pendingAccountLinkExpiry && Date.now() > pendingAccountLinkExpiry) {
+        return res.status(400).json({ message: "Platnosť OTP kódu vypršala. Začnite znova." });
+      }
+
+      const attempts = (req.session.pendingAccountLinkAttempts || 0) + 1;
+      req.session.pendingAccountLinkAttempts = attempts;
+      if (attempts > 3) {
+        return res.status(429).json({ message: "Príliš veľa nesprávnych pokusov. Začnite znova." });
+      }
+
+      if (otp.trim() !== pendingAccountLinkOtp) {
+        return res.status(400).json({ message: `Nesprávny OTP kód. Pokusov zostáva: ${3 - attempts}` });
+      }
+
+      const method = pendingAccountLinkMethod || "email";
+      if (pendingAccountLinkIsReactivation) {
+        await storage.reactivateAccountLinks(req.session.userId, pendingAccountLinkUserId, method);
+        await db.insert(auditLogs).values({
+          userId: req.session.userId,
+          username: null,
+          action: "ACCOUNT_RELINKED",
+          module: "AccountLink",
+          entityId: pendingAccountLinkUserId,
+          entityName: null,
+          oldData: null,
+          newData: { linkedUserId: pendingAccountLinkUserId },
+          ipAddress: req.ip,
+        });
+      } else {
+        await storage.createAccountLinks(req.session.userId, pendingAccountLinkUserId, method, req.session.userId);
+        await db.insert(auditLogs).values({
+          userId: req.session.userId,
+          username: null,
+          action: "ACCOUNT_LINKED",
+          module: "AccountLink",
+          entityId: pendingAccountLinkUserId,
+          entityName: null,
+          oldData: null,
+          newData: { linkedUserId: pendingAccountLinkUserId },
+          ipAddress: req.ip,
+        });
+      }
+
+      req.session.pendingAccountLinkUserId = undefined;
+      req.session.pendingAccountLinkOtp = undefined;
+      req.session.pendingAccountLinkExpiry = undefined;
+      req.session.pendingAccountLinkAttempts = undefined;
+      req.session.pendingAccountLinkIsReactivation = undefined;
+      req.session.pendingAccountLinkMethod = undefined;
+
+      return req.session.save((err) => {
+        if (err) return res.status(500).json({ message: "Chyba pri ukladaní session" });
+        res.json({ success: true });
+      });
+    } catch (err) {
+      console.error("[ACCOUNT-LINK VERIFY]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.get("/api/account-link/list", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const links = await storage.getAccountLinks(req.session.userId);
+
+      const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
+      if (!currentUser) return res.status(401).json({ message: "Používateľ nenájdený" });
+
+      let currentSubject: typeof subjects.$inferSelect | null = null;
+      if (currentUser.linkedSubjectId) {
+        const [cs] = await db.select().from(subjects).where(eq(subjects.id, currentUser.linkedSubjectId));
+        currentSubject = cs ?? null;
+      }
+
+      const currentEntry = {
+        userId: currentUser.id,
+        subjectId: currentUser.linkedSubjectId ?? null,
+        firstName: currentSubject?.firstName ?? currentUser.firstName ?? null,
+        lastName: currentSubject?.lastName ?? currentUser.lastName ?? null,
+        companyName: currentSubject?.companyName ?? null,
+        type: currentSubject?.type ?? null,
+        ico: currentSubject?.ico ?? null,
+        uid: currentSubject?.uid ?? null,
+        isCurrent: true,
+      };
+
+      const linkedEntries = await Promise.all(links.map(async (link) => {
+        const otherId = link.primaryUserId === req.session.userId ? link.linkedUserId : link.primaryUserId;
+        const [otherUser] = await db.select().from(appUsers).where(eq(appUsers.id, otherId));
+        if (!otherUser) return null;
+        let otherSubject: typeof subjects.$inferSelect | null = null;
+        if (otherUser.linkedSubjectId) {
+          const [os] = await db.select().from(subjects).where(eq(subjects.id, otherUser.linkedSubjectId));
+          otherSubject = os ?? null;
+        }
+        return {
+          userId: otherUser.id,
+          subjectId: otherUser.linkedSubjectId ?? null,
+          firstName: otherSubject?.firstName ?? otherUser.firstName ?? null,
+          lastName: otherSubject?.lastName ?? otherUser.lastName ?? null,
+          companyName: otherSubject?.companyName ?? null,
+          type: otherSubject?.type ?? null,
+          ico: otherSubject?.ico ?? null,
+          uid: otherSubject?.uid ?? null,
+          isCurrent: false,
+        };
+      }));
+
+      res.json([currentEntry, ...linkedEntries.filter(Boolean)]);
+    } catch (err) {
+      console.error("[ACCOUNT-LINK LIST]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.post("/api/account-link/switch", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const { targetUserId } = req.body;
+      if (!targetUserId) return res.status(400).json({ message: "Vyžaduje sa targetUserId" });
+
+      if (Number(targetUserId) === req.session.userId) {
+        return res.status(400).json({ message: "Ste už v tomto kontexte" });
+      }
+
+      const link = await storage.getAccountLink(req.session.userId, Number(targetUserId));
+      if (!link || !link.isActive || link.status !== "verified") {
+        const reverseLink = await storage.getAccountLink(Number(targetUserId), req.session.userId);
+        if (!reverseLink || !reverseLink.isActive || reverseLink.status !== "verified") {
+          return res.status(403).json({ message: "Prepojenie neexistuje alebo nie je aktívne" });
+        }
+      }
+
+      const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
+      const [targetUser] = await db.select().from(appUsers).where(eq(appUsers.id, Number(targetUserId)));
+      if (!targetUser) return res.status(404).json({ message: "Cieľový používateľ nenájdený" });
+
+      let currentUid = currentUser?.uid ?? String(req.session.userId);
+      let targetSubjectId: number | null = targetUser.linkedSubjectId ?? null;
+
+      const auditEntityName = `USER_FO [${currentUid}] ACTING_AS entity:${targetSubjectId ?? targetUser.id}`;
+      await db.insert(auditLogs).values({
+        userId: req.session.userId,
+        username: null,
+        action: "ACCOUNT_SWITCHED",
+        module: "AccountLink",
+        entityId: targetSubjectId ?? targetUser.id,
+        entityName: auditEntityName,
+        oldData: null,
+        newData: { fromUserId: req.session.userId, toUserId: targetUser.id },
+        ipAddress: req.ip,
+      });
+
+      req.session.userId = targetUser.id;
+      req.session.loginSubjectId = targetSubjectId;
+      req.session.loginStep = "done";
+
+      return req.session.save((err) => {
+        if (err) return res.status(500).json({ message: "Chyba pri prepínaní kontextu" });
+        res.json({ success: true });
+      });
+    } catch (err) {
+      console.error("[ACCOUNT-LINK SWITCH]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.delete("/api/account-link/:linkedUserId", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const linkedUserId = Number(req.params.linkedUserId);
+      if (!linkedUserId) return res.status(400).json({ message: "Neplatné ID" });
+
+      await storage.deactivateAccountLinks(req.session.userId, linkedUserId);
+      await db.insert(auditLogs).values({
+        userId: req.session.userId,
+        username: null,
+        action: "ACCOUNT_LINK_REMOVED",
+        module: "AccountLink",
+        entityId: linkedUserId,
+        entityName: null,
+        oldData: null,
+        newData: { deactivatedLinkedUserId: linkedUserId },
+        ipAddress: req.ip,
+      });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("[ACCOUNT-LINK DELETE]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+}
+
+function detectDeviceType(ua: string): "mobile" | "desktop" | "other" {
+  if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)) return "mobile";
+  if (/Windows NT|Macintosh|Linux x86_64/i.test(ua)) return "desktop";
+  return "other";
+}
+
+function generateOtp(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
 }
 
 export const isAuthenticated: RequestHandler = (req, res, next) => {

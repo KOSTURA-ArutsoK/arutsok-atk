@@ -38,6 +38,16 @@ interface SelectedSubject {
   phone: string | null;
 }
 
+function maskPhoneFE(phone: string | null | undefined): string {
+  if (!phone) return "Telefón nie je evidovaný";
+  if (phone.includes("***")) return phone;
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 4) return phone;
+  const last3 = digits.slice(-3);
+  const prefix = phone.startsWith("+") ? (phone.split(" ")[0] || "+421") : "+421";
+  return `${prefix}\u202F***\u202F***\u202F${last3}`;
+}
+
 function subjectTypeLabelSk(type: string | null): string {
   switch (type) {
     case "person": return "Fyzická osoba";
@@ -741,7 +751,7 @@ export default function AuthPage() {
                 <div className="text-center p-4 rounded-lg bg-muted/50 border border-border">
                   <p className="text-sm text-muted-foreground mb-1">Je toto vaše aktuálne telefónne číslo?</p>
                   <p className="text-lg font-mono font-bold" data-testid="text-masked-phone">
-                    {selectedSubject?.phone || "Telefón nie je evidovaný"}
+                    {maskPhoneFE(selectedSubject?.phone)}
                   </p>
                 </div>
 

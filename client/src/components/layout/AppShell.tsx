@@ -9,7 +9,8 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, UserCheck, Plus, Users } from "lucide-react";
+import { AccountLinkModal } from "@/components/account-link-modal";
 import { apiRequest } from "@/lib/queryClient";
 import { isAdmin as checkIsAdmin } from "@/lib/utils";
 
@@ -31,6 +32,23 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const SIDEBAR_STORAGE_KEY = "arutsok-sidebar-open";
+
+function subjectTypeLabelShort(type: string | null | undefined): string {
+  switch (type) {
+    case "person": return "FO";
+    case "szco": return "SZČO";
+    case "company": return "PO";
+    case "organization": return "TS";
+    case "state": return "VS";
+    case "os": return "OS";
+    case "mycompany": return "Vlastná firma";
+    default: return "Neznámy";
+  }
+}
+
+function isEntityType(type: string | null | undefined): boolean {
+  return type !== "person" && type !== "szco" && type != null;
+}
 
 function getSidebarDefault(): boolean {
   try {
@@ -65,6 +83,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [pendingCompanyId, setPendingCompanyId] = useState<number | null>(null);
   const [companyDivisions, setCompanyDivisions] = useState<any[]>([]);
   const contextInitRef = useRef(false);
+  const [accountLinkModalOpen, setAccountLinkModalOpen] = useState(false);
+
+  const { data: linkedAccounts } = useQuery<any[]>({
+    queryKey: ["/api/account-link/list"],
+    enabled: !!user,
+    staleTime: 30000,
+  });
 
   const isClientUser = useMemo(() => {
     const pgName = (appUser as any)?.permissionGroup?.name?.toLowerCase();
@@ -627,6 +652,98 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             <div className="flex-1" />
 
+            {linkedAccounts && linkedAccounts.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 px-2 h-8 rounded-md hover:bg-accent text-sm transition-colors"
+                    data-testid="button-context-switcher"
+                  >
+                    <Users className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                    <span className="hidden md:inline text-xs text-muted-foreground max-w-[120px] truncate">
+                      {(() => {
+                        const current = linkedAccounts.find((a: any) => a.isCurrent);
+                        if (!current) return "Kontext";
+                        const name = current.companyName || `${current.firstName ?? ""} ${current.lastName ?? ""}`.trim() || "Kontext";
+                        return name;
+                      })()}
+                    </span>
+                    <ChevronDown className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72" data-testid="dropdown-context-switcher">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Prepínač kontextov</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {linkedAccounts.map((account: any) => {
+                    const name = account.companyName || `${account.firstName ?? ""} ${account.lastName ?? ""}`.trim() || account.userId;
+                    const typeLabel = subjectTypeLabelShort(account.type);
+                    const subtitle = account.type === "person" ? "FO — Fyzická osoba"
+                      : account.ico ? `${typeLabel} — IČO:\u00A0${account.ico}`
+                      : typeLabel;
+                    const isEntity = isEntityType(account.type);
+                    return (
+                      <DropdownMenuItem
+                        key={account.userId}
+                        className="flex items-center gap-2 py-2 cursor-pointer"
+                        onClick={async () => {
+                          if (account.isCurrent) return;
+                          try {
+                            await apiRequest("POST", "/api/account-link/switch", { targetUserId: account.userId });
+                            window.location.href = "/";
+                          } catch (err: any) {
+                            toast({ title: "Chyba pri prepínaní kontextu", variant: "destructive" });
+                          }
+                        }}
+                        data-testid={`item-context-${account.userId}`}
+                      >
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${isEntity ? "bg-blue-100 dark:bg-blue-900/30" : "bg-emerald-100 dark:bg-emerald-900/30"}`}>
+                          {isEntity ? (
+                            <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                          ) : (
+                            <UserCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate ${account.isCurrent ? "text-foreground" : "text-muted-foreground"}`}>
+                            {name}
+                            {account.isCurrent && <span className="ml-1 text-xs text-emerald-600 dark:text-emerald-400">(aktívny)</span>}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+                        </div>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="flex items-center gap-2 text-blue-600 dark:text-blue-400 cursor-pointer"
+                    onClick={() => setAccountLinkModalOpen(true)}
+                    data-testid="button-add-account-link"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="text-sm">Prepojiť nový účet</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {(!linkedAccounts || linkedAccounts.length === 0) && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground"
+                    onClick={() => setAccountLinkModalOpen(true)}
+                    data-testid="button-add-account-link-empty"
+                  >
+                    <UserCheck className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Prepojiť účty</TooltipContent>
+              </Tooltip>
+            )}
+
             <div
               key="idle-timer"
               className={`flex items-center gap-1.5 px-2 py-1 rounded-md font-mono text-xs font-bold transition-colors ${isRed ? 'text-destructive' : 'text-emerald-500'}`}
@@ -735,6 +852,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onSelectDivision={handleContextSelectDivision}
         onBack={handleContextBack}
         onClose={() => setContextOverlayOpen(false)}
+      />
+      <AccountLinkModal
+        open={accountLinkModalOpen}
+        onClose={() => setAccountLinkModalOpen(false)}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/account-link/list"] })}
       />
       {warningOverlay}
     </SidebarProvider>

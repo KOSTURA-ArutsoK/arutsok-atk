@@ -2842,6 +2842,23 @@ export const insertWebRoutingRuleSchema = createInsertSchema(webRoutingRules).om
 export type WebRoutingRule = typeof webRoutingRules.$inferSelect;
 export type InsertWebRoutingRule = z.infer<typeof insertWebRoutingRuleSchema>;
 
+// === ACCOUNT LINKS (multi-context switching) ===
+export const accountLinks = pgTable("account_links", {
+  id: serial("id").primaryKey(),
+  primaryUserId: integer("primary_user_id").notNull().references(() => appUsers.id),
+  linkedUserId: integer("linked_user_id").notNull().references(() => appUsers.id),
+  status: text("status").notNull().default("pending"),
+  verifiedAt: timestamp("verified_at"),
+  verifiedVia: text("verified_via"),
+  initiatedBy: integer("initiated_by").references(() => appUsers.id),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAccountLinkSchema = createInsertSchema(accountLinks).omit({ id: true, createdAt: true });
+export type AccountLink = typeof accountLinks.$inferSelect;
+export type InsertAccountLink = z.infer<typeof insertAccountLinkSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

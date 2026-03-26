@@ -146,6 +146,8 @@ import {
   type WebRoutingRule, type InsertWebRoutingRule,
   uiBlueprints,
   type UiBlueprint, type InsertUiBlueprint,
+  accountLinks,
+  type AccountLink,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -731,6 +733,11 @@ export interface IStorage {
   createWebRoutingRule(data: InsertWebRoutingRule): Promise<WebRoutingRule>;
   updateWebRoutingRule(ruleId: number, updates: Partial<InsertWebRoutingRule>): Promise<WebRoutingRule | undefined>;
   deleteWebRoutingRule(ruleId: number): Promise<void>;
+  getAccountLinks(userId: number): Promise<AccountLink[]>;
+  getAccountLink(primaryUserId: number, linkedUserId: number): Promise<AccountLink | undefined>;
+  createAccountLinks(primaryUserId: number, linkedUserId: number, verifiedVia: string, initiatedBy: number): Promise<void>;
+  reactivateAccountLinks(primaryUserId: number, linkedUserId: number, verifiedVia: string): Promise<void>;
+  deactivateAccountLinks(primaryUserId: number, linkedUserId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5485,6 +5492,49 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWebRoutingRule(ruleId: number): Promise<void> {
     await db.delete(webRoutingRules).where(eq(webRoutingRules.id, ruleId));
+  }
+
+  async getAccountLinks(userId: number): Promise<AccountLink[]> {
+    return db.select().from(accountLinks).where(
+      and(
+        or(eq(accountLinks.primaryUserId, userId), eq(accountLinks.linkedUserId, userId)),
+        eq(accountLinks.isActive, true),
+        eq(accountLinks.status, "verified")
+      )
+    );
+  }
+
+  async getAccountLink(primaryUserId: number, linkedUserId: number): Promise<AccountLink | undefined> {
+    const [row] = await db.select().from(accountLinks).where(
+      and(
+        eq(accountLinks.primaryUserId, primaryUserId),
+        eq(accountLinks.linkedUserId, linkedUserId)
+      )
+    ).limit(1);
+    return row;
+  }
+
+  async createAccountLinks(primaryUserId: number, linkedUserId: number, verifiedVia: string, initiatedBy: number): Promise<void> {
+    const now = new Date();
+    await db.insert(accountLinks).values([
+      { primaryUserId, linkedUserId, status: "verified", verifiedAt: now, verifiedVia, initiatedBy, isActive: true },
+      { primaryUserId: linkedUserId, linkedUserId: primaryUserId, status: "verified", verifiedAt: now, verifiedVia, initiatedBy, isActive: true },
+    ]);
+  }
+
+  async reactivateAccountLinks(primaryUserId: number, linkedUserId: number, verifiedVia: string): Promise<void> {
+    const now = new Date();
+    await db.update(accountLinks).set({ isActive: true, verifiedAt: now, verifiedVia, status: "verified" })
+      .where(and(eq(accountLinks.primaryUserId, primaryUserId), eq(accountLinks.linkedUserId, linkedUserId)));
+    await db.update(accountLinks).set({ isActive: true, verifiedAt: now, verifiedVia, status: "verified" })
+      .where(and(eq(accountLinks.primaryUserId, linkedUserId), eq(accountLinks.linkedUserId, primaryUserId)));
+  }
+
+  async deactivateAccountLinks(primaryUserId: number, linkedUserId: number): Promise<void> {
+    await db.update(accountLinks).set({ isActive: false })
+      .where(and(eq(accountLinks.primaryUserId, primaryUserId), eq(accountLinks.linkedUserId, linkedUserId)));
+    await db.update(accountLinks).set({ isActive: false })
+      .where(and(eq(accountLinks.primaryUserId, linkedUserId), eq(accountLinks.linkedUserId, primaryUserId)));
   }
 }
 
