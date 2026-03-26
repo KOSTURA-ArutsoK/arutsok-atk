@@ -2820,6 +2820,7 @@ const OFFICER_TYPES = ["Konateľ", "Štatutár", "Predseda predstavenstva", "Čl
 function CompanyOfficersSection({ companyId, registryDirectors, companyUid, companyIco }: { companyId: number | null; registryDirectors?: RegistryDirector[]; companyUid?: string | null; companyIco?: string | null }) {
   const { toast } = useToastCompanyDiv();
   const { data: officerSectionStates } = useStates();
+  const { data: officerAppUser } = useAppUser();
   const [localDirectors, setLocalDirectors] = useState<RegistryDirector[] | null>(null);
   const [fetchingRegistry, setFetchingRegistry] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
@@ -3406,7 +3407,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Telefón <span className="text-red-500">*</span></label>
-                  <Input className={`h-8 text-sm ${editErrors.phone ? "border-red-500" : ""}`} placeholder="napr. +421 900 000 000" value={editForm.phone} onChange={e => { setEditForm(f => f ? { ...f, phone: e.target.value } : f); if (editErrors.phone) setEditErrors(p => { const n = {...p}; delete n.phone; return n; }); }} data-testid="input-edit-officer-phone" />
+                  <PhoneInput value={editForm.phone} onChange={val => { setEditForm(f => f ? { ...f, phone: val } : f); if (editErrors.phone) setEditErrors(p => { const n = {...p}; delete n.phone; return n; }); }} initialDialCode={officerSectionStates?.find(s => s.id === officerAppUser?.activeStateId)?.code} error={!!editErrors.phone} data-testid="input-edit-officer-phone" />
                   {editErrors.phone && <p className="text-xs text-red-500">{editErrors.phone}</p>}
                 </div>
               </div>
