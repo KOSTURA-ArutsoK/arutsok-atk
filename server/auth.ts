@@ -318,6 +318,57 @@ export async function setupAuth(app: Express) {
     }
   });
 
+  app.get("/api/login/subjects", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      if (req.session.loginStep !== "subject_select") {
+        return res.status(403).json({ message: "Neplatný krok prihlásenia" });
+      }
+
+      const [user] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
+      if (!user) return res.status(401).json({ message: "Používateľ nenájdený" });
+
+      const peerSubjectsRaw = await db
+        .select({ id: subjects.id, uid: subjects.uid, firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type, phone: subjects.phone, birthNumber: subjects.birthNumber, listStatus: subjects.listStatus, parentSubjectId: subjects.parentSubjectId })
+        .from(subjects)
+        .where(and(eq(subjects.email, user.email!.toLowerCase()), isNull(subjects.deletedAt)));
+
+      const shadowSubjectsRaw = user.linkedSubjectId
+        ? await db
+            .select({ id: subjects.id, uid: subjects.uid, firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type, phone: subjects.phone, birthNumber: subjects.birthNumber, listStatus: subjects.listStatus, parentSubjectId: subjects.parentSubjectId })
+            .from(subjects)
+            .where(and(eq(subjects.parentSubjectId, user.linkedSubjectId), isNull(subjects.deletedAt)))
+        : [];
+
+      const peerIds = new Set(peerSubjectsRaw.map((s) => s.id));
+      const shadowOnly = shadowSubjectsRaw.filter((s) => !peerIds.has(s.id));
+
+      const buildMeta = async (s: typeof peerSubjectsRaw[0], isShadow: boolean) => {
+        let adultStatus: boolean | null = null;
+        let documentHint: { documentType: string | null; masked: string | null } | null = null;
+        if (isPerson(s.type)) {
+          if (s.birthNumber) {
+            adultStatus = isPersonAdult(decryptField(s.birthNumber));
+          } else {
+            const [doc] = await db.select({ documentType: clientDocumentHistory.documentType, documentNumber: clientDocumentHistory.documentNumber }).from(clientDocumentHistory).where(eq(clientDocumentHistory.subjectId, s.id)).orderBy(desc(clientDocumentHistory.archivedAt)).limit(1);
+            documentHint = doc ? { documentType: doc.documentType, masked: doc.documentNumber ? maskDocNumber(doc.documentNumber) : null } : { documentType: null, masked: null };
+          }
+        }
+        return { id: s.id, uid: s.uid, firstName: s.firstName, lastName: s.lastName, companyName: s.companyName, type: s.type, phone: s.phone ? maskPhone(s.phone) : null, isShadow, isAdult: adultStatus, hasRisk: s.listStatus === "cerveny", documentHint };
+      };
+
+      const peerMetas = await Promise.all(peerSubjectsRaw.map((s) => buildMeta(s, false)));
+      const shadowMetas = await Promise.all(shadowOnly.map((s) => buildMeta(s, true)));
+
+      res.json({ subjects: [...peerMetas, ...shadowMetas] });
+    } catch (err) {
+      console.error("Login subjects error:", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
   app.post("/api/login/select-subject", loginLimiter, async (req, res) => {
     try {
       if (!req.session.userId) {
@@ -346,21 +397,28 @@ export async function setupAuth(app: Express) {
         return res.status(403).json({ message: "Subjekt nenájdený" });
       }
 
-      const isShadowSubject =
-        user.linkedSubjectId !== null &&
-        selected.parentSubjectId === user.linkedSubjectId;
-
       const isPeerSubject = selected.email?.toLowerCase() === user.email?.toLowerCase();
 
-      if (!isShadowSubject && !isPeerSubject) {
+      const isShadowSubject =
+        !isPeerSubject &&
+        user.linkedSubjectId !== null &&
+        selected.parentSubjectId === user.linkedSubjectId &&
+        (!selected.email || selected.email.toLowerCase() !== user.email?.toLowerCase());
+
+      if (!isPeerSubject && !isShadowSubject) {
         return res.status(403).json({ message: "Subjekt nepatrí k vášmu účtu" });
       }
+
+      const allPeers = await db
+        .select()
+        .from(subjects)
+        .where(and(eq(subjects.email, user.email!.toLowerCase()), isNull(subjects.deletedAt)));
 
       if (isShadowSubject) {
         req.session.loginSubjectId = selected.id;
         req.session.loginStep = "phone_verify";
-        const name = subjectDisplayName(selected);
-        await writeLoginAudit(user.id, selected.id, name, "SHADOW_ACCESS", "shadow_direct", ip);
+        const shadowName = subjectDisplayName(selected);
+        await writeLoginAudit(user.id, selected.id, shadowName, "SHADOW_ACCESS", "shadow_direct", ip);
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba session" });
           res.json({
@@ -369,11 +427,6 @@ export async function setupAuth(app: Express) {
           });
         });
       }
-
-      const allPeers = await db
-        .select()
-        .from(subjects)
-        .where(and(eq(subjects.email, user.email!.toLowerCase()), isNull(subjects.deletedAt)));
 
       const hasRiskInCluster = allPeers.some((s) => s.listStatus === "cerveny");
 
@@ -485,24 +538,37 @@ export async function setupAuth(app: Express) {
       }
 
       if (isPerson(selected.type) && selectedAdult === true) {
-        const selectedPhone = selected.phone?.replace(/\D/g, "") || "";
-        const otherPhones = allPeers
-          .filter((p) => p.id !== selected.id && p.phone)
-          .map((p) => p.phone!.replace(/\D/g, ""));
+        let hasAnotherAdultFo = false;
+        for (const peer of allPeers) {
+          if (peer.id !== selected.id && isPerson(peer.type) && peer.birthNumber) {
+            const peerRC = decryptField(peer.birthNumber);
+            const peerBD = peerRC ? parseBirthDateFromRC(peerRC) : null;
+            if (peerBD && calcAge(peerBD) >= 18) {
+              hasAnotherAdultFo = true;
+              break;
+            }
+          }
+        }
 
-        const hasUniquePhone = selectedPhone && otherPhones.length > 0 && !otherPhones.includes(selectedPhone);
+        if (!hasAnotherAdultFo) {
+          const selectedPhone = selected.phone?.replace(/\D/g, "") || "";
+          const otherPhones = allPeers
+            .filter((p) => p.id !== selected.id && p.phone)
+            .map((p) => p.phone!.replace(/\D/g, ""));
+          const hasUniquePhone = selectedPhone && otherPhones.length > 0 && !otherPhones.includes(selectedPhone);
 
-        if (hasUniquePhone) {
-          const code = Math.floor(100000 + Math.random() * 900000).toString();
-          console.log(`[AUTH SMS MOCK] SMS kód pre ${selected.phone}: ${code}`);
-          req.session.loginSubjectId = selected.id;
-          req.session.loginStep = "sms_verify";
-          req.session.pendingSmsCode = code;
-          req.session.pendingSubjectPhone = selected.phone ? maskPhone(selected.phone) : null;
-          return req.session.save((err) => {
-            if (err) return res.status(500).json({ message: "Chyba session" });
-            res.json({ nextStep: "sms_verify", maskedPhone: req.session.pendingSubjectPhone });
-          });
+          if (hasUniquePhone) {
+            const code = Math.floor(100000 + Math.random() * 900000).toString();
+            console.log(`[AUTH SMS MOCK] SMS kód pre ${selected.phone}: ${code}`);
+            req.session.loginSubjectId = selected.id;
+            req.session.loginStep = "sms_verify";
+            req.session.pendingSmsCode = code;
+            req.session.pendingSubjectPhone = selected.phone ? maskPhone(selected.phone) : null;
+            return req.session.save((err) => {
+              if (err) return res.status(500).json({ message: "Chyba session" });
+              res.json({ nextStep: "sms_verify", maskedPhone: req.session.pendingSubjectPhone });
+            });
+          }
         }
 
         req.session.loginSubjectId = selected.id;
