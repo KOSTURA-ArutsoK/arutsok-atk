@@ -127,7 +127,7 @@ async function writeLoginAudit(
   await db.insert(auditLogs).values({
     userId,
     username: null,
-    action: actingAsEntityId ? "ENTITY_LOGIN" : "SUBJECT_LOGIN",
+    action: actingAsEntityId ? "ENTITY_LOGIN" : "login_subject_access",
     module: "Auth",
     entityId: actingAsEntityId ?? subjectId,
     entityName,
@@ -162,55 +162,31 @@ async function getLinkedOfficers(
   }
 
   if (isLegalEntity(subject.type)) {
-    const result: { subjectId: number }[] = [];
-    const seen = new Set<number>();
+    // For legal entity subjects: resolve contacts via partner record linked by ICO
+    if (!subject.ico) return [];
 
-    // Path 1: sub-subjects with parentSubjectId = entity subject id (person or szco types)
-    const subSubjects = await db
-      .select({ id: subjects.id })
-      .from(subjects)
+    const matchedPartners = await db
+      .select({ id: partners.id })
+      .from(partners)
+      .where(eq(partners.ico, subject.ico));
+
+    if (matchedPartners.length === 0) return [];
+
+    const partnerIds = matchedPartners.map((p) => p.id);
+    const contacts = await db
+      .select({ subjectId: partnerContacts.subjectId })
+      .from(partnerContacts)
       .where(
         and(
-          eq(subjects.parentSubjectId, subject.id),
-          isNull(subjects.deletedAt)
+          inArray(partnerContacts.partnerId, partnerIds),
+          isNotNull(partnerContacts.subjectId),
+          eq(partnerContacts.isActive, true)
         )
       );
-    for (const s of subSubjects) {
-      if (!seen.has(s.id)) {
-        seen.add(s.id);
-        result.push({ subjectId: s.id });
-      }
-    }
 
-    // Path 2: partner contacts linked to partner matching entity ICO
-    if (subject.ico) {
-      const matchedPartners = await db
-        .select({ id: partners.id })
-        .from(partners)
-        .where(eq(partners.ico, subject.ico));
-
-      if (matchedPartners.length > 0) {
-        const partnerIds = matchedPartners.map((p) => p.id);
-        const contacts = await db
-          .select({ subjectId: partnerContacts.subjectId })
-          .from(partnerContacts)
-          .where(
-            and(
-              inArray(partnerContacts.partnerId, partnerIds),
-              isNotNull(partnerContacts.subjectId),
-              eq(partnerContacts.isActive, true)
-            )
-          );
-        for (const c of contacts) {
-          if (c.subjectId !== null && !seen.has(c.subjectId)) {
-            seen.add(c.subjectId);
-            result.push({ subjectId: c.subjectId });
-          }
-        }
-      }
-    }
-
-    return result;
+    return contacts
+      .filter((c): c is { subjectId: number } => c.subjectId !== null)
+      .filter((c, i, arr) => arr.findIndex((x) => x.subjectId === c.subjectId) === i);
   }
 
   return [];
@@ -854,7 +830,7 @@ export async function setupAuth(app: Express) {
         const attemptsLeft = 3 - attempts;
         // On 3rd failure (attempts === 3): terminal lockout with 429
         if (attemptsLeft <= 0) {
-          req.session.loginStep = undefined;
+          req.session.loginStep = "subject_select";
           req.session.pendingEntitySubjectId = undefined;
           req.session.pendingEntityCandidateIds = undefined;
           req.session.entityRcAttempts = undefined;
@@ -1268,10 +1244,10 @@ export async function setupAuth(app: Express) {
       }
 
       if (method === "email") {
-        console.log(`[ACCOUNT-LINK OTP] Email to ${targetEmailLower}: ${otp}`);
+        console.log(`[ACCOUNT-LINK OTP] Sending email OTP to ${targetEmailLower.replace(/^(.{2}).*(@.*)$/, "$1***$2")}`);
       } else {
         const phone = targetUser.phone || (targetSubject?.phone ?? null);
-        console.log(`[ACCOUNT-LINK OTP] SMS to ${phone || targetEmailLower}: ${otp}`);
+        console.log(`[ACCOUNT-LINK OTP] Sending SMS OTP to ${phone ? maskPhone(phone) : "***"}`);
       }
 
       const maskedTarget = method === "email"
