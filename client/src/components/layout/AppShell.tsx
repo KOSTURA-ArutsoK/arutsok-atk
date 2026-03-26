@@ -375,6 +375,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     ? `${(appUser.firstName || "U")[0]}${(appUser.lastName || "")[0] || ""}`.toUpperCase()
     : "U";
 
+  // When a non-FO context is active, the primary display identity is the active context
+  const activeCtxEntry = userContexts?.find((c: any) => c.isCurrent);
+  const isNonFoContext = activeCtxEntry && activeCtxEntry.contextType !== "fo";
+  const activeIdentityLabel = isNonFoContext ? activeCtxEntry.label : displayName;
+  const activeIdentitySubLabel = isNonFoContext ? activeCtxEntry.subLabel : null;
+  const activeIdentityInitials = isNonFoContext
+    ? activeCtxEntry.label.split(/[\s,\.]+/).filter(Boolean).slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join("")
+    : initials;
+
   const profilePhotoUrl = userProfile?.photoUrl || user?.profileImageUrl || undefined;
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -720,27 +729,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button type="button" className="flex items-center gap-2 rounded-md px-1 py-0.5 hover-elevate" data-testid="button-user-menu">
-                  <span className="text-sm hidden sm:inline font-bold text-foreground" data-testid="text-header-username">{displayName}</span>
+                  <span className="text-sm hidden sm:inline font-bold text-foreground" data-testid="text-header-username">{activeIdentityLabel}</span>
                   <Avatar className="w-8 h-8">
-                    <AvatarImage src={profilePhotoUrl} />
-                    <AvatarFallback className="bg-primary/10 text-primary text-xs">{initials}</AvatarFallback>
+                    <AvatarImage src={isNonFoContext ? undefined : profilePhotoUrl} />
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs">{activeIdentityInitials}</AvatarFallback>
                   </Avatar>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-72">
                 <div className="flex items-center gap-3 px-3 py-3" data-testid="user-menu-header">
                   <Avatar className="w-10 h-10 flex-shrink-0">
-                    <AvatarImage src={profilePhotoUrl} />
-                    <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">{initials}</AvatarFallback>
+                    <AvatarImage src={isNonFoContext ? undefined : profilePhotoUrl} />
+                    <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">{activeIdentityInitials}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate" data-testid="text-user-menu-name">{displayName}</p>
+                    <p className="text-sm font-semibold text-foreground truncate" data-testid="text-user-menu-name">{activeIdentityLabel}</p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {(() => {
-                        const cur = userContexts?.find((c: any) => c.isCurrent);
-                        if (cur?.subLabel) return cur.subLabel;
-                        return appUser?.email || user?.email || "";
-                      })()}
+                      {activeIdentitySubLabel || appUser?.email || user?.email || ""}
                     </p>
                   </div>
                 </div>
@@ -784,11 +789,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 await apiRequest("POST", "/api/account-link/switch", { targetUserId: ctx.userId });
                                 window.location.href = "/";
                               } else if (isCompany) {
-                                setActive.mutate({ activeCompanyId: ctx.companyId, activeSubjectId: null });
+                                await apiRequest("PUT", "/api/app-user/active", { activeCompanyId: ctx.companyId, activeSubjectId: null });
+                                window.location.href = "/";
                               } else if (isSubject) {
-                                setActive.mutate({ activeSubjectId: ctx.subjectId, activeCompanyId: null });
+                                await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: ctx.subjectId, activeCompanyId: null });
+                                window.location.href = "/";
                               } else if (isFo) {
-                                setActive.mutate({ activeCompanyId: null, activeSubjectId: null });
+                                await apiRequest("PUT", "/api/app-user/active", { activeCompanyId: null, activeSubjectId: null });
+                                window.location.href = "/";
                               }
                             } catch (err: any) {
                               toast({ title: "Chyba pri prepínaní kontextu", variant: "destructive" });
