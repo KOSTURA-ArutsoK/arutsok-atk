@@ -654,17 +654,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             {(() => {
               const activeCtx = userContexts?.find((c: any) => c.isCurrent);
-              if (!activeCtx || activeCtx.contextType === "fo") return null;
-              const isSubject = activeCtx.contextType === "linked_subject";
-              const isCompany = activeCtx.contextType === "officer_company";
-              const badgeColor = isSubject
+              if (!activeCtx) return null;
+              const isSubjectCtx = ["szco", "company", "organization", "state", "os"].includes(activeCtx.contextType);
+              const isCompanyCtx = activeCtx.contextType === "officer_company";
+              const badgeColor = isSubjectCtx
                 ? "bg-violet-900/40 border-violet-700/50 text-violet-200"
-                : isCompany
+                : isCompanyCtx
                   ? "bg-blue-900/40 border-blue-700/50 text-blue-200"
-                  : "bg-zinc-800 border-zinc-600 text-zinc-300";
-              const typeTag = isSubject
+                  : "bg-emerald-900/30 border-emerald-700/40 text-emerald-200";
+              const typeTag = isSubjectCtx
                 ? (activeCtx.type === "szco" ? "SZČO" : activeCtx.type === "company" ? "PO" : activeCtx.type === "state" ? "VS" : activeCtx.type === "organization" ? "TS" : "OS")
-                : isCompany ? "PO" : "";
+                : isCompanyCtx ? "PO" : "FO";
               return (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -753,7 +753,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       const isCompany = ctx.contextType === "officer_company";
                       const isLinked = ctx.contextType === "linked_account";
                       const isFo = ctx.contextType === "fo";
-                      const isSubject = ctx.contextType === "linked_subject";
+                      const isSubject = ["szco", "company", "organization", "state", "os"].includes(ctx.contextType);
                       const ctxKey = isSubject ? ctx.subjectId : (ctx.companyId ?? ctx.userId);
                       const iconEl = isCompany ? (
                         <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />

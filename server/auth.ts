@@ -4,8 +4,8 @@ import type { Express, RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
-import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts, myCompanies } from "@shared/schema";
-import { eq, and, or, isNull, isNotNull, gte, desc, inArray, sql } from "drizzle-orm";
+import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts, myCompanies, subjectContacts } from "@shared/schema";
+import { eq, and, or, ne, isNull, isNotNull, gte, desc, inArray, sql } from "drizzle-orm";
 import { storage } from "./storage";
 import { decryptField } from "./crypto";
 
@@ -1764,9 +1764,12 @@ export async function setupAuth(app: Express) {
         isCurrent: currentUser.activeCompanyId === null && (currentUser as any).activeSubjectId === null,
       });
 
-      // Linked subjects (SZČO, PO, VS, TS, OS) via linkedFoId or parentSubjectId
+      // Linked subjects (SZČO, PO, VS, TS, OS)
+      // Discovery via: 1) linkedFoId/parentSubjectId, 2) email contact match
+      const linkedSubjectsMap = new Map<number, { id: number; type: string; firstName: string | null; lastName: string | null; companyName: string | null; uid: string | null; details: any }>();
+
       if (foSubject) {
-        const linkedSubjects = await db
+        const byHierarchy = await db
           .select({
             id: subjects.id,
             type: subjects.type,
@@ -1784,30 +1787,57 @@ export async function setupAuth(app: Express) {
             ),
             isNull(subjects.deletedAt)
           ));
+        for (const s of byHierarchy) linkedSubjectsMap.set(s.id, s);
+      }
 
-        for (const ls of linkedSubjects) {
-          const ico = (ls.details as any)?.ico ?? null;
-          const displayName = ls.companyName
-            || [ls.firstName, ls.lastName].filter(Boolean).join(" ")
-            || ls.uid || "";
-          const subjectLabel = subjectTypeShortLabel(ls.type);
-          const subLabel = ico ? `${subjectLabel} — IČO:\u00A0${ico}` : subjectLabel;
-          const key = `linked_subject:${ls.id}`;
-          if (!seenContextKeys.has(key)) {
-            seenContextKeys.add(key);
-            result.push({
-              contextType: "linked_subject",
-              userId: currentUser.id,
-              companyId: null,
-              subjectId: ls.id,
-              label: displayName,
-              subLabel,
-              type: ls.type,
-              uid: ls.uid ?? null,
-              ico: ico ?? null,
-              isCurrent: (currentUser as any).activeSubjectId === ls.id,
-            });
-          }
+      if (currentUser.email) {
+        const byEmail = await db
+          .select({
+            id: subjects.id,
+            type: subjects.type,
+            firstName: subjects.firstName,
+            lastName: subjects.lastName,
+            companyName: subjects.companyName,
+            uid: subjects.uid,
+            details: subjects.details,
+          })
+          .from(subjects)
+          .innerJoin(subjectContacts, and(
+            eq(subjectContacts.subjectId, subjects.id),
+            eq(subjectContacts.type, "email"),
+            eq(subjectContacts.value, currentUser.email)
+          ))
+          .where(and(
+            isNull(subjects.deletedAt),
+            ne(subjects.type, "person")
+          ));
+        for (const s of byEmail) {
+          if (!linkedSubjectsMap.has(s.id)) linkedSubjectsMap.set(s.id, s);
+        }
+      }
+
+      for (const ls of linkedSubjectsMap.values()) {
+        const ico = (ls.details as any)?.ico ?? null;
+        const displayName = ls.companyName
+          || [ls.firstName, ls.lastName].filter(Boolean).join(" ")
+          || ls.uid || "";
+        const subjectLabel = subjectTypeShortLabel(ls.type);
+        const subLabel = ico ? `${subjectLabel} — IČO:\u00A0${ico}` : subjectLabel;
+        const key = `subject:${ls.id}`;
+        if (!seenContextKeys.has(key)) {
+          seenContextKeys.add(key);
+          result.push({
+            contextType: ls.type,
+            userId: currentUser.id,
+            companyId: null,
+            subjectId: ls.id,
+            label: displayName,
+            subLabel,
+            type: ls.type,
+            uid: ls.uid ?? null,
+            ico: ico ?? null,
+            isCurrent: (currentUser as any).activeSubjectId === ls.id,
+          });
         }
       }
 
