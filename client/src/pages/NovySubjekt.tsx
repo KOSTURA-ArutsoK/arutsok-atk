@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
-import { FullPageEditor, type InitialData } from "@/pages/PridatSubjekt";
+import { FullPageEditor, type FullPageEditorHandle, type InitialData } from "@/pages/PridatSubjekt";
 import {
   UserPlus, User, Briefcase, Building2, Landmark, Network, Library,
   Loader2, CheckCircle2, AlertTriangle, ExternalLink, ChevronRight,
@@ -705,6 +705,7 @@ export default function NovySubjekt() {
   const [formReady, setFormReady] = useState(false);
   const [isBlinking, setIsBlinking] = useState(false);
   const prevFormDataRef = useRef<boolean>(false);
+  const editorRef = useRef<FullPageEditorHandle>(null);
 
   const selectedOpt = SUBJECT_TYPE_OPTS.find(o => o.val === subjectType)!;
 
@@ -723,7 +724,11 @@ export default function NovySubjekt() {
   }, [formData]);
 
   function handleButtonClick() {
-    setSliderVisible(true);
+    if (formData) {
+      editorRef.current?.submit();
+    } else {
+      setSliderVisible(true);
+    }
   }
 
   function handleProceed(data: { clientTypeCode: string; stateId: number; baseValue: string; aresData?: AresLookup }) {
@@ -784,6 +789,7 @@ export default function NovySubjekt() {
         {formData && (
           <div className="mt-8">
             <FullPageEditor
+              ref={editorRef}
               initialData={formData}
               onCancel={handleCancelForm}
               onValidityChange={setFormReady}

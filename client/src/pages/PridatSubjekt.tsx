@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from "react";
 import { useLocation } from "wouter";
 import { useCreateSubject } from "@/hooks/use-subjects";
 import { useStates } from "@/hooks/use-hierarchy";
@@ -83,15 +83,18 @@ export type InitialData = {
   };
 };
 
-export function FullPageEditor({
-  initialData,
-  onCancel,
-  onValidityChange,
-}: {
+export type FullPageEditorHandle = { submit: () => void };
+type FullPageEditorProps = {
   initialData: InitialData;
   onCancel: () => void;
   onValidityChange?: (isValid: boolean) => void;
-}) {
+};
+
+export const FullPageEditor = forwardRef<FullPageEditorHandle, FullPageEditorProps>(function FullPageEditor({
+  initialData,
+  onCancel,
+  onValidityChange,
+}, ref) {
   const { mutate, isPending } = useCreateSubject();
   const { toast } = useToast();
   const { data: companies } = useMyCompanies();
@@ -444,6 +447,10 @@ export function FullPageEditor({
       },
     });
   }
+
+  useImperativeHandle(ref, () => ({
+    submit: () => { form.handleSubmit(onSubmit)(); },
+  }), [form, onSubmit]);
 
   return (
     <div className="space-y-4">
@@ -1700,19 +1707,13 @@ export function FullPageEditor({
                 </p>
               </div>
 
-              <div className="flex justify-end gap-2 sticky bottom-0 bg-card pt-3 pb-1 border-t border-border">
-                <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-subject">Zrusit</Button>
-                <Button type="submit" disabled={isPending} data-testid="button-save-subject">
-                  {isPending ? "Registrujem..." : "Registrovat subjekt"}
-                </Button>
-              </div>
             </form>
           </Form>
         </CardContent>
       </Card>
     </div>
   );
-}
+});
 
 const INIT_STEP_TYPE_CODES = ["FO", "SZCO", "PO", "OS"];
 
