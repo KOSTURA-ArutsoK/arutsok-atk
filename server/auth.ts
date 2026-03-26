@@ -309,7 +309,6 @@ export async function setupAuth(app: Express) {
           listStatus: subjects.listStatus,
           parentSubjectId: subjects.parentSubjectId,
           myCompanyId: subjects.myCompanyId,
-          ico: subjects.ico,
           idCardNumber: subjects.idCardNumber,
         })
         .from(subjects)
@@ -334,7 +333,6 @@ export async function setupAuth(app: Express) {
               listStatus: subjects.listStatus,
               parentSubjectId: subjects.parentSubjectId,
               myCompanyId: subjects.myCompanyId,
-              ico: subjects.ico,
               idCardNumber: subjects.idCardNumber,
             })
             .from(subjects)
