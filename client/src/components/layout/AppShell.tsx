@@ -85,8 +85,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const contextInitRef = useRef(false);
   const [accountLinkModalOpen, setAccountLinkModalOpen] = useState(false);
 
-  const { data: linkedAccounts } = useQuery<any[]>({
-    queryKey: ["/api/account-link/list"],
+  const { data: userContexts } = useQuery<any[]>({
+    queryKey: ["/api/user/contexts"],
     enabled: !!user,
     staleTime: 30000,
   });
@@ -708,58 +708,58 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <p className="text-sm font-semibold text-foreground truncate" data-testid="text-user-menu-name">{displayName}</p>
                     <p className="text-xs text-muted-foreground truncate">
                       {(() => {
-                        const cur = linkedAccounts?.find((a: any) => a.isCurrent);
-                        if (cur) {
-                          const typeLabel = subjectTypeLabelShort(cur.type);
-                          return cur.type === "person" ? "FO — Fyzická osoba"
-                            : cur.ico ? `${typeLabel} — IČO:\u00A0${cur.ico}`
-                            : typeLabel;
-                        }
+                        const cur = userContexts?.find((c: any) => c.isCurrent);
+                        if (cur?.subLabel) return cur.subLabel;
                         return appUser?.email || user?.email || "";
                       })()}
                     </p>
                   </div>
                 </div>
 
-                {linkedAccounts && linkedAccounts.length > 0 && (
+                {userContexts && userContexts.length > 0 && (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-3 py-1">Prepojené účty</DropdownMenuLabel>
-                    {linkedAccounts.map((account: any) => {
-                      const name = account.companyName || `${account.firstName ?? ""} ${account.lastName ?? ""}`.trim() || account.userId;
-                      const typeLabel = subjectTypeLabelShort(account.type);
-                      const subtitle = account.type === "person" ? "FO — Fyzická osoba"
-                        : account.ico ? `${typeLabel} — IČO:\u00A0${account.ico}`
-                        : typeLabel;
-                      const isEntity = isEntityType(account.type);
+                    <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-3 py-1">Moje kontexty</DropdownMenuLabel>
+                    {userContexts.map((ctx: any, idx: number) => {
+                      const isCompany = ctx.contextType === "officer_company";
+                      const isLinked = ctx.contextType === "linked_account";
+                      const isFo = ctx.contextType === "fo";
                       return (
                         <DropdownMenuItem
-                          key={account.userId}
+                          key={`${ctx.contextType}-${ctx.companyId ?? ctx.userId}-${idx}`}
                           className="flex items-center gap-2 py-2 cursor-pointer mx-1 rounded"
                           onClick={async () => {
-                            if (account.isCurrent) return;
+                            if (ctx.isCurrent) return;
                             try {
-                              await apiRequest("POST", "/api/account-link/switch", { targetUserId: account.userId });
-                              window.location.href = "/";
+                              if (isLinked) {
+                                await apiRequest("POST", "/api/account-link/switch", { targetUserId: ctx.userId });
+                                window.location.href = "/";
+                              } else if (isCompany) {
+                                setActive.mutate({ activeCompanyId: ctx.companyId });
+                              } else if (isFo) {
+                                setActive.mutate({ activeCompanyId: null });
+                              }
                             } catch (err: any) {
                               toast({ title: "Chyba pri prepínaní kontextu", variant: "destructive" });
                             }
                           }}
-                          data-testid={`item-context-${account.userId}`}
+                          data-testid={`item-context-${ctx.contextType}-${ctx.companyId ?? ctx.userId}`}
                         >
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${isEntity ? "bg-blue-100 dark:bg-blue-900/30" : "bg-emerald-100 dark:bg-emerald-900/30"}`}>
-                            {isEntity ? (
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${isCompany || isLinked ? "bg-blue-100 dark:bg-blue-900/30" : "bg-emerald-100 dark:bg-emerald-900/30"}`}>
+                            {isCompany ? (
                               <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                            ) : isLinked ? (
+                              <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                             ) : (
                               <UserCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium truncate ${account.isCurrent ? "text-foreground" : "text-muted-foreground"}`}>
-                              {name}
-                              {account.isCurrent && <span className="ml-1 text-xs text-emerald-600 dark:text-emerald-400">(aktívny)</span>}
+                            <p className={`text-sm font-medium truncate ${ctx.isCurrent ? "text-foreground" : "text-muted-foreground"}`}>
+                              {ctx.label}
+                              {ctx.isCurrent && <span className="ml-1 text-xs text-emerald-600 dark:text-emerald-400">(aktívny)</span>}
                             </p>
-                            <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+                            <p className="text-xs text-muted-foreground truncate">{ctx.subLabel}</p>
                           </div>
                         </DropdownMenuItem>
                       );
@@ -774,7 +774,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   data-testid="button-add-account-link"
                 >
                   <Plus className="w-4 h-4" />
-                  <span className="text-sm">Prepojiť nový účet</span>
+                  <span className="text-sm">Prepojiť iný e-mail</span>
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />

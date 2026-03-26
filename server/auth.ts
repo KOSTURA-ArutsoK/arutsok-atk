@@ -4,7 +4,7 @@ import type { Express, RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
-import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts } from "@shared/schema";
+import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts, myCompanies } from "@shared/schema";
 import { eq, and, or, isNull, isNotNull, gte, desc, inArray, sql } from "drizzle-orm";
 import { storage } from "./storage";
 import { decryptField } from "./crypto";
@@ -254,6 +254,31 @@ async function recordLoginHistory(userId: number, ip: string | null) {
 function subjectDisplayName(s: { firstName?: string | null; lastName?: string | null; companyName?: string | null }): string {
   if (s.firstName || s.lastName) return `${s.firstName || ""} ${s.lastName || ""}`.trim();
   return s.companyName || "Neznámy subjekt";
+}
+
+function myCompanySubjectTypeLabel(subjectType: string | null | undefined): string {
+  switch (subjectType) {
+    case "szco": return "SZČO";
+    case "sro": return "s.r.o.";
+    case "as": return "a.s.";
+    case "jo": return "j.o.";
+    case "vs": return "VS";
+    case "ts": return "TS";
+    case "ns": return "n.s.";
+    case "os": return "OS";
+    case "stat": return "Štát";
+    case "person": return "FO";
+    default: return "PO";
+  }
+}
+
+function linkedAccountSubLabel(type: string | null | undefined, ico: string | null): string {
+  switch (type) {
+    case "person": return "FO — Fyzická osoba";
+    case "szco": return ico ? `SZČO — IČO:\u00A0${ico}` : "SZČO";
+    case "company": return ico ? `PO — IČO:\u00A0${ico}` : "PO";
+    default: return "Prepojený účet";
+  }
 }
 
 export async function setupAuth(app: Express) {
@@ -1651,7 +1676,7 @@ export async function setupAuth(app: Express) {
         lastName: currentSubject?.lastName ?? currentUser.lastName ?? null,
         companyName: currentSubject?.companyName ?? null,
         type: currentSubject?.type ?? null,
-        ico: currentSubject?.ico ?? null,
+        ico: null,
         uid: currentSubject?.uid ?? null,
         isCurrent: true,
       };
@@ -1672,7 +1697,7 @@ export async function setupAuth(app: Express) {
           lastName: otherSubject?.lastName ?? otherUser.lastName ?? null,
           companyName: otherSubject?.companyName ?? null,
           type: otherSubject?.type ?? null,
-          ico: otherSubject?.ico ?? null,
+          ico: null,
           uid: otherSubject?.uid ?? null,
           isCurrent: false,
         };
@@ -1681,6 +1706,123 @@ export async function setupAuth(app: Express) {
       res.json([currentEntry, ...linkedEntries.filter(Boolean)]);
     } catch (err) {
       console.error("[ACCOUNT-LINK LIST]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.get("/api/user/contexts", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+
+      const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
+      if (!currentUser) return res.status(401).json({ message: "Používateľ nenájdený" });
+
+      const result: any[] = [];
+
+      // FO personal context
+      let foSubject: typeof subjects.$inferSelect | null = null;
+      if (currentUser.linkedSubjectId) {
+        const [cs] = await db.select().from(subjects).where(and(eq(subjects.id, currentUser.linkedSubjectId), isNull(subjects.deletedAt)));
+        foSubject = cs ?? null;
+      }
+
+      const foLabel = foSubject
+        ? [foSubject.firstName, foSubject.lastName].filter(Boolean).join(" ") || currentUser.firstName || currentUser.username || ""
+        : `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || currentUser.username || "";
+
+      result.push({
+        contextType: "fo",
+        userId: currentUser.id,
+        companyId: null,
+        label: foLabel,
+        subLabel: "FO — Fyzická osoba",
+        type: "person",
+        uid: foSubject?.uid ?? null,
+        ico: null,
+        isCurrent: currentUser.activeCompanyId === null,
+      });
+
+      // Officer companies (via companyOfficers table)
+      if (currentUser.linkedSubjectId) {
+        const officerRows = await db
+          .select({ companyId: companyOfficers.companyId })
+          .from(companyOfficers)
+          .where(and(
+            eq(companyOfficers.subjectId, currentUser.linkedSubjectId),
+            eq(companyOfficers.isActive, true)
+          ));
+
+        if (officerRows.length > 0) {
+          const companyIds = officerRows.map((r) => r.companyId);
+          const officerCompanies = await db
+            .select({
+              id: myCompanies.id,
+              name: myCompanies.name,
+              subjectType: myCompanies.subjectType,
+              ico: myCompanies.ico,
+              uid: myCompanies.uid,
+              stateId: myCompanies.stateId,
+            })
+            .from(myCompanies)
+            .where(and(
+              inArray(myCompanies.id, companyIds),
+              eq(myCompanies.isDeleted, false)
+            ));
+
+          for (const co of officerCompanies) {
+            const subjectTypeLabel = myCompanySubjectTypeLabel(co.subjectType);
+            const subLabel = co.ico
+              ? `${subjectTypeLabel} — IČO:\u00A0${co.ico}`
+              : subjectTypeLabel;
+            result.push({
+              contextType: "officer_company",
+              userId: currentUser.id,
+              companyId: co.id,
+              stateId: co.stateId ?? null,
+              label: co.name,
+              subLabel,
+              type: co.subjectType ?? "po",
+              uid: co.uid ?? null,
+              ico: co.ico ?? null,
+              isCurrent: currentUser.activeCompanyId === co.id,
+            });
+          }
+        }
+      }
+
+      // Linked accounts (other AppUsers)
+      const links = await storage.getAccountLinks(req.session.userId);
+      const linkedEntries = await Promise.all(links.map(async (link) => {
+        const otherId = link.primaryUserId === req.session.userId ? link.linkedUserId : link.primaryUserId;
+        const [otherUser] = await db.select().from(appUsers).where(eq(appUsers.id, otherId));
+        if (!otherUser) return null;
+        let otherSubject: typeof subjects.$inferSelect | null = null;
+        if (otherUser.linkedSubjectId) {
+          const [os] = await db.select().from(subjects).where(eq(subjects.id, otherUser.linkedSubjectId));
+          otherSubject = os ?? null;
+        }
+        const otherLabel = otherSubject?.companyName
+          || [otherSubject?.firstName ?? otherUser.firstName, otherSubject?.lastName ?? otherUser.lastName].filter(Boolean).join(" ")
+          || otherUser.username || "";
+        return {
+          contextType: "linked_account",
+          userId: otherUser.id,
+          companyId: null,
+          label: otherLabel,
+          subLabel: otherSubject?.type ? linkedAccountSubLabel(otherSubject.type, null) : "Prepojený účet",
+          type: otherSubject?.type ?? "person",
+          uid: otherSubject?.uid ?? null,
+          ico: null,
+          isCurrent: false,
+        };
+      }));
+      result.push(...linkedEntries.filter(Boolean));
+
+      res.json(result);
+    } catch (err) {
+      console.error("[USER CONTEXTS]", err);
       res.status(500).json({ message: "Interná chyba" });
     }
   });
