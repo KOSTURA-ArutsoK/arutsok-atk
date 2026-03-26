@@ -143,6 +143,8 @@ export const companyOfficers = pgTable("company_officers", {
   activeTo: timestamp("active_to"),
   inactiveFrom: timestamp("inactive_from"),
   inactiveTo: timestamp("inactive_to"),
+  email: text("email"),
+  phone: text("phone"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

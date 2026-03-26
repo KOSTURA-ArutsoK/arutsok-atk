@@ -2836,7 +2836,9 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
     idCardNumber: string; idCardExpiry: string;
     activeFrom: string; activeTo: string; inactiveFrom: string; inactiveTo: string;
     isOfficerActive: boolean;
+    email: string; phone: string;
   } | null>(null);
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
 
   const { data: officers = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/my-companies', companyId, 'officers'],
@@ -3027,7 +3029,10 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
       inactiveFrom: off.inactiveFrom ? String(off.inactiveFrom).substring(0, 10) : "",
       inactiveTo: off.inactiveTo ? String(off.inactiveTo).substring(0, 10) : "",
       isOfficerActive: !off.inactiveFrom,
+      email: off.email || "",
+      phone: off.phone || "",
     });
+    setEditErrors({});
     if (off.subjectId) {
       try {
         const res = await fetch(`/api/company-officers/${off.id}/rc`, { credentials: "include" });
@@ -3349,7 +3354,7 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
       )}
 
       {/* Edit officer dialog */}
-      <Dialog open={!!editingOfficer} onOpenChange={(open) => { if (!open) { setEditingOfficer(null); setEditForm(null); } }}>
+      <Dialog open={!!editingOfficer} onOpenChange={(open) => { if (!open) { setEditingOfficer(null); setEditForm(null); setEditErrors({}); } }}>
         <DialogContent className="max-w-2xl" data-testid="dialog-edit-officer">
           <DialogHeader>
             <DialogTitle>Upraviť štatutára</DialogTitle>
@@ -3392,36 +3397,54 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                 </div>
               </div>
 
+              {/* Email + Telefón */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Email <span className="text-red-500">*</span></label>
+                  <Input className={`h-8 text-sm ${editErrors.email ? "border-red-500" : ""}`} type="email" placeholder="napr. jan@firma.sk" value={editForm.email} onChange={e => { setEditForm(f => f ? { ...f, email: e.target.value } : f); if (editErrors.email) setEditErrors(p => { const n = {...p}; delete n.email; return n; }); }} data-testid="input-edit-officer-email" />
+                  {editErrors.email && <p className="text-xs text-red-500">{editErrors.email}</p>}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Telefón <span className="text-red-500">*</span></label>
+                  <Input className={`h-8 text-sm ${editErrors.phone ? "border-red-500" : ""}`} placeholder="napr. +421 900 000 000" value={editForm.phone} onChange={e => { setEditForm(f => f ? { ...f, phone: e.target.value } : f); if (editErrors.phone) setEditErrors(p => { const n = {...p}; delete n.phone; return n; }); }} data-testid="input-edit-officer-phone" />
+                  {editErrors.phone && <p className="text-xs text-red-500">{editErrors.phone}</p>}
+                </div>
+              </div>
+
               {/* R3: Ulica 50% + Číslo popisné 25% + Číslo orientačné 25% */}
               <div className="grid grid-cols-4 gap-3">
                 <div className="col-span-2 space-y-1">
-                  <label className="text-xs text-muted-foreground">Ulica</label>
-                  <Input className="h-8 text-sm" value={editForm.street} onChange={e => setEditForm(f => f ? { ...f, street: e.target.value } : f)} data-testid="input-edit-officer-street" />
+                  <label className="text-xs text-muted-foreground">Ulica <span className="text-red-500">*</span></label>
+                  <Input className={`h-8 text-sm ${editErrors.street ? "border-red-500" : ""}`} value={editForm.street} onChange={e => { setEditForm(f => f ? { ...f, street: e.target.value } : f); if (editErrors.street) setEditErrors(p => { const n = {...p}; delete n.street; return n; }); }} data-testid="input-edit-officer-street" />
+                  {editErrors.street && <p className="text-xs text-red-500">{editErrors.street}</p>}
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Číslo popisné</label>
                   <Input className="h-8 text-sm" value={editForm.streetNumber} onChange={e => setEditForm(f => f ? { ...f, streetNumber: e.target.value } : f)} data-testid="input-edit-officer-streetnumber" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Číslo orientačné</label>
-                  <Input className="h-8 text-sm" value={editForm.orientNumber} onChange={e => setEditForm(f => f ? { ...f, orientNumber: e.target.value } : f)} data-testid="input-edit-officer-orientnumber" />
+                  <label className="text-xs text-muted-foreground">Číslo orientačné <span className="text-red-500">*</span></label>
+                  <Input className={`h-8 text-sm ${editErrors.orientNumber ? "border-red-500" : ""}`} value={editForm.orientNumber} onChange={e => { setEditForm(f => f ? { ...f, orientNumber: e.target.value } : f); if (editErrors.orientNumber) setEditErrors(p => { const n = {...p}; delete n.orientNumber; return n; }); }} data-testid="input-edit-officer-orientnumber" />
+                  {editErrors.orientNumber && <p className="text-xs text-red-500">{editErrors.orientNumber}</p>}
                 </div>
               </div>
 
               {/* R4: PSČ 20% + Mesto 40% + Štát 40% */}
               <div className="grid grid-cols-5 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">PSČ</label>
-                  <Input className="h-8 text-sm" value={editForm.postalCode} onChange={e => setEditForm(f => f ? { ...f, postalCode: e.target.value } : f)} data-testid="input-edit-officer-postalcode" />
+                  <label className="text-xs text-muted-foreground">PSČ <span className="text-red-500">*</span></label>
+                  <Input className={`h-8 text-sm ${editErrors.postalCode ? "border-red-500" : ""}`} value={editForm.postalCode} onChange={e => { setEditForm(f => f ? { ...f, postalCode: e.target.value } : f); if (editErrors.postalCode) setEditErrors(p => { const n = {...p}; delete n.postalCode; return n; }); }} data-testid="input-edit-officer-postalcode" />
+                  {editErrors.postalCode && <p className="text-xs text-red-500">{editErrors.postalCode}</p>}
                 </div>
                 <div className="col-span-2 space-y-1">
-                  <label className="text-xs text-muted-foreground">Mesto / obec</label>
-                  <Input className="h-8 text-sm" value={editForm.city} onChange={e => setEditForm(f => f ? { ...f, city: e.target.value } : f)} data-testid="input-edit-officer-city" />
+                  <label className="text-xs text-muted-foreground">Mesto / obec <span className="text-red-500">*</span></label>
+                  <Input className={`h-8 text-sm ${editErrors.city ? "border-red-500" : ""}`} value={editForm.city} onChange={e => { setEditForm(f => f ? { ...f, city: e.target.value } : f); if (editErrors.city) setEditErrors(p => { const n = {...p}; delete n.city; return n; }); }} data-testid="input-edit-officer-city" />
+                  {editErrors.city && <p className="text-xs text-red-500">{editErrors.city}</p>}
                 </div>
                 <div className="col-span-2 space-y-1">
-                  <label className="text-xs text-muted-foreground">Štát</label>
-                  <Select value={editForm.stateId} onValueChange={val => setEditForm(f => f ? { ...f, stateId: val } : f)}>
-                    <SelectTrigger className="h-8 text-sm" data-testid="select-edit-officer-state">
+                  <label className="text-xs text-muted-foreground">Štát <span className="text-red-500">*</span></label>
+                  <Select value={editForm.stateId} onValueChange={val => { setEditForm(f => f ? { ...f, stateId: val } : f); if (editErrors.stateId) setEditErrors(p => { const n = {...p}; delete n.stateId; return n; }); }}>
+                    <SelectTrigger className={`h-8 text-sm ${editErrors.stateId ? "border-red-500" : ""}`} data-testid="select-edit-officer-state">
                       <SelectValue placeholder="Vybrať" />
                     </SelectTrigger>
                     <SelectContent>
@@ -3431,30 +3454,35 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                       ))}
                     </SelectContent>
                   </Select>
+                  {editErrors.stateId && <p className="text-xs text-red-500">{editErrors.stateId}</p>}
                 </div>
               </div>
 
               {/* R6: Číslo OP + Platnosť OP */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Číslo občianskeho preukazu</label>
-                  <Input className="h-8 text-sm" placeholder="napr. AB123456" value={editForm.idCardNumber} onChange={e => setEditForm(f => f ? { ...f, idCardNumber: e.target.value } : f)} data-testid="input-edit-officer-idcardnumber" />
+                  <label className="text-xs text-muted-foreground">Číslo občianskeho preukazu <span className="text-red-500">*</span></label>
+                  <Input className={`h-8 text-sm ${editErrors.idCardNumber ? "border-red-500" : ""}`} placeholder="napr. AB123456" value={editForm.idCardNumber} onChange={e => { setEditForm(f => f ? { ...f, idCardNumber: e.target.value } : f); if (editErrors.idCardNumber) setEditErrors(p => { const n = {...p}; delete n.idCardNumber; return n; }); }} data-testid="input-edit-officer-idcardnumber" />
+                  {editErrors.idCardNumber && <p className="text-xs text-red-500">{editErrors.idCardNumber}</p>}
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Platnosť OP</label>
-                  <Input type="date" className="h-8 text-sm" value={editForm.idCardExpiry} onChange={e => setEditForm(f => f ? { ...f, idCardExpiry: e.target.value } : f)} data-testid="input-edit-officer-idcardexpiry" />
+                  <label className="text-xs text-muted-foreground">Platnosť OP <span className="text-red-500">*</span></label>
+                  <Input type="date" className={`h-8 text-sm ${editErrors.idCardExpiry ? "border-red-500" : ""}`} value={editForm.idCardExpiry} onChange={e => { setEditForm(f => f ? { ...f, idCardExpiry: e.target.value } : f); if (editErrors.idCardExpiry) setEditErrors(p => { const n = {...p}; delete n.idCardExpiry; return n; }); }} data-testid="input-edit-officer-idcardexpiry" />
+                  {editErrors.idCardExpiry && <p className="text-xs text-red-500">{editErrors.idCardExpiry}</p>}
                 </div>
               </div>
 
               {/* R7: Funkcia + Obchodný podiel */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Funkcia / typ</label>
-                  <Input className="h-8 text-sm" placeholder="Konateľ" value={editForm.type} onChange={e => setEditForm(f => f ? { ...f, type: e.target.value } : f)} data-testid="input-edit-officer-type" />
+                  <label className="text-xs text-muted-foreground">Funkcia / typ <span className="text-red-500">*</span></label>
+                  <Input className={`h-8 text-sm ${editErrors.type ? "border-red-500" : ""}`} placeholder="Konateľ" value={editForm.type} onChange={e => { setEditForm(f => f ? { ...f, type: e.target.value } : f); if (editErrors.type) setEditErrors(p => { const n = {...p}; delete n.type; return n; }); }} data-testid="input-edit-officer-type" />
+                  {editErrors.type && <p className="text-xs text-red-500">{editErrors.type}</p>}
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Obchodný podiel</label>
-                  <Input className="h-8 text-sm" placeholder="napr. 50%" value={editForm.share} onChange={e => setEditForm(f => f ? { ...f, share: e.target.value } : f)} data-testid="input-edit-officer-share" />
+                  <label className="text-xs text-muted-foreground">Obchodný podiel <span className="text-red-500">*</span></label>
+                  <Input className={`h-8 text-sm ${editErrors.share ? "border-red-500" : ""}`} placeholder="napr. 50%" value={editForm.share} onChange={e => { setEditForm(f => f ? { ...f, share: e.target.value } : f); if (editErrors.share) setEditErrors(p => { const n = {...p}; delete n.share; return n; }); }} data-testid="input-edit-officer-share" />
+                  {editErrors.share && <p className="text-xs text-red-500">{editErrors.share}</p>}
                 </div>
               </div>
 
@@ -3486,8 +3514,9 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                 </Button>
                 <div className={`grid gap-2 ${editForm.isOfficerActive ? "grid-cols-1 max-w-[200px]" : "grid-cols-2"}`}>
                   <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Aktívny od</label>
-                    <Input type="date" className="h-8 text-sm" value={editForm.activeFrom} onChange={e => setEditForm(f => f ? { ...f, activeFrom: e.target.value } : f)} data-testid="input-edit-officer-activefrom" />
+                    <label className="text-xs text-muted-foreground">Aktívny od <span className="text-red-500">*</span></label>
+                    <Input type="date" className={`h-8 text-sm ${editErrors.activeFrom ? "border-red-500" : ""}`} value={editForm.activeFrom} onChange={e => { setEditForm(f => f ? { ...f, activeFrom: e.target.value } : f); if (editErrors.activeFrom) setEditErrors(p => { const n = {...p}; delete n.activeFrom; return n; }); }} data-testid="input-edit-officer-activefrom" />
+                    {editErrors.activeFrom && <p className="text-xs text-red-500">{editErrors.activeFrom}</p>}
                   </div>
                   {!editForm.isOfficerActive && (
                     <div className="space-y-1">
@@ -3520,13 +3549,28 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
             </div>
           )}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => { setEditingOfficer(null); setEditForm(null); }} data-testid="button-edit-officer-cancel">
+            <Button type="button" variant="outline" onClick={() => { setEditingOfficer(null); setEditForm(null); setEditErrors({}); }} data-testid="button-edit-officer-cancel">
               Zrušiť
             </Button>
             <Button
               type="button"
               onClick={() => {
                 if (!editingOfficer || !editForm) return;
+                const errs: Record<string, string> = {};
+                if (!editForm.email.trim()) errs.email = "Povinné pole";
+                if (!editForm.phone.trim()) errs.phone = "Povinné pole";
+                if (!editForm.street.trim()) errs.street = "Povinné pole";
+                if (!editForm.orientNumber.trim()) errs.orientNumber = "Povinné pole";
+                if (!editForm.postalCode.trim()) errs.postalCode = "Povinné pole";
+                if (!editForm.city.trim()) errs.city = "Povinné pole";
+                if (!editForm.stateId || editForm.stateId === "none") errs.stateId = "Povinné pole";
+                if (!editForm.idCardNumber.trim()) errs.idCardNumber = "Povinné pole";
+                if (!editForm.idCardExpiry.trim()) errs.idCardExpiry = "Povinné pole";
+                if (!editForm.type.trim()) errs.type = "Povinné pole";
+                if (!editForm.share.trim()) errs.share = "Povinné pole";
+                if (!editForm.activeFrom.trim()) errs.activeFrom = "Povinné pole";
+                if (Object.keys(errs).length > 0) { setEditErrors(errs); return; }
+                setEditErrors({});
                 updateOfficerMutation.mutate({
                   id: editingOfficer.id,
                   data: {
@@ -3551,6 +3595,8 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
                     inactiveFrom: editForm.isOfficerActive ? null : (editForm.inactiveFrom || null),
                     inactiveTo: editForm.isOfficerActive ? null : (editForm.inactiveTo || null),
                     birthNumber: editForm.rc || undefined,
+                    email: editForm.email || null,
+                    phone: editForm.phone || null,
                   },
                 });
               }}
