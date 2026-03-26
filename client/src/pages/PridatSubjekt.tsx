@@ -383,13 +383,15 @@ export const FullPageEditor = forwardRef<FullPageEditorHandle, FullPageEditorPro
         toast({ title: "Chýbajúce obchodné údaje", description: "Vyplňte obchodné meno SZČO.", variant: "destructive" });
         return;
       }
-      if (szcoData.ico) {
-        const icoCheck = validateSlovakICO(szcoData.ico);
-        if (!icoCheck.valid) {
-          setSzcoIcoError(icoCheck.error || "Neplatné IČO");
-          toast({ title: "Neplatné IČO", description: icoCheck.error || "Kontrolná číslica nesedí", variant: "destructive" });
-          return;
-        }
+      if (!szcoData.ico) {
+        toast({ title: "Chýbajúce obchodné údaje", description: "Vyplňte IČO SZČO.", variant: "destructive" });
+        return;
+      }
+      const icoCheck = validateSlovakICO(szcoData.ico);
+      if (!icoCheck.valid) {
+        setSzcoIcoError(icoCheck.error || "Neplatné IČO");
+        toast({ title: "Neplatné IČO", description: icoCheck.error || "Kontrolná číslica nesedí", variant: "destructive" });
+        return;
       }
       submitData.firstName = szcoFoData.firstName;
       submitData.lastName = szcoFoData.lastName;
