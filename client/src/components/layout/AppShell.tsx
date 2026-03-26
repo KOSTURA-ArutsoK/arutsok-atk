@@ -164,6 +164,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (appUser && !contextInitRef.current && !isClientUser && allStates) {
       contextInitRef.current = true;
 
+      // If user explicitly switched to FO context, skip auto-init company selection
+      const isExplicitFo = localStorage.getItem("atk_context_fo") === "1"
+        && !appUser.activeCompanyId
+        && !(appUser as any).activeSubjectId;
+      if (isExplicitFo) return;
+
+      // If a company or subject is now active (from a different switch), clear the FO flag
+      if (appUser.activeCompanyId || (appUser as any).activeSubjectId) {
+        localStorage.removeItem("atk_context_fo");
+      }
+
       const needsFullContext = !appUser.activeStateId || !appUser.activeCompanyId;
       const needsDivision = !!(appUser.activeStateId && appUser.activeCompanyId && !(appUser as any).activeDivisionId);
 
@@ -743,6 +754,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">{activeIdentityInitials}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Prihlásený ako:</p>
                     <p className="text-sm font-semibold text-foreground truncate" data-testid="text-user-menu-name">{activeIdentityLabel}</p>
                     <p className="text-xs text-muted-foreground truncate">
                       {activeIdentitySubLabel || appUser?.email || user?.email || ""}
@@ -753,7 +765,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {userContexts && userContexts.length > 0 && (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-3 py-1">Moje kontexty</DropdownMenuLabel>
+                    <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-3 py-1">Prihlásiť sa ako</DropdownMenuLabel>
                     {userContexts.map((ctx: any, idx: number) => {
                       const isCompany = ctx.contextType === "officer_company";
                       const isLinked = ctx.contextType === "linked_account";
@@ -789,12 +801,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 await apiRequest("POST", "/api/account-link/switch", { targetUserId: ctx.userId });
                                 window.location.href = "/";
                               } else if (isCompany) {
+                                localStorage.removeItem("atk_context_fo");
                                 await apiRequest("PUT", "/api/app-user/active", { activeCompanyId: ctx.companyId, activeSubjectId: null });
                                 window.location.href = "/";
                               } else if (isSubject) {
+                                localStorage.removeItem("atk_context_fo");
                                 await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: ctx.subjectId, activeCompanyId: null });
                                 window.location.href = "/";
                               } else if (isFo) {
+                                localStorage.setItem("atk_context_fo", "1");
                                 await apiRequest("PUT", "/api/app-user/active", { activeCompanyId: null, activeSubjectId: null });
                                 window.location.href = "/";
                               }
