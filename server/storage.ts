@@ -1414,11 +1414,14 @@ export class DatabaseStorage implements IStorage {
     }
 
     // === CASE 2: UID needs to be generated — check eligibility ===
-    // GLOBAL RULE: UID arises ONLY when RC (person/szco) or IČO (company) is provided.
+    // GLOBAL RULE: UID arises when RC (FO/SZČO) or IČO (firma/SZČO/OS) is provided.
+    // SZČO môže dostať UID z RC (ak je prepojené FO) ALEBO z IČO (primárne).
+    // OS dostane UID len keď má IČO. Systémové typy (mycompany, state) vždy dostanú UID.
     const detailsObj = insertSubject.details as any;
+    const icoTypes = [...companyTypes, 'szco', 'os'];
     const hasRC = personTypes.includes(subjectType) && !!insertSubject.birthNumber;
-    const hasIco = companyTypes.includes(subjectType) && !!(detailsObj?.ico || detailsObj?.dynamicFields?.ico);
-    const isOtherType = !personTypes.includes(subjectType) && !companyTypes.includes(subjectType);
+    const hasIco = icoTypes.includes(subjectType) && !!(detailsObj?.ico || detailsObj?.dynamicFields?.ico);
+    const isOtherType = !personTypes.includes(subjectType) && !icoTypes.includes(subjectType);
 
     const shouldGenerateUid = hasRC || hasIco || isOtherType;
 

@@ -3579,15 +3579,16 @@ export async function registerRoutes(
       if (input.firstName) input.firstName = capitalizeName(input.firstName) ?? input.firstName;
       if (input.lastName) input.lastName = capitalizeName(input.lastName) ?? input.lastName;
 
-      // UID pre manuálnu registráciu — GLOBAL RULE: UID vzniká JEDINE keď je RC (osoba/SZČO) alebo IČO (firma)
+      // UID pre manuálnu registráciu — GLOBAL RULE: UID vzniká JEDINE keď je RC (FO) alebo IČO (firma/SZČO/OS)
       {
-        const _personTypes = ['person', 'szco'];
-        const _companyTypes = ['company', 'organization'];
+        const _personTypes = ['person', 'szco']; // môžu mať UID aj cez RC
+        const _icoTypes = ['company', 'organization', 'szco', 'os']; // UID cez IČO
         const rawBnForUid = input.birthNumber;
         const detailsForUid = input.details as any;
-        const _hasIco = _companyTypes.includes(input.type) && !!(detailsForUid?.ico || detailsForUid?.dynamicFields?.ico);
+        const _hasIco = _icoTypes.includes(input.type) && !!(detailsForUid?.ico || detailsForUid?.dynamicFields?.ico);
         const _hasRC = _personTypes.includes(input.type) && !!rawBnForUid;
-        const _isOtherType = !_personTypes.includes(input.type) && !_companyTypes.includes(input.type);
+        // isOtherType = systémové typy (mycompany, state...) ktoré nedodávajú RC ani IČO
+        const _isOtherType = !_personTypes.includes(input.type) && !_icoTypes.includes(input.type);
         const _shouldGetUid = _hasRC || _hasIco || _isOtherType;
         if (_shouldGetUid) {
           let stateCode = '421';
