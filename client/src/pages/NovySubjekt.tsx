@@ -542,11 +542,12 @@ function SubjectInfoBubble({ opt }: { opt: typeof SUBJECT_TYPE_OPTS[0] }) {
   );
 }
 
-function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
+function AddPartnerHexButton({ onClick, isSliderActive }: { onClick: () => void; isSliderActive?: boolean }) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
 
   const isActive = hovered || pressed;
+  const glowColor = isSliderActive ? "255,30,30" : "0,220,60";
 
   return (
     <div className="flex items-center justify-center w-full" style={{ marginTop: -18, paddingBottom: 4 }}>
@@ -572,7 +573,7 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           transition: "transform 0.15s ease, filter 0.25s ease",
           transform: pressed ? "scale(0.96)" : hovered ? "scale(1.05)" : "scale(1)",
           filter: isActive
-            ? "drop-shadow(0 0 10px rgba(0,220,60,0.55)) drop-shadow(0 0 22px rgba(0,220,60,0.25))"
+            ? `drop-shadow(0 0 10px rgba(${glowColor},0.55)) drop-shadow(0 0 22px rgba(${glowColor},0.25))`
             : "drop-shadow(0 0 10px rgba(56,189,248,0.50))",
         }}
       >
@@ -597,14 +598,14 @@ function AddPartnerHexButton({ onClick }: { onClick: () => void }) {
           </defs>
           <rect
             x="8" y="8" width="264" height="64" rx="24"
-            fill={isActive ? "rgba(0,255,60,1.0)" : "rgba(56,189,248,0.45)"}
+            fill={isActive ? `rgba(${glowColor},1.0)` : "rgba(56,189,248,0.45)"}
             filter={isActive ? "url(#glowAaaHover)" : "url(#glowAaaRest)"}
             style={{ transition: "fill 0.2s ease" }}
           />
           {isActive && (
             <rect
               x="8" y="8" width="264" height="64" rx="24"
-              fill="rgba(0,220,60,0.25)"
+              fill={`rgba(${glowColor},0.25)`}
               filter="url(#glowAaaHover)"
             />
           )}
@@ -697,7 +698,7 @@ export default function NovySubjekt() {
       </div>
 
       <div style={{ marginTop: "46px" }}>
-        <AddPartnerHexButton onClick={handleButtonClick} />
+        <AddPartnerHexButton onClick={handleButtonClick} isSliderActive={sliderVisible} />
       </div>
 
       {!sliderVisible && !formData && (
