@@ -1481,6 +1481,8 @@ export async function setupAuth(app: Express) {
             if (!officerRecord) {
               return res.status(403).json({ message: "Nie ste štatutárom tejto spoločnosti." });
             }
+          } else {
+            return res.status(403).json({ message: "Cieľový účet nemá evidované rodné číslo ani firemný kontext." });
           }
         } else if (tu.activeCompanyId) {
           const [officerRecord] = await db.select({ id: companyOfficers.id }).from(companyOfficers)
@@ -1492,6 +1494,8 @@ export async function setupAuth(app: Express) {
           if (!officerRecord) {
             return res.status(403).json({ message: "Nie ste štatutárom tejto spoločnosti." });
           }
+        } else {
+          return res.status(403).json({ message: "Cieľový účet nemá priradenú identitu." });
         }
         targetUser = tu;
       }
