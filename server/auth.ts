@@ -1240,37 +1240,146 @@ export async function setupAuth(app: Express) {
   // ACCOUNT LINKING & SWITCHING
   // ============================================================
 
+  app.get("/api/account-link/suggestions", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
+      if (!currentUser || !currentUser.linkedSubjectId) return res.json([]);
+
+      const [currentSubject] = await db.select().from(subjects).where(eq(subjects.id, currentUser.linkedSubjectId));
+      if (!currentSubject || !currentSubject.birthNumber) return res.json([]);
+
+      const currentRcClean = decryptField(currentSubject.birthNumber)?.replace(/[\s\/]/g, "") ?? "";
+      if (!currentRcClean) return res.json([]);
+
+      const existingLinks = await storage.getAccountLinks(req.session.userId);
+      const alreadyLinkedIds = new Set<number>(
+        existingLinks
+          .filter((l) => l.status === "verified" && l.isActive)
+          .map((l) => l.primaryUserId === req.session.userId ? l.linkedUserId : l.primaryUserId)
+      );
+
+      const allUsers = await db.select({
+        id: appUsers.id,
+        email: appUsers.email,
+        firstName: appUsers.firstName,
+        lastName: appUsers.lastName,
+        linkedSubjectId: appUsers.linkedSubjectId,
+      }).from(appUsers).where(and(isNotNull(appUsers.linkedSubjectId), isNotNull(appUsers.email)));
+
+      const suggestions: Array<{
+        userId: number;
+        firstName: string | null;
+        lastName: string | null;
+        maskedEmail: string;
+        type: string | null;
+        ico: string | null;
+        uid: string | null;
+      }> = [];
+
+      for (const u of allUsers) {
+        if (u.id === req.session.userId) continue;
+        if (alreadyLinkedIds.has(u.id)) continue;
+        if (!u.linkedSubjectId) continue;
+
+        const [subj] = await db.select({
+          id: subjects.id,
+          firstName: subjects.firstName,
+          lastName: subjects.lastName,
+          companyName: subjects.companyName,
+          type: subjects.type,
+          ico: subjects.ico,
+          uid: subjects.uid,
+          birthNumber: subjects.birthNumber,
+        }).from(subjects).where(and(eq(subjects.id, u.linkedSubjectId), isNull(subjects.deletedAt)));
+
+        if (!subj || !subj.birthNumber) continue;
+
+        const subjRcClean = decryptField(subj.birthNumber)?.replace(/[\s\/]/g, "") ?? "";
+        if (!subjRcClean || subjRcClean !== currentRcClean) continue;
+
+        const email = u.email || "";
+        const atIdx = email.indexOf("@");
+        const maskedEmail = atIdx >= 2
+          ? email.slice(0, 2) + "***" + email.slice(atIdx)
+          : "***" + email.slice(atIdx >= 0 ? atIdx : 0);
+
+        suggestions.push({
+          userId: u.id,
+          firstName: subj.firstName ?? u.firstName ?? null,
+          lastName: subj.lastName ?? u.lastName ?? null,
+          maskedEmail,
+          type: subj.type ?? null,
+          ico: subj.ico ?? null,
+          uid: subj.uid ?? null,
+        });
+      }
+
+      return res.json(suggestions);
+    } catch (err) {
+      console.error("[ACCOUNT-LINK SUGGESTIONS]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
   app.post("/api/account-link/initiate", async (req, res) => {
     try {
       if (!req.session.userId || req.session.loginStep !== "done") {
         return res.status(401).json({ message: "Neautorizovaný prístup" });
       }
-      const { targetEmail, rc } = req.body;
-      if (!targetEmail || !rc) {
-        return res.status(400).json({ message: "Vyžaduje sa email a rodné číslo" });
-      }
+      const { targetEmail, rc, targetUserId } = req.body;
+
       const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
       if (!currentUser) return res.status(401).json({ message: "Používateľ nenájdený" });
 
-      if (!currentUser.linkedSubjectId) {
-        return res.status(403).json({ message: "Váš účet nemá priradenú identitu. Kontaktujte správcu." });
-      }
-      const [currentSubject] = await db.select().from(subjects).where(eq(subjects.id, currentUser.linkedSubjectId));
-      if (!currentSubject || !currentSubject.birthNumber) {
-        return res.status(403).json({ message: "Váš profil nemá evidované rodné číslo. Kontaktujte správcu." });
-      }
-      const currentRc = decryptField(currentSubject.birthNumber);
-      const cleanRc = rc.replace(/[\s\/]/g, "");
-      const cleanCurrentRc = currentRc?.replace(/[\s\/]/g, "") ?? "";
-      if (cleanCurrentRc !== cleanRc) {
-        return res.status(403).json({ message: "Zadané rodné číslo nezodpovedá vášmu profilu" });
-      }
+      let targetUser: typeof appUsers.$inferSelect;
 
-      const targetEmailLower = (targetEmail as string).toLowerCase().trim();
-      const [targetUser] = await db.select().from(appUsers).where(eq(appUsers.email, targetEmailLower));
-      if (!targetUser) return res.status(404).json({ message: "Účet s týmto emailom neexistuje" });
-      if (targetUser.id === req.session.userId) {
-        return res.status(400).json({ message: "Nemôžete prepojiť účet sám so sebou" });
+      if (targetUserId) {
+        // Suggestion-based flow: server verifies RC match itself, no rc from client required
+        const [tu] = await db.select().from(appUsers).where(eq(appUsers.id, Number(targetUserId)));
+        if (!tu) return res.status(404).json({ message: "Cieľový účet neexistuje" });
+        if (tu.id === req.session.userId) return res.status(400).json({ message: "Nemôžete prepojiť účet sám so sebou" });
+
+        // Verify that both users have the same RC
+        if (!currentUser.linkedSubjectId || !tu.linkedSubjectId) {
+          return res.status(403).json({ message: "Jeden z účtov nemá priradenú identitu." });
+        }
+        const [cs] = await db.select().from(subjects).where(eq(subjects.id, currentUser.linkedSubjectId));
+        const [ts] = await db.select().from(subjects).where(eq(subjects.id, tu.linkedSubjectId));
+        if (!cs?.birthNumber || !ts?.birthNumber) {
+          return res.status(403).json({ message: "Jeden z účtov nemá evidované rodné číslo." });
+        }
+        const curRc = decryptField(cs.birthNumber)?.replace(/[\s\/]/g, "") ?? "";
+        const tgtRc = decryptField(ts.birthNumber)?.replace(/[\s\/]/g, "") ?? "";
+        if (!curRc || curRc !== tgtRc) {
+          return res.status(403).json({ message: "Tento účet nepatrí rovnakej osobe." });
+        }
+        targetUser = tu;
+      } else {
+        // Manual flow: requires targetEmail + rc
+        if (!targetEmail || !rc) {
+          return res.status(400).json({ message: "Vyžaduje sa email a rodné číslo" });
+        }
+        if (!currentUser.linkedSubjectId) {
+          return res.status(403).json({ message: "Váš účet nemá priradenú identitu. Kontaktujte správcu." });
+        }
+        const [currentSubject] = await db.select().from(subjects).where(eq(subjects.id, currentUser.linkedSubjectId));
+        if (!currentSubject || !currentSubject.birthNumber) {
+          return res.status(403).json({ message: "Váš profil nemá evidované rodné číslo. Kontaktujte správcu." });
+        }
+        const currentRc = decryptField(currentSubject.birthNumber);
+        const cleanRc = rc.replace(/[\s\/]/g, "");
+        const cleanCurrentRc = currentRc?.replace(/[\s\/]/g, "") ?? "";
+        if (cleanCurrentRc !== cleanRc) {
+          return res.status(403).json({ message: "Zadané rodné číslo nezodpovedá vášmu profilu" });
+        }
+        const targetEmailLower = (targetEmail as string).toLowerCase().trim();
+        const [tu] = await db.select().from(appUsers).where(eq(appUsers.email, targetEmailLower));
+        if (!tu) return res.status(404).json({ message: "Účet s týmto emailom neexistuje" });
+        if (tu.id === req.session.userId) return res.status(400).json({ message: "Nemôžete prepojiť účet sám so sebou" });
+        targetUser = tu;
       }
 
       const existingLink = await storage.getAccountLink(req.session.userId, targetUser.id);
@@ -1302,16 +1411,17 @@ export async function setupAuth(app: Express) {
         targetSubject = ts ?? null;
       }
 
+      const targetEmailForLog = targetUser.email || "";
       if (method === "email") {
-        console.log(`[ACCOUNT-LINK OTP] Sending email OTP to ${targetEmailLower.replace(/^(.{2}).*(@.*)$/, "$1***$2")}`);
+        console.log(`[ACCOUNT-LINK OTP] Sending email OTP to ${targetEmailForLog.replace(/^(.{2}).*(@.*)$/, "$1***$2")}`);
       } else {
         const phone = targetUser.phone || (targetSubject?.phone ?? null);
         console.log(`[ACCOUNT-LINK OTP] Sending SMS OTP to ${phone ? maskPhone(phone) : "***"}`);
       }
 
       const maskedTarget = method === "email"
-        ? targetEmailLower.replace(/^(.{2}).*(@.*)$/, "$1***$2")
-        : (targetUser.phone ? maskPhone(targetUser.phone) : targetEmailLower);
+        ? targetEmailForLog.replace(/^(.{2}).*(@.*)$/, "$1***$2")
+        : (targetUser.phone ? maskPhone(targetUser.phone) : targetEmailForLog);
 
       const targetName = targetSubject
         ? `${targetSubject.firstName ?? ""} ${targetSubject.lastName ?? ""}`.trim() || targetSubject.companyName || targetUser.email
