@@ -649,6 +649,44 @@ export async function setupAuth(app: Express) {
         });
 
         if (linkedPersons.length > 1) {
+          // Before asking for entity RC: check if exactly one officer is already identified
+          // by being a peer subject (same email as the logged-in user).
+          // If yes, skip entity_rc_verify and treat it like a single-officer direct login.
+          const peerPersonIds = new Set(
+            allPeers
+              .filter((p) => isPerson(p.type) || isSzco(p.type))
+              .map((p) => p.id)
+          );
+          const emailMatchedOfficers = linkedPersons.filter((o) => o.subjectId !== null && peerPersonIds.has(o.subjectId!));
+
+          if (emailMatchedOfficers.length === 1) {
+            const [foSubject] = await db
+              .select({ id: subjects.id, uid: subjects.uid, firstName: subjects.firstName, lastName: subjects.lastName, phone: subjects.phone, email: subjects.email, street: subjects.street, city: subjects.city, postalCode: subjects.postalCode, idCardNumber: subjects.idCardNumber })
+              .from(subjects)
+              .where(eq(subjects.id, emailMatchedOfficers[0].subjectId!));
+
+            if (foSubject) {
+              const completeness = await checkFoProfileCompleteness(foSubject);
+              if (!completeness.complete) {
+                return req.session.save((err) => {
+                  if (err) return res.status(500).json({ message: "Chyba session" });
+                  res.json({
+                    nextStep: "blocked",
+                    message: `Profil fyzickej osoby (konateľa) je neúplný. Chýba: ${completeness.missingFields.join(", ")}. Kontaktujte správcu systému.`,
+                  });
+                });
+              }
+              req.session.loginSubjectId = foSubject.id;
+              req.session.loginActingAsEntityId = selected.id;
+              req.session.loginStep = "phone_verify";
+              await writeLoginAudit(user.id, foSubject.id, subjectDisplayName(foSubject), "ENTITY_DIRECT", "email_matched_officer", ip, selected.id, { foUid: foSubject.uid, entityType: selected.type });
+              return req.session.save((err) => {
+                if (err) return res.status(500).json({ message: "Chyba session" });
+                res.json({ nextStep: "phone_verify", selectedSubject: { id: foSubject.id, firstName: foSubject.firstName, lastName: foSubject.lastName, phone: foSubject.phone ?? null } });
+              });
+            }
+          }
+
           req.session.loginStep = "entity_rc_verify";
           req.session.pendingEntitySubjectId = selected.id;
           req.session.pendingEntityCandidateIds = linkedPersons.map((p) => p.subjectId);
@@ -908,21 +946,44 @@ export async function setupAuth(app: Express) {
       let selectedSubject: { id: number; firstName: string | null; lastName: string | null; companyName: string | null; type: string | null } | null = null;
 
       if (subjectId) {
-        const [s] = await db.select({ id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type })
-          .from(subjects).where(eq(subjects.id, subjectId));
+        const [s] = await db.select({
+          id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName,
+          companyName: subjects.companyName, type: subjects.type, phone: subjects.phone,
+          email: subjects.email, street: subjects.street, city: subjects.city,
+          postalCode: subjects.postalCode, idCardNumber: subjects.idCardNumber,
+        }).from(subjects).where(eq(subjects.id, subjectId));
         if (s) {
           selectedSubject = s;
           await writeLoginAudit(req.session.userId, subjectId, subjectDisplayName(s), "SMS", verifyReason, ip);
+
+          // FO completeness check (same gate as in verify-phone)
+          if (isPerson(s.type)) {
+            const completeness = await checkFoProfileCompleteness(s);
+            if (!completeness.complete) {
+              req.session.pendingSmsCode = undefined;
+              req.session.pendingVerifyReason = undefined;
+              return req.session.save((err2) => {
+                if (err2) return res.status(500).json({ message: "Chyba session" });
+                res.json({
+                  nextStep: "blocked",
+                  message: `Profil je neúplný. Chýba: ${completeness.missingFields.join(", ")}. Kontaktujte správcu systému.`,
+                });
+              });
+            }
+          }
         }
       }
 
-      req.session.loginStep = "phone_verify";
+      // SMS code = phone already proven → skip phone_verify, go straight to done
+      req.session.loginStep = "done";
       req.session.pendingSmsCode = undefined;
       req.session.pendingVerifyReason = undefined;
+      const userId2 = req.session.userId;
+      await recordLoginHistory(userId2, ip);
 
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
-        res.json({ nextStep: "phone_verify", selectedSubject });
+        res.json({ nextStep: "done", ok: true });
       });
     } catch (err) {
       console.error("Verify SMS error:", err);

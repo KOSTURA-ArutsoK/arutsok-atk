@@ -237,8 +237,15 @@ export default function AuthPage() {
     try {
       const resp = await apiRequest("POST", "/api/login/verify-sms", { code: smsCode });
       const res = await resp.json();
-      applyPendingSubject(res?.selectedSubject);
-      setStep("phone_verify");
+      if (res?.nextStep === "done") {
+        finalizeLogin();
+      } else if (res?.nextStep === "blocked") {
+        setBlockedMessage(res.message ?? "Prístup zamietnutý");
+        setStep("blocked");
+      } else {
+        applyPendingSubject(res?.selectedSubject);
+        setStep("phone_verify");
+      }
     } catch (err: any) {
       setError("Nesprávny SMS kód");
     } finally {
