@@ -552,7 +552,7 @@ function AddPartnerHexButton({ onClick, isFormActive }: { onClick: () => void; i
   // "red"   – formulár aktívny (Pokračovať stlačené), trvalý
   // "green" – myška na tlačidle, formulár ešte nie je aktívny
   // "blue"  – idle (myška mimo tlačidla)
-  const colorMode: "red" | "green" | "blue" = isFormActive ? "red" : isHovered ? "green" : "blue";
+  const colorMode: "red" | "green" | "blue" = isHovered ? (isFormActive ? "red" : "green") : "blue";
 
   const GLOW_RGB = { red: "255,30,30", green: "0,220,60", blue: "0,150,255" }[colorMode];
   const FILL_OP  = { red: 0.90, green: 1.0, blue: 0.28 }[colorMode];
