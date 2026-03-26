@@ -1261,13 +1261,21 @@ export async function setupAuth(app: Express) {
           .map((l) => l.primaryUserId === req.session.userId ? l.linkedUserId : l.primaryUserId)
       );
 
-      const allUsers = await db.select({
-        id: appUsers.id,
+      // Single join query — no N+1
+      const usersWithSubjects = await db.select({
+        userId: appUsers.id,
         email: appUsers.email,
-        firstName: appUsers.firstName,
-        lastName: appUsers.lastName,
-        linkedSubjectId: appUsers.linkedSubjectId,
-      }).from(appUsers).where(and(isNotNull(appUsers.linkedSubjectId), isNotNull(appUsers.email)));
+        userFirstName: appUsers.firstName,
+        userLastName: appUsers.lastName,
+        subjFirstName: subjects.firstName,
+        subjLastName: subjects.lastName,
+        type: subjects.type,
+        ico: subjects.ico,
+        uid: subjects.uid,
+        birthNumber: subjects.birthNumber,
+      }).from(appUsers)
+        .innerJoin(subjects, and(eq(subjects.id, appUsers.linkedSubjectId!), isNull(subjects.deletedAt)))
+        .where(and(isNotNull(appUsers.linkedSubjectId), isNotNull(appUsers.email), isNotNull(subjects.birthNumber)));
 
       const suggestions: Array<{
         userId: number;
@@ -1279,41 +1287,28 @@ export async function setupAuth(app: Express) {
         uid: string | null;
       }> = [];
 
-      for (const u of allUsers) {
-        if (u.id === req.session.userId) continue;
-        if (alreadyLinkedIds.has(u.id)) continue;
-        if (!u.linkedSubjectId) continue;
+      for (const row of usersWithSubjects) {
+        if (row.userId === req.session.userId) continue;
+        if (alreadyLinkedIds.has(row.userId)) continue;
+        if (!row.birthNumber) continue;
 
-        const [subj] = await db.select({
-          id: subjects.id,
-          firstName: subjects.firstName,
-          lastName: subjects.lastName,
-          companyName: subjects.companyName,
-          type: subjects.type,
-          ico: subjects.ico,
-          uid: subjects.uid,
-          birthNumber: subjects.birthNumber,
-        }).from(subjects).where(and(eq(subjects.id, u.linkedSubjectId), isNull(subjects.deletedAt)));
-
-        if (!subj || !subj.birthNumber) continue;
-
-        const subjRcClean = decryptField(subj.birthNumber)?.replace(/[\s\/]/g, "") ?? "";
+        const subjRcClean = decryptField(row.birthNumber)?.replace(/[\s\/]/g, "") ?? "";
         if (!subjRcClean || subjRcClean !== currentRcClean) continue;
 
-        const email = u.email || "";
+        const email = row.email || "";
         const atIdx = email.indexOf("@");
         const maskedEmail = atIdx >= 2
           ? email.slice(0, 2) + "***" + email.slice(atIdx)
           : "***" + email.slice(atIdx >= 0 ? atIdx : 0);
 
         suggestions.push({
-          userId: u.id,
-          firstName: subj.firstName ?? u.firstName ?? null,
-          lastName: subj.lastName ?? u.lastName ?? null,
+          userId: row.userId,
+          firstName: row.subjFirstName ?? row.userFirstName ?? null,
+          lastName: row.subjLastName ?? row.userLastName ?? null,
           maskedEmail,
-          type: subj.type ?? null,
-          ico: subj.ico ?? null,
-          uid: subj.uid ?? null,
+          type: row.type ?? null,
+          ico: row.ico ?? null,
+          uid: row.uid ?? null,
         });
       }
 
@@ -1336,7 +1331,7 @@ export async function setupAuth(app: Express) {
 
       let targetUser: typeof appUsers.$inferSelect;
 
-      if (targetUserId) {
+      if (targetUserId !== undefined && targetUserId !== null) {
         // Suggestion-based flow: server verifies RC match itself, no rc from client required
         const [tu] = await db.select().from(appUsers).where(eq(appUsers.id, Number(targetUserId)));
         if (!tu) return res.status(404).json({ message: "Cieľový účet neexistuje" });
