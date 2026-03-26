@@ -4,14 +4,17 @@ import type { Express, RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
-import { appUsers, subjects, auditLogs, appUserLoginHistory } from "@shared/schema";
+import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory } from "@shared/schema";
 import { eq, and, isNull, gte, desc } from "drizzle-orm";
+import { decryptField } from "./crypto";
 
 declare module "express-session" {
   interface SessionData {
     userId: number;
     loginSubjectId: number | null;
-    loginStep: "subject_select" | "phone_verify" | "done";
+    loginStep: "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "phone_verify" | "done";
+    pendingSmsCode?: string;
+    pendingSubjectPhone?: string;
   }
 }
 
@@ -50,6 +53,90 @@ function maskPhone(phone: string): string {
   const last3 = digits.slice(-3);
   const prefix = phone.startsWith("+") ? phone.split(" ")[0] || "+421" : "+421";
   return `${prefix} *** *** ${last3}`;
+}
+
+function maskDocNumber(num: string): string {
+  if (!num) return "***";
+  if (num.length <= 3) return "***";
+  return "*".repeat(num.length - 3) + num.slice(-3);
+}
+
+function parseBirthDateFromRC(rc: string): Date | null {
+  const clean = rc.replace(/[\s\/]/g, "");
+  if (clean.length < 9 || !/^\d+$/.test(clean)) return null;
+  const yy = parseInt(clean.substring(0, 2), 10);
+  let mm = parseInt(clean.substring(2, 4), 10);
+  const dd = parseInt(clean.substring(4, 6), 10);
+  if (mm > 50) mm -= 50;
+  if (mm > 20) mm -= 20;
+  const year = yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy;
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+  const d = new Date(year, mm - 1, dd);
+  if (isNaN(d.getTime())) return null;
+  return d;
+}
+
+function calcAge(birthDate: Date, referenceDate: Date = new Date()): number {
+  let age = referenceDate.getFullYear() - birthDate.getFullYear();
+  const m = referenceDate.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && referenceDate.getDate() < birthDate.getDate())) age--;
+  return age;
+}
+
+function isPersonAdult(decryptedRC: string | null): boolean | null {
+  if (!decryptedRC) return null;
+  const bd = parseBirthDateFromRC(decryptedRC);
+  if (!bd) return null;
+  return calcAge(bd) >= 18;
+}
+
+function isPerson(type: string | null): boolean {
+  return type === "person";
+}
+
+function isSzco(type: string | null): boolean {
+  return type === "szco";
+}
+
+function isLegalEntity(type: string | null): boolean {
+  return type === "company" || type === "organization" || type === "state" || type === "os";
+}
+
+async function writeLoginAudit(
+  userId: number,
+  subjectId: number | null,
+  entityName: string | null,
+  validationMethod: "SMS" | "RC" | "DOC" | "DIRECT" | "SHADOW_ACCESS",
+  reason: string | null,
+  ip: string | null
+) {
+  await db.insert(auditLogs).values({
+    userId,
+    username: null,
+    action: "login_subject_access",
+    module: "Auth",
+    entityId: subjectId,
+    entityName,
+    oldData: null,
+    newData: { validationMethod, reason },
+    ipAddress: ip,
+  });
+}
+
+async function recordLoginHistory(userId: number, ip: string | null) {
+  const loginNow = new Date();
+  const tenSecsAgo = new Date(loginNow.getTime() - 10000);
+  const [recent] = await db.select().from(appUserLoginHistory)
+    .where(and(eq(appUserLoginHistory.appUserId, userId), gte(appUserLoginHistory.loginAt, tenSecsAgo)));
+  if (!recent) {
+    await db.update(appUsers).set({ lastLoginAt: loginNow }).where(eq(appUsers.id, userId));
+    await db.insert(appUserLoginHistory).values({ appUserId: userId, loginAt: loginNow, ipAddress: ip });
+  }
+}
+
+function subjectDisplayName(s: { firstName?: string | null; lastName?: string | null; companyName?: string | null }): string {
+  if (s.firstName || s.lastName) return `${s.firstName || ""} ${s.lastName || ""}`.trim();
+  return s.companyName || "Neznámy subjekt";
 }
 
 export async function setupAuth(app: Express) {
@@ -92,7 +179,7 @@ export async function setupAuth(app: Express) {
         return res.status(401).json({ message: "Nesprávny e-mail alebo heslo" });
       }
 
-      const matchingSubjects = await db
+      const peerSubjectsRaw = await db
         .select({
           id: subjects.id,
           uid: subjects.uid,
@@ -101,7 +188,9 @@ export async function setupAuth(app: Express) {
           companyName: subjects.companyName,
           type: subjects.type,
           phone: subjects.phone,
-          email: subjects.email,
+          birthNumber: subjects.birthNumber,
+          listStatus: subjects.listStatus,
+          parentSubjectId: subjects.parentSubjectId,
         })
         .from(subjects)
         .where(
@@ -111,63 +200,117 @@ export async function setupAuth(app: Express) {
           )
         );
 
+      const shadowSubjectsRaw = user.linkedSubjectId
+        ? await db
+            .select({
+              id: subjects.id,
+              uid: subjects.uid,
+              firstName: subjects.firstName,
+              lastName: subjects.lastName,
+              companyName: subjects.companyName,
+              type: subjects.type,
+              phone: subjects.phone,
+              birthNumber: subjects.birthNumber,
+              listStatus: subjects.listStatus,
+              parentSubjectId: subjects.parentSubjectId,
+            })
+            .from(subjects)
+            .where(
+              and(
+                eq(subjects.parentSubjectId, user.linkedSubjectId),
+                isNull(subjects.deletedAt)
+              )
+            )
+        : [];
+
+      const peerIds = new Set(peerSubjectsRaw.map((s) => s.id));
+      const shadowOnly = shadowSubjectsRaw.filter((s) => !peerIds.has(s.id));
+
       req.session.userId = user.id;
 
-      if (matchingSubjects.length === 1) {
-        req.session.loginSubjectId = matchingSubjects[0].id;
-        req.session.loginStep = "phone_verify";
-      } else if (matchingSubjects.length > 1) {
-        req.session.loginSubjectId = null;
-        req.session.loginStep = "subject_select";
-      } else {
+      const buildSubjectMeta = async (s: typeof peerSubjectsRaw[0], isShadow: boolean) => {
+        let adultStatus: boolean | null = null;
+        let documentHint: { documentType: string | null; masked: string | null } | null = null;
+
+        if (isPerson(s.type)) {
+          if (s.birthNumber) {
+            const decrypted = decryptField(s.birthNumber);
+            adultStatus = isPersonAdult(decrypted);
+          } else {
+            const [latestDoc] = await db
+              .select({
+                documentType: clientDocumentHistory.documentType,
+                documentNumber: clientDocumentHistory.documentNumber,
+              })
+              .from(clientDocumentHistory)
+              .where(eq(clientDocumentHistory.subjectId, s.id))
+              .orderBy(desc(clientDocumentHistory.archivedAt))
+              .limit(1);
+
+            if (latestDoc) {
+              documentHint = {
+                documentType: latestDoc.documentType,
+                masked: latestDoc.documentNumber ? maskDocNumber(latestDoc.documentNumber) : null,
+              };
+            } else {
+              documentHint = { documentType: null, masked: null };
+            }
+          }
+        }
+
+        return {
+          id: s.id,
+          uid: s.uid,
+          firstName: s.firstName,
+          lastName: s.lastName,
+          companyName: s.companyName,
+          type: s.type,
+          phone: s.phone ? maskPhone(s.phone) : null,
+          isShadow,
+          isAdult: adultStatus,
+          hasRisk: s.listStatus === "cerveny",
+          documentHint,
+        };
+      };
+
+      if (peerSubjectsRaw.length === 0 && shadowOnly.length === 0) {
         req.session.loginSubjectId = null;
         req.session.loginStep = "done";
-        const loginNow = new Date();
-        const ipAddr = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
-        const tenSecsAgo = new Date(loginNow.getTime() - 10000);
-        const [recent] = await db.select().from(appUserLoginHistory)
-          .where(and(eq(appUserLoginHistory.appUserId, user.id), gte(appUserLoginHistory.loginAt, tenSecsAgo)));
-        if (!recent) {
-          await db.update(appUsers).set({ lastLoginAt: loginNow }).where(eq(appUsers.id, user.id));
-          await db.insert(appUserLoginHistory).values({ appUserId: user.id, loginAt: loginNow, ipAddress: ipAddr });
-        }
+        const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+        await recordLoginHistory(user.id, ip);
+        return req.session.save((err) => {
+          if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
+          res.json({ id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role, loginStep: "done" });
+        });
       }
 
-      req.session.save((err) => {
-        if (err) {
-          console.error("Session save error:", err);
-          return res.status(500).json({ message: "Chyba pri prihlásení" });
-        }
+      if (peerSubjectsRaw.length === 1 && shadowOnly.length === 0) {
+        req.session.loginSubjectId = peerSubjectsRaw[0].id;
+        req.session.loginStep = "phone_verify";
+        const meta = await buildSubjectMeta(peerSubjectsRaw[0], false);
+        return req.session.save((err) => {
+          if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
+          res.json({
+            id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role,
+            loginStep: "phone_verify",
+            selectedSubject: { id: meta.id, firstName: meta.firstName, lastName: meta.lastName, phone: meta.phone },
+          });
+        });
+      }
 
-        const response: any = {
-          id: user.id,
-          username: user.username,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          role: user.role,
-          loginStep: req.session.loginStep,
-        };
+      req.session.loginSubjectId = null;
+      req.session.loginStep = "subject_select";
 
-        if (matchingSubjects.length === 1) {
-          response.selectedSubject = {
-            id: matchingSubjects[0].id,
-            firstName: matchingSubjects[0].firstName,
-            lastName: matchingSubjects[0].lastName,
-            phone: matchingSubjects[0].phone ? maskPhone(matchingSubjects[0].phone) : null,
-          };
-        } else if (matchingSubjects.length > 1) {
-          response.subjects = matchingSubjects.map((s) => ({
-            id: s.id,
-            uid: s.uid,
-            firstName: s.firstName,
-            lastName: s.lastName,
-            companyName: s.companyName,
-            type: s.type,
-          }));
-        }
+      const peerMetas = await Promise.all(peerSubjectsRaw.map((s) => buildSubjectMeta(s, false)));
+      const shadowMetas = await Promise.all(shadowOnly.map((s) => buildSubjectMeta(s, true)));
 
-        res.json(response);
+      return req.session.save((err) => {
+        if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
+        res.json({
+          id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role,
+          loginStep: "subject_select",
+          subjects: [...peerMetas, ...shadowMetas],
+        });
       });
     } catch (err: any) {
       console.error("Login error:", err);
@@ -180,7 +323,6 @@ export async function setupAuth(app: Express) {
       if (!req.session.userId) {
         return res.status(401).json({ message: "Neautorizovaný prístup" });
       }
-
       if (req.session.loginStep !== "subject_select") {
         return res.status(403).json({ message: "Neplatný krok prihlásenia" });
       }
@@ -191,44 +333,323 @@ export async function setupAuth(app: Express) {
       }
 
       const [user] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
-      if (!user) {
-        return res.status(401).json({ message: "Používateľ nenájdený" });
-      }
+      if (!user) return res.status(401).json({ message: "Používateľ nenájdený" });
 
-      const [subject] = await db
+      const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+
+      const [selected] = await db
         .select()
         .from(subjects)
-        .where(
-          and(
-            eq(subjects.id, subjectId),
-            eq(subjects.email, user.email!.toLowerCase()),
-            isNull(subjects.deletedAt)
-          )
-        );
+        .where(and(eq(subjects.id, subjectId), isNull(subjects.deletedAt)));
 
-      if (!subject) {
-        return res.status(403).json({ message: "Subjekt nepatrí k vášmu e-mailu" });
+      if (!selected) {
+        return res.status(403).json({ message: "Subjekt nenájdený" });
       }
 
-      req.session.loginSubjectId = subject.id;
-      req.session.loginStep = "phone_verify";
+      const isShadowSubject =
+        user.linkedSubjectId !== null &&
+        selected.parentSubjectId === user.linkedSubjectId;
 
-      req.session.save((err) => {
-        if (err) {
-          return res.status(500).json({ message: "Chyba session" });
-        }
-        res.json({
-          loginStep: "phone_verify",
-          selectedSubject: {
-            id: subject.id,
-            firstName: subject.firstName,
-            lastName: subject.lastName,
-            phone: subject.phone ? maskPhone(subject.phone) : null,
-          },
+      const isPeerSubject = selected.email?.toLowerCase() === user.email?.toLowerCase();
+
+      if (!isShadowSubject && !isPeerSubject) {
+        return res.status(403).json({ message: "Subjekt nepatrí k vášmu účtu" });
+      }
+
+      if (isShadowSubject) {
+        req.session.loginSubjectId = selected.id;
+        req.session.loginStep = "phone_verify";
+        const name = subjectDisplayName(selected);
+        await writeLoginAudit(user.id, selected.id, name, "SHADOW_ACCESS", "shadow_direct", ip);
+        return req.session.save((err) => {
+          if (err) return res.status(500).json({ message: "Chyba session" });
+          res.json({
+            nextStep: "phone_verify",
+            selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ? maskPhone(selected.phone) : null },
+          });
         });
+      }
+
+      const allPeers = await db
+        .select()
+        .from(subjects)
+        .where(and(eq(subjects.email, user.email!.toLowerCase()), isNull(subjects.deletedAt)));
+
+      const hasRiskInCluster = allPeers.some((s) => s.listStatus === "cerveny");
+
+      const selectedRC = selected.birthNumber ? decryptField(selected.birthNumber) : null;
+      const selectedBirthDate = selectedRC ? parseBirthDateFromRC(selectedRC) : null;
+      const selectedAdult = selectedBirthDate ? calcAge(selectedBirthDate) >= 18 : null;
+
+      const name = subjectDisplayName(selected);
+
+      if (hasRiskInCluster) {
+        if (!selected.birthNumber) {
+          const [latestDoc] = await db
+            .select({ documentType: clientDocumentHistory.documentType, documentNumber: clientDocumentHistory.documentNumber })
+            .from(clientDocumentHistory)
+            .where(eq(clientDocumentHistory.subjectId, selected.id))
+            .orderBy(desc(clientDocumentHistory.archivedAt))
+            .limit(1);
+
+          if (!latestDoc || !latestDoc.documentNumber) {
+            return req.session.save((err) => {
+              if (err) return res.status(500).json({ message: "Chyba session" });
+              res.json({ nextStep: "blocked", message: "Identita nebola overená. Kontaktujte prosím podporu pre doplnenie údajov." });
+            });
+          }
+
+          req.session.loginSubjectId = selected.id;
+          req.session.loginStep = "doc_verify";
+          return req.session.save((err) => {
+            if (err) return res.status(500).json({ message: "Chyba session" });
+            res.json({
+              nextStep: "doc_verify",
+              documentHint: { documentType: latestDoc.documentType, masked: maskDocNumber(latestDoc.documentNumber!) },
+              reason: "risk_override",
+            });
+          });
+        }
+
+        req.session.loginSubjectId = selected.id;
+        req.session.loginStep = "rc_verify";
+        return req.session.save((err) => {
+          if (err) return res.status(500).json({ message: "Chyba session" });
+          res.json({ nextStep: "rc_verify", reason: "risk_override" });
+        });
+      }
+
+      if (isPerson(selected.type) && !selected.birthNumber) {
+        const [latestDoc] = await db
+          .select({ documentType: clientDocumentHistory.documentType, documentNumber: clientDocumentHistory.documentNumber })
+          .from(clientDocumentHistory)
+          .where(eq(clientDocumentHistory.subjectId, selected.id))
+          .orderBy(desc(clientDocumentHistory.archivedAt))
+          .limit(1);
+
+        if (!latestDoc || !latestDoc.documentNumber) {
+          return req.session.save((err) => {
+            if (err) return res.status(500).json({ message: "Chyba session" });
+            res.json({ nextStep: "blocked", message: "Identita nebola overená. Kontaktujte prosím podporu pre doplnenie údajov." });
+          });
+        }
+
+        req.session.loginSubjectId = selected.id;
+        req.session.loginStep = "doc_verify";
+        return req.session.save((err) => {
+          if (err) return res.status(500).json({ message: "Chyba session" });
+          res.json({
+            nextStep: "doc_verify",
+            documentHint: { documentType: latestDoc.documentType, masked: maskDocNumber(latestDoc.documentNumber!) },
+          });
+        });
+      }
+
+      if (isSzco(selected.type) || (isPerson(selected.type) && allPeers.some((p) => p.id !== selected.id && isSzco(p.type)))) {
+        const szcoPartner = isSzco(selected.type)
+          ? allPeers.find((p) => isPerson(p.type))
+          : allPeers.find((p) => isSzco(p.type));
+
+        if (szcoPartner && szcoPartner.birthNumber && selected.birthNumber) {
+          const szcoRC = decryptField(szcoPartner.birthNumber);
+          if (szcoRC && selectedRC && szcoRC === selectedRC) {
+            req.session.loginSubjectId = selected.id;
+            req.session.loginStep = "phone_verify";
+            await writeLoginAudit(user.id, selected.id, name, "DIRECT", "szco_fo_same_rc", ip);
+            return req.session.save((err) => {
+              if (err) return res.status(500).json({ message: "Chyba session" });
+              res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ? maskPhone(selected.phone) : null } });
+            });
+          }
+        }
+      }
+
+      if (isLegalEntity(selected.type)) {
+        req.session.loginSubjectId = selected.id;
+        req.session.loginStep = "phone_verify";
+        await writeLoginAudit(user.id, selected.id, name, "DIRECT", null, ip);
+        return req.session.save((err) => {
+          if (err) return res.status(500).json({ message: "Chyba session" });
+          res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, companyName: selected.companyName, phone: selected.phone ? maskPhone(selected.phone) : null } });
+        });
+      }
+
+      if (isPerson(selected.type) && selectedAdult === false) {
+        req.session.loginSubjectId = selected.id;
+        req.session.loginStep = "phone_verify";
+        await writeLoginAudit(user.id, selected.id, name, "DIRECT", "minor_direct", ip);
+        return req.session.save((err) => {
+          if (err) return res.status(500).json({ message: "Chyba session" });
+          res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ? maskPhone(selected.phone) : null } });
+        });
+      }
+
+      if (isPerson(selected.type) && selectedAdult === true) {
+        const selectedPhone = selected.phone?.replace(/\D/g, "") || "";
+        const otherPhones = allPeers
+          .filter((p) => p.id !== selected.id && p.phone)
+          .map((p) => p.phone!.replace(/\D/g, ""));
+
+        const hasUniquePhone = selectedPhone && otherPhones.length > 0 && !otherPhones.includes(selectedPhone);
+
+        if (hasUniquePhone) {
+          const code = Math.floor(100000 + Math.random() * 900000).toString();
+          console.log(`[AUTH SMS MOCK] SMS kód pre ${selected.phone}: ${code}`);
+          req.session.loginSubjectId = selected.id;
+          req.session.loginStep = "sms_verify";
+          req.session.pendingSmsCode = code;
+          req.session.pendingSubjectPhone = selected.phone ? maskPhone(selected.phone) : null;
+          return req.session.save((err) => {
+            if (err) return res.status(500).json({ message: "Chyba session" });
+            res.json({ nextStep: "sms_verify", maskedPhone: req.session.pendingSubjectPhone });
+          });
+        }
+
+        req.session.loginSubjectId = selected.id;
+        req.session.loginStep = "rc_verify";
+        return req.session.save((err) => {
+          if (err) return res.status(500).json({ message: "Chyba session" });
+          res.json({ nextStep: "rc_verify" });
+        });
+      }
+
+      req.session.loginSubjectId = selected.id;
+      req.session.loginStep = "phone_verify";
+      await writeLoginAudit(user.id, selected.id, name, "DIRECT", null, ip);
+      return req.session.save((err) => {
+        if (err) return res.status(500).json({ message: "Chyba session" });
+        res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ? maskPhone(selected.phone) : null } });
       });
     } catch (err) {
       console.error("Select subject error:", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.post("/api/login/verify-sms", loginLimiter, async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "sms_verify") {
+        return res.status(403).json({ message: "Neplatný krok prihlásenia" });
+      }
+
+      const { code } = req.body;
+      if (!code || !/^\d{6}$/.test(code)) {
+        return res.status(400).json({ message: "Zadajte platný 6-miestny kód" });
+      }
+
+      if (code !== req.session.pendingSmsCode) {
+        return res.status(400).json({ message: "Nesprávny SMS kód" });
+      }
+
+      const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+      const subjectId = req.session.loginSubjectId;
+
+      if (subjectId) {
+        const [s] = await db.select({ firstName: subjects.firstName, lastName: subjects.lastName })
+          .from(subjects).where(eq(subjects.id, subjectId));
+        const name = s ? subjectDisplayName(s) : null;
+        await writeLoginAudit(req.session.userId, subjectId, name, "SMS", null, ip);
+      }
+
+      req.session.loginStep = "phone_verify";
+      req.session.pendingSmsCode = undefined;
+
+      return req.session.save((err) => {
+        if (err) return res.status(500).json({ message: "Chyba session" });
+        res.json({ nextStep: "phone_verify" });
+      });
+    } catch (err) {
+      console.error("Verify SMS error:", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.post("/api/login/verify-rc", loginLimiter, async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "rc_verify") {
+        return res.status(403).json({ message: "Neplatný krok prihlásenia" });
+      }
+
+      const { rc } = req.body;
+      if (!rc || typeof rc !== "string") {
+        return res.status(400).json({ message: "Zadajte rodné číslo" });
+      }
+
+      const subjectId = req.session.loginSubjectId;
+      if (!subjectId) return res.status(400).json({ message: "Subjekt nebol vybraný" });
+
+      const [subject] = await db.select({ birthNumber: subjects.birthNumber, firstName: subjects.firstName, lastName: subjects.lastName })
+        .from(subjects).where(eq(subjects.id, subjectId));
+
+      if (!subject || !subject.birthNumber) {
+        return res.status(400).json({ message: "Subjekt nemá evidované rodné číslo" });
+      }
+
+      const decrypted = decryptField(subject.birthNumber);
+      const normalizedInput = rc.replace(/[\s\/]/g, "");
+      const normalizedStored = decrypted ? decrypted.replace(/[\s\/]/g, "") : null;
+
+      if (!normalizedStored || normalizedInput !== normalizedStored) {
+        return res.status(400).json({ message: "Nesprávne rodné číslo" });
+      }
+
+      const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+      const name = subjectDisplayName(subject);
+      await writeLoginAudit(req.session.userId, subjectId, name, "RC", null, ip);
+
+      req.session.loginStep = "phone_verify";
+      return req.session.save((err) => {
+        if (err) return res.status(500).json({ message: "Chyba session" });
+        res.json({ nextStep: "phone_verify" });
+      });
+    } catch (err) {
+      console.error("Verify RC error:", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.post("/api/login/verify-doc", loginLimiter, async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "doc_verify") {
+        return res.status(403).json({ message: "Neplatný krok prihlásenia" });
+      }
+
+      const { docNumber } = req.body;
+      if (!docNumber || typeof docNumber !== "string") {
+        return res.status(400).json({ message: "Zadajte číslo dokladu" });
+      }
+
+      const subjectId = req.session.loginSubjectId;
+      if (!subjectId) return res.status(400).json({ message: "Subjekt nebol vybraný" });
+
+      const [latestDoc] = await db
+        .select({ documentNumber: clientDocumentHistory.documentNumber, documentType: clientDocumentHistory.documentType })
+        .from(clientDocumentHistory)
+        .where(eq(clientDocumentHistory.subjectId, subjectId))
+        .orderBy(desc(clientDocumentHistory.archivedAt))
+        .limit(1);
+
+      if (!latestDoc || !latestDoc.documentNumber) {
+        return res.status(400).json({ message: "Identita nebola overená. Kontaktujte prosím podporu pre doplnenie údajov." });
+      }
+
+      if (docNumber.trim().toUpperCase() !== latestDoc.documentNumber.trim().toUpperCase()) {
+        return res.status(400).json({ message: "Nesprávne číslo dokladu" });
+      }
+
+      const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+      const [s] = await db.select({ firstName: subjects.firstName, lastName: subjects.lastName })
+        .from(subjects).where(eq(subjects.id, subjectId));
+      const name = s ? subjectDisplayName(s) : null;
+      await writeLoginAudit(req.session.userId, subjectId, name, "DOC", null, ip);
+
+      req.session.loginStep = "phone_verify";
+      return req.session.save((err) => {
+        if (err) return res.status(500).json({ message: "Chyba session" });
+        res.json({ nextStep: "phone_verify" });
+      });
+    } catch (err) {
+      console.error("Verify doc error:", err);
       res.status(500).json({ message: "Interná chyba" });
     }
   });
@@ -287,15 +708,9 @@ export async function setupAuth(app: Express) {
       }
 
       req.session.loginStep = "done";
-      const loginNow2 = new Date();
-      const ipAddr2 = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
-      const tenSecsAgo2 = new Date(loginNow2.getTime() - 10000);
-      const [recent2] = await db.select().from(appUserLoginHistory)
-        .where(and(eq(appUserLoginHistory.appUserId, userId), gte(appUserLoginHistory.loginAt, tenSecsAgo2)));
-      if (!recent2) {
-        await db.update(appUsers).set({ lastLoginAt: loginNow2 }).where(eq(appUsers.id, userId));
-        await db.insert(appUserLoginHistory).values({ appUserId: userId, loginAt: loginNow2, ipAddress: ipAddr2 });
-      }
+      const ip2 = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+      await recordLoginHistory(userId, ip2);
+
       req.session.save((err) => {
         if (err) {
           return res.status(500).json({ message: "Chyba session" });
@@ -312,7 +727,6 @@ export async function setupAuth(app: Express) {
     const userId = (req.session as any).userId;
     if (userId) {
       try {
-        // Record logoutAt on the most recent login entry for this user
         const [lastEntry] = await db
           .select({ id: appUserLoginHistory.id })
           .from(appUserLoginHistory)

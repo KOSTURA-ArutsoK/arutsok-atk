@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield, Lock, AlertTriangle, Mail, Eye, EyeOff, Phone, CheckCircle, Users, ArrowRight } from "lucide-react";
+import { Shield, Lock, AlertTriangle, Mail, Eye, EyeOff, Phone, CheckCircle, Users, ArrowRight, FolderOpen, Baby, CreditCard, XCircle, ChevronLeft, Building2 } from "lucide-react";
 import { formatUid, normalizePhone } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,7 +9,12 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
 
-type LoginStep = "credentials" | "subject_select" | "phone_verify";
+type LoginStep = "credentials" | "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "blocked" | "phone_verify";
+
+interface DocumentHint {
+  documentType: string | null;
+  masked: string | null;
+}
 
 interface SubjectOption {
   id: number;
@@ -18,13 +23,40 @@ interface SubjectOption {
   lastName: string | null;
   companyName: string | null;
   type: string | null;
+  phone: string | null;
+  isShadow: boolean;
+  isAdult: boolean | null;
+  hasRisk: boolean;
+  documentHint: DocumentHint | null;
 }
 
 interface SelectedSubject {
   id: number;
   firstName: string | null;
   lastName: string | null;
+  companyName?: string | null;
   phone: string | null;
+}
+
+function subjectTypeLabelSk(type: string | null): string {
+  switch (type) {
+    case "person": return "Fyzická osoba";
+    case "szco": return "SZČO";
+    case "company": return "Právnická osoba";
+    case "organization": return "Tretí sektor";
+    case "state": return "Verejná správa";
+    case "os": return "Ostatné subjekty";
+    default: return "Neznámy typ";
+  }
+}
+
+function docTypeLabelSk(docType: string | null): string {
+  if (!docType) return "dokladu totožnosti";
+  const t = docType.toLowerCase();
+  if (t.includes("pas")) return "pasu";
+  if (t.includes("op") || t.includes("obciansky")) return "občianskeho preukazu";
+  if (t.includes("ridic") || t.includes("rp")) return "vodičského preukazu";
+  return docType;
 }
 
 export default function AuthPage() {
@@ -38,9 +70,18 @@ export default function AuthPage() {
   const [step, setStep] = useState<LoginStep>("credentials");
   const [subjectOptions, setSubjectOptions] = useState<SubjectOption[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<SelectedSubject | null>(null);
+  const [blockedMessage, setBlockedMessage] = useState<string>("");
+  const [smsPhone, setSmsPhone] = useState<string | null>(null);
+  const [docHint, setDocHint] = useState<DocumentHint | null>(null);
+
+  const [pendingSubject, setPendingSubject] = useState<SubjectOption | null>(null);
+
+  const [smsCode, setSmsCode] = useState("");
+  const [rcValue, setRcValue] = useState("");
+  const [docNumber, setDocNumber] = useState("");
 
   const [newPhone, setNewPhone] = useState("");
-  const [smsCode, setSmsCode] = useState("");
+  const [phoneSmsCode, setPhoneSmsCode] = useState("");
   const [smsSent, setSmsSent] = useState(false);
   const [phoneConfirmed, setPhoneConfirmed] = useState(false);
 
@@ -65,10 +106,7 @@ export default function AuthPage() {
 
     setLoading(true);
     try {
-      const res = await apiRequest("POST", "/api/login", {
-        email: email.trim(),
-        password,
-      });
+      const res = await apiRequest("POST", "/api/login", { email: email.trim(), password });
       const data = await res.json();
 
       if (data.loginStep === "subject_select" && data.subjects) {
@@ -95,15 +133,92 @@ export default function AuthPage() {
   const handleSelectSubject = async (subjectId: number) => {
     setError(null);
     setLoading(true);
+    const clicked = subjectOptions.find((s) => s.id === subjectId) || null;
+    setPendingSubject(clicked);
     try {
       const res = await apiRequest("POST", "/api/login/select-subject", { subjectId });
       const data = await res.json();
-      if (data.selectedSubject) {
+
+      if (data.nextStep === "phone_verify" && data.selectedSubject) {
+        setSelectedSubject(data.selectedSubject);
+        setStep("phone_verify");
+      } else if (data.nextStep === "sms_verify") {
+        setSmsPhone(data.maskedPhone || null);
+        setStep("sms_verify");
+      } else if (data.nextStep === "rc_verify") {
+        setStep("rc_verify");
+      } else if (data.nextStep === "doc_verify") {
+        setDocHint(data.documentHint || null);
+        setStep("doc_verify");
+      } else if (data.nextStep === "blocked") {
+        setBlockedMessage(data.message || "Identita nebola overená. Kontaktujte prosím podporu pre doplnenie údajov.");
+        setStep("blocked");
+      } else if (data.loginStep === "phone_verify" && data.selectedSubject) {
         setSelectedSubject(data.selectedSubject);
         setStep("phone_verify");
       }
     } catch (err: any) {
       setError("Chyba pri výbere identity");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyPendingSubject = () => {
+    if (pendingSubject) {
+      setSelectedSubject({
+        id: pendingSubject.id,
+        firstName: pendingSubject.firstName,
+        lastName: pendingSubject.lastName,
+        companyName: pendingSubject.companyName,
+        phone: pendingSubject.phone,
+      });
+    }
+  };
+
+  const handleVerifySms = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (smsCode.length !== 6) { setError("SMS kód musí mať 6 číslic"); return; }
+    setLoading(true);
+    try {
+      await apiRequest("POST", "/api/login/verify-sms", { code: smsCode });
+      applyPendingSubject();
+      setStep("phone_verify");
+    } catch (err: any) {
+      setError("Nesprávny SMS kód");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyRc = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!rcValue.trim()) { setError("Zadajte rodné číslo"); return; }
+    setLoading(true);
+    try {
+      await apiRequest("POST", "/api/login/verify-rc", { rc: rcValue.trim() });
+      applyPendingSubject();
+      setStep("phone_verify");
+    } catch (err: any) {
+      setError("Nesprávne rodné číslo");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyDoc = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!docNumber.trim()) { setError("Zadajte číslo dokladu"); return; }
+    setLoading(true);
+    try {
+      await apiRequest("POST", "/api/login/verify-doc", { docNumber: docNumber.trim() });
+      applyPendingSubject();
+      setStep("phone_verify");
+    } catch (err: any) {
+      setError("Nesprávne číslo dokladu");
     } finally {
       setLoading(false);
     }
@@ -128,36 +243,20 @@ export default function AuthPage() {
   const handlePhoneChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    if (!newPhone.trim()) {
-      setError("Zadajte nové telefónne číslo");
-      return;
-    }
-    if (!smsCode.trim() || smsCode.length !== 6) {
-      setError("SMS kód musí mať 6 číslic");
-      return;
-    }
-
+    if (!newPhone.trim()) { setError("Zadajte nové telefónne číslo"); return; }
+    if (!phoneSmsCode.trim() || phoneSmsCode.length !== 6) { setError("SMS kód musí mať 6 číslic"); return; }
     setLoading(true);
     try {
-      await apiRequest("POST", "/api/login/verify-phone", {
-        confirmed: false,
-        newPhone: newPhone.trim(),
-        smsCode: smsCode.trim(),
-      });
+      await apiRequest("POST", "/api/login/verify-phone", { confirmed: false, newPhone: newPhone.trim(), smsCode: phoneSmsCode.trim() });
       setPhoneConfirmed(true);
       setTimeout(async () => {
         await login({ email: email.trim(), password } as any);
       }, 500);
-    } catch (err: any) {
+    } catch {
       setError("Chyba pri zmene telefónneho čísla");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSendSms = () => {
-    setSmsSent(true);
   };
 
   const renderError = () => {
@@ -170,11 +269,23 @@ export default function AuthPage() {
     );
   };
 
+  const backToSelect = () => {
+    setError(null);
+    setSmsCode("");
+    setRcValue("");
+    setDocNumber("");
+    setStep("subject_select");
+  };
+
   if (step === "subject_select") {
+    const peerSubjects = subjectOptions.filter((s) => !s.isShadow);
+    const shadowSubjects = subjectOptions.filter((s) => s.isShadow);
+    const hasRiskInCluster = peerSubjects.some((s) => s.hasRisk);
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md rounded-2xl">
-          <CardContent className="pt-8 pb-6 px-6 space-y-6">
+        <Card className="w-full max-w-lg rounded-2xl">
+          <CardContent className="pt-8 pb-6 px-6 space-y-5">
             <div className="text-center space-y-3">
               <div className="w-14 h-14 rounded-md bg-primary/10 flex items-center justify-center mx-auto">
                 <Users className="w-8 h-8 text-primary" />
@@ -185,30 +296,285 @@ export default function AuthPage() {
               </div>
             </div>
 
+            {hasRiskInCluster && (
+              <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/30" data-testid="banner-risk-warning">
+                <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-destructive font-medium">Upozornenie: Jeden zo subjektov je na rizikovom zozname. Vyžaduje sa overenie totožnosti.</p>
+              </div>
+            )}
+
             {renderError()}
 
-            <div className="space-y-2">
-              {subjectOptions.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => handleSelectSubject(s.id)}
-                  disabled={loading}
-                  className="w-full flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent hover:border-primary/50 transition-colors text-left"
-                  data-testid={`button-select-subject-${s.id}`}
-                >
-                  <div>
-                    <p className="font-medium">
-                      {s.firstName} {s.lastName}
-                    </p>
-                    {s.companyName && (
-                      <p className="text-sm text-muted-foreground">{s.companyName}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground font-mono">{formatUid(s.uid)}</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                </button>
-              ))}
+            {peerSubjects.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Vaše profily</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {peerSubjects.map((s) => {
+                    const name = s.firstName || s.lastName
+                      ? `${s.firstName || ""} ${s.lastName || ""}`.trim()
+                      : s.companyName || "Neznámy";
+                    const isMinor = s.isAdult === false && s.type === "person";
+                    const isCompany = s.type !== "person" && s.type !== "szco";
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => handleSelectSubject(s.id)}
+                        disabled={loading}
+                        className={`flex flex-col items-start gap-1 p-3 rounded-lg border transition-colors text-left ${
+                          s.hasRisk
+                            ? "border-destructive/60 bg-destructive/5 hover:bg-destructive/10"
+                            : "border-border hover:bg-accent hover:border-primary/50"
+                        }`}
+                        data-testid={`button-select-subject-${s.id}`}
+                      >
+                        <div className="flex items-center gap-1.5 w-full">
+                          {isMinor && <Baby className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
+                          {isCompany && <Building2 className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
+                          {s.hasRisk && <AlertTriangle className="w-3.5 h-3.5 text-destructive flex-shrink-0" />}
+                          <p className="font-medium text-sm truncate">{name}</p>
+                          <ArrowRight className="w-3 h-3 text-muted-foreground ml-auto flex-shrink-0" />
+                        </div>
+                        <p className="text-xs text-muted-foreground">{subjectTypeLabelSk(s.type)}</p>
+                        {isMinor && <p className="text-xs text-blue-500">Neplnoletá osoba</p>}
+                        {s.phone && <p className="text-xs font-mono text-muted-foreground">{s.phone}</p>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {shadowSubjects.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Spravované profily</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {shadowSubjects.map((s) => {
+                    const name = s.firstName || s.lastName
+                      ? `${s.firstName || ""} ${s.lastName || ""}`.trim()
+                      : s.companyName || "Neznámy";
+                    const isMinor = s.isAdult === false && s.type === "person";
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => handleSelectSubject(s.id)}
+                        disabled={loading}
+                        className="flex flex-col items-start gap-1 p-3 rounded-lg border border-dashed border-border hover:bg-accent hover:border-primary/50 transition-colors text-left"
+                        data-testid={`button-select-shadow-${s.id}`}
+                      >
+                        <div className="flex items-center gap-1.5 w-full">
+                          {isMinor ? <Baby className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" /> : <FolderOpen className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
+                          <p className="font-medium text-sm truncate">{name}</p>
+                          <ArrowRight className="w-3 h-3 text-muted-foreground ml-auto flex-shrink-0" />
+                        </div>
+                        <p className="text-xs text-muted-foreground">{subjectTypeLabelSk(s.type)}</p>
+                        {isMinor && <p className="text-xs text-blue-500">Neplnoletá osoba</p>}
+                        <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">Spravovaný profil</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "sms_verify") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md rounded-2xl">
+          <CardContent className="pt-8 pb-6 px-6 space-y-6">
+            <div className="text-center space-y-3">
+              <div className="w-14 h-14 rounded-md bg-primary/10 flex items-center justify-center mx-auto">
+                <Phone className="w-8 h-8 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold" data-testid="text-sms-verify-title">Overenie SMS kódom</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Kód bol odoslaný na číslo <span className="font-mono font-semibold">{smsPhone || "neznáme číslo"}</span>
+                </p>
+              </div>
             </div>
+
+            {renderError()}
+
+            <form onSubmit={handleVerifySms} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="smsCodeInput">SMS overovací kód (6 číslic)</Label>
+                <Input
+                  id="smsCodeInput"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="000000"
+                  value={smsCode}
+                  onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  className="text-center text-2xl tracking-[0.5em] font-mono"
+                  autoFocus
+                  data-testid="input-sms-code-verify"
+                />
+                <p className="text-xs text-muted-foreground text-center">Overovací kód bol odoslaný (simulácia)</p>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={loading || smsCode.length !== 6}
+                data-testid="button-verify-sms-code"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                {loading ? "Overujem..." : "Potvrdiť kód"}
+              </Button>
+
+              <Button type="button" variant="ghost" className="w-full text-sm" onClick={backToSelect} data-testid="button-back-to-select-sms">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Späť na výber identity
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "rc_verify") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md rounded-2xl">
+          <CardContent className="pt-8 pb-6 px-6 space-y-6">
+            <div className="text-center space-y-3">
+              <div className="w-14 h-14 rounded-md bg-primary/10 flex items-center justify-center mx-auto">
+                <CreditCard className="w-8 h-8 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold" data-testid="text-rc-verify-title">Overenie rodného čísla</h1>
+                <p className="text-sm text-muted-foreground mt-1">Zadajte rodné číslo pre potvrdenie vašej totožnosti</p>
+              </div>
+            </div>
+
+            {renderError()}
+
+            <form onSubmit={handleVerifyRc} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="rcInput">Rodné číslo</Label>
+                <Input
+                  id="rcInput"
+                  type="text"
+                  placeholder="YYMMDD/XXXX"
+                  value={rcValue}
+                  onChange={(e) => setRcValue(e.target.value)}
+                  autoFocus
+                  data-testid="input-rc-value"
+                />
+                <p className="text-xs text-muted-foreground">Zadajte rodné číslo evidované v systéme</p>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={loading || !rcValue.trim()}
+                data-testid="button-verify-rc"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                {loading ? "Overujem..." : "Potvrdiť totožnosť"}
+              </Button>
+
+              <Button type="button" variant="ghost" className="w-full text-sm" onClick={backToSelect} data-testid="button-back-to-select-rc">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Späť na výber identity
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "doc_verify") {
+    const docLabel = docTypeLabelSk(docHint?.documentType || null);
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md rounded-2xl">
+          <CardContent className="pt-8 pb-6 px-6 space-y-6">
+            <div className="text-center space-y-3">
+              <div className="w-14 h-14 rounded-md bg-primary/10 flex items-center justify-center mx-auto">
+                <CreditCard className="w-8 h-8 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold" data-testid="text-doc-verify-title">Overenie dokladu totožnosti</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Zadajte číslo {docLabel}
+                </p>
+              </div>
+            </div>
+
+            {docHint?.masked && (
+              <div className="text-center p-3 rounded-lg bg-muted/50 border border-border">
+                <p className="text-xs text-muted-foreground mb-1">Evidovaný doklad ({docHint.documentType || "neznámy typ"})</p>
+                <p className="text-lg font-mono font-bold" data-testid="text-doc-masked">{docHint.masked}</p>
+              </div>
+            )}
+
+            {renderError()}
+
+            <form onSubmit={handleVerifyDoc} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="docInput">Číslo {docLabel}</Label>
+                <Input
+                  id="docInput"
+                  type="text"
+                  placeholder="Zadajte číslo dokladu"
+                  value={docNumber}
+                  onChange={(e) => setDocNumber(e.target.value)}
+                  autoFocus
+                  data-testid="input-doc-number"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={loading || !docNumber.trim()}
+                data-testid="button-verify-doc"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                {loading ? "Overujem..." : "Potvrdiť totožnosť"}
+              </Button>
+
+              <Button type="button" variant="ghost" className="w-full text-sm" onClick={backToSelect} data-testid="button-back-to-select-doc">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Späť na výber identity
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "blocked") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md rounded-2xl">
+          <CardContent className="pt-8 pb-6 px-6 space-y-6">
+            <div className="text-center space-y-3">
+              <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
+                <XCircle className="w-8 h-8 text-destructive" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold" data-testid="text-blocked-title">Prístup zamietnutý</h1>
+                <p className="text-sm text-muted-foreground mt-1" data-testid="text-blocked-message">
+                  {blockedMessage || "Identita nebola overená. Kontaktujte prosím podporu pre doplnenie údajov."}
+                </p>
+              </div>
+            </div>
+
+            <Button type="button" variant="ghost" className="w-full text-sm" onClick={backToSelect} data-testid="button-back-to-select-blocked">
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Späť na výber identity
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -246,6 +612,7 @@ export default function AuthPage() {
                 <h1 className="text-xl font-bold" data-testid="text-phone-verify-title">Overenie telefónu</h1>
                 <p className="text-sm text-muted-foreground mt-1">
                   {selectedSubject?.firstName} {selectedSubject?.lastName}
+                  {selectedSubject?.companyName && !selectedSubject?.firstName ? selectedSubject.companyName : ""}
                 </p>
               </div>
             </div>
@@ -272,7 +639,7 @@ export default function AuthPage() {
                     ÁNO
                   </Button>
                   <Button
-                    onClick={handleSendSms}
+                    onClick={() => setSmsSent(true)}
                     variant="outline"
                     className="flex-1 border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20"
                     data-testid="button-phone-no"
@@ -301,15 +668,15 @@ export default function AuthPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="smsCode">SMS overovací kód (6 číslic)</Label>
+                  <Label htmlFor="phoneSmsCode">SMS overovací kód (6 číslic)</Label>
                   <Input
-                    id="smsCode"
+                    id="phoneSmsCode"
                     type="text"
                     inputMode="numeric"
                     maxLength={6}
                     placeholder="000000"
-                    value={smsCode}
-                    onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    value={phoneSmsCode}
+                    onChange={(e) => setPhoneSmsCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                     className="text-center text-2xl tracking-[0.5em] font-mono"
                     data-testid="input-sms-code"
                   />
@@ -321,7 +688,7 @@ export default function AuthPage() {
                 <Button
                   type="submit"
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                  disabled={loading || smsCode.length !== 6}
+                  disabled={loading || phoneSmsCode.length !== 6}
                   data-testid="button-verify-sms"
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
