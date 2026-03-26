@@ -1187,16 +1187,13 @@ export async function registerRoutes(
       if (validated.activeCompanyId != null) updates.activeSubjectId = null;
       // Security: verify activeSubjectId is in allowed contexts (always enforced)
       if (validated.activeSubjectId != null) {
-        const isAdminUser = (appUser as any).role === "admin" || (appUser as any).role === "superadmin";
+        const isAdminUser = appUser.role === "admin" || appUser.role === "superadmin";
         if (!isAdminUser) {
           if (!appUser.linkedSubjectId && !appUser.email) {
             return res.status(403).json({ message: "Subjekt nie je súčasťou vašich kontextov" });
           }
-          const conditions: any[] = [
-            eq(subjects.id, validated.activeSubjectId),
-            isNull(subjects.deletedAt),
-          ];
-          const membershipConditions: any[] = [];
+          type MembershipSQL = ReturnType<typeof eq> | ReturnType<typeof isNotNull>;
+          const membershipConditions: MembershipSQL[] = [];
           if (appUser.linkedSubjectId) {
             membershipConditions.push(eq(subjects.linkedFoId, appUser.linkedSubjectId));
             membershipConditions.push(eq(subjects.parentSubjectId, appUser.linkedSubjectId));
@@ -1207,7 +1204,6 @@ export async function registerRoutes(
           if (membershipConditions.length === 0) {
             return res.status(403).json({ message: "Subjekt nie je súčasťou vašich kontextov" });
           }
-          conditions.push(or(...membershipConditions));
           const allowed = await db
             .select({ id: subjects.id })
             .from(subjects)
@@ -1216,14 +1212,18 @@ export async function registerRoutes(
               eq(subjectContacts.type, "email"),
               appUser.email ? eq(subjectContacts.value, appUser.email) : sql`false`
             ))
-            .where(and(...conditions));
+            .where(and(
+              eq(subjects.id, validated.activeSubjectId),
+              isNull(subjects.deletedAt),
+              or(...membershipConditions)
+            ));
           if (allowed.length === 0) {
             return res.status(403).json({ message: "Subjekt nie je súčasťou vašich kontextov" });
           }
         }
       }
       
-      const oldData = { activeCompanyId: appUser.activeCompanyId, activeStateId: appUser.activeStateId, activeDivisionId: (appUser as any).activeDivisionId, activeSubjectId: (appUser as any).activeSubjectId };
+      const oldData = { activeCompanyId: appUser.activeCompanyId, activeStateId: appUser.activeStateId, activeDivisionId: appUser.activeDivisionId, activeSubjectId: appUser.activeSubjectId };
       const updated = await storage.updateAppUser(appUser.id, updates);
       await logAudit(req, { action: "UPDATE", module: "nastavenia", entityId: appUser.id, entityName: appUser.username, oldData, newData: updates });
       res.json(updated);

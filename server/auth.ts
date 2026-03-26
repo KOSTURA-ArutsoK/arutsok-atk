@@ -1772,12 +1772,15 @@ export async function setupAuth(app: Express) {
         type: "person",
         uid: foSubject?.uid ?? null,
         ico: null,
-        isCurrent: currentUser.activeCompanyId === null && (currentUser as any).activeSubjectId === null,
+        isCurrent: currentUser.activeCompanyId === null && currentUser.activeSubjectId === null,
       });
 
       // Linked subjects (SZČO, PO, VS, TS, OS)
       // Discovery via: 1) linkedFoId/parentSubjectId, 2) email contact match
-      const linkedSubjectsMap = new Map<number, { id: number; type: string; firstName: string | null; lastName: string | null; companyName: string | null; uid: string | null; details: any }>();
+      type LinkedSubjectRow = { id: number; type: string; firstName: string | null; lastName: string | null; companyName: string | null; uid: string | null; details: Record<string, unknown> | null };
+      const linkedSubjectsMap = new Map<number, LinkedSubjectRow>();
+
+      const NON_PERSON_TYPES = ["szco", "company", "organization", "state", "os"];
 
       if (foSubject) {
         const byHierarchy = await db
@@ -1796,9 +1799,10 @@ export async function setupAuth(app: Express) {
               eq(subjects.linkedFoId, foSubject.id),
               eq(subjects.parentSubjectId, foSubject.id)
             ),
-            isNull(subjects.deletedAt)
+            isNull(subjects.deletedAt),
+            inArray(subjects.type, NON_PERSON_TYPES)
           ));
-        for (const s of byHierarchy) linkedSubjectsMap.set(s.id, s);
+        for (const s of byHierarchy) linkedSubjectsMap.set(s.id, s as LinkedSubjectRow);
       }
 
       if (currentUser.email) {
@@ -1820,15 +1824,15 @@ export async function setupAuth(app: Express) {
           ))
           .where(and(
             isNull(subjects.deletedAt),
-            ne(subjects.type, "person")
+            inArray(subjects.type, NON_PERSON_TYPES)
           ));
         for (const s of byEmail) {
-          if (!linkedSubjectsMap.has(s.id)) linkedSubjectsMap.set(s.id, s);
+          if (!linkedSubjectsMap.has(s.id)) linkedSubjectsMap.set(s.id, s as LinkedSubjectRow);
         }
       }
 
       for (const ls of linkedSubjectsMap.values()) {
-        const ico = (ls.details as any)?.ico ?? null;
+        const ico = (ls.details as { ico?: string } | null)?.ico ?? null;
         const displayName = ls.companyName
           || [ls.firstName, ls.lastName].filter(Boolean).join(" ")
           || ls.uid || "";
@@ -1848,7 +1852,7 @@ export async function setupAuth(app: Express) {
             type: ls.type,
             uid: ls.uid ?? null,
             ico: ico ?? null,
-            isCurrent: (currentUser as any).activeSubjectId === ls.id,
+            isCurrent: currentUser.activeSubjectId === ls.id,
           });
         }
       }

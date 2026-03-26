@@ -669,7 +669,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div
-                      className={`hidden sm:flex items-center gap-1.5 px-2.5 h-7 rounded-full text-[11px] font-medium border ${badgeColor}`}
+                      className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full text-[11px] font-medium border ${badgeColor}`}
                       data-testid="badge-active-identity"
                     >
                       <span className="opacity-70">{typeTag}</span>
