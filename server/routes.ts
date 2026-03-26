@@ -7926,8 +7926,10 @@ export async function registerRoutes(
           const specialistaUidFromRow = normalizeImportUid(rowData["specialista"] || rowData["specialist"] || rowData["specialista_uid"] || null);
           // Apply active-identity fallback: if row has no specialist UID, use importer's active identity
           const specialistaUid = specialistaUidFromRow || importerSpecialistaUid || null;
-          // szco_uid: use row value if present, else use importerSzcoUid (only set when active identity is SZČO)
-          const szcoUidFromImport = specialistaUidFromRow ? null : importerSzcoUid;
+          // szco_uid is derived independently of specialistaUid (mirrors POST /api/contracts logic):
+          // if importer's active identity is SZČO, always set szcoUid unless the row already provides it
+          const szcoUidFromRow = normalizeImportUid(rowData["szco_uid"] || null);
+          const szcoUidFromImport = szcoUidFromRow || importerSzcoUid || null;
           const specialistaPodiel = rowData["specialista_podiel"] || rowData["specialist_percentage"] || rowData["specialista_pct"] || rowData["specialista_%"] || null;
           const odporucitelUid = normalizeImportUid(rowData["odporucitel"] || rowData["recommender"] || rowData["odporucitel1_uid"] || null);
           const odporucitelPodiel = rowData["odporucitel_podiel"] || rowData["recommender_percentage"] || rowData["odporucitel1_pct"] || rowData["odporucitel1_%"] || null;
@@ -8295,7 +8297,25 @@ export async function registerRoutes(
             module: "zmluvy",
             entityId: created.id,
             entityName: `Import riadok ${rowNum}: kontrakt #${created.id}`,
-            newData: { row: rowNum, contractId: created.id, partnerId: resolvedPartnerId, productId: resolvedProductId, subjectId: resolvedSubjectId, specialistaUid, odporucitelUid, odporucitel2Uid, odporucitel3Uid },
+            newData: {
+              row: rowNum,
+              contractId: created.id,
+              partnerId: resolvedPartnerId,
+              productId: resolvedProductId,
+              subjectId: resolvedSubjectId,
+              specialistaUid,
+              szcoUid: szcoUidFromImport,
+              odporucitelUid,
+              odporucitel2Uid,
+              odporucitel3Uid,
+              _identity: {
+                specialistaUid,
+                szcoUid: szcoUidFromImport,
+                fromRow: !!specialistaUidFromRow,
+                activeSubjectId: appUser?.activeSubjectId ?? null,
+                activeCompanyId: appUser?.activeCompanyId ?? null,
+              },
+            },
           });
 
           if (isIncomplete) incompleteCount++;
