@@ -164,8 +164,16 @@ export default function AuthPage() {
     }
   };
 
-  const applyPendingSubject = () => {
-    if (pendingSubject) {
+  const applyPendingSubject = (serverSubject?: { id: number; firstName: string | null; lastName: string | null; companyName: string | null; type: string | null } | null) => {
+    if (serverSubject) {
+      setSelectedSubject({
+        id: serverSubject.id,
+        firstName: serverSubject.firstName,
+        lastName: serverSubject.lastName,
+        companyName: serverSubject.companyName,
+        phone: pendingSubject?.phone ?? null,
+      });
+    } else if (pendingSubject) {
       setSelectedSubject({
         id: pendingSubject.id,
         firstName: pendingSubject.firstName,
@@ -182,8 +190,9 @@ export default function AuthPage() {
     if (smsCode.length !== 6) { setError("SMS kód musí mať 6 číslic"); return; }
     setLoading(true);
     try {
-      await apiRequest("POST", "/api/login/verify-sms", { code: smsCode });
-      applyPendingSubject();
+      const resp = await apiRequest("POST", "/api/login/verify-sms", { code: smsCode });
+      const res = await resp.json();
+      applyPendingSubject(res?.selectedSubject);
       setStep("phone_verify");
     } catch (err: any) {
       setError("Nesprávny SMS kód");
@@ -198,8 +207,9 @@ export default function AuthPage() {
     if (!rcValue.trim()) { setError("Zadajte rodné číslo"); return; }
     setLoading(true);
     try {
-      await apiRequest("POST", "/api/login/verify-rc", { rc: rcValue.trim() });
-      applyPendingSubject();
+      const resp = await apiRequest("POST", "/api/login/verify-rc", { rc: rcValue.trim() });
+      const res = await resp.json();
+      applyPendingSubject(res?.selectedSubject);
       setStep("phone_verify");
     } catch (err: any) {
       setError("Nesprávne rodné číslo");
@@ -214,8 +224,9 @@ export default function AuthPage() {
     if (!docNumber.trim()) { setError("Zadajte číslo dokladu"); return; }
     setLoading(true);
     try {
-      await apiRequest("POST", "/api/login/verify-doc", { docNumber: docNumber.trim() });
-      applyPendingSubject();
+      const resp = await apiRequest("POST", "/api/login/verify-doc", { docNumber: docNumber.trim() });
+      const res = await resp.json();
+      applyPendingSubject(res?.selectedSubject);
       setStep("phone_verify");
     } catch (err: any) {
       setError("Nesprávne číslo dokladu");

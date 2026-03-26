@@ -15,6 +15,7 @@ declare module "express-session" {
     loginStep: "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "phone_verify" | "done";
     pendingSmsCode?: string;
     pendingSubjectPhone?: string;
+    pendingVerifyReason?: string;
   }
 }
 
@@ -454,6 +455,7 @@ export async function setupAuth(app: Express) {
 
           req.session.loginSubjectId = selected.id;
           req.session.loginStep = "doc_verify";
+          req.session.pendingVerifyReason = "risk_override";
           return req.session.save((err) => {
             if (err) return res.status(500).json({ message: "Chyba session" });
             res.json({
@@ -466,6 +468,7 @@ export async function setupAuth(app: Express) {
 
         req.session.loginSubjectId = selected.id;
         req.session.loginStep = "rc_verify";
+        req.session.pendingVerifyReason = "risk_override";
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba session" });
           res.json({ nextStep: "rc_verify", reason: "risk_override" });
@@ -610,19 +613,25 @@ export async function setupAuth(app: Express) {
       const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
       const subjectId = req.session.loginSubjectId;
 
+      const verifyReason = req.session.pendingVerifyReason ?? null;
+      let selectedSubject: { id: number; firstName: string | null; lastName: string | null; companyName: string | null; type: string | null } | null = null;
+
       if (subjectId) {
-        const [s] = await db.select({ firstName: subjects.firstName, lastName: subjects.lastName })
+        const [s] = await db.select({ id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type })
           .from(subjects).where(eq(subjects.id, subjectId));
-        const name = s ? subjectDisplayName(s) : null;
-        await writeLoginAudit(req.session.userId, subjectId, name, "SMS", null, ip);
+        if (s) {
+          selectedSubject = s;
+          await writeLoginAudit(req.session.userId, subjectId, subjectDisplayName(s), "SMS", verifyReason, ip);
+        }
       }
 
       req.session.loginStep = "phone_verify";
       req.session.pendingSmsCode = undefined;
+      req.session.pendingVerifyReason = undefined;
 
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
-        res.json({ nextStep: "phone_verify" });
+        res.json({ nextStep: "phone_verify", selectedSubject });
       });
     } catch (err) {
       console.error("Verify SMS error:", err);
@@ -644,7 +653,7 @@ export async function setupAuth(app: Express) {
       const subjectId = req.session.loginSubjectId;
       if (!subjectId) return res.status(400).json({ message: "Subjekt nebol vybraný" });
 
-      const [subject] = await db.select({ birthNumber: subjects.birthNumber, firstName: subjects.firstName, lastName: subjects.lastName })
+      const [subject] = await db.select({ birthNumber: subjects.birthNumber, firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type })
         .from(subjects).where(eq(subjects.id, subjectId));
 
       if (!subject || !subject.birthNumber) {
@@ -660,13 +669,15 @@ export async function setupAuth(app: Express) {
       }
 
       const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
-      const name = subjectDisplayName(subject);
-      await writeLoginAudit(req.session.userId, subjectId, name, "RC", null, ip);
+      const verifyReason = req.session.pendingVerifyReason ?? null;
+      await writeLoginAudit(req.session.userId, subjectId, subjectDisplayName(subject), "RC", verifyReason, ip);
 
+      const selectedSubject = { id: subjectId, firstName: subject.firstName, lastName: subject.lastName, companyName: (subject as any).companyName ?? null, type: (subject as any).type ?? null };
       req.session.loginStep = "phone_verify";
+      req.session.pendingVerifyReason = undefined;
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
-        res.json({ nextStep: "phone_verify" });
+        res.json({ nextStep: "phone_verify", selectedSubject });
       });
     } catch (err) {
       console.error("Verify RC error:", err);
@@ -704,15 +715,17 @@ export async function setupAuth(app: Express) {
       }
 
       const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
-      const [s] = await db.select({ firstName: subjects.firstName, lastName: subjects.lastName })
+      const verifyReason = req.session.pendingVerifyReason ?? null;
+      const [s] = await db.select({ id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type })
         .from(subjects).where(eq(subjects.id, subjectId));
-      const name = s ? subjectDisplayName(s) : null;
-      await writeLoginAudit(req.session.userId, subjectId, name, "DOC", null, ip);
+      const selectedSubject = s ?? null;
+      await writeLoginAudit(req.session.userId, subjectId, s ? subjectDisplayName(s) : null, "DOC", verifyReason, ip);
 
       req.session.loginStep = "phone_verify";
+      req.session.pendingVerifyReason = undefined;
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
-        res.json({ nextStep: "phone_verify" });
+        res.json({ nextStep: "phone_verify", selectedSubject });
       });
     } catch (err) {
       console.error("Verify doc error:", err);
