@@ -121,7 +121,8 @@ async function writeLoginAudit(
   validationMethod: "SMS" | "RC" | "DOC" | "DIRECT" | "SHADOW_ACCESS" | "ENTITY_RC" | "ENTITY_DIRECT",
   reason: string | null,
   ip: string | null,
-  actingAsEntityId?: number
+  actingAsEntityId?: number,
+  opts?: { foUid?: string | null; entityType?: string | null }
 ) {
   await db.insert(auditLogs).values({
     userId,
@@ -131,7 +132,14 @@ async function writeLoginAudit(
     entityId: actingAsEntityId ?? subjectId,
     entityName,
     oldData: null,
-    newData: { validationMethod, reason, foSubjectId: subjectId, entityType: actingAsEntityId ? "entity" : null, actingAsEntityId: actingAsEntityId ?? null },
+    newData: {
+      validationMethod,
+      reason,
+      foSubjectId: subjectId,
+      foUid: opts?.foUid ?? null,
+      entityType: opts?.entityType ?? null,
+      actingAsEntityId: actingAsEntityId ?? null,
+    },
     ipAddress: ip,
   });
 }
@@ -683,7 +691,7 @@ export async function setupAuth(app: Express) {
 
         if (linkedPersons.length === 1) {
           const [foSubject] = await db
-            .select({ id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName, phone: subjects.phone, email: subjects.email, street: subjects.street, city: subjects.city, postalCode: subjects.postalCode, idCardNumber: subjects.idCardNumber })
+            .select({ id: subjects.id, uid: subjects.uid, firstName: subjects.firstName, lastName: subjects.lastName, phone: subjects.phone, email: subjects.email, street: subjects.street, city: subjects.city, postalCode: subjects.postalCode, idCardNumber: subjects.idCardNumber })
             .from(subjects)
             .where(eq(subjects.id, linkedPersons[0].subjectId));
 
@@ -702,7 +710,7 @@ export async function setupAuth(app: Express) {
             req.session.loginSubjectId = foSubject.id;
             req.session.loginActingAsEntityId = selected.id;
             req.session.loginStep = "phone_verify";
-            await writeLoginAudit(user.id, foSubject.id, subjectDisplayName(foSubject), "ENTITY_DIRECT", "single_officer_direct", ip, selected.id);
+            await writeLoginAudit(user.id, foSubject.id, subjectDisplayName(foSubject), "ENTITY_DIRECT", "single_officer_direct", ip, selected.id, { foUid: foSubject.uid, entityType: selected.type });
             return req.session.save((err) => {
               if (err) return res.status(500).json({ message: "Chyba session" });
               res.json({ nextStep: "phone_verify", selectedSubject: { id: foSubject.id, firstName: foSubject.firstName, lastName: foSubject.lastName, phone: foSubject.phone ? maskPhone(foSubject.phone) : null } });
@@ -806,9 +814,10 @@ export async function setupAuth(app: Express) {
       const attempts = (req.session.entityRcAttempts ?? 0) + 1;
       req.session.entityRcAttempts = attempts;
 
+      // Pre-check: if already exhausted all attempts from previous calls, reject immediately
       if (attempts > 3) {
         return req.session.save(() => {
-          res.status(429).json({ message: "Príliš veľa nesprávnych pokusov. Prihláste sa znova od začiatku." });
+          res.status(429).json({ message: "Príliš veľa nesprávnych pokusov. Prihláste sa znova od začiatku.", attemptsLeft: 0 });
         });
       }
 
@@ -843,12 +852,21 @@ export async function setupAuth(app: Express) {
 
       if (!foundFo) {
         const attemptsLeft = 3 - attempts;
+        // On 3rd failure (attempts === 3): terminal lockout with 429
+        if (attemptsLeft <= 0) {
+          req.session.loginStep = undefined;
+          req.session.pendingEntitySubjectId = undefined;
+          req.session.pendingEntityCandidateIds = undefined;
+          req.session.entityRcAttempts = undefined;
+          return req.session.save((err) => {
+            if (err) return res.status(500).json({ message: "Chyba session" });
+            res.status(429).json({ message: "Príliš veľa nesprávnych pokusov. Prihláste sa znova od začiatku.", attemptsLeft: 0 });
+          });
+        }
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba session" });
           res.status(400).json({
-            message: attemptsLeft > 0
-              ? `Nesprávne rodné číslo. Zostávajúce pokusy: ${attemptsLeft}`
-              : "Príliš veľa nesprávnych pokusov. Prihláste sa znova od začiatku.",
+            message: `Nesprávne rodné číslo. Zostávajúce pokusy: ${attemptsLeft}`,
             attemptsLeft,
           });
         });
@@ -867,8 +885,10 @@ export async function setupAuth(app: Express) {
 
       const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
 
+      // Fetch entity subject to get concrete entityType for audit
+      const [entitySubject] = await db.select({ type: subjects.type }).from(subjects).where(eq(subjects.id, entitySubjectId)).limit(1);
       const auditEntityName = `USER_FO ${foundFo.uid ?? foundFo.id} ACTING_AS entity:${entitySubjectId}`;
-      await writeLoginAudit(req.session.userId, foundFo.id, auditEntityName, "ENTITY_RC", "entity_rc_verified", ip, entitySubjectId);
+      await writeLoginAudit(req.session.userId, foundFo.id, auditEntityName, "ENTITY_RC", "entity_rc_verified", ip, entitySubjectId, { foUid: foundFo.uid, entityType: entitySubject?.type ?? null });
 
       req.session.loginSubjectId = foundFo.id;
       req.session.loginActingAsEntityId = entitySubjectId;
