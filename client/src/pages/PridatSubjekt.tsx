@@ -362,7 +362,6 @@ export function FullPageEditor({
       dynFields.ic_dph = szcoData.ic_dph;
       dynFields.miesto_podnikania = szcoData.miesto_podnikania;
       dynFields.register = szcoData.register;
-      dynFields.szco_uid = szcoData.szco_uid;
       dynFields.fo_uid = szcoFoData.fo_uid;
       existingDet.dynamicFields = dynFields;
       existingDet.ico = szcoData.ico;
@@ -515,43 +514,11 @@ export function FullPageEditor({
               </div>
               <div className="flex flex-wrap gap-3">
                 <div className="space-y-1 flex-1 min-w-[200px]">
-                  <Label className="text-xs text-muted-foreground">ID Subjektu (421...) *</Label>
+                  <Label className="text-xs text-muted-foreground">ID Subjektu</Label>
                   <Input
-                    value={szcoData.szco_uid}
-                    onChange={e => setSzcoData(prev => ({ ...prev, szco_uid: e.target.value }))}
-                    onBlur={async () => {
-                      let val = szcoData.szco_uid.replace(/\s/g, '');
-                      if (!val) return;
-                      if (val.replace(/\D/g, '').length > 0 && val.replace(/\D/g, '').length < 15) {
-                        val = smartPadUid(val, uidPrefix);
-                        setSzcoData(prev => ({ ...prev, szco_uid: val }));
-                      }
-                      if (!val || val.length < 6) return;
-                      try {
-                        const resp = await fetch(`/api/subjects/by-uid/${encodeURIComponent(val)}`);
-                        if (resp.ok) {
-                          const existing = await resp.json();
-                          if (existing && existing.type === "szco") {
-                            const fullResp = await fetch(`/api/subjects/${existing.id}`);
-                            if (fullResp.ok) {
-                              const full = await fullResp.json();
-                              const det = full.details || {};
-                              setSzcoData(prev => ({
-                                ...prev,
-                                obchodne_meno: full.companyName || det.dynamicFields?.obchodne_meno || prev.obchodne_meno,
-                                ico: det.ico || det.dynamicFields?.ico || prev.ico,
-                                dic: det.dic || det.dynamicFields?.dic || prev.dic,
-                                ic_dph: det.ic_dph || det.dynamicFields?.ic_dph || prev.ic_dph,
-                                miesto_podnikania: det.miesto_podnikania || det.dynamicFields?.miesto_podnikania || prev.miesto_podnikania,
-                                register: det.register || det.dynamicFields?.register || prev.register,
-                              }));
-                            }
-                          }
-                        }
-                      } catch {}
-                    }}
-                    placeholder="421XXXXXXXXX"
-                    className="font-mono"
+                    value="Automaticky generovaný"
+                    disabled
+                    className="font-mono text-xs"
                     data-testid="input-szco-uid"
                   />
                 </div>
