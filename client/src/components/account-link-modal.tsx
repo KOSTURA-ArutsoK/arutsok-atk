@@ -43,6 +43,7 @@ function isEntityType(type: string | null): boolean {
 
 export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalProps) {
   const [step, setStep] = useState<ModalStep>("suggestions");
+  const [prevStep, setPrevStep] = useState<"suggestions" | "form">("suggestions");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsLoaded, setSuggestionsLoaded] = useState(false);
@@ -80,6 +81,7 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
 
   const resetForm = () => {
     setStep("suggestions");
+    setPrevStep("suggestions");
     setTargetEmail("");
     setRc("");
     setOtp("");
@@ -94,13 +96,14 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
     onClose();
   };
 
-  async function callInitiate(payload: { targetUserId: number } | { targetEmail: string; rc: string }) {
+  async function callInitiate(payload: { targetUserId: number } | { targetEmail: string; rc: string }, fromStep: "suggestions" | "form") {
     setError(null);
     setLoading(true);
     try {
       const res = await apiRequest("POST", "/api/account-link/initiate", payload);
       const data = await res.json();
       setInitiateResult(data);
+      setPrevStep(fromStep);
       setStep("otp");
     } catch (err: any) {
       const msg = err?.message || "";
@@ -116,14 +119,14 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
   }
 
   const handleSuggestionLink = async (suggestion: Suggestion) => {
-    await callInitiate({ targetUserId: suggestion.userId });
+    await callInitiate({ targetUserId: suggestion.userId }, "suggestions");
   };
 
   const handleInitiate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetEmail.trim()) { setError("Zadajte email cieľového účtu"); return; }
     if (!rc.trim()) { setError("Zadajte vaše rodné číslo"); return; }
-    await callInitiate({ targetEmail: targetEmail.trim(), rc: rc.trim() });
+    await callInitiate({ targetEmail: targetEmail.trim(), rc: rc.trim() }, "form");
   };
 
   const handleVerify = async (e: React.FormEvent) => {
@@ -152,6 +155,13 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
     onSuccess();
     onClose();
   };
+
+  const goToManualForm = () => {
+    setError(null);
+    setStep("form");
+  };
+
+  const emptyAndLoaded = suggestionsLoaded && !suggestionsLoading && suggestions.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
@@ -184,79 +194,118 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
               </div>
             )}
 
-            {!suggestionsLoading && suggestionsLoaded && suggestions.length > 0 && (
-              <div className="space-y-2" data-testid="suggestions-list">
-                <p className="text-xs text-muted-foreground">Tieto účty patria rovnakej osobe a môžete ich prepojiť:</p>
-                {suggestions.map((s) => {
-                  const name = `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || "Neznámy";
-                  const isEntity = isEntityType(s.type);
-                  return (
-                    <div
-                      key={s.userId}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition-colors"
-                      data-testid={`suggestion-item-${s.userId}`}
-                    >
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isEntity ? "bg-blue-100 dark:bg-blue-900/30" : "bg-emerald-100 dark:bg-emerald-900/30"}`}>
-                        {isEntity ? (
-                          <Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        ) : (
-                          <UserCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{name}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {subjectTypeLabel(s.type)}
-                          {s.ico && <span> — IČO:&nbsp;{s.ico}</span>}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">{s.maskedEmail}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        disabled={loading}
-                        onClick={() => handleSuggestionLink(s)}
-                        data-testid={`button-suggestion-link-${s.userId}`}
+            {suggestionsLoaded && !suggestionsLoading && suggestions.length > 0 && (
+              <>
+                <div className="space-y-2" data-testid="suggestions-list">
+                  <p className="text-xs text-muted-foreground">Tieto účty patria rovnakej osobe a môžete ich prepojiť:</p>
+                  {suggestions.map((s) => {
+                    const name = `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim() || "Neznámy";
+                    const isEntity = isEntityType(s.type);
+                    return (
+                      <div
+                        key={s.userId}
+                        className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition-colors"
+                        data-testid={`suggestion-item-${s.userId}`}
                       >
-                        {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Prepojiť"}
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {!suggestionsLoading && suggestionsLoaded && suggestions.length === 0 && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border text-sm text-muted-foreground" data-testid="suggestions-empty">
-                <Search className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>Neboli nájdené žiadne ďalšie účty pre vašu osobu. Môžete zadať email manuálne.</span>
-              </div>
-            )}
-
-            <div className="flex flex-col gap-2 pt-1">
-              {!suggestionsLoading && suggestionsLoaded && suggestions.length > 0 && (
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${isEntity ? "bg-blue-100 dark:bg-blue-900/30" : "bg-emerald-100 dark:bg-emerald-900/30"}`}>
+                          {isEntity ? (
+                            <Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          ) : (
+                            <UserCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {subjectTypeLabel(s.type)}
+                            {s.ico && <span> — IČO:&nbsp;{s.ico}</span>}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">{s.maskedEmail}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          disabled={loading}
+                          onClick={() => handleSuggestionLink(s)}
+                          data-testid={`button-suggestion-link-${s.userId}`}
+                        >
+                          {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Prepojiť"}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
                 <button
                   type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 text-center transition-colors"
-                  onClick={() => { setError(null); setStep("form"); }}
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 text-center transition-colors w-full"
+                  onClick={goToManualForm}
                   data-testid="button-manual-form"
                 >
                   Zadať email manuálne
                 </button>
-              )}
-              <Button variant="outline" className="w-full" onClick={handleClose} data-testid="button-account-link-cancel">
-                Zavrieť
-              </Button>
-              {(!suggestionsLoading && suggestionsLoaded && suggestions.length === 0) && (
-                <Button className="w-full" onClick={() => { setError(null); setStep("form"); }} data-testid="button-go-to-manual">
-                  <ArrowRight className="w-4 h-4 mr-1" />
-                  Zadať email manuálne
+                <Button variant="outline" className="w-full" onClick={handleClose} data-testid="button-account-link-cancel">
+                  Zavrieť
                 </Button>
-              )}
-            </div>
+              </>
+            )}
+
+            {/* Empty state: show info + manual form inline, no extra click needed */}
+            {emptyAndLoaded && (
+              <>
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border text-sm text-muted-foreground" data-testid="suggestions-empty">
+                  <Search className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>Neboli nájdené žiadne ďalšie účty pre vašu osobu. Môžete zadať email cieľového účtu manuálne.</span>
+                </div>
+
+                <form onSubmit={handleInitiate} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="al-email">Email cieľového účtu</Label>
+                    <Input
+                      id="al-email"
+                      type="email"
+                      placeholder="email@priklad.sk"
+                      value={targetEmail}
+                      onChange={(e) => setTargetEmail(e.target.value)}
+                      autoFocus
+                      data-testid="input-account-link-email"
+                    />
+                    <p className="text-xs text-muted-foreground">Email prihlásenia do druhého účtu v systéme ATK</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="al-rc">Vaše rodné číslo</Label>
+                    <Input
+                      id="al-rc"
+                      type="text"
+                      placeholder="YYMMDD/XXXX"
+                      value={rc}
+                      onChange={(e) => setRc(e.target.value)}
+                      data-testid="input-account-link-rc"
+                    />
+                    <p className="text-xs text-muted-foreground">Potvrdí, že oba kontexty patria vám. Nikde sa neukladá.</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50 border border-border text-xs text-muted-foreground">
+                    Potvrdením preberáte zodpovednosť za akcie vykonané v prepojenom kontexte.
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" className="flex-1" onClick={handleClose} data-testid="button-account-link-cancel">
+                      Zavrieť
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="flex-1"
+                      disabled={loading || !targetEmail.trim() || !rc.trim()}
+                      data-testid="button-account-link-submit"
+                    >
+                      <ArrowRight className="w-4 h-4 mr-1" />
+                      {loading ? "Overujem..." : "Odoslať OTP"}
+                    </Button>
+                  </div>
+                </form>
+              </>
+            )}
           </>
         )}
 
-        {/* ── MANUAL FORM STEP ── */}
+        {/* ── MANUAL FORM STEP (accessed from suggestion list via "Zadať email manuálne") ── */}
         {step === "form" && (
           <>
             <DialogHeader>
@@ -278,9 +327,9 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
 
             <form onSubmit={handleInitiate} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="al-email">Email cieľového účtu</Label>
+                <Label htmlFor="al-email-form">Email cieľového účtu</Label>
                 <Input
-                  id="al-email"
+                  id="al-email-form"
                   type="email"
                   placeholder="email@priklad.sk"
                   value={targetEmail}
@@ -292,9 +341,9 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="al-rc">Vaše rodné číslo</Label>
+                <Label htmlFor="al-rc-form">Vaše rodné číslo</Label>
                 <Input
-                  id="al-rc"
+                  id="al-rc-form"
                   type="text"
                   placeholder="YYMMDD/XXXX"
                   value={rc}
@@ -382,7 +431,13 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
               </div>
 
               <div className="flex gap-2">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => { setStep("suggestions"); setError(null); setOtp(""); }} data-testid="button-account-link-back">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => { setStep(prevStep); setError(null); setOtp(""); }}
+                  data-testid="button-account-link-back"
+                >
                   Späť
                 </Button>
                 <Button
