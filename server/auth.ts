@@ -4,18 +4,22 @@ import type { Express, RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
-import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory } from "@shared/schema";
-import { eq, and, isNull, gte, desc } from "drizzle-orm";
+import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers } from "@shared/schema";
+import { eq, and, isNull, isNotNull, gte, desc, inArray } from "drizzle-orm";
 import { decryptField } from "./crypto";
 
 declare module "express-session" {
   interface SessionData {
     userId: number;
     loginSubjectId: number | null;
-    loginStep: "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "phone_verify" | "done";
+    loginStep: "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "phone_verify" | "entity_rc_verify" | "done";
     pendingSmsCode?: string;
     pendingSubjectPhone?: string;
     pendingVerifyReason?: string;
+    pendingEntitySubjectId?: number;
+    pendingEntityCandidateIds?: number[];
+    entityRcAttempts?: number;
+    loginActingAsEntityId?: number;
   }
 }
 
@@ -107,21 +111,70 @@ async function writeLoginAudit(
   userId: number,
   subjectId: number | null,
   entityName: string | null,
-  validationMethod: "SMS" | "RC" | "DOC" | "DIRECT" | "SHADOW_ACCESS",
+  validationMethod: "SMS" | "RC" | "DOC" | "DIRECT" | "SHADOW_ACCESS" | "ENTITY_RC" | "ENTITY_DIRECT",
   reason: string | null,
-  ip: string | null
+  ip: string | null,
+  actingAsEntityId?: number
 ) {
   await db.insert(auditLogs).values({
     userId,
     username: null,
-    action: "login_subject_access",
+    action: actingAsEntityId ? "entity_login_access" : "login_subject_access",
     module: "Auth",
-    entityId: subjectId,
+    entityId: actingAsEntityId ?? subjectId,
     entityName,
     oldData: null,
-    newData: { validationMethod, reason },
+    newData: { validationMethod, reason, foSubjectId: subjectId, actingAsEntityId: actingAsEntityId ?? null },
     ipAddress: ip,
   });
+}
+
+async function getLinkedOfficers(
+  subject: { id: number; type: string | null; myCompanyId: number | null }
+): Promise<{ subjectId: number }[]> {
+  if (subject.type === "mycompany" && subject.myCompanyId) {
+    const officers = await db
+      .select({ subjectId: companyOfficers.subjectId })
+      .from(companyOfficers)
+      .where(
+        and(
+          eq(companyOfficers.companyId, subject.myCompanyId),
+          eq(companyOfficers.isActive, true),
+          isNotNull(companyOfficers.subjectId)
+        )
+      );
+    return officers.filter((o) => o.subjectId !== null) as { subjectId: number }[];
+  }
+  return [];
+}
+
+async function checkFoProfileCompleteness(subject: {
+  id: number;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  email: string | null;
+  street: string | null;
+  city: string | null;
+  postalCode: string | null;
+}): Promise<{ complete: boolean; missingFields: string[] }> {
+  const missing: string[] = [];
+  if (!subject.firstName?.trim()) missing.push("meno");
+  if (!subject.lastName?.trim()) missing.push("priezvisko");
+  if (!subject.phone?.trim()) missing.push("telefón");
+  if (!subject.email?.trim()) missing.push("e-mail");
+  if (!subject.street?.trim() && !subject.city?.trim() && !subject.postalCode?.trim()) missing.push("adresa");
+
+  const [latestDoc] = await db
+    .select({ documentNumber: clientDocumentHistory.documentNumber })
+    .from(clientDocumentHistory)
+    .where(eq(clientDocumentHistory.subjectId, subject.id))
+    .orderBy(desc(clientDocumentHistory.archivedAt))
+    .limit(1);
+
+  if (!latestDoc?.documentNumber) missing.push("doklad totožnosti");
+
+  return { complete: missing.length === 0, missingFields: missing };
 }
 
 async function recordLoginHistory(userId: number, ip: string | null) {
@@ -520,10 +573,53 @@ export async function setupAuth(app: Express) {
         }
       }
 
-      if (isLegalEntity(selected.type)) {
+      if (isLegalEntity(selected.type) || selected.type === "mycompany") {
+        const linkedPersons = await getLinkedOfficers({
+          id: selected.id,
+          type: selected.type,
+          myCompanyId: (selected as any).myCompanyId ?? null,
+        });
+
+        if (linkedPersons.length > 1) {
+          req.session.loginStep = "entity_rc_verify";
+          req.session.pendingEntitySubjectId = selected.id;
+          req.session.pendingEntityCandidateIds = linkedPersons.map((p) => p.subjectId);
+          req.session.entityRcAttempts = 0;
+          return req.session.save((err) => {
+            if (err) return res.status(500).json({ message: "Chyba session" });
+            res.json({
+              nextStep: "entity_rc_verify",
+              entityName: name,
+              entityType: selected.type,
+            });
+          });
+        }
+
+        if (linkedPersons.length === 1) {
+          const [foSubject] = await db
+            .select({ id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName, phone: subjects.phone, email: subjects.email, street: subjects.street, city: subjects.city, postalCode: subjects.postalCode })
+            .from(subjects)
+            .where(eq(subjects.id, linkedPersons[0].subjectId));
+
+          if (foSubject) {
+            const completeness = await checkFoProfileCompleteness(foSubject);
+            if (!completeness.complete) {
+              return req.session.save((err) => {
+                if (err) return res.status(500).json({ message: "Chyba session" });
+                res.json({
+                  nextStep: "blocked",
+                  message: `Profil fyzickej osoby (konateľa) je neúplný. Chýba: ${completeness.missingFields.join(", ")}. Kontaktujte správcu systému.`,
+                });
+              });
+            }
+            req.session.loginActingAsEntityId = selected.id;
+          }
+        }
+
         req.session.loginSubjectId = selected.id;
         req.session.loginStep = "phone_verify";
-        await writeLoginAudit(user.id, selected.id, name, "DIRECT", null, ip);
+        const auditReason = linkedPersons.length === 1 ? "single_officer_direct" : null;
+        await writeLoginAudit(user.id, selected.id, name, linkedPersons.length === 1 ? "ENTITY_DIRECT" : "DIRECT", auditReason, ip, req.session.loginActingAsEntityId);
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba session" });
           res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, companyName: selected.companyName, phone: selected.phone ? maskPhone(selected.phone) : null } });
@@ -591,6 +687,116 @@ export async function setupAuth(app: Express) {
       });
     } catch (err) {
       console.error("Select subject error:", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.post("/api/login/entity-rc-verify", loginLimiter, async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "entity_rc_verify") {
+        return res.status(403).json({ message: "Neplatný krok prihlásenia" });
+      }
+
+      const { rc } = req.body;
+      if (!rc || typeof rc !== "string") {
+        return res.status(400).json({ message: "Zadajte rodné číslo" });
+      }
+
+      const candidateIds = req.session.pendingEntityCandidateIds;
+      const entitySubjectId = req.session.pendingEntitySubjectId;
+
+      if (!candidateIds || !entitySubjectId) {
+        return res.status(400).json({ message: "Neplatný stav prihlásenia" });
+      }
+
+      const attempts = (req.session.entityRcAttempts ?? 0) + 1;
+      req.session.entityRcAttempts = attempts;
+
+      if (attempts > 3) {
+        return req.session.save(() => {
+          res.status(429).json({ message: "Príliš veľa nesprávnych pokusov. Prihláste sa znova od začiatku." });
+        });
+      }
+
+      const candidates = await db
+        .select({
+          id: subjects.id,
+          birthNumber: subjects.birthNumber,
+          firstName: subjects.firstName,
+          lastName: subjects.lastName,
+          phone: subjects.phone,
+          email: subjects.email,
+          street: subjects.street,
+          city: subjects.city,
+          postalCode: subjects.postalCode,
+          uid: subjects.uid,
+        })
+        .from(subjects)
+        .where(and(inArray(subjects.id, candidateIds), isNull(subjects.deletedAt)));
+
+      const normalizedInput = rc.replace(/[\s\/]/g, "");
+      let foundFo: (typeof candidates)[0] | null = null;
+
+      for (const cand of candidates) {
+        if (!cand.birthNumber) continue;
+        const decrypted = decryptField(cand.birthNumber);
+        if (!decrypted) continue;
+        if (normalizedInput === decrypted.replace(/[\s\/]/g, "")) {
+          foundFo = cand;
+          break;
+        }
+      }
+
+      if (!foundFo) {
+        const attemptsLeft = 3 - attempts;
+        return req.session.save((err) => {
+          if (err) return res.status(500).json({ message: "Chyba session" });
+          res.status(400).json({
+            message: attemptsLeft > 0
+              ? `Nesprávne rodné číslo. Zostávajúce pokusy: ${attemptsLeft}`
+              : "Príliš veľa nesprávnych pokusov. Prihláste sa znova od začiatku.",
+            attemptsLeft,
+          });
+        });
+      }
+
+      const completeness = await checkFoProfileCompleteness(foundFo);
+      if (!completeness.complete) {
+        return req.session.save((err) => {
+          if (err) return res.status(500).json({ message: "Chyba session" });
+          res.json({
+            nextStep: "blocked",
+            message: `Profil fyzickej osoby je neúplný. Chýba: ${completeness.missingFields.join(", ")}. Kontaktujte správcu systému.`,
+          });
+        });
+      }
+
+      const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+
+      const auditEntityName = `USER_FO ${foundFo.uid ?? foundFo.id} ACTING_AS entity:${entitySubjectId}`;
+      await writeLoginAudit(req.session.userId, foundFo.id, auditEntityName, "ENTITY_RC", "entity_rc_verified", ip, entitySubjectId);
+
+      req.session.loginSubjectId = foundFo.id;
+      req.session.loginActingAsEntityId = entitySubjectId;
+      req.session.loginStep = "phone_verify";
+      req.session.entityRcAttempts = undefined;
+      req.session.pendingEntityCandidateIds = undefined;
+      req.session.pendingEntitySubjectId = undefined;
+
+      return req.session.save((err) => {
+        if (err) return res.status(500).json({ message: "Chyba session" });
+        res.json({
+          nextStep: "phone_verify",
+          selectedSubject: {
+            id: foundFo!.id,
+            firstName: foundFo!.firstName,
+            lastName: foundFo!.lastName,
+            phone: foundFo!.phone ? maskPhone(foundFo!.phone) : null,
+          },
+        });
+      });
+    } catch (err) {
+      console.error("Entity RC verify error:", err);
       res.status(500).json({ message: "Interná chyba" });
     }
   });

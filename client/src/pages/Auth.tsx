@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
 
-type LoginStep = "credentials" | "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "blocked" | "phone_verify";
+type LoginStep = "credentials" | "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "blocked" | "phone_verify" | "entity_rc_verify";
 
 interface DocumentHint {
   documentType: string | null;
@@ -46,6 +46,7 @@ function subjectTypeLabelSk(type: string | null): string {
     case "organization": return "Tretí sektor";
     case "state": return "Verejná správa";
     case "os": return "Ostatné subjekty";
+    case "mycompany": return "Vlastná spoločnosť";
     default: return "Neznámy typ";
   }
 }
@@ -79,6 +80,9 @@ export default function AuthPage() {
   const [smsCode, setSmsCode] = useState("");
   const [rcValue, setRcValue] = useState("");
   const [docNumber, setDocNumber] = useState("");
+  const [entityRcValue, setEntityRcValue] = useState("");
+  const [entityRcEntityName, setEntityRcEntityName] = useState<string | null>(null);
+  const [entityRcAttemptsLeft, setEntityRcAttemptsLeft] = useState<number>(3);
 
   const [newPhone, setNewPhone] = useState("");
   const [phoneSmsCode, setPhoneSmsCode] = useState("");
@@ -147,6 +151,11 @@ export default function AuthPage() {
         setStep("sms_verify");
       } else if (data.nextStep === "rc_verify") {
         setStep("rc_verify");
+      } else if (data.nextStep === "entity_rc_verify") {
+        setEntityRcEntityName(data.entityName || null);
+        setEntityRcAttemptsLeft(3);
+        setEntityRcValue("");
+        setStep("entity_rc_verify");
       } else if (data.nextStep === "doc_verify") {
         setDocHint(data.documentHint || null);
         setStep("doc_verify");
@@ -181,6 +190,41 @@ export default function AuthPage() {
         companyName: pendingSubject.companyName,
         phone: pendingSubject.phone,
       });
+    }
+  };
+
+  const handleEntityRcVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!entityRcValue.trim()) { setError("Zadajte rodné číslo"); return; }
+    setLoading(true);
+    try {
+      const resp = await apiRequest("POST", "/api/login/entity-rc-verify", { rc: entityRcValue.trim() });
+      const data = await resp.json();
+      if (data.nextStep === "phone_verify" && data.selectedSubject) {
+        setSelectedSubject(data.selectedSubject);
+        setStep("phone_verify");
+      } else if (data.nextStep === "blocked") {
+        setBlockedMessage(data.message || "Profil fyzickej osoby je neúplný.");
+        setStep("blocked");
+      }
+    } catch (err: any) {
+      const msg = err?.message || "";
+      if (msg.includes("429")) {
+        setError("Príliš veľa nesprávnych pokusov. Prihláste sa znova od začiatku.");
+        setEntityRcAttemptsLeft(0);
+      } else {
+        try {
+          const jsonStr = msg.replace(/^\d+:\s*/, "");
+          const parsed = JSON.parse(jsonStr);
+          if (typeof parsed.attemptsLeft === "number") setEntityRcAttemptsLeft(parsed.attemptsLeft);
+          setError(parsed.message || "Nesprávne rodné číslo");
+        } catch {
+          setError("Nesprávne rodné číslo");
+        }
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -285,6 +329,9 @@ export default function AuthPage() {
     setSmsCode("");
     setRcValue("");
     setDocNumber("");
+    setEntityRcValue("");
+    setEntityRcEntityName(null);
+    setEntityRcAttemptsLeft(3);
     setStep("subject_select");
   };
 
@@ -386,6 +433,65 @@ export default function AuthPage() {
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (step === "entity_rc_verify") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md rounded-2xl">
+          <CardContent className="pt-8 pb-6 px-6 space-y-6">
+            <div className="text-center space-y-3">
+              <div className="w-14 h-14 rounded-md bg-primary/10 flex items-center justify-center mx-auto">
+                <Building2 className="w-8 h-8 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold" data-testid="text-entity-rc-verify-title">Identifikácia osoby</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Spoločnosť{entityRcEntityName ? <> <span className="font-semibold">{entityRcEntityName}</span></> : ""} má viacerých oprávnených zástupcov
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm text-muted-foreground">
+              Pre jednoznačnú identifikáciu zadajte vaše rodné číslo. Zostávajúce pokusy: <span className="font-semibold text-foreground">{entityRcAttemptsLeft}</span>
+            </div>
+
+            {renderError()}
+
+            <form onSubmit={handleEntityRcVerify} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="entityRcInput">Rodné číslo</Label>
+                <Input
+                  id="entityRcInput"
+                  type="text"
+                  placeholder="YYMMDD/XXXX"
+                  value={entityRcValue}
+                  onChange={(e) => setEntityRcValue(e.target.value)}
+                  autoFocus
+                  data-testid="input-entity-rc-value"
+                />
+                <p className="text-xs text-muted-foreground">Zadajte rodné číslo evidované k vášmu profilu v systéme</p>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={loading || !entityRcValue.trim()}
+                data-testid="button-verify-entity-rc"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                {loading ? "Overujem..." : "Potvrdiť totožnosť"}
+              </Button>
+
+              <Button type="button" variant="ghost" className="w-full text-sm" onClick={backToSelect} data-testid="button-back-to-select-entity-rc">
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Späť na výber identity
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </div>
