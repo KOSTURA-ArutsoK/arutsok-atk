@@ -9,7 +9,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, UserCheck, Plus } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, UserCheck, Plus, Briefcase, User, Landmark, Heart, Grid3X3 } from "lucide-react";
 import { AccountLinkModal } from "@/components/account-link-modal";
 import { apiRequest } from "@/lib/queryClient";
 import { isAdmin as checkIsAdmin } from "@/lib/utils";
@@ -652,6 +652,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             <div className="flex-1" />
 
+            {(() => {
+              const activeCtx = userContexts?.find((c: any) => c.isCurrent);
+              if (!activeCtx || activeCtx.contextType === "fo") return null;
+              const isSubject = activeCtx.contextType === "linked_subject";
+              const isCompany = activeCtx.contextType === "officer_company";
+              const badgeColor = isSubject
+                ? "bg-violet-900/40 border-violet-700/50 text-violet-200"
+                : isCompany
+                  ? "bg-blue-900/40 border-blue-700/50 text-blue-200"
+                  : "bg-zinc-800 border-zinc-600 text-zinc-300";
+              const typeTag = isSubject
+                ? (activeCtx.type === "szco" ? "SZČO" : activeCtx.type === "company" ? "PO" : activeCtx.type === "state" ? "VS" : activeCtx.type === "organization" ? "TS" : "OS")
+                : isCompany ? "PO" : "";
+              return (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={`hidden sm:flex items-center gap-1.5 px-2.5 h-7 rounded-full text-[11px] font-medium border ${badgeColor}`}
+                      data-testid="badge-active-identity"
+                    >
+                      <span className="opacity-70">{typeTag}</span>
+                      <span className="truncate max-w-[120px]">{activeCtx.label}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>{activeCtx.subLabel}</TooltipContent>
+                </Tooltip>
+              );
+            })()}
+
             <div
               key="idle-timer"
               className={`flex items-center gap-1.5 px-2 py-1 rounded-md font-mono text-xs font-bold transition-colors ${isRed ? 'text-destructive' : 'text-emerald-500'}`}
@@ -724,9 +753,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       const isCompany = ctx.contextType === "officer_company";
                       const isLinked = ctx.contextType === "linked_account";
                       const isFo = ctx.contextType === "fo";
+                      const isSubject = ctx.contextType === "linked_subject";
+                      const ctxKey = isSubject ? ctx.subjectId : (ctx.companyId ?? ctx.userId);
+                      const iconEl = isCompany ? (
+                        <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      ) : isLinked ? (
+                        <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      ) : isSubject ? (
+                        ctx.type === "szco" ? <Briefcase className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
+                        ctx.type === "company" ? <Building2 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
+                        ctx.type === "state" ? <Landmark className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
+                        ctx.type === "organization" ? <Heart className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
+                        <Grid3X3 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                      ) : (
+                        <User className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      );
+                      const iconBg = isCompany || isLinked
+                        ? "bg-blue-100 dark:bg-blue-900/30"
+                        : isSubject
+                          ? "bg-violet-100 dark:bg-violet-900/30"
+                          : "bg-emerald-100 dark:bg-emerald-900/30";
                       return (
                         <DropdownMenuItem
-                          key={`${ctx.contextType}-${ctx.companyId ?? ctx.userId}-${idx}`}
+                          key={`${ctx.contextType}-${ctxKey}-${idx}`}
                           className="flex items-center gap-2 py-2 cursor-pointer mx-1 rounded"
                           onClick={async () => {
                             if (ctx.isCurrent) return;
@@ -735,24 +784,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 await apiRequest("POST", "/api/account-link/switch", { targetUserId: ctx.userId });
                                 window.location.href = "/";
                               } else if (isCompany) {
-                                setActive.mutate({ activeCompanyId: ctx.companyId });
+                                setActive.mutate({ activeCompanyId: ctx.companyId, activeSubjectId: null });
+                              } else if (isSubject) {
+                                setActive.mutate({ activeSubjectId: ctx.subjectId, activeCompanyId: null });
                               } else if (isFo) {
-                                setActive.mutate({ activeCompanyId: null });
+                                setActive.mutate({ activeCompanyId: null, activeSubjectId: null });
                               }
                             } catch (err: any) {
                               toast({ title: "Chyba pri prepínaní kontextu", variant: "destructive" });
                             }
                           }}
-                          data-testid={`item-context-${ctx.contextType}-${ctx.companyId ?? ctx.userId}`}
+                          data-testid={`item-context-${ctx.contextType}-${ctxKey}`}
                         >
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${isCompany || isLinked ? "bg-blue-100 dark:bg-blue-900/30" : "bg-emerald-100 dark:bg-emerald-900/30"}`}>
-                            {isCompany ? (
-                              <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                            ) : isLinked ? (
-                              <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                            ) : (
-                              <UserCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                            )}
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+                            {iconEl}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className={`text-sm font-medium truncate ${ctx.isCurrent ? "text-foreground" : "text-muted-foreground"}`}>

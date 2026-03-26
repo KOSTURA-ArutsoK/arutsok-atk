@@ -272,6 +272,18 @@ function myCompanySubjectTypeLabel(subjectType: string | null | undefined): stri
   }
 }
 
+function subjectTypeShortLabel(type: string | null | undefined): string {
+  switch (type) {
+    case "person": return "FO — Fyzická osoba";
+    case "szco": return "SZČO — Samostatne zárobkovo činná osoba";
+    case "company": return "PO — Právnická osoba";
+    case "organization": return "TS — Tretí sektor";
+    case "state": return "VS — Verejný sektor";
+    case "os": return "OS — Ostatné sektory";
+    default: return "Subjekt";
+  }
+}
+
 function linkedAccountSubLabel(type: string | null | undefined, ico: string | null): string {
   switch (type) {
     case "person": return "FO — Fyzická osoba";
@@ -1749,8 +1761,55 @@ export async function setupAuth(app: Express) {
         type: "person",
         uid: foSubject?.uid ?? null,
         ico: null,
-        isCurrent: currentUser.activeCompanyId === null,
+        isCurrent: currentUser.activeCompanyId === null && (currentUser as any).activeSubjectId === null,
       });
+
+      // Linked subjects (SZČO, PO, VS, TS, OS) via linkedFoId or parentSubjectId
+      if (foSubject) {
+        const linkedSubjects = await db
+          .select({
+            id: subjects.id,
+            type: subjects.type,
+            firstName: subjects.firstName,
+            lastName: subjects.lastName,
+            companyName: subjects.companyName,
+            uid: subjects.uid,
+            details: subjects.details,
+          })
+          .from(subjects)
+          .where(and(
+            or(
+              eq(subjects.linkedFoId, foSubject.id),
+              eq(subjects.parentSubjectId, foSubject.id)
+            ),
+            isNull(subjects.deletedAt)
+          ));
+
+        for (const ls of linkedSubjects) {
+          const ico = (ls.details as any)?.ico ?? null;
+          const displayName = ls.companyName
+            || [ls.firstName, ls.lastName].filter(Boolean).join(" ")
+            || ls.uid || "";
+          const subjectLabel = subjectTypeShortLabel(ls.type);
+          const subLabel = ico ? `${subjectLabel} — IČO:\u00A0${ico}` : subjectLabel;
+          const key = `linked_subject:${ls.id}`;
+          if (!seenContextKeys.has(key)) {
+            seenContextKeys.add(key);
+            result.push({
+              contextType: "linked_subject",
+              userId: currentUser.id,
+              companyId: null,
+              subjectId: ls.id,
+              label: displayName,
+              subLabel,
+              type: ls.type,
+              uid: ls.uid ?? null,
+              ico: ico ?? null,
+              isCurrent: (currentUser as any).activeSubjectId === ls.id,
+            });
+          }
+        }
+      }
 
       // Officer companies (via companyOfficers table)
       if (currentUser.linkedSubjectId) {

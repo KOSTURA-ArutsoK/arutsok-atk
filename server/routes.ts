@@ -1180,8 +1180,13 @@ export async function registerRoutes(
       if (validated.activeDivisionId !== undefined) updates.activeDivisionId = validated.activeDivisionId;
       if (validated.activeCompanyId === null) updates.activeCompanyId = null;
       if (validated.activeDivisionId === null) updates.activeDivisionId = null;
+      if (validated.activeSubjectId !== undefined) updates.activeSubjectId = validated.activeSubjectId;
+      if (validated.activeSubjectId === null) updates.activeSubjectId = null;
+      // Mutual exclusion: setting activeSubjectId clears activeCompanyId and vice versa
+      if (validated.activeSubjectId != null) updates.activeCompanyId = null;
+      if (validated.activeCompanyId != null) updates.activeSubjectId = null;
       
-      const oldData = { activeCompanyId: appUser.activeCompanyId, activeStateId: appUser.activeStateId, activeDivisionId: (appUser as any).activeDivisionId };
+      const oldData = { activeCompanyId: appUser.activeCompanyId, activeStateId: appUser.activeStateId, activeDivisionId: (appUser as any).activeDivisionId, activeSubjectId: (appUser as any).activeSubjectId };
       const updated = await storage.updateAppUser(appUser.id, updates);
       await logAudit(req, { action: "UPDATE", module: "nastavenia", entityId: appUser.id, entityName: appUser.username, oldData, newData: updates });
       res.json(updated);

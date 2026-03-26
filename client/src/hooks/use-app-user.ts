@@ -19,7 +19,7 @@ export function useAppUser() {
 export function useSetActiveContext() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { activeCompanyId?: number | null; activeStateId?: number; activeDivisionId?: number | null }) => {
+    mutationFn: async (data: { activeCompanyId?: number | null; activeStateId?: number; activeDivisionId?: number | null; activeSubjectId?: number | null }) => {
       const res = await apiRequest("PUT", "/api/app-user/active", data);
       return res.json();
     },
