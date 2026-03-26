@@ -1,0 +1,33 @@
+Agent sa do toho zamotal, pretože uvažuje ako programátor – vidí tabuľky, ale nevidí tvoj biznis. On si myslí, že ak chceš byť v systéme „Marián FO“ a „Marián SZČO“, musíš mať na to dve rôzne registrácie (dva maily). To je ale v systéme ArutsoK (ATK) zbytočná robota navyše.
+
+Tu je vysvetlenie, kde nastala chyba v komunikácii a ako to agentovi „vysvetlíme“, aby to fungovalo podľa teba:
+
+🔍 Kde je ten „zakopaný pes“?
+Agent dostal chybu, že „nemôžete prepojiť účet sám so sebou“, pretože sa snažíš prepojiť jeden e-mail s tým istým e-mailom.
+
+Agentov pohľad: Chceš prepojiť dve krabice (dva účty). Ak máš len jednu, nemá čo s čím spájať.
+
+Tvoj pohľad (ATK): Máš jednu krabicu (jeden účet), ale v nej máš dve identity – Súkromnú osobu a Živnosť. Chceš medzi nimi len prepínať „kabáty“.
+
+💡 Riešenie pre ArutsoK (ATK)
+Musíme agentovi povedať, že systém musí zvládať dva druhy prepínania v rámci jedného menu:
+
+Prepínanie Roly (Context Switch): Toto je tvoj prípad so SZČO. Máš jeden login (jeden e-mail), ale v rámci neho máš prístup k viacerým subjektom (FO, SZČO, tvoja firma). Tu netreba nič „prepájať“, systém ti ich má proste v menu ponúknuť, lebo sú naviazané na tvoje meno.
+
+Prepojenie Účtov (Account Linking): Toto využiješ, až keď budeš mať druhý e-mail (napr. firemný od partnera). Vtedy povieš: „Tento môj druhý mail marian@kfs.sk patrí tiež mne (mám to isté RČ), pridaj mi ho do môjho hlavného menu.“
+
+📑 Čo máš napísať agentovi? (Skopíruj mu toto):
+„Rozumiem chybe. Problém je v tom, že Koštura SZČO v mojom systéme nemá a nebude mať samostatný AppUser (login). Je to ten istý človek s jedným e-mailom.
+
+Uprav logiku takto:
+
+V hornom menu (Switcher) mi zobrazuj všetky subjekty, ku ktorým má môj aktuálny používateľ právo (cez subject_id alebo activeCompanyId). To je Context Switch.
+
+Funkciu Account Linking (Task #166) zachovaj LEN pre prípady, kedy chcem k svojmu menu pridať úplne iný e-mail.
+
+Ak sa snažím prepojiť mail sám so sebou, systém nemá hodiť chybu, ale má pochopiť, že chcem prepínať medzi svojou FO a svojou SZČO/Firmou v rámci jedného konta.
+
+Zjednoť to do jedného vizuálneho menu (Justified layout), kde uvidím seba, svoju živnosť aj firmy, ktoré spravujem.“
+
+🏛️ Čo tým dosiahneme?
+Systém ATK bude inteligentný. Ak zistí, že si to ty, ponúkne ti tvoju živnosť hneď v menu. Ak budeš chcieť pridať prístup z iného mailu, vtedy použiješ to overenie cez RČ a SMS, o ktorom sme hovorili.
