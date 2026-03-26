@@ -724,7 +724,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {linkedAccounts && linkedAccounts.length > 0 && (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-3 py-1">Prepnutie účtu</DropdownMenuLabel>
+                    <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-3 py-1">Prepojené účty</DropdownMenuLabel>
                     {linkedAccounts.map((account: any) => {
                       const name = account.companyName || `${account.firstName ?? ""} ${account.lastName ?? ""}`.trim() || account.userId;
                       const typeLabel = subjectTypeLabelShort(account.type);
