@@ -113,7 +113,6 @@ export function FullPageEditor({
     ic_dph: "",
     miesto_podnikania: initialData.aresData ? [initialData.aresData.street, initialData.aresData.streetNumber].filter(Boolean).join(" ") + (initialData.aresData.street || initialData.aresData.streetNumber ? ", " : "") + [initialData.aresData.zip, initialData.aresData.city].filter(Boolean).join(" ") : "",
     register: "",
-    szco_uid: "",
   });
   const [szcoFoData, setSzcoFoData] = useState({ firstName: "", lastName: "", birthNumber: "", fo_uid: "" });
   const [szcoFoLinkedId, setSzcoFoLinkedId] = useState<number | null>(null);
