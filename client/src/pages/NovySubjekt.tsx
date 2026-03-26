@@ -574,7 +574,14 @@ function AddPartnerHexButton({
   const SHADOW2  = { red: 0.35, green: 0.22, blue: 0.18 }[colorMode];
 
   return (
-    <div className="flex items-center justify-center w-full" style={{ marginTop: -18, paddingBottom: 4 }}>
+    <div
+      className="flex items-center justify-center w-full"
+      style={{
+        marginTop: -18,
+        paddingBottom: 4,
+        animation: isBlinking ? "nsBlink 0.9s ease-in-out" : undefined,
+      }}
+    >
       <button
         type="button"
         onClick={onClick}
@@ -597,7 +604,6 @@ function AddPartnerHexButton({
           transition: "transform 0.15s ease, filter 0.25s ease",
           transform: pressed ? "scale(0.96)" : isHovered ? "scale(1.05)" : "scale(1)",
           filter: `drop-shadow(0 0 12px rgba(${GLOW_RGB},${SHADOW1})) drop-shadow(0 0 26px rgba(${GLOW_RGB},${SHADOW2}))`,
-          animation: isBlinking ? "nsBlink 0.9s ease-in-out" : undefined,
         }}
       >
         <svg
