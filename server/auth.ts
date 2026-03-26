@@ -1720,6 +1720,14 @@ export async function setupAuth(app: Express) {
       if (!currentUser) return res.status(401).json({ message: "Používateľ nenájdený" });
 
       const result: any[] = [];
+      const seenContextKeys = new Set<string>();
+      function pushContext(item: any) {
+        const key = `${item.contextType}:${item.companyId ?? item.userId}`;
+        if (!seenContextKeys.has(key)) {
+          seenContextKeys.add(key);
+          result.push(item);
+        }
+      }
 
       // FO personal context
       let foSubject: typeof subjects.$inferSelect | null = null;
@@ -1732,7 +1740,7 @@ export async function setupAuth(app: Express) {
         ? [foSubject.firstName, foSubject.lastName].filter(Boolean).join(" ") || currentUser.firstName || currentUser.username || ""
         : `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || currentUser.username || "";
 
-      result.push({
+      pushContext({
         contextType: "fo",
         userId: currentUser.id,
         companyId: null,
@@ -1776,7 +1784,7 @@ export async function setupAuth(app: Express) {
             const subLabel = co.ico
               ? `${subjectTypeLabel} — IČO:\u00A0${co.ico}`
               : subjectTypeLabel;
-            result.push({
+            pushContext({
               contextType: "officer_company",
               userId: currentUser.id,
               companyId: co.id,
@@ -1818,7 +1826,9 @@ export async function setupAuth(app: Express) {
           isCurrent: false,
         };
       }));
-      result.push(...linkedEntries.filter(Boolean));
+      for (const entry of linkedEntries.filter(Boolean)) {
+        pushContext(entry);
+      }
 
       res.json(result);
     } catch (err) {

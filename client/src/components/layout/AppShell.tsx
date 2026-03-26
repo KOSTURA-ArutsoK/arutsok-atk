@@ -769,12 +769,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  className="flex items-center gap-2 text-blue-600 dark:text-blue-400 cursor-pointer mx-1 rounded"
+                  className="flex items-center gap-3 text-blue-600 dark:text-blue-400 cursor-pointer mx-1 rounded"
                   onClick={() => setAccountLinkModalOpen(true)}
                   data-testid="button-add-account-link"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span className="text-sm">Prepojiť iný e-mail</span>
+                  <Plus className="w-4 h-4 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm">Prepojiť nový účet</p>
+                    <p className="text-xs text-muted-foreground font-normal">Pre iný e-mail / druhý login</p>
+                  </div>
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
