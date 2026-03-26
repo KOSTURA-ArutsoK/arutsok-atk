@@ -705,7 +705,7 @@ export function SubjectBlueprintSection({
   const { data: foBlueprintRaw, isLoading: foLoading } = useQuery<SubjectBlueprintData | null>({
     queryKey: ["/api/ui-blueprints/find", "FO", "SUBJECT"],
     queryFn: () => apiRequest("GET", `/api/ui-blueprints/find?type=SUBJECT&targetId=FO`).then(r => r.json()),
-    enabled: !isFo,
+    enabled: !!code && !isFo,
   });
 
   function enrichMegaBlocks(bp: SubjectBlueprintData | null | undefined) {
