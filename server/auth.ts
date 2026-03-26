@@ -826,14 +826,9 @@ export async function setupAuth(app: Express) {
 
       if (!foundFo) {
         const attemptsLeft = 3 - attempts;
-        // On 3rd failure (attempts === 3): terminal lockout with 429
+        // On 3rd failure (attempts === 3): destroy session entirely so frontend gets 401 and redirects to login
         if (attemptsLeft <= 0) {
-          req.session.loginStep = "subject_select";
-          req.session.pendingEntitySubjectId = undefined;
-          req.session.pendingEntityCandidateIds = undefined;
-          req.session.entityRcAttempts = undefined;
-          return req.session.save((err) => {
-            if (err) return res.status(500).json({ message: "Chyba session" });
+          return req.session.destroy(() => {
             res.status(429).json({ message: "Príliš veľa nesprávnych pokusov. Prihláste sa znova od začiatku.", attemptsLeft: 0 });
           });
         }
@@ -1151,6 +1146,9 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/auth/user", (req, res) => {
     if (!req.session.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    if (req.session.loginStep !== "done") {
       return res.status(401).json({ message: "Unauthorized" });
     }
     db.select()
