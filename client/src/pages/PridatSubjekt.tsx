@@ -395,7 +395,8 @@ export const FullPageEditor = forwardRef<FullPageEditorHandle, FullPageEditorPro
       }
       submitData.firstName = szcoFoData.firstName;
       submitData.lastName = szcoFoData.lastName;
-      if (szcoFoData.birthNumber) submitData.birthNumber = szcoFoData.birthNumber;
+      // Only send birthNumber if it's not masked (search-fo returns masked RC like "8001******")
+      if (szcoFoData.birthNumber && !szcoFoData.birthNumber.includes("*")) submitData.birthNumber = szcoFoData.birthNumber;
       submitData.companyName = szcoData.obchodne_meno;
       submitData.type = "szco";
       if (szcoFoLinkedId) submitData.linkedFoId = szcoFoLinkedId;
