@@ -557,6 +557,7 @@ function AddPartnerHexButton({
 }) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   const isHovered = hovered || pressed;
 
@@ -573,14 +574,21 @@ function AddPartnerHexButton({
   const SHADOW1  = { red: 0.60, green: 0.50, blue: 0.35 }[colorMode];
   const SHADOW2  = { red: 0.35, green: 0.22, blue: 0.18 }[colorMode];
 
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el || !isBlinking) return;
+    el.style.animation = "none";
+    void el.offsetHeight;
+    el.style.animation = "nsBlink 0.9s ease-in-out forwards";
+    const t = setTimeout(() => { if (el) el.style.animation = ""; }, 950);
+    return () => { clearTimeout(t); };
+  }, [isBlinking]);
+
   return (
     <div
+      ref={wrapperRef}
       className="flex items-center justify-center w-full"
-      style={{
-        marginTop: -18,
-        paddingBottom: 4,
-        animation: isBlinking ? "nsBlink 0.9s ease-in-out" : undefined,
-      }}
+      style={{ marginTop: -18, paddingBottom: 4 }}
     >
       <button
         type="button"
