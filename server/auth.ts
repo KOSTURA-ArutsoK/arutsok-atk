@@ -4,7 +4,7 @@ import type { Express, RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
-import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks } from "@shared/schema";
+import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts } from "@shared/schema";
 import { eq, and, isNull, isNotNull, gte, desc, inArray } from "drizzle-orm";
 import { storage } from "./storage";
 import { decryptField } from "./crypto";
@@ -126,18 +126,18 @@ async function writeLoginAudit(
   await db.insert(auditLogs).values({
     userId,
     username: null,
-    action: actingAsEntityId ? "entity_login_access" : "login_subject_access",
+    action: actingAsEntityId ? "ENTITY_LOGIN" : "SUBJECT_LOGIN",
     module: "Auth",
     entityId: actingAsEntityId ?? subjectId,
     entityName,
     oldData: null,
-    newData: { validationMethod, reason, foSubjectId: subjectId, actingAsEntityId: actingAsEntityId ?? null },
+    newData: { validationMethod, reason, foSubjectId: subjectId, entityType: actingAsEntityId ? "entity" : null, actingAsEntityId: actingAsEntityId ?? null },
     ipAddress: ip,
   });
 }
 
 async function getLinkedOfficers(
-  subject: { id: number; type: string | null; myCompanyId: number | null }
+  subject: { id: number; type: string | null; myCompanyId: number | null; ico?: string | null }
 ): Promise<{ subjectId: number }[]> {
   if (subject.type === "mycompany" && subject.myCompanyId) {
     const officers = await db
@@ -152,6 +152,59 @@ async function getLinkedOfficers(
       );
     return officers.filter((o) => o.subjectId !== null) as { subjectId: number }[];
   }
+
+  if (isLegalEntity(subject.type)) {
+    const result: { subjectId: number }[] = [];
+    const seen = new Set<number>();
+
+    // Path 1: sub-subjects with parentSubjectId = entity subject id (person or szco types)
+    const subSubjects = await db
+      .select({ id: subjects.id })
+      .from(subjects)
+      .where(
+        and(
+          eq(subjects.parentSubjectId, subject.id),
+          isNull(subjects.deletedAt)
+        )
+      );
+    for (const s of subSubjects) {
+      if (!seen.has(s.id)) {
+        seen.add(s.id);
+        result.push({ subjectId: s.id });
+      }
+    }
+
+    // Path 2: partner contacts linked to partner matching entity ICO
+    if (subject.ico) {
+      const matchedPartners = await db
+        .select({ id: partners.id })
+        .from(partners)
+        .where(eq(partners.ico, subject.ico));
+
+      if (matchedPartners.length > 0) {
+        const partnerIds = matchedPartners.map((p) => p.id);
+        const contacts = await db
+          .select({ subjectId: partnerContacts.subjectId })
+          .from(partnerContacts)
+          .where(
+            and(
+              inArray(partnerContacts.partnerId, partnerIds),
+              isNotNull(partnerContacts.subjectId),
+              eq(partnerContacts.isActive, true)
+            )
+          );
+        for (const c of contacts) {
+          if (c.subjectId !== null && !seen.has(c.subjectId)) {
+            seen.add(c.subjectId);
+            result.push({ subjectId: c.subjectId });
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
   return [];
 }
 
@@ -164,6 +217,7 @@ async function checkFoProfileCompleteness(subject: {
   street: string | null;
   city: string | null;
   postalCode: string | null;
+  idCardNumber?: string | null;
 }): Promise<{ complete: boolean; missingFields: string[] }> {
   const missing: string[] = [];
   if (!subject.firstName?.trim()) missing.push("meno");
@@ -172,6 +226,7 @@ async function checkFoProfileCompleteness(subject: {
   if (!subject.email?.trim()) missing.push("e-mail");
   if (!subject.street?.trim() && !subject.city?.trim() && !subject.postalCode?.trim()) missing.push("adresa");
 
+  // Document evidence: clientDocumentHistory OR subjects.idCardNumber OR companyOfficers.idCardNumber
   const [latestDoc] = await db
     .select({ documentNumber: clientDocumentHistory.documentNumber })
     .from(clientDocumentHistory)
@@ -179,7 +234,24 @@ async function checkFoProfileCompleteness(subject: {
     .orderBy(desc(clientDocumentHistory.archivedAt))
     .limit(1);
 
-  if (!latestDoc?.documentNumber) missing.push("doklad totožnosti");
+  const [officerWithDoc] = await db
+    .select({ idCardNumber: companyOfficers.idCardNumber })
+    .from(companyOfficers)
+    .where(
+      and(
+        eq(companyOfficers.subjectId, subject.id),
+        isNotNull(companyOfficers.idCardNumber),
+        eq(companyOfficers.isActive, true)
+      )
+    )
+    .limit(1);
+
+  const hasDocEvidence =
+    !!latestDoc?.documentNumber ||
+    !!subject.idCardNumber?.trim() ||
+    !!officerWithDoc?.idCardNumber?.trim();
+
+  if (!hasDocEvidence) missing.push("doklad totožnosti");
 
   return { complete: missing.length === 0, missingFields: missing };
 }
@@ -252,6 +324,9 @@ export async function setupAuth(app: Express) {
           birthNumber: subjects.birthNumber,
           listStatus: subjects.listStatus,
           parentSubjectId: subjects.parentSubjectId,
+          myCompanyId: subjects.myCompanyId,
+          ico: subjects.ico,
+          idCardNumber: subjects.idCardNumber,
         })
         .from(subjects)
         .where(
@@ -274,6 +349,9 @@ export async function setupAuth(app: Express) {
               birthNumber: subjects.birthNumber,
               listStatus: subjects.listStatus,
               parentSubjectId: subjects.parentSubjectId,
+              myCompanyId: subjects.myCompanyId,
+              ico: subjects.ico,
+              idCardNumber: subjects.idCardNumber,
             })
             .from(subjects)
             .where(
@@ -584,7 +662,8 @@ export async function setupAuth(app: Express) {
         const linkedPersons = await getLinkedOfficers({
           id: selected.id,
           type: selected.type,
-          myCompanyId: (selected as any).myCompanyId ?? null,
+          myCompanyId: selected.myCompanyId ?? null,
+          ico: selected.ico ?? null,
         });
 
         if (linkedPersons.length > 1) {
@@ -604,7 +683,7 @@ export async function setupAuth(app: Express) {
 
         if (linkedPersons.length === 1) {
           const [foSubject] = await db
-            .select({ id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName, phone: subjects.phone, email: subjects.email, street: subjects.street, city: subjects.city, postalCode: subjects.postalCode })
+            .select({ id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName, phone: subjects.phone, email: subjects.email, street: subjects.street, city: subjects.city, postalCode: subjects.postalCode, idCardNumber: subjects.idCardNumber })
             .from(subjects)
             .where(eq(subjects.id, linkedPersons[0].subjectId));
 
@@ -619,14 +698,22 @@ export async function setupAuth(app: Express) {
                 });
               });
             }
+            // Single-officer: FO is identified, set session with FO as primary subject and entity as acting context
+            req.session.loginSubjectId = foSubject.id;
             req.session.loginActingAsEntityId = selected.id;
+            req.session.loginStep = "phone_verify";
+            await writeLoginAudit(user.id, foSubject.id, subjectDisplayName(foSubject), "ENTITY_DIRECT", "single_officer_direct", ip, selected.id);
+            return req.session.save((err) => {
+              if (err) return res.status(500).json({ message: "Chyba session" });
+              res.json({ nextStep: "phone_verify", selectedSubject: { id: foSubject.id, firstName: foSubject.firstName, lastName: foSubject.lastName, phone: foSubject.phone ? maskPhone(foSubject.phone) : null } });
+            });
           }
         }
 
+        // No linked officer found: direct entity login (no individual FO identified)
         req.session.loginSubjectId = selected.id;
         req.session.loginStep = "phone_verify";
-        const auditReason = linkedPersons.length === 1 ? "single_officer_direct" : null;
-        await writeLoginAudit(user.id, selected.id, name, linkedPersons.length === 1 ? "ENTITY_DIRECT" : "DIRECT", auditReason, ip, req.session.loginActingAsEntityId);
+        await writeLoginAudit(user.id, selected.id, name, "DIRECT", null, ip);
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba session" });
           res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, companyName: selected.companyName, phone: selected.phone ? maskPhone(selected.phone) : null } });
@@ -997,6 +1084,30 @@ export async function setupAuth(app: Express) {
           newData: auditNewData,
           ipAddress: (req.headers["x-forwarded-for"] as string)?.split(",")[0] || req.ip || null,
         });
+
+        // Rule 2: completeness check for FO subjects (any context, including direct FO login)
+        if (subject && isPerson(subject.type)) {
+          const completeness = await checkFoProfileCompleteness({
+            id: subject.id,
+            firstName: subject.firstName,
+            lastName: subject.lastName,
+            phone: confirmed ? subject.phone : (newPhone ?? subject.phone),
+            email: subject.email,
+            street: subject.street,
+            city: subject.city,
+            postalCode: subject.postalCode,
+            idCardNumber: subject.idCardNumber,
+          });
+          if (!completeness.complete) {
+            return req.session.save((err) => {
+              if (err) return res.status(500).json({ message: "Chyba session" });
+              res.json({
+                nextStep: "blocked",
+                message: `Profil je neúplný. Chýba: ${completeness.missingFields.join(", ")}. Kontaktujte správcu systému.`,
+              });
+            });
+          }
+        }
       }
 
       req.session.loginStep = "done";
