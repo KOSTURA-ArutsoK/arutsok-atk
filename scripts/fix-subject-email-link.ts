@@ -20,10 +20,18 @@ async function main() {
     console.error(`Subject ${SUBJECT_ID} not found!`);
     process.exit(1);
   }
+  const [user] = await db.select().from(appUsers).where(eq(appUsers.id, APP_USER_ID));
+  if (!user) {
+    console.error(`AppUser ${APP_USER_ID} not found!`);
+    process.exit(1);
+  }
+
   console.log("Subject current state:");
   console.log(`  email:        ${subj.email ?? "(empty)"}`);
   console.log(`  phone:        ${subj.phone ?? "(empty)"}`);
   console.log(`  birth_number: ${subj.birthNumber ? "(set, length " + subj.birthNumber.length + ")" : "(empty)"}`);
+  console.log(`AppUser current state:`);
+  console.log(`  linked_subject_id: ${user.linkedSubjectId ?? "(empty)"}`);
 
   let finalBirthNumber: string;
   if (subj.birthNumber) {
@@ -50,23 +58,38 @@ async function main() {
     console.error("  → No phone found in linked officer records; cannot set phone — manual intervention required");
     process.exit(1);
   }
-  console.log(`  → Phone sourced from linked officer records`);
+  console.log("  → Phone sourced from linked officer records");
 
-  await db.update(subjects)
-    .set({
-      email: EMAIL,
-      phone: officerPhone,
-      birthNumber: finalBirthNumber,
-    })
-    .where(eq(subjects.id, SUBJECT_ID));
+  console.log("\n  mycompany subjects (id=384 KOSTURA spol., id=387 KFS spol.): intentionally");
+  console.log("  NOT given email — internal company representations should not appear");
+  console.log("  in the individual identity login picker.");
 
-  console.log(`\n✓ Subject ${SUBJECT_ID} updated: email, phone, birth_number`);
+  await db.transaction(async (tx) => {
+    const updatedSubjects = await tx.update(subjects)
+      .set({
+        email: EMAIL,
+        phone: officerPhone,
+        birthNumber: finalBirthNumber,
+      })
+      .where(eq(subjects.id, SUBJECT_ID))
+      .returning({ id: subjects.id });
 
-  await db.update(appUsers)
-    .set({ linkedSubjectId: SUBJECT_ID })
-    .where(eq(appUsers.id, APP_USER_ID));
+    if (updatedSubjects.length !== 1) {
+      throw new Error(`Expected 1 subject row updated, got ${updatedSubjects.length}`);
+    }
 
-  console.log(`✓ AppUser ${APP_USER_ID} updated: linked_subject_id = ${SUBJECT_ID}`);
+    const updatedUsers = await tx.update(appUsers)
+      .set({ linkedSubjectId: SUBJECT_ID })
+      .where(eq(appUsers.id, APP_USER_ID))
+      .returning({ id: appUsers.id, linkedSubjectId: appUsers.linkedSubjectId });
+
+    if (updatedUsers.length !== 1) {
+      throw new Error(`Expected 1 appUser row updated, got ${updatedUsers.length}`);
+    }
+
+    console.log(`\n✓ Subject ${updatedSubjects[0].id} updated: email, phone, birth_number`);
+    console.log(`✓ AppUser ${updatedUsers[0].id} updated: linked_subject_id = ${updatedUsers[0].linkedSubjectId}`);
+  });
 
   const [subjAfter] = await db.select().from(subjects).where(eq(subjects.id, SUBJECT_ID));
   const [userAfter] = await db.select().from(appUsers).where(eq(appUsers.id, APP_USER_ID));
