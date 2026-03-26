@@ -5509,9 +5509,9 @@ export class DatabaseStorage implements IStorage {
 
   async getAccountLink(primaryUserId: number, linkedUserId: number): Promise<AccountLink | undefined> {
     const [row] = await db.select().from(accountLinks).where(
-      and(
-        eq(accountLinks.primaryUserId, primaryUserId),
-        eq(accountLinks.linkedUserId, linkedUserId)
+      or(
+        and(eq(accountLinks.primaryUserId, primaryUserId), eq(accountLinks.linkedUserId, linkedUserId)),
+        and(eq(accountLinks.primaryUserId, linkedUserId), eq(accountLinks.linkedUserId, primaryUserId))
       )
     ).limit(1);
     return row;

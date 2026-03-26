@@ -180,13 +180,6 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
               </DialogDescription>
             </DialogHeader>
 
-            {error && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm" data-testid="alert-suggestion-error">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>{error}</span>
-              </div>
-            )}
-
             {suggestionsLoading && (
               <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground text-sm" data-testid="suggestions-loading">
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -234,6 +227,12 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
                     );
                   })}
                 </div>
+                {error && (
+                  <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm" data-testid="alert-suggestion-error">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <span>{error}</span>
+                  </div>
+                )}
                 <button
                   type="button"
                   className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 text-center transition-colors w-full"
@@ -285,6 +284,12 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
                   <div className="p-3 rounded-lg bg-muted/50 border border-border text-xs text-muted-foreground">
                     Potvrdením preberáte zodpovednosť za akcie vykonané v prepojenom kontexte.
                   </div>
+                  {error && (
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm" data-testid="alert-suggestion-error">
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                      <span>{error}</span>
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <Button type="button" variant="outline" className="flex-1" onClick={handleClose} data-testid="button-account-link-cancel">
                       Zavrieť
@@ -403,6 +408,11 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
             <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm">
               <p className="text-muted-foreground text-xs mb-1">Prepájate s účtom</p>
               <p className="font-semibold">{initiateResult.targetName}</p>
+            </div>
+
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-xs text-amber-800 dark:text-amber-300" data-testid="otp-dev-hint">
+              <span className="font-medium">Testovací kód:</span>
+              <span className="font-mono font-bold tracking-widest">151515</span>
             </div>
 
             {error && (

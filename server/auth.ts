@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
 import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts } from "@shared/schema";
-import { eq, and, isNull, isNotNull, gte, desc, inArray } from "drizzle-orm";
+import { eq, and, or, isNull, isNotNull, gte, desc, inArray } from "drizzle-orm";
 import { storage } from "./storage";
 import { decryptField } from "./crypto";
 
@@ -1261,7 +1261,25 @@ export async function setupAuth(app: Express) {
           .map((l) => l.primaryUserId === req.session.userId ? l.linkedUserId : l.primaryUserId)
       );
 
-      // Single join query — no N+1
+      const seenUserIds = new Set<number>();
+      const suggestions: Array<{
+        userId: number;
+        firstName: string | null;
+        lastName: string | null;
+        maskedEmail: string;
+        type: string | null;
+        ico: string | null;
+        uid: string | null;
+      }> = [];
+
+      function maskEmail(email: string): string {
+        const atIdx = email.indexOf("@");
+        return atIdx >= 2
+          ? email.slice(0, 2) + "***" + email.slice(atIdx)
+          : "***" + email.slice(atIdx >= 0 ? atIdx : 0);
+      }
+
+      // Branch 1: RC match — same person (FO/SZČO)
       const usersWithSubjects = await db.select({
         userId: appUsers.id,
         email: appUsers.email,
@@ -1277,16 +1295,6 @@ export async function setupAuth(app: Express) {
         .innerJoin(subjects, and(eq(subjects.id, appUsers.linkedSubjectId!), isNull(subjects.deletedAt)))
         .where(and(isNotNull(appUsers.linkedSubjectId), isNotNull(appUsers.email), isNotNull(subjects.birthNumber)));
 
-      const suggestions: Array<{
-        userId: number;
-        firstName: string | null;
-        lastName: string | null;
-        maskedEmail: string;
-        type: string | null;
-        ico: string | null;
-        uid: string | null;
-      }> = [];
-
       for (const row of usersWithSubjects) {
         if (row.userId === req.session.userId) continue;
         if (alreadyLinkedIds.has(row.userId)) continue;
@@ -1295,21 +1303,65 @@ export async function setupAuth(app: Express) {
         const subjRcClean = decryptField(row.birthNumber)?.replace(/[\s\/]/g, "") ?? "";
         if (!subjRcClean || subjRcClean !== currentRcClean) continue;
 
-        const email = row.email || "";
-        const atIdx = email.indexOf("@");
-        const maskedEmail = atIdx >= 2
-          ? email.slice(0, 2) + "***" + email.slice(atIdx)
-          : "***" + email.slice(atIdx >= 0 ? atIdx : 0);
-
+        seenUserIds.add(row.userId);
         suggestions.push({
           userId: row.userId,
           firstName: row.subjFirstName ?? row.userFirstName ?? null,
           lastName: row.subjLastName ?? row.userLastName ?? null,
-          maskedEmail,
+          maskedEmail: maskEmail(row.email || ""),
           type: row.type ?? null,
           ico: row.ico ?? null,
           uid: row.uid ?? null,
         });
+      }
+
+      // Branch 2: officer relationship — company contexts (PO, mycompany, org, VS, TS)
+      // Find all companies where the current user's FO subject is an active statutory officer
+      const officerRows = await db.select({ companyId: companyOfficers.companyId })
+        .from(companyOfficers)
+        .where(and(
+          eq(companyOfficers.subjectId, currentUser.linkedSubjectId),
+          eq(companyOfficers.isActive, true)
+        ));
+
+      const officerCompanyIds = officerRows.map((r) => r.companyId);
+
+      if (officerCompanyIds.length > 0) {
+        const companyContextUsers = await db.select({
+          userId: appUsers.id,
+          email: appUsers.email,
+          userFirstName: appUsers.firstName,
+          userLastName: appUsers.lastName,
+          subjFirstName: subjects.firstName,
+          subjLastName: subjects.lastName,
+          subjCompanyName: subjects.companyName,
+          type: subjects.type,
+          ico: subjects.ico,
+          uid: subjects.uid,
+        }).from(appUsers)
+          .leftJoin(subjects, and(eq(subjects.id, appUsers.linkedSubjectId!), isNull(subjects.deletedAt)))
+          .where(and(
+            isNotNull(appUsers.email),
+            isNotNull(appUsers.activeCompanyId),
+            inArray(appUsers.activeCompanyId, officerCompanyIds)
+          ));
+
+        for (const row of companyContextUsers) {
+          if (row.userId === req.session.userId) continue;
+          if (alreadyLinkedIds.has(row.userId)) continue;
+          if (seenUserIds.has(row.userId)) continue;
+
+          seenUserIds.add(row.userId);
+          suggestions.push({
+            userId: row.userId,
+            firstName: row.subjFirstName ?? row.userFirstName ?? null,
+            lastName: row.subjCompanyName ?? row.subjLastName ?? row.userLastName ?? null,
+            maskedEmail: maskEmail(row.email || ""),
+            type: row.type ?? null,
+            ico: row.ico ?? null,
+            uid: row.uid ?? null,
+          });
+        }
       }
 
       return res.json(suggestions);
@@ -1337,19 +1389,53 @@ export async function setupAuth(app: Express) {
         if (!tu) return res.status(404).json({ message: "Cieľový účet neexistuje" });
         if (tu.id === req.session.userId) return res.status(400).json({ message: "Nemôžete prepojiť účet sám so sebou" });
 
-        // Verify that both users have the same RC
-        if (!currentUser.linkedSubjectId || !tu.linkedSubjectId) {
-          return res.status(403).json({ message: "Jeden z účtov nemá priradenú identitu." });
+        // Verify identity: current user must have a linked subject (FO with RC)
+        if (!currentUser.linkedSubjectId) {
+          return res.status(403).json({ message: "Váš účet nemá priradenú identitu. Kontaktujte správcu." });
         }
         const [cs] = await db.select().from(subjects).where(eq(subjects.id, currentUser.linkedSubjectId));
-        const [ts] = await db.select().from(subjects).where(eq(subjects.id, tu.linkedSubjectId));
-        if (!cs?.birthNumber || !ts?.birthNumber) {
-          return res.status(403).json({ message: "Jeden z účtov nemá evidované rodné číslo." });
+        if (!cs?.birthNumber) {
+          return res.status(403).json({ message: "Váš profil nemá evidované rodné číslo. Kontaktujte správcu." });
         }
-        const curRc = decryptField(cs.birthNumber)?.replace(/[\s\/]/g, "") ?? "";
-        const tgtRc = decryptField(ts.birthNumber)?.replace(/[\s\/]/g, "") ?? "";
-        if (!curRc || curRc !== tgtRc) {
-          return res.status(403).json({ message: "Tento účet nepatrí rovnakej osobe." });
+
+        if (tu.linkedSubjectId === currentUser.linkedSubjectId) {
+          // Same subject → same person, no further RC check needed
+        } else if (tu.linkedSubjectId) {
+          const [ts] = await db.select().from(subjects).where(eq(subjects.id, tu.linkedSubjectId));
+          if (ts?.birthNumber) {
+            // Both have RC → compare
+            const curRc = decryptField(cs.birthNumber)?.replace(/[\s\/]/g, "") ?? "";
+            const tgtRc = decryptField(ts.birthNumber)?.replace(/[\s\/]/g, "") ?? "";
+            if (!curRc || curRc !== tgtRc) {
+              return res.status(403).json({ message: "Tento účet nepatrí rovnakej osobe." });
+            }
+          } else if (tu.activeCompanyId) {
+            // Target is company context (no RC) → verify via officer relationship
+            const [officerRecord] = await db.select({ id: companyOfficers.id }).from(companyOfficers)
+              .where(and(
+                eq(companyOfficers.companyId, tu.activeCompanyId),
+                eq(companyOfficers.subjectId, currentUser.linkedSubjectId),
+                eq(companyOfficers.isActive, true)
+              )).limit(1);
+            if (!officerRecord) {
+              return res.status(403).json({ message: "Nie ste štatutárom tejto spoločnosti." });
+            }
+          } else {
+            return res.status(403).json({ message: "Cieľový účet nemá evidované rodné číslo ani firemný kontext." });
+          }
+        } else if (tu.activeCompanyId) {
+          // Target has no linkedSubjectId but has activeCompanyId → officer check
+          const [officerRecord] = await db.select({ id: companyOfficers.id }).from(companyOfficers)
+            .where(and(
+              eq(companyOfficers.companyId, tu.activeCompanyId),
+              eq(companyOfficers.subjectId, currentUser.linkedSubjectId),
+              eq(companyOfficers.isActive, true)
+            )).limit(1);
+          if (!officerRecord) {
+            return res.status(403).json({ message: "Nie ste štatutárom tejto spoločnosti." });
+          }
+        } else {
+          return res.status(403).json({ message: "Cieľový účet nemá priradenú identitu." });
         }
         targetUser = tu;
       } else {
@@ -1374,6 +1460,39 @@ export async function setupAuth(app: Express) {
         const [tu] = await db.select().from(appUsers).where(eq(appUsers.email, targetEmailLower));
         if (!tu) return res.status(404).json({ message: "Účet s týmto emailom neexistuje" });
         if (tu.id === req.session.userId) return res.status(400).json({ message: "Nemôžete prepojiť účet sám so sebou" });
+
+        // Verify target identity: RC match OR officer relationship for company contexts
+        if (tu.linkedSubjectId === currentUser.linkedSubjectId) {
+          // Same subject → same person
+        } else if (tu.linkedSubjectId) {
+          const [ts] = await db.select().from(subjects).where(eq(subjects.id, tu.linkedSubjectId));
+          if (ts?.birthNumber) {
+            const tgtRc = decryptField(ts.birthNumber)?.replace(/[\s\/]/g, "") ?? "";
+            if (!tgtRc || tgtRc !== cleanCurrentRc) {
+              return res.status(403).json({ message: "Cieľový účet nepatrí rovnakej osobe." });
+            }
+          } else if (tu.activeCompanyId) {
+            const [officerRecord] = await db.select({ id: companyOfficers.id }).from(companyOfficers)
+              .where(and(
+                eq(companyOfficers.companyId, tu.activeCompanyId),
+                eq(companyOfficers.subjectId, currentUser.linkedSubjectId),
+                eq(companyOfficers.isActive, true)
+              )).limit(1);
+            if (!officerRecord) {
+              return res.status(403).json({ message: "Nie ste štatutárom tejto spoločnosti." });
+            }
+          }
+        } else if (tu.activeCompanyId) {
+          const [officerRecord] = await db.select({ id: companyOfficers.id }).from(companyOfficers)
+            .where(and(
+              eq(companyOfficers.companyId, tu.activeCompanyId),
+              eq(companyOfficers.subjectId, currentUser.linkedSubjectId),
+              eq(companyOfficers.isActive, true)
+            )).limit(1);
+          if (!officerRecord) {
+            return res.status(403).json({ message: "Nie ste štatutárom tejto spoločnosti." });
+          }
+        }
         targetUser = tu;
       }
 
