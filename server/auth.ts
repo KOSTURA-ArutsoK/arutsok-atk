@@ -272,6 +272,17 @@ function myCompanySubjectTypeLabel(subjectType: string | null | undefined): stri
   }
 }
 
+function normalizeSubjectContextType(type: string | null | undefined): string {
+  switch (type) {
+    case "szco": return "szco";
+    case "company": return "po";
+    case "organization": return "ts";
+    case "state": return "vs";
+    case "os": return "os";
+    default: return type ?? "subject";
+  }
+}
+
 function subjectTypeShortLabel(type: string | null | undefined): string {
   switch (type) {
     case "person": return "FO — Fyzická osoba";
@@ -1823,11 +1834,12 @@ export async function setupAuth(app: Express) {
           || ls.uid || "";
         const subjectLabel = subjectTypeShortLabel(ls.type);
         const subLabel = ico ? `${subjectLabel} — IČO:\u00A0${ico}` : subjectLabel;
+        const normalizedContextType = normalizeSubjectContextType(ls.type);
         const key = `subject:${ls.id}`;
         if (!seenContextKeys.has(key)) {
           seenContextKeys.add(key);
           result.push({
-            contextType: ls.type,
+            contextType: normalizedContextType,
             userId: currentUser.id,
             companyId: null,
             subjectId: ls.id,

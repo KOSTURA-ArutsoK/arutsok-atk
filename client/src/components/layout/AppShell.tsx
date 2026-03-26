@@ -655,7 +655,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {(() => {
               const activeCtx = userContexts?.find((c: any) => c.isCurrent);
               if (!activeCtx) return null;
-              const isSubjectCtx = ["szco", "company", "organization", "state", "os"].includes(activeCtx.contextType);
+              const isSubjectCtx = ["szco", "po", "ts", "vs", "os"].includes(activeCtx.contextType);
               const isCompanyCtx = activeCtx.contextType === "officer_company";
               const badgeColor = isSubjectCtx
                 ? "bg-violet-900/40 border-violet-700/50 text-violet-200"
@@ -663,7 +663,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   ? "bg-blue-900/40 border-blue-700/50 text-blue-200"
                   : "bg-emerald-900/30 border-emerald-700/40 text-emerald-200";
               const typeTag = isSubjectCtx
-                ? (activeCtx.type === "szco" ? "SZČO" : activeCtx.type === "company" ? "PO" : activeCtx.type === "state" ? "VS" : activeCtx.type === "organization" ? "TS" : "OS")
+                ? (activeCtx.contextType === "szco" ? "SZČO" : activeCtx.contextType === "po" ? "PO" : activeCtx.contextType === "vs" ? "VS" : activeCtx.contextType === "ts" ? "TS" : "OS")
                 : isCompanyCtx ? "PO" : "FO";
               return (
                 <Tooltip>
@@ -753,17 +753,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       const isCompany = ctx.contextType === "officer_company";
                       const isLinked = ctx.contextType === "linked_account";
                       const isFo = ctx.contextType === "fo";
-                      const isSubject = ["szco", "company", "organization", "state", "os"].includes(ctx.contextType);
+                      const isSubject = ["szco", "po", "ts", "vs", "os"].includes(ctx.contextType);
                       const ctxKey = isSubject ? ctx.subjectId : (ctx.companyId ?? ctx.userId);
                       const iconEl = isCompany ? (
                         <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       ) : isLinked ? (
                         <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       ) : isSubject ? (
-                        ctx.type === "szco" ? <Briefcase className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
-                        ctx.type === "company" ? <Building2 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
-                        ctx.type === "state" ? <Landmark className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
-                        ctx.type === "organization" ? <Heart className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
+                        ctx.contextType === "szco" ? <Briefcase className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
+                        ctx.contextType === "po" ? <Building2 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
+                        ctx.contextType === "vs" ? <Landmark className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
+                        ctx.contextType === "ts" ? <Heart className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
                         <Grid3X3 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                       ) : (
                         <User className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />

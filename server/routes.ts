@@ -1185,27 +1185,41 @@ export async function registerRoutes(
       // Mutual exclusion: setting activeSubjectId clears activeCompanyId and vice versa
       if (validated.activeSubjectId != null) updates.activeCompanyId = null;
       if (validated.activeCompanyId != null) updates.activeSubjectId = null;
-      // Security: verify activeSubjectId is in allowed contexts
-      if (validated.activeSubjectId != null && appUser.linkedSubjectId) {
-        const allowed = await db
-          .select({ id: subjects.id })
-          .from(subjects)
-          .leftJoin(subjectContacts, and(
-            eq(subjectContacts.subjectId, subjects.id),
-            eq(subjectContacts.type, "email"),
-            appUser.email ? eq(subjectContacts.value, appUser.email) : sql`false`
-          ))
-          .where(and(
+      // Security: verify activeSubjectId is in allowed contexts (always enforced)
+      if (validated.activeSubjectId != null) {
+        const isAdminUser = (appUser as any).role === "admin" || (appUser as any).role === "superadmin";
+        if (!isAdminUser) {
+          if (!appUser.linkedSubjectId && !appUser.email) {
+            return res.status(403).json({ message: "Subjekt nie je súčasťou vašich kontextov" });
+          }
+          const conditions: any[] = [
             eq(subjects.id, validated.activeSubjectId),
             isNull(subjects.deletedAt),
-            or(
-              eq(subjects.linkedFoId, appUser.linkedSubjectId),
-              eq(subjects.parentSubjectId, appUser.linkedSubjectId),
-              isNotNull(subjectContacts.id)
-            )
-          ));
-        if (allowed.length === 0) {
-          return res.status(403).json({ message: "Subjekt nie je súčasťou vašich kontextov" });
+          ];
+          const membershipConditions: any[] = [];
+          if (appUser.linkedSubjectId) {
+            membershipConditions.push(eq(subjects.linkedFoId, appUser.linkedSubjectId));
+            membershipConditions.push(eq(subjects.parentSubjectId, appUser.linkedSubjectId));
+          }
+          if (appUser.email) {
+            membershipConditions.push(isNotNull(subjectContacts.id));
+          }
+          if (membershipConditions.length === 0) {
+            return res.status(403).json({ message: "Subjekt nie je súčasťou vašich kontextov" });
+          }
+          conditions.push(or(...membershipConditions));
+          const allowed = await db
+            .select({ id: subjects.id })
+            .from(subjects)
+            .leftJoin(subjectContacts, and(
+              eq(subjectContacts.subjectId, subjects.id),
+              eq(subjectContacts.type, "email"),
+              appUser.email ? eq(subjectContacts.value, appUser.email) : sql`false`
+            ))
+            .where(and(...conditions));
+          if (allowed.length === 0) {
+            return res.status(403).json({ message: "Subjekt nie je súčasťou vašich kontextov" });
+          }
         }
       }
       
