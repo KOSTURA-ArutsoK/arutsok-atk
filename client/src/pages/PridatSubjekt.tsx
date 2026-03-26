@@ -304,6 +304,10 @@ export const FullPageEditor = forwardRef<FullPageEditorHandle, FullPageEditorPro
     });
   }
 
+  useImperativeHandle(ref, () => ({
+    submit: () => { if (!isPending) form.handleSubmit(onSubmit)(); },
+  }));
+
   if (statesLoading || typesLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -447,10 +451,6 @@ export const FullPageEditor = forwardRef<FullPageEditorHandle, FullPageEditorPro
       },
     });
   }
-
-  useImperativeHandle(ref, () => ({
-    submit: () => { if (!isPending) form.handleSubmit(onSubmit)(); },
-  }), [form, onSubmit, isPending]);
 
   return (
     <div className="space-y-4">
