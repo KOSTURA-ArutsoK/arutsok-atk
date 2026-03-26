@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Link } from "wouter";
 
 type LoginStep = "credentials" | "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "blocked" | "phone_verify" | "entity_rc_verify";
@@ -289,15 +289,21 @@ export default function AuthPage() {
     }
   };
 
+  const finalizeLogin = () => {
+    setPhoneConfirmed(true);
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/app-user/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/home-popup-data"] });
+    }, 500);
+  };
+
   const handlePhoneConfirm = async () => {
     setError(null);
     setLoading(true);
     try {
       await apiRequest("POST", "/api/login/verify-phone", { confirmed: true });
-      setPhoneConfirmed(true);
-      setTimeout(async () => {
-        await login({ email: email.trim(), password } as any);
-      }, 500);
+      finalizeLogin();
     } catch {
       setError("Chyba pri overení telefónu");
     } finally {
@@ -313,10 +319,7 @@ export default function AuthPage() {
     setLoading(true);
     try {
       await apiRequest("POST", "/api/login/verify-phone", { confirmed: false, newPhone: newPhone.trim(), smsCode: phoneSmsCode.trim() });
-      setPhoneConfirmed(true);
-      setTimeout(async () => {
-        await login({ email: email.trim(), password } as any);
-      }, 500);
+      finalizeLogin();
     } catch {
       setError("Chyba pri zmene telefónneho čísla");
     } finally {
