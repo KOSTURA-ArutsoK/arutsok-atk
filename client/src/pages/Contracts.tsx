@@ -335,6 +335,19 @@ function ContractFormDialog({
     enabled: !!editingContract?.id,
   });
 
+  type UserContextEntry = { contextType: string; uid: string | null; label: string; isCurrent: boolean; type: string };
+  const { data: userContexts } = useQuery<UserContextEntry[]>({
+    queryKey: ["/api/user/contexts"],
+  });
+  const activeContextUid = useMemo(
+    () => (userContexts ?? []).find(c => c.isCurrent)?.uid ?? null,
+    [userContexts]
+  );
+  const activeContextLabel = useMemo(
+    () => (userContexts ?? []).find(c => c.isCurrent)?.label ?? null,
+    [userContexts]
+  );
+
   const [acquirerUserIds, setAcquirerUserIds] = useState<number[]>([]);
   const [acquirerSearch, setAcquirerSearch] = useState("");
 
@@ -630,7 +643,7 @@ function ContractFormDialog({
         setContractSectionId("");
         setAcquirerUserIds([]);
         setAcquirerSearch("");
-        setSpecialistUid("");
+        setSpecialistUid(activeContextUid ?? "");
         setSpecialistPercentage("");
         setRecommenders([]);
         setRewardSearchSpecialist("");
@@ -640,7 +653,7 @@ function ContractFormDialog({
         setNewRecommenderPercentage("");
       }
     }
-  }, [open, editingContract, activeStateId, allSPForEdit, allSectionsForEdit]);
+  }, [open, editingContract, activeStateId, allSPForEdit, allSectionsForEdit, activeContextUid]);
 
   useEffect(() => {
     if (existingAcquirers && editingContract) {
@@ -710,6 +723,7 @@ function ContractFormDialog({
       commissionAmount: commissionAmount ? parseInt(commissionAmount) : null,
       currency,
       notes: notes || null,
+      specialistaUid: specialistUid || null,
       processingTimeSec,
       dynamicPanelValues: Object.keys(panelValues).length > 0 ? panelValues : undefined,
       ...(isMigrationMode ? {
@@ -936,6 +950,12 @@ function ContractFormDialog({
                   <Award className="w-3.5 h-3.5 text-primary" />
                   <span className="text-xs font-semibold uppercase tracking-wide">Specialista</span>
                 </div>
+                {!editingContract && activeContextUid && specialistUid && specialistUid !== activeContextUid && (
+                  <div className="flex items-center gap-1.5 px-2 py-1.5 rounded border border-amber-500/30 bg-amber-500/10 mb-1" data-testid="alert-specialist-context-mismatch">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                    <span className="text-xs text-amber-600 dark:text-amber-400">Špecialistov subjekt sa líši od aktívnej identity.</span>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <div className="flex items-center justify-between gap-1">
@@ -988,6 +1008,12 @@ function ContractFormDialog({
                         );
                       })()}
                     </div>
+                    {!editingContract && activeContextUid && activeContextLabel && (
+                      <p className="text-[10px] text-violet-500 dark:text-violet-400 flex items-center gap-0.5 mt-0.5" data-testid="text-specialist-context-hint">
+                        <Info className="w-3 h-3 flex-shrink-0" />
+                        Predvyplnené z aktívneho kontextu: {activeContextLabel}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground">Podiel (%)</label>

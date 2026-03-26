@@ -7325,6 +7325,43 @@ export async function registerRoutes(
       if (appUser?.activeCompanyId) {
         createData.companyId = appUser.activeCompanyId;
       }
+
+      // Derive specialistaUid (and szcoUid for SZČO) from the user's active identity if not explicitly provided
+      if (!createData.specialistaUid && appUser) {
+        if (appUser.activeSubjectId) {
+          const [activeSubj] = await db
+            .select({ uid: subjects.uid, type: subjects.type })
+            .from(subjects)
+            .where(and(eq(subjects.id, appUser.activeSubjectId), isNull(subjects.deletedAt)))
+            .limit(1);
+          if (activeSubj?.uid) {
+            createData.specialistaUid = activeSubj.uid;
+            if (activeSubj.type === "szco" && !createData.szcoUid) {
+              createData.szcoUid = activeSubj.uid;
+            }
+          }
+        } else if (appUser.activeCompanyId) {
+          const [activeMc] = await db
+            .select({ uid: myCompanies.uid })
+            .from(myCompanies)
+            .where(eq(myCompanies.id, appUser.activeCompanyId))
+            .limit(1);
+          if (activeMc?.uid) {
+            createData.specialistaUid = activeMc.uid;
+          }
+        } else if (appUser.linkedSubjectId) {
+          // FO context (both activeSubjectId and activeCompanyId are null)
+          const [foSubj] = await db
+            .select({ uid: subjects.uid })
+            .from(subjects)
+            .where(and(eq(subjects.id, appUser.linkedSubjectId), isNull(subjects.deletedAt)))
+            .limit(1);
+          if (foSubj?.uid) {
+            createData.specialistaUid = foSubj.uid;
+          }
+        }
+      }
+
       const nextGlobalNumber = await storage.getNextCounterValue("contract_global_number");
       createData.globalNumber = nextGlobalNumber;
 
@@ -7407,7 +7444,7 @@ export async function registerRoutes(
         await logAudit(req, { action: "SYSTEM", module: "provizie", entityId: created.id, entityName: created.contractNumber || `Zmluva ${created.id}`, newData: { isFirstContract: true, commissionRedirectedToName: firstContractData.redirectUserName, reason: "Pravidlo prvej zmluvy v divízii" } });
       }
 
-      await logAudit(req, { action: "CREATE", module: "zmluvy", entityId: created.id, entityName: created.contractNumber || `Zmluva ${created.id}`, newData: input });
+      await logAudit(req, { action: "CREATE", module: "zmluvy", entityId: created.id, entityName: created.contractNumber || `Zmluva ${created.id}`, newData: { ...input, _identity: { specialistaUid: createData.specialistaUid ?? null, szcoUid: createData.szcoUid ?? null, activeSubjectId: appUser?.activeSubjectId ?? null, activeCompanyId: appUser?.activeCompanyId ?? null } } });
 
       if (input.subjectId) {
         try {
