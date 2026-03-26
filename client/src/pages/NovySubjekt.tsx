@@ -542,12 +542,22 @@ function SubjectInfoBubble({ opt }: { opt: typeof SUBJECT_TYPE_OPTS[0] }) {
   );
 }
 
-function AddPartnerHexButton({ onClick, isSliderActive }: { onClick: () => void; isSliderActive?: boolean }) {
+function AddPartnerHexButton({ onClick, isFormActive }: { onClick: () => void; isFormActive?: boolean }) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
 
-  const isActive = hovered || pressed;
-  const glowColor = isSliderActive ? "255,30,30" : "0,220,60";
+  const isHovered = hovered || pressed;
+
+  // Three exclusive color states:
+  // "red"   – formulár aktívny (Pokračovať stlačené), trvalý
+  // "green" – myška na tlačidle, formulár ešte nie je aktívny
+  // "blue"  – idle (myška mimo tlačidla)
+  const colorMode: "red" | "green" | "blue" = isFormActive ? "red" : isHovered ? "green" : "blue";
+
+  const GLOW_RGB = { red: "255,30,30", green: "0,220,60", blue: "0,140,255" }[colorMode];
+  const FILL_OP  = { red: 0.90, green: 1.0, blue: 0.60 }[colorMode];
+  const SHADOW1  = { red: 0.70, green: 0.55, blue: 0.75 }[colorMode];
+  const SHADOW2  = { red: 0.40, green: 0.25, blue: 0.45 }[colorMode];
 
   return (
     <div className="flex items-center justify-center w-full" style={{ marginTop: -18, paddingBottom: 4 }}>
@@ -571,10 +581,8 @@ function AddPartnerHexButton({ onClick, isSliderActive }: { onClick: () => void;
           outline: "none",
           userSelect: "none",
           transition: "transform 0.15s ease, filter 0.25s ease",
-          transform: pressed ? "scale(0.96)" : hovered ? "scale(1.05)" : "scale(1)",
-          filter: isActive
-            ? `drop-shadow(0 0 10px rgba(${glowColor},0.55)) drop-shadow(0 0 22px rgba(${glowColor},0.25))`
-            : "drop-shadow(0 0 10px rgba(56,189,248,0.50))",
+          transform: pressed ? "scale(0.96)" : isHovered ? "scale(1.05)" : "scale(1)",
+          filter: `drop-shadow(0 0 12px rgba(${GLOW_RGB},${SHADOW1})) drop-shadow(0 0 26px rgba(${GLOW_RGB},${SHADOW2}))`,
         }}
       >
         <svg
@@ -598,21 +606,19 @@ function AddPartnerHexButton({ onClick, isSliderActive }: { onClick: () => void;
           </defs>
           <rect
             x="8" y="8" width="264" height="64" rx="24"
-            fill={isActive ? `rgba(${glowColor},1.0)` : "rgba(56,189,248,0.45)"}
-            filter={isActive ? "url(#glowAaaHover)" : "url(#glowAaaRest)"}
-            style={{ transition: "fill 0.2s ease" }}
+            fill={`rgba(${GLOW_RGB},${FILL_OP})`}
+            filter={colorMode === "blue" ? "url(#glowAaaRest)" : "url(#glowAaaHover)"}
+            style={{ transition: "fill 0.25s ease" }}
           />
-          {isActive && (
-            <rect
-              x="8" y="8" width="264" height="64" rx="24"
-              fill={`rgba(${glowColor},0.25)`}
-              filter="url(#glowAaaHover)"
-            />
-          )}
+          <rect
+            x="8" y="8" width="264" height="64" rx="24"
+            fill={`rgba(${GLOW_RGB},0.22)`}
+            filter="url(#glowAaaHover)"
+          />
           <rect
             x="1" y="1" width="278" height="78" rx="28"
             fill="url(#hexGradAaa)"
-            stroke={isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)"}
+            stroke={isHovered || isFormActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)"}
             strokeWidth="2"
             style={{ transition: "stroke 0.15s ease" }}
           />
@@ -631,7 +637,7 @@ function AddPartnerHexButton({ onClick, isSliderActive }: { onClick: () => void;
               strokeWidth={1.4}
               style={{
                 color: "#FFBF00",
-                filter: `drop-shadow(0 0 7px rgba(255,191,0,${isActive ? 0.95 : 0.55}))`,
+                filter: `drop-shadow(0 0 7px rgba(255,191,0,${isHovered || isFormActive ? 0.95 : 0.55}))`,
                 transition: "filter 0.15s ease",
               }}
             />
@@ -640,7 +646,7 @@ function AddPartnerHexButton({ onClick, isSliderActive }: { onClick: () => void;
             width: 3,
             margin: "12px 0",
             borderRadius: 2,
-            background: isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)",
+            background: isHovered || isFormActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)",
             transition: "background 0.15s ease",
             flexShrink: 0,
           }} />
@@ -698,7 +704,7 @@ export default function NovySubjekt() {
       </div>
 
       <div style={{ marginTop: "46px" }}>
-        <AddPartnerHexButton onClick={handleButtonClick} isSliderActive={sliderVisible} />
+        <AddPartnerHexButton onClick={handleButtonClick} isFormActive={!!formData} />
       </div>
 
       {!sliderVisible && !formData && (
