@@ -242,18 +242,18 @@ export function FullPageEditor({
       if (!depField) return true;
       return (dynamicValues[depField.fieldKey] || "") === rule.value;
     });
-    const missing = visibleRequired.filter(
-      f => !DOC_KEYS.has(f.fieldKey) && !CONTACT_KEYS.has(f.fieldKey) && !dynamicValues[f.fieldKey]?.trim()
-    );
+    const missing: { fieldKey: string }[] = visibleRequired
+      .filter(f => !DOC_KEYS.has(f.fieldKey) && !CONTACT_KEYS.has(f.fieldKey) && !dynamicValues[f.fieldKey]?.trim())
+      .map(f => ({ fieldKey: f.fieldKey }));
     if (isPerson) {
       const addrKeys = ["tp_ulica", "tp_orientacne", "tp_psc", "tp_mesto"];
       for (const k of addrKeys) {
-        if (!dynamicValues[k]?.trim()) missing.push({ fieldKey: k } as any);
+        if (!dynamicValues[k]?.trim()) missing.push({ fieldKey: k });
       }
       const hasDoc = documents.some(d => d.documentType?.trim() && d.documentNumber?.trim());
-      if (!hasDoc) missing.push({ fieldKey: "typ_dokladu" } as any);
+      if (!hasDoc) missing.push({ fieldKey: "typ_dokladu" });
       const rcVal = dynamicValues["rodne_cislo"]?.trim() || initialData.baseValue?.trim();
-      if (!rcVal) missing.push({ fieldKey: "rodne_cislo" } as any);
+      if (!rcVal) missing.push({ fieldKey: "rodne_cislo" });
     }
     onValidityChange(missing.length === 0);
   }, [typeFields, dynamicValues, documents, isPerson, initialData.baseValue, onValidityChange]);

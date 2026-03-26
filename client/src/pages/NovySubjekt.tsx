@@ -726,7 +726,7 @@ export default function NovySubjekt() {
 
   return (
     <div className="flex flex-col h-full -m-4 md:-m-6">
-      <div className="px-4 pt-4 md:px-6 md:pt-6 pb-2 flex-shrink-0 bg-background">
+      <div className="sticky top-0 z-10 px-4 pt-4 md:px-6 md:pt-6 pb-2 flex-shrink-0 bg-background">
         <div>
           <h1 className="text-2xl font-semibold" data-testid="text-aaa-title">
             Pridať subjekt
