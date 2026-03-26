@@ -23510,6 +23510,16 @@ async function seedDatabase() {
     ]);
     console.log("[SEED] Created 7 client data tabs and 30 categories");
   }
+
+  // ── Seed empty ui_blueprints for all non-FO subject types ──────────────────
+  const SUBJECT_BLUEPRINT_CODES = ["FO", "SZCO", "PO", "NS", "VS", "OS"];
+  for (const code of SUBJECT_BLUEPRINT_CODES) {
+    const existing = await storage.getUiBlueprint("SUBJECT", code);
+    if (!existing) {
+      await storage.createUiBlueprint({ type: "SUBJECT", targetId: code, layoutJson: { megaBlocks: [] } });
+      console.log(`[SEED] Created empty ui_blueprint for subject type ${code}`);
+    }
+  }
 }
 
 async function seedSubjectParameters() {
