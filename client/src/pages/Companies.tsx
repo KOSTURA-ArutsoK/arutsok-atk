@@ -1178,7 +1178,7 @@ function CompanyFormDialog({
                   <FormField control={form.control} name="email" render={({ field }) => (
                     <FormItem className="flex-1">
                       <FormLabel>Email</FormLabel>
-                      <FormControl><Input {...field} value={field.value || ""} type="email" data-testid="input-company-email" /></FormControl>
+                      <FormControl><Input {...field} value={field.value || ""} data-testid="input-company-email" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
