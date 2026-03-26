@@ -63,7 +63,7 @@ function maskPhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   if (digits.length < 4) return phone;
   const last3 = digits.slice(-3);
-  const prefix = phone.startsWith("+") ? phone.split(" ")[0] || "+421" : "+421";
+  const prefix = phone.startsWith("+") ? (phone.match(/^\+\d{1,3}/)?.[0] || "+421") : "+421";
   return `${prefix} *** *** ${last3}`;
 }
 
