@@ -161,20 +161,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [isClientUser, appUser]);
 
   useEffect(() => {
-    if (appUser && !contextInitRef.current && !isClientUser && allStates) {
-      contextInitRef.current = true;
+    // Wait for all required data including userContexts — server data is authoritative
+    if (!appUser || contextInitRef.current || isClientUser || !allStates || userContexts === undefined) return;
+    contextInitRef.current = true;
 
-      // If user explicitly switched to FO context, skip auto-init company selection
-      const isExplicitFo = localStorage.getItem("atk_context_fo") === "1"
-        && !appUser.activeCompanyId
-        && !(appUser as any).activeSubjectId;
-      if (isExplicitFo) return;
+    // Server-authoritative FO check: if the server says FO is the current context,
+    // skip company auto-selection entirely (user intentionally switched to FO)
+    const currentCtx = userContexts.find((c: any) => c.isCurrent);
+    if (currentCtx?.contextType === "fo") {
+      localStorage.removeItem("atk_context_fo");
+      return;
+    }
 
-      // If a company or subject is now active (from a different switch), clear the FO flag
-      if (appUser.activeCompanyId || (appUser as any).activeSubjectId) {
-        localStorage.removeItem("atk_context_fo");
-      }
+    // Clear stale FO flag when a company/subject is active
+    if (appUser.activeCompanyId || (appUser as any).activeSubjectId) {
+      localStorage.removeItem("atk_context_fo");
+    }
 
+    {
       const needsFullContext = !appUser.activeStateId || !appUser.activeCompanyId;
       const needsDivision = !!(appUser.activeStateId && appUser.activeCompanyId && !(appUser as any).activeDivisionId);
 
@@ -236,7 +240,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         })();
       }
     }
-  }, [appUser, isClientUser, autoCreateDivisionForCompany, allStates]);
+  }, [appUser, isClientUser, autoCreateDivisionForCompany, allStates, userContexts]);
 
   const handleContextSelectState = useCallback((stateId: number) => {
     if (stateId === appUser?.activeStateId) {
