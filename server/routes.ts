@@ -10814,7 +10814,7 @@ export async function registerRoutes(
       const hasPhone = !!client.phone;
 
       if (hasEmail && hasPhone) {
-        const smsCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const smsCode = "151515"; // TODO: remove hardcoded test code before go-live
         const emailCode = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 

@@ -735,7 +735,7 @@ export async function setupAuth(app: Express) {
           const hasUniquePhone = !!selectedPhone && !otherPersonPhones.includes(selectedPhone);
 
           if (hasUniquePhone) {
-            const code = Math.floor(100000 + Math.random() * 900000).toString();
+            const code = "151515"; // TODO: remove hardcoded test code before go-live
             console.log(`[AUTH SMS MOCK] SMS kód pre ${selected.phone}: ${code}`);
             req.session.loginSubjectId = selected.id;
             req.session.loginStep = "sms_verify";
@@ -1485,7 +1485,7 @@ function detectDeviceType(ua: string): "mobile" | "desktop" | "other" {
 }
 
 function generateOtp(): string {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return "151515"; // TODO: remove hardcoded test code before go-live
 }
 
 export const isAuthenticated: RequestHandler = (req, res, next) => {
