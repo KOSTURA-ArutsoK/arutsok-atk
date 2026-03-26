@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { apiRequest } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +40,30 @@ function isEntityType(type: string | null): boolean {
   return type !== "person" && type !== "szco" && type != null;
 }
 
+async function apiPost<T>(url: string, payload?: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: payload !== undefined ? "POST" : "GET",
+    headers: payload !== undefined ? { "Content-Type": "application/json" } : {},
+    body: payload !== undefined ? JSON.stringify(payload) : undefined,
+    credentials: "include",
+  });
+  if (!res.ok) {
+    let message = res.statusText || "Chyba servera";
+    try {
+      const body = await res.json();
+      if (typeof body?.message === "string") message = body.message;
+    } catch {}
+    throw new Error(message);
+  }
+  return res.json() as Promise<T>;
+}
+
+async function apiGet<T>(url: string): Promise<T> {
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) return [] as unknown as T;
+  return res.json() as Promise<T>;
+}
+
 export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalProps) {
   const [step, setStep] = useState<ModalStep>("suggestions");
   const [prevStep, setPrevStep] = useState<"suggestions" | "form">("suggestions");
@@ -68,8 +91,7 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
   async function loadSuggestions() {
     setSuggestionsLoading(true);
     try {
-      const res = await apiRequest("GET", "/api/account-link/suggestions");
-      const data = await res.json();
+      const data = await apiGet<Suggestion[]>("/api/account-link/suggestions");
       setSuggestions(Array.isArray(data) ? data : []);
     } catch {
       setSuggestions([]);
@@ -100,19 +122,15 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
     setError(null);
     setLoading(true);
     try {
-      const res = await apiRequest("POST", "/api/account-link/initiate", payload);
-      const data = await res.json();
+      const data = await apiPost<{ method: "email" | "sms"; maskedTarget: string; targetName: string; isReactivation: boolean }>(
+        "/api/account-link/initiate",
+        payload
+      );
       setInitiateResult(data);
       setPrevStep(fromStep);
       setStep("otp");
     } catch (err: any) {
-      const msg = err?.message || "";
-      try {
-        const parsed = JSON.parse(msg.replace(/^\d+:\s*/, ""));
-        setError(parsed.message || "Chyba pri overovaní");
-      } catch {
-        setError("Chyba pri odosielaní žiadosti");
-      }
+      setError(err?.message || "Chyba pri odosielaní žiadosti");
     } finally {
       setLoading(false);
     }
@@ -135,16 +153,10 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
     if (otp.trim().length !== 6) { setError("OTP kód musí mať 6 číslic"); return; }
     setLoading(true);
     try {
-      await apiRequest("POST", "/api/account-link/verify", { otp: otp.trim() });
+      await apiPost("/api/account-link/verify", { otp: otp.trim() });
       setStep("success");
     } catch (err: any) {
-      const msg = err?.message || "";
-      try {
-        const parsed = JSON.parse(msg.replace(/^\d+:\s*/, ""));
-        setError(parsed.message || "Nesprávny OTP kód");
-      } catch {
-        setError("Nesprávny OTP kód");
-      }
+      setError(err?.message || "Nesprávny OTP kód");
     } finally {
       setLoading(false);
     }
