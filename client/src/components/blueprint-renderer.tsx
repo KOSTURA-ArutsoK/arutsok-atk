@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FolderOpen, LayoutGrid, AlignLeft, Link2, Info, ArrowLeftRight } from "lucide-react";
+import { FolderOpen, LayoutGrid, AlignLeft, Link2, Info, ArrowLeftRight, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ============================================================
@@ -587,74 +587,49 @@ interface SubjectBlueprintData {
 interface AllPanel { id: number; name: string; description?: string | null; }
 interface AllParam { id: number; name: string; paramType: string; helpText?: string | null; options?: string[]; isRequired?: boolean; defaultValue?: string | null; }
 
-export function SubjectBlueprintSection({
-  clientTypeId, subjectCode, dynamicFields = {}, readOnly = true, compact = false,
-}: SubjectBlueprintSectionProps) {
-  const [activeBlockIdx, setActiveBlockIdx] = useState(0);
+// ── Internal helper: renders a set of megaBlocks with tabs + panels ──
+interface MegaBlockGroupProps {
+  megaBlocks: (SubjectMegaBlock & { panels: (AllPanel & { parameters: (AllParam & { width: string })[] })[] })[];
+  dynamicFields: Record<string, any>;
+  compact: boolean;
+  inherited?: boolean;
+}
 
-  const code: SubjectCode | undefined = subjectCode || (clientTypeId ? CLIENT_TYPE_TO_CODE[clientTypeId] : undefined);
+function MegaBlockGroup({ megaBlocks, dynamicFields, compact, inherited = false }: MegaBlockGroupProps) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const safeIdx = Math.min(activeIdx, Math.max(megaBlocks.length - 1, 0));
+  const activeBlock = megaBlocks[safeIdx];
 
-  const { data: allPanels = [] } = useQuery<AllPanel[]>({ queryKey: ["/api/panels"] });
-  const { data: allParams = [] } = useQuery<AllParam[]>({ queryKey: ["/api/parameters"] });
+  const borderStyle = inherited
+    ? "border-2 border-slate-200/70 dark:border-slate-700/50 rounded-lg overflow-hidden"
+    : "border-2 border-emerald-200/60 dark:border-emerald-800/40 rounded-lg overflow-hidden";
+  const headerBg = inherited
+    ? "bg-slate-50/70 dark:bg-slate-800/30 border-b border-slate-200/50 dark:border-slate-700/40"
+    : "bg-emerald-50/60 dark:bg-emerald-900/20 border-b border-emerald-200/40 dark:border-emerald-800/30";
+  const iconColor = inherited ? "text-slate-500/60" : "text-emerald-600/70";
+  const tabActive = inherited ? "border-slate-500 text-slate-600 dark:text-slate-300" : "border-emerald-500 text-emerald-600";
+  const tabHover = "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40";
 
-  const { data: blueprint, isLoading } = useQuery<SubjectBlueprintData | null>({
-    queryKey: ["/api/ui-blueprints/find", code, "SUBJECT"],
-    queryFn: () =>
-      code
-        ? apiRequest("GET", `/api/ui-blueprints/find?type=SUBJECT&targetId=${code}`).then(r => r.json())
-        : Promise.resolve(null),
-    enabled: !!code,
-  });
-
-  // Enrich mega blocks with panel/param data
-  const megaBlocks = useMemo(() => {
-    if (!blueprint?.layoutJson?.megaBlocks) return [];
-    return blueprint.layoutJson.megaBlocks
-      .map(mb => ({
-        ...mb,
-        panels: (mb.panels || []).map(p => {
-          const panel = allPanels.find(pl => pl.id === p.panelId);
-          if (!panel) return null;
-          const parameters: (AllParam & { width: string })[] = (p.parameters || [])
-            .map(pr => {
-              const param = allParams.find(pa => pa.id === pr.parameterId);
-              return param ? { ...param, width: pr.width || "50%" } : null;
-            })
-            .filter(Boolean) as (AllParam & { width: string })[];
-          return { ...panel, parameters };
-        }).filter(Boolean),
-      }))
-      .sort((a, b) => a.order - b.order);
-  }, [blueprint, allPanels, allParams]);
-
-  if (!code) return null;
-  if (isLoading) return <Skeleton className="h-24 w-full" />;
-  if (!blueprint || megaBlocks.length === 0) {
+  if (!activeBlock) {
     return (
-      <div className="flex items-center gap-2 text-muted-foreground text-sm py-3 px-3 border rounded-md bg-muted/20">
-        <Info className="h-4 w-4" />
-        <span>Pre typ {code} nie je definovaná B-Vízia šablóna.</span>
+      <div className="text-sm text-muted-foreground py-3 text-center italic">
+        {inherited ? "FO základ zatiaľ neobsahuje žiadne bloky." : "Žiadne bloky v šablóne."}
       </div>
     );
   }
 
-  const activeBlock = megaBlocks[activeBlockIdx] || megaBlocks[0];
-
   return (
-    <div className="space-y-3" data-testid="subject-blueprint-section">
-      {/* MegaBlock tabs */}
+    <div className="space-y-2">
       {megaBlocks.length > 1 && (
         <div className="flex gap-0.5 border-b overflow-x-auto">
           {megaBlocks.map((mb, idx) => (
             <button
               key={mb.id}
-              onClick={() => setActiveBlockIdx(idx)}
+              onClick={() => setActiveIdx(idx)}
               data-testid={`subject-blueprint-tab-${mb.id}`}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
-                activeBlockIdx === idx
-                  ? "border-emerald-500 text-emerald-600"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40"
+                safeIdx === idx ? tabActive : tabHover
               )}
             >
               {mb.name}
@@ -663,31 +638,30 @@ export function SubjectBlueprintSection({
         </div>
       )}
 
-      {/* Panels in active block */}
       <div className={compact ? "space-y-2" : "space-y-3"}>
-        {(activeBlock?.panels || []).length === 0 ? (
+        {(activeBlock.panels || []).length === 0 ? (
           <div className="text-sm text-muted-foreground py-4 text-center">Žiadne panely v tomto bloku.</div>
         ) : (
           (activeBlock.panels as (AllPanel & { parameters: (AllParam & { width: string })[] })[]).map(panel => (
             <div
               key={panel.id}
-              className="border-2 border-emerald-200/60 dark:border-emerald-800/40 rounded-lg overflow-hidden"
-              data-testid={`subject-panel-${panel.id}`}
+              className={borderStyle}
+              data-testid={`subject-panel-${panel.id}${inherited ? "-inherited" : ""}`}
             >
-              <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50/60 dark:bg-emerald-900/20 border-b border-emerald-200/40 dark:border-emerald-800/30">
-                <LayoutGrid className="h-3.5 w-3.5 text-emerald-600/70" />
+              <div className={cn("flex items-center gap-2 px-3 py-2", headerBg)}>
+                <LayoutGrid className={cn("h-3.5 w-3.5", iconColor)} />
                 <span className="text-sm font-semibold">{panel.name}</span>
                 <span className="ml-auto text-xs text-muted-foreground">{panel.parameters.length} polí</span>
               </div>
-              <div className={cn("p-3 grid grid-cols-4 gap-3", compact && "gap-2")}>
+              <div className={cn("p-3 grid grid-cols-4 gap-3", compact && "gap-2", inherited && "bg-muted/10")}>
                 {panel.parameters.map(param => {
                   const rawVal = dynamicFields[param.name] ?? dynamicFields[param.name.toLowerCase().replace(/\s+/g, "_")] ?? "";
                   const strVal = rawVal !== null && rawVal !== undefined ? String(rawVal) : "";
                   return (
                     <div key={param.id} className={cn("flex flex-col gap-1", widthToColSpan(param.width))} data-testid={`subject-param-field-${param.id}`}>
-                      <label className="text-xs font-medium">{param.name}</label>
+                      <label className={cn("text-xs font-medium", inherited && "text-muted-foreground")}>{param.name}</label>
                       {strVal ? (
-                        <div className="text-sm min-h-[32px] px-3 py-1.5 bg-muted/30 rounded border border-border flex items-center">
+                        <div className={cn("text-sm min-h-[32px] px-3 py-1.5 rounded border flex items-center", inherited ? "bg-muted/20 border-border/60 text-muted-foreground" : "bg-muted/30 border-border")}>
                           {strVal}
                         </div>
                       ) : (
@@ -706,6 +680,109 @@ export function SubjectBlueprintSection({
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+export function SubjectBlueprintSection({
+  clientTypeId, subjectCode, dynamicFields = {}, readOnly = true, compact = false,
+}: SubjectBlueprintSectionProps) {
+  const code: SubjectCode | undefined = subjectCode || (clientTypeId ? CLIENT_TYPE_TO_CODE[clientTypeId] : undefined);
+  const isFo = code === "FO";
+
+  const { data: allPanels = [] } = useQuery<AllPanel[]>({ queryKey: ["/api/panels"] });
+  const { data: allParams = [] } = useQuery<AllParam[]>({ queryKey: ["/api/parameters"] });
+
+  const { data: blueprint, isLoading } = useQuery<SubjectBlueprintData | null>({
+    queryKey: ["/api/ui-blueprints/find", code, "SUBJECT"],
+    queryFn: () =>
+      code
+        ? apiRequest("GET", `/api/ui-blueprints/find?type=SUBJECT&targetId=${code}`).then(r => r.json())
+        : Promise.resolve(null),
+    enabled: !!code,
+  });
+
+  const { data: foBlueprintRaw, isLoading: foLoading } = useQuery<SubjectBlueprintData | null>({
+    queryKey: ["/api/ui-blueprints/find", "FO", "SUBJECT"],
+    queryFn: () => apiRequest("GET", `/api/ui-blueprints/find?type=SUBJECT&targetId=FO`).then(r => r.json()),
+    enabled: !isFo,
+  });
+
+  function enrichMegaBlocks(bp: SubjectBlueprintData | null | undefined) {
+    if (!bp?.layoutJson?.megaBlocks) return [];
+    return bp.layoutJson.megaBlocks
+      .map(mb => ({
+        ...mb,
+        panels: (mb.panels || []).map(p => {
+          const panel = allPanels.find(pl => pl.id === p.panelId);
+          if (!panel) return null;
+          const parameters: (AllParam & { width: string })[] = (p.parameters || [])
+            .map(pr => {
+              const param = allParams.find(pa => pa.id === pr.parameterId);
+              return param ? { ...param, width: pr.width || "50%" } : null;
+            })
+            .filter(Boolean) as (AllParam & { width: string })[];
+          return { ...panel, parameters };
+        }).filter(Boolean),
+      }))
+      .sort((a, b) => a.order - b.order) as (SubjectMegaBlock & { panels: (AllPanel & { parameters: (AllParam & { width: string })[] })[] })[];
+  }
+
+  const megaBlocks = useMemo(() => enrichMegaBlocks(blueprint), [blueprint, allPanels, allParams]);
+  const foMegaBlocks = useMemo(() => enrichMegaBlocks(foBlueprintRaw), [foBlueprintRaw, allPanels, allParams]);
+
+  if (!code) return null;
+  if (isLoading || (!isFo && foLoading)) return <Skeleton className="h-24 w-full" />;
+
+  // FO: only own blocks
+  if (isFo) {
+    if (!blueprint || megaBlocks.length === 0) {
+      return (
+        <div className="flex items-center gap-2 text-muted-foreground text-sm py-3 px-3 border rounded-md bg-muted/20">
+          <Info className="h-4 w-4" />
+          <span>Pre typ FO nie je definovaná B-Vízia šablóna.</span>
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-3" data-testid="subject-blueprint-section">
+        <MegaBlockGroup megaBlocks={megaBlocks} dynamicFields={dynamicFields} compact={compact} />
+      </div>
+    );
+  }
+
+  // Non-FO: show inherited FO section + own type-specific section
+  const hasOwnBlocks = megaBlocks.length > 0;
+  const hasFoBlocks = foMegaBlocks.length > 0;
+
+  if (!hasFoBlocks && !hasOwnBlocks) {
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground text-sm py-3 px-3 border rounded-md bg-muted/20">
+        <Info className="h-4 w-4" />
+        <span>Pre typ {code} nie je definovaná B-Vízia šablóna.</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4" data-testid="subject-blueprint-section">
+      {/* Inherited FO section */}
+      <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden" data-testid="subject-blueprint-fo-inherited">
+        <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-700">
+          <Lock className="h-3.5 w-3.5 text-slate-400" />
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Zdedené z FO</span>
+        </div>
+        <div className="p-3">
+          <MegaBlockGroup megaBlocks={foMegaBlocks} dynamicFields={dynamicFields} compact={compact} inherited={true} />
+        </div>
+      </div>
+
+      {/* Type-specific section */}
+      {hasOwnBlocks && (
+        <div className="space-y-3" data-testid="subject-blueprint-own">
+          <MegaBlockGroup megaBlocks={megaBlocks} dynamicFields={dynamicFields} compact={compact} />
+        </div>
+      )}
     </div>
   );
 }

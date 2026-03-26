@@ -12,7 +12,7 @@ import {
   LayoutGrid, AlignLeft, Plus, X,
   Layers, FolderOpen, Pencil, Info, Loader2, Tag,
   Rows3, GripVertical, ArrowRightLeft,
-  ChevronRight, ChevronsDownUp, ChevronsUpDown,
+  ChevronRight, ChevronsDownUp, ChevronsUpDown, Lock,
 } from "lucide-react";
 import {
   DndContext,
@@ -153,6 +153,9 @@ export default function SektorySubjektovVizia() {
   const [expandedPanely,     setExpandedPanely]     = useState<Set<number>>(new Set());
   const [expandedRiadky,     setExpandedRiadky]     = useState<Set<number>>(new Set());
 
+  // Inherited FO section: collapsed by default
+  const [foInheritedExpanded, setFoInheritedExpanded] = useState(false);
+
   const toggleKategoria = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
     setCollapsedKategorie(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
@@ -216,6 +219,15 @@ export default function SektorySubjektovVizia() {
         .then(r => r.json()),
   });
 
+  // FO sections — loaded only for non-FO types, to display the inherited base
+  const isFoActive = activeCode === "FO";
+  const { data: foSections = [] } = useQuery<SubjectParamSection[]>({
+    queryKey: ["/api/subject-param-sections", 1],
+    queryFn: () =>
+      apiRequest("GET", "/api/subject-param-sections?clientTypeId=1").then(r => r.json()),
+    enabled: !isFoActive,
+  });
+
   // ============================================================
   // Derived data — build tree
   // ============================================================
@@ -223,6 +235,18 @@ export default function SektorySubjektovVizia() {
     () => allSections.filter(s => s.sectionType === "kategoria").sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
     [allSections]
   );
+
+  // FO inherited tree helpers (read-only, non-FO types only)
+  const foKategorie = useMemo(
+    () => foSections.filter(s => s.sectionType === "kategoria").sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+    [foSections]
+  );
+  const getFoBloky = (katId: number) =>
+    foSections.filter(s => s.sectionType === "blok" && s.parentSectionId === katId)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const getFoPanely = (blokId: number) =>
+    foSections.filter(s => s.sectionType === "panel" && s.parentSectionId === blokId)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   const getBloky = (katId: number) =>
     allSections.filter(s => s.sectionType === "blok" && s.parentSectionId === katId)
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
@@ -608,21 +632,95 @@ export default function SektorySubjektovVizia() {
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Načítavam sekcie...
               </div>
-            ) : kategorie.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-muted-foreground border-2 border-dashed rounded-lg">
-                <Tag className="h-10 w-10 mb-2 opacity-20" />
-                <p className="text-sm">Žiadne Kategórie pre typ {activeType.label}.</p>
-                <p className="text-xs mt-1">Pridajte prvú Kategóriu z Toolbar-u vpravo.</p>
-                <Button
-                  variant="outline" size="sm" className="mt-3"
-                  onClick={() => setAddKategoriaOpen(true)}
-                  data-testid="button-empty-add-kategoria"
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />
-                  Pridať Kategóriu
-                </Button>
-              </div>
             ) : (
+              <div className="space-y-6">
+                {/* ── INHERITED FO SECTION (non-FO types only) ── */}
+                {!isFoActive && (
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden" data-testid="fo-inherited-section">
+                    <button
+                      type="button"
+                      className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors text-left"
+                      onClick={() => setFoInheritedExpanded(v => !v)}
+                      data-testid="toggle-fo-inherited"
+                    >
+                      <Lock className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex-1">
+                        Zdedené z FO
+                      </span>
+                      <span className="text-xs text-slate-400">{foKategorie.length} kategórií</span>
+                      <ChevronRight className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-150 ${foInheritedExpanded ? "rotate-90" : ""}`} />
+                    </button>
+                    {foInheritedExpanded && (
+                      <div className="p-4 space-y-3 bg-slate-50/50 dark:bg-slate-800/20">
+                        {foKategorie.length === 0 ? (
+                          <div className="text-xs text-muted-foreground text-center py-4 italic">
+                            FO základ zatiaľ neobsahuje žiadne kategórie.
+                          </div>
+                        ) : (
+                          foKategorie.map(kat => {
+                            const foBloky = getFoBloky(kat.id);
+                            const catStyle = getCategoryStyle(kat.folderCategory);
+                            const catLabel = getCategoryLabel(kat.folderCategory);
+                            return (
+                              <div key={kat.id} className="rounded-lg border border-slate-200/70 dark:border-slate-700/50 bg-white dark:bg-slate-900/30" data-testid={`fo-inherited-kategoria-${kat.id}`}>
+                                <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-100/60 dark:bg-slate-800/30 rounded-t-lg">
+                                  <Lock className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                                  <Tag className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-300 flex-1">{kat.name}</span>
+                                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border flex-shrink-0 opacity-70 ${catStyle}`}>{catLabel}</Badge>
+                                  <span className="text-xs text-slate-400">{foBloky.length} blokov</span>
+                                </div>
+                                {foBloky.length > 0 && (
+                                  <div className="p-3 space-y-2">
+                                    {foBloky.map(blok => {
+                                      const foPanely = getFoPanely(blok.id);
+                                      return (
+                                        <div key={blok.id} className="rounded border border-slate-200/50 dark:border-slate-700/40 bg-slate-50/50 dark:bg-slate-800/20" data-testid={`fo-inherited-blok-${blok.id}`}>
+                                          <div className="flex items-center gap-1.5 px-2.5 py-1.5">
+                                            <FolderOpen className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                                            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 flex-1">{blok.name}</span>
+                                            <span className="text-[10px] text-slate-400">{foPanely.length} panelov</span>
+                                          </div>
+                                          {foPanely.length > 0 && (
+                                            <div className="px-2.5 pb-2 space-y-1">
+                                              {foPanely.map(panel => (
+                                                <div key={panel.id} className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-100/60 dark:bg-slate-700/20" data-testid={`fo-inherited-panel-${panel.id}`}>
+                                                  <LayoutGrid className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                                                  <span className="text-xs text-slate-500 dark:text-slate-400">{panel.name}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── TYPE-SPECIFIC SECTIONS ── */}
+                {kategorie.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-64 text-muted-foreground border-2 border-dashed rounded-lg">
+                    <Tag className="h-10 w-10 mb-2 opacity-20" />
+                    <p className="text-sm">Žiadne Kategórie pre typ {activeType.label}.</p>
+                    <p className="text-xs mt-1">Pridajte prvú Kategóriu z Toolbar-u vpravo.</p>
+                    <Button
+                      variant="outline" size="sm" className="mt-3"
+                      onClick={() => setAddKategoriaOpen(true)}
+                      data-testid="button-empty-add-kategoria"
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1.5" />
+                      Pridať Kategóriu
+                    </Button>
+                  </div>
+                ) : (
               /* ── KATEGÓRIE DnD ── */
               <DndContext sensors={sensors} onDragEnd={e => handleDragEndSections(e, kategorie)}>
                 <SortableContext items={kategorie.map(k => k.id)} strategy={verticalListSortingStrategy}>
@@ -1020,6 +1118,8 @@ export default function SektorySubjektovVizia() {
                   </div>
                 </SortableContext>
               </DndContext>
+            )}
+              </div>
             )}
           </div>
 
