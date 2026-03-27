@@ -93,7 +93,7 @@ const topItems = [
   { href: "/", icon: LayoutDashboard, label: "Prehlad" },
 ];
 
-const financieItems = [
+const financieBaseItems = [
   { href: "/siet", icon: Network, label: "Sieť" },
   { href: "/ziadosti", icon: FileInput, label: "Žiadosti" },
   { href: "/prestup", icon: ArrowRightLeft, label: "Prestup" },
@@ -102,6 +102,8 @@ const financieItems = [
   { href: "/odmeny", icon: ArrowUpRight, label: "Odmeny" },
   { href: "/commissions", icon: Percent, label: "Sadzby" },
   { href: "/holding-strom", icon: Network, label: "Holding strom" },
+];
+const financieAdminItems = [
   { href: "/admin/prepojenia-subjektov", icon: Link2, label: "Prepojenia subjektov" },
 ];
 
@@ -422,6 +424,9 @@ export function AppSidebar() {
     queryKey: ["/api/bulk-status-import-types"],
     staleTime: 1000 * 60 * 5,
   });
+
+  const isAdminUser = checkIsAdmin(appUser);
+  const financieItems = isAdminUser ? [...financieBaseItems, ...financieAdminItems] : financieBaseItems;
 
   const allMenus = [
     { id: "nastavenia", items: [...spravaPristupovItems, ...specifikacieItems, ...nastavenieSystemuItems, ...nastavenieDirectItems] },

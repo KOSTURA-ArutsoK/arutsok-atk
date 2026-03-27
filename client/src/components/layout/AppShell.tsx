@@ -510,6 +510,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const activeIdentityEntry = hasSubjectIdentity
     ? userContexts?.find((c: any) => c.subjectId === (appUser as any).activeSubjectId)
     : null;
+  const isActingAsLinkedSubject = !!(activeIdentityEntry as any)?.isSubjectLink && hasSubjectIdentity;
   const isNonFoContext = hasSubjectIdentity;
   const activeIdentityLabel = activeIdentityEntry?.label ?? (isNonFoContext ? displayName : displayName);
   const activeIdentitySubLabel = activeIdentityEntry?.subLabel ?? null;
@@ -975,6 +976,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </DropdownMenuContent>
             </DropdownMenu>
           </header>
+
+          {isActingAsLinkedSubject && (
+            <div className="bg-orange-600 text-white px-4 py-2 flex items-center justify-between flex-shrink-0" data-testid="banner-subject-context">
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  Konáte v mene: {activeIdentityLabel} ({activeIdentitySubLabel ?? activeIdentityEntry?.type ?? "—"})
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-white hover:bg-orange-700 gap-1.5"
+                onClick={() => {
+                  setActive.mutate({ activeSubjectId: null });
+                }}
+                data-testid="button-subject-context-exit"
+              >
+                <X className="w-4 h-4" />
+                Ukončiť
+              </Button>
+            </div>
+          )}
 
           {(appUser as any)?.isImpersonating && (
             <div className="bg-red-600 text-white px-4 py-2 flex items-center justify-between flex-shrink-0" data-testid="banner-impersonation">

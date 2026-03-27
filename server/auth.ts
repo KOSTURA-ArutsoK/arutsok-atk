@@ -2279,6 +2279,7 @@ export async function setupAuth(app: Express) {
           uid: subject.uid ?? null,
           ico: ico ?? null,
           isCurrent: currentUser.activeSubjectId === subject.id,
+          isSubjectLink: true,
         });
       }
 
@@ -2733,8 +2734,9 @@ export async function setupAuth(app: Express) {
       const sl = await storage.getSubjectLinkById(linkId);
       if (!sl) return res.status(404).json({ message: "Prepojenie nenájdené" });
       if (sl.userId !== req.session.userId) {
-        const isAdmin = !!(await db.select({ id: appUsers.id }).from(appUsers).where(eq(appUsers.id, req.session.userId)).limit(1))[0];
-        if (!isAdmin) return res.status(403).json({ message: "Nie ste oprávnený zrušiť toto prepojenie" });
+        const [currentUser] = await db.select({ isAdmin: appUsers.isAdmin, role: appUsers.role }).from(appUsers).where(eq(appUsers.id, req.session.userId)).limit(1);
+        const isAdminUser = currentUser?.isAdmin || currentUser?.role === "admin" || currentUser?.role === "superadmin" || currentUser?.role === "prezident" || currentUser?.role === "architekt";
+        if (!isAdminUser) return res.status(403).json({ message: "Nie ste oprávnený zrušiť toto prepojenie" });
       }
       const { reason } = req.body;
       await storage.revokeSubjectLink(linkId, req.session.userId, reason);
@@ -2750,7 +2752,67 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  // GET /api/admin/subject-links — admin: all subject links in system
+  // GET /api/admin/all-links — admin: unified view of all link types in system
+  app.get("/api/admin/all-links", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
+      if (!currentUser?.isAdmin) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      // Fetch subject links (user ↔ subject)
+      const allSubjectLinks = await db.select().from(subjectLinks).orderBy(desc(subjectLinks.createdAt)).limit(500);
+      const subjectRows = await Promise.all(allSubjectLinks.map(async (sl) => {
+        const [subject] = await db.select({
+          id: subjects.id, type: subjects.type, companyName: subjects.companyName,
+          firstName: subjects.firstName, lastName: subjects.lastName, uid: subjects.uid,
+        }).from(subjects).where(eq(subjects.id, sl.subjectId));
+        const [user] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName, email: appUsers.email, username: appUsers.username }).from(appUsers).where(eq(appUsers.id, sl.userId));
+        const subjectName = subject?.companyName || [subject?.firstName, subject?.lastName].filter(Boolean).join(" ") || subject?.uid || "Neznámy";
+        const userName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username || user.email || "Neznámy" : "Neznámy";
+        return {
+          rowId: `sl-${sl.id}`, linkCategory: "subject" as const,
+          linkId: sl.id, userId: sl.userId, userName, userEmail: user?.email ?? null,
+          primaryUserName: userName, primaryUserEmail: user?.email ?? null,
+          linkedUserName: null as string | null, linkedUserEmail: null as string | null,
+          subjectId: sl.subjectId, subjectName, subjectType: subject?.type ?? null,
+          status: sl.status, isActive: sl.isActive, createdAt: sl.createdAt, verifiedAt: sl.verifiedAt,
+          revokedAt: sl.revokedAt, revokedReason: sl.revokedReason,
+          linkType: "subject" as const,
+        };
+      }));
+
+      // Fetch account links (user ↔ user: guardian / same_person)
+      const allAccountLinks = await db.select().from(accountLinks).orderBy(desc(accountLinks.createdAt)).limit(500);
+      const accountRows = await Promise.all(allAccountLinks.map(async (al) => {
+        const [primary] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName, email: appUsers.email, username: appUsers.username }).from(appUsers).where(eq(appUsers.id, al.primaryUserId));
+        const [linked] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName, email: appUsers.email, username: appUsers.username }).from(appUsers).where(eq(appUsers.id, al.linkedUserId));
+        const primaryName = primary ? `${primary.firstName || ""} ${primary.lastName || ""}`.trim() || primary.username || primary.email || "Neznámy" : "Neznámy";
+        const linkedName = linked ? `${linked.firstName || ""} ${linked.lastName || ""}`.trim() || linked.username || linked.email || "Neznámy" : "Neznámy";
+        return {
+          rowId: `al-${al.id}`, linkCategory: al.linkType === "guardian" ? "guardian" as const : "same_person" as const,
+          linkId: al.id, userId: al.primaryUserId, userName: primaryName, userEmail: primary?.email ?? null,
+          primaryUserName: primaryName, primaryUserEmail: primary?.email ?? null,
+          linkedUserName: linkedName, linkedUserEmail: linked?.email ?? null,
+          subjectId: null as number | null, subjectName: null as string | null, subjectType: null as string | null,
+          status: al.status, isActive: al.isActive, createdAt: al.createdAt, verifiedAt: al.verifiedAt,
+          revokedAt: al.revokedAt, revokedReason: al.revokedReason,
+          linkType: al.linkType as string,
+        };
+      }));
+
+      const allRows = [...subjectRows, ...accountRows].sort(
+        (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+      );
+      return res.json(allRows);
+    } catch (err) {
+      console.error("[ADMIN ALL-LINKS]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  // GET /api/admin/subject-links — admin: all subject links in system (kept for backward compat)
   app.get("/api/admin/subject-links", async (req, res) => {
     try {
       if (!req.session.userId || req.session.loginStep !== "done") {

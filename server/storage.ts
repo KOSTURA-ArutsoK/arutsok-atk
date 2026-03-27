@@ -5728,8 +5728,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async rejectSubjectLink(id: number): Promise<void> {
-    await db.update(subjectLinks).set({ rejected: true, status: "revoked", isActive: false })
-      .where(eq(subjectLinks.id, id));
+    await db.update(subjectLinks).set({
+      rejected: true, status: "revoked", isActive: false,
+      revokedAt: new Date(), revokedReason: "rejected_by_subject",
+    }).where(eq(subjectLinks.id, id));
   }
 
   async revokeSubjectLink(id: number, revokedBy: number, reason?: string): Promise<void> {
