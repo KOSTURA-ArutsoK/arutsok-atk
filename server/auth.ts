@@ -2034,7 +2034,11 @@ export async function setupAuth(app: Express) {
 
       // Also include active subject links so clients can enumerate all contexts
       const subjectLinkRows = await storage.getSubjectLinksByUserId(req.session.userId);
-      const activeSubjectLinks = subjectLinkRows.filter(sl => sl.isActive && sl.status === "verified");
+      const nowTs = new Date();
+      const activeSubjectLinks = subjectLinkRows.filter(sl =>
+        sl.isActive && sl.status === "verified" &&
+        !(sl.validUntil && new Date(sl.validUntil) <= nowTs)
+      );
       const [currentUser2] = await db.select({ activeSubjectId: appUsers.activeSubjectId }).from(appUsers).where(eq(appUsers.id, req.session.userId)).limit(1);
       const subjectEntries = await Promise.all(activeSubjectLinks.map(async (sl) => {
         const [subject] = await db.select({

@@ -2317,13 +2317,30 @@ export async function registerRoutes(
             endReason: toChanged && newTo ? 'Zmena dátumu platnosti' : null,
           });
 
-          // Sync validFrom/validUntil to subject_links for the officer's subject
+          // Sync validFrom/validUntil to subject_links scoped by userId + companySubjectId
           const officerSubjectId = updated.subjectId ?? oldOfficer?.subjectId;
-          if (officerSubjectId) {
+          const officerCompanyId = updated.companyId ?? oldOfficer?.companyId;
+          if (officerSubjectId && officerCompanyId) {
             try {
-              const slinks = await storage.getSubjectLinksBySubjectId(officerSubjectId);
-              for (const sl of slinks) {
-                if (sl.isActive && sl.status === "verified") {
+              // Get the officer's app user account (user whose personal subject = officerSubjectId)
+              const [linkedUser] = await db.select({ id: appUsers.id })
+                .from(appUsers)
+                .where(eq(appUsers.linkedSubjectId, officerSubjectId))
+                .limit(1);
+              // Get the company's subject (subject linked to this company)
+              const [companySubject] = await db.select({ id: subjects.id })
+                .from(subjects)
+                .where(and(eq(subjects.myCompanyId, officerCompanyId), isNull(subjects.deletedAt)))
+                .limit(1);
+              if (linkedUser && companySubject) {
+                const slinks = await db.select().from(subjectLinks)
+                  .where(and(
+                    eq(subjectLinks.userId, linkedUser.id),
+                    eq(subjectLinks.subjectId, companySubject.id),
+                    eq(subjectLinks.isActive, true),
+                    eq(subjectLinks.status, "verified"),
+                  ));
+                for (const sl of slinks) {
                   await storage.updateSubjectLinkValidity(
                     sl.id,
                     newFrom ? new Date(newFrom) : null,
@@ -2387,6 +2404,39 @@ export async function registerRoutes(
         endReason: endReason || null,
       });
       await logAudit(req, { action: "CREATE", module: "company_officer_mandates", entityId: mandate.id });
+
+      // Sync validFrom/validUntil to subject_links scoped by officer userId + companySubjectId
+      if (officer.subjectId && officer.companyId && (validFrom || validTo)) {
+        try {
+          const [linkedUser] = await db.select({ id: appUsers.id })
+            .from(appUsers)
+            .where(eq(appUsers.linkedSubjectId, officer.subjectId))
+            .limit(1);
+          const [companySubject] = await db.select({ id: subjects.id })
+            .from(subjects)
+            .where(and(eq(subjects.myCompanyId, officer.companyId), isNull(subjects.deletedAt)))
+            .limit(1);
+          if (linkedUser && companySubject) {
+            const slinks = await db.select().from(subjectLinks)
+              .where(and(
+                eq(subjectLinks.userId, linkedUser.id),
+                eq(subjectLinks.subjectId, companySubject.id),
+                eq(subjectLinks.isActive, true),
+                eq(subjectLinks.status, "verified"),
+              ));
+            for (const sl of slinks) {
+              await storage.updateSubjectLinkValidity(
+                sl.id,
+                validFrom ? new Date(validFrom) : null,
+                validTo ? new Date(validTo) : null,
+              );
+            }
+          }
+        } catch (slinkErr) {
+          console.warn("[MANDATE SYNC POST] Could not sync subject_link validity:", slinkErr);
+        }
+      }
+
       res.json(mandate);
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Internal error" });
