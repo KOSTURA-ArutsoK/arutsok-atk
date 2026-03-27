@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
-import { AlertTriangle, CheckCircle, ShieldCheck, ShieldX, Loader2, MessageSquare } from "lucide-react";
+import { AlertTriangle, CheckCircle, ShieldCheck, ShieldX, Loader2, MessageSquare, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type PageState = "loading" | "confirm" | "sms" | "done" | "rejected" | "error";
+type PageState = "loading" | "sms" | "done" | "rejected" | "error";
 
 interface TokenInfo {
   tokenId: number;
@@ -16,6 +15,7 @@ interface TokenInfo {
   emailConfirmed: boolean;
   smsConfirmed: boolean;
   expiresAt: string;
+  status: "confirmed" | "sms_required";
 }
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
@@ -29,7 +29,6 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export default function GuardianConfirm() {
-  const [location] = useLocation();
   const token = new URLSearchParams(window.location.search).get("token") || "";
   const [pageState, setPageState] = useState<PageState>("loading");
   const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
@@ -39,15 +38,14 @@ export default function GuardianConfirm() {
 
   useEffect(() => {
     if (!token) { setPageState("error"); setError("Chýba overovací token v URL"); return; }
-    apiFetch<TokenInfo>(`/api/guardian-confirm?token=${encodeURIComponent(token)}`)
+    // GET endpoint auto-confirms email upon access — per spec, link click = email confirmation
+    apiFetch<TokenInfo>(`/api/account-link/guardian-confirm?token=${encodeURIComponent(token)}`)
       .then((info) => {
         setTokenInfo(info);
-        if (info.emailConfirmed && (!info.needsSms || info.smsConfirmed)) {
+        if (info.status === "confirmed") {
           setPageState("done");
-        } else if (info.emailConfirmed && info.needsSms) {
-          setPageState("sms");
         } else {
-          setPageState("confirm");
+          setPageState("sms");
         }
       })
       .catch((err) => {
@@ -56,34 +54,13 @@ export default function GuardianConfirm() {
       });
   }, [token]);
 
-  async function handleConfirm() {
-    if (!tokenInfo) return;
-    setError(null);
-    setLoading(true);
-    try {
-      const result = await apiFetch<{ status: string }>("/api/guardian-confirm/confirm", {
-        method: "POST",
-        body: JSON.stringify({ token }),
-      });
-      if (result.status === "confirmed") {
-        setPageState("done");
-      } else if (result.status === "sms_required") {
-        setPageState("sms");
-      }
-    } catch (err: any) {
-      setError(err?.message || "Chyba pri potvrdení");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function handleVerifySms(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (smsCode.trim().length !== 6) { setError("SMS kód musí mať 6 číslic"); return; }
     setLoading(true);
     try {
-      await apiFetch("/api/guardian-confirm/verify-sms", {
+      await apiFetch("/api/account-link/guardian-verify-sms", {
         method: "POST",
         body: JSON.stringify({ token, smsCode: smsCode.trim() }),
       });
@@ -99,10 +76,7 @@ export default function GuardianConfirm() {
     setError(null);
     setLoading(true);
     try {
-      await apiFetch("/api/guardian-confirm/reject", {
-        method: "POST",
-        body: JSON.stringify({ token }),
-      });
+      await apiFetch(`/api/account-link/guardian-reject?token=${encodeURIComponent(token)}`, { method: "POST" });
       setPageState("rejected");
     } catch (err: any) {
       setError(err?.message || "Chyba pri odmietnutí");
@@ -139,67 +113,6 @@ export default function GuardianConfirm() {
             </div>
           )}
 
-          {pageState === "confirm" && tokenInfo && (
-            <div className="space-y-5">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                  <ShieldCheck className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="text-center">
-                  <h2 className="text-base font-semibold text-foreground">Žiadosť o opatrovníctvo</h2>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Tento používateľ žiada o prístup k správe vášho účtu:
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-muted/40 border border-border rounded-lg p-4 space-y-2">
-                <div>
-                  <p className="text-xs text-muted-foreground">Správca (žiadateľ):</p>
-                  <p className="text-sm font-semibold text-foreground" data-testid="text-guardian-name">{tokenInfo.guardianName}</p>
-                  <p className="text-xs text-muted-foreground">{tokenInfo.guardianEmail}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Váš účet:</p>
-                  <p className="text-sm font-medium text-foreground">{tokenInfo.targetName}</p>
-                </div>
-              </div>
-
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-300">
-                Potvrdením udeľujete tejto osobe právo spravovať váš účet — môže sa prihlasovať a konať vo vašom mene. Opatrovníctvo môžete kedykoľvek zrušiť.
-              </div>
-
-              {error && (
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-                  <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                  <span>{error}</span>
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/10"
-                  onClick={handleReject}
-                  disabled={loading}
-                  data-testid="button-guardian-reject"
-                >
-                  <ShieldX className="w-4 h-4 mr-1" />
-                  Odmietnuť
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={handleConfirm}
-                  disabled={loading}
-                  data-testid="button-guardian-confirm"
-                >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <ShieldCheck className="w-4 h-4 mr-1" />}
-                  Potvrdiť
-                </Button>
-              </div>
-            </div>
-          )}
-
           {pageState === "sms" && tokenInfo && (
             <div className="space-y-5">
               <div className="flex flex-col items-center gap-3">
@@ -208,7 +121,9 @@ export default function GuardianConfirm() {
                 </div>
                 <div className="text-center">
                   <h2 className="text-base font-semibold text-foreground">Overenie SMS kódom</h2>
-                  <p className="text-sm text-muted-foreground mt-1">Email bol potvrdený. Zadajte SMS kód zaslaný na vaše telefónne číslo.</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Používateľ <strong>{tokenInfo.guardianName}</strong> žiada o správu vášho účtu. Zadajte SMS kód zaslaný na vaše telefónne číslo.
+                  </p>
                 </div>
               </div>
 
@@ -240,19 +155,48 @@ export default function GuardianConfirm() {
                   Potvrdiť SMS
                 </Button>
               </form>
+
+              <div className="pt-1">
+                <Button
+                  variant="ghost"
+                  className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 text-sm"
+                  onClick={handleReject}
+                  disabled={loading}
+                  data-testid="button-guardian-reject"
+                >
+                  <ShieldX className="w-4 h-4 mr-1" />
+                  Odmietnuť žiadosť
+                </Button>
+              </div>
             </div>
           )}
 
-          {pageState === "done" && (
+          {pageState === "done" && tokenInfo && (
+            <div className="flex flex-col items-center gap-4 py-4 text-center">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                <CheckCircle className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-base font-semibold text-foreground" data-testid="text-guardian-done">Opatrovníctvo potvrdené</h2>
+                <p className="text-sm text-muted-foreground">
+                  <strong>{tokenInfo.guardianName}</strong> teraz môže spravovať váš účet.
+                </p>
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground text-left mt-2">
+                  <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  <span>Opatrovníctvo môžete kedykoľvek zrušiť v nastaveniach prepojených účtov.</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {pageState === "done" && !tokenInfo && (
             <div className="flex flex-col items-center gap-4 py-4 text-center">
               <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
                 <CheckCircle className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div className="space-y-1">
                 <h2 className="text-base font-semibold text-foreground" data-testid="text-guardian-done">Opatrovníctvo potvrdené</h2>
-                <p className="text-sm text-muted-foreground">
-                  Správca teraz môže spravovať váš účet. Opatrovníctvo môžete kedykoľvek zrušiť v nastaveniach účtu.
-                </p>
+                <p className="text-sm text-muted-foreground">Správca teraz môže spravovať váš účet.</p>
               </div>
             </div>
           )}
@@ -264,7 +208,7 @@ export default function GuardianConfirm() {
               </div>
               <div className="space-y-1">
                 <h2 className="text-base font-semibold text-foreground" data-testid="text-guardian-rejected">Žiadosť odmietnutá</h2>
-                <p className="text-sm text-muted-foreground">Žiadosť o opatrovníctvo bola odmietnutá. Žiadateľ bol informovaný.</p>
+                <p className="text-sm text-muted-foreground">Žiadosť o opatrovníctvo bola odmietnutá.</p>
               </div>
             </div>
           )}

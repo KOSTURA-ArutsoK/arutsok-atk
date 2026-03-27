@@ -1,6 +1,6 @@
 import { db } from "./db";
-import { systemNotifications, contracts, contractAcquirers, contractRewardDistributions, appUsers, subjects, sectorProducts } from "@shared/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { systemNotifications, contracts, contractAcquirers, contractRewardDistributions, appUsers, subjects, sectorProducts, guardianConfirmationTokens } from "@shared/schema";
+import { eq, and, sql, desc } from "drizzle-orm";
 
 // ============================================================
 // ArutsoK Email Notification System
@@ -50,7 +50,10 @@ export async function sendEmail(to: string, subject: string, htmlBody: string): 
 
 export async function sendPendingEmails(): Promise<number> {
   const pending = await db.select().from(systemNotifications)
-    .where(eq(systemNotifications.status, "pending"))
+    .where(and(
+      eq(systemNotifications.status, "pending"),
+      sql`${systemNotifications.notificationType} != 'guardian_sms_code'`
+    ))
     .limit(50);
 
   let sentCount = 0;
@@ -68,6 +71,95 @@ export async function sendPendingEmails(): Promise<number> {
           status: SENDGRID_API_KEY ? "failed" : "pending",
           errorDetails: SENDGRID_API_KEY ? "SendGrid API error" : "SendGrid not configured",
         })
+        .where(eq(systemNotifications.id, notification.id));
+    }
+  }
+
+  return sentCount;
+}
+
+/**
+ * Processes pending guardian SMS notifications via Twilio.
+ * Looks up the SMS code from the guardian confirmation token and sends it to the target's phone.
+ * If Twilio is not configured, marks notifications as failed with a clear error message.
+ */
+export async function processPendingSmsNotifications(): Promise<number> {
+  const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
+  const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+  const TWILIO_FROM = process.env.TWILIO_FROM_NUMBER;
+
+  const pending = await db.select().from(systemNotifications)
+    .where(and(
+      eq(systemNotifications.status, "pending"),
+      eq(systemNotifications.notificationType, "guardian_sms_code")
+    ))
+    .limit(20);
+
+  let sentCount = 0;
+  for (const notification of pending) {
+    if (!notification.recipientUserId) {
+      await db.update(systemNotifications)
+        .set({ status: "failed", errorDetails: "No recipientUserId for SMS dispatch" })
+        .where(eq(systemNotifications.id, notification.id));
+      continue;
+    }
+
+    const [user] = await db.select({ phone: appUsers.phone })
+      .from(appUsers).where(eq(appUsers.id, notification.recipientUserId));
+    if (!user?.phone) {
+      await db.update(systemNotifications)
+        .set({ status: "failed", errorDetails: "Target user has no phone number" })
+        .where(eq(systemNotifications.id, notification.id));
+      continue;
+    }
+
+    const [token] = await db.select({ smsCode: guardianConfirmationTokens.smsCode })
+      .from(guardianConfirmationTokens)
+      .where(and(
+        eq(guardianConfirmationTokens.targetUserId, notification.recipientUserId),
+        eq(guardianConfirmationTokens.rejected, false)
+      ))
+      .orderBy(desc(guardianConfirmationTokens.id))
+      .limit(1);
+
+    if (!token?.smsCode) {
+      await db.update(systemNotifications)
+        .set({ status: "failed", errorDetails: "No pending guardian token with SMS code found" })
+        .where(eq(systemNotifications.id, notification.id));
+      continue;
+    }
+
+    if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM) {
+      await db.update(systemNotifications)
+        .set({ status: "failed", errorDetails: "SMS gateway (Twilio) not configured — set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER" })
+        .where(eq(systemNotifications.id, notification.id));
+      console.warn(`[SMS] Twilio not configured — cannot dispatch guardian SMS code to user ${notification.recipientUserId}`);
+      continue;
+    }
+
+    const smsBody = `ArutsoK (ATK): Váš kód na potvrdenie opatrovníctva je ${token.smsCode}. Platnosť 72 hodín.`;
+    const credentials = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString("base64");
+    try {
+      const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`, {
+        method: "POST",
+        headers: { "Authorization": `Basic ${credentials}`, "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ To: user.phone, From: TWILIO_FROM, Body: smsBody }).toString(),
+      });
+      if (response.ok) {
+        await db.update(systemNotifications)
+          .set({ status: "sent", sentAt: new Date() })
+          .where(eq(systemNotifications.id, notification.id));
+        console.log(`[SMS] Sent guardian SMS code to user ${notification.recipientUserId}`);
+        sentCount++;
+      } else {
+        const errText = await response.text();
+        await db.update(systemNotifications)
+          .set({ status: "failed", errorDetails: `Twilio error: ${errText.slice(0, 200)}` })
+          .where(eq(systemNotifications.id, notification.id));
+      }
+    } catch (err: any) {
+      await db.update(systemNotifications)
+        .set({ status: "failed", errorDetails: `SMS send error: ${err?.message || "Unknown"}` })
         .where(eq(systemNotifications.id, notification.id));
     }
   }
@@ -249,6 +341,7 @@ Prosím, preverte stav fyzického dokumentu a zabezpečte jeho opätovné zaslan
   console.log(`[EMAIL] Objection notification queued for ${recipients.length} recipients, contract ${data.contractNumber}`);
 
   await sendPendingEmails();
+  await processPendingSmsNotifications();
 }
 
 // ============================================================
@@ -342,6 +435,7 @@ Po dnešnej polnoci už nebude možné tieto dáta obnoviť ani dohľadať v his
   console.log(`[EMAIL] Pre-deletion notification queued for ${recipientMap.size} recipients, ${contractsToDelete.length} contracts`);
 
   await sendPendingEmails();
+  await processPendingSmsNotifications();
 }
 
 export async function getProductDaysLimits(sectorProductId: number | null): Promise<{ objectionDays: number; archiveDays: number }> {

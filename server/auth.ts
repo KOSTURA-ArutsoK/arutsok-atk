@@ -9,6 +9,7 @@ import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHisto
 import { eq, and, or, ne, isNull, isNotNull, gte, desc, inArray, sql } from "drizzle-orm";
 import { storage } from "./storage";
 import { decryptField } from "./crypto";
+import { processPendingSmsNotifications } from "./email";
 
 declare module "express-session" {
   interface SessionData {
@@ -1594,6 +1595,8 @@ export async function setupAuth(app: Express) {
           } catch (smsErr) {
             console.error("[GUARDIAN-LINK] Failed to queue SMS notification:", smsErr);
           }
+          // Dispatch immediately; errors are non-fatal
+          processPendingSmsNotifications().catch((e) => console.error("[GUARDIAN-LINK] SMS dispatch error:", e));
         }
 
         return res.json({
@@ -2215,7 +2218,7 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/guardian-confirm/verify-sms", async (req, res) => {
+  app.post("/api/guardian-confirm/verify-sms", guardianSmsRateLimit, async (req, res) => {
     try {
       const { token, smsCode } = req.body;
       if (!token || !smsCode) return res.status(400).json({ message: "Chýba token alebo SMS kód" });
@@ -2550,8 +2553,6 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  // Also add rate limiting to primary SMS verification endpoint
-  app.use("/api/guardian-confirm/verify-sms", guardianSmsRateLimit);
 }
 
 function detectDeviceType(ua: string): "mobile" | "desktop" | "other" {
@@ -2573,6 +2574,37 @@ function generateOtp(): string {
  */
 export function getAuditActorId(req: { session: { userId?: number; guardianSwitchedFromUserId?: number } }): number {
   return req.session.guardianSwitchedFromUserId ?? req.session.userId ?? 0;
+}
+
+/**
+ * Centralized audit log write with automatic guardian actor attribution.
+ * When a guardian is operating in a managed account, the guardian's userId is
+ * used as the actor (not the managed user). Pass `req` for session-aware attribution.
+ *
+ * Usage: await writeAuditLog(req, { action: "ENTITY_UPDATED", module: "subjects", entityId: 42, ... });
+ */
+export async function writeAuditLog(
+  req: { session: { userId?: number; guardianSwitchedFromUserId?: number }; ip?: string },
+  params: {
+    action: string;
+    module: string;
+    entityId?: number | null;
+    entityName?: string | null;
+    oldData?: unknown;
+    newData?: unknown;
+  }
+): Promise<void> {
+  await db.insert(auditLogs).values({
+    userId: getAuditActorId(req),
+    username: null,
+    action: params.action,
+    module: params.module,
+    entityId: params.entityId ?? null,
+    entityName: params.entityName ?? null,
+    oldData: params.oldData ?? null,
+    newData: params.newData ?? null,
+    ipAddress: req.ip ?? null,
+  });
 }
 
 export const isAuthenticated: RequestHandler = (req, res, next) => {
