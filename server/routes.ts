@@ -16343,9 +16343,9 @@ export async function registerRoutes(
     const systemGroups: Array<{ name: string; groupCode: string; allowLogin?: boolean; description?: string }> = [
       { name: "Klienti", groupCode: "group_klient", description: "Základná skupina obsahujúca všetkých aktívnych klientov evidovaných v systéme." },
       { name: "Registrovaní klienti", groupCode: "group_registrovany", description: "Klienti s aktívnym prístupom do klientskej zóny (portálu). Prístup riadia oprávnenia skupiny." },
-      { name: "Červený zoznam", groupCode: "group_cerveny_zoznam", description: "Subjekty s preukázaným alebo podozrivým zmluvným podvodom (napr. poistný podvod). Aktívny prípad v riešení — prístup obmedzený." },
-      { name: "Čierny zoznam - Podvodníci", groupCode: "group_cierny_zoznam", allowLogin: false, description: "Subjekty s právoplatne zisteným zmluvným podvodom alebo závažnou trestnou činnosťou voči spoločnosti. Prihlásenie do portálu zakázané." },
-      { name: "Oranžový zoznam — klamári", groupCode: "group_oranzovy_zoznam_klamari", description: "Subjekty, ktoré sa preukázateľne dopustili nepravdivého hlásenia alebo klamlivého konania voči poradcovi. Evidenčný zoznam — nie je podmienkou vylúčenia z iných skupín." },
+      { name: "Červený zoznam", groupCode: "group_cerveny_zoznam", description: "Subjekty s nízkou bonitou — klesajúce skóre bonity spôsobené stornovanými zmluvami alebo nezaplatenými záväzkami. Zvýšená opatrnosť pri uzatváraní nových zmlúv." },
+      { name: "Čierny zoznam - Podvodníci", groupCode: "group_cierny_zoznam", allowLogin: false, description: "Subjekty s preukázaným zmluvným podvodom alebo závažnou trestnou činnosťou voči spoločnosti. Prihlásenie do portálu zakázané." },
+      { name: "Oranžový zoznam — klamári", groupCode: "group_oranzovy_zoznam_klamari", description: "Subjekty, ktoré sa dopustili klamlivého konania voči poradcovi mimo zmluvného rámca (napr. nepravdivé hlásenia). Evidenčný zoznam — zaradenie nevylučuje subjekt z iných skupín." },
     ];
     for (const sg of systemGroups) {
       const existing = await db.select().from(clientGroups).where(eq(clientGroups.groupCode, sg.groupCode));
@@ -16356,7 +16356,7 @@ export async function registerRoutes(
         const updates: any = {};
         if (!existing[0].isSystem) updates.isSystem = true;
         if (sg.allowLogin !== undefined && existing[0].allowLogin !== sg.allowLogin) updates.allowLogin = sg.allowLogin;
-        if (sg.description && !existing[0].description) updates.description = sg.description;
+        if (sg.description && existing[0].description !== sg.description) updates.description = sg.description;
         if (Object.keys(updates).length > 0) {
           await db.update(clientGroups).set(updates).where(eq(clientGroups.id, existing[0].id));
         }
