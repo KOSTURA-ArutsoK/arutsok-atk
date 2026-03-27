@@ -96,20 +96,28 @@ function WidthPercentEditor({
 }) {
   const [draft, setDraft] = useState<number>(currentPct);
   const [inputStr, setInputStr] = useState<string>(String(currentPct));
+  const lastCommitted = useRef<number>(currentPct);
 
   useEffect(() => {
     setDraft(currentPct);
     setInputStr(String(currentPct));
+    lastCommitted.current = currentPct;
   }, [currentPct]);
 
   const WIDTH_OPTIONS = [25, 33, 50, 75, 100];
 
   function clamp(v: number) { return Math.min(100, Math.max(1, v)); }
 
+  function commitIfChanged(value: number) {
+    if (value === lastCommitted.current) return;
+    lastCommitted.current = value;
+    onCommit(value);
+  }
+
   function handleQuickClick(opt: number) {
     setDraft(opt);
     setInputStr(String(opt));
-    onCommit(opt);
+    commitIfChanged(opt);
   }
 
   function handleSliderChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -119,7 +127,7 @@ function WidthPercentEditor({
   }
 
   function handleSliderCommit() {
-    onCommit(draft);
+    commitIfChanged(draft);
   }
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -133,7 +141,7 @@ function WidthPercentEditor({
     const safe = isNaN(v) ? currentPct : clamp(v);
     setDraft(safe);
     setInputStr(String(safe));
-    onCommit(safe);
+    commitIfChanged(safe);
   }
 
   function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
