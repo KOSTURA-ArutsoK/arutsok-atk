@@ -252,6 +252,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/registration/live-lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ birthNumber: cleanBn }),
       });
       if (!res.ok) return;
@@ -270,11 +271,37 @@ export default function RegisterPage() {
     }
   }, []);
 
-  function toggleCandidate(subjectId: number) {
-    setCandidateStatuses(prev => ({
-      ...prev,
-      [subjectId]: prev[subjectId] === "selected" ? "idle" : "selected",
-    }));
+  async function initiateForSubject(subjectId: number) {
+    const current = candidateStatuses[subjectId];
+    if (current && current !== "idle") return;
+
+    setCandidateStatuses(prev => ({ ...prev, [subjectId]: "pending" }));
+    try {
+      const res = await fetch("/api/registration/live-lookup/batch-initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ subjectIds: [subjectId] }),
+      });
+      if (!res.ok) {
+        if (res.status === 401) {
+          toast({
+            title: "Overenie vypršalo",
+            description: "Registračná relácia je neplatná. Začnite registráciu znova.",
+            variant: "destructive",
+          });
+          setCandidateStatuses(prev => ({ ...prev, [subjectId]: "error" }));
+          return;
+        }
+        setCandidateStatuses(prev => ({ ...prev, [subjectId]: "error" }));
+        return;
+      }
+      const data = await res.json();
+      const result = (data.results || []).find((r: { subjectId: number; status: string }) => r.subjectId === subjectId);
+      setCandidateStatuses(prev => ({ ...prev, [subjectId]: (result?.status as CandidateStatus) || "initiated" }));
+    } catch {
+      setCandidateStatuses(prev => ({ ...prev, [subjectId]: "error" }));
+    }
   }
 
   const selectedIds = Object.entries(candidateStatuses)
@@ -294,8 +321,8 @@ export default function RegisterPage() {
       if (!res.ok) {
         if (res.status === 401) {
           toast({
-            title: "Prihláste sa do systému",
-            description: "Prepojenia môžete spustiť po prihlásení v nastaveniach účtu.",
+            title: "Overenie vypršalo",
+            description: "Registračná relácia je neplatná. Začnite registráciu znova.",
             variant: "destructive",
           });
           return;
@@ -692,32 +719,32 @@ export default function RegisterPage() {
                       {!liveLookupLoading && liveLookupCandidates.length > 0 && (
                         <>
                           <p className="text-xs text-muted-foreground">
-                            Zaškrtnite subjekty, ku ktorým chcete požiadať o prístup. Overovací email bude odoslaný na kontaktný email každého subjektu.
+                            Kliknite na subjekt, ku ktorému chcete požiadať o prístup. Overovací email bude okamžite odoslaný na kontaktný email subjektu.
                           </p>
                           <div className="space-y-2">
                             {liveLookupCandidates.map((c) => {
                               const status = candidateStatuses[c.subjectId] ?? "idle";
-                              const isActionable = status === "idle" || status === "selected";
-                              const isActive = status === "selected";
+                              const isActionable = status === "idle";
+                              const isPending = status === "pending";
 
                               return (
                                 <div
                                   key={c.subjectId}
                                   data-testid={`card-live-lookup-candidate-${c.subjectId}`}
-                                  className={`flex items-center gap-3 p-3 rounded-md border transition-colors cursor-pointer ${
-                                    isActive
-                                      ? "bg-primary/10 border-primary/30"
-                                      : "bg-muted/30 border-border hover:bg-muted/50"
-                                  } ${!isActionable ? "opacity-70 cursor-default" : ""}`}
-                                  onClick={() => isActionable && toggleCandidate(c.subjectId)}
+                                  className={`flex items-center gap-3 p-3 rounded-md border transition-colors ${
+                                    isActionable
+                                      ? "bg-muted/30 border-border hover:bg-primary/5 hover:border-primary/30 cursor-pointer"
+                                      : isPending
+                                        ? "bg-muted/30 border-border cursor-wait opacity-70"
+                                        : "opacity-75 cursor-default bg-muted/20 border-border"
+                                  }`}
+                                  onClick={() => isActionable && initiateForSubject(c.subjectId)}
                                 >
                                   <div className="flex-shrink-0">
-                                    {isActionable ? (
-                                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
-                                        isActive ? "bg-primary border-primary" : "border-border"
-                                      }`}>
-                                        {isActive && <div className="w-2 h-2 bg-white rounded-sm" />}
-                                      </div>
+                                    {isPending ? (
+                                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                    ) : isActionable ? (
+                                      <div className="w-4 h-4 rounded border-2 border-border" />
                                     ) : (
                                       <div className="w-4 h-4 flex items-center justify-center">
                                         {candidateStatusBadge(status)}
@@ -734,7 +761,7 @@ export default function RegisterPage() {
                                         {subjectTypeLabel(c.type)}
                                       </span>
                                       {c.ico && <span className="text-xs text-muted-foreground">IČO: {c.ico}</span>}
-                                      {!isActionable && <div className="ml-1">{candidateStatusBadge(status)}</div>}
+                                      {!isActionable && !isPending && <div className="ml-1">{candidateStatusBadge(status)}</div>}
                                     </div>
                                   </div>
                                 </div>

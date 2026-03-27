@@ -11118,6 +11118,12 @@ export async function registerRoutes(
       const client = await storage.getSubject(subjectId);
       await storage.updateSubjectLastLogin(subjectId);
 
+      // Nastav session token pre registračnú reláciu (umožní batch-initiate bez prihlásenia)
+      if (req.session) {
+        (req.session as any).registrationVerifiedSubjectId = subjectId;
+        (req.session as any).registrationVerifiedAt = Date.now();
+      }
+
       res.json({
         success: true,
         client: client ? {
@@ -11169,6 +11175,12 @@ export async function registerRoutes(
 
       await storage.updateSubjectLastLogin(client.id);
 
+      // Nastav session token pre registračnú reláciu (umožní batch-initiate bez prihlásenia)
+      if (req.session) {
+        (req.session as any).registrationVerifiedSubjectId = client.id;
+        (req.session as any).registrationVerifiedAt = Date.now();
+      }
+
       res.json({
         success: true,
         client: {
@@ -11186,10 +11198,10 @@ export async function registerRoutes(
     }
   });
 
-  // === LIVE LOOKUP (verejný endpoint — volá sa počas registrácie) ===
-  // Prijíma plaintextové RČ (od registrujúceho sa), hľadá všetky subjekty kde je táto osoba
-  // zapísaná ako konateľ/vlastník (company_officers) alebo kde je na ňu naviazaný subject.
-  // Endpoint je public (nevyžaduje session), má rate-limit + session cache + loguje do auditLogs.
+  // === LIVE LOOKUP (semi-verejný endpoint — volá sa počas registrácie) ===
+  // Vyžaduje buď aktívnu registračnú session (registrationVerifiedSubjectId) alebo prihlásenie.
+  // Má rate-limit + session cache. Hľadá subjekty kde je osoba zapísaná
+  // (company_officers, hierarchy, entity_links).
   const liveLookupRateLimitMap = new Map<string, { count: number; resetAt: number }>();
   app.post("/api/registration/live-lookup", async (req: any, res) => {
     try {
@@ -11199,6 +11211,16 @@ export async function registerRoutes(
       const cleanBn = (birthNumber as string).replace(/\//g, "").replace(/\s/g, "").trim();
       if (!/^\d{9,10}$/.test(cleanBn)) {
         return res.status(400).json({ message: "Neplatné rodné číslo" });
+      }
+
+      // Vyžaduje platný kontext: prihlásený používateľ alebo aktívna registračná session (< 2h)
+      const isAuthUser = !!(req.appUser);
+      const regSessionSubjectId = req.session?.registrationVerifiedSubjectId;
+      const regSessionAt = req.session?.registrationVerifiedAt;
+      const REG_TTL = 2 * 60 * 60 * 1000;
+      const hasRegSession = !!regSessionSubjectId && !!regSessionAt && (Date.now() - regSessionAt < REG_TTL);
+      if (!isAuthUser && !hasRegSession) {
+        return res.status(401).json({ message: "Prihláste sa alebo dokončite overenie registrácie" });
       }
 
       // Rate limit: max 5 lookups per IP per 5 minutes
@@ -11218,8 +11240,8 @@ export async function registerRoutes(
 
       // Session cache: avoid recomputing for same RČ in same session
       const sessionCacheKey = `live_lookup_${cleanBn}`;
-      if (req.session && req.session[sessionCacheKey]) {
-        return res.json(req.session[sessionCacheKey]);
+      if (req.session && (req.session as any)[sessionCacheKey]) {
+        return res.json((req.session as any)[sessionCacheKey]);
       }
 
       // 1. Nájdi FO subject podľa RČ (decrypt-and-compare)
@@ -11387,10 +11409,11 @@ export async function registerRoutes(
     }
   });
 
-  // === LIVE LOOKUP — dávkové spustenie overenia (autentifikovaný používateľ) ===
-  // Volá sa keď prihlásený používateľ chce spustiť prepojenie na viac subjektov naraz
-  // (výsledok z Live Lookup pri registrácii, zaradený do fronty až po prihlásení).
-  app.post("/api/registration/live-lookup/batch-initiate", isAuthenticated, async (req: any, res) => {
+  // === LIVE LOOKUP — dávkové spustenie overenia ===
+  // Volá sa keď prihlásený alebo overený registrujúci sa používateľ chce spustiť prepojenie.
+  // Akceptuje: 1) session autentifikovaného appUser (isAuthenticated) alebo
+  //            2) session token nastaveného počas registrácie (registrationVerifiedSubjectId).
+  app.post("/api/registration/live-lookup/batch-initiate", async (req: any, res) => {
     try {
       const { subjectIds } = req.body;
       if (!Array.isArray(subjectIds) || subjectIds.length === 0) {
@@ -11401,7 +11424,18 @@ export async function registerRoutes(
       }
 
       const appUser = req.appUser;
-      if (!appUser) return res.status(401).json({ message: "Neautorizovaný" });
+      const regSessionSubjectId: number | undefined = req.session?.registrationVerifiedSubjectId;
+      const regSessionAt: number | undefined = req.session?.registrationVerifiedAt;
+      const REG_SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hodiny
+
+      // Musí byť buď prihlásený alebo mať platnú registračnú session (< 2 hodiny)
+      const isRegSession = !!regSessionSubjectId && !!regSessionAt && (Date.now() - regSessionAt < REG_SESSION_TTL_MS);
+      if (!appUser && !isRegSession) {
+        return res.status(401).json({ message: "Prihláste sa alebo dokončite registráciu" });
+      }
+
+      // Pre registračnú session vytvoríme systémovú záznam bez reálneho appUser ID
+      const actorUserId: number | null = appUser?.id ?? null;
 
       const results: { subjectId: number; status: "initiated" | "already_linked" | "already_pending" | "no_email" | "error"; linkId?: number; maskedEmail?: string }[] = [];
 
@@ -11414,7 +11448,7 @@ export async function registerRoutes(
           continue;
         }
         try {
-          const existingLinks = await storage.getSubjectLinksByUserId(appUser.id);
+          const existingLinks = actorUserId ? await storage.getSubjectLinksByUserId(actorUserId) : [];
           const existing = existingLinks.find(l => l.subjectId === sid && l.isActive && l.status === "verified");
           if (existing) {
             results.push({ subjectId: sid, status: "already_linked", linkId: existing.id });
@@ -11451,17 +11485,19 @@ export async function registerRoutes(
           const emailToken = crypto.randomUUID();
           const smsCode = needsSms ? String(Math.floor(100000 + Math.random() * 900000)) : null;
 
-          const linkId = await storage.createSubjectLink(appUser.id, sid, emailToken, smsCode, needsSms, appUser.id);
+          const linkId = actorUserId
+            ? await storage.createSubjectLink(actorUserId, sid, emailToken, smsCode, needsSms, actorUserId)
+            : null;
 
           await db.insert(auditLogs).values({
-            userId: appUser.id, username: null, action: "SUBJECT_LINK_INITIATED",
+            userId: actorUserId, username: null, action: "SUBJECT_LINK_INITIATED",
             module: "SubjectLink", entityId: sid, entityName: null,
-            oldData: null, newData: { subjectId: sid, linkId, via: "live_lookup_batch" }, ipAddress: req.ip,
+            oldData: null, newData: { subjectId: sid, linkId, via: isRegSession ? "live_lookup_registration" : "live_lookup_batch" }, ipAddress: req.ip,
           });
 
           // Dual audit: LIVE_LOOKUP_LINK_PROPOSED
           await db.insert(auditLogs).values({
-            userId: appUser.id, username: null, action: "LIVE_LOOKUP_LINK_PROPOSED",
+            userId: actorUserId, username: null, action: "LIVE_LOOKUP_LINK_PROPOSED",
             module: "SubjectLink", entityId: sid, entityName: null,
             oldData: null, newData: { subjectId: sid, linkId, note: "Systém navrhol prepojenie na základe RČ, používateľ potvrdil cez Live Lookup" }, ipAddress: req.ip,
           });
@@ -11470,7 +11506,7 @@ export async function registerRoutes(
           const protocol = process.env.APP_DOMAIN ? "https" : req.secure ? "https" : "http";
           const confirmUrl = `${protocol}://${appDomain}/potvrdenie-spravy?subjectToken=${emailToken}`;
           const subjectName = subject.companyName || [subject.firstName, subject.lastName].filter(Boolean).join(" ") || subject.uid || "Subjekt";
-          const initiatorName = `${appUser.firstName || ""} ${appUser.lastName || ""}`.trim() || appUser.username || "Používateľ";
+          const initiatorName = appUser ? (`${appUser.firstName || ""} ${appUser.lastName || ""}`.trim() || appUser.username || "Používateľ") : "Registrujúci sa používateľ";
           const emailHtml = `<!DOCTYPE html><html lang="sk"><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#0f1923;font-family:Arial,Helvetica,sans-serif;color:#e2e8f0;"><div style="max-width:640px;margin:0 auto;padding:32px 24px;"><div style="background:#1a2332;border:1px solid #2d3748;border-radius:4px;padding:32px;"><div style="text-align:center;margin-bottom:24px;"><h2 style="margin:0;color:#63b3ed;font-size:18px;letter-spacing:1px;">ArutsoK (ATK)</h2></div><p style="color:#e2e8f0;font-size:14px;line-height:1.6;">Dobrý deň,</p><p style="color:#e2e8f0;font-size:14px;line-height:1.6;">používateľ <strong>${initiatorName}</strong> žiada o prepojenie svojho účtu so subjektom <strong>${subjectName}</strong> v systéme ArutsoK (ATK). Táto žiadosť bola iniciovaná automaticky na základe zhody rodného čísla.</p><div style="text-align:center;margin:24px 0;"><a href="${confirmUrl}" style="display:inline-block;background:#2b6cb0;color:#fff;padding:12px 24px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:14px;">Potvrdiť alebo odmietnuť prepojenie</a></div><p style="color:#a0aec0;font-size:12px;line-height:1.6;">Platnosť odkazu vyprší o 72 hodín.</p><hr style="border:none;border-top:1px solid #2d3748;margin:24px 0;"><p style="font-size:11px;color:#718096;text-align:center;margin:0;">Tento e-mail bol vygenerovaný automaticky systémom ArutsoK.</p></div></div></body></html>`;
 
           try {
@@ -11495,7 +11531,7 @@ export async function registerRoutes(
             processPendingSmsNotifications().catch(() => {});
           }
 
-          results.push({ subjectId: sid, status: "initiated", linkId, maskedEmail: primaryEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2") });
+          results.push({ subjectId: sid, status: "initiated", linkId: linkId ?? undefined, maskedEmail: primaryEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2") });
         } catch (e) {
           console.error("[BATCH-INITIATE]", e);
           results.push({ subjectId: sid, status: "error" });

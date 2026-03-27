@@ -123,6 +123,7 @@ export default function AuthPage() {
         setStep("phone_verify");
       } else {
         await login({ email: email.trim(), password } as any);
+        await finalizeLogin();
       }
     } catch (err: any) {
       const msg = err?.message || "";
