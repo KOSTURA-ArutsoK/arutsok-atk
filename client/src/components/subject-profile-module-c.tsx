@@ -647,6 +647,9 @@ export function SubjectProfileModuleC({ subject }: ModuleCProps) {
     if (ctId) return Number(ctId);
     if (subject.type === "person") return 1;
     if (subject.type === "szco") return 3;
+    if (subject.type === "organization") return 5;
+    if (subject.type === "state") return 6;
+    if (subject.type === "os") return 7;
     return 4;
   }, [subject]);
 
