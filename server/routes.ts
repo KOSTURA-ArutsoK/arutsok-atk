@@ -15217,8 +15217,7 @@ export async function registerRoutes(
         .innerJoin(appUsers, eq(subjectLinks.userId, appUsers.id))
         .where(and(
           eq(subjectLinks.subjectId, subjectId),
-          eq(subjectLinks.isActive, true),
-          eq(subjectLinks.status, "verified")
+          eq(subjectLinks.isActive, true)
         ));
 
       // Fetch linked subject types for color coding

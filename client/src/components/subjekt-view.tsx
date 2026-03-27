@@ -2889,9 +2889,12 @@ function buildFullName(entry: AccessListEntry): string {
 function BoardroomSection({ subjectId }: { subjectId: number }) {
   const [warningModalOpen, setWarningModalOpen] = useState(false);
 
-  const { data: accessList, isLoading } = useQuery<AccessListEntry[]>({
+  const { data: accessList, isLoading, error } = useQuery<AccessListEntry[]>({
     queryKey: [`/api/subjects/${subjectId}/access-list`],
+    retry: false,
   });
+
+  const is403 = error instanceof Error && error.message.startsWith("403");
 
   return (
     <div className="space-y-3" data-testid="boardroom-section">
@@ -2908,19 +2911,33 @@ function BoardroomSection({ subjectId }: { subjectId: number }) {
         </div>
       )}
 
-      {!isLoading && (!accessList || accessList.length === 0) && (
+      {!isLoading && error && (
+        <div className="py-8 text-center text-sm border-2 border-dashed border-border rounded-lg" data-testid="boardroom-forbidden">
+          {is403 ? (
+            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+              <ShieldAlert className="w-6 h-6 text-amber-500" />
+              <span>Nemáte oprávnenie zobraziť zoznam prístupov k tomuto subjektu.</span>
+            </div>
+          ) : (
+            <span className="text-destructive">Chyba pri načítaní zoznamu oprávnených osôb.</span>
+          )}
+        </div>
+      )}
+
+      {!isLoading && !error && (!accessList || accessList.length === 0) && (
         <div className="py-8 text-center text-muted-foreground text-sm border-2 border-dashed border-border rounded-lg" data-testid="boardroom-empty">
           Žiadne oprávnené osoby
         </div>
       )}
 
-      {!isLoading && accessList && accessList.length > 0 && (
+      {!isLoading && !error && accessList && accessList.length > 0 && (
         <div className="w-full overflow-x-auto">
           <table className="w-full border-collapse border-2 border-border rounded-lg text-sm" data-testid="boardroom-table">
             <thead>
               <tr className="bg-muted/50">
                 <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground w-full">Celé meno</th>
                 <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">UID používateľa</th>
+                <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">Typ prepojenia</th>
                 <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">Platnosť</th>
                 <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">Overené</th>
                 <th className="border-2 border-border px-3 py-2 text-center text-xs font-semibold text-muted-foreground whitespace-nowrap">Akcia</th>
@@ -2947,6 +2964,9 @@ function BoardroomSection({ subjectId }: { subjectId: number }) {
                     </td>
                     <td className="border-2 border-border px-3 py-2 font-mono text-xs text-muted-foreground whitespace-nowrap" data-testid={`boardroom-uid-${entry.id}`}>
                       {formatUid(entry.uid)}
+                    </td>
+                    <td className="border-2 border-border px-3 py-2 text-xs text-muted-foreground whitespace-nowrap" data-testid={`boardroom-linktype-${entry.id}`}>
+                      —
                     </td>
                     <td className="border-2 border-border px-3 py-2 text-xs text-muted-foreground whitespace-nowrap" data-testid={`boardroom-validity-${entry.id}`}>
                       {validity}
