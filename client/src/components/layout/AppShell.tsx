@@ -175,7 +175,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           const compsRes = await fetch("/api/my-companies", { credentials: "include" });
           if (!compsRes.ok) return;
           const validComps = await compsRes.json();
-          if (validComps.length === 0) return; // Subject has no records in any company
+          if (validComps.length === 0) {
+            // Subject has no records in any company — clear any stale active company
+            if (appUser.activeCompanyId) {
+              setActive.mutate({ activeCompanyId: null, activeDivisionId: null });
+            }
+            return;
+          }
           const currentIsValid = appUser.activeCompanyId && validComps.some((c: any) => c.id === appUser.activeCompanyId);
           if (currentIsValid) return; // Current company is valid for this subject, keep it
           // Current company is not valid (or null) — auto-select or show picker
@@ -195,8 +201,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               setActive.mutate({ activeCompanyId: comp.id, activeDivisionId: null });
             }
           } else {
-            setPendingStateId(appUser.activeStateId || null);
-            setContextStep("company");
+            // Multiple valid companies — the overlay filters by state, so determine
+            // the correct state to open at. If all valid companies share one state,
+            // open the company step directly; otherwise start from state step.
+            const uniqueStateIds = [...new Set(
+              validComps.map((c: any) => c.stateId).filter((id: any) => id !== null && id !== undefined)
+            )] as number[];
+            if (uniqueStateIds.length === 1) {
+              setPendingStateId(uniqueStateIds[0]);
+              setContextStep("company");
+            } else {
+              setPendingStateId(null);
+              setContextStep("state");
+            }
             setContextOverlayOpen(true);
           }
         } catch { /* silently fail */ }
