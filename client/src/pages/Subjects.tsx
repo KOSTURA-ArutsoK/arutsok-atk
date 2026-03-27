@@ -2720,10 +2720,7 @@ const SUBJECTS_COLUMNS: ColumnDef[] = [
   { key: "registrationStatus", label: "Overenie" },
   { key: "status", label: "Status" },
   { key: "cgn", label: "CGN" },
-  { key: "titulPred", label: "Titul pred" },
-  { key: "meno", label: "Meno" },
-  { key: "priezvisko", label: "Priezvisko" },
-  { key: "titulZa", label: "Titul za" },
+  { key: "titulMeno", label: "Titul / Meno / Priezvisko" },
   { key: "firstName", label: "Celé meno / Názov" },
   { key: "ulica", label: "Ulica" },
   { key: "type", label: "Typ subjektu" },
@@ -2963,10 +2960,7 @@ export default function Subjects() {
                     {columnVisibility.isVisible("registrationStatus") && <TableHead>Overenie</TableHead>}
                     {columnVisibility.isVisible("status") && <TableHead style={{ maxWidth: '150px' }}>Status</TableHead>}
                     {columnVisibility.isVisible("cgn") && <TableHead className="w-10 text-center">CGN</TableHead>}
-                    {columnVisibility.isVisible("titulPred") && <TableHead>Titul pred</TableHead>}
-                    {columnVisibility.isVisible("meno") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Meno</TableHead>}
-                    {columnVisibility.isVisible("priezvisko") && <TableHead sortKey="lastName" sortDirection={sortKey === "lastName" ? sortDirection : null} onSort={requestSort}>Priezvisko</TableHead>}
-                    {columnVisibility.isVisible("titulZa") && <TableHead>Titul za</TableHead>}
+                    {columnVisibility.isVisible("titulMeno") && <TableHead>Titul / Meno / Priezvisko</TableHead>}
                     {columnVisibility.isVisible("firstName") && <TableHead>Celé meno / Názov</TableHead>}
                     {columnVisibility.isVisible("ulica") && <TableHead>Ulica</TableHead>}
                     {columnVisibility.isVisible("type") && <TableHead sortKey="type" sortDirection={sortKey === "type" ? sortDirection : null} onSort={requestSort}>Typ subjektu</TableHead>}
@@ -2981,7 +2975,6 @@ export default function Subjects() {
                     const dynFields = details.dynamicFields || {};
                     const titulPred = dynFields.titul_pred || details.titul_pred || details.titleBefore || '';
                     const titulZa = dynFields.titul_za || details.titul_za || details.titleAfter || '';
-                    const titulCompact = [titulPred, titulZa].filter(Boolean).join(' / ') || '-';
                     const ulicaVal = (() => {
                       if (subject.type === 'person' || subject.type === 'szco') {
                         return dynFields.tp_ulica || details.tp_ulica || '';
@@ -3056,10 +3049,9 @@ export default function Subjects() {
                         {columnVisibility.isVisible("cgn") && <TableCell className="text-center align-middle" data-testid={`cgn-cell-${subject.id}`}>
                           <CgnIndicator isCgnActive={details.cgnActive === true} />
                         </TableCell>}
-                        {columnVisibility.isVisible("titulPred") && <TableCell className="text-xs text-muted-foreground align-middle" data-testid={`text-titul-pred-${subject.id}`}>{titulPred || '-'}</TableCell>}
-                        {columnVisibility.isVisible("meno") && <TableCell className="text-sm align-middle" data-testid={`text-meno-${subject.id}`}>{subject.firstName || '-'}</TableCell>}
-                        {columnVisibility.isVisible("priezvisko") && <TableCell className="text-sm align-middle" data-testid={`text-priezvisko-${subject.id}`}>{subject.lastName || '-'}</TableCell>}
-                        {columnVisibility.isVisible("titulZa") && <TableCell className="text-xs text-muted-foreground align-middle" data-testid={`text-titul-za-${subject.id}`}>{titulZa || '-'}</TableCell>}
+                        {columnVisibility.isVisible("titulMeno") && <TableCell className="text-sm align-middle" data-testid={`text-titul-meno-${subject.id}`}>
+                          {[titulPred, subject.firstName, subject.lastName, titulZa].filter(Boolean).join(' ') || '-'}
+                        </TableCell>}
                         {columnVisibility.isVisible("firstName") && <TableCell className="font-medium align-middle" data-testid={`text-fullname-${subject.id}`}>
                           <div className="flex flex-col gap-0.5">
                             <span className="flex items-center gap-1.5">
