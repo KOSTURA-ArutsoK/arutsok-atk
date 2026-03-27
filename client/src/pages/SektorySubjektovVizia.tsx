@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import {
-  LayoutGrid, AlignLeft, Plus, X,
+  LayoutGrid, Plus, X,
   Layers, FolderOpen, Pencil, Info, Loader2, Tag,
   Rows3, GripVertical, ArrowRightLeft,
   ChevronRight, ChevronsDownUp, ChevronsUpDown, Lock,
@@ -78,9 +78,10 @@ type DragHandleProps = {
   attributes: ReturnType<typeof useSortable>["attributes"];
 };
 
-function SortableItem({ id, children }: {
+function SortableItem({ id, children, style }: {
   id: number;
   children: (handleProps: DragHandleProps) => React.ReactNode;
+  style?: React.CSSProperties;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   return (
@@ -92,6 +93,7 @@ function SortableItem({ id, children }: {
         opacity: isDragging ? 0.5 : undefined,
         position: "relative",
         zIndex: isDragging ? 1000 : undefined,
+        ...style,
       }}
     >
       {children({ listeners, attributes })}
@@ -982,43 +984,41 @@ export default function SektorySubjektovVizia() {
                                                                                                     params.length > 0 ? (
                                                                                                     <DndContext sensors={sensors} onDragEnd={e => handleDragEndParams(e, getParamsForRiadok(riadok.id))}>
                                                                                                       <SortableContext items={params.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                                                                                                        <div className="flex flex-col gap-0.5 mt-0.5 pl-3.5">
-                                                                                                          {params.map(param => (
-                                                                                                            <SortableItem key={param.id} id={param.id}>
-                                                                                                              {({ listeners: pL, attributes: pA }) => (
-                                                                                                                <div
-                                                                                                                  className="flex items-center gap-1 text-[10px] text-muted-foreground hover:bg-muted/30 rounded px-0.5"
-                                                                                                                  data-testid={`param-row-${param.id}`}
-                                                                                                                >
-                                                                                                                  <button
-                                                                                                                    type="button"
-                                                                                                                    className="flex-shrink-0 text-muted-foreground/20 hover:text-muted-foreground/60 cursor-grab active:cursor-grabbing"
-                                                                                                                    {...pL} {...pA}
-                                                                                                                    onClick={e => e.stopPropagation()}
+                                                                                                        <div className="flex flex-wrap mt-1">
+                                                                                                          {params.map(param => {
+                                                                                                            const pct = (param.widthPercent ?? 100) > 0 ? (param.widthPercent ?? 100) : 100;
+                                                                                                            return (
+                                                                                                              <SortableItem key={param.id} id={param.id} style={{ flex: `0 0 ${pct}%`, width: `${pct}%` }}>
+                                                                                                                {({ listeners: pL, attributes: pA }) => (
+                                                                                                                  <div
+                                                                                                                    className="px-0.5 pb-1"
+                                                                                                                    data-testid={`param-row-${param.id}`}
                                                                                                                   >
-                                                                                                                    <GripVertical className="h-2.5 w-2.5" />
-                                                                                                                  </button>
-                                                                                                                  <AlignLeft className="h-2.5 w-2.5 opacity-50 flex-shrink-0" />
-                                                                                                                  <span className="truncate max-w-[80px]">{param.label}</span>
-                                                                                                                  <FieldTypeBadge type={param.fieldType} />
-                                                                                                                  {param.isRequired && <span className="text-[9px] text-red-500 font-bold">*</span>}
-                                                                                                                  <Tooltip>
-                                                                                                                    <TooltipTrigger asChild>
-                                                                                                                      <button
-                                                                                                                        type="button"
-                                                                                                                        onClick={e => openMoveParam(param, e)}
-                                                                                                                        className="flex-shrink-0 h-3.5 w-3.5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/30 hover:text-primary transition-colors"
-                                                                                                                        data-testid={`button-move-param-${param.id}`}
-                                                                                                                      >
-                                                                                                                        <ArrowRightLeft className="h-2.5 w-2.5" />
-                                                                                                                      </button>
-                                                                                                                    </TooltipTrigger>
-                                                                                                                    <TooltipContent side="top" className="text-xs">Presunúť do iného riadku</TooltipContent>
-                                                                                                                  </Tooltip>
-                                                                                                                </div>
-                                                                                                              )}
-                                                                                                            </SortableItem>
-                                                                                                          ))}
+                                                                                                                    <div className="flex items-center gap-0.5 mb-0.5">
+                                                                                                                      <DragHandle listeners={pL} attributes={pA} testId={`drag-handle-param-${param.id}`} />
+                                                                                                                      <span className="text-[10px] text-muted-foreground font-medium truncate flex-1">{param.label}</span>
+                                                                                                                      {param.isRequired && <span className="text-[9px] text-red-500 font-bold">*</span>}
+                                                                                                                      <FieldTypeBadge type={param.fieldType} />
+                                                                                                                      <Tooltip>
+                                                                                                                        <TooltipTrigger asChild>
+                                                                                                                          <button
+                                                                                                                            type="button"
+                                                                                                                            onClick={e => openMoveParam(param, e)}
+                                                                                                                            className="flex-shrink-0 h-3.5 w-3.5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/30 hover:text-primary transition-colors"
+                                                                                                                            data-testid={`button-move-param-${param.id}`}
+                                                                                                                          >
+                                                                                                                            <ArrowRightLeft className="h-2.5 w-2.5" />
+                                                                                                                          </button>
+                                                                                                                        </TooltipTrigger>
+                                                                                                                        <TooltipContent side="top" className="text-xs">Presunúť do iného riadku</TooltipContent>
+                                                                                                                      </Tooltip>
+                                                                                                                    </div>
+                                                                                                                    <div className="h-5 rounded bg-muted/40 border border-border/30" />
+                                                                                                                  </div>
+                                                                                                                )}
+                                                                                                              </SortableItem>
+                                                                                                            );
+                                                                                                          })}
                                                                                                         </div>
                                                                                                       </SortableContext>
                                                                                                     </DndContext>
@@ -1040,33 +1040,39 @@ export default function SektorySubjektovVizia() {
                                                                                         <div className="text-[10px] text-amber-600/70 mb-0.5">Parametre bez riadku:</div>
                                                                                         <DndContext sensors={sensors} onDragEnd={e => handleDragEndParams(e, getParamsForPanel(panel.id))}>
                                                                                           <SortableContext items={legacyParams.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                                                                                            {legacyParams.map(param => (
-                                                                                              <SortableItem key={param.id} id={param.id}>
-                                                                                                {({ listeners: pL, attributes: pA }) => (
-                                                                                                  <div className="flex items-center gap-1 text-xs text-muted-foreground py-0.5 hover:bg-muted/30 rounded" data-testid={`param-row-${param.id}`}>
-                                                                                                    <button type="button" className="text-muted-foreground/20 hover:text-muted-foreground/60 cursor-grab active:cursor-grabbing" {...pL} {...pA} onClick={e => e.stopPropagation()}>
-                                                                                                      <GripVertical className="h-3 w-3" />
-                                                                                                    </button>
-                                                                                                    <AlignLeft className="h-3 w-3 opacity-50 flex-shrink-0" />
-                                                                                                    <span className="flex-1 truncate">{param.label}</span>
-                                                                                                    <FieldTypeBadge type={param.fieldType} />
-                                                                                                    <Tooltip>
-                                                                                                      <TooltipTrigger asChild>
-                                                                                                        <button
-                                                                                                          type="button"
-                                                                                                          onClick={e => openMoveParam(param, e)}
-                                                                                                          className="flex-shrink-0 h-4 w-4 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/30 hover:text-primary transition-colors"
-                                                                                                          data-testid={`button-move-param-${param.id}`}
-                                                                                                        >
-                                                                                                          <ArrowRightLeft className="h-3 w-3" />
-                                                                                                        </button>
-                                                                                                      </TooltipTrigger>
-                                                                                                      <TooltipContent side="top" className="text-xs">Presunúť do riadku</TooltipContent>
-                                                                                                    </Tooltip>
-                                                                                                  </div>
-                                                                                                )}
-                                                                                              </SortableItem>
-                                                                                            ))}
+                                                                                            <div className="flex flex-wrap mt-0.5">
+                                                                                              {legacyParams.map(param => {
+                                                                                                const pct = (param.widthPercent ?? 100) > 0 ? (param.widthPercent ?? 100) : 100;
+                                                                                                return (
+                                                                                                  <SortableItem key={param.id} id={param.id} style={{ flex: `0 0 ${pct}%`, width: `${pct}%` }}>
+                                                                                                    {({ listeners: pL, attributes: pA }) => (
+                                                                                                      <div className="px-0.5 pb-1" data-testid={`param-row-${param.id}`}>
+                                                                                                        <div className="flex items-center gap-0.5 mb-0.5">
+                                                                                                          <DragHandle listeners={pL} attributes={pA} testId={`drag-handle-param-${param.id}`} />
+                                                                                                          <span className="text-[10px] text-muted-foreground font-medium truncate flex-1">{param.label}</span>
+                                                                                                          {param.isRequired && <span className="text-[9px] text-red-500 font-bold">*</span>}
+                                                                                                          <FieldTypeBadge type={param.fieldType} />
+                                                                                                          <Tooltip>
+                                                                                                            <TooltipTrigger asChild>
+                                                                                                              <button
+                                                                                                                type="button"
+                                                                                                                onClick={e => openMoveParam(param, e)}
+                                                                                                                className="flex-shrink-0 h-3.5 w-3.5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/30 hover:text-primary transition-colors"
+                                                                                                                data-testid={`button-move-param-${param.id}`}
+                                                                                                              >
+                                                                                                                <ArrowRightLeft className="h-2.5 w-2.5" />
+                                                                                                              </button>
+                                                                                                            </TooltipTrigger>
+                                                                                                            <TooltipContent side="top" className="text-xs">Presunúť do riadku</TooltipContent>
+                                                                                                          </Tooltip>
+                                                                                                        </div>
+                                                                                                        <div className="h-5 rounded bg-muted/40 border border-border/30" />
+                                                                                                      </div>
+                                                                                                    )}
+                                                                                                  </SortableItem>
+                                                                                                );
+                                                                                              })}
+                                                                                            </div>
                                                                                           </SortableContext>
                                                                                         </DndContext>
                                                                                       </div>
