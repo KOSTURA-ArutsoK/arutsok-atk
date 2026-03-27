@@ -165,9 +165,42 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!appUser || contextInitRef.current || isClientUser || !allStates || userContexts === undefined) return;
     contextInitRef.current = true;
 
-    // Two-layer model: subject identity never requires company auto-selection
+    // Two-layer model: when subject identity is active, validate that the current company
+    // is one where the subject has actual records (backend already filters /api/my-companies).
+    // If the current company is invalid or unset, auto-select or show company picker.
     if ((appUser as any).activeSubjectId) {
       localStorage.removeItem("atk_context_fo");
+      (async () => {
+        try {
+          const compsRes = await fetch("/api/my-companies", { credentials: "include" });
+          if (!compsRes.ok) return;
+          const validComps = await compsRes.json();
+          if (validComps.length === 0) return; // Subject has no records in any company
+          const currentIsValid = appUser.activeCompanyId && validComps.some((c: any) => c.id === appUser.activeCompanyId);
+          if (currentIsValid) return; // Current company is valid for this subject, keep it
+          // Current company is not valid (or null) — auto-select or show picker
+          if (validComps.length === 1) {
+            const comp = validComps[0];
+            const divsRes = await fetch(`/api/companies/${comp.id}/divisions`, { credentials: "include" });
+            if (divsRes.ok) {
+              const divs = await divsRes.json();
+              if (divs.length === 1) {
+                setActive.mutate({ activeCompanyId: comp.id, activeDivisionId: divs[0].divisionId || divs[0].division?.id });
+              } else if (divs.length === 0) {
+                setActive.mutate({ activeCompanyId: comp.id }, { onSuccess: () => autoCreateDivisionForCompany(comp.id) });
+              } else {
+                setActive.mutate({ activeCompanyId: comp.id, activeDivisionId: null });
+              }
+            } else {
+              setActive.mutate({ activeCompanyId: comp.id, activeDivisionId: null });
+            }
+          } else {
+            setPendingStateId(appUser.activeStateId || null);
+            setContextStep("company");
+            setContextOverlayOpen(true);
+          }
+        } catch { /* silently fail */ }
+      })();
       return;
     }
 

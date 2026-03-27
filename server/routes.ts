@@ -1806,12 +1806,51 @@ export async function registerRoutes(
     const subjectMap = new Map<number, number>(subjectRows.filter((r): r is { companyId: number; cnt: number } => r.companyId !== null).map(r => [r.companyId, r.cnt]));
     const officerMap = new Map<number, number>(officerRows.map(r => [r.companyId, r.cnt]));
     const contractMap = new Map<number, number>(contractRows.filter((r): r is { companyId: number; cnt: number } => r.companyId !== null).map(r => [r.companyId, r.cnt]));
-    const enriched = companies.map(c => ({
+    let enriched = companies.map(c => ({
       ...c,
       subjectsCount: subjectMap.get(c.id) ?? 0,
       officersCount: officerMap.get(c.id) ?? 0,
       contractsCount: contractMap.get(c.id) ?? 0,
     }));
+
+    // Two-layer model: when a subject identity is active, only show companies
+    // where that subject has actual records (contracts or registrations)
+    const activeSubjectId = req.appUser?.activeSubjectId;
+    if (activeSubjectId) {
+      const [activeSubj] = await db.select({ uid: subjects.uid }).from(subjects).where(eq(subjects.id, activeSubjectId));
+      if (activeSubj?.uid) {
+        const uid = activeSubj.uid;
+        const [contractCompanyRows, subjectCompanyRows] = await Promise.all([
+          db.selectDistinct({ companyId: contracts.companyId })
+            .from(contracts)
+            .where(and(
+              eq(contracts.isDeleted, false),
+              isNotNull(contracts.companyId),
+              or(
+                eq(contracts.specialistaUid, uid),
+                eq(contracts.szcoUid, uid),
+                eq(contracts.ziskatelUid, uid),
+                eq(contracts.klientUid, uid),
+                eq(contracts.zakonnyZastupcaUid, uid),
+                eq(contracts.konatelUid, uid),
+              )
+            )),
+          db.selectDistinct({ companyId: subjects.myCompanyId })
+            .from(subjects)
+            .where(and(
+              isNotNull(subjects.myCompanyId),
+              eq(subjects.uid, uid),
+              isNull(subjects.deletedAt)
+            )),
+        ]);
+        const validIds = new Set<number>([
+          ...contractCompanyRows.filter(r => r.companyId !== null).map(r => r.companyId as number),
+          ...subjectCompanyRows.filter(r => r.companyId !== null).map(r => r.companyId as number),
+        ]);
+        enriched = enriched.filter(c => validIds.has(c.id));
+      }
+    }
+
     if (stateId) {
       res.json(enriched.filter(c => c.stateId === stateId));
     } else {
