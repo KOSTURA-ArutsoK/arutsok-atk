@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -155,6 +155,20 @@ export default function SektorySubjektovVizia() {
 
   // Context panel state
   const [ctxItem, setCtxItem] = useState<SelectedCtxItem | null>(null);
+  const ctxPanelRef = useRef<HTMLDivElement>(null);
+
+  // Outside-click close for context panel
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ctxPanelRef.current && !ctxPanelRef.current.contains(e.target as Node)) {
+        setCtxItem(null);
+      }
+    };
+    if (ctxItem) {
+      document.addEventListener("mousedown", handler);
+    }
+    return () => document.removeEventListener("mousedown", handler);
+  }, [ctxItem]);
 
   // ============================================================
   // Collapse state
@@ -203,6 +217,16 @@ export default function SektorySubjektovVizia() {
   const [moveParamOpen, setMoveParamOpen]                 = useState(false);
   const [moveParamTarget, setMoveParamTarget]             = useState<SubjectParameter | null>(null);
   const [moveParamTargetRiadokId, setMoveParamTargetRiadokId] = useState<string>("");
+
+  // Move panel to another blok dialog
+  const [movePanelOpen, setMovePanelOpen]                 = useState(false);
+  const [movePanelTarget, setMovePanelTarget]             = useState<SubjectParamSection | null>(null);
+  const [movePanelTargetBlokId, setMovePanelTargetBlokId] = useState<string>("");
+
+  // Move riadok to another panel dialog
+  const [moveRiadokOpen, setMoveRiadokOpen]               = useState(false);
+  const [moveRiadokTarget, setMoveRiadokTarget]           = useState<SubjectParamSection | null>(null);
+  const [moveRiadokTargetPanelId, setMoveRiadokTargetPanelId] = useState<string>("");
 
   // Form inputs
   const [newKategoriaName, setNewKategoriaName]         = useState("");
@@ -411,6 +435,62 @@ export default function SektorySubjektovVizia() {
         : prev
       );
       toast({ title: "Šírka uložená" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message, variant: "destructive" }),
+  });
+
+  const updateSectionWidthMutation = useMutation({
+    mutationFn: async ({ id, widthPercent }: { id: number; widthPercent: number }) => {
+      const r = await apiRequest("PATCH", `/api/subject-param-sections/${id}`, { widthPercent });
+      if (!r.ok) { const b = await r.json().catch(() => ({})); throw new Error(b.message || "Chyba"); }
+      return r.json() as Promise<SubjectParamSection>;
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData(sectionsQK, (old: SubjectParamSection[] | undefined) => {
+        if (!old) return old;
+        return old.map(s => s.id === updated.id ? updated : s);
+      });
+      setCtxItem(prev => prev && prev.type === "section" && prev.item.id === updated.id
+        ? { type: "section", item: updated }
+        : prev
+      );
+      toast({ title: "Šírka uložená" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message, variant: "destructive" }),
+  });
+
+  const movePanelMutation = useMutation({
+    mutationFn: async ({ id, parentSectionId }: { id: number; parentSectionId: number }) => {
+      const r = await apiRequest("PATCH", `/api/subject-param-sections/${id}`, { parentSectionId });
+      if (!r.ok) { const b = await r.json().catch(() => ({})); throw new Error(b.message || "Chyba"); }
+      return r.json() as Promise<SubjectParamSection>;
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData(sectionsQK, (old: SubjectParamSection[] | undefined) => {
+        if (!old) return old;
+        return old.map(s => s.id === updated.id ? updated : s);
+      });
+      setMovePanelOpen(false); setMovePanelTarget(null); setMovePanelTargetBlokId("");
+      setCtxItem(null);
+      toast({ title: "Panel presunutý" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message, variant: "destructive" }),
+  });
+
+  const moveRiadokMutation = useMutation({
+    mutationFn: async ({ id, parentSectionId }: { id: number; parentSectionId: number }) => {
+      const r = await apiRequest("PATCH", `/api/subject-param-sections/${id}`, { parentSectionId });
+      if (!r.ok) { const b = await r.json().catch(() => ({})); throw new Error(b.message || "Chyba"); }
+      return r.json() as Promise<SubjectParamSection>;
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData(sectionsQK, (old: SubjectParamSection[] | undefined) => {
+        if (!old) return old;
+        return old.map(s => s.id === updated.id ? updated : s);
+      });
+      setMoveRiadokOpen(false); setMoveRiadokTarget(null); setMoveRiadokTargetPanelId("");
+      setCtxItem(null);
+      toast({ title: "Riadok presunutý" });
     },
     onError: (err: any) => toast({ title: "Chyba", description: err?.message, variant: "destructive" }),
   });
@@ -944,16 +1024,17 @@ export default function SektorySubjektovVizia() {
                                                           </div>
                                                         ) : (
                                                           <DndContext sensors={sensors} onDragEnd={e => handleDragEndSections(e, getPanely(blok.id))}>
-                                                            <SortableContext items={panely.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                                                              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                                            <SortableContext items={panely.map(p => p.id)} strategy={rectSortingStrategy}>
+                                                              <div className="flex flex-wrap gap-0">
                                                                 {panely.map(panel => {
                                                                   const isPanelSel   = selectedPanelId === panel.id;
                                                                   const riadky       = getRiadky(panel.id);
                                                                   const legacyParams = getParamsForPanel(panel.id);
                                                                   const panelExpanded = expandedPanely.has(panel.id);
+                                                                  const panelPct     = (panel.widthPercent ?? 100) > 0 ? (panel.widthPercent ?? 100) : 100;
 
                                                                   return (
-                                                                    <SortableItem key={panel.id} id={panel.id}>
+                                                                    <SortableItem key={panel.id} id={panel.id} style={{ flex: `0 0 ${panelPct}%`, width: `${panelPct}%`, padding: "0 6px 6px 0" }}>
                                                                       {({ listeners: panelL, attributes: panelA }) => (
                                                                         <div
                                                                           className={`border-2 rounded-lg flex flex-col transition-all cursor-pointer ${
@@ -1006,13 +1087,15 @@ export default function SektorySubjektovVizia() {
                                                                                 ) : (
                                                                                   <>
                                                                                     <DndContext sensors={sensors} onDragEnd={e => handleDragEndSections(e, getRiadky(panel.id))}>
-                                                                                      <SortableContext items={riadky.map(r => r.id)} strategy={verticalListSortingStrategy}>
+                                                                                      <SortableContext items={riadky.map(r => r.id)} strategy={rectSortingStrategy}>
+                                                                                        <div className="flex flex-wrap">
                                                                                         {riadky.map(riadok => {
                                                                                           const isRiadokSel  = selectedRiadokId === riadok.id;
                                                                                           const params       = getParamsForRiadok(riadok.id);
                                                                                           const riadokExpanded = expandedRiadky.has(riadok.id);
+                                                                                          const riadokPct    = (riadok.widthPercent ?? 100) > 0 ? (riadok.widthPercent ?? 100) : 100;
                                                                                           return (
-                                                                                            <SortableItem key={riadok.id} id={riadok.id}>
+                                                                                            <SortableItem key={riadok.id} id={riadok.id} style={{ flex: `0 0 ${riadokPct}%`, width: `${riadokPct}%`, paddingBottom: "4px" }}>
                                                                                               {({ listeners: riadokL, attributes: riadokA }) => (
                                                                                                 <div
                                                                                                   className={`rounded border px-1.5 py-1 text-xs cursor-pointer transition-all ${
@@ -1115,6 +1198,7 @@ export default function SektorySubjektovVizia() {
                                                                                             </SortableItem>
                                                                                           );
                                                                                         })}
+                                                                                        </div>
                                                                                       </SortableContext>
                                                                                     </DndContext>
 
@@ -1220,6 +1304,7 @@ export default function SektorySubjektovVizia() {
           {/* === CONTEXT PANEL === */}
           {ctxItem && (
             <div
+              ref={ctxPanelRef}
               className="w-64 border-l bg-card flex-shrink-0 flex flex-col overflow-y-auto"
               data-testid="context-panel"
             >
@@ -1300,6 +1385,44 @@ export default function SektorySubjektovVizia() {
                 );
               })()}
 
+              {/* SECTION panel/riadok: widthPercent editor */}
+              {ctxItem.type === "section" && (ctxItem.item.sectionType === "panel" || ctxItem.item.sectionType === "riadok") && (() => {
+                const freshSec = allSections.find(s => s.id === ctxItem.item.id) ?? ctxItem.item;
+                const currentPct = (freshSec.widthPercent ?? 100) > 0 ? (freshSec.widthPercent ?? 100) : 100;
+                const WIDTH_OPTIONS = [25, 33, 50, 75, 100];
+                return (
+                  <div className="px-3 pb-3 flex-shrink-0">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                      Šírka {ctxItem.item.sectionType === "panel" ? "panelu" : "riadku"}
+                    </p>
+                    <div className="flex gap-1 flex-wrap" data-testid="width-percent-editor">
+                      {WIDTH_OPTIONS.map(opt => (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => updateSectionWidthMutation.mutate({ id: freshSec.id, widthPercent: opt })}
+                          disabled={updateSectionWidthMutation.isPending}
+                          data-testid={`width-btn-${opt}`}
+                          className={`flex-1 min-w-[calc(33%-4px)] px-2 py-1 rounded text-[11px] font-medium border transition-all ${
+                            currentPct === opt
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-background border-border text-muted-foreground hover:border-primary/60 hover:text-foreground"
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          {opt}%
+                        </button>
+                      ))}
+                    </div>
+                    {updateSectionWidthMutation.isPending && (
+                      <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        Ukladám...
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* PARAM: type + required info */}
               {ctxItem.type === "param" && (() => {
                 const freshParam = allParams.find(p => p.id === ctxItem.item.id) ?? ctxItem.item;
@@ -1352,6 +1475,46 @@ export default function SektorySubjektovVizia() {
                   >
                     <ArrowRightLeft className="h-3.5 w-3.5" />
                     Presunúť do inej kategórie
+                  </Button>
+                </div>
+              )}
+
+              {/* SECTION panel: move button */}
+              {ctxItem.type === "section" && ctxItem.item.sectionType === "panel" && (
+                <div className="px-3 pb-3 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-1.5 h-8 text-xs"
+                    onClick={() => {
+                      setMovePanelTarget(ctxItem.item);
+                      setMovePanelTargetBlokId(String(ctxItem.item.parentSectionId ?? ""));
+                      setMovePanelOpen(true);
+                    }}
+                    data-testid="ctx-panel-move-panel"
+                  >
+                    <ArrowRightLeft className="h-3.5 w-3.5" />
+                    Presunúť do iného bloku
+                  </Button>
+                </div>
+              )}
+
+              {/* SECTION riadok: move button */}
+              {ctxItem.type === "section" && ctxItem.item.sectionType === "riadok" && (
+                <div className="px-3 pb-3 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-1.5 h-8 text-xs"
+                    onClick={() => {
+                      setMoveRiadokTarget(ctxItem.item);
+                      setMoveRiadokTargetPanelId(String(ctxItem.item.parentSectionId ?? ""));
+                      setMoveRiadokOpen(true);
+                    }}
+                    data-testid="ctx-panel-move-riadok"
+                  >
+                    <ArrowRightLeft className="h-3.5 w-3.5" />
+                    Presunúť do iného panelu
                   </Button>
                 </div>
               )}
@@ -1800,6 +1963,90 @@ export default function SektorySubjektovVizia() {
                 data-testid="button-confirm-move-param"
               >
                 {moveParamMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Presunúť"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Move Panel to another Blok */}
+        <Dialog open={movePanelOpen} onOpenChange={v => { setMovePanelOpen(v); if (!v) { setMovePanelTarget(null); setMovePanelTargetBlokId(""); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Presunúť Panel do iného Bloku</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              {movePanelTarget && (
+                <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                  Panel: <span className="font-medium">{movePanelTarget.name}</span>
+                </div>
+              )}
+              <div>
+                <label className="text-sm font-medium mb-1 block">Cieľový Blok</label>
+                <Select value={movePanelTargetBlokId} onValueChange={setMovePanelTargetBlokId}>
+                  <SelectTrigger data-testid="select-move-panel-target">
+                    <SelectValue placeholder="Vyberte blok..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allSections.filter(s => s.sectionType === "blok" && s.clientTypeId === clientTypeId).map(b => (
+                      <SelectItem key={b.id} value={String(b.id)} disabled={b.id === movePanelTarget?.parentSectionId}>
+                        {b.name}
+                        {b.id === movePanelTarget?.parentSectionId && " (aktuálny)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setMovePanelOpen(false)}>Zrušiť</Button>
+              <Button
+                onClick={() => movePanelTarget && movePanelTargetBlokId && movePanelMutation.mutate({ id: movePanelTarget.id, parentSectionId: Number(movePanelTargetBlokId) })}
+                disabled={!movePanelTargetBlokId || Number(movePanelTargetBlokId) === movePanelTarget?.parentSectionId || movePanelMutation.isPending}
+                data-testid="button-confirm-move-panel"
+              >
+                {movePanelMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Presunúť"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Move Riadok to another Panel */}
+        <Dialog open={moveRiadokOpen} onOpenChange={v => { setMoveRiadokOpen(v); if (!v) { setMoveRiadokTarget(null); setMoveRiadokTargetPanelId(""); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Presunúť Riadok do iného Panelu</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              {moveRiadokTarget && (
+                <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+                  Riadok: <span className="font-medium">{moveRiadokTarget.name || "— bez názvu —"}</span>
+                </div>
+              )}
+              <div>
+                <label className="text-sm font-medium mb-1 block">Cieľový Panel</label>
+                <Select value={moveRiadokTargetPanelId} onValueChange={setMoveRiadokTargetPanelId}>
+                  <SelectTrigger data-testid="select-move-riadok-target">
+                    <SelectValue placeholder="Vyberte panel..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allSections.filter(s => s.sectionType === "panel" && s.clientTypeId === clientTypeId).map(p => (
+                      <SelectItem key={p.id} value={String(p.id)} disabled={p.id === moveRiadokTarget?.parentSectionId}>
+                        {p.name}
+                        {p.id === moveRiadokTarget?.parentSectionId && " (aktuálny)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setMoveRiadokOpen(false)}>Zrušiť</Button>
+              <Button
+                onClick={() => moveRiadokTarget && moveRiadokTargetPanelId && moveRiadokMutation.mutate({ id: moveRiadokTarget.id, parentSectionId: Number(moveRiadokTargetPanelId) })}
+                disabled={!moveRiadokTargetPanelId || Number(moveRiadokTargetPanelId) === moveRiadokTarget?.parentSectionId || moveRiadokMutation.isPending}
+                data-testid="button-confirm-move-riadok"
+              >
+                {moveRiadokMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Presunúť"}
               </Button>
             </DialogFooter>
           </DialogContent>
