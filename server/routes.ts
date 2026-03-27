@@ -11223,9 +11223,10 @@ export async function registerRoutes(
         return res.status(401).json({ message: "Prihláste sa alebo dokončite overenie registrácie" });
       }
 
-      // Bezpečnostná väzba: ak ide o registračnú session (nie prihlásený), overíme, že dopytované RČ
-      // zodpovedá overenému subjektu. Tým zabránime enumerácii iných subjektov cez registračnú session.
+      // Bezpečnostná väzba — kontrola identity pred vyhľadávaním.
+      // Cieľ: zabrániť enumerácii vzťahov cudzích osôb (PII leakage).
       if (!isAuthUser && hasRegSession && regSessionSubjectId) {
+        // Registračná session: overíme, že dopytované RČ zodpovedá overenému subjektu
         const [regSubject] = await db.select({ birthNumber: subjects.birthNumber })
           .from(subjects).where(eq(subjects.id, regSessionSubjectId)).limit(1);
         if (!regSubject?.birthNumber) {
@@ -11234,6 +11235,33 @@ export async function registerRoutes(
         const regBn = decryptField(regSubject.birthNumber)?.replace(/\//g, "").replace(/\s/g, "").trim();
         if (!regBn || regBn !== cleanBn) {
           return res.status(403).json({ message: "Rodné číslo nezodpovedá overenému subjektu" });
+        }
+      } else if (isAuthUser && req.appUser) {
+        // Prihlásený používateľ: overíme, že dopytované RČ patrí subjektu, na ktorý má prepojenie
+        // (aktívny subjekt alebo niektorý zo subject_links).
+        const appUserId = req.appUser.id;
+        const linkedSubjectIds = await db.select({ subjectId: subjectLinks.subjectId })
+          .from(subjectLinks)
+          .where(and(eq(subjectLinks.userId, appUserId), eq(subjectLinks.isActive, true)));
+        const activeSubjectId = req.appUser.activeSubjectId ?? null;
+        const allAccessibleSubjectIds = [
+          ...(activeSubjectId ? [activeSubjectId] : []),
+          ...linkedSubjectIds.map((r: { subjectId: number }) => r.subjectId),
+        ];
+        if (allAccessibleSubjectIds.length === 0) {
+          return res.status(403).json({ message: "Nemáte prepojený žiadny subjekt pre vyhľadávanie" });
+        }
+        // Prečítame RČ všetkých prístupných subjektov a porovnáme
+        const bnRows = await db.select({ birthNumber: subjects.birthNumber })
+          .from(subjects)
+          .where(inArray(subjects.id, allAccessibleSubjectIds));
+        const allowed = bnRows.some((row: { birthNumber: string | null }) => {
+          if (!row.birthNumber) return false;
+          const dec = decryptField(row.birthNumber)?.replace(/\//g, "").replace(/\s/g, "").trim();
+          return dec === cleanBn;
+        });
+        if (!allowed) {
+          return res.status(403).json({ message: "Rodné číslo nezodpovedá žiadnemu z vašich prepojených subjektov" });
         }
       }
 
@@ -11543,6 +11571,112 @@ export async function registerRoutes(
       res.json({ results });
     } catch (err) {
       console.error("[BATCH-INITIATE]", err);
+      res.status(500).json({ message: "Chyba servera" });
+    }
+  });
+
+  // === LIVE LOOKUP — upozornenie záujmu počas registrácie (bez vytvorenia subject_link) ===
+  // Pre registračnú session: neexistuje appUser, preto sa subject_link nevytvára.
+  // Namiesto toho sa pošle len informačný e-mail kontaktu a zaloguje sa záujem do audit_logs.
+  // Po vytvorení/prihlásení účtu môže používateľ formálne vytvoriť subject_link cez batch-initiate.
+  app.post("/api/registration/live-lookup/registration-notify", async (req: any, res) => {
+    try {
+      const { subjectIds } = req.body;
+      if (!Array.isArray(subjectIds) || subjectIds.length === 0) {
+        return res.status(400).json({ message: "Vyberte aspoň jeden subjekt" });
+      }
+      if (subjectIds.length > 20) {
+        return res.status(400).json({ message: "Maximálne 20 subjektov naraz" });
+      }
+
+      const regSessionSubjectId: number | undefined = (req.session as any)?.registrationVerifiedSubjectId;
+      const regSessionAt: number | undefined = (req.session as any)?.registrationVerifiedAt;
+      const REG_TTL = 2 * 60 * 60 * 1000;
+      const hasRegSession = !!regSessionSubjectId && !!regSessionAt && (Date.now() - regSessionAt < REG_TTL);
+
+      if (!hasRegSession || !regSessionSubjectId) {
+        return res.status(401).json({ message: "Registračná relácia je neplatná alebo vypršala" });
+      }
+
+      // Nesmie byť prihlásený — tento endpoint je len pre neautentifikovaných
+      if (req.appUser) {
+        return res.status(400).json({ message: "Prihlásení používatelia použijú batch-initiate" });
+      }
+
+      const [regSubject] = await db.select({ id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName })
+        .from(subjects).where(eq(subjects.id, regSessionSubjectId)).limit(1);
+
+      const requesterName = regSubject
+        ? [regSubject.firstName, regSubject.lastName].filter(Boolean).join(" ") || "Neznámy"
+        : "Neznámy";
+
+      const results: { subjectId: number; status: "notified" | "no_email" | "already_pending" | "error" }[] = [];
+
+      for (const sid of subjectIds) {
+        try {
+          const [targetSubject] = await db.select().from(subjects).where(eq(subjects.id, sid)).limit(1);
+          if (!targetSubject) { results.push({ subjectId: sid, status: "error" }); continue; }
+
+          // Skontroluj duplikát (existujúca pending/active notifikácia od tej istej reg session)
+          const existingNotif = await db.select({ id: systemNotifications.id })
+            .from(systemNotifications)
+            .where(and(
+              eq(systemNotifications.notificationType, "subject_link_interest"),
+              eq(systemNotifications.batchId!, `reg_interest_${regSessionSubjectId}_${sid}`),
+            )).limit(1);
+          if (existingNotif.length > 0) {
+            results.push({ subjectId: sid, status: "already_pending" }); continue;
+          }
+
+          const primaryEmail = targetSubject.email
+            ? (decryptField(targetSubject.email) ?? targetSubject.email)
+            : null;
+          if (!primaryEmail) { results.push({ subjectId: sid, status: "no_email" }); continue; }
+
+          const subjectName = targetSubject.companyName
+            || [targetSubject.firstName, targetSubject.lastName].filter(Boolean).join(" ")
+            || targetSubject.uid || "";
+
+          const emailHtml = `
+            <p>Dobrý deň,</p>
+            <p>Osoba <strong>${requesterName}</strong> prejavila záujem o prepojenie svojho účtu so subjektom
+            <strong>${subjectName}</strong> v systéme ArutsoK (ATK).</p>
+            <p>Účet ešte nie je vytvorený – po jeho vytvorení bude odoslaná formálna žiadosť o prepojenie,
+            ktorú budete môcť potvrdiť alebo zamietnuť.</p>
+            <p>Ak si neprajete byť upozorňovaní o takýchto záujmoch, kontaktujte správcu systému.</p>
+            <p>S pozdravom,<br>Systém ArutsoK (ATK)</p>
+          `;
+
+          await db.insert(systemNotifications).values({
+            recipientEmail: primaryEmail,
+            recipientName: subjectName,
+            recipientUserId: null,
+            recipientPhone: null,
+            subject: `Záujem o prepojenie účtu — ArutsoK (ATK)`,
+            bodyHtml: emailHtml,
+            status: "pending",
+            notificationType: "subject_link_interest",
+            batchId: `reg_interest_${regSessionSubjectId}_${sid}`,
+          });
+
+          await db.insert(auditLogs).values({
+            userId: null, username: null, action: "SUBJECT_LINK_INTEREST_NOTED",
+            module: "Registration", entityId: sid, entityName: subjectName,
+            oldData: null,
+            newData: { regSubjectId: regSessionSubjectId, targetSubjectId: sid, via: "live_lookup_registration" },
+            ipAddress: req.ip,
+          });
+
+          results.push({ subjectId: sid, status: "notified" });
+        } catch (e) {
+          console.error("[REG-NOTIFY]", e);
+          results.push({ subjectId: sid, status: "error" });
+        }
+      }
+
+      res.json({ results });
+    } catch (err) {
+      console.error("[REG-NOTIFY]", err);
       res.status(500).json({ message: "Chyba servera" });
     }
   });

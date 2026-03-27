@@ -30,7 +30,7 @@ interface LiveLookupCandidate {
   via: string;
 }
 
-type CandidateStatus = "idle" | "selected" | "pending" | "initiated" | "error" | "already_linked" | "already_pending" | "no_email";
+type CandidateStatus = "idle" | "pending" | "initiated" | "error" | "already_linked" | "already_pending" | "no_email";
 
 function subjectTypeLabel(type: string): string {
   switch (type) {
@@ -270,15 +270,50 @@ export default function RegisterPage() {
     }
   }, []);
 
-  function initiateForSubject(subjectId: number) {
+  async function initiateForSubject(subjectId: number) {
     const current = candidateStatuses[subjectId];
     if (current && current !== "idle") return;
-    // Označíme záujem — skutočná žiadosť o prepojenie sa pošle po prihlásení cez Výber identity
-    setCandidateStatuses(prev => ({ ...prev, [subjectId]: "initiated" }));
-    toast({
-      title: "Záujem zaznamenaný",
-      description: "Po prihlásení do systému môžete odoslať žiadosť o prepojenie v Nastaveniach účtu.",
-    });
+
+    setCandidateStatuses(prev => ({ ...prev, [subjectId]: "pending" }));
+    try {
+      const res = await fetch("/api/registration/live-lookup/registration-notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ subjectIds: [subjectId] }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          toast({
+            title: "Registračná relácia vypršala",
+            description: "Začnite registráciu znova.",
+            variant: "destructive",
+          });
+          setCandidateStatuses(prev => ({ ...prev, [subjectId]: "error" }));
+          return;
+        }
+        toast({ title: err.message || "Chyba pri odosielaní upozornenia", variant: "destructive" });
+        setCandidateStatuses(prev => ({ ...prev, [subjectId]: "error" }));
+        return;
+      }
+      const data = await res.json();
+      const result = (data.results || []).find((r: { subjectId: number; status: string }) => r.subjectId === subjectId);
+      const status = result?.status;
+      if (status === "notified") {
+        setCandidateStatuses(prev => ({ ...prev, [subjectId]: "initiated" }));
+        toast({ title: "Upozornenie odoslané", description: "Formálna žiadosť o prepojenie bude odoslaná po vytvorení účtu." });
+      } else if (status === "already_pending") {
+        setCandidateStatuses(prev => ({ ...prev, [subjectId]: "already_pending" }));
+      } else if (status === "no_email") {
+        setCandidateStatuses(prev => ({ ...prev, [subjectId]: "no_email" }));
+      } else {
+        setCandidateStatuses(prev => ({ ...prev, [subjectId]: "error" }));
+      }
+    } catch {
+      setCandidateStatuses(prev => ({ ...prev, [subjectId]: "error" }));
+      toast({ title: "Chyba pri odosielaní upozornenia", variant: "destructive" });
+    }
   }
 
   const hasActionableStatuses = Object.values(candidateStatuses).some(
