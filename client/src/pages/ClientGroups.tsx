@@ -90,7 +90,7 @@ function GroupDetailDialog({
     if (open) {
       if (group) {
         setName(group.name || "");
-        setDescription((group as any).description || "");
+        setDescription(group.description || "");
         setEntityType((group as any).entityType || "fyzicka_osoba");
         setAllowLogin(group.allowLogin ?? true);
         setAllowCalculators(group.allowCalculators ?? true);
@@ -970,8 +970,8 @@ function GroupRowCells({
             {group.isSystem && !group.isHoldingGroup && group.groupCode !== "group_cierny_zoznam" && <Badge variant="outline" className="text-[9px] h-4 border-amber-500/50 text-amber-500">Systémová</Badge>}
             {group.isSystem && group.groupCode === "group_cierny_zoznam" && <Badge variant="outline" className="text-[9px] h-4 border-red-500/50 text-red-500">Globálna</Badge>}
           </span>
-          {(group as any).description ? (
-            <span className="text-xs text-muted-foreground font-normal line-clamp-1" data-testid={`text-group-desc-${group.id}`}>{(group as any).description}</span>
+          {group.description ? (
+            <span className="text-xs text-muted-foreground font-normal line-clamp-1" data-testid={`text-group-desc-${group.id}`}>{group.description}</span>
           ) : (
             <span className="text-xs text-muted-foreground/50 font-normal italic" data-testid={`text-group-desc-empty-${group.id}`}>Bez popisu — kliknite na upraviť a doplňte účel tejto skupiny.</span>
           )}
