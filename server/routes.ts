@@ -2,7 +2,7 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { setupAuth, isAuthenticated, resolveContextLabel } from "./auth";
+import { setupAuth, isAuthenticated, resolveContextLabel, getAuditActorId } from "./auth";
 import { z } from "zod";
 import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts } from "@shared/schema";
 import type { DocEntry, WebRoutingRule } from "@shared/schema";
@@ -922,6 +922,7 @@ export async function registerRoutes(
           } else {
             req.appUser = appUser;
           }
+          req.auditActorId = getAuditActorId(req);
         }
       }
     } catch (err) {
@@ -21870,12 +21871,12 @@ export async function registerRoutes(
       }).returning();
 
       await db.insert(auditLogs).values({
-        userId: appUser?.id || 0,
+        userId: (req as any).auditActorId || appUser?.id || 0,
         action: "network_link_created",
         entityType: "network_link",
         entityId: String(link.id),
         details: { subjectId, guarantorSubjectId, linkType: linkType || "active", phase: phase || "klient" },
-      });
+      } as any);
 
       res.json(link);
     } catch (err: any) {
@@ -21921,7 +21922,7 @@ export async function registerRoutes(
       }
 
       await db.insert(auditLogs).values({
-        userId: appUser?.id || 0,
+        userId: (req as any).auditActorId || appUser?.id || 0,
         action: "guarantor_confirmed",
         entityType: "network_link",
         entityId: String(subjectId),
@@ -22086,7 +22087,7 @@ export async function registerRoutes(
       }).returning();
 
       await db.insert(auditLogs).values({
-        userId: appUser?.id || 0,
+        userId: (req as any).auditActorId || appUser?.id || 0,
         username: appUser?.fullName || appUser?.username || "",
         action: "transfer_request_created",
         module: "Network",
@@ -22198,7 +22199,7 @@ export async function registerRoutes(
       }
 
       await db.insert(auditLogs).values({
-        userId: appUser.id,
+        userId: (req as any).auditActorId || appUser.id,
         username: appUser.fullName || appUser.username || "",
         action: `transfer_step_${step.waitingFor}_approved`,
         module: "Network",
@@ -22245,7 +22246,7 @@ export async function registerRoutes(
       }).where(eq(guarantorTransferRequests.id, id)).returning();
 
       await db.insert(auditLogs).values({
-        userId: appUser.id,
+        userId: (req as any).auditActorId || appUser.id,
         username: appUser.fullName || appUser.username || "",
         action: "transfer_request_rejected",
         module: "Network",

@@ -2162,106 +2162,6 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  // ── GUARDIAN CONFIRMATION (no auth required) ──────────────────
-  app.get("/api/guardian-confirm", async (req, res) => {
-    try {
-      const { token } = req.query;
-      if (!token || typeof token !== "string") return res.status(400).json({ message: "Chýba token" });
-      const gct = await storage.getGuardianToken(token);
-      if (!gct) return res.status(404).json({ message: "Token neexistuje alebo bol použitý" });
-      if (gct.rejected) return res.status(410).json({ message: "Žiadosť bola odmietnutá" });
-      if (new Date() > gct.expiresAt) return res.status(410).json({ message: "Platnosť tokenu vypršala" });
-      const [guardianUser] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName, email: appUsers.email }).from(appUsers).where(eq(appUsers.id, gct.guardianUserId));
-      const [targetUser] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName }).from(appUsers).where(eq(appUsers.id, gct.targetUserId));
-      const guardianName = guardianUser ? `${guardianUser.firstName || ""} ${guardianUser.lastName || ""}`.trim() || guardianUser.email || "Neznámy" : "Neznámy";
-      const guardianEmail = guardianUser?.email || "";
-      const targetName = targetUser ? `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() || "Neznámy" : "Neznámy";
-      return res.json({
-        tokenId: gct.id,
-        guardianName,
-        guardianEmail: guardianEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2"),
-        targetName,
-        needsSms: gct.needsSms,
-        emailConfirmed: gct.emailConfirmed,
-        smsConfirmed: gct.smsConfirmed,
-        expiresAt: gct.expiresAt,
-      });
-    } catch (err) {
-      console.error("[GUARDIAN-CONFIRM GET]", err);
-      res.status(500).json({ message: "Interná chyba" });
-    }
-  });
-
-  app.post("/api/guardian-confirm/confirm", async (req, res) => {
-    try {
-      const { token } = req.body;
-      if (!token) return res.status(400).json({ message: "Chýba token" });
-      const gct = await storage.getGuardianToken(token);
-      if (!gct) return res.status(404).json({ message: "Token neexistuje" });
-      if (gct.rejected) return res.status(410).json({ message: "Žiadosť bola odmietnutá" });
-      if (new Date() > gct.expiresAt) return res.status(410).json({ message: "Platnosť tokenu vypršala" });
-      if (gct.emailConfirmed) return res.json({ status: gct.needsSms ? "sms_required" : "confirmed" });
-      await storage.confirmGuardianEmail(gct.id);
-      if (!gct.needsSms) {
-        await storage.completeGuardianLink(gct.linkId, "email");
-        await db.insert(auditLogs).values({
-          userId: gct.targetUserId, username: null, action: "GUARDIAN_LINK_CONFIRMED",
-          module: "AccountLink", entityId: gct.guardianUserId, entityName: null,
-          oldData: null, newData: { linkId: gct.linkId, via: "email" }, ipAddress: null,
-        });
-        return res.json({ status: "confirmed" });
-      }
-      return res.json({ status: "sms_required" });
-    } catch (err) {
-      console.error("[GUARDIAN-CONFIRM CONFIRM]", err);
-      res.status(500).json({ message: "Interná chyba" });
-    }
-  });
-
-  app.post("/api/guardian-confirm/verify-sms", guardianSmsRateLimit, async (req, res) => {
-    try {
-      const { token, smsCode } = req.body;
-      if (!token || !smsCode) return res.status(400).json({ message: "Chýba token alebo SMS kód" });
-      const gct = await storage.getGuardianToken(token);
-      if (!gct) return res.status(404).json({ message: "Token neexistuje" });
-      if (gct.rejected) return res.status(410).json({ message: "Žiadosť bola odmietnutá" });
-      if (new Date() > gct.expiresAt) return res.status(410).json({ message: "Platnosť tokenu vypršala" });
-      if (!gct.emailConfirmed) return res.status(400).json({ message: "Najprv potvrďte email" });
-      if (smsCode.trim() !== gct.smsCode) return res.status(400).json({ message: "Nesprávny SMS kód" });
-      await storage.confirmGuardianSms(gct.id);
-      await storage.completeGuardianLink(gct.linkId, "email+sms");
-      await db.insert(auditLogs).values({
-        userId: gct.targetUserId, username: null, action: "GUARDIAN_LINK_CONFIRMED",
-        module: "AccountLink", entityId: gct.guardianUserId, entityName: null,
-        oldData: null, newData: { linkId: gct.linkId, via: "email+sms" }, ipAddress: null,
-      });
-      return res.json({ status: "confirmed" });
-    } catch (err) {
-      console.error("[GUARDIAN-CONFIRM VERIFY-SMS]", err);
-      res.status(500).json({ message: "Interná chyba" });
-    }
-  });
-
-  app.post("/api/guardian-confirm/reject", async (req, res) => {
-    try {
-      const { token } = req.body;
-      if (!token) return res.status(400).json({ message: "Chýba token" });
-      const gct = await storage.getGuardianToken(token);
-      if (!gct) return res.status(404).json({ message: "Token neexistuje" });
-      if (gct.rejected) return res.json({ status: "already_rejected" });
-      await storage.rejectGuardianLink(gct.id);
-      await db.insert(auditLogs).values({
-        userId: gct.targetUserId, username: null, action: "GUARDIAN_LINK_REJECTED",
-        module: "AccountLink", entityId: gct.guardianUserId, entityName: null,
-        oldData: null, newData: { linkId: gct.linkId }, ipAddress: null,
-      });
-      return res.json({ status: "rejected" });
-    } catch (err) {
-      console.error("[GUARDIAN-CONFIRM REJECT]", err);
-      res.status(500).json({ message: "Interná chyba" });
-    }
-  });
-
   // ── REVOKE ACCOUNT LINK ──────────────────────────────────────
   app.post("/api/account-link/:id/revoke", async (req, res) => {
     try {
@@ -2447,7 +2347,7 @@ export async function setupAuth(app: Express) {
 
       await storage.deactivateAccountLinks(req.session.userId, linkedUserId);
       await db.insert(auditLogs).values({
-        userId: req.session.userId,
+        userId: getAuditActorId(req),
         username: null,
         action: "ACCOUNT_LINK_REMOVED",
         module: "AccountLink",
