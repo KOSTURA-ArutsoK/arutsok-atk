@@ -24,6 +24,7 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
+  rectSortingStrategy,
   useSortable,
   arrayMove,
 } from "@dnd-kit/sortable";
@@ -983,7 +984,7 @@ export default function SektorySubjektovVizia() {
                                                                                                   {riadokExpanded && (
                                                                                                     params.length > 0 ? (
                                                                                                     <DndContext sensors={sensors} onDragEnd={e => handleDragEndParams(e, getParamsForRiadok(riadok.id))}>
-                                                                                                      <SortableContext items={params.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                                                                                                      <SortableContext items={params.map(p => p.id)} strategy={rectSortingStrategy}>
                                                                                                         <div className="flex flex-wrap mt-1">
                                                                                                           {params.map(param => {
                                                                                                             const pct = (param.widthPercent ?? 100) > 0 ? (param.widthPercent ?? 100) : 100;
@@ -1039,7 +1040,7 @@ export default function SektorySubjektovVizia() {
                                                                                       <div className="rounded border border-dashed border-amber-300/60 px-2 py-1">
                                                                                         <div className="text-[10px] text-amber-600/70 mb-0.5">Parametre bez riadku:</div>
                                                                                         <DndContext sensors={sensors} onDragEnd={e => handleDragEndParams(e, getParamsForPanel(panel.id))}>
-                                                                                          <SortableContext items={legacyParams.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                                                                                          <SortableContext items={legacyParams.map(p => p.id)} strategy={rectSortingStrategy}>
                                                                                             <div className="flex flex-wrap mt-0.5">
                                                                                               {legacyParams.map(param => {
                                                                                                 const pct = (param.widthPercent ?? 100) > 0 ? (param.widthPercent ?? 100) : 100;
