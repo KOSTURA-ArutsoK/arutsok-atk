@@ -183,7 +183,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             return;
           }
           const currentIsValid = appUser.activeCompanyId && validComps.some((c: any) => c.id === appUser.activeCompanyId);
-          if (currentIsValid) return; // Current company is valid for this subject, keep it
+          if (currentIsValid) {
+            // Company is valid — but also check if division still needs to be selected/created
+            const needsDivision = !!(appUser.activeCompanyId && !(appUser as any).activeDivisionId);
+            if (needsDivision) {
+              const divsRes = await fetch(`/api/companies/${appUser.activeCompanyId}/divisions`, { credentials: "include" });
+              if (divsRes.ok) {
+                const divs = await divsRes.json();
+                if (divs.length === 1) {
+                  setActive.mutate({ activeDivisionId: divs[0].divisionId || divs[0].division?.id });
+                } else if (divs.length === 0) {
+                  autoCreateDivisionForCompany(appUser.activeCompanyId);
+                } else {
+                  setPendingCompanyId(appUser.activeCompanyId);
+                  setCompanyDivisions(divs);
+                  setContextStep("division");
+                  setContextOverlayOpen(true);
+                }
+              }
+            }
+            return;
+          }
           // Current company is not valid (or null) — auto-select or show picker
           if (validComps.length === 1) {
             const comp = validComps[0];

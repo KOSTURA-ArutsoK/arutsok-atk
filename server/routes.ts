@@ -1818,7 +1818,11 @@ export async function registerRoutes(
     const activeSubjectId = req.appUser?.activeSubjectId;
     if (activeSubjectId) {
       const [activeSubj] = await db.select({ uid: subjects.uid }).from(subjects).where(eq(subjects.id, activeSubjectId));
-      if (activeSubj?.uid) {
+      if (!activeSubj?.uid) {
+        // Safe default: active subject has no UID, cannot determine valid companies
+        return res.json([]);
+      }
+      {
         const uid = activeSubj.uid;
         const [contractCompanyRows, subjectCompanyRows] = await Promise.all([
           db.selectDistinct({ companyId: contracts.companyId })
