@@ -11189,7 +11189,8 @@ export async function registerRoutes(
   // === LIVE LOOKUP (verejný endpoint — volá sa počas registrácie) ===
   // Prijíma plaintextové RČ (od registrujúceho sa), hľadá všetky subjekty kde je táto osoba
   // zapísaná ako konateľ/vlastník (company_officers) alebo kde je na ňu naviazaný subject.
-  // Endpoint je public (nevyžaduje session), ale má rate-limit a loguje do auditLogs.
+  // Endpoint je public (nevyžaduje session), má rate-limit + session cache + loguje do auditLogs.
+  const liveLookupRateLimitMap = new Map<string, { count: number; resetAt: number }>();
   app.post("/api/registration/live-lookup", async (req: any, res) => {
     try {
       const { birthNumber } = req.body;
@@ -11198,6 +11199,27 @@ export async function registerRoutes(
       const cleanBn = (birthNumber as string).replace(/\//g, "").replace(/\s/g, "").trim();
       if (!/^\d{9,10}$/.test(cleanBn)) {
         return res.status(400).json({ message: "Neplatné rodné číslo" });
+      }
+
+      // Rate limit: max 5 lookups per IP per 5 minutes
+      const ip = req.ip ?? "unknown";
+      const now = Date.now();
+      const rl = liveLookupRateLimitMap.get(ip);
+      if (rl) {
+        if (now < rl.resetAt) {
+          if (rl.count >= 5) return res.status(429).json({ message: "Príliš veľa požiadaviek. Skúste o chvíľu." });
+          rl.count++;
+        } else {
+          liveLookupRateLimitMap.set(ip, { count: 1, resetAt: now + 5 * 60 * 1000 });
+        }
+      } else {
+        liveLookupRateLimitMap.set(ip, { count: 1, resetAt: now + 5 * 60 * 1000 });
+      }
+
+      // Session cache: avoid recomputing for same RČ in same session
+      const sessionCacheKey = `live_lookup_${cleanBn}`;
+      if (req.session && req.session[sessionCacheKey]) {
+        return res.json(req.session[sessionCacheKey]);
       }
 
       // 1. Nájdi FO subject podľa RČ (decrypt-and-compare)
@@ -11297,6 +11319,52 @@ export async function registerRoutes(
         }
       }
 
+      // 2c. Subjekty cez entity_links (networkLinks) — naviazané entity
+      if (foSubject) {
+        try {
+          const entityLinkRows = await db.select({
+            targetSubjectId: networkLinks.guarantorSubjectId,
+            sourceSubjectId: networkLinks.subjectId,
+          }).from(networkLinks).where(
+            or(
+              eq(networkLinks.subjectId, foSubject.id),
+              eq(networkLinks.guarantorSubjectId, foSubject.id),
+            )
+          );
+
+          const linkedIds = entityLinkRows.flatMap(r => [r.sourceSubjectId, r.targetSubjectId])
+            .filter((id): id is number => id !== null && id !== foSubject!.id && !seenIds.has(id));
+
+          if (linkedIds.length > 0) {
+            const linkedSubjects = await db.select({
+              id: subjects.id, type: subjects.type, companyName: subjects.companyName,
+              firstName: subjects.firstName, lastName: subjects.lastName, uid: subjects.uid, details: subjects.details,
+            }).from(subjects).where(and(
+              inArray(subjects.id, linkedIds),
+              inArray(subjects.type, NON_PERSON_TYPES),
+              isNull(subjects.deletedAt),
+            ));
+
+            for (const s of linkedSubjects) {
+              if (seenIds.has(s.id)) continue;
+              seenIds.add(s.id);
+              const ico = (s.details as { ico?: string } | null)?.ico ?? null;
+              const name = s.companyName || [s.firstName, s.lastName].filter(Boolean).join(" ") || s.uid || "";
+              candidates.push({ subjectId: s.id, name, type: s.type, ico, uid: s.uid, via: "entity_link" });
+            }
+          }
+        } catch {}
+      }
+
+      const result = { candidates, foSubjectId: foSubject?.id ?? null };
+
+      // Ulož do session cache
+      try {
+        if (req.session) {
+          (req.session as any)[sessionCacheKey] = result;
+        }
+      } catch {}
+
       // Loguj do auditu (nekritické — neignoruj chybu, ale neblokuj odpoveď)
       try {
         await db.insert(auditLogs).values({
@@ -11312,7 +11380,7 @@ export async function registerRoutes(
         });
       } catch {}
 
-      res.json({ candidates, foSubjectId: foSubject?.id ?? null });
+      res.json(result);
     } catch (err) {
       console.error("[LIVE-LOOKUP]", err);
       res.status(500).json({ message: "Chyba servera" });
@@ -11440,10 +11508,6 @@ export async function registerRoutes(
       res.status(500).json({ message: "Chyba servera" });
     }
   });
-
-  // === IDENTITY PICKER — zoznam kontextov pre prihlásenie ===
-  // Rovnaký výstup ako /api/user/contexts ale dostupný pre frontend Identity Picker
-  // (presmeruje na /api/user/contexts — je to alias)
 
   // === SECTORS CRUD ===
   // ArutsoK 41 - Hierarchy counts for table badges

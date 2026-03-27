@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 type LoginStep = "credentials" | "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "blocked" | "phone_verify" | "entity_rc_verify";
 
@@ -62,6 +62,7 @@ function docTypeLabelSk(docType: string | null): string {
 }
 
 export default function AuthPage() {
+  const [, navigate] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -287,13 +288,23 @@ export default function AuthPage() {
     }
   };
 
-  const finalizeLogin = () => {
+  const finalizeLogin = async () => {
     setPhoneConfirmed(true);
-    setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/app-user/me"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/home-popup-data"] });
-    }, 500);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/app-user/me"] }),
+      queryClient.invalidateQueries({ queryKey: ["/api/home-popup-data"] }),
+    ]);
+    try {
+      const ctxRes = await fetch("/api/user/contexts", { credentials: "include" });
+      if (ctxRes.ok) {
+        const ctxData = await ctxRes.json();
+        if (Array.isArray(ctxData) && ctxData.length > 1) {
+          navigate("/vyber-identity");
+          return;
+        }
+      }
+    } catch {}
   };
 
   const handlePhoneConfirm = async () => {

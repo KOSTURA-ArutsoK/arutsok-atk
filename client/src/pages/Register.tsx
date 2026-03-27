@@ -199,6 +199,13 @@ export default function RegisterPage() {
       }
       setClientData(data.client);
       setRegisteredSubjectId(data.client?.id ?? subjectId);
+
+      if (fullBirthNumber) {
+        runLiveLookup(fullBirthNumber);
+      } else if (data.client?.birthNumber) {
+        runLiveLookup(data.client.birthNumber);
+      }
+
       setStep("welcome");
     } catch {
       setError("Chyba pripojenia k serveru");
