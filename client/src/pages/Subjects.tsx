@@ -2720,8 +2720,11 @@ const SUBJECTS_COLUMNS: ColumnDef[] = [
   { key: "registrationStatus", label: "Overenie" },
   { key: "status", label: "Status" },
   { key: "cgn", label: "CGN" },
-  { key: "titul", label: "Titul" },
-  { key: "firstName", label: "Cele meno / Nazov" },
+  { key: "titulPred", label: "Titul pred" },
+  { key: "meno", label: "Meno" },
+  { key: "priezvisko", label: "Priezvisko" },
+  { key: "titulZa", label: "Titul za" },
+  { key: "firstName", label: "Celé meno / Názov" },
   { key: "ulica", label: "Ulica" },
   { key: "type", label: "Typ subjektu" },
 ];
@@ -2960,8 +2963,11 @@ export default function Subjects() {
                     {columnVisibility.isVisible("registrationStatus") && <TableHead>Overenie</TableHead>}
                     {columnVisibility.isVisible("status") && <TableHead style={{ maxWidth: '150px' }}>Status</TableHead>}
                     {columnVisibility.isVisible("cgn") && <TableHead className="w-10 text-center">CGN</TableHead>}
-                    {columnVisibility.isVisible("titul") && <TableHead>Titul</TableHead>}
-                    {columnVisibility.isVisible("firstName") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Cele meno / Nazov</TableHead>}
+                    {columnVisibility.isVisible("titulPred") && <TableHead>Titul pred</TableHead>}
+                    {columnVisibility.isVisible("meno") && <TableHead sortKey="firstName" sortDirection={sortKey === "firstName" ? sortDirection : null} onSort={requestSort}>Meno</TableHead>}
+                    {columnVisibility.isVisible("priezvisko") && <TableHead sortKey="lastName" sortDirection={sortKey === "lastName" ? sortDirection : null} onSort={requestSort}>Priezvisko</TableHead>}
+                    {columnVisibility.isVisible("titulZa") && <TableHead>Titul za</TableHead>}
+                    {columnVisibility.isVisible("firstName") && <TableHead>Celé meno / Názov</TableHead>}
                     {columnVisibility.isVisible("ulica") && <TableHead>Ulica</TableHead>}
                     {columnVisibility.isVisible("type") && <TableHead sortKey="type" sortDirection={sortKey === "type" ? sortDirection : null} onSort={requestSort}>Typ subjektu</TableHead>}
                     <TableHead className="w-[100px]">Akcie</TableHead>
@@ -2993,16 +2999,18 @@ export default function Subjects() {
                       return subject.type;
                     })();
                     const clientTypeMatch = clientTypes?.find(ct => ct.code === subjectTypeCode);
+                    const isPerson = subject.type === 'person';
                     const fullName = (() => {
                       if (subject.type === 'system') return subject.companyName || 'ArutsoK - ATK';
-                      if (subject.type === 'person') {
-                        const parts = [titulPred, subject.firstName, subject.lastName, titulZa].filter(Boolean);
-                        return parts.join(' ') || '-';
-                      }
-                      if (subject.type === 'szco') {
-                        return subject.companyName || [titulPred, subject.firstName, subject.lastName, titulZa].filter(Boolean).join(' ') || '-';
+                      if (isPerson) {
+                        return [subject.firstName, subject.lastName].filter(Boolean).join(' ') || '-';
                       }
                       return subject.companyName || '-';
+                    })();
+                    const secondaryFoName = (() => {
+                      if (isPerson || subject.type === 'system') return null;
+                      const parts = [subject.firstName, subject.lastName].filter(Boolean);
+                      return parts.length > 0 ? parts.join(' ') : null;
                     })();
                     return (
                       <TableRow key={subject.id} data-testid={`row-subject-${subject.id}`} className="align-middle" onRowClick={() => setViewTarget(subject)}>
@@ -3048,7 +3056,10 @@ export default function Subjects() {
                         {columnVisibility.isVisible("cgn") && <TableCell className="text-center align-middle" data-testid={`cgn-cell-${subject.id}`}>
                           <CgnIndicator isCgnActive={details.cgnActive === true} />
                         </TableCell>}
-                        {columnVisibility.isVisible("titul") && <TableCell className="text-xs text-muted-foreground align-middle" data-testid={`text-titul-${subject.id}`}>{titulCompact}</TableCell>}
+                        {columnVisibility.isVisible("titulPred") && <TableCell className="text-xs text-muted-foreground align-middle" data-testid={`text-titul-pred-${subject.id}`}>{titulPred || '-'}</TableCell>}
+                        {columnVisibility.isVisible("meno") && <TableCell className="text-sm align-middle" data-testid={`text-meno-${subject.id}`}>{subject.firstName || '-'}</TableCell>}
+                        {columnVisibility.isVisible("priezvisko") && <TableCell className="text-sm align-middle" data-testid={`text-priezvisko-${subject.id}`}>{subject.lastName || '-'}</TableCell>}
+                        {columnVisibility.isVisible("titulZa") && <TableCell className="text-xs text-muted-foreground align-middle" data-testid={`text-titul-za-${subject.id}`}>{titulZa || '-'}</TableCell>}
                         {columnVisibility.isVisible("firstName") && <TableCell className="font-medium align-middle" data-testid={`text-fullname-${subject.id}`}>
                           <div className="flex flex-col gap-0.5">
                             <span className="flex items-center gap-1.5">
@@ -3067,6 +3078,7 @@ export default function Subjects() {
                                 return null;
                               })()}
                             </span>
+                            {secondaryFoName && <span className="text-xs text-muted-foreground" data-testid={`text-fo-name-${subject.id}`}>{secondaryFoName}</span>}
                             {(() => {
                               const isPersonType = subject.type === 'person' || subject.type === 'szco';
                               const bn = subject.birthNumber;

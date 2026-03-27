@@ -938,7 +938,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button type="button" className="flex items-center gap-2 rounded-md px-1 py-0.5 hover-elevate" data-testid="button-user-menu">
-                  <span className="text-sm hidden sm:inline font-bold text-foreground" data-testid="text-header-username">{activeIdentityLabel}</span>
                   <Avatar className="w-8 h-8">
                     <AvatarImage src={isNonFoContext ? undefined : profilePhotoUrl} />
                     <AvatarFallback className="bg-primary/10 text-primary text-xs">{activeIdentityInitials}</AvatarFallback>
