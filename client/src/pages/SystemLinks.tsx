@@ -36,6 +36,7 @@ interface LinkRow {
 function statusLabel(status: string, isActive: boolean): { label: string; color: string; Icon: typeof CheckCircle } {
   if ((status === "verified" || status === "active") && isActive) return { label: "Aktívne", color: "text-emerald-600 dark:text-emerald-400", Icon: CheckCircle };
   if (status === "pending_confirmation" || status === "pending_target" || status === "pending") return { label: "Čaká na potvrdenie", color: "text-orange-600 dark:text-orange-400", Icon: Clock };
+  if (status === "rejected") return { label: "Odmietnuté", color: "text-destructive", Icon: ShieldX };
   if (status === "revoked") return { label: "Zrušené", color: "text-muted-foreground", Icon: ShieldX };
   return { label: status, color: "text-muted-foreground", Icon: Clock };
 }
@@ -92,7 +93,7 @@ export default function SystemLinks() {
     if (categoryFilter !== "all" && row.linkCategory !== categoryFilter) return false;
     if (statusFilter === "active" && !(row.isActive && (row.status === "verified" || row.status === "active"))) return false;
     if (statusFilter === "pending" && !(row.status === "pending_confirmation" || row.status === "pending_target" || row.status === "pending")) return false;
-    if (statusFilter === "revoked" && row.status !== "revoked") return false;
+    if (statusFilter === "revoked" && row.status !== "revoked" && row.status !== "rejected") return false;
     if (dateFrom) {
       const from = new Date(dateFrom);
       if (!row.createdAt || new Date(row.createdAt) < from) return false;

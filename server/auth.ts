@@ -2004,7 +2004,29 @@ export async function setupAuth(app: Express) {
         };
       }));
 
-      res.json([currentEntry, ...linkedEntries.filter(Boolean)]);
+      // Also include active subject links so clients can enumerate all contexts
+      const subjectLinkRows = await storage.getSubjectLinksByUserId(req.session.userId);
+      const activeSubjectLinks = subjectLinkRows.filter(sl => sl.isActive && sl.status === "verified");
+      const subjectEntries = await Promise.all(activeSubjectLinks.map(async (sl) => {
+        const [subject] = await db.select({
+          id: subjects.id, type: subjects.type, companyName: subjects.companyName,
+          firstName: subjects.firstName, lastName: subjects.lastName, uid: subjects.uid,
+        }).from(subjects).where(eq(subjects.id, sl.subjectId));
+        if (!subject) return null;
+        const name = subject.companyName || [subject.firstName, subject.lastName].filter(Boolean).join(" ") || subject.uid || "Subjekt";
+        const [currentUser2] = await db.select({ activeSubjectId: appUsers.activeSubjectId }).from(appUsers).where(eq(appUsers.id, req.session.userId!)).limit(1);
+        return {
+          userId: null, subjectId: subject.id,
+          firstName: subject.firstName ?? null, lastName: subject.lastName ?? null,
+          companyName: subject.companyName ?? null, type: subject.type ?? null,
+          ico: null, uid: subject.uid ?? null,
+          isCurrent: currentUser2?.activeSubjectId === subject.id,
+          isSubjectLink: true as const, linkId: sl.id,
+          subjectName: name, subjectType: subject.type,
+        };
+      }));
+
+      res.json([currentEntry, ...linkedEntries.filter(Boolean), ...subjectEntries.filter(Boolean)]);
     } catch (err) {
       console.error("[ACCOUNT-LINK LIST]", err);
       res.status(500).json({ message: "Interná chyba" });
@@ -2383,8 +2405,31 @@ export async function setupAuth(app: Express) {
       if (!req.session.userId || req.session.loginStep !== "done") {
         return res.status(401).json({ message: "Neautorizovaný prístup" });
       }
-      const { targetUserId } = req.body;
-      if (!targetUserId) return res.status(400).json({ message: "Vyžaduje sa targetUserId" });
+      const { targetUserId, subjectLinkId } = req.body;
+
+      // Subject context switch: activate a subject link context (set activeSubjectId on user)
+      if (subjectLinkId && !targetUserId) {
+        const subjectLinkIdNum = Number(subjectLinkId);
+        const [sl] = await db.select().from(subjectLinks)
+          .where(eq(subjectLinks.id, subjectLinkIdNum)).limit(1);
+        if (!sl || sl.userId !== req.session.userId) {
+          return res.status(403).json({ message: "Prepojenie nenájdené alebo nepatrí Vám" });
+        }
+        if (!sl.isActive || sl.status !== "verified") {
+          return res.status(400).json({ message: "Prepojenie nie je aktívne" });
+        }
+        await db.update(appUsers)
+          .set({ activeSubjectId: sl.subjectId })
+          .where(eq(appUsers.id, req.session.userId));
+        await db.insert(auditLogs).values({
+          userId: req.session.userId, username: null, action: "SUBJECT_CONTEXT_ACTIVATED",
+          module: "SubjectLink", entityId: sl.subjectId, entityName: null,
+          oldData: null, newData: { subjectLinkId: sl.id, subjectId: sl.subjectId }, ipAddress: req.ip,
+        });
+        return res.json({ success: true });
+      }
+
+      if (!targetUserId) return res.status(400).json({ message: "Vyžaduje sa targetUserId alebo subjectLinkId" });
 
       if (Number(targetUserId) === req.session.userId) {
         return res.status(400).json({ message: "Ste už v tomto kontexte" });
@@ -2930,11 +2975,12 @@ export async function writeAuditLog(
     newData: params.newData ?? null,
     ipAddress: req.ip ?? null,
   };
-  // Write user-side audit entry
+  // Write user-side audit entry (actor record)
   await db.insert(auditLogs).values({ ...baseEntry, userId: actorId });
 
   // Dual audit: if user is currently acting in a subject context, write a second entry
-  // attributed to the subject (as a proxy record) so subject-side history is maintained.
+  // where entityId = activeSubjectId and module = "SubjectContext" so that subject-side
+  // audit trail can be filtered independently by entityId without additional schema changes.
   const currentUserId = req.session.userId;
   if (currentUserId) {
     const [userRow] = await db
@@ -2944,13 +2990,24 @@ export async function writeAuditLog(
       .limit(1);
     if (userRow?.activeSubjectId) {
       await db.insert(auditLogs).values({
-        ...baseEntry,
-        userId: actorId,
-        action: params.action + "_SUBJECT_CONTEXT",
+        username: null,
+        action: params.action,
+        // Subject-context record: entityId identifies the subject, module scoped to SubjectContext
+        module: "SubjectContext",
+        entityId: userRow.activeSubjectId,
+        entityName: params.entityName ?? null,
+        oldData: params.oldData ?? null,
         newData: {
           ...(typeof params.newData === "object" && params.newData !== null ? params.newData : { value: params.newData }),
-          _subjectContext: { activeSubjectId: userRow.activeSubjectId, actingUserId: actorId },
+          _subjectContext: {
+            activeSubjectId: userRow.activeSubjectId,
+            actingUserId: actorId,
+            originalModule: params.module,
+            originalEntityId: params.entityId ?? null,
+          },
         },
+        userId: actorId,
+        ipAddress: req.ip ?? null,
       });
     }
   }
