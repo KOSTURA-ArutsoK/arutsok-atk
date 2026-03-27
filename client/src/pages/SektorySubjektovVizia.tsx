@@ -32,6 +32,13 @@ import { CSS } from "@dnd-kit/utilities";
 import type { SubjectParamSection, SubjectParameter } from "@shared/schema";
 
 // ============================================================
+// Context panel selected-item type
+// ============================================================
+type SelectedCtxItem =
+  | { type: "param";   item: SubjectParameter }
+  | { type: "section"; item: SubjectParamSection };
+
+// ============================================================
 // Constants
 // ============================================================
 const SUBJECT_TYPES = [
@@ -145,6 +152,9 @@ export default function SektorySubjektovVizia() {
   const [selectedBlokId, setSelectedBlokId]           = useState<number | null>(null);
   const [selectedPanelId, setSelectedPanelId]         = useState<number | null>(null);
   const [selectedRiadokId, setSelectedRiadokId]       = useState<number | null>(null);
+
+  // Context panel state
+  const [ctxItem, setCtxItem] = useState<SelectedCtxItem | null>(null);
 
   // ============================================================
   // Collapse state
@@ -385,6 +395,26 @@ export default function SektorySubjektovVizia() {
     onError: (err: any) => toast({ title: "Chyba", description: err?.message, variant: "destructive" }),
   });
 
+  const updateParamWidthMutation = useMutation({
+    mutationFn: async ({ id, widthPercent }: { id: number; widthPercent: number }) => {
+      const r = await apiRequest("PATCH", `/api/subject-parameters/${id}`, { widthPercent });
+      if (!r.ok) { const b = await r.json().catch(() => ({})); throw new Error(b.message || "Chyba"); }
+      return r.json() as Promise<SubjectParameter>;
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData(paramsQK, (old: SubjectParameter[] | undefined) => {
+        if (!old) return old;
+        return old.map(p => p.id === updated.id ? updated : p);
+      });
+      setCtxItem(prev => prev && prev.type === "param" && prev.item.id === updated.id
+        ? { type: "param", item: updated }
+        : prev
+      );
+      toast({ title: "Šírka uložená" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message, variant: "destructive" }),
+  });
+
   // ============================================================
   // Reorder helpers — optimistic update then API call
   // ============================================================
@@ -546,12 +576,60 @@ export default function SektorySubjektovVizia() {
     setActiveCode(code);
     setSelectedKategoriaId(null); setSelectedBlokId(null);
     setSelectedPanelId(null); setSelectedRiadokId(null);
+    setCtxItem(null);
     // Reset collapse state on type switch
     setCollapsedKategorie(new Set());
     setExpandedBloky(new Set());
     setExpandedPanely(new Set());
     setExpandedRiadky(new Set());
   };
+
+  // ============================================================
+  // buildPath — breadcrumb for the context panel
+  // ============================================================
+  type BreadcrumbStep = { icon: React.ReactNode; label: string };
+
+  function buildPath(ctx: SelectedCtxItem): BreadcrumbStep[] {
+    const steps: BreadcrumbStep[] = [];
+    if (ctx.type === "param") {
+      const param = ctx.item;
+      // Find riadok (optional)
+      const riadok = param.rowId ? allSections.find(s => s.id === param.rowId) : null;
+      const panelId = riadok ? riadok.parentSectionId : param.panelId;
+      const panel   = panelId ? allSections.find(s => s.id === panelId) : null;
+      const blok    = panel?.parentSectionId ? allSections.find(s => s.id === panel.parentSectionId) : null;
+      const kat     = blok?.parentSectionId ? allSections.find(s => s.id === blok.parentSectionId) : null;
+      if (kat)    steps.push({ icon: <Tag className="h-3 w-3" />,        label: kat.name });
+      if (blok)   steps.push({ icon: <FolderOpen className="h-3 w-3" />, label: blok.name });
+      if (panel)  steps.push({ icon: <LayoutGrid className="h-3 w-3" />, label: panel.name });
+      if (riadok) steps.push({ icon: <Rows3 className="h-3 w-3" />,      label: riadok.name || "bez názvu" });
+      steps.push({ icon: <Tag className="h-3 w-3 text-primary" />,       label: param.label });
+    } else {
+      const sec = ctx.item;
+      if (sec.sectionType === "kategoria") {
+        steps.push({ icon: <Tag className="h-3 w-3" />, label: sec.name });
+      } else if (sec.sectionType === "blok") {
+        const kat = allSections.find(s => s.id === sec.parentSectionId);
+        if (kat) steps.push({ icon: <Tag className="h-3 w-3" />, label: kat.name });
+        steps.push({ icon: <FolderOpen className="h-3 w-3" />, label: sec.name });
+      } else if (sec.sectionType === "panel") {
+        const blok = allSections.find(s => s.id === sec.parentSectionId);
+        const kat  = blok?.parentSectionId ? allSections.find(s => s.id === blok.parentSectionId) : null;
+        if (kat)  steps.push({ icon: <Tag className="h-3 w-3" />,        label: kat.name });
+        if (blok) steps.push({ icon: <FolderOpen className="h-3 w-3" />, label: blok.name });
+        steps.push({ icon: <LayoutGrid className="h-3 w-3" />, label: sec.name });
+      } else if (sec.sectionType === "riadok") {
+        const panel = allSections.find(s => s.id === sec.parentSectionId);
+        const blok  = panel?.parentSectionId ? allSections.find(s => s.id === panel.parentSectionId) : null;
+        const kat   = blok?.parentSectionId ? allSections.find(s => s.id === blok.parentSectionId) : null;
+        if (kat)   steps.push({ icon: <Tag className="h-3 w-3" />,        label: kat.name });
+        if (blok)  steps.push({ icon: <FolderOpen className="h-3 w-3" />, label: blok.name });
+        if (panel) steps.push({ icon: <LayoutGrid className="h-3 w-3" />, label: panel.name });
+        steps.push({ icon: <Rows3 className="h-3 w-3" />, label: sec.name || "bez názvu" });
+      }
+    }
+    return steps;
+  }
 
   // ============================================================
   // Render helpers
@@ -750,6 +828,7 @@ export default function SektorySubjektovVizia() {
                                 onClick={() => {
                                   setSelectedKategoriaId(prev => prev === kat.id ? null : kat.id);
                                   setSelectedBlokId(null); setSelectedPanelId(null); setSelectedRiadokId(null);
+                                  setCtxItem({ type: "section", item: kat });
                                 }}
                               >
                                 <DragHandle listeners={katL} attributes={katA} testId={`drag-handle-kategoria-${kat.id}`} />
@@ -813,6 +892,7 @@ export default function SektorySubjektovVizia() {
                                                         setSelectedKategoriaId(kat.id);
                                                         setSelectedBlokId(prev => prev === blok.id ? null : blok.id);
                                                         setSelectedPanelId(null); setSelectedRiadokId(null);
+                                                        setCtxItem({ type: "section", item: blok });
                                                       }}
                                                     >
                                                       <DragHandle listeners={blokL} attributes={blokA} testId={`drag-handle-blok-${blok.id}`} />
@@ -884,6 +964,7 @@ export default function SektorySubjektovVizia() {
                                                                             setSelectedBlokId(blok.id);
                                                                             setSelectedPanelId(prev => prev === panel.id ? null : panel.id);
                                                                             setSelectedRiadokId(null);
+                                                                            setCtxItem({ type: "section", item: panel });
                                                                           }}
                                                                           data-testid={`card-panel-${panel.id}`}
                                                                         >
@@ -945,6 +1026,7 @@ export default function SektorySubjektovVizia() {
                                                                                                     setSelectedBlokId(blok.id);
                                                                                                     setSelectedPanelId(panel.id);
                                                                                                     setSelectedRiadokId(prev => prev === riadok.id ? null : riadok.id);
+                                                                                                    setCtxItem({ type: "section", item: riadok });
                                                                                                   }}
                                                                                                   data-testid={`card-riadok-${riadok.id}`}
                                                                                                 >
@@ -992,8 +1074,9 @@ export default function SektorySubjektovVizia() {
                                                                                                               <SortableItem key={param.id} id={param.id} style={{ flex: `0 0 ${pct}%`, width: `${pct}%` }}>
                                                                                                                 {({ listeners: pL, attributes: pA }) => (
                                                                                                                   <div
-                                                                                                                    className="px-0.5 pb-1"
+                                                                                                                    className="px-0.5 pb-1 cursor-pointer"
                                                                                                                     data-testid={`param-row-${param.id}`}
+                                                                                                                    onClick={e => { e.stopPropagation(); setCtxItem({ type: "param", item: param }); }}
                                                                                                                   >
                                                                                                                     <div className="flex items-center gap-0.5 mb-0.5">
                                                                                                                       <DragHandle listeners={pL} attributes={pA} testId={`drag-handle-param-${param.id}`} />
@@ -1047,7 +1130,11 @@ export default function SektorySubjektovVizia() {
                                                                                                 return (
                                                                                                   <SortableItem key={param.id} id={param.id} style={{ flex: `0 0 ${pct}%`, width: `${pct}%` }}>
                                                                                                     {({ listeners: pL, attributes: pA }) => (
-                                                                                                      <div className="px-0.5 pb-1" data-testid={`param-row-${param.id}`}>
+                                                                                                      <div
+                                                                                                        className="px-0.5 pb-1 cursor-pointer"
+                                                                                                        data-testid={`param-row-${param.id}`}
+                                                                                                        onClick={e => { e.stopPropagation(); setCtxItem({ type: "param", item: param }); }}
+                                                                                                      >
                                                                                                         <div className="flex items-center gap-0.5 mb-0.5">
                                                                                                           <DragHandle listeners={pL} attributes={pA} testId={`drag-handle-param-${param.id}`} />
                                                                                                           <span className="text-[10px] text-muted-foreground font-medium truncate flex-1">{param.label}</span>
@@ -1129,6 +1216,163 @@ export default function SektorySubjektovVizia() {
               </div>
             )}
           </div>
+
+          {/* === CONTEXT PANEL === */}
+          {ctxItem && (
+            <div
+              className="w-64 border-l bg-card flex-shrink-0 flex flex-col overflow-y-auto"
+              data-testid="context-panel"
+            >
+              {/* Header */}
+              <div className="flex items-center gap-2 px-3 py-2.5 border-b bg-muted/30 flex-shrink-0">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex-1">
+                  {ctxItem.type === "param" ? "Parameter" : (
+                    ctxItem.item.sectionType === "kategoria" ? "Kategória" :
+                    ctxItem.item.sectionType === "blok" ? "Blok" :
+                    ctxItem.item.sectionType === "panel" ? "Panel" : "Riadok"
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCtxItem(null)}
+                  className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/50 hover:text-foreground transition-colors"
+                  data-testid="context-panel-close"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* Name */}
+              <div className="px-3 pt-3 pb-1 flex-shrink-0">
+                <p className="text-sm font-medium leading-tight break-words">
+                  {ctxItem.type === "param" ? ctxItem.item.label : ctxItem.item.name || "— bez názvu —"}
+                </p>
+              </div>
+
+              {/* Breadcrumb */}
+              <div className="px-3 pb-3 flex-shrink-0">
+                <div className="flex flex-col gap-0.5 mt-1">
+                  {buildPath(ctxItem).slice(0, -1).map((step, i) => (
+                    <div key={i} className="flex items-center gap-1 text-[10px] text-muted-foreground/70">
+                      {i > 0 && <span className="ml-2 text-muted-foreground/30">↳</span>}
+                      <span className="flex-shrink-0">{step.icon}</span>
+                      <span className="truncate">{step.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t mx-3 mb-2 flex-shrink-0" />
+
+              {/* PARAM-specific: widthPercent editor */}
+              {ctxItem.type === "param" && (() => {
+                const freshParam = allParams.find(p => p.id === ctxItem.item.id) ?? ctxItem.item;
+                const currentPct = (freshParam.widthPercent ?? 100) > 0 ? (freshParam.widthPercent ?? 100) : 100;
+                const WIDTH_OPTIONS = [25, 33, 50, 75, 100];
+                return (
+                  <div className="px-3 pb-3 flex-shrink-0">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Šírka poľa</p>
+                    <div className="flex gap-1 flex-wrap" data-testid="width-percent-editor">
+                      {WIDTH_OPTIONS.map(opt => (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => updateParamWidthMutation.mutate({ id: freshParam.id, widthPercent: opt })}
+                          disabled={updateParamWidthMutation.isPending}
+                          data-testid={`width-btn-${opt}`}
+                          className={`flex-1 min-w-[calc(33%-4px)] px-2 py-1 rounded text-[11px] font-medium border transition-all ${
+                            currentPct === opt
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-background border-border text-muted-foreground hover:border-primary/60 hover:text-foreground"
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          {opt}%
+                        </button>
+                      ))}
+                    </div>
+                    {updateParamWidthMutation.isPending && (
+                      <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        Ukladám...
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* PARAM: type + required info */}
+              {ctxItem.type === "param" && (() => {
+                const freshParam = allParams.find(p => p.id === ctxItem.item.id) ?? ctxItem.item;
+                return (
+                  <div className="px-3 pb-3 flex-shrink-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <FieldTypeBadge type={freshParam.fieldType} />
+                      {freshParam.isRequired && (
+                        <span className="text-[10px] text-red-500 font-medium">povinné</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* PARAM: move button */}
+              {ctxItem.type === "param" && (
+                <div className="px-3 pb-3 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-1.5 h-8 text-xs"
+                    onClick={() => {
+                      const freshParam = allParams.find(p => p.id === ctxItem.item.id) ?? ctxItem.item;
+                      setMoveParamTarget(freshParam);
+                      setMoveParamTargetRiadokId(freshParam.rowId ? String(freshParam.rowId) : "none");
+                      setMoveParamOpen(true);
+                    }}
+                    data-testid="ctx-panel-move-param"
+                  >
+                    <ArrowRightLeft className="h-3.5 w-3.5" />
+                    Presunúť do iného riadku
+                  </Button>
+                </div>
+              )}
+
+              {/* SECTION blok: move button */}
+              {ctxItem.type === "section" && ctxItem.item.sectionType === "blok" && (
+                <div className="px-3 pb-3 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-1.5 h-8 text-xs"
+                    onClick={() => {
+                      setMoveBlokTarget(ctxItem.item);
+                      setMoveBlokTargetKatId(String(ctxItem.item.parentSectionId ?? ""));
+                      setMoveBlokOpen(true);
+                    }}
+                    data-testid="ctx-panel-move-blok"
+                  >
+                    <ArrowRightLeft className="h-3.5 w-3.5" />
+                    Presunúť do inej kategórie
+                  </Button>
+                </div>
+              )}
+
+              {/* SECTION: edit button */}
+              {ctxItem.type === "section" && ctxItem.item.sectionType !== "kategoria" && (
+                <div className="px-3 pb-3 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-1.5 h-8 text-xs"
+                    onClick={() => openEdit(ctxItem.item)}
+                    data-testid="ctx-panel-edit-section"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Premenovať
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* === TOOLBAR === */}
           <div className="w-56 border-l bg-card flex-shrink-0 flex flex-col p-4 gap-4 overflow-y-auto">
