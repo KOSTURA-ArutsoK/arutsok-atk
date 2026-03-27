@@ -2941,7 +2941,7 @@ export default function Subjects() {
 
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+              <div className="overflow-x-auto">
               <Table stickyHeader>
                 <TableHeader>
                   <TableRow>
