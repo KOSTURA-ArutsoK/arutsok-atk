@@ -195,7 +195,7 @@ function Router() {
       <Route path="/register" component={RegisterPage} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/potvrdenie-spravy" component={GuardianConfirm} />
-      <Route path="/vyber-identity" component={IdentityPicker} />
+      <Route path="/vyber-identity" component={() => <PrivateRoute><IdentityPicker /></PrivateRoute>} />
       <Route path="/client-zone" component={ClientZone} />
       <Route path="/client-profile" component={PrivateClientProfile} />
       
