@@ -1,6 +1,6 @@
 import { db } from "./db";
-import { systemNotifications, contracts, contractAcquirers, contractRewardDistributions, appUsers, subjects, sectorProducts, guardianConfirmationTokens } from "@shared/schema";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { systemNotifications, contracts, contractAcquirers, contractRewardDistributions, appUsers, subjects, sectorProducts, guardianConfirmationTokens, subjectLinks } from "@shared/schema";
+import { eq, and, sql, desc, or } from "drizzle-orm";
 
 // ============================================================
 // ArutsoK Email Notification System
@@ -91,12 +91,72 @@ export async function processPendingSmsNotifications(): Promise<number> {
   const pending = await db.select().from(systemNotifications)
     .where(and(
       eq(systemNotifications.status, "pending"),
-      eq(systemNotifications.notificationType, "guardian_sms_code")
+      or(
+        eq(systemNotifications.notificationType, "guardian_sms_code"),
+        eq(systemNotifications.notificationType, "subject_sms_code"),
+      )
     ))
     .limit(20);
 
   let sentCount = 0;
   for (const notification of pending) {
+    // ── SUBJECT SMS CODE ─────────────────────────────────────────────────────
+    if (notification.notificationType === "subject_sms_code") {
+      const recipientPhone = notification.recipientPhone;
+      if (!recipientPhone) {
+        await db.update(systemNotifications)
+          .set({ status: "failed", errorDetails: "No recipientPhone for subject SMS dispatch" })
+          .where(eq(systemNotifications.id, notification.id));
+        continue;
+      }
+      // Resolve SMS code via batchId binding (subject_link_{linkId})
+      let smsCode: string | null = null;
+      const boundLinkId = notification.batchId?.startsWith("subject_link_")
+        ? parseInt(notification.batchId.replace("subject_link_", ""), 10)
+        : null;
+      if (boundLinkId && !isNaN(boundLinkId)) {
+        const [sl] = await db.select({ smsCode: subjectLinks.smsCode })
+          .from(subjectLinks)
+          .where(eq(subjectLinks.id, boundLinkId))
+          .limit(1);
+        smsCode = sl?.smsCode ?? null;
+      }
+      if (!smsCode) {
+        await db.update(systemNotifications)
+          .set({ status: "failed", errorDetails: "No SMS code found for subject link" })
+          .where(eq(systemNotifications.id, notification.id));
+        continue;
+      }
+      if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM) {
+        await db.update(systemNotifications)
+          .set({ status: "failed", errorDetails: "SMS gateway (Twilio) not configured" })
+          .where(eq(systemNotifications.id, notification.id));
+        console.warn("[SMS] Twilio not configured — cannot dispatch subject SMS code");
+        continue;
+      }
+      const smsBody = `ArutsoK (ATK): Váš kód na potvrdenie prepojenia subjektu je ${smsCode}. Platnosť 72 hodín.`;
+      const credentials = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString("base64");
+      try {
+        const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`, {
+          method: "POST",
+          headers: { "Authorization": `Basic ${credentials}`, "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ To: recipientPhone, From: TWILIO_FROM, Body: smsBody }).toString(),
+        });
+        if (response.ok) {
+          await db.update(systemNotifications).set({ status: "sent", sentAt: new Date() }).where(eq(systemNotifications.id, notification.id));
+          console.log(`[SMS] Sent subject SMS code for link ${boundLinkId} to ${recipientPhone}`);
+          sentCount++;
+        } else {
+          const errText = await response.text();
+          await db.update(systemNotifications).set({ status: "failed", errorDetails: `Twilio error: ${errText.slice(0, 200)}` }).where(eq(systemNotifications.id, notification.id));
+        }
+      } catch (err: any) {
+        await db.update(systemNotifications).set({ status: "failed", errorDetails: `SMS send error: ${err?.message || "Unknown"}` }).where(eq(systemNotifications.id, notification.id));
+      }
+      continue;
+    }
+
+    // ── GUARDIAN SMS CODE ────────────────────────────────────────────────────
     if (!notification.recipientUserId) {
       await db.update(systemNotifications)
         .set({ status: "failed", errorDetails: "No recipientUserId for SMS dispatch" })

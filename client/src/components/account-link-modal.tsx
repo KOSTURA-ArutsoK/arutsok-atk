@@ -3,11 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, CheckCircle, Link, Mail, MessageSquare, ArrowRight, RefreshCw, Loader2, UserCheck, Building2, Search, ShieldCheck, Users, Clock, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, Link, Mail, MessageSquare, ArrowRight, RefreshCw, Loader2, UserCheck, Building2, Search, ShieldCheck, Users, Clock, X, Link2, FileText } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 
-type ModalStep = "type_select" | "suggestions" | "form" | "otp" | "success" | "guardian_form" | "guardian_pending" | "guardian_manage";
+type ModalStep = "type_select" | "suggestions" | "form" | "otp" | "success" | "guardian_form" | "guardian_pending" | "guardian_manage" | "subject_form" | "subject_pending" | "subject_manage";
 
 interface Suggestion {
   userId: number;
@@ -34,6 +34,31 @@ interface GuardianActiveItem {
   otherName: string;
   role: string;
   confirmedAt: string | null;
+}
+
+interface SubjectSearchResult {
+  id: number;
+  type: string;
+  companyName: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  uid: string | null;
+  ico: string | null;
+}
+
+interface SubjectLinkItem {
+  linkId: number;
+  subjectId: number;
+  subjectName: string;
+  subjectType: string | null;
+  ico: string | null;
+  uid: string | null;
+  status: string;
+  isActive: boolean;
+  needsSms: boolean;
+  createdAt: string;
+  verifiedAt: string | null;
+  tokenExpired: boolean;
 }
 
 interface AccountLinkModalProps {
@@ -113,6 +138,15 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
     linkId: number;
   } | null>(null);
 
+  const [subjectSearch, setSubjectSearch] = useState("");
+  const [subjectSearchResults, setSubjectSearchResults] = useState<SubjectSearchResult[]>([]);
+  const [subjectSearchLoading, setSubjectSearchLoading] = useState(false);
+  const [subjectPendingResult, setSubjectPendingResult] = useState<{
+    linkId: number;
+    subjectName: string;
+    maskedEmail: string;
+  } | null>(null);
+
   const guardianPendingQuery = useQuery<GuardianPendingItem[]>({
     queryKey: ["/api/account-link/guardian-pending"],
     enabled: open && step === "guardian_manage",
@@ -120,6 +154,10 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
   const guardianActiveQuery = useQuery<GuardianActiveItem[]>({
     queryKey: ["/api/account-link/guardian-list"],
     enabled: open && step === "guardian_manage",
+  });
+  const subjectLinkListQuery = useQuery<SubjectLinkItem[]>({
+    queryKey: ["/api/account-link/subject-list"],
+    enabled: open && step === "subject_manage",
   });
 
   useEffect(() => {
@@ -150,9 +188,58 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
     setError(null);
     setInitiateResult(null);
     setGuardianPendingResult(null);
+    setSubjectPendingResult(null);
+    setSubjectSearch("");
+    setSubjectSearchResults([]);
     setSuggestions([]);
     setSuggestionsLoaded(false);
   };
+
+  async function handleSubjectSearch(e: React.FormEvent) {
+    e.preventDefault();
+    if (!subjectSearch.trim()) return;
+    setError(null);
+    setSubjectSearchLoading(true);
+    try {
+      const data = await apiGet<SubjectSearchResult[]>(`/api/subjects/search?q=${encodeURIComponent(subjectSearch.trim())}`);
+      setSubjectSearchResults(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setError(err?.message || "Chyba pri vyhľadávaní subjektov");
+    } finally {
+      setSubjectSearchLoading(false);
+    }
+  }
+
+  async function handleSubjectInitiate(subjectId: number) {
+    setError(null);
+    setLoading(true);
+    try {
+      const data = await apiPost<{ status: string; linkId: number; subjectName: string; maskedEmail: string }>(
+        "/api/account-link/initiate",
+        { subjectId, mode: "subject" }
+      );
+      setSubjectPendingResult({ linkId: data.linkId, subjectName: data.subjectName || "", maskedEmail: data.maskedEmail || "" });
+      setStep("subject_pending");
+    } catch (err: any) {
+      setError(err?.message || "Chyba pri odosielaní žiadosti");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSubjectRevoke(linkId: number) {
+    setError(null);
+    setLoading(true);
+    try {
+      await apiPost(`/api/subject-link/${linkId}/revoke`, { reason: "Zrušené používateľom" });
+      queryClient.invalidateQueries({ queryKey: ["/api/account-link/subject-list"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/contexts"] });
+    } catch (err: any) {
+      setError(err?.message || "Chyba pri rušení prepojenia");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const handleClose = () => {
     resetForm();
@@ -311,6 +398,36 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
                 <div>
                   <p className="text-sm font-semibold text-foreground">Moje opatrovníctva</p>
                   <p className="text-xs text-muted-foreground">Prehľad čakajúcich a aktívnych opatrovníckych prepojení</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition-colors text-left"
+                onClick={() => { setError(null); setSubjectSearch(""); setSubjectSearchResults([]); setStep("subject_form"); }}
+                data-testid="button-type-subject"
+              >
+                <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                  <Link2 className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Prepojenie so subjektom</p>
+                  <p className="text-xs text-muted-foreground">Prepojte váš účet s PO, FO, SZČO, VS, OS, TS — vyžaduje potvrdenie subjektu</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition-colors text-left"
+                onClick={() => { setError(null); setStep("subject_manage"); }}
+                data-testid="button-type-subject-manage"
+              >
+                <div className="w-10 h-10 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center flex-shrink-0">
+                  <FileText className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Moje subjekty</p>
+                  <p className="text-xs text-muted-foreground">Prehľad a správa prepojení s evidovanými subjektmi</p>
                 </div>
               </button>
             </div>
@@ -828,6 +945,205 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
             </div>
           </>
         )}
+        {/* ── SUBJECT FORM STEP ── */}
+        {step === "subject_form" && (
+          <>
+            <DialogHeader>
+              <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mb-2">
+                <Link2 className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+              </div>
+              <DialogTitle>Prepojenie so subjektom</DialogTitle>
+              <DialogDescription>
+                Vyhľadajte subjekt (PO, FO, SZČO, VS, OS, TS) a odošlite žiadosť o prepojenie. Subjekt dostane email s potvrdením.
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleSubjectSearch} className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="Hľadať podľa názvu, IČO, UID..."
+                value={subjectSearch}
+                onChange={(e) => setSubjectSearch(e.target.value)}
+                data-testid="input-subject-search"
+                className="flex-1"
+              />
+              <Button type="submit" disabled={subjectSearchLoading || !subjectSearch.trim()} data-testid="button-subject-search">
+                {subjectSearchLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              </Button>
+            </form>
+
+            {error && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {subjectSearchResults.length > 0 && (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {subjectSearchResults.map((s) => {
+                  const displayName = s.companyName || [s.firstName, s.lastName].filter(Boolean).join(" ") || s.uid || "Neznámy";
+                  return (
+                    <div key={s.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30" data-testid={`subject-result-${s.id}`}>
+                      <div className="w-9 h-9 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                        <Building2 className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {subjectTypeLabel(s.type)}
+                          {s.ico && <span> — IČO:&nbsp;{s.ico}</span>}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={loading}
+                        onClick={() => handleSubjectInitiate(s.id)}
+                        data-testid={`button-subject-initiate-${s.id}`}
+                      >
+                        {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Prepojiť"}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {!subjectSearchLoading && subjectSearch && subjectSearchResults.length === 0 && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border border-border text-sm text-muted-foreground" data-testid="subject-search-empty">
+                <Search className="w-4 h-4 flex-shrink-0" />
+                <span>Žiadne subjekty neboli nájdené. Skúste iný výraz.</span>
+              </div>
+            )}
+
+            <Button variant="outline" className="w-full" onClick={() => { setError(null); setStep("type_select"); }} data-testid="button-subject-form-back">
+              Späť
+            </Button>
+          </>
+        )}
+
+        {/* ── SUBJECT PENDING STEP ── */}
+        {step === "subject_pending" && subjectPendingResult && (
+          <>
+            <DialogHeader>
+              <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-2">
+                <Mail className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <DialogTitle>Žiadosť odoslaná</DialogTitle>
+              <DialogDescription>
+                Subjekt <strong>{subjectPendingResult.subjectName}</strong> dostane email na adresu <strong>{subjectPendingResult.maskedEmail}</strong> s odkazom na potvrdenie prepojenia.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground">
+              <Clock className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>Platnosť potvrdenia je 72 hodín. Ak nebude potvrdené, žiadosť vyprší automaticky. Potvrdenie vykonáva oprávnená osoba subjektu.</span>
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { setStep("subject_manage"); }} data-testid="button-subject-pending-to-manage">
+                Zobraziť moje subjekty
+              </Button>
+              <Button className="flex-1" onClick={() => { setError(null); setSubjectSearch(""); setSubjectSearchResults([]); setStep("subject_form"); }} data-testid="button-subject-pending-new">
+                <Link2 className="w-4 h-4 mr-1" />
+                Ďalší subjekt
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* ── SUBJECT MANAGE STEP ── */}
+        {step === "subject_manage" && (
+          <>
+            <DialogHeader>
+              <div className="w-12 h-12 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center mb-2">
+                <FileText className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+              </div>
+              <DialogTitle>Moje subjekty</DialogTitle>
+              <DialogDescription>
+                Prehľad prepojení vášho účtu s evidovanými subjektmi.
+              </DialogDescription>
+            </DialogHeader>
+
+            {error && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {subjectLinkListQuery.isLoading && (
+              <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Načítavam...</span>
+              </div>
+            )}
+
+            {subjectLinkListQuery.data && subjectLinkListQuery.data.filter(l => l.status === "pending_confirmation").length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Čakajúce na potvrdenie</p>
+                {subjectLinkListQuery.data.filter(l => l.status === "pending_confirmation").map((item) => (
+                  <div key={item.linkId} className="flex items-center gap-3 p-3 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20" data-testid={`subject-pending-item-${item.linkId}`}>
+                    <div className="w-9 h-9 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                      <Clock className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{item.subjectName}</p>
+                      <p className="text-xs text-muted-foreground">{subjectTypeLabel(item.subjectType)}{item.ico && ` — IČO: ${item.ico}`}</p>
+                      <p className="text-xs text-orange-700 dark:text-orange-400">{item.tokenExpired ? "Platnosť vypršala" : "Čaká na potvrdenie"}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {subjectLinkListQuery.data && subjectLinkListQuery.data.filter(l => l.isActive && l.status === "verified").length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Aktívne prepojenia</p>
+                {subjectLinkListQuery.data.filter(l => l.isActive && l.status === "verified").map((item) => (
+                  <div key={item.linkId} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30" data-testid={`subject-active-item-${item.linkId}`}>
+                    <div className="w-9 h-9 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{item.subjectName}</p>
+                      <p className="text-xs text-muted-foreground">{subjectTypeLabel(item.subjectType)}{item.ico && ` — IČO: ${item.ico}`}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                      disabled={loading}
+                      onClick={() => handleSubjectRevoke(item.linkId)}
+                      data-testid={`button-subject-revoke-${item.linkId}`}
+                    >
+                      <X className="w-3 h-3 mr-1" />
+                      Zrušiť
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!subjectLinkListQuery.isLoading && (!subjectLinkListQuery.data?.length || subjectLinkListQuery.data.every(l => l.status === "revoked")) && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border border-border text-sm text-muted-foreground" data-testid="subject-manage-empty">
+                <Link2 className="w-4 h-4 flex-shrink-0" />
+                <span>Nemáte žiadne prepojenia so subjektmi.</span>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { setError(null); setStep("type_select"); }} data-testid="button-subject-manage-back">
+                Späť
+              </Button>
+              <Button className="flex-1" onClick={() => { setError(null); setSubjectSearch(""); setSubjectSearchResults([]); setStep("subject_form"); }} data-testid="button-subject-new">
+                <Link2 className="w-4 h-4 mr-1" />
+                Nové prepojenie
+              </Button>
+            </div>
+          </>
+        )}
+
       </DialogContent>
     </Dialog>
   );

@@ -5,7 +5,7 @@ import type { Express, RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
-import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts, myCompanies, subjectContacts, guardianConfirmationTokens, systemNotifications } from "@shared/schema";
+import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts, myCompanies, subjectContacts, guardianConfirmationTokens, systemNotifications, subjectLinks } from "@shared/schema";
 import { eq, and, or, ne, isNull, isNotNull, gte, desc, inArray, sql } from "drizzle-orm";
 import { storage } from "./storage";
 import { decryptField } from "./crypto";
@@ -1611,6 +1611,99 @@ export async function setupAuth(app: Express) {
       }
       // ── END GUARDIAN MODE ──────────────────────────────────────
 
+      // ── SUBJECT MODE ───────────────────────────────────────────
+      if (mode === "subject") {
+        const { subjectId } = req.body;
+        if (!subjectId) return res.status(400).json({ message: "Vyžaduje sa ID subjektu" });
+        const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
+        if (!currentUser) return res.status(401).json({ message: "Používateľ nenájdený" });
+
+        const [subject] = await db.select().from(subjects).where(and(eq(subjects.id, Number(subjectId)), isNull(subjects.deletedAt)));
+        if (!subject) return res.status(404).json({ message: "Subjekt neexistuje" });
+
+        // Check for existing active subject link
+        const existingLinks = await storage.getSubjectLinksByUserId(req.session.userId);
+        const existing = existingLinks.find(l => l.subjectId === Number(subjectId) && l.isActive && l.status === "verified");
+        if (existing) return res.status(409).json({ message: "Prepojenie s týmto subjektom už existuje" });
+
+        // Look up subject's primary email contact
+        const emailContacts = await db.select().from(subjectContacts)
+          .where(and(eq(subjectContacts.subjectId, Number(subjectId)), eq(subjectContacts.type, "email")));
+        const primaryEmail = emailContacts.find(c => c.isPrimary)?.value ?? emailContacts[0]?.value ?? null;
+        if (!primaryEmail) return res.status(400).json({ message: "Subjekt nemá evidovaný email pre potvrdenie prepojenia" });
+
+        // Look up subject's primary phone contact (for SMS requirement)
+        const phoneContacts = await db.select().from(subjectContacts)
+          .where(and(eq(subjectContacts.subjectId, Number(subjectId)), eq(subjectContacts.type, "phone")));
+        const primaryPhone = phoneContacts.find(c => c.isPrimary)?.value ?? phoneContacts[0]?.value ?? null;
+        const needsSms = !!primaryPhone;
+
+        const emailToken = crypto.randomUUID();
+        const smsCode = needsSms ? String(Math.floor(100000 + Math.random() * 900000)) : null;
+
+        const linkId = await storage.createSubjectLink(
+          req.session.userId, Number(subjectId), emailToken, smsCode, needsSms, req.session.userId
+        );
+
+        await db.insert(auditLogs).values({
+          userId: req.session.userId, username: null, action: "SUBJECT_LINK_INITIATED",
+          module: "SubjectLink", entityId: Number(subjectId), entityName: null,
+          oldData: null, newData: { subjectId: Number(subjectId), linkId }, ipAddress: req.ip,
+        });
+
+        const appDomain = process.env.APP_DOMAIN || req.headers.host || "localhost:5000";
+        const protocol = process.env.APP_DOMAIN ? "https" : req.secure ? "https" : "http";
+        const confirmUrl = `${protocol}://${appDomain}/potvrdenie-spravy?subjectToken=${emailToken}`;
+
+        const subjectDisplayName = subject.companyName
+          || [subject.firstName, subject.lastName].filter(Boolean).join(" ")
+          || subject.uid || "Subjekt";
+        const initiatorName = `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || currentUser.username || "Používateľ";
+
+        const emailHtml = `<!DOCTYPE html><html lang="sk"><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#0f1923;font-family:Arial,Helvetica,sans-serif;color:#e2e8f0;"><div style="max-width:640px;margin:0 auto;padding:32px 24px;"><div style="background:#1a2332;border:1px solid #2d3748;border-radius:4px;padding:32px;"><div style="text-align:center;margin-bottom:24px;"><h2 style="margin:0;color:#63b3ed;font-size:18px;letter-spacing:1px;">ArutsoK (ATK)</h2></div><p style="color:#e2e8f0;font-size:14px;line-height:1.6;">Dobrý deň,</p><p style="color:#e2e8f0;font-size:14px;line-height:1.6;">používateľ <strong>${initiatorName}</strong> žiada o prepojenie svojho účtu so subjektom <strong>${subjectDisplayName}</strong> v systéme ArutsoK (ATK).</p><div style="text-align:center;margin:24px 0;"><a href="${confirmUrl}" style="display:inline-block;background:#2b6cb0;color:#fff;padding:12px 24px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:14px;">Potvrdiť alebo odmietnuť prepojenie</a></div><p style="color:#a0aec0;font-size:12px;line-height:1.6;">Platnosť odkazu vyprší o 72 hodín. Ak ste žiadosť neočakávali, ignorujte tento e-mail alebo ju odmietnite na vyššie uvedenom odkaze.</p><hr style="border:none;border-top:1px solid #2d3748;margin:24px 0;"><p style="font-size:11px;color:#718096;text-align:center;margin:0;">Tento e-mail bol vygenerovaný automaticky systémom ArutsoK.</p></div></div></body></html>`;
+
+        try {
+          await db.insert(systemNotifications).values({
+            recipientEmail: primaryEmail,
+            recipientName: subjectDisplayName,
+            recipientUserId: null,
+            subject: `Žiadosť o prepojenie účtu so subjektom — ArutsoK (ATK)`,
+            bodyHtml: emailHtml,
+            status: "pending",
+            notificationType: "subject_link_request",
+          });
+        } catch (emailErr) {
+          console.error("[SUBJECT-LINK] Failed to queue confirmation email:", emailErr);
+        }
+
+        if (needsSms && primaryPhone) {
+          try {
+            await db.insert(systemNotifications).values({
+              recipientEmail: primaryEmail,
+              recipientName: subjectDisplayName,
+              recipientUserId: null,
+              recipientPhone: primaryPhone,
+              subject: `Prepojenie subjektu — SMS kód — ArutsoK`,
+              bodyHtml: `ArutsoK (ATK): Žiadosť o prepojenie účtu so subjektom ${subjectDisplayName}. Kód na potvrdenie ste dostali SMS správou. Platnosť 72h.`,
+              status: "pending",
+              notificationType: "subject_sms_code",
+              batchId: `subject_link_${linkId}`,
+            });
+          } catch (smsErr) {
+            console.error("[SUBJECT-LINK] Failed to queue SMS notification:", smsErr);
+          }
+          processPendingSmsNotifications().catch((e) => console.error("[SUBJECT-LINK] SMS dispatch error:", e));
+        }
+
+        return res.json({
+          status: "subject_pending",
+          linkId,
+          subjectName: subjectDisplayName,
+          maskedEmail: primaryEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2"),
+        });
+      }
+      // ── END SUBJECT MODE ────────────────────────────────────────
+
       const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
       if (!currentUser) return res.status(401).json({ message: "Používateľ nenájdený" });
 
@@ -2158,6 +2251,37 @@ export async function setupAuth(app: Express) {
         }
       }
 
+      // Subject links (subjectLinks table — direct explicit subject-user bindings)
+      const userSubjectLinks = await storage.getSubjectLinksByUserId(req.session.userId);
+      const activeSubjectLinks = userSubjectLinks.filter(sl => sl.isActive && sl.status === "verified");
+      for (const sl of activeSubjectLinks) {
+        const key = `subject:${sl.subjectId}`;
+        if (seenContextKeys.has(key)) continue;
+        const [subject] = await db.select({
+          id: subjects.id, type: subjects.type, companyName: subjects.companyName,
+          firstName: subjects.firstName, lastName: subjects.lastName, uid: subjects.uid, details: subjects.details,
+        }).from(subjects).where(and(eq(subjects.id, sl.subjectId), isNull(subjects.deletedAt)));
+        if (!subject) continue;
+        const ico = (subject.details as { ico?: string } | null)?.ico ?? null;
+        const displayName = subject.companyName || [subject.firstName, subject.lastName].filter(Boolean).join(" ") || subject.uid || "";
+        const subjectLabel = subjectTypeShortLabel(subject.type);
+        const subLabel = ico ? `${subjectLabel} — IČO:\u00A0${ico}` : subjectLabel;
+        const normalizedContextType = normalizeSubjectContextType(subject.type);
+        seenContextKeys.add(key);
+        result.push({
+          contextType: normalizedContextType,
+          userId: currentUser.id,
+          companyId: null,
+          subjectId: subject.id,
+          label: displayName,
+          subLabel,
+          type: subject.type,
+          uid: subject.uid ?? null,
+          ico: ico ?? null,
+          isCurrent: currentUser.activeSubjectId === subject.id,
+        });
+      }
+
       res.json(result);
     } catch (err) {
       console.error("[USER CONTEXTS]", err);
@@ -2473,6 +2597,186 @@ export async function setupAuth(app: Express) {
       return res.json({ status: "rejected" });
     } catch (err) {
       console.error("[GUARDIAN-REJECT ALIAS]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  // ── SUBJECT LINK CONFIRMATION ENDPOINTS ─────────────────────
+  const subjectSmsRateLimit = rateLimit({
+    windowMs: 10 * 60 * 1000, max: 10,
+    message: { message: "Príliš veľa pokusov. Skúste znova o 10 minút." },
+    standardHeaders: true, legacyHeaders: false,
+  });
+
+  // GET /api/account-link/subject-confirm — validates subjectToken, confirms email, activates email-only links
+  app.get("/api/account-link/subject-confirm", async (req, res) => {
+    try {
+      const { subjectToken } = req.query;
+      if (!subjectToken || typeof subjectToken !== "string") return res.status(400).json({ message: "Chýba token" });
+      const sl = await storage.getSubjectLinkByToken(subjectToken).catch(() => undefined);
+      if (!sl) return res.status(404).json({ message: "Token neexistuje alebo bol použitý" });
+      if (sl.rejected) return res.status(410).json({ message: "Žiadosť bola odmietnutá" });
+      if (new Date() > sl.expiresAt) return res.status(410).json({ message: "Platnosť tokenu vypršala" });
+      const [subject] = await db.select().from(subjects).where(eq(subjects.id, sl.subjectId));
+      const [initiatorUser] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName, email: appUsers.email }).from(appUsers).where(eq(appUsers.id, sl.userId));
+      const subjectName = subject?.companyName || [subject?.firstName, subject?.lastName].filter(Boolean).join(" ") || subject?.uid || "Subjekt";
+      const initiatorName = initiatorUser ? `${initiatorUser.firstName || ""} ${initiatorUser.lastName || ""}`.trim() || initiatorUser.email || "Neznámy" : "Neznámy";
+      if (!sl.emailConfirmed) await storage.confirmSubjectLinkEmail(sl.id);
+      let status: "sms_required" | "confirmed";
+      if (sl.status === "verified") {
+        status = "confirmed";
+      } else if (sl.needsSms) {
+        status = "sms_required";
+      } else {
+        await storage.completeSubjectLink(sl.id, "email");
+        await db.insert(auditLogs).values({
+          userId: sl.userId, username: null, action: "SUBJECT_LINK_CONFIRMED",
+          module: "SubjectLink", entityId: sl.subjectId, entityName: null,
+          oldData: null, newData: { linkId: sl.id, via: "email" }, ipAddress: null,
+        });
+        status = "confirmed";
+      }
+      return res.json({
+        linkId: sl.id, subjectToken, subjectName, initiatorName,
+        needsSms: sl.needsSms, emailConfirmed: true, smsConfirmed: sl.smsConfirmed,
+        expiresAt: sl.expiresAt, status,
+      });
+    } catch (err) {
+      console.error("[SUBJECT-CONFIRM GET]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  // POST /api/account-link/subject-verify-sms — rate limited
+  app.post("/api/account-link/subject-verify-sms", subjectSmsRateLimit, async (req, res) => {
+    try {
+      const { subjectToken, smsCode } = req.body;
+      if (!subjectToken || !smsCode) return res.status(400).json({ message: "Chýba token alebo SMS kód" });
+      const sl = await storage.getSubjectLinkByToken(subjectToken);
+      if (!sl) return res.status(404).json({ message: "Token neexistuje" });
+      if (sl.rejected) return res.status(410).json({ message: "Žiadosť bola odmietnutá" });
+      if (new Date() > sl.expiresAt) return res.status(410).json({ message: "Platnosť tokenu vypršala" });
+      if (!sl.emailConfirmed) return res.status(400).json({ message: "Najprv potvrďte email" });
+      if (sl.smsConfirmed) { await storage.completeSubjectLink(sl.id, "email+sms"); return res.json({ status: "confirmed" }); }
+      if (!sl.smsCode || smsCode.trim() !== sl.smsCode) return res.status(400).json({ message: "Nesprávny SMS kód" });
+      await storage.confirmSubjectLinkSms(sl.id);
+      await storage.completeSubjectLink(sl.id, "email+sms");
+      await db.insert(auditLogs).values({
+        userId: sl.userId, username: null, action: "SUBJECT_LINK_CONFIRMED",
+        module: "SubjectLink", entityId: sl.subjectId, entityName: null,
+        oldData: null, newData: { linkId: sl.id, via: "email+sms" }, ipAddress: null,
+      });
+      return res.json({ status: "confirmed" });
+    } catch (err) {
+      console.error("[SUBJECT-VERIFY-SMS]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  // POST /api/account-link/subject-reject — accepts subjectToken in body OR query param
+  app.post("/api/account-link/subject-reject", async (req, res) => {
+    try {
+      const subjectToken = req.body?.subjectToken || (req.query?.subjectToken as string | undefined);
+      if (!subjectToken) return res.status(400).json({ message: "Chýba token" });
+      const sl = await storage.getSubjectLinkByToken(subjectToken);
+      if (!sl) return res.status(404).json({ message: "Token neexistuje" });
+      if (sl.rejected) return res.json({ status: "already_rejected" });
+      await storage.rejectSubjectLink(sl.id);
+      await db.insert(auditLogs).values({
+        userId: sl.userId, username: null, action: "SUBJECT_LINK_REJECTED",
+        module: "SubjectLink", entityId: sl.subjectId, entityName: null,
+        oldData: null, newData: { linkId: sl.id }, ipAddress: null,
+      });
+      return res.json({ status: "rejected" });
+    } catch (err) {
+      console.error("[SUBJECT-REJECT]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  // GET /api/account-link/subject-list — list current user's subject links
+  app.get("/api/account-link/subject-list", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const links = await storage.getSubjectLinksByUserId(req.session.userId);
+      const enriched = await Promise.all(links.map(async (sl) => {
+        const [subject] = await db.select({
+          id: subjects.id, type: subjects.type, companyName: subjects.companyName,
+          firstName: subjects.firstName, lastName: subjects.lastName, uid: subjects.uid, details: subjects.details,
+        }).from(subjects).where(eq(subjects.id, sl.subjectId));
+        const subjectName = subject?.companyName || [subject?.firstName, subject?.lastName].filter(Boolean).join(" ") || subject?.uid || "Neznámy";
+        const ico = (subject?.details as { ico?: string } | null)?.ico ?? null;
+        return {
+          linkId: sl.id, subjectId: sl.subjectId, subjectName, subjectType: subject?.type ?? null,
+          ico, uid: subject?.uid ?? null, status: sl.status, isActive: sl.isActive,
+          needsSms: sl.needsSms, createdAt: sl.createdAt, verifiedAt: sl.verifiedAt,
+          tokenExpired: new Date() > sl.expiresAt,
+        };
+      }));
+      return res.json(enriched);
+    } catch (err) {
+      console.error("[SUBJECT-LIST]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  // POST /api/subject-link/:id/revoke — revoke a subject link
+  app.post("/api/subject-link/:id/revoke", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const linkId = Number(req.params.id);
+      if (!linkId) return res.status(400).json({ message: "Neplatné ID" });
+      const sl = await storage.getSubjectLinkById(linkId);
+      if (!sl) return res.status(404).json({ message: "Prepojenie nenájdené" });
+      if (sl.userId !== req.session.userId) {
+        const isAdmin = !!(await db.select({ id: appUsers.id }).from(appUsers).where(eq(appUsers.id, req.session.userId)).limit(1))[0];
+        if (!isAdmin) return res.status(403).json({ message: "Nie ste oprávnený zrušiť toto prepojenie" });
+      }
+      const { reason } = req.body;
+      await storage.revokeSubjectLink(linkId, req.session.userId, reason);
+      await db.insert(auditLogs).values({
+        userId: getAuditActorId(req), username: null, action: "SUBJECT_LINK_REVOKED",
+        module: "SubjectLink", entityId: sl.subjectId, entityName: null,
+        oldData: null, newData: { linkId, reason: reason ?? null }, ipAddress: req.ip,
+      });
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("[SUBJECT-LINK REVOKE]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  // GET /api/admin/subject-links — admin: all subject links in system
+  app.get("/api/admin/subject-links", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
+      if (!currentUser?.isAdmin) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const allLinks = await db.select().from(subjectLinks).orderBy(desc(subjectLinks.createdAt)).limit(500);
+      const enriched = await Promise.all(allLinks.map(async (sl) => {
+        const [subject] = await db.select({
+          id: subjects.id, type: subjects.type, companyName: subjects.companyName,
+          firstName: subjects.firstName, lastName: subjects.lastName, uid: subjects.uid,
+        }).from(subjects).where(eq(subjects.id, sl.subjectId));
+        const [user] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName, email: appUsers.email, username: appUsers.username }).from(appUsers).where(eq(appUsers.id, sl.userId));
+        const subjectName = subject?.companyName || [subject?.firstName, subject?.lastName].filter(Boolean).join(" ") || subject?.uid || "Neznámy";
+        const userName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username || user.email || "Neznámy" : "Neznámy";
+        return {
+          linkId: sl.id, userId: sl.userId, userName, userEmail: user?.email ?? null,
+          subjectId: sl.subjectId, subjectName, subjectType: subject?.type ?? null,
+          status: sl.status, isActive: sl.isActive, createdAt: sl.createdAt, verifiedAt: sl.verifiedAt,
+          revokedAt: sl.revokedAt, revokedReason: sl.revokedReason,
+        };
+      }));
+      return res.json(enriched);
+    } catch (err) {
+      console.error("[ADMIN SUBJECT-LINKS]", err);
       res.status(500).json({ message: "Interná chyba" });
     }
   });

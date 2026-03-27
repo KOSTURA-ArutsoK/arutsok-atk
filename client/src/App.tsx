@@ -74,6 +74,7 @@ import NovySubjekt from "@/pages/NovySubjekt";
 import SektoryZmluvVizia from "@/pages/SektoryZmluvVizia";
 import SektorySubjektovVizia from "@/pages/SektorySubjektovVizia";
 import HoldingTree from "@/pages/HoldingTree";
+import SystemLinks from "@/pages/SystemLinks";
 import { AppShell } from "@/components/layout/AppShell";
 import { RedListNotificationPopup } from "@/components/red-list-notification-popup";
 import { BlackListNotificationPopup } from "@/components/black-list-notification-popup";
@@ -182,6 +183,7 @@ const PrivateNovySubjekt = () => <PrivateRoute><NovySubjekt /></PrivateRoute>;
 const PrivateSektoryZmluvVizia = () => <PrivateRoute><SektoryZmluvVizia /></PrivateRoute>;
 const PrivateSektorySubjektovVizia = () => <PrivateRoute><SektorySubjektovVizia /></PrivateRoute>;
 const PrivateHoldingTree = () => <PrivateRoute><HoldingTree /></PrivateRoute>;
+const PrivateSystemLinks = () => <PrivateRoute><SystemLinks /></PrivateRoute>;
 const PrivateClientProfile = () => <PrivateRoute><ClientProfilePage /></PrivateRoute>;
 
 function Router() {
@@ -257,6 +259,7 @@ function Router() {
       <Route path="/sektory-zmluv-vizia" component={PrivateSektoryZmluvVizia} />
       <Route path="/sektory-subjektov-vizia" component={PrivateSektorySubjektovVizia} />
       <Route path="/holding-strom" component={PrivateHoldingTree} />
+      <Route path="/admin/prepojenia-subjektov" component={PrivateSystemLinks} />
       <Route component={NotFound} />
     </Switch>
   );

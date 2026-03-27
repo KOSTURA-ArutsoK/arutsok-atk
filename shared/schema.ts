@@ -2567,6 +2567,7 @@ export const systemNotifications = pgTable("system_notifications", {
   recipientEmail: text("recipient_email").notNull(),
   recipientName: text("recipient_name"),
   recipientUserId: integer("recipient_user_id").references(() => appUsers.id),
+  recipientPhone: text("recipient_phone"),
   subject: text("subject").notNull(),
   bodyHtml: text("body_html").notNull(),
   status: text("status").notNull().default("pending"),
@@ -2887,6 +2888,33 @@ export const guardianConfirmationTokens = pgTable("guardian_confirmation_tokens"
 export const insertGuardianConfirmationTokenSchema = createInsertSchema(guardianConfirmationTokens).omit({ id: true, createdAt: true });
 export type GuardianConfirmationToken = typeof guardianConfirmationTokens.$inferSelect;
 export type InsertGuardianConfirmationToken = z.infer<typeof insertGuardianConfirmationTokenSchema>;
+
+// === SUBJECT LINKS (user → subject context access, any type: FO, PO, SZČO, VS, OS, TS) ===
+export const subjectLinks = pgTable("subject_links", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => appUsers.id),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  status: text("status").notNull().default("pending_confirmation"),
+  emailToken: text("email_token").notNull().unique(),
+  smsCode: varchar("sms_code", { length: 6 }),
+  needsSms: boolean("needs_sms").notNull().default(false),
+  emailConfirmed: boolean("email_confirmed").notNull().default(false),
+  smsConfirmed: boolean("sms_confirmed").notNull().default(false),
+  rejected: boolean("rejected").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  expiresAt: timestamp("expires_at").notNull(),
+  verifiedAt: timestamp("verified_at"),
+  verifiedVia: text("verified_via"),
+  initiatedBy: integer("initiated_by").references(() => appUsers.id),
+  revokedAt: timestamp("revoked_at"),
+  revokedBy: integer("revoked_by").references(() => appUsers.id),
+  revokedReason: text("revoked_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSubjectLinkSchema = createInsertSchema(subjectLinks).omit({ id: true, createdAt: true });
+export type SubjectLink = typeof subjectLinks.$inferSelect;
+export type InsertSubjectLink = z.infer<typeof insertSubjectLinkSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

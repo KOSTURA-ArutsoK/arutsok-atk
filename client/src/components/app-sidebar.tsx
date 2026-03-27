@@ -102,6 +102,7 @@ const financieItems = [
   { href: "/odmeny", icon: ArrowUpRight, label: "Odmeny" },
   { href: "/commissions", icon: Percent, label: "Sadzby" },
   { href: "/holding-strom", icon: Network, label: "Holding strom" },
+  { href: "/admin/prepojenia-subjektov", icon: Link2, label: "Prepojenia subjektov" },
 ];
 
 const reportyItems = [

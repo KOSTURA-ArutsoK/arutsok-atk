@@ -150,6 +150,8 @@ import {
   type AccountLink,
   guardianConfirmationTokens,
   type GuardianConfirmationToken,
+  subjectLinks,
+  type SubjectLink,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -750,6 +752,15 @@ export interface IStorage {
   rejectGuardianLink(tokenId: number): Promise<void>;
   completeGuardianLink(linkId: number, via: string): Promise<void>;
   getPendingGuardianLinksFor(userId: number): Promise<Array<AccountLink & { token?: GuardianConfirmationToken }>>;
+  createSubjectLink(userId: number, subjectId: number, emailToken: string, smsCode: string | null, needsSms: boolean, initiatedBy: number): Promise<number>;
+  getSubjectLinkByToken(emailToken: string): Promise<SubjectLink | undefined>;
+  getSubjectLinkById(id: number): Promise<SubjectLink | undefined>;
+  getSubjectLinksByUserId(userId: number): Promise<SubjectLink[]>;
+  confirmSubjectLinkEmail(id: number): Promise<void>;
+  confirmSubjectLinkSms(id: number): Promise<void>;
+  completeSubjectLink(id: number, via: string): Promise<void>;
+  rejectSubjectLink(id: number): Promise<void>;
+  revokeSubjectLink(id: number, revokedBy: number, reason?: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5658,6 +5669,77 @@ export class DatabaseStorage implements IStorage {
       result.push({ ...link, token });
     }
     return result;
+  }
+
+  async createSubjectLink(userId: number, subjectId: number, emailToken: string, smsCode: string | null, needsSms: boolean, initiatedBy: number): Promise<number> {
+    const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+    const [row] = await db.insert(subjectLinks).values({
+      userId,
+      subjectId,
+      status: "pending_confirmation",
+      emailToken,
+      smsCode: smsCode ?? undefined,
+      needsSms,
+      emailConfirmed: false,
+      smsConfirmed: false,
+      rejected: false,
+      isActive: false,
+      expiresAt,
+      initiatedBy,
+    }).returning({ id: subjectLinks.id });
+    return row.id;
+  }
+
+  async getSubjectLinkByToken(emailToken: string): Promise<SubjectLink | undefined> {
+    const [row] = await db.select().from(subjectLinks)
+      .where(eq(subjectLinks.emailToken, emailToken)).limit(1);
+    return row;
+  }
+
+  async getSubjectLinkById(id: number): Promise<SubjectLink | undefined> {
+    const [row] = await db.select().from(subjectLinks)
+      .where(eq(subjectLinks.id, id)).limit(1);
+    return row;
+  }
+
+  async getSubjectLinksByUserId(userId: number): Promise<SubjectLink[]> {
+    return db.select().from(subjectLinks)
+      .where(and(eq(subjectLinks.userId, userId), eq(subjectLinks.rejected, false)));
+  }
+
+  async confirmSubjectLinkEmail(id: number): Promise<void> {
+    await db.update(subjectLinks).set({ emailConfirmed: true })
+      .where(eq(subjectLinks.id, id));
+  }
+
+  async confirmSubjectLinkSms(id: number): Promise<void> {
+    await db.update(subjectLinks).set({ smsConfirmed: true })
+      .where(eq(subjectLinks.id, id));
+  }
+
+  async completeSubjectLink(id: number, via: string): Promise<void> {
+    const now = new Date();
+    await db.update(subjectLinks).set({
+      status: "verified",
+      isActive: true,
+      verifiedAt: now,
+      verifiedVia: via,
+    }).where(eq(subjectLinks.id, id));
+  }
+
+  async rejectSubjectLink(id: number): Promise<void> {
+    await db.update(subjectLinks).set({ rejected: true, status: "revoked", isActive: false })
+      .where(eq(subjectLinks.id, id));
+  }
+
+  async revokeSubjectLink(id: number, revokedBy: number, reason?: string): Promise<void> {
+    await db.update(subjectLinks).set({
+      status: "revoked",
+      isActive: false,
+      revokedAt: new Date(),
+      revokedBy,
+      revokedReason: reason ?? null,
+    }).where(eq(subjectLinks.id, id));
   }
 }
 
