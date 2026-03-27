@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Shield, ArrowLeft, Mail, Phone, KeyRound, ShieldCheck, UserCheck, AlertTriangle, Fingerprint } from "lucide-react";
+import { Shield, ArrowLeft, Mail, Phone, KeyRound, ShieldCheck, UserCheck, AlertTriangle, Fingerprint, Building2, Landmark, Heart, Globe, Search, CheckCircle2, Clock, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,68 @@ interface ClientData {
   email: string | null;
   phone: string | null;
   companyName: string | null;
+}
+
+interface LiveLookupCandidate {
+  subjectId: number;
+  name: string;
+  type: string;
+  ico: string | null;
+  uid: string | null;
+  via: string;
+}
+
+type CandidateStatus = "idle" | "selected" | "pending" | "initiated" | "error" | "already_linked" | "already_pending" | "no_email";
+
+function subjectTypeLabel(type: string): string {
+  switch (type) {
+    case "company":
+    case "mycompany": return "PO";
+    case "szco": return "SZČO";
+    case "state": return "VS";
+    case "organization": return "TS";
+    case "os": return "OS";
+    default: return type.toUpperCase();
+  }
+}
+
+function subjectTypeBadgeColor(type: string): string {
+  switch (type) {
+    case "company":
+    case "mycompany": return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20";
+    case "szco": return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
+    case "state": return "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20";
+    case "organization": return "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20";
+    case "os": return "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20";
+    default: return "bg-primary/10 text-primary border-primary/20";
+  }
+}
+
+function CandidateTypeIcon({ type }: { type: string }) {
+  switch (type) {
+    case "company":
+    case "mycompany": return <Building2 className="w-4 h-4" />;
+    case "state": return <Landmark className="w-4 h-4" />;
+    case "organization":
+    case "os": return <Heart className="w-4 h-4" />;
+    default: return <Globe className="w-4 h-4" />;
+  }
+}
+
+function candidateStatusBadge(status: CandidateStatus) {
+  switch (status) {
+    case "initiated":
+    case "already_pending":
+      return <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400"><Clock className="w-3.5 h-3.5" />Čaká na overenie</span>;
+    case "already_linked":
+      return <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" />Prepojené</span>;
+    case "no_email":
+      return <span className="text-xs text-destructive">Subjekt nemá email</span>;
+    case "error":
+      return <span className="text-xs text-destructive">Chyba</span>;
+    default:
+      return null;
+  }
 }
 
 export default function RegisterPage() {
@@ -47,6 +109,15 @@ export default function RegisterPage() {
   const [idCardNumber, setIdCardNumber] = useState("");
 
   const [clientData, setClientData] = useState<ClientData | null>(null);
+
+  // Live Lookup state
+  const [liveLookupCandidates, setLiveLookupCandidates] = useState<LiveLookupCandidate[]>([]);
+  const [liveLookupLoading, setLiveLookupLoading] = useState(false);
+  const [liveLookupDone, setLiveLookupDone] = useState(false);
+  const [candidateStatuses, setCandidateStatuses] = useState<Record<number, CandidateStatus>>({});
+  const [liveLookupExpanded, setLiveLookupExpanded] = useState(true);
+  const [batchInitiating, setBatchInitiating] = useState(false);
+  const [registeredSubjectId, setRegisteredSubjectId] = useState<number | null>(null);
 
   const verifyBirthButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -127,6 +198,7 @@ export default function RegisterPage() {
         return;
       }
       setClientData(data.client);
+      setRegisteredSubjectId(data.client?.id ?? subjectId);
       setStep("welcome");
     } catch {
       setError("Chyba pripojenia k serveru");
@@ -150,6 +222,11 @@ export default function RegisterPage() {
         return;
       }
       setClientData(data.client);
+      setRegisteredSubjectId(data.client?.id ?? subjectId);
+
+      // Spustiť Live Lookup po úspešnom overení
+      runLiveLookup(fullBirthNumber);
+
       setStep("welcome");
     } catch {
       setError("Chyba pripojenia k serveru");
@@ -157,6 +234,85 @@ export default function RegisterPage() {
       setLoading(false);
     }
   }
+
+  const runLiveLookup = useCallback(async (birthNum: string) => {
+    if (!birthNum) return;
+    const cleanBn = birthNum.replace(/\//g, "").replace(/\s/g, "").trim();
+    if (!/^\d{9,10}$/.test(cleanBn)) return;
+
+    setLiveLookupLoading(true);
+    try {
+      const res = await fetch("/api/registration/live-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ birthNumber: cleanBn }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const candidates: LiveLookupCandidate[] = data.candidates || [];
+      setLiveLookupCandidates(candidates);
+      setLiveLookupDone(true);
+      const initialStatuses: Record<number, CandidateStatus> = {};
+      for (const c of candidates) {
+        initialStatuses[c.subjectId] = "idle";
+      }
+      setCandidateStatuses(initialStatuses);
+    } catch {}
+    finally {
+      setLiveLookupLoading(false);
+    }
+  }, []);
+
+  function toggleCandidate(subjectId: number) {
+    setCandidateStatuses(prev => ({
+      ...prev,
+      [subjectId]: prev[subjectId] === "selected" ? "idle" : "selected",
+    }));
+  }
+
+  const selectedIds = Object.entries(candidateStatuses)
+    .filter(([, v]) => v === "selected")
+    .map(([k]) => Number(k));
+
+  async function handleBatchInitiate() {
+    if (selectedIds.length === 0) return;
+    setBatchInitiating(true);
+    try {
+      const res = await fetch("/api/registration/live-lookup/batch-initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ subjectIds: selectedIds }),
+      });
+      if (!res.ok) {
+        if (res.status === 401) {
+          toast({
+            title: "Prihláste sa do systému",
+            description: "Prepojenia môžete spustiť po prihlásení v nastaveniach účtu.",
+            variant: "destructive",
+          });
+          return;
+        }
+        return;
+      }
+      const data = await res.json();
+      const results: { subjectId: number; status: string }[] = data.results || [];
+      const newStatuses = { ...candidateStatuses };
+      for (const r of results) {
+        newStatuses[r.subjectId] = r.status as CandidateStatus;
+      }
+      setCandidateStatuses(newStatuses);
+      toast({ title: "Žiadosti o prepojenie boli odoslané" });
+    } catch {
+      toast({ title: "Chyba pri odosielaní žiadostí", variant: "destructive" });
+    } finally {
+      setBatchInitiating(false);
+    }
+  }
+
+  const hasActionableStatuses = Object.values(candidateStatuses).some(
+    s => s === "initiated" || s === "already_pending" || s === "already_linked"
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -495,6 +651,117 @@ export default function RegisterPage() {
                   </div>
                 )}
               </div>
+
+              {/* Live Lookup sekcia */}
+              {(liveLookupLoading || (liveLookupDone && liveLookupCandidates.length > 0)) && (
+                <div className="border border-border rounded-md overflow-hidden" data-testid="section-live-lookup">
+                  <button
+                    type="button"
+                    onClick={() => setLiveLookupExpanded(v => !v)}
+                    className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
+                    data-testid="button-live-lookup-toggle"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Search className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium">
+                        Našli sme subjekty, kde ste zapísaný
+                      </span>
+                      {liveLookupCandidates.length > 0 && (
+                        <Badge variant="secondary" className="text-xs">{liveLookupCandidates.length}</Badge>
+                      )}
+                    </div>
+                    {liveLookupExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                  </button>
+
+                  {liveLookupExpanded && (
+                    <div className="p-4 space-y-3">
+                      {liveLookupLoading && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Prehľadávam databázu...
+                        </div>
+                      )}
+
+                      {!liveLookupLoading && liveLookupCandidates.length > 0 && (
+                        <>
+                          <p className="text-xs text-muted-foreground">
+                            Zaškrtnite subjekty, ku ktorým chcete požiadať o prístup. Overovací email bude odoslaný na kontaktný email každého subjektu.
+                          </p>
+                          <div className="space-y-2">
+                            {liveLookupCandidates.map((c) => {
+                              const status = candidateStatuses[c.subjectId] ?? "idle";
+                              const isActionable = status === "idle" || status === "selected";
+                              const isActive = status === "selected";
+
+                              return (
+                                <div
+                                  key={c.subjectId}
+                                  data-testid={`card-live-lookup-candidate-${c.subjectId}`}
+                                  className={`flex items-center gap-3 p-3 rounded-md border transition-colors cursor-pointer ${
+                                    isActive
+                                      ? "bg-primary/10 border-primary/30"
+                                      : "bg-muted/30 border-border hover:bg-muted/50"
+                                  } ${!isActionable ? "opacity-70 cursor-default" : ""}`}
+                                  onClick={() => isActionable && toggleCandidate(c.subjectId)}
+                                >
+                                  <div className="flex-shrink-0">
+                                    {isActionable ? (
+                                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                                        isActive ? "bg-primary border-primary" : "border-border"
+                                      }`}>
+                                        {isActive && <div className="w-2 h-2 bg-white rounded-sm" />}
+                                      </div>
+                                    ) : (
+                                      <div className="w-4 h-4 flex items-center justify-center">
+                                        {candidateStatusBadge(status)}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${subjectTypeBadgeColor(c.type)}`}>
+                                    <CandidateTypeIcon type={c.type} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">{c.name}</p>
+                                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${subjectTypeBadgeColor(c.type)}`}>
+                                        {subjectTypeLabel(c.type)}
+                                      </span>
+                                      {c.ico && <span className="text-xs text-muted-foreground">IČO: {c.ico}</span>}
+                                      {!isActionable && <div className="ml-1">{candidateStatusBadge(status)}</div>}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {selectedIds.length > 0 && (
+                            <Button
+                              className="w-full"
+                              onClick={handleBatchInitiate}
+                              disabled={batchInitiating}
+                              data-testid="button-live-lookup-batch-initiate"
+                            >
+                              {batchInitiating ? (
+                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Odosielam žiadosti...</>
+                              ) : (
+                                `Požiadať o prepojenie (${selectedIds.length})`
+                              )}
+                            </Button>
+                          )}
+
+                          {hasActionableStatuses && (
+                            <p className="text-xs text-muted-foreground text-center">
+                              Stav overení môžete sledovať po prihlásení v nastaveniach účtu.
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <Button
                 className="w-full"
                 onClick={() => window.location.href = "/client-zone"}

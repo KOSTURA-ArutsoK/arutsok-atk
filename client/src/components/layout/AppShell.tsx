@@ -9,7 +9,8 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, UserCheck, Plus, Briefcase, User, Landmark, Heart, Grid3X3, History, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, UserCheck, Plus, Briefcase, User, Landmark, Heart, Grid3X3, History, ShieldCheck, ArrowLeft, SwitchCamera } from "lucide-react";
+import { useLocation } from "wouter";
 import { AccountLinkModal } from "@/components/account-link-modal";
 import { apiRequest } from "@/lib/queryClient";
 import { isAdmin as checkIsAdmin, formatDateTimeSlovak } from "@/lib/utils";
@@ -94,6 +95,7 @@ function getSidebarDefault(): boolean {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const { data: appUser } = useAppUser();
+  const [, navigate] = useLocation();
   const { data: companies } = useMyCompanies();
   const { data: allStates } = useStates();
   const { data: userProfile } = useUserProfile();
@@ -795,6 +797,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             <div className="flex-1" />
 
+            {/* Context Bubble — Identity Picker skratka */}
+            {userContexts && userContexts.length > 1 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/vyber-identity")}
+                    className="flex items-center gap-1.5 h-8 px-2.5 rounded-full transition-colors hover:bg-primary/10 border border-transparent hover:border-primary/20"
+                    data-testid="button-identity-picker-shortcut"
+                  >
+                    <SwitchCamera className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-[11px] font-medium text-muted-foreground hidden sm:inline max-w-[100px] truncate">
+                      {activeIdentityLabel}
+                    </span>
+                    {hasSubjectIdentity && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Zmeniť identitu / Výber identity</TooltipContent>
+              </Tooltip>
+            )}
 
             <div
               key="idle-timer"

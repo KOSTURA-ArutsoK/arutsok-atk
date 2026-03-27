@@ -75,6 +75,7 @@ import SektoryZmluvVizia from "@/pages/SektoryZmluvVizia";
 import SektorySubjektovVizia from "@/pages/SektorySubjektovVizia";
 import HoldingTree from "@/pages/HoldingTree";
 import SystemLinks from "@/pages/SystemLinks";
+import IdentityPicker from "@/pages/IdentityPicker";
 import { AppShell } from "@/components/layout/AppShell";
 import { RedListNotificationPopup } from "@/components/red-list-notification-popup";
 import { BlackListNotificationPopup } from "@/components/black-list-notification-popup";
@@ -194,6 +195,7 @@ function Router() {
       <Route path="/register" component={RegisterPage} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/potvrdenie-spravy" component={GuardianConfirm} />
+      <Route path="/vyber-identity" component={IdentityPicker} />
       <Route path="/client-zone" component={ClientZone} />
       <Route path="/client-profile" component={PrivateClientProfile} />
       

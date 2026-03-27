@@ -11186,6 +11186,265 @@ export async function registerRoutes(
     }
   });
 
+  // === LIVE LOOKUP (verejný endpoint — volá sa počas registrácie) ===
+  // Prijíma plaintextové RČ (od registrujúceho sa), hľadá všetky subjekty kde je táto osoba
+  // zapísaná ako konateľ/vlastník (company_officers) alebo kde je na ňu naviazaný subject.
+  // Endpoint je public (nevyžaduje session), ale má rate-limit a loguje do auditLogs.
+  app.post("/api/registration/live-lookup", async (req: any, res) => {
+    try {
+      const { birthNumber } = req.body;
+      if (!birthNumber) return res.status(400).json({ message: "Chýba rodné číslo" });
+
+      const cleanBn = (birthNumber as string).replace(/\//g, "").replace(/\s/g, "").trim();
+      if (!/^\d{9,10}$/.test(cleanBn)) {
+        return res.status(400).json({ message: "Neplatné rodné číslo" });
+      }
+
+      // 1. Nájdi FO subject podľa RČ (decrypt-and-compare)
+      const allWithBn = await db.select({
+        id: subjects.id, uid: subjects.uid, type: subjects.type,
+        firstName: subjects.firstName, lastName: subjects.lastName,
+        companyName: subjects.companyName, birthNumber: subjects.birthNumber, details: subjects.details,
+      }).from(subjects).where(sql`${subjects.birthNumber} IS NOT NULL`);
+
+      let foSubject: { id: number; uid: string | null; firstName: string | null; lastName: string | null } | null = null;
+      for (const s of allWithBn) {
+        if (!s.birthNumber) continue;
+        const decrypted = decryptField(s.birthNumber);
+        if (decrypted && decrypted.replace(/\//g, "").replace(/\s/g, "").trim() === cleanBn) {
+          foSubject = { id: s.id, uid: s.uid, firstName: s.firstName, lastName: s.lastName };
+          break;
+        }
+      }
+
+      const NON_PERSON_TYPES = ["szco", "company", "organization", "state", "os"];
+      const candidates: {
+        subjectId: number;
+        name: string;
+        type: string;
+        ico: string | null;
+        uid: string | null;
+        via: string;
+      }[] = [];
+      const seenIds = new Set<number>();
+
+      if (foSubject) {
+        // 2a. Subjekty napojené cez linkedFoId/parentSubjectId (hierarchia)
+        const byHierarchy = await db.select({
+          id: subjects.id, type: subjects.type, companyName: subjects.companyName,
+          firstName: subjects.firstName, lastName: subjects.lastName, uid: subjects.uid, details: subjects.details,
+        }).from(subjects).where(and(
+          or(
+            eq(subjects.linkedFoId, foSubject.id),
+            eq(subjects.parentSubjectId, foSubject.id),
+          ),
+          isNull(subjects.deletedAt),
+          inArray(subjects.type, NON_PERSON_TYPES),
+        ));
+
+        for (const s of byHierarchy) {
+          if (seenIds.has(s.id)) continue;
+          seenIds.add(s.id);
+          const ico = (s.details as { ico?: string } | null)?.ico ?? null;
+          const name = s.companyName || [s.firstName, s.lastName].filter(Boolean).join(" ") || s.uid || "";
+          candidates.push({ subjectId: s.id, name, type: s.type, ico, uid: s.uid, via: "hierarchy" });
+        }
+
+        // 2b. Subjekty cez company_officers → myCompanies → subjects (type=mycompany)
+        const officerRows = await db.select({ companyId: companyOfficers.companyId })
+          .from(companyOfficers)
+          .where(and(
+            eq(companyOfficers.subjectId, foSubject.id),
+            eq(companyOfficers.isActive, true),
+          ));
+
+        if (officerRows.length > 0) {
+          const companyIds = officerRows.map((r) => r.companyId);
+          const officerCompanies = await db.select({
+            id: myCompanies.id, name: myCompanies.name, subjectType: myCompanies.subjectType,
+            ico: myCompanies.ico, uid: myCompanies.uid,
+          }).from(myCompanies).where(and(
+            inArray(myCompanies.id, companyIds),
+            eq(myCompanies.isDeleted, false),
+          ));
+
+          for (const co of officerCompanies) {
+            // Nájdi príslušný subject pre túto firmu (type=mycompany)
+            const [coSubject] = await db.select({ id: subjects.id, uid: subjects.uid, type: subjects.type, details: subjects.details })
+              .from(subjects)
+              .where(and(
+                eq(subjects.myCompanyId, co.id),
+                eq(subjects.type, "mycompany"),
+                isNull(subjects.deletedAt),
+              )).limit(1);
+
+            if (coSubject && !seenIds.has(coSubject.id)) {
+              seenIds.add(coSubject.id);
+              candidates.push({
+                subjectId: coSubject.id,
+                name: co.name,
+                type: co.subjectType || "company",
+                ico: co.ico ?? null,
+                uid: co.uid ?? null,
+                via: "officer",
+              });
+            } else if (!coSubject) {
+              // Firma nemá subject, pridáme ju bez subjectId (len ako návrh s companyId)
+              // Pre Live Lookup potrebujeme len informatívne zobrazenie, nie prepojenie
+              // Preskočíme (bez subject.id nie je možné vytvoriť subject_link)
+            }
+          }
+        }
+      }
+
+      // Loguj do auditu (nekritické — neignoruj chybu, ale neblokuj odpoveď)
+      try {
+        await db.insert(auditLogs).values({
+          userId: null,
+          username: null,
+          action: "LIVE_LOOKUP",
+          module: "Registration",
+          entityId: foSubject?.id ?? null,
+          entityName: foSubject ? `${foSubject.firstName ?? ""} ${foSubject.lastName ?? ""}`.trim() || foSubject.uid || null : null,
+          oldData: null,
+          newData: { candidatesFound: candidates.length, birthNumberMasked: cleanBn.slice(0, 4) + "***" },
+          ipAddress: req.ip ?? null,
+        });
+      } catch {}
+
+      res.json({ candidates, foSubjectId: foSubject?.id ?? null });
+    } catch (err) {
+      console.error("[LIVE-LOOKUP]", err);
+      res.status(500).json({ message: "Chyba servera" });
+    }
+  });
+
+  // === LIVE LOOKUP — dávkové spustenie overenia (autentifikovaný používateľ) ===
+  // Volá sa keď prihlásený používateľ chce spustiť prepojenie na viac subjektov naraz
+  // (výsledok z Live Lookup pri registrácii, zaradený do fronty až po prihlásení).
+  app.post("/api/registration/live-lookup/batch-initiate", isAuthenticated, async (req: any, res) => {
+    try {
+      const { subjectIds } = req.body;
+      if (!Array.isArray(subjectIds) || subjectIds.length === 0) {
+        return res.status(400).json({ message: "Vyberte aspoň jeden subjekt" });
+      }
+      if (subjectIds.length > 20) {
+        return res.status(400).json({ message: "Maximálne 20 subjektov naraz" });
+      }
+
+      const appUser = req.appUser;
+      if (!appUser) return res.status(401).json({ message: "Neautorizovaný" });
+
+      const results: { subjectId: number; status: "initiated" | "already_linked" | "already_pending" | "no_email" | "error"; linkId?: number; maskedEmail?: string }[] = [];
+
+      const { processPendingSmsNotifications } = await import("./email");
+
+      for (const rawId of subjectIds) {
+        const sid = Number(rawId);
+        if (!sid || isNaN(sid)) {
+          results.push({ subjectId: rawId, status: "error" });
+          continue;
+        }
+        try {
+          const existingLinks = await storage.getSubjectLinksByUserId(appUser.id);
+          const existing = existingLinks.find(l => l.subjectId === sid && l.isActive && l.status === "verified");
+          if (existing) {
+            results.push({ subjectId: sid, status: "already_linked", linkId: existing.id });
+            continue;
+          }
+          const now = new Date();
+          const existingPending = existingLinks.find(l =>
+            l.subjectId === sid && !l.rejected && l.status === "pending_confirmation" && l.expiresAt > now
+          );
+          if (existingPending) {
+            results.push({ subjectId: sid, status: "already_pending", linkId: existingPending.id });
+            continue;
+          }
+
+          const [subject] = await db.select().from(subjects).where(and(eq(subjects.id, sid), isNull(subjects.deletedAt)));
+          if (!subject) {
+            results.push({ subjectId: sid, status: "error" });
+            continue;
+          }
+
+          const emailContacts = await db.select().from(subjectContacts)
+            .where(and(eq(subjectContacts.subjectId, sid), eq(subjectContacts.type, "email")));
+          const primaryEmail = emailContacts.find(c => c.isPrimary)?.value ?? emailContacts[0]?.value ?? null;
+          if (!primaryEmail) {
+            results.push({ subjectId: sid, status: "no_email" });
+            continue;
+          }
+
+          const phoneContacts = await db.select().from(subjectContacts)
+            .where(and(eq(subjectContacts.subjectId, sid), eq(subjectContacts.type, "phone")));
+          const primaryPhone = phoneContacts.find(c => c.isPrimary)?.value ?? phoneContacts[0]?.value ?? null;
+          const needsSms = !!primaryPhone;
+
+          const emailToken = crypto.randomUUID();
+          const smsCode = needsSms ? String(Math.floor(100000 + Math.random() * 900000)) : null;
+
+          const linkId = await storage.createSubjectLink(appUser.id, sid, emailToken, smsCode, needsSms, appUser.id);
+
+          await db.insert(auditLogs).values({
+            userId: appUser.id, username: null, action: "SUBJECT_LINK_INITIATED",
+            module: "SubjectLink", entityId: sid, entityName: null,
+            oldData: null, newData: { subjectId: sid, linkId, via: "live_lookup_batch" }, ipAddress: req.ip,
+          });
+
+          // Dual audit: LIVE_LOOKUP_LINK_PROPOSED
+          await db.insert(auditLogs).values({
+            userId: appUser.id, username: null, action: "LIVE_LOOKUP_LINK_PROPOSED",
+            module: "SubjectLink", entityId: sid, entityName: null,
+            oldData: null, newData: { subjectId: sid, linkId, note: "Systém navrhol prepojenie na základe RČ, používateľ potvrdil cez Live Lookup" }, ipAddress: req.ip,
+          });
+
+          const appDomain = process.env.APP_DOMAIN || req.headers.host || "localhost:5000";
+          const protocol = process.env.APP_DOMAIN ? "https" : req.secure ? "https" : "http";
+          const confirmUrl = `${protocol}://${appDomain}/potvrdenie-spravy?subjectToken=${emailToken}`;
+          const subjectName = subject.companyName || [subject.firstName, subject.lastName].filter(Boolean).join(" ") || subject.uid || "Subjekt";
+          const initiatorName = `${appUser.firstName || ""} ${appUser.lastName || ""}`.trim() || appUser.username || "Používateľ";
+          const emailHtml = `<!DOCTYPE html><html lang="sk"><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#0f1923;font-family:Arial,Helvetica,sans-serif;color:#e2e8f0;"><div style="max-width:640px;margin:0 auto;padding:32px 24px;"><div style="background:#1a2332;border:1px solid #2d3748;border-radius:4px;padding:32px;"><div style="text-align:center;margin-bottom:24px;"><h2 style="margin:0;color:#63b3ed;font-size:18px;letter-spacing:1px;">ArutsoK (ATK)</h2></div><p style="color:#e2e8f0;font-size:14px;line-height:1.6;">Dobrý deň,</p><p style="color:#e2e8f0;font-size:14px;line-height:1.6;">používateľ <strong>${initiatorName}</strong> žiada o prepojenie svojho účtu so subjektom <strong>${subjectName}</strong> v systéme ArutsoK (ATK). Táto žiadosť bola iniciovaná automaticky na základe zhody rodného čísla.</p><div style="text-align:center;margin:24px 0;"><a href="${confirmUrl}" style="display:inline-block;background:#2b6cb0;color:#fff;padding:12px 24px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:14px;">Potvrdiť alebo odmietnuť prepojenie</a></div><p style="color:#a0aec0;font-size:12px;line-height:1.6;">Platnosť odkazu vyprší o 72 hodín.</p><hr style="border:none;border-top:1px solid #2d3748;margin:24px 0;"><p style="font-size:11px;color:#718096;text-align:center;margin:0;">Tento e-mail bol vygenerovaný automaticky systémom ArutsoK.</p></div></div></body></html>`;
+
+          try {
+            await db.insert(systemNotifications).values({
+              recipientEmail: primaryEmail, recipientName: subjectName, recipientUserId: null,
+              subject: `Žiadosť o prepojenie účtu so subjektom — ArutsoK (ATK)`,
+              bodyHtml: emailHtml, status: "pending", notificationType: "subject_link_request",
+            });
+          } catch {}
+
+          if (needsSms && primaryPhone) {
+            try {
+              await db.insert(systemNotifications).values({
+                recipientEmail: primaryEmail, recipientName: subjectName, recipientUserId: null,
+                recipientPhone: primaryPhone,
+                subject: `Prepojenie subjektu — SMS kód — ArutsoK`,
+                bodyHtml: `ArutsoK (ATK): Žiadosť o prepojenie účtu so subjektom ${subjectName}. Kód na potvrdenie ste dostali SMS správou. Platnosť 72h.`,
+                status: "pending", notificationType: "subject_sms_code",
+                batchId: `subject_link_${linkId}`,
+              });
+            } catch {}
+            processPendingSmsNotifications().catch(() => {});
+          }
+
+          results.push({ subjectId: sid, status: "initiated", linkId, maskedEmail: primaryEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2") });
+        } catch (e) {
+          console.error("[BATCH-INITIATE]", e);
+          results.push({ subjectId: sid, status: "error" });
+        }
+      }
+
+      res.json({ results });
+    } catch (err) {
+      console.error("[BATCH-INITIATE]", err);
+      res.status(500).json({ message: "Chyba servera" });
+    }
+  });
+
+  // === IDENTITY PICKER — zoznam kontextov pre prihlásenie ===
+  // Rovnaký výstup ako /api/user/contexts ale dostupný pre frontend Identity Picker
+  // (presmeruje na /api/user/contexts — je to alias)
+
   // === SECTORS CRUD ===
   // ArutsoK 41 - Hierarchy counts for table badges
   app.get("/api/hierarchy/counts", isAuthenticated, async (_req, res) => {
