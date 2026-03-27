@@ -1591,6 +1591,9 @@ export async function setupAuth(app: Express) {
               bodyHtml: smsText,
               status: "pending",
               notificationType: "guardian_sms_code",
+              // batchId binds this notification to the exact guardian token
+              // so processPendingSmsNotifications can look up the right SMS code
+              batchId: `guardian_token_${tokenId}`,
             });
           } catch (smsErr) {
             console.error("[GUARDIAN-LINK] Failed to queue SMS notification:", smsErr);
@@ -2377,7 +2380,7 @@ export async function setupAuth(app: Express) {
     legacyHeaders: false,
   });
 
-  // GET /api/account-link/guardian-confirm — validates token + auto-confirms email (does NOT complete link)
+  // GET /api/account-link/guardian-confirm — validates token, confirms email, activates email-only links
   app.get("/api/account-link/guardian-confirm", async (req, res) => {
     try {
       const { token } = req.query;
@@ -2391,25 +2394,30 @@ export async function setupAuth(app: Express) {
       const guardianName = guardianUser ? `${guardianUser.firstName || ""} ${guardianUser.lastName || ""}`.trim() || guardianUser.email || "Neznámy" : "Neznámy";
       const guardianEmail = guardianUser?.email || "";
       const targetName = targetUser ? `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() || "Neznámy" : "Neznámy";
-      // Auto-confirm email (link click = email ownership verified), but do NOT complete the link yet.
-      // Target user must explicitly activate or reject on the next screen.
+      // Email click = email channel confirmed
       if (!gct.emailConfirmed) {
         await storage.confirmGuardianEmail(gct.id);
       }
-      // Determine status: check actual link completion, not just token fields
+      // Determine status from actual link state (idempotent)
       const link = await storage.getAccountLinkById(gct.linkId);
-      let status: "pending_activation" | "sms_required" | "confirmed";
+      let status: "sms_required" | "confirmed";
       if (link?.status === "verified") {
-        // Link already fully completed
         status = "confirmed";
       } else if (gct.needsSms) {
+        // SMS path: email confirmed, waiting for SMS code
         status = "sms_required";
       } else {
-        // Email confirmed, awaiting explicit target activation
-        status = "pending_activation";
+        // Email-only path: link click = full confirmation, activate immediately
+        await storage.completeGuardianLink(gct.linkId, "email");
+        await db.insert(auditLogs).values({
+          userId: gct.targetUserId, username: null, action: "GUARDIAN_LINK_CONFIRMED",
+          module: "AccountLink", entityId: gct.guardianUserId, entityName: null,
+          oldData: null, newData: { linkId: gct.linkId, via: "email" }, ipAddress: null,
+        });
+        status = "confirmed";
       }
       return res.json({
-        tokenId: gct.id, guardianName,
+        tokenId: gct.id, token, guardianName,
         guardianEmail: guardianEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2"),
         targetName, needsSms: gct.needsSms,
         emailConfirmed: true,
@@ -2419,33 +2427,6 @@ export async function setupAuth(app: Express) {
       });
     } catch (err) {
       console.error("[GUARDIAN-CONFIRM ALIAS GET]", err);
-      res.status(500).json({ message: "Interná chyba" });
-    }
-  });
-
-  // POST /api/account-link/guardian-activate — explicit target activation (email-only path)
-  app.post("/api/account-link/guardian-activate", async (req, res) => {
-    try {
-      const { token } = req.body;
-      if (!token) return res.status(400).json({ message: "Chýba token" });
-      const gct = await storage.getGuardianToken(token);
-      if (!gct) return res.status(404).json({ message: "Token neexistuje" });
-      if (gct.rejected) return res.status(410).json({ message: "Žiadosť bola odmietnutá" });
-      if (new Date() > gct.expiresAt) return res.status(410).json({ message: "Platnosť tokenu vypršala" });
-      if (!gct.emailConfirmed) return res.status(400).json({ message: "Email nebol potvrdený" });
-      if (gct.needsSms) return res.status(400).json({ message: "SMS overenie je povinné pre tento token" });
-      // Idempotent: if already confirmed, succeed silently
-      const link = await storage.getAccountLinkById(gct.linkId);
-      if (link?.status === "verified") return res.json({ status: "confirmed" });
-      await storage.completeGuardianLink(gct.linkId, "email");
-      await db.insert(auditLogs).values({
-        userId: gct.targetUserId, username: null, action: "GUARDIAN_LINK_CONFIRMED",
-        module: "AccountLink", entityId: gct.guardianUserId, entityName: null,
-        oldData: null, newData: { linkId: gct.linkId, via: "email_explicit" }, ipAddress: null,
-      });
-      return res.json({ status: "confirmed" });
-    } catch (err) {
-      console.error("[GUARDIAN-ACTIVATE]", err);
       res.status(500).json({ message: "Interná chyba" });
     }
   });
@@ -2473,6 +2454,7 @@ export async function setupAuth(app: Express) {
   });
 
   // POST /api/account-link/guardian-reject — accepts token in body OR query param
+  // Also handles post-activation revocation (when link is already verified)
   app.post("/api/account-link/guardian-reject", async (req, res) => {
     try {
       const token = req.body?.token || (req.query?.token as string | undefined);
@@ -2480,7 +2462,13 @@ export async function setupAuth(app: Express) {
       const gct = await storage.getGuardianToken(token);
       if (!gct) return res.status(404).json({ message: "Token neexistuje" });
       if (gct.rejected) return res.json({ status: "already_rejected" });
+      // Mark token as rejected
       await storage.rejectGuardianLink(gct.id);
+      // If link was already verified (activated), also revoke the account link
+      const link = await storage.getAccountLinkById(gct.linkId);
+      if (link?.status === "verified") {
+        await storage.revokeAccountLinkById(gct.linkId, gct.targetUserId, "rejected_by_target");
+      }
       await db.insert(auditLogs).values({ userId: gct.targetUserId, username: null, action: "GUARDIAN_LINK_REJECTED", module: "AccountLink", entityId: gct.guardianUserId, entityName: null, oldData: null, newData: { linkId: gct.linkId }, ipAddress: null });
       return res.json({ status: "rejected" });
     } catch (err) {

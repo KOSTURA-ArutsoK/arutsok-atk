@@ -113,14 +113,34 @@ export async function processPendingSmsNotifications(): Promise<number> {
       continue;
     }
 
-    const [token] = await db.select({ smsCode: guardianConfirmationTokens.smsCode })
-      .from(guardianConfirmationTokens)
-      .where(and(
-        eq(guardianConfirmationTokens.targetUserId, notification.recipientUserId),
-        eq(guardianConfirmationTokens.rejected, false)
-      ))
-      .orderBy(desc(guardianConfirmationTokens.id))
-      .limit(1);
+    // Resolve SMS code via batchId binding (guardian_token_{tokenId}) for exact match,
+    // falling back to latest-pending for legacy notifications without batchId
+    let tokenRecord: { smsCode: string } | undefined;
+    const boundTokenId = notification.batchId?.startsWith("guardian_token_")
+      ? parseInt(notification.batchId.replace("guardian_token_", ""), 10)
+      : null;
+    if (boundTokenId && !isNaN(boundTokenId)) {
+      const [byId] = await db.select({ smsCode: guardianConfirmationTokens.smsCode })
+        .from(guardianConfirmationTokens)
+        .where(and(
+          eq(guardianConfirmationTokens.id, boundTokenId),
+          eq(guardianConfirmationTokens.rejected, false)
+        ))
+        .limit(1);
+      tokenRecord = byId;
+    } else {
+      // Legacy fallback: latest non-rejected token for this target user
+      const [byUser] = await db.select({ smsCode: guardianConfirmationTokens.smsCode })
+        .from(guardianConfirmationTokens)
+        .where(and(
+          eq(guardianConfirmationTokens.targetUserId, notification.recipientUserId),
+          eq(guardianConfirmationTokens.rejected, false)
+        ))
+        .orderBy(desc(guardianConfirmationTokens.id))
+        .limit(1);
+      tokenRecord = byUser;
+    }
+    const token = tokenRecord;
 
     if (!token?.smsCode) {
       await db.update(systemNotifications)
