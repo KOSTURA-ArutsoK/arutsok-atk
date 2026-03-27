@@ -1297,7 +1297,9 @@ export async function setupAuth(app: Express) {
     const userId = (req.session as any).userId;
     if (userId) {
       try {
-        const reason: string = req.body?.reason || "manual";
+        const ALLOWED_REASONS = ["manual", "idle", "switch"] as const;
+        const rawReason = req.body?.reason;
+        const reason: string = ALLOWED_REASONS.includes(rawReason) ? rawReason : "manual";
         const [lastEntry] = await db
           .select({ id: appUserLoginHistory.id })
           .from(appUserLoginHistory)
