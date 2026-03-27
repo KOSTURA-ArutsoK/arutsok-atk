@@ -23,6 +23,7 @@ interface SubjectLinkInfo {
   linkId: number;
   subjectToken: string;
   subjectName: string;
+  subjectType: string | null;
   initiatorName: string;
   needsSms: boolean;
   emailConfirmed: boolean;
@@ -39,6 +40,15 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
     throw new Error(msg);
   }
   return res.json() as Promise<T>;
+}
+
+function subjectTypeLabel(type: string | null | undefined): string {
+  if (!type) return "";
+  const map: Record<string, string> = {
+    person: "Fyzická osoba", szco: "SZČO", company: "Spoločnosť",
+    organization: "Organizácia", state: "Štátny subjekt", os: "Občianske združenie",
+  };
+  return map[type] ?? type;
 }
 
 // ── Subject Link Confirmation ─────────────────────────────────────────────────
@@ -133,6 +143,7 @@ function SubjectConfirmPage() {
                   <h2 className="text-base font-semibold text-foreground">Overenie SMS kódom</h2>
                   <p className="text-sm text-muted-foreground mt-1">
                     Žiadosť o prepojenie účtu so subjektom <strong>{info.subjectName}</strong>
+                    {info.subjectType ? ` (${subjectTypeLabel(info.subjectType)})` : ""}
                     {info.initiatorName ? ` od používateľa ${info.initiatorName}` : ""}. Zadajte SMS kód zaslaný na kontaktné číslo subjektu.
                   </p>
                 </div>
@@ -190,7 +201,8 @@ function SubjectConfirmPage() {
               <div className="space-y-2 w-full">
                 <h2 className="text-base font-semibold text-foreground" data-testid="text-subject-done">Prepojenie potvrdené</h2>
                 <p className="text-sm text-muted-foreground">
-                  Účet bol úspešne prepojený so subjektom <strong>{info.subjectName}</strong>.
+                  Účet bol úspešne prepojený so subjektom <strong>{info.subjectName}</strong>
+                  {info.subjectType ? ` (${subjectTypeLabel(info.subjectType)})` : ""}.
                 </p>
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground text-left mt-2">
                   <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />

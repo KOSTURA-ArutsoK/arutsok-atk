@@ -103,20 +103,21 @@ const financieBaseItems = [
   { href: "/commissions", icon: Percent, label: "Sadzby" },
   { href: "/holding-strom", icon: Network, label: "Holding strom" },
 ];
-const financieAdminItems = [
-  { href: "/admin/prepojenia-subjektov", icon: Link2, label: "Prepojenia subjektov" },
-];
+const financieAdminItems: { href: string; icon: React.ElementType; label: string }[] = [];
 
 const reportyItems = [
   { href: "/reporty-odosielanie", icon: Mail, label: "Odosielanie" },
   { href: "/reporty-nbs", icon: FileBarChart, label: "Reporty pre NBS", badge: "Špecial" },
 ];
 
-const informacieItems = [
+const informacieBaseItems = [
   { href: "/novinky", icon: Newspaper, label: "Novinky" },
   { href: "/dokumenty-na-stiahnutie", icon: FileDown, label: "Dokumenty na stiahnutie" },
   { href: "/externe-pristupy", icon: ExternalLink, label: "Externe pristupy" },
   { href: "/kalendar", icon: Calendar, label: "Kalendar" },
+];
+const informacieAdminItems = [
+  { href: "/admin/prepojenia-subjektov", icon: Link2, label: "Prepojenia v systéme" },
 ];
 
 const partneriProduktyItems = [
@@ -427,6 +428,7 @@ export function AppSidebar() {
 
   const isAdminUser = checkIsAdmin(appUser);
   const financieItems = isAdminUser ? [...financieBaseItems, ...financieAdminItems] : financieBaseItems;
+  const informacieItems = isAdminUser ? [...informacieBaseItems, ...informacieAdminItems] : informacieBaseItems;
 
   const allMenus = [
     { id: "nastavenia", items: [...spravaPristupovItems, ...specifikacieItems, ...nastavenieSystemuItems, ...nastavenieDirectItems] },

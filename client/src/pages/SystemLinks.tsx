@@ -63,6 +63,9 @@ function categoryBadge(cat: LinkCategory) {
 export default function SystemLinks() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<LinkCategory | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "pending" | "revoked">("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const { toast } = useToast();
 
   const { data, isLoading, error } = useQuery<LinkRow[]>({
@@ -70,8 +73,11 @@ export default function SystemLinks() {
   });
 
   const revokeMutation = useMutation({
-    mutationFn: async (linkId: number) => {
-      return apiRequest("POST", `/api/subject-link/${linkId}/revoke`, { reason: "Admin revoke" });
+    mutationFn: async ({ linkId, category }: { linkId: number; category: LinkCategory }) => {
+      const endpoint = category === "subject"
+        ? `/api/subject-link/${linkId}/revoke`
+        : `/api/account-link/${linkId}/revoke`;
+      return apiRequest("POST", endpoint, { reason: "Admin revoke" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/all-links"] });
@@ -84,6 +90,18 @@ export default function SystemLinks() {
 
   const filtered = (data ?? []).filter((row) => {
     if (categoryFilter !== "all" && row.linkCategory !== categoryFilter) return false;
+    if (statusFilter === "active" && !(row.isActive && (row.status === "verified" || row.status === "active"))) return false;
+    if (statusFilter === "pending" && !(row.status === "pending_confirmation" || row.status === "pending_target" || row.status === "pending")) return false;
+    if (statusFilter === "revoked" && row.status !== "revoked") return false;
+    if (dateFrom) {
+      const from = new Date(dateFrom);
+      if (!row.createdAt || new Date(row.createdAt) < from) return false;
+    }
+    if (dateTo) {
+      const to = new Date(dateTo);
+      to.setDate(to.getDate() + 1);
+      if (!row.createdAt || new Date(row.createdAt) > to) return false;
+    }
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -131,14 +149,44 @@ export default function SystemLinks() {
         ))}
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Hľadať podľa mena, emailu, subjektu..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+            data-testid="input-system-links-search"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+          className="h-9 px-3 rounded-md border border-border bg-background text-sm text-foreground"
+          data-testid="select-status-filter"
+        >
+          <option value="all">Všetky stavy</option>
+          <option value="active">Aktívne</option>
+          <option value="pending">Čakajúce</option>
+          <option value="revoked">Zrušené</option>
+        </select>
         <Input
-          placeholder="Hľadať podľa mena, emailu, subjektu..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-          data-testid="input-system-links-search"
+          type="date"
+          value={dateFrom}
+          onChange={(e) => setDateFrom(e.target.value)}
+          className="h-9 w-36 text-sm"
+          data-testid="input-date-from"
+          title="Od dátumu"
+        />
+        <span className="text-muted-foreground text-sm">–</span>
+        <Input
+          type="date"
+          value={dateTo}
+          onChange={(e) => setDateTo(e.target.value)}
+          className="h-9 w-36 text-sm"
+          data-testid="input-date-to"
+          title="Do dátumu"
         />
       </div>
 
@@ -212,14 +260,14 @@ export default function SystemLinks() {
                       {row.revokedAt && <div className="text-destructive">Zrušené: {formatDateTimeSlovak(new Date(row.revokedAt))}</div>}
                     </td>
                     <td className="px-4 py-3">
-                      {row.isActive && row.linkCategory === "subject" && (
+                      {row.isActive && (
                         <Button
                           variant="ghost"
                           size="sm"
                           className="text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
                           data-testid={`button-revoke-${row.rowId}`}
                           disabled={revokeMutation.isPending}
-                          onClick={() => revokeMutation.mutate(row.linkId)}
+                          onClick={() => revokeMutation.mutate({ linkId: row.linkId, category: row.linkCategory })}
                         >
                           Zrušiť
                         </Button>

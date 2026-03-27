@@ -2638,7 +2638,7 @@ export async function setupAuth(app: Express) {
         status = "confirmed";
       }
       return res.json({
-        linkId: sl.id, subjectToken, subjectName, initiatorName,
+        linkId: sl.id, subjectToken, subjectName, subjectType: subject?.type ?? null, initiatorName,
         needsSms: sl.needsSms, emailConfirmed: true, smsConfirmed: sl.smsConfirmed,
         expiresAt: sl.expiresAt, status,
       });
@@ -2752,14 +2752,48 @@ export async function setupAuth(app: Express) {
     }
   });
 
+  // POST /api/account-link/:id/revoke — admin revoke for guardian/same-person links
+  app.post("/api/account-link/:id/revoke", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const linkId = Number(req.params.id);
+      if (!linkId) return res.status(400).json({ message: "Neplatné ID" });
+      const [currentUser] = await db.select({ id: appUsers.id, isAdmin: appUsers.isAdmin, role: appUsers.role }).from(appUsers).where(eq(appUsers.id, req.session.userId)).limit(1);
+      const isAdminUser = currentUser?.isAdmin || ["admin", "superadmin", "prezident", "architekt"].includes(currentUser?.role ?? "");
+      const [al] = await db.select().from(accountLinks).where(eq(accountLinks.id, linkId)).limit(1);
+      if (!al) return res.status(404).json({ message: "Prepojenie nenájdené" });
+      const isOwner = al.primaryUserId === req.session.userId || al.linkedUserId === req.session.userId;
+      if (!isOwner && !isAdminUser) {
+        return res.status(403).json({ message: "Nie ste oprávnený zrušiť toto prepojenie" });
+      }
+      const { reason } = req.body;
+      const now = new Date();
+      await db.update(accountLinks)
+        .set({ isActive: false, status: "revoked", revokedAt: now, revokedBy: req.session.userId, revokedReason: reason ?? null })
+        .where(eq(accountLinks.id, linkId));
+      await db.insert(auditLogs).values({
+        userId: getAuditActorId(req), username: null, action: "ACCOUNT_LINK_REVOKED",
+        module: "AccountLink", entityId: al.id, entityName: null,
+        oldData: null, newData: { linkId, linkType: al.linkType, reason: reason ?? null }, ipAddress: req.ip,
+      });
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("[ACCOUNT-LINK REVOKE]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
   // GET /api/admin/all-links — admin: unified view of all link types in system
   app.get("/api/admin/all-links", async (req, res) => {
     try {
       if (!req.session.userId || req.session.loginStep !== "done") {
         return res.status(401).json({ message: "Neautorizovaný prístup" });
       }
-      const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
-      if (!currentUser?.isAdmin) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const [currentUser] = await db.select({ isAdmin: appUsers.isAdmin, role: appUsers.role }).from(appUsers).where(eq(appUsers.id, req.session.userId));
+      const isAdminUser = currentUser?.isAdmin || ["admin", "superadmin", "prezident", "architekt"].includes(currentUser?.role ?? "");
+      if (!isAdminUser) return res.status(403).json({ message: "Prístup zamietnutý" });
 
       // Fetch subject links (user ↔ subject)
       const allSubjectLinks = await db.select().from(subjectLinks).orderBy(desc(subjectLinks.createdAt)).limit(500);
@@ -2818,8 +2852,9 @@ export async function setupAuth(app: Express) {
       if (!req.session.userId || req.session.loginStep !== "done") {
         return res.status(401).json({ message: "Neautorizovaný prístup" });
       }
-      const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
-      if (!currentUser?.isAdmin) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const [currentUser] = await db.select({ isAdmin: appUsers.isAdmin, role: appUsers.role }).from(appUsers).where(eq(appUsers.id, req.session.userId));
+      const isAdminUserB = currentUser?.isAdmin || ["admin", "superadmin", "prezident", "architekt"].includes(currentUser?.role ?? "");
+      if (!isAdminUserB) return res.status(403).json({ message: "Prístup zamietnutý" });
       const allLinks = await db.select().from(subjectLinks).orderBy(desc(subjectLinks.createdAt)).limit(500);
       const enriched = await Promise.all(allLinks.map(async (sl) => {
         const [subject] = await db.select({
@@ -2884,9 +2919,9 @@ export async function writeAuditLog(
     newData?: unknown;
   }
 ): Promise<void> {
-  await db.insert(auditLogs).values({
-    userId: getAuditActorId(req),
-    username: null,
+  const actorId = getAuditActorId(req);
+  const baseEntry = {
+    username: null as null,
     action: params.action,
     module: params.module,
     entityId: params.entityId ?? null,
@@ -2894,7 +2929,31 @@ export async function writeAuditLog(
     oldData: params.oldData ?? null,
     newData: params.newData ?? null,
     ipAddress: req.ip ?? null,
-  });
+  };
+  // Write user-side audit entry
+  await db.insert(auditLogs).values({ ...baseEntry, userId: actorId });
+
+  // Dual audit: if user is currently acting in a subject context, write a second entry
+  // attributed to the subject (as a proxy record) so subject-side history is maintained.
+  const currentUserId = req.session.userId;
+  if (currentUserId) {
+    const [userRow] = await db
+      .select({ activeSubjectId: appUsers.activeSubjectId })
+      .from(appUsers)
+      .where(eq(appUsers.id, currentUserId))
+      .limit(1);
+    if (userRow?.activeSubjectId) {
+      await db.insert(auditLogs).values({
+        ...baseEntry,
+        userId: actorId,
+        action: params.action + "_SUBJECT_CONTEXT",
+        newData: {
+          ...(typeof params.newData === "object" && params.newData !== null ? params.newData : { value: params.newData }),
+          _subjectContext: { activeSubjectId: userRow.activeSubjectId, actingUserId: actorId },
+        },
+      });
+    }
+  }
 }
 
 export const isAuthenticated: RequestHandler = (req, res, next) => {
