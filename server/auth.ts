@@ -1297,6 +1297,7 @@ export async function setupAuth(app: Express) {
     const userId = (req.session as any).userId;
     if (userId) {
       try {
+        const reason: string = req.body?.reason || "manual";
         const [lastEntry] = await db
           .select({ id: appUserLoginHistory.id })
           .from(appUserLoginHistory)
@@ -1305,7 +1306,7 @@ export async function setupAuth(app: Express) {
           .limit(1);
         if (lastEntry) {
           await db.update(appUserLoginHistory)
-            .set({ logoutAt: new Date() })
+            .set({ logoutAt: new Date(), logoutReason: reason })
             .where(eq(appUserLoginHistory.id, lastEntry.id));
         }
       } catch (e) {

@@ -1143,7 +1143,7 @@ export async function registerRoutes(
         .from(appUserLoginHistory)
         .where(eq(appUserLoginHistory.appUserId, appUser.id))
         .orderBy(desc(appUserLoginHistory.loginAt))
-        .limit(100);
+        .limit(200);
       res.json(history);
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
@@ -1231,9 +1231,9 @@ export async function registerRoutes(
       const identityChanged = newSubjectId !== oldSubjectId;
       if (identityChanged) {
         const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
-        // Close the currently open session row
+        // Close the currently open session row with reason "switch"
         await db.update(appUserLoginHistory)
-          .set({ logoutAt: new Date() })
+          .set({ logoutAt: new Date(), logoutReason: "switch" })
           .where(and(eq(appUserLoginHistory.appUserId, appUser.id), isNull(appUserLoginHistory.logoutAt)));
         // Resolve context label for the new identity using shared resolver
         const { contextType: newContextType, contextLabel: newContextLabel } = await resolveContextLabel({

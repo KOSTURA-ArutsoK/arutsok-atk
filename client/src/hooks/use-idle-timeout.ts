@@ -112,7 +112,12 @@ export function useIdleTimeout(totalTimeoutSec: number = DEFAULT_TIMEOUT_SEC) {
         showWarningRef.current = false;
         setShowWarning(false);
         sessionStorage.setItem("idle_logout_message", "Boli ste odhlaseny z dovodu necinnosti");
-        fetch("/api/logout", { method: "POST", credentials: "include" }).finally(() => {
+        fetch("/api/logout", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: "idle" }),
+        }).finally(() => {
           window.location.href = "/";
         });
       }

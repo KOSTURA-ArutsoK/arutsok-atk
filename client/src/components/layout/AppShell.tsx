@@ -9,10 +9,11 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, UserCheck, Plus, Briefcase, User, Landmark, Heart, Grid3X3 } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, UserCheck, Plus, Briefcase, User, Landmark, Heart, Grid3X3, History } from "lucide-react";
 import { AccountLinkModal } from "@/components/account-link-modal";
 import { apiRequest } from "@/lib/queryClient";
-import { isAdmin as checkIsAdmin } from "@/lib/utils";
+import { isAdmin as checkIsAdmin, formatDateTimeSlovak } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -32,6 +33,38 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const SIDEBAR_STORAGE_KEY = "arutsok-sidebar-open";
+
+type LoginHistoryRow = {
+  id: number;
+  appUserId: number;
+  loginAt: string;
+  logoutAt: string | null;
+  ipAddress: string | null;
+  contextType: string | null;
+  contextLabel: string | null;
+  logoutReason: string | null;
+};
+
+function formatDuration(loginAt: string, logoutAt: string | null): string {
+  if (!logoutAt) return "aktívna";
+  const diffMs = new Date(logoutAt).getTime() - new Date(loginAt).getTime();
+  if (diffMs < 0) return "–";
+  const totalSec = Math.floor(diffMs / 1000);
+  if (totalSec < 60) return "< 1 min";
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  if (h > 0) return `${h} h ${m > 0 ? `${m} min` : ""}`.trim();
+  return `${m} min`;
+}
+
+function formatLogoutReason(reason: string | null): string {
+  switch (reason) {
+    case "switch": return "Prepnutie identity";
+    case "manual": return "Odhlásenie";
+    case "idle": return "Automatické (nečinnosť)";
+    default: return "–";
+  }
+}
 
 function subjectTypeLabelShort(type: string | null | undefined): string {
   switch (type) {
@@ -84,11 +117,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [companyDivisions, setCompanyDivisions] = useState<any[]>([]);
   const contextInitRef = useRef(false);
   const [accountLinkModalOpen, setAccountLinkModalOpen] = useState(false);
+  const [loginHistoryOpen, setLoginHistoryOpen] = useState(false);
 
   const { data: userContexts } = useQuery<any[]>({
     queryKey: ["/api/user/contexts"],
     enabled: !!user,
     staleTime: 30000,
+  });
+
+  const { data: loginHistory, isLoading: loginHistoryLoading } = useQuery<LoginHistoryRow[]>({
+    queryKey: ["/api/app-user/login-history"],
+    enabled: loginHistoryOpen && !!user,
+    staleTime: 0,
   });
 
   const isClientUser = useMemo(() => {
@@ -910,6 +950,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setLoginHistoryOpen(true)}
+                  data-testid="button-login-history"
+                  className="mx-1 rounded"
+                >
+                  <History className="w-4 h-4 mr-2" />
+                  Archív prihlásení
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => logout()} data-testid="button-logout" className="mx-1 rounded mb-1">
                   <LogOut className="w-4 h-4 mr-2" />
                   Odhlásiť sa
@@ -970,6 +1020,79 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onClose={() => setAccountLinkModalOpen(false)}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/account-link/list"] })}
       />
+
+      <Dialog open={loginHistoryOpen} onOpenChange={setLoginHistoryOpen}>
+        <DialogContent aria-describedby={undefined} className="max-w-5xl w-full h-[95vh] max-h-[95vh] flex flex-col p-0 gap-0 overflow-hidden" data-testid="dialog-login-history">
+          <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-base font-semibold">
+              <History className="w-4 h-4" />
+              Archív prihlásení
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            {loginHistoryLoading ? (
+              <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">Načítavam...</div>
+            ) : !loginHistory || loginHistory.length === 0 ? (
+              <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">Žiadne záznamy</div>
+            ) : (
+              <table className="w-full text-sm border-collapse">
+                <thead className="sticky top-0 bg-background z-10 border-b">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide w-12">#</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Prihlásenie</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Odhlásenie</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Trvanie</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">IP adresa</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Kontext</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Dôvod ukončenia</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loginHistory.map((row, idx) => {
+                    const isActive = !row.logoutAt;
+                    return (
+                      <tr
+                        key={row.id}
+                        data-testid={`row-login-history-${row.id}`}
+                        className={`border-b transition-colors ${isActive ? "bg-emerald-50 dark:bg-emerald-950/20" : "hover:bg-muted/40"}`}
+                      >
+                        <td className="px-4 py-3 text-muted-foreground tabular-nums">{loginHistory.length - idx}</td>
+                        <td className="px-4 py-3 whitespace-nowrap tabular-nums font-mono text-xs">
+                          {formatDateTimeSlovak(new Date(row.loginAt))}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap tabular-nums font-mono text-xs">
+                          {row.logoutAt ? formatDateTimeSlovak(new Date(row.logoutAt)) : (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-medium font-sans">aktívna</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={isActive ? "text-emerald-600 dark:text-emerald-400 font-medium" : ""}>
+                            {formatDuration(row.loginAt, row.logoutAt)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                          {row.ipAddress || "–"}
+                        </td>
+                        <td className="px-4 py-3 max-w-[200px] truncate" title={row.contextLabel || undefined}>
+                          {row.contextLabel || <span className="text-muted-foreground">–</span>}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {isActive ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">–</span>
+                          ) : (
+                            <span className="text-muted-foreground">{formatLogoutReason(row.logoutReason)}</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {warningOverlay}
     </SidebarProvider>
   );
