@@ -3,9 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, CheckCircle, Link, Mail, MessageSquare, ArrowRight, RefreshCw, Loader2, UserCheck, Building2, Search } from "lucide-react";
+import { AlertTriangle, CheckCircle, Link, Mail, MessageSquare, ArrowRight, RefreshCw, Loader2, UserCheck, Building2, Search, ShieldCheck, Users, Clock, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 
-type ModalStep = "suggestions" | "form" | "otp" | "success";
+type ModalStep = "type_select" | "suggestions" | "form" | "otp" | "success" | "guardian_form" | "guardian_pending" | "guardian_manage";
 
 interface Suggestion {
   userId: number;
@@ -15,6 +17,23 @@ interface Suggestion {
   type: string | null;
   ico: string | null;
   uid: string | null;
+}
+
+interface GuardianPendingItem {
+  linkId: number;
+  targetName: string;
+  targetEmail: string;
+  status: string;
+  createdAt: string;
+  tokenExpired: boolean;
+}
+
+interface GuardianActiveItem {
+  linkId: number;
+  isGuardian: boolean;
+  otherName: string;
+  role: string;
+  confirmedAt: string | null;
 }
 
 interface AccountLinkModalProps {
@@ -72,7 +91,7 @@ async function apiGet<T>(url: string): Promise<T> {
 }
 
 export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalProps) {
-  const [step, setStep] = useState<ModalStep>("suggestions");
+  const [step, setStep] = useState<ModalStep>("type_select");
   const [prevStep, setPrevStep] = useState<"suggestions" | "form">("suggestions");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -88,12 +107,26 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
     targetName: string;
     isReactivation: boolean;
   } | null>(null);
+  const [guardianPendingResult, setGuardianPendingResult] = useState<{
+    targetName: string;
+    maskedTarget: string;
+    linkId: number;
+  } | null>(null);
+
+  const guardianPendingQuery = useQuery<GuardianPendingItem[]>({
+    queryKey: ["/api/account-link/guardian-pending"],
+    enabled: open && step === "guardian_manage",
+  });
+  const guardianActiveQuery = useQuery<GuardianActiveItem[]>({
+    queryKey: ["/api/account-link/guardian-list"],
+    enabled: open && step === "guardian_manage",
+  });
 
   useEffect(() => {
-    if (open && !suggestionsLoaded) {
+    if (open && !suggestionsLoaded && (step === "suggestions" || step === "form")) {
       loadSuggestions();
     }
-  }, [open]);
+  }, [open, step]);
 
   async function loadSuggestions() {
     setSuggestionsLoading(true);
@@ -109,13 +142,14 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
   }
 
   const resetForm = () => {
-    setStep("suggestions");
+    setStep("type_select");
     setPrevStep("suggestions");
     setTargetEmail("");
     setRc("");
     setOtp("");
     setError(null);
     setInitiateResult(null);
+    setGuardianPendingResult(null);
     setSuggestions([]);
     setSuggestionsLoaded(false);
   };
@@ -180,11 +214,112 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
     setStep("form");
   };
 
+  const handleGuardianInitiate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!targetEmail.trim()) { setError("Zadajte email cieľového účtu"); return; }
+    setError(null);
+    setLoading(true);
+    try {
+      const data = await apiPost<{ status: string; linkId: number; targetName: string; maskedTarget: string }>(
+        "/api/account-link/initiate",
+        { targetEmail: targetEmail.trim(), mode: "guardian" }
+      );
+      setGuardianPendingResult({ targetName: data.targetName || "", maskedTarget: data.maskedTarget || targetEmail.trim(), linkId: data.linkId });
+      setStep("guardian_pending");
+    } catch (err: any) {
+      setError(err?.message || "Chyba pri odosielaní žiadosti");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRevoke = async (linkId: number) => {
+    setError(null);
+    setLoading(true);
+    try {
+      await apiPost(`/api/account-link/${linkId}/revoke`, { reason: "Zrušené používateľom" });
+      queryClient.invalidateQueries({ queryKey: ["/api/account-link/guardian-pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/account-link/guardian-list"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/account-link/list"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/contexts"] });
+    } catch (err: any) {
+      setError(err?.message || "Chyba pri rušení prepojenia");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const emptyAndLoaded = suggestionsLoaded && !suggestionsLoading && suggestions.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
       <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+
+        {/* ── TYPE SELECT STEP ── */}
+        {step === "type_select" && (
+          <>
+            <DialogHeader>
+              <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-2">
+                <Link className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <DialogTitle>Správa prepojení</DialogTitle>
+              <DialogDescription>
+                Vyberte typ prepojenia alebo spravujte existujúce opatrovníctva.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3">
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition-colors text-left"
+                onClick={() => { setError(null); setStep("suggestions"); loadSuggestions(); }}
+                data-testid="button-type-same-person"
+              >
+                <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                  <UserCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Rovnaká osoba</p>
+                  <p className="text-xs text-muted-foreground">Prepojte viacero prihlasovacích účtov patriacich vám</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition-colors text-left"
+                onClick={() => { setError(null); setTargetEmail(""); setStep("guardian_form"); }}
+                data-testid="button-type-guardian"
+              >
+                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                  <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Opatrovníctvo (správca)</p>
+                  <p className="text-xs text-muted-foreground">Požiadajte o správu cudzieho účtu — vyžaduje súhlas cieľového používateľa</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 p-4 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition-colors text-left"
+                onClick={() => { setError(null); setStep("guardian_manage"); }}
+                data-testid="button-type-guardian-manage"
+              >
+                <div className="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0">
+                  <Users className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Moje opatrovníctva</p>
+                  <p className="text-xs text-muted-foreground">Prehľad čakajúcich a aktívnych opatrovníckych prepojení</p>
+                </div>
+              </button>
+            </div>
+
+            <Button variant="outline" className="w-full" onClick={handleClose} data-testid="button-account-link-cancel">
+              Zavrieť
+            </Button>
+          </>
+        )}
 
         {/* ── SUGGESTIONS STEP ── */}
         {step === "suggestions" && (
@@ -260,13 +395,12 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
                 >
                   Zadať email manuálne
                 </button>
-                <Button variant="outline" className="w-full" onClick={handleClose} data-testid="button-account-link-cancel">
-                  Zavrieť
+                <Button variant="outline" className="w-full" onClick={() => { setError(null); setStep("type_select"); }} data-testid="button-account-link-cancel">
+                  Späť
                 </Button>
               </>
             )}
 
-            {/* Empty state: show info + manual form inline, no extra click needed */}
             {emptyAndLoaded && (
               <>
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border text-sm text-muted-foreground" data-testid="suggestions-empty">
@@ -310,8 +444,8 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
                     </div>
                   )}
                   <div className="flex gap-2">
-                    <Button type="button" variant="outline" className="flex-1" onClick={handleClose} data-testid="button-account-link-cancel">
-                      Zavrieť
+                    <Button type="button" variant="outline" className="flex-1" onClick={() => { setError(null); setStep("type_select"); }} data-testid="button-account-link-cancel">
+                      Späť
                     </Button>
                     <Button
                       type="submit"
@@ -329,7 +463,7 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
           </>
         )}
 
-        {/* ── MANUAL FORM STEP (accessed from suggestion list via "Zadať email manuálne") ── */}
+        {/* ── MANUAL FORM STEP ── */}
         {step === "form" && (
           <>
             <DialogHeader>
@@ -501,6 +635,197 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
             <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSuccessClose} data-testid="button-account-link-done">
               Hotovo
             </Button>
+          </>
+        )}
+
+        {/* ── GUARDIAN FORM STEP ── */}
+        {step === "guardian_form" && (
+          <>
+            <DialogHeader>
+              <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-2">
+                <ShieldCheck className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <DialogTitle>Žiadosť o opatrovníctvo</DialogTitle>
+              <DialogDescription>
+                Zadajte email účtu, ktorý chcete spravovať. Cieľový používateľ dostane email s potvrdením.
+              </DialogDescription>
+            </DialogHeader>
+
+            {error && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleGuardianInitiate} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="guardian-email">Email cieľového účtu</Label>
+                <Input
+                  id="guardian-email"
+                  type="email"
+                  placeholder="email@priklad.sk"
+                  value={targetEmail}
+                  onChange={(e) => setTargetEmail(e.target.value)}
+                  autoFocus
+                  data-testid="input-guardian-email"
+                />
+                <p className="text-xs text-muted-foreground">Email prihlásenia do cieľového účtu v systéme ATK</p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 text-xs text-blue-800 dark:text-blue-300">
+                Cieľovému používateľovi bude zaslaný overovací email. Prepojenie sa aktivuje až po jeho potvrdení.
+              </div>
+
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => { setError(null); setStep("type_select"); }} data-testid="button-guardian-back">
+                  Späť
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  disabled={loading || !targetEmail.trim()}
+                  data-testid="button-guardian-submit"
+                >
+                  <ArrowRight className="w-4 h-4 mr-1" />
+                  {loading ? "Odosielam..." : "Odoslať žiadosť"}
+                </Button>
+              </div>
+            </form>
+          </>
+        )}
+
+        {/* ── GUARDIAN PENDING STEP ── */}
+        {step === "guardian_pending" && guardianPendingResult && (
+          <>
+            <DialogHeader>
+              <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-2 mx-auto">
+                <Clock className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <DialogTitle className="text-center">Žiadosť odoslaná</DialogTitle>
+              <DialogDescription className="text-center">
+                Email bol odoslaný na účet cieľového používateľa. Čakáme na jeho potvrdenie.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="p-4 rounded-lg bg-muted/50 border border-border space-y-2">
+              <p className="text-xs text-muted-foreground">Žiadosť o opatrovníctvo bola zaslaná pre:</p>
+              <p className="font-semibold text-foreground" data-testid="text-guardian-target">{guardianPendingResult.targetName}</p>
+              <p className="text-xs text-muted-foreground">{guardianPendingResult.maskedTarget}</p>
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { setError(null); setStep("guardian_manage"); }} data-testid="button-guardian-view-manage">
+                <Users className="w-4 h-4 mr-1" />
+                Prehľad správ
+              </Button>
+              <Button className="flex-1" onClick={handleClose} data-testid="button-guardian-done">
+                Zavrieť
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* ── GUARDIAN MANAGE STEP ── */}
+        {step === "guardian_manage" && (
+          <>
+            <DialogHeader>
+              <div className="w-12 h-12 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center mb-2">
+                <Users className="w-6 h-6 text-violet-600 dark:text-violet-400" />
+              </div>
+              <DialogTitle>Moje opatrovníctva</DialogTitle>
+              <DialogDescription>
+                Prehľad čakajúcich žiadostí a aktívnych opatrovníckych prepojení.
+              </DialogDescription>
+            </DialogHeader>
+
+            {error && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {(guardianPendingQuery.isLoading || guardianActiveQuery.isLoading) && (
+              <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Načítavam...</span>
+              </div>
+            )}
+
+            {guardianPendingQuery.data && guardianPendingQuery.data.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Čakajúce žiadosti</p>
+                {guardianPendingQuery.data.map((item) => (
+                  <div key={item.linkId} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30" data-testid={`guardian-pending-${item.linkId}`}>
+                    <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                      <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{item.targetName}</p>
+                      <p className="text-xs text-muted-foreground">{item.tokenExpired ? "Token vypršal" : "Čaká na potvrdenie"}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                      disabled={loading}
+                      onClick={() => handleRevoke(item.linkId)}
+                      data-testid={`button-guardian-revoke-pending-${item.linkId}`}
+                    >
+                      <X className="w-3 h-3 mr-1" />
+                      Zrušiť
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {guardianActiveQuery.data && guardianActiveQuery.data.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Aktívne opatrovníctva</p>
+                {guardianActiveQuery.data.map((item) => (
+                  <div key={item.linkId} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30" data-testid={`guardian-active-${item.linkId}`}>
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{item.otherName}</p>
+                      <p className="text-xs text-muted-foreground">{item.isGuardian ? "Spravujem tento účet" : "Tento správca spravuje môj účet"}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                      disabled={loading}
+                      onClick={() => handleRevoke(item.linkId)}
+                      data-testid={`button-guardian-revoke-${item.linkId}`}
+                    >
+                      <X className="w-3 h-3 mr-1" />
+                      Zrušiť
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!guardianPendingQuery.isLoading && !guardianActiveQuery.isLoading &&
+              (!guardianPendingQuery.data?.length && !guardianActiveQuery.data?.length) && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border border-border text-sm text-muted-foreground" data-testid="guardian-manage-empty">
+                <Users className="w-4 h-4 flex-shrink-0" />
+                <span>Nemáte žiadne opatrovnícke prepojenia.</span>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { setError(null); setStep("type_select"); }} data-testid="button-guardian-manage-back">
+                Späť
+              </Button>
+              <Button className="flex-1" onClick={() => { setError(null); setTargetEmail(""); setStep("guardian_form"); }} data-testid="button-guardian-new">
+                <ShieldCheck className="w-4 h-4 mr-1" />
+                Nová žiadosť
+              </Button>
+            </div>
           </>
         )}
       </DialogContent>

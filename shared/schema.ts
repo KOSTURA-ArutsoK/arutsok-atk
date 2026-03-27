@@ -2857,11 +2857,36 @@ export const accountLinks = pgTable("account_links", {
   initiatedBy: integer("initiated_by").references(() => appUsers.id),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
+  linkType: text("link_type").notNull().default("same_person"),
+  revokedAt: timestamp("revoked_at"),
+  revokedBy: integer("revoked_by").references(() => appUsers.id),
+  revokedReason: text("revoked_reason"),
+  targetConfirmedAt: timestamp("target_confirmed_at"),
+  targetConfirmedVia: text("target_confirmed_via"),
 });
 
 export const insertAccountLinkSchema = createInsertSchema(accountLinks).omit({ id: true, createdAt: true });
 export type AccountLink = typeof accountLinks.$inferSelect;
 export type InsertAccountLink = z.infer<typeof insertAccountLinkSchema>;
+
+export const guardianConfirmationTokens = pgTable("guardian_confirmation_tokens", {
+  id: serial("id").primaryKey(),
+  linkId: integer("link_id").notNull().references(() => accountLinks.id),
+  guardianUserId: integer("guardian_user_id").notNull().references(() => appUsers.id),
+  targetUserId: integer("target_user_id").notNull().references(() => appUsers.id),
+  emailToken: text("email_token").notNull(),
+  smsCode: varchar("sms_code", { length: 6 }).notNull(),
+  emailConfirmed: boolean("email_confirmed").notNull().default(false),
+  smsConfirmed: boolean("sms_confirmed").notNull().default(false),
+  needsSms: boolean("needs_sms").notNull().default(false),
+  rejected: boolean("rejected").notNull().default(false),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertGuardianConfirmationTokenSchema = createInsertSchema(guardianConfirmationTokens).omit({ id: true, createdAt: true });
+export type GuardianConfirmationToken = typeof guardianConfirmationTokens.$inferSelect;
+export type InsertGuardianConfirmationToken = z.infer<typeof insertGuardianConfirmationTokenSchema>;
 
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };

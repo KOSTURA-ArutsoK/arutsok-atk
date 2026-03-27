@@ -77,6 +77,7 @@ import HoldingTree from "@/pages/HoldingTree";
 import { AppShell } from "@/components/layout/AppShell";
 import { RedListNotificationPopup } from "@/components/red-list-notification-popup";
 import { BlackListNotificationPopup } from "@/components/black-list-notification-popup";
+import GuardianConfirm from "@/pages/GuardianConfirm";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -190,6 +191,7 @@ function Router() {
 
       <Route path="/register" component={RegisterPage} />
       <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/potvrdenie-spravy" component={GuardianConfirm} />
       <Route path="/client-zone" component={ClientZone} />
       <Route path="/client-profile" component={PrivateClientProfile} />
       

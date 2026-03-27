@@ -1,10 +1,11 @@
+import crypto from "crypto";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import type { Express, RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
-import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts, myCompanies, subjectContacts } from "@shared/schema";
+import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts, myCompanies, subjectContacts, guardianConfirmationTokens } from "@shared/schema";
 import { eq, and, or, ne, isNull, isNotNull, gte, desc, inArray, sql } from "drizzle-orm";
 import { storage } from "./storage";
 import { decryptField } from "./crypto";
@@ -27,6 +28,7 @@ declare module "express-session" {
     pendingAccountLinkAttempts?: number;
     pendingAccountLinkIsReactivation?: boolean;
     pendingAccountLinkMethod?: "email" | "sms";
+    guardianSwitchedFromUserId?: number;
   }
 }
 
@@ -240,7 +242,7 @@ async function checkFoProfileCompleteness(subject: {
   return { complete: missing.length === 0, missingFields: missing };
 }
 
-async function recordLoginHistory(userId: number, ip: string | null) {
+async function recordLoginHistory(userId: number, ip: string | null, guardianSwitchedFromUserId?: number) {
   const loginNow = new Date();
   const tenSecsAgo = new Date(loginNow.getTime() - 10000);
   const [recent] = await db.select().from(appUserLoginHistory)
@@ -264,6 +266,7 @@ async function recordLoginHistory(userId: number, ip: string | null) {
           lastName: userRow.lastName,
           username: userRow.username,
           linkedSubjectId: userRow.linkedSubjectId ?? null,
+          guardianSwitchedFromUserId: guardianSwitchedFromUserId ?? null,
         })
       : { contextType: "fo" as string, contextLabel: null as string | null };
     await db.insert(appUserLoginHistory).values({
@@ -318,7 +321,15 @@ export async function resolveContextLabel(user: {
   lastName: string | null;
   username: string;
   linkedSubjectId?: number | null;
+  guardianSwitchedFromUserId?: number | null;
 }): Promise<{ contextType: string; contextLabel: string | null }> {
+  if (user.guardianSwitchedFromUserId) {
+    const [gu] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName, username: appUsers.username })
+      .from(appUsers).where(eq(appUsers.id, user.guardianSwitchedFromUserId));
+    const guardianName = gu ? `${gu.firstName || ""} ${gu.lastName || ""}`.trim() || gu.username : "Správca";
+    const targetName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username;
+    return { contextType: "guardian", contextLabel: `${guardianName} → spravuje: ${targetName}` };
+  }
   if (!user.activeSubjectId) {
     // FO mode — prefer linked FO subject name, fall back to user fields
     let foName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username;
@@ -1494,7 +1505,70 @@ export async function setupAuth(app: Express) {
       if (!req.session.userId || req.session.loginStep !== "done") {
         return res.status(401).json({ message: "Neautorizovaný prístup" });
       }
-      const { targetEmail, rc, targetUserId } = req.body;
+      const { targetEmail, rc, targetUserId, mode } = req.body;
+
+      // ── GUARDIAN MODE ──────────────────────────────────────────
+      if (mode === "guardian") {
+        if (!targetEmail) return res.status(400).json({ message: "Zadajte email cieľového účtu" });
+        const targetEmailLower = (targetEmail as string).toLowerCase().trim();
+        const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
+        if (!currentUser) return res.status(401).json({ message: "Používateľ nenájdený" });
+
+        const [tu] = await db.select().from(appUsers).where(eq(appUsers.email, targetEmailLower));
+        if (!tu) return res.status(404).json({ message: "Účet s týmto emailom neexistuje" });
+        if (tu.id === req.session.userId) return res.status(400).json({ message: "Nemôžete vytvoriť opatrovníctvo pre seba" });
+
+        const existingLink = await storage.getAccountLink(req.session.userId, tu.id);
+        if (existingLink && existingLink.isActive && existingLink.status === "verified") {
+          return res.status(409).json({ message: "Prepojenie s týmto účtom už existuje" });
+        }
+        const existingPending = await storage.getAccountLink(req.session.userId, tu.id);
+        if (existingPending && existingPending.linkType === "guardian" && existingPending.status === "pending") {
+          return res.status(409).json({ message: "Žiadosť o opatrovníctvo pre tento účet už čaká na potvrdenie" });
+        }
+
+        let targetSubject: typeof subjects.$inferSelect | null = null;
+        if (tu.linkedSubjectId) {
+          const [ts] = await db.select().from(subjects).where(eq(subjects.id, tu.linkedSubjectId));
+          targetSubject = ts ?? null;
+        }
+        const targetName = targetSubject
+          ? `${targetSubject.firstName ?? ""} ${targetSubject.lastName ?? ""}`.trim() || targetSubject.companyName || tu.email
+          : (tu.firstName ? `${tu.firstName} ${tu.lastName ?? ""}`.trim() : tu.email);
+
+        const needsSms = !!(tu.phone);
+        const emailToken = crypto.randomUUID();
+        const smsCode = "151515";
+
+        const { linkId, tokenId } = await storage.createGuardianLink(
+          req.session.userId, tu.id, emailToken, smsCode, needsSms
+        );
+
+        await db.insert(auditLogs).values({
+          userId: req.session.userId,
+          username: null,
+          action: "GUARDIAN_LINK_INITIATED",
+          module: "AccountLink",
+          entityId: tu.id,
+          entityName: null,
+          oldData: null,
+          newData: { targetUserId: tu.id, linkId },
+          ipAddress: req.ip,
+        });
+
+        const appDomain = process.env.APP_DOMAIN || req.headers.host || "localhost:5000";
+        const confirmUrl = `https://${appDomain}/potvrdenie-spravy?token=${emailToken}`;
+        console.log(`[GUARDIAN-LINK] Confirmation email for ${targetEmailLower}: ${confirmUrl}`);
+        console.log(`[GUARDIAN-LINK] SMS code (dev): ${smsCode}`);
+
+        return res.json({
+          status: "guardian_pending",
+          linkId,
+          targetName,
+          maskedTarget: targetEmailLower.replace(/^(.{2}).*(@.*)$/, "$1***$2"),
+        });
+      }
+      // ── END GUARDIAN MODE ──────────────────────────────────────
 
       const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
       if (!currentUser) return res.status(401).json({ message: "Používateľ nenájdený" });
@@ -1989,16 +2063,23 @@ export async function setupAuth(app: Express) {
         const otherLabel = otherSubject?.companyName
           || [otherSubject?.firstName ?? otherUser.firstName, otherSubject?.lastName ?? otherUser.lastName].filter(Boolean).join(" ")
           || otherUser.username || "";
+        const isGuardianLink = link.linkType === "guardian";
+        const isGuardian = isGuardianLink && link.primaryUserId === req.session.userId;
+        const contextType = isGuardianLink ? "guardian" : "linked_account";
+        const subLabel = isGuardianLink
+          ? (isGuardian ? "Spravovaný účet" : "Správca tohto účtu")
+          : (otherSubject?.type ? linkedAccountSubLabel(otherSubject.type, null) : "Prepojený účet");
         return {
-          contextType: "linked_account",
+          contextType,
           userId: otherUser.id,
           companyId: null,
           label: otherLabel,
-          subLabel: otherSubject?.type ? linkedAccountSubLabel(otherSubject.type, null) : "Prepojený účet",
+          subLabel,
           type: otherSubject?.type ?? "person",
           uid: otherSubject?.uid ?? null,
           ico: null,
           isCurrent: false,
+          isGuardian,
         };
       }));
       for (const entry of linkedEntries.filter(Boolean)) {
@@ -2008,6 +2089,195 @@ export async function setupAuth(app: Express) {
       res.json(result);
     } catch (err) {
       console.error("[USER CONTEXTS]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  // ── GUARDIAN CONFIRMATION (no auth required) ──────────────────
+  app.get("/api/guardian-confirm", async (req, res) => {
+    try {
+      const { token } = req.query;
+      if (!token || typeof token !== "string") return res.status(400).json({ message: "Chýba token" });
+      const gct = await storage.getGuardianToken(token);
+      if (!gct) return res.status(404).json({ message: "Token neexistuje alebo bol použitý" });
+      if (gct.rejected) return res.status(410).json({ message: "Žiadosť bola odmietnutá" });
+      if (new Date() > gct.expiresAt) return res.status(410).json({ message: "Platnosť tokenu vypršala" });
+      const [guardianUser] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName, email: appUsers.email }).from(appUsers).where(eq(appUsers.id, gct.guardianUserId));
+      const [targetUser] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName }).from(appUsers).where(eq(appUsers.id, gct.targetUserId));
+      const guardianName = guardianUser ? `${guardianUser.firstName || ""} ${guardianUser.lastName || ""}`.trim() || guardianUser.email || "Neznámy" : "Neznámy";
+      const guardianEmail = guardianUser?.email || "";
+      const targetName = targetUser ? `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() || "Neznámy" : "Neznámy";
+      return res.json({
+        tokenId: gct.id,
+        guardianName,
+        guardianEmail: guardianEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2"),
+        targetName,
+        needsSms: gct.needsSms,
+        emailConfirmed: gct.emailConfirmed,
+        smsConfirmed: gct.smsConfirmed,
+        smsCode: "151515",
+        expiresAt: gct.expiresAt,
+      });
+    } catch (err) {
+      console.error("[GUARDIAN-CONFIRM GET]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.post("/api/guardian-confirm/confirm", async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token) return res.status(400).json({ message: "Chýba token" });
+      const gct = await storage.getGuardianToken(token);
+      if (!gct) return res.status(404).json({ message: "Token neexistuje" });
+      if (gct.rejected) return res.status(410).json({ message: "Žiadosť bola odmietnutá" });
+      if (new Date() > gct.expiresAt) return res.status(410).json({ message: "Platnosť tokenu vypršala" });
+      if (gct.emailConfirmed) return res.json({ status: gct.needsSms ? "sms_required" : "confirmed" });
+      await storage.confirmGuardianEmail(gct.id);
+      if (!gct.needsSms) {
+        await storage.completeGuardianLink(gct.linkId, "email");
+        await db.insert(auditLogs).values({
+          userId: gct.targetUserId, username: null, action: "GUARDIAN_LINK_CONFIRMED",
+          module: "AccountLink", entityId: gct.guardianUserId, entityName: null,
+          oldData: null, newData: { linkId: gct.linkId, via: "email" }, ipAddress: null,
+        });
+        return res.json({ status: "confirmed" });
+      }
+      return res.json({ status: "sms_required" });
+    } catch (err) {
+      console.error("[GUARDIAN-CONFIRM CONFIRM]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.post("/api/guardian-confirm/verify-sms", async (req, res) => {
+    try {
+      const { token, smsCode } = req.body;
+      if (!token || !smsCode) return res.status(400).json({ message: "Chýba token alebo SMS kód" });
+      const gct = await storage.getGuardianToken(token);
+      if (!gct) return res.status(404).json({ message: "Token neexistuje" });
+      if (gct.rejected) return res.status(410).json({ message: "Žiadosť bola odmietnutá" });
+      if (new Date() > gct.expiresAt) return res.status(410).json({ message: "Platnosť tokenu vypršala" });
+      if (!gct.emailConfirmed) return res.status(400).json({ message: "Najprv potvrďte email" });
+      if (smsCode.trim() !== gct.smsCode) return res.status(400).json({ message: "Nesprávny SMS kód" });
+      await storage.confirmGuardianSms(gct.id);
+      await storage.completeGuardianLink(gct.linkId, "email+sms");
+      await db.insert(auditLogs).values({
+        userId: gct.targetUserId, username: null, action: "GUARDIAN_LINK_CONFIRMED",
+        module: "AccountLink", entityId: gct.guardianUserId, entityName: null,
+        oldData: null, newData: { linkId: gct.linkId, via: "email+sms" }, ipAddress: null,
+      });
+      return res.json({ status: "confirmed" });
+    } catch (err) {
+      console.error("[GUARDIAN-CONFIRM VERIFY-SMS]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.post("/api/guardian-confirm/reject", async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token) return res.status(400).json({ message: "Chýba token" });
+      const gct = await storage.getGuardianToken(token);
+      if (!gct) return res.status(404).json({ message: "Token neexistuje" });
+      if (gct.rejected) return res.json({ status: "already_rejected" });
+      await storage.rejectGuardianLink(gct.id);
+      await db.insert(auditLogs).values({
+        userId: gct.targetUserId, username: null, action: "GUARDIAN_LINK_REJECTED",
+        module: "AccountLink", entityId: gct.guardianUserId, entityName: null,
+        oldData: null, newData: { linkId: gct.linkId }, ipAddress: null,
+      });
+      return res.json({ status: "rejected" });
+    } catch (err) {
+      console.error("[GUARDIAN-CONFIRM REJECT]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  // ── REVOKE ACCOUNT LINK ──────────────────────────────────────
+  app.post("/api/account-link/:id/revoke", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const linkId = Number(req.params.id);
+      if (!linkId) return res.status(400).json({ message: "Neplatné ID" });
+      const link = await storage.getAccountLinkById(linkId);
+      if (!link) return res.status(404).json({ message: "Prepojenie nenájdené" });
+      if (link.primaryUserId !== req.session.userId && link.linkedUserId !== req.session.userId) {
+        return res.status(403).json({ message: "Nie ste oprávnený zrušiť toto prepojenie" });
+      }
+      const { reason } = req.body;
+      await storage.revokeAccountLinkById(linkId, req.session.userId, reason);
+      await db.insert(auditLogs).values({
+        userId: req.session.userId, username: null, action: "GUARDIAN_LINK_REVOKED",
+        module: "AccountLink", entityId: linkId, entityName: null,
+        oldData: null, newData: { linkId, reason: reason ?? null }, ipAddress: req.ip,
+      });
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("[ACCOUNT-LINK REVOKE]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  // ── GUARDIAN PENDING LIST (authenticated) ──────────────────
+  app.get("/api/account-link/guardian-pending", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const pendingLinks = await storage.getPendingGuardianLinksFor(req.session.userId);
+      const enriched = await Promise.all(pendingLinks.map(async (link) => {
+        const [tu] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName, email: appUsers.email }).from(appUsers).where(eq(appUsers.id, link.linkedUserId));
+        return {
+          linkId: link.id,
+          targetName: tu ? `${tu.firstName || ""} ${tu.lastName || ""}`.trim() || tu.email : "Neznámy",
+          targetEmail: tu?.email ? tu.email.replace(/^(.{2}).*(@.*)$/, "$1***$2") : "",
+          status: link.status,
+          createdAt: link.createdAt,
+          tokenExpired: link.token ? new Date() > link.token.expiresAt : false,
+        };
+      }));
+      return res.json(enriched);
+    } catch (err) {
+      console.error("[GUARDIAN-PENDING LIST]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  // ── GUARDIAN ACTIVE LINKS (authenticated) ──────────────────
+  app.get("/api/account-link/guardian-list", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const allLinks = await db.select().from(accountLinks).where(
+        and(
+          or(
+            eq(accountLinks.primaryUserId, req.session.userId),
+            eq(accountLinks.linkedUserId, req.session.userId)
+          ),
+          eq(accountLinks.linkType, "guardian"),
+          eq(accountLinks.isActive, true),
+          eq(accountLinks.status, "verified"),
+        )
+      );
+      const enriched = await Promise.all(allLinks.map(async (link) => {
+        const isGuardian = link.primaryUserId === req.session.userId;
+        const otherId = isGuardian ? link.linkedUserId : link.primaryUserId;
+        const [otherUser] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName, email: appUsers.email }).from(appUsers).where(eq(appUsers.id, otherId));
+        return {
+          linkId: link.id,
+          isGuardian,
+          otherName: otherUser ? `${otherUser.firstName || ""} ${otherUser.lastName || ""}`.trim() || otherUser.email : "Neznámy",
+          role: isGuardian ? "guardian" : "managed",
+          confirmedAt: link.targetConfirmedAt,
+        };
+      }));
+      return res.json(enriched);
+    } catch (err) {
+      console.error("[GUARDIAN-LIST]", err);
       res.status(500).json({ message: "Interná chyba" });
     }
   });
@@ -2024,13 +2294,16 @@ export async function setupAuth(app: Express) {
         return res.status(400).json({ message: "Ste už v tomto kontexte" });
       }
 
-      const link = await storage.getAccountLink(req.session.userId, Number(targetUserId));
-      if (!link || !link.isActive || link.status !== "verified") {
+      let activeLink = await storage.getAccountLink(req.session.userId, Number(targetUserId));
+      if (!activeLink || !activeLink.isActive || activeLink.status !== "verified") {
         const reverseLink = await storage.getAccountLink(Number(targetUserId), req.session.userId);
         if (!reverseLink || !reverseLink.isActive || reverseLink.status !== "verified") {
           return res.status(403).json({ message: "Prepojenie neexistuje alebo nie je aktívne" });
         }
+        activeLink = reverseLink;
       }
+
+      const isGuardianSwitch = activeLink.linkType === "guardian" && activeLink.primaryUserId === req.session.userId;
 
       const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
       const [targetUser] = await db.select().from(appUsers).where(eq(appUsers.id, Number(targetUserId)));
@@ -2043,7 +2316,7 @@ export async function setupAuth(app: Express) {
       await db.insert(auditLogs).values({
         userId: req.session.userId,
         username: null,
-        action: "ACCOUNT_SWITCHED",
+        action: isGuardianSwitch ? "GUARDIAN_ACCOUNT_SWITCHED" : "ACCOUNT_SWITCHED",
         module: "AccountLink",
         entityId: targetSubjectId ?? targetUser.id,
         entityName: auditEntityName,
@@ -2052,9 +2325,15 @@ export async function setupAuth(app: Express) {
         ipAddress: req.ip,
       });
 
+      const originalUserId = req.session.userId;
       req.session.userId = targetUser.id;
       req.session.loginSubjectId = targetSubjectId;
       req.session.loginStep = "done";
+      if (isGuardianSwitch) {
+        req.session.guardianSwitchedFromUserId = originalUserId;
+      } else {
+        req.session.guardianSwitchedFromUserId = undefined;
+      }
 
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba pri prepínaní kontextu" });

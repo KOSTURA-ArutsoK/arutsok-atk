@@ -148,6 +148,8 @@ import {
   type UiBlueprint, type InsertUiBlueprint,
   accountLinks,
   type AccountLink,
+  guardianConfirmationTokens,
+  type GuardianConfirmationToken,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -735,9 +737,19 @@ export interface IStorage {
   deleteWebRoutingRule(ruleId: number): Promise<void>;
   getAccountLinks(userId: number): Promise<AccountLink[]>;
   getAccountLink(primaryUserId: number, linkedUserId: number): Promise<AccountLink | undefined>;
+  getAccountLinkById(linkId: number): Promise<AccountLink | undefined>;
   createAccountLinks(primaryUserId: number, linkedUserId: number, verifiedVia: string, initiatedBy: number): Promise<void>;
+  createGuardianLink(guardianUserId: number, targetUserId: number, emailToken: string, smsCode: string, needsSms: boolean): Promise<{ linkId: number; tokenId: number }>;
   reactivateAccountLinks(primaryUserId: number, linkedUserId: number, verifiedVia: string): Promise<void>;
   deactivateAccountLinks(primaryUserId: number, linkedUserId: number): Promise<void>;
+  revokeAccountLinkById(linkId: number, revokedByUserId: number, reason?: string): Promise<void>;
+  getGuardianToken(emailToken: string): Promise<GuardianConfirmationToken | undefined>;
+  getGuardianTokenById(tokenId: number): Promise<GuardianConfirmationToken | undefined>;
+  confirmGuardianEmail(tokenId: number): Promise<void>;
+  confirmGuardianSms(tokenId: number): Promise<void>;
+  rejectGuardianLink(tokenId: number): Promise<void>;
+  completeGuardianLink(linkId: number, via: string): Promise<void>;
+  getPendingGuardianLinksFor(userId: number): Promise<Array<AccountLink & { token?: GuardianConfirmationToken }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5538,6 +5550,115 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(accountLinks.primaryUserId, primaryUserId), eq(accountLinks.linkedUserId, linkedUserId)));
     await db.update(accountLinks).set({ isActive: false })
       .where(and(eq(accountLinks.primaryUserId, linkedUserId), eq(accountLinks.linkedUserId, primaryUserId)));
+  }
+
+  async getAccountLinkById(linkId: number): Promise<AccountLink | undefined> {
+    const [row] = await db.select().from(accountLinks).where(eq(accountLinks.id, linkId)).limit(1);
+    return row;
+  }
+
+  async createGuardianLink(guardianUserId: number, targetUserId: number, emailToken: string, smsCode: string, needsSms: boolean): Promise<{ linkId: number; tokenId: number }> {
+    const [link] = await db.insert(accountLinks).values({
+      primaryUserId: guardianUserId,
+      linkedUserId: targetUserId,
+      status: "pending",
+      linkType: "guardian",
+      isActive: false,
+      initiatedBy: guardianUserId,
+    }).returning({ id: accountLinks.id });
+
+    const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+    const [token] = await db.insert(guardianConfirmationTokens).values({
+      linkId: link.id,
+      guardianUserId,
+      targetUserId,
+      emailToken,
+      smsCode,
+      needsSms,
+      expiresAt,
+    }).returning({ id: guardianConfirmationTokens.id });
+
+    return { linkId: link.id, tokenId: token.id };
+  }
+
+  async revokeAccountLinkById(linkId: number, revokedByUserId: number, reason?: string): Promise<void> {
+    const now = new Date();
+    await db.update(accountLinks).set({ isActive: false, revokedAt: now, revokedBy: revokedByUserId, revokedReason: reason ?? null })
+      .where(eq(accountLinks.id, linkId));
+    const [link] = await db.select().from(accountLinks).where(eq(accountLinks.id, linkId)).limit(1);
+    if (link) {
+      const mirrorLinkId = link.primaryUserId === revokedByUserId ? link.linkedUserId : link.primaryUserId;
+      await db.update(accountLinks).set({ isActive: false, revokedAt: now, revokedBy: revokedByUserId, revokedReason: reason ?? null })
+        .where(and(
+          or(
+            and(eq(accountLinks.primaryUserId, link.primaryUserId), eq(accountLinks.linkedUserId, link.linkedUserId)),
+            and(eq(accountLinks.primaryUserId, link.linkedUserId), eq(accountLinks.linkedUserId, link.primaryUserId))
+          ),
+          ne(accountLinks.id, linkId)
+        ));
+    }
+  }
+
+  async getGuardianToken(emailToken: string): Promise<GuardianConfirmationToken | undefined> {
+    const [row] = await db.select().from(guardianConfirmationTokens)
+      .where(eq(guardianConfirmationTokens.emailToken, emailToken)).limit(1);
+    return row;
+  }
+
+  async getGuardianTokenById(tokenId: number): Promise<GuardianConfirmationToken | undefined> {
+    const [row] = await db.select().from(guardianConfirmationTokens)
+      .where(eq(guardianConfirmationTokens.id, tokenId)).limit(1);
+    return row;
+  }
+
+  async confirmGuardianEmail(tokenId: number): Promise<void> {
+    await db.update(guardianConfirmationTokens).set({ emailConfirmed: true })
+      .where(eq(guardianConfirmationTokens.id, tokenId));
+  }
+
+  async confirmGuardianSms(tokenId: number): Promise<void> {
+    await db.update(guardianConfirmationTokens).set({ smsConfirmed: true })
+      .where(eq(guardianConfirmationTokens.id, tokenId));
+  }
+
+  async rejectGuardianLink(tokenId: number): Promise<void> {
+    const [token] = await db.select().from(guardianConfirmationTokens)
+      .where(eq(guardianConfirmationTokens.id, tokenId)).limit(1);
+    if (!token) return;
+    await db.update(guardianConfirmationTokens).set({ rejected: true })
+      .where(eq(guardianConfirmationTokens.id, tokenId));
+    await db.update(accountLinks).set({ status: "rejected", isActive: false })
+      .where(eq(accountLinks.id, token.linkId));
+  }
+
+  async completeGuardianLink(linkId: number, via: string): Promise<void> {
+    const now = new Date();
+    await db.update(accountLinks).set({
+      status: "verified",
+      isActive: true,
+      targetConfirmedAt: now,
+      targetConfirmedVia: via,
+      verifiedAt: now,
+      verifiedVia: via,
+    }).where(eq(accountLinks.id, linkId));
+  }
+
+  async getPendingGuardianLinksFor(userId: number): Promise<Array<AccountLink & { token?: GuardianConfirmationToken }>> {
+    const pendingLinks = await db.select().from(accountLinks).where(
+      and(
+        eq(accountLinks.primaryUserId, userId),
+        eq(accountLinks.linkType, "guardian"),
+        eq(accountLinks.status, "pending"),
+        eq(accountLinks.isActive, false),
+      )
+    );
+    const result: Array<AccountLink & { token?: GuardianConfirmationToken }> = [];
+    for (const link of pendingLinks) {
+      const [token] = await db.select().from(guardianConfirmationTokens)
+        .where(eq(guardianConfirmationTokens.linkId, link.id)).limit(1);
+      result.push({ ...link, token });
+    }
+    return result;
   }
 }
 
