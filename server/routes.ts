@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, isAuthenticated, resolveContextLabel, getAuditActorId } from "./auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts, subjectLinks } from "@shared/schema";
 import type { DocEntry, WebRoutingRule } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, syncSubjectParameters, seedAssetPanels, seedEventAndEntityPanels, seedNsVsTemplates, cleanupZombieTemplateParams, ensureOsClientType } from "./seed-subject-params";
@@ -1216,38 +1216,51 @@ export async function registerRoutes(
       // Company switcher sets only activeCompanyId; identity switch explicitly sends both fields.
       // Security: verify activeSubjectId is in allowed contexts (always enforced)
       if (validated.activeSubjectId != null) {
-        const isAdminUser = appUser.role === "admin" || appUser.role === "superadmin";
+        const isAdminUser = appUser.role === "admin" || appUser.role === "superadmin" || appUser.isAdmin;
         if (!isAdminUser) {
-          if (!appUser.linkedSubjectId && !appUser.email) {
-            return res.status(403).json({ message: "Subjekt nie je súčasťou vašich kontextov" });
-          }
-          type MembershipSQL = ReturnType<typeof eq> | ReturnType<typeof isNotNull>;
-          const membershipConditions: MembershipSQL[] = [];
-          if (appUser.linkedSubjectId) {
-            membershipConditions.push(eq(subjects.linkedFoId, appUser.linkedSubjectId));
-            membershipConditions.push(eq(subjects.parentSubjectId, appUser.linkedSubjectId));
-          }
-          if (appUser.email) {
-            membershipConditions.push(isNotNull(subjectContacts.id));
-          }
-          if (membershipConditions.length === 0) {
-            return res.status(403).json({ message: "Subjekt nie je súčasťou vašich kontextov" });
-          }
-          const allowed = await db
-            .select({ id: subjects.id })
-            .from(subjects)
-            .leftJoin(subjectContacts, and(
-              eq(subjectContacts.subjectId, subjects.id),
-              eq(subjectContacts.type, "email"),
-              appUser.email ? eq(subjectContacts.value, appUser.email) : sql`false`
-            ))
+          // Check subject_links first (subject-link authorization path for "každý s každým")
+          const subjectLinkRows = await db.select({ subjectId: subjectLinks.subjectId })
+            .from(subjectLinks)
             .where(and(
-              eq(subjects.id, validated.activeSubjectId),
-              isNull(subjects.deletedAt),
-              or(...membershipConditions)
-            ));
-          if (allowed.length === 0) {
-            return res.status(403).json({ message: "Subjekt nie je súčasťou vašich kontextov" });
+              eq(subjectLinks.userId, appUser.id),
+              eq(subjectLinks.subjectId, validated.activeSubjectId),
+              eq(subjectLinks.isActive, true),
+              eq(subjectLinks.status, "verified")
+            ))
+            .limit(1);
+          const hasSubjectLink = subjectLinkRows.length > 0;
+
+          if (!hasSubjectLink) {
+            // Fallback to legacy membership checks (FO/email contact relationship)
+            type MembershipSQL = ReturnType<typeof eq> | ReturnType<typeof isNotNull>;
+            const membershipConditions: MembershipSQL[] = [];
+            if (appUser.linkedSubjectId) {
+              membershipConditions.push(eq(subjects.linkedFoId, appUser.linkedSubjectId));
+              membershipConditions.push(eq(subjects.parentSubjectId, appUser.linkedSubjectId));
+            }
+            if (appUser.email) {
+              membershipConditions.push(isNotNull(subjectContacts.id));
+            }
+            let legacyAllowed = false;
+            if (membershipConditions.length > 0) {
+              const allowed = await db
+                .select({ id: subjects.id })
+                .from(subjects)
+                .leftJoin(subjectContacts, and(
+                  eq(subjectContacts.subjectId, subjects.id),
+                  eq(subjectContacts.type, "email"),
+                  appUser.email ? eq(subjectContacts.value, appUser.email) : sql`false`
+                ))
+                .where(and(
+                  eq(subjects.id, validated.activeSubjectId),
+                  isNull(subjects.deletedAt),
+                  or(...membershipConditions)
+                ));
+              legacyAllowed = allowed.length > 0;
+            }
+            if (!legacyAllowed) {
+              return res.status(403).json({ message: "Subjekt nie je súčasťou vašich kontextov" });
+            }
           }
         }
       }

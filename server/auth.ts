@@ -2319,6 +2319,7 @@ export async function setupAuth(app: Express) {
           userId: currentUser.id,
           companyId: null,
           subjectId: subject.id,
+          linkId: sl.id,
           label: displayName,
           subLabel,
           type: subject.type,

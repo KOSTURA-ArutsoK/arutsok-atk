@@ -910,7 +910,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 window.location.href = "/";
                               } else if (isSubject) {
                                 localStorage.removeItem("atk_context_fo");
-                                await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: ctx.subjectId, activeCompanyId: null });
+                                if (ctx.isSubjectLink && ctx.linkId) {
+                                  await apiRequest("POST", "/api/account-link/switch", { subjectLinkId: ctx.linkId });
+                                } else {
+                                  await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: ctx.subjectId, activeCompanyId: null });
+                                }
                                 window.location.href = "/";
                               } else if (isFo) {
                                 localStorage.setItem("atk_context_fo", "1");
