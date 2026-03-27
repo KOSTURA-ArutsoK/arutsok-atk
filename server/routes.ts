@@ -2,7 +2,7 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { setupAuth, isAuthenticated } from "./auth";
+import { setupAuth, isAuthenticated, resolveContextLabel } from "./auth";
 import { z } from "zod";
 import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts } from "@shared/schema";
 import type { DocEntry, WebRoutingRule } from "@shared/schema";
@@ -1235,30 +1235,14 @@ export async function registerRoutes(
         await db.update(appUserLoginHistory)
           .set({ logoutAt: new Date() })
           .where(and(eq(appUserLoginHistory.appUserId, appUser.id), isNull(appUserLoginHistory.logoutAt)));
-        // Determine context label for the new identity
-        let newContextType = "fo";
-        let newContextLabel: string | null = null;
-        if (newSubjectId) {
-          const [subj] = await db
-            .select({ type: subjects.type, firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName })
-            .from(subjects)
-            .where(eq(subjects.id, newSubjectId));
-          if (subj) {
-            const displayName = subj.companyName || [subj.firstName, subj.lastName].filter(Boolean).join(" ") || "Neznámy";
-            switch (subj.type) {
-              case "szco": newContextType = "szco"; newContextLabel = `${displayName} — SZČO`; break;
-              case "company": newContextType = "po"; newContextLabel = `${displayName} — PO`; break;
-              case "organization": newContextType = "ts"; newContextLabel = `${displayName} — TS`; break;
-              case "state": newContextType = "vs"; newContextLabel = `${displayName} — VS`; break;
-              case "os": newContextType = "os"; newContextLabel = `${displayName} — OS`; break;
-              default: newContextType = "subject"; newContextLabel = displayName; break;
-            }
-          }
-        } else {
-          // Returning to FO identity
-          const foName = `${appUser.firstName || ""} ${appUser.lastName || ""}`.trim() || appUser.username;
-          newContextLabel = `${foName} — FO`;
-        }
+        // Resolve context label for the new identity using shared resolver
+        const { contextType: newContextType, contextLabel: newContextLabel } = await resolveContextLabel({
+          activeSubjectId: newSubjectId,
+          firstName: appUser.firstName,
+          lastName: appUser.lastName,
+          username: appUser.username,
+          linkedSubjectId: appUser.linkedSubjectId ?? null,
+        });
         // Open a new session row for the incoming identity
         await db.insert(appUserLoginHistory).values({
           appUserId: appUser.id,

@@ -247,19 +247,31 @@ async function recordLoginHistory(userId: number, ip: string | null) {
     .where(and(eq(appUserLoginHistory.appUserId, userId), gte(appUserLoginHistory.loginAt, tenSecsAgo)));
   if (!recent) {
     const [userRow] = await db
-      .select({ firstName: appUsers.firstName, lastName: appUsers.lastName, username: appUsers.username })
+      .select({
+        firstName: appUsers.firstName,
+        lastName: appUsers.lastName,
+        username: appUsers.username,
+        activeSubjectId: appUsers.activeSubjectId,
+        linkedSubjectId: appUsers.linkedSubjectId,
+      })
       .from(appUsers)
       .where(eq(appUsers.id, userId));
     await db.update(appUsers).set({ lastLoginAt: loginNow }).where(eq(appUsers.id, userId));
-    const foName = userRow
-      ? (`${userRow.firstName || ""} ${userRow.lastName || ""}`.trim() || userRow.username)
-      : null;
+    const { contextType, contextLabel } = userRow
+      ? await resolveContextLabel({
+          activeSubjectId: userRow.activeSubjectId ?? null,
+          firstName: userRow.firstName,
+          lastName: userRow.lastName,
+          username: userRow.username,
+          linkedSubjectId: userRow.linkedSubjectId ?? null,
+        })
+      : { contextType: "fo" as string, contextLabel: null as string | null };
     await db.insert(appUserLoginHistory).values({
       appUserId: userId,
       loginAt: loginNow,
       ipAddress: ip,
-      contextType: "fo",
-      contextLabel: foName ? `${foName} — FO` : null,
+      contextType,
+      contextLabel,
     });
   }
 }
@@ -293,6 +305,48 @@ function normalizeSubjectContextType(type: string | null | undefined): string {
     case "state": return "vs";
     case "os": return "os";
     default: return type ?? "subject";
+  }
+}
+
+/**
+ * Resolves { contextType, contextLabel } for a user's current active identity.
+ * Used both at login-time and when splitting sessions on identity switch.
+ */
+export async function resolveContextLabel(user: {
+  activeSubjectId: number | null;
+  firstName: string | null;
+  lastName: string | null;
+  username: string;
+  linkedSubjectId?: number | null;
+}): Promise<{ contextType: string; contextLabel: string | null }> {
+  if (!user.activeSubjectId) {
+    // FO mode — prefer linked FO subject name, fall back to user fields
+    let foName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username;
+    if (user.linkedSubjectId) {
+      const [foSubj] = await db
+        .select({ firstName: subjects.firstName, lastName: subjects.lastName })
+        .from(subjects)
+        .where(and(eq(subjects.id, user.linkedSubjectId), isNull(subjects.deletedAt)));
+      if (foSubj) {
+        foName = [foSubj.firstName, foSubj.lastName].filter(Boolean).join(" ") || foName;
+      }
+    }
+    return { contextType: "fo", contextLabel: `${foName} — FO` };
+  }
+  // Subject identity active — look up type and display name
+  const [subj] = await db
+    .select({ type: subjects.type, firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName })
+    .from(subjects)
+    .where(eq(subjects.id, user.activeSubjectId));
+  if (!subj) return { contextType: "fo", contextLabel: null };
+  const displayName = subj.companyName || [subj.firstName, subj.lastName].filter(Boolean).join(" ") || "Neznámy";
+  switch (subj.type) {
+    case "szco": return { contextType: "szco", contextLabel: `${displayName} — SZČO` };
+    case "company": return { contextType: "po", contextLabel: `${displayName} — PO` };
+    case "organization": return { contextType: "ts", contextLabel: `${displayName} — TS` };
+    case "state": return { contextType: "vs", contextLabel: `${displayName} — VS` };
+    case "os": return { contextType: "os", contextLabel: `${displayName} — OS` };
+    default: return { contextType: "subject", contextLabel: displayName };
   }
 }
 
