@@ -1,12 +1,14 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link2, CheckCircle, Clock, ShieldX, Search, Users, User, Shield } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatDateTimeSlovak } from "@/lib/utils";
+import { formatDateTimeSlovak, isAdmin as checkIsAdmin } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAppUser } from "@/hooks/use-app-user";
 
 type LinkCategory = "subject" | "guardian" | "same_person";
 
@@ -68,6 +70,8 @@ export default function SystemLinks() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const { toast } = useToast();
+  const { data: appUser } = useAppUser();
+  const [, navigate] = useLocation();
 
   const { data, isLoading, error } = useQuery<LinkRow[]>({
     queryKey: ["/api/admin/all-links"],
@@ -88,6 +92,11 @@ export default function SystemLinks() {
       toast({ title: "Chyba", description: "Nepodarilo sa zrušiť prepojenie.", variant: "destructive" });
     },
   });
+
+  if (appUser && !checkIsAdmin(appUser)) {
+    navigate("/");
+    return null;
+  }
 
   const filtered = (data ?? []).filter((row) => {
     if (categoryFilter !== "all" && row.linkCategory !== categoryFilter) return false;
