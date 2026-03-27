@@ -304,6 +304,27 @@ async function logAudit(req: any, params: {
       createdAt: now,
     };
     await storage.createAuditLog({ ...auditEntry, integrityHash: null });
+
+    // Dual audit: when user is acting in subject context, write a second record with
+    // module="SubjectContext" and entityId=activeSubjectId for subject-side filtering.
+    if (!migrationOn && appUser?.activeSubjectId) {
+      const subjectContextEntry = {
+        ...auditEntry,
+        action: params.action,
+        module: "SubjectContext",
+        entityId: appUser.activeSubjectId,
+        newData: {
+          ...(newDataWithImpersonation && typeof newDataWithImpersonation === "object" ? newDataWithImpersonation : {}),
+          _subjectContext: {
+            activeSubjectId: appUser.activeSubjectId,
+            actingUserId: auditEntry.userId,
+            originalModule: params.module,
+            originalEntityId: params.entityId || null,
+          },
+        },
+      };
+      await storage.createAuditLog({ ...subjectContextEntry, integrityHash: null });
+    }
   } catch (err) {
     console.error("Audit log error:", err);
   }

@@ -1613,28 +1613,49 @@ export async function setupAuth(app: Express) {
 
       // ── SUBJECT MODE ───────────────────────────────────────────
       if (mode === "subject") {
-        const { subjectId } = req.body;
-        if (!subjectId) return res.status(400).json({ message: "Vyžaduje sa ID subjektu" });
+        const { subjectId, ico, uid } = req.body;
         const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
         if (!currentUser) return res.status(401).json({ message: "Používateľ nenájdený" });
 
-        const [subject] = await db.select().from(subjects).where(and(eq(subjects.id, Number(subjectId)), isNull(subjects.deletedAt)));
+        let resolvedSubjectId: number | null = subjectId ? Number(subjectId) : null;
+
+        // Accept ICO or UID lookup instead of/in addition to subjectId
+        if (!resolvedSubjectId && (ico || uid)) {
+          const allSubjects = await db.select({ id: subjects.id, uid: subjects.uid, details: subjects.details })
+            .from(subjects).where(isNull(subjects.deletedAt)).limit(500);
+          const found = allSubjects.find(s => {
+            if (uid && s.uid === uid) return true;
+            if (ico) {
+              const sIco = (s.details as { ico?: string } | null)?.ico;
+              if (sIco && sIco === ico) return true;
+            }
+            return false;
+          });
+          if (!found) return res.status(404).json({ message: "Subjekt s uvedeným IČO/UID nenájdený" });
+          resolvedSubjectId = found.id;
+        }
+
+        if (!resolvedSubjectId) return res.status(400).json({ message: "Vyžaduje sa ID, IČO alebo UID subjektu" });
+
+        const [subject] = await db.select().from(subjects).where(and(eq(subjects.id, resolvedSubjectId), isNull(subjects.deletedAt)));
         if (!subject) return res.status(404).json({ message: "Subjekt neexistuje" });
 
-        // Check for existing active subject link
+        // Strict duplicate check: block both active/verified AND pending requests for same user↔subject pair
         const existingLinks = await storage.getSubjectLinksByUserId(req.session.userId);
-        const existing = existingLinks.find(l => l.subjectId === Number(subjectId) && l.isActive && l.status === "verified");
+        const existing = existingLinks.find(l => l.subjectId === resolvedSubjectId && l.isActive && l.status === "verified");
         if (existing) return res.status(409).json({ message: "Prepojenie s týmto subjektom už existuje" });
+        const existingPendingSubject = existingLinks.find(l => l.subjectId === resolvedSubjectId && !l.rejected && l.status === "pending_confirmation");
+        if (existingPendingSubject) return res.status(409).json({ message: "Žiadosť o prepojenie s týmto subjektom už čaká na potvrdenie" });
 
         // Look up subject's primary email contact
         const emailContacts = await db.select().from(subjectContacts)
-          .where(and(eq(subjectContacts.subjectId, Number(subjectId)), eq(subjectContacts.type, "email")));
+          .where(and(eq(subjectContacts.subjectId, resolvedSubjectId!), eq(subjectContacts.type, "email")));
         const primaryEmail = emailContacts.find(c => c.isPrimary)?.value ?? emailContacts[0]?.value ?? null;
         if (!primaryEmail) return res.status(400).json({ message: "Subjekt nemá evidovaný email pre potvrdenie prepojenia" });
 
         // Look up subject's primary phone contact (for SMS requirement)
         const phoneContacts = await db.select().from(subjectContacts)
-          .where(and(eq(subjectContacts.subjectId, Number(subjectId)), eq(subjectContacts.type, "phone")));
+          .where(and(eq(subjectContacts.subjectId, resolvedSubjectId!), eq(subjectContacts.type, "phone")));
         const primaryPhone = phoneContacts.find(c => c.isPrimary)?.value ?? phoneContacts[0]?.value ?? null;
         const needsSms = !!primaryPhone;
 
@@ -1642,13 +1663,13 @@ export async function setupAuth(app: Express) {
         const smsCode = needsSms ? String(Math.floor(100000 + Math.random() * 900000)) : null;
 
         const linkId = await storage.createSubjectLink(
-          req.session.userId, Number(subjectId), emailToken, smsCode, needsSms, req.session.userId
+          req.session.userId, resolvedSubjectId!, emailToken, smsCode, needsSms, req.session.userId
         );
 
         await db.insert(auditLogs).values({
           userId: req.session.userId, username: null, action: "SUBJECT_LINK_INITIATED",
-          module: "SubjectLink", entityId: Number(subjectId), entityName: null,
-          oldData: null, newData: { subjectId: Number(subjectId), linkId }, ipAddress: req.ip,
+          module: "SubjectLink", entityId: resolvedSubjectId!, entityName: null,
+          oldData: null, newData: { subjectId: resolvedSubjectId!, linkId }, ipAddress: req.ip,
         });
 
         const appDomain = process.env.APP_DOMAIN || req.headers.host || "localhost:5000";
