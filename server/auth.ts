@@ -2007,19 +2007,22 @@ export async function setupAuth(app: Express) {
       // Also include active subject links so clients can enumerate all contexts
       const subjectLinkRows = await storage.getSubjectLinksByUserId(req.session.userId);
       const activeSubjectLinks = subjectLinkRows.filter(sl => sl.isActive && sl.status === "verified");
+      const [currentUser2] = await db.select({ activeSubjectId: appUsers.activeSubjectId }).from(appUsers).where(eq(appUsers.id, req.session.userId)).limit(1);
       const subjectEntries = await Promise.all(activeSubjectLinks.map(async (sl) => {
         const [subject] = await db.select({
           id: subjects.id, type: subjects.type, companyName: subjects.companyName,
           firstName: subjects.firstName, lastName: subjects.lastName, uid: subjects.uid,
+          details: subjects.details,
         }).from(subjects).where(eq(subjects.id, sl.subjectId));
         if (!subject) return null;
         const name = subject.companyName || [subject.firstName, subject.lastName].filter(Boolean).join(" ") || subject.uid || "Subjekt";
-        const [currentUser2] = await db.select({ activeSubjectId: appUsers.activeSubjectId }).from(appUsers).where(eq(appUsers.id, req.session.userId!)).limit(1);
+        const ico = (subject.details as { ico?: string } | null)?.ico ?? null;
         return {
           userId: null, subjectId: subject.id,
           firstName: subject.firstName ?? null, lastName: subject.lastName ?? null,
           companyName: subject.companyName ?? null, type: subject.type ?? null,
-          ico: null, uid: subject.uid ?? null,
+          ico, uid: subject.uid ?? null,
+          status: sl.status, isActive: sl.isActive,
           isCurrent: currentUser2?.activeSubjectId === subject.id,
           isSubjectLink: true as const, linkId: sl.id,
           subjectName: name, subjectType: subject.type,
@@ -2313,6 +2316,7 @@ export async function setupAuth(app: Express) {
   });
 
   // ── REVOKE ACCOUNT LINK ──────────────────────────────────────
+  // POST /api/account-link/:id/revoke — owner or admin revoke for account links (guardian/same_person)
   app.post("/api/account-link/:id/revoke", async (req, res) => {
     try {
       if (!req.session.userId || req.session.loginStep !== "done") {
@@ -2322,15 +2326,22 @@ export async function setupAuth(app: Express) {
       if (!linkId) return res.status(400).json({ message: "Neplatné ID" });
       const link = await storage.getAccountLinkById(linkId);
       if (!link) return res.status(404).json({ message: "Prepojenie nenájdené" });
-      if (link.primaryUserId !== req.session.userId && link.linkedUserId !== req.session.userId) {
-        return res.status(403).json({ message: "Nie ste oprávnený zrušiť toto prepojenie" });
+      const isOwner = link.primaryUserId === req.session.userId || link.linkedUserId === req.session.userId;
+      if (!isOwner) {
+        // Check admin role before denying
+        const [currentUser] = await db.select({ isAdmin: appUsers.isAdmin, role: appUsers.role })
+          .from(appUsers).where(eq(appUsers.id, req.session.userId)).limit(1);
+        const isAdminUser = currentUser?.isAdmin || ["admin", "superadmin", "prezident", "architekt"].includes(currentUser?.role ?? "");
+        if (!isAdminUser) {
+          return res.status(403).json({ message: "Nie ste oprávnený zrušiť toto prepojenie" });
+        }
       }
       const { reason } = req.body;
       await storage.revokeAccountLinkById(linkId, req.session.userId, reason);
       await db.insert(auditLogs).values({
-        userId: getAuditActorId(req), username: null, action: "GUARDIAN_LINK_REVOKED",
+        userId: getAuditActorId(req), username: null, action: "ACCOUNT_LINK_REVOKED",
         module: "AccountLink", entityId: linkId, entityName: null,
-        oldData: null, newData: { linkId, reason: reason ?? null, revokedBySessionUserId: req.session.userId }, ipAddress: req.ip,
+        oldData: null, newData: { linkId, linkType: link.linkType, reason: reason ?? null, revokedBySessionUserId: req.session.userId }, ipAddress: req.ip,
       });
       return res.json({ success: true });
     } catch (err) {
@@ -2793,39 +2804,6 @@ export async function setupAuth(app: Express) {
       return res.json({ success: true });
     } catch (err) {
       console.error("[SUBJECT-LINK REVOKE]", err);
-      res.status(500).json({ message: "Interná chyba" });
-    }
-  });
-
-  // POST /api/account-link/:id/revoke — admin revoke for guardian/same-person links
-  app.post("/api/account-link/:id/revoke", async (req, res) => {
-    try {
-      if (!req.session.userId || req.session.loginStep !== "done") {
-        return res.status(401).json({ message: "Neautorizovaný prístup" });
-      }
-      const linkId = Number(req.params.id);
-      if (!linkId) return res.status(400).json({ message: "Neplatné ID" });
-      const [currentUser] = await db.select({ id: appUsers.id, isAdmin: appUsers.isAdmin, role: appUsers.role }).from(appUsers).where(eq(appUsers.id, req.session.userId)).limit(1);
-      const isAdminUser = currentUser?.isAdmin || ["admin", "superadmin", "prezident", "architekt"].includes(currentUser?.role ?? "");
-      const [al] = await db.select().from(accountLinks).where(eq(accountLinks.id, linkId)).limit(1);
-      if (!al) return res.status(404).json({ message: "Prepojenie nenájdené" });
-      const isOwner = al.primaryUserId === req.session.userId || al.linkedUserId === req.session.userId;
-      if (!isOwner && !isAdminUser) {
-        return res.status(403).json({ message: "Nie ste oprávnený zrušiť toto prepojenie" });
-      }
-      const { reason } = req.body;
-      const now = new Date();
-      await db.update(accountLinks)
-        .set({ isActive: false, status: "revoked", revokedAt: now, revokedBy: req.session.userId, revokedReason: reason ?? null })
-        .where(eq(accountLinks.id, linkId));
-      await db.insert(auditLogs).values({
-        userId: getAuditActorId(req), username: null, action: "ACCOUNT_LINK_REVOKED",
-        module: "AccountLink", entityId: al.id, entityName: null,
-        oldData: null, newData: { linkId, linkType: al.linkType, reason: reason ?? null }, ipAddress: req.ip,
-      });
-      return res.json({ success: true });
-    } catch (err) {
-      console.error("[ACCOUNT-LINK REVOKE]", err);
       res.status(500).json({ message: "Interná chyba" });
     }
   });
