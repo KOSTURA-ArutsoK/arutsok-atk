@@ -1608,6 +1608,14 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
                 return <div className="w-2 h-2 rounded-full bg-amber-500 ml-1.5" />;
               })()}
             </TabsTrigger>
+            <TabsTrigger
+              value="__opravnene__"
+              className="text-xs px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:font-semibold transition-all"
+              data-testid="tab-opravnene"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
+              Oprávnené osoby
+            </TabsTrigger>
           </TabsList>
 
           {!isClientView && (
@@ -1623,6 +1631,10 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
               isClientView={isClientView}
               getFieldValue={getFieldValue}
             />
+          </TabsContent>
+
+          <TabsContent value="__opravnene__" className="mt-3" data-testid="tabcontent-opravnene">
+            <BoardroomSection subjectId={subject.id} />
           </TabsContent>
 
           {displayTabs.map(tab => {
@@ -2823,6 +2835,156 @@ function AddressCollectionBlock({ subjectId, isClientView }: { subjectId: number
         </div>
       )}
     </Card>
+  );
+}
+
+type AccessListEntry = {
+  id: number;
+  userId: number;
+  username: string;
+  firstName: string | null;
+  lastName: string | null;
+  titleBefore: string | null;
+  titleAfter: string | null;
+  uid: string | null;
+  role: string | null;
+  validFrom: string | null;
+  validUntil: string | null;
+  verifiedAt: string | null;
+  linkedSubjectType: string;
+};
+
+function getAccessListRowColor(linkedSubjectType: string): { border: string; bg: string; text: string } {
+  if (linkedSubjectType === "company" || linkedSubjectType === "state") {
+    return {
+      border: "border-blue-600/60",
+      bg: "bg-blue-500/5",
+      text: "text-blue-400",
+    };
+  }
+  if (linkedSubjectType === "person" || linkedSubjectType === "szco") {
+    return {
+      border: "border-emerald-600/60",
+      bg: "bg-emerald-500/5",
+      text: "text-emerald-400",
+    };
+  }
+  return {
+    border: "border-border",
+    bg: "bg-muted/20",
+    text: "text-muted-foreground",
+  };
+}
+
+function buildFullName(entry: AccessListEntry): string {
+  const parts: string[] = [];
+  if (entry.titleBefore) parts.push(entry.titleBefore);
+  if (entry.firstName) parts.push(entry.firstName);
+  if (entry.lastName) parts.push(entry.lastName);
+  if (parts.length === 0) parts.push(entry.username);
+  const base = parts.join(" ");
+  return entry.titleAfter ? `${base}, ${entry.titleAfter}` : base;
+}
+
+function BoardroomSection({ subjectId }: { subjectId: number }) {
+  const [warningModalOpen, setWarningModalOpen] = useState(false);
+
+  const { data: accessList, isLoading } = useQuery<AccessListEntry[]>({
+    queryKey: [`/api/subjects/${subjectId}/access-list`],
+  });
+
+  return (
+    <div className="space-y-3" data-testid="boardroom-section">
+      <div className="flex items-center gap-2 mb-2">
+        <ShieldCheck className="w-4 h-4 text-primary" />
+        <span className="text-sm font-semibold">Zoznam oprávnených osôb</span>
+        <span className="text-xs text-muted-foreground ml-1">— aktívne prístupy k tomuto subjektu</span>
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 py-6 justify-center text-muted-foreground text-sm" data-testid="boardroom-loading">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Načítava sa…
+        </div>
+      )}
+
+      {!isLoading && (!accessList || accessList.length === 0) && (
+        <div className="py-8 text-center text-muted-foreground text-sm border-2 border-dashed border-border rounded-lg" data-testid="boardroom-empty">
+          Žiadne oprávnené osoby
+        </div>
+      )}
+
+      {!isLoading && accessList && accessList.length > 0 && (
+        <div className="w-full overflow-x-auto">
+          <table className="w-full border-collapse border-2 border-border rounded-lg text-sm" data-testid="boardroom-table">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground w-full">Celé meno</th>
+                <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">UID používateľa</th>
+                <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">Platnosť</th>
+                <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">Overené</th>
+                <th className="border-2 border-border px-3 py-2 text-center text-xs font-semibold text-muted-foreground whitespace-nowrap">Akcia</th>
+              </tr>
+            </thead>
+            <tbody>
+              {accessList.map((entry) => {
+                const colors = getAccessListRowColor(entry.linkedSubjectType);
+                const fullName = buildFullName(entry);
+                const validFromStr = entry.validFrom ? formatDateSlovak(entry.validFrom) : null;
+                const validUntilStr = entry.validUntil ? formatDateSlovak(entry.validUntil) : null;
+                const validity = validFromStr || validUntilStr
+                  ? [validFromStr || "—", validUntilStr || "∞"].join(" – ")
+                  : "—";
+                const verifiedStr = entry.verifiedAt ? formatDateSlovak(entry.verifiedAt) : "—";
+                return (
+                  <tr
+                    key={entry.id}
+                    className={`${colors.bg} border-2 ${colors.border} transition-colors`}
+                    data-testid={`boardroom-row-${entry.id}`}
+                  >
+                    <td className={`border-2 border-border px-3 py-2 font-medium ${colors.text}`} data-testid={`boardroom-name-${entry.id}`}>
+                      {fullName}
+                    </td>
+                    <td className="border-2 border-border px-3 py-2 font-mono text-xs text-muted-foreground whitespace-nowrap" data-testid={`boardroom-uid-${entry.id}`}>
+                      {formatUid(entry.uid)}
+                    </td>
+                    <td className="border-2 border-border px-3 py-2 text-xs text-muted-foreground whitespace-nowrap" data-testid={`boardroom-validity-${entry.id}`}>
+                      {validity}
+                    </td>
+                    <td className="border-2 border-border px-3 py-2 text-xs text-muted-foreground whitespace-nowrap" data-testid={`boardroom-verified-${entry.id}`}>
+                      {verifiedStr}
+                    </td>
+                    <td className="border-2 border-border px-3 py-2 text-center whitespace-nowrap" data-testid={`boardroom-action-${entry.id}`}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
+                        onClick={() => setWarningModalOpen(true)}
+                        data-testid={`boardroom-warn-btn-${entry.id}`}
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                        Nahlásiť
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Dialog open={warningModalOpen} onOpenChange={setWarningModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nahlásiť neaktuálnosť prístupu</DialogTitle>
+          </DialogHeader>
+          <div className="py-6 text-center text-muted-foreground text-sm">
+            Pripravuje sa…
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 

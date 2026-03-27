@@ -15175,6 +15175,101 @@ export async function registerRoutes(
     }
   });
 
+  // === BOARDROOM VIEW: GET /api/subjects/:id/access-list ===
+  app.get("/api/subjects/:id/access-list", isAuthenticated, async (req: any, res) => {
+    try {
+      const subjectId = Number(req.params.id);
+      if (isNaN(subjectId)) return res.status(400).json({ message: "Neplatné ID" });
+      const appUser = req.appUser;
+
+      // Admin always has access; otherwise user must have active verified link
+      let hasAccess = isAdmin(appUser);
+      if (!hasAccess) {
+        const [myLink] = await db.select({ id: subjectLinks.id })
+          .from(subjectLinks)
+          .where(and(
+            eq(subjectLinks.subjectId, subjectId),
+            eq(subjectLinks.userId, appUser.id),
+            eq(subjectLinks.isActive, true),
+            eq(subjectLinks.status, "verified")
+          ))
+          .limit(1);
+        hasAccess = !!myLink;
+      }
+      if (!hasAccess) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const links = await db.select({
+        id: subjectLinks.id,
+        userId: subjectLinks.userId,
+        status: subjectLinks.status,
+        isActive: subjectLinks.isActive,
+        validFrom: subjectLinks.validFrom,
+        validUntil: subjectLinks.validUntil,
+        verifiedAt: subjectLinks.verifiedAt,
+        userUsername: appUsers.username,
+        userFirstName: appUsers.firstName,
+        userLastName: appUsers.lastName,
+        userUid: appUsers.uid,
+        userRole: appUsers.role,
+        userLinkedSubjectId: appUsers.linkedSubjectId,
+      })
+        .from(subjectLinks)
+        .innerJoin(appUsers, eq(subjectLinks.userId, appUsers.id))
+        .where(and(
+          eq(subjectLinks.subjectId, subjectId),
+          eq(subjectLinks.isActive, true),
+          eq(subjectLinks.status, "verified")
+        ));
+
+      // Fetch linked subject types for color coding
+      const linkedSubjectIds = links
+        .map(l => l.userLinkedSubjectId)
+        .filter((id): id is number => id != null);
+
+      const linkedSubjectMap = new Map<number, { type: string; titleBefore: string | null; titleAfter: string | null }>();
+      if (linkedSubjectIds.length > 0) {
+        const subjectRows = await db.select({
+          id: subjects.id,
+          type: subjects.type,
+          titleBefore: subjects.titleBefore,
+          titleAfter: subjects.titleAfter,
+        })
+          .from(subjects)
+          .where(inArray(subjects.id, linkedSubjectIds));
+        for (const s of subjectRows) {
+          linkedSubjectMap.set(s.id, {
+            type: s.type || "person",
+            titleBefore: s.titleBefore,
+            titleAfter: s.titleAfter,
+          });
+        }
+      }
+
+      const result = links.map(l => {
+        const lsub = l.userLinkedSubjectId ? linkedSubjectMap.get(l.userLinkedSubjectId) : undefined;
+        return {
+          id: l.id,
+          userId: l.userId,
+          username: l.userUsername,
+          firstName: l.userFirstName,
+          lastName: l.userLastName,
+          titleBefore: lsub?.titleBefore ?? null,
+          titleAfter: lsub?.titleAfter ?? null,
+          uid: l.userUid,
+          role: l.userRole,
+          validFrom: l.validFrom,
+          validUntil: l.validUntil,
+          verifiedAt: l.verifiedAt,
+          linkedSubjectType: lsub?.type ?? "person",
+        };
+      });
+
+      return res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // === HOLDING TREE: GET /api/subjects/:id/full-tree ===
   app.get("/api/subjects/:id/full-tree", isAuthenticated, async (req: any, res) => {
     try {
