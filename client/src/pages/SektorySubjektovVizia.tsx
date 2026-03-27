@@ -79,6 +79,129 @@ function FieldTypeBadge({ type }: { type: string }) {
 }
 
 // ============================================================
+// WidthPercentEditor — slider + quick buttons for widthPercent
+// ============================================================
+function WidthPercentEditor({
+  label,
+  currentPct,
+  onCommit,
+  isPending,
+  testIdPrefix = "width",
+}: {
+  label: string;
+  currentPct: number;
+  onCommit: (value: number) => void;
+  isPending: boolean;
+  testIdPrefix?: string;
+}) {
+  const [draft, setDraft] = useState<number>(currentPct);
+  const [inputStr, setInputStr] = useState<string>(String(currentPct));
+
+  useEffect(() => {
+    setDraft(currentPct);
+    setInputStr(String(currentPct));
+  }, [currentPct]);
+
+  const WIDTH_OPTIONS = [25, 33, 50, 75, 100];
+
+  function clamp(v: number) { return Math.min(100, Math.max(1, v)); }
+
+  function handleQuickClick(opt: number) {
+    setDraft(opt);
+    setInputStr(String(opt));
+    onCommit(opt);
+  }
+
+  function handleSliderChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = clamp(Number(e.target.value));
+    setDraft(v);
+    setInputStr(String(v));
+  }
+
+  function handleSliderCommit() {
+    onCommit(draft);
+  }
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setInputStr(e.target.value);
+    const v = parseInt(e.target.value, 10);
+    if (!isNaN(v)) setDraft(clamp(v));
+  }
+
+  function handleInputCommit() {
+    const v = parseInt(inputStr, 10);
+    const safe = isNaN(v) ? currentPct : clamp(v);
+    setDraft(safe);
+    setInputStr(String(safe));
+    onCommit(safe);
+  }
+
+  function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") { e.preventDefault(); handleInputCommit(); }
+  }
+
+  return (
+    <div className="px-3 pb-3 flex-shrink-0" data-testid={`${testIdPrefix}-percent-editor`}>
+      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">{label}</p>
+      {/* Quick buttons */}
+      <div className="flex gap-1 flex-wrap mb-2">
+        {WIDTH_OPTIONS.map(opt => (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => handleQuickClick(opt)}
+            disabled={isPending}
+            data-testid={`${testIdPrefix}-btn-${opt}`}
+            className={`flex-1 min-w-[calc(33%-4px)] px-2 py-1 rounded text-[11px] font-medium border transition-all ${
+              draft === opt
+                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                : "bg-background border-border text-muted-foreground hover:border-primary/60 hover:text-foreground"
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {opt}%
+          </button>
+        ))}
+      </div>
+      {/* Slider + numeric input */}
+      <div className="flex items-center gap-2">
+        <input
+          type="range"
+          min={1}
+          max={100}
+          step={1}
+          value={draft}
+          onChange={handleSliderChange}
+          onMouseUp={handleSliderCommit}
+          onTouchEnd={handleSliderCommit}
+          disabled={isPending}
+          data-testid={`${testIdPrefix}-slider`}
+          className="flex-1 h-1.5 accent-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        />
+        <input
+          type="number"
+          min={1}
+          max={100}
+          value={inputStr}
+          onChange={handleInputChange}
+          onBlur={handleInputCommit}
+          onKeyDown={handleInputKeyDown}
+          disabled={isPending}
+          data-testid={`${testIdPrefix}-input`}
+          className="w-12 px-1.5 py-0.5 text-[11px] border border-border rounded bg-background text-foreground text-center disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:border-primary"
+        />
+        <span className="text-[11px] text-muted-foreground">%</span>
+      </div>
+      {isPending && (
+        <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
+          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+          Ukladám...
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // SortableItem — generic drag-and-drop wrapper
 // ============================================================
 type DragHandleProps = {
@@ -1355,35 +1478,14 @@ export default function SektorySubjektovVizia() {
               {ctxItem.type === "param" && (() => {
                 const freshParam = allParams.find(p => p.id === ctxItem.item.id) ?? ctxItem.item;
                 const currentPct = (freshParam.widthPercent ?? 100) > 0 ? (freshParam.widthPercent ?? 100) : 100;
-                const WIDTH_OPTIONS = [25, 33, 50, 75, 100];
                 return (
-                  <div className="px-3 pb-3 flex-shrink-0">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Šírka poľa</p>
-                    <div className="flex gap-1 flex-wrap" data-testid="width-percent-editor">
-                      {WIDTH_OPTIONS.map(opt => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => updateParamWidthMutation.mutate({ id: freshParam.id, widthPercent: opt })}
-                          disabled={updateParamWidthMutation.isPending}
-                          data-testid={`width-btn-${opt}`}
-                          className={`flex-1 min-w-[calc(33%-4px)] px-2 py-1 rounded text-[11px] font-medium border transition-all ${
-                            currentPct === opt
-                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                              : "bg-background border-border text-muted-foreground hover:border-primary/60 hover:text-foreground"
-                          } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                          {opt}%
-                        </button>
-                      ))}
-                    </div>
-                    {updateParamWidthMutation.isPending && (
-                      <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
-                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                        Ukladám...
-                      </div>
-                    )}
-                  </div>
+                  <WidthPercentEditor
+                    label="Šírka poľa"
+                    currentPct={currentPct}
+                    onCommit={(v) => updateParamWidthMutation.mutate({ id: freshParam.id, widthPercent: v })}
+                    isPending={updateParamWidthMutation.isPending}
+                    testIdPrefix="param-width"
+                  />
                 );
               })()}
 
@@ -1391,37 +1493,14 @@ export default function SektorySubjektovVizia() {
               {ctxItem.type === "section" && (ctxItem.item.sectionType === "panel" || ctxItem.item.sectionType === "riadok") && (() => {
                 const freshSec = allSections.find(s => s.id === ctxItem.item.id) ?? ctxItem.item;
                 const currentPct = (freshSec.widthPercent ?? 100) > 0 ? (freshSec.widthPercent ?? 100) : 100;
-                const WIDTH_OPTIONS = [25, 33, 50, 75, 100];
                 return (
-                  <div className="px-3 pb-3 flex-shrink-0">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-                      Šírka {ctxItem.item.sectionType === "panel" ? "panelu" : "riadku"}
-                    </p>
-                    <div className="flex gap-1 flex-wrap" data-testid="width-percent-editor">
-                      {WIDTH_OPTIONS.map(opt => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => updateSectionWidthMutation.mutate({ id: freshSec.id, widthPercent: opt })}
-                          disabled={updateSectionWidthMutation.isPending}
-                          data-testid={`width-btn-${opt}`}
-                          className={`flex-1 min-w-[calc(33%-4px)] px-2 py-1 rounded text-[11px] font-medium border transition-all ${
-                            currentPct === opt
-                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                              : "bg-background border-border text-muted-foreground hover:border-primary/60 hover:text-foreground"
-                          } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                          {opt}%
-                        </button>
-                      ))}
-                    </div>
-                    {updateSectionWidthMutation.isPending && (
-                      <div className="flex items-center gap-1 mt-1.5 text-[10px] text-muted-foreground">
-                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                        Ukladám...
-                      </div>
-                    )}
-                  </div>
+                  <WidthPercentEditor
+                    label={`Šírka ${ctxItem.item.sectionType === "panel" ? "panelu" : "riadku"}`}
+                    currentPct={currentPct}
+                    onCommit={(v) => updateSectionWidthMutation.mutate({ id: freshSec.id, widthPercent: v })}
+                    isPending={updateSectionWidthMutation.isPending}
+                    testIdPrefix="section-width"
+                  />
                 );
               })()}
 
