@@ -529,6 +529,8 @@ export const appUserLoginHistory = pgTable("app_user_login_history", {
   loginAt: timestamp("login_at").defaultNow().notNull(),
   logoutAt: timestamp("logout_at"),
   ipAddress: text("ip_address"),
+  contextType: text("context_type"),
+  contextLabel: text("context_label"),
 });
 
 // === RELATIONS ===

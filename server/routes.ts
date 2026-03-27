@@ -1223,6 +1223,52 @@ export async function registerRoutes(
       }
       
       const oldData = { activeCompanyId: appUser.activeCompanyId, activeStateId: appUser.activeStateId, activeDivisionId: appUser.activeDivisionId, activeSubjectId: appUser.activeSubjectId };
+
+      // Identity session split: when activeSubjectId changes, close the current session
+      // row and open a new one for the incoming identity.
+      const oldSubjectId = appUser.activeSubjectId ?? null;
+      const newSubjectId = validated.activeSubjectId !== undefined ? (validated.activeSubjectId ?? null) : oldSubjectId;
+      const identityChanged = newSubjectId !== oldSubjectId;
+      if (identityChanged) {
+        const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+        // Close the currently open session row
+        await db.update(appUserLoginHistory)
+          .set({ logoutAt: new Date() })
+          .where(and(eq(appUserLoginHistory.appUserId, appUser.id), isNull(appUserLoginHistory.logoutAt)));
+        // Determine context label for the new identity
+        let newContextType = "fo";
+        let newContextLabel: string | null = null;
+        if (newSubjectId) {
+          const [subj] = await db
+            .select({ type: subjects.type, firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName })
+            .from(subjects)
+            .where(eq(subjects.id, newSubjectId));
+          if (subj) {
+            const displayName = subj.companyName || [subj.firstName, subj.lastName].filter(Boolean).join(" ") || "Neznámy";
+            switch (subj.type) {
+              case "szco": newContextType = "szco"; newContextLabel = `${displayName} — SZČO`; break;
+              case "company": newContextType = "po"; newContextLabel = `${displayName} — PO`; break;
+              case "organization": newContextType = "ts"; newContextLabel = `${displayName} — TS`; break;
+              case "state": newContextType = "vs"; newContextLabel = `${displayName} — VS`; break;
+              case "os": newContextType = "os"; newContextLabel = `${displayName} — OS`; break;
+              default: newContextType = "subject"; newContextLabel = displayName; break;
+            }
+          }
+        } else {
+          // Returning to FO identity
+          const foName = `${appUser.firstName || ""} ${appUser.lastName || ""}`.trim() || appUser.username;
+          newContextLabel = `${foName} — FO`;
+        }
+        // Open a new session row for the incoming identity
+        await db.insert(appUserLoginHistory).values({
+          appUserId: appUser.id,
+          loginAt: new Date(),
+          ipAddress: ip,
+          contextType: newContextType,
+          contextLabel: newContextLabel,
+        });
+      }
+
       const updated = await storage.updateAppUser(appUser.id, updates);
       await logAudit(req, { action: "UPDATE", module: "nastavenia", entityId: appUser.id, entityName: appUser.username, oldData, newData: updates });
       res.json(updated);

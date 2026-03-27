@@ -141,7 +141,7 @@ export default function Dashboard() {
   const [redListDialogOpen, setRedListDialogOpen] = useState(false);
   const [loginHistoryOpen, setLoginHistoryOpen] = useState(false);
 
-  const { data: loginHistory } = useQuery<{ id: number; appUserId: number; loginAt: string; logoutAt: string | null; ipAddress: string | null }[]>({
+  const { data: loginHistory } = useQuery<{ id: number; appUserId: number; loginAt: string; logoutAt: string | null; ipAddress: string | null; contextType: string | null; contextLabel: string | null }[]>({
     queryKey: ["/api/app-user/login-history"],
     enabled: loginHistoryOpen,
   });
@@ -757,6 +757,7 @@ export default function Dashboard() {
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">#</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dátum a čas</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Trvanie</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Kontext</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">IP adresa</th>
                     </tr>
                   </thead>
@@ -771,6 +772,9 @@ export default function Dashboard() {
                           </td>
                           <td className="px-3 py-2 text-muted-foreground font-mono text-xs tabular-nums">
                             {formatDuration(entry.loginAt, entry.logoutAt)}
+                          </td>
+                          <td className="px-3 py-2 text-xs" data-testid={`login-history-context-${entry.id}`}>
+                            {entry.contextLabel || <span className="text-muted-foreground">—</span>}
                           </td>
                           <td className="px-3 py-2 text-muted-foreground font-mono text-xs">{entry.ipAddress || "—"}</td>
                         </tr>

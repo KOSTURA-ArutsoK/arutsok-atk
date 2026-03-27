@@ -246,8 +246,21 @@ async function recordLoginHistory(userId: number, ip: string | null) {
   const [recent] = await db.select().from(appUserLoginHistory)
     .where(and(eq(appUserLoginHistory.appUserId, userId), gte(appUserLoginHistory.loginAt, tenSecsAgo)));
   if (!recent) {
+    const [userRow] = await db
+      .select({ firstName: appUsers.firstName, lastName: appUsers.lastName, username: appUsers.username })
+      .from(appUsers)
+      .where(eq(appUsers.id, userId));
     await db.update(appUsers).set({ lastLoginAt: loginNow }).where(eq(appUsers.id, userId));
-    await db.insert(appUserLoginHistory).values({ appUserId: userId, loginAt: loginNow, ipAddress: ip });
+    const foName = userRow
+      ? (`${userRow.firstName || ""} ${userRow.lastName || ""}`.trim() || userRow.username)
+      : null;
+    await db.insert(appUserLoginHistory).values({
+      appUserId: userId,
+      loginAt: loginNow,
+      ipAddress: ip,
+      contextType: "fo",
+      contextLabel: foName ? `${foName} — FO` : null,
+    });
   }
 }
 
