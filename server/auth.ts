@@ -2377,7 +2377,7 @@ export async function setupAuth(app: Express) {
     legacyHeaders: false,
   });
 
-  // GET /api/account-link/guardian-confirm — validates token + auto-confirms email
+  // GET /api/account-link/guardian-confirm — validates token + auto-confirms email (does NOT complete link)
   app.get("/api/account-link/guardian-confirm", async (req, res) => {
     try {
       const { token } = req.query;
@@ -2391,13 +2391,22 @@ export async function setupAuth(app: Express) {
       const guardianName = guardianUser ? `${guardianUser.firstName || ""} ${guardianUser.lastName || ""}`.trim() || guardianUser.email || "Neznámy" : "Neznámy";
       const guardianEmail = guardianUser?.email || "";
       const targetName = targetUser ? `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() || "Neznámy" : "Neznámy";
-      // Auto-confirm email if not yet confirmed
+      // Auto-confirm email (link click = email ownership verified), but do NOT complete the link yet.
+      // Target user must explicitly activate or reject on the next screen.
       if (!gct.emailConfirmed) {
         await storage.confirmGuardianEmail(gct.id);
-        if (!gct.needsSms) {
-          await storage.completeGuardianLink(gct.linkId, "email");
-          await db.insert(auditLogs).values({ userId: gct.targetUserId, username: null, action: "GUARDIAN_LINK_CONFIRMED", module: "AccountLink", entityId: gct.guardianUserId, entityName: null, oldData: null, newData: { linkId: gct.linkId, via: "email" }, ipAddress: null });
-        }
+      }
+      // Determine status: check actual link completion, not just token fields
+      const link = await storage.getAccountLinkById(gct.linkId);
+      let status: "pending_activation" | "sms_required" | "confirmed";
+      if (link?.status === "verified") {
+        // Link already fully completed
+        status = "confirmed";
+      } else if (gct.needsSms) {
+        status = "sms_required";
+      } else {
+        // Email confirmed, awaiting explicit target activation
+        status = "pending_activation";
       }
       return res.json({
         tokenId: gct.id, guardianName,
@@ -2406,10 +2415,37 @@ export async function setupAuth(app: Express) {
         emailConfirmed: true,
         smsConfirmed: gct.smsConfirmed,
         expiresAt: gct.expiresAt,
-        status: !gct.needsSms ? "confirmed" : "sms_required",
+        status,
       });
     } catch (err) {
       console.error("[GUARDIAN-CONFIRM ALIAS GET]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  // POST /api/account-link/guardian-activate — explicit target activation (email-only path)
+  app.post("/api/account-link/guardian-activate", async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token) return res.status(400).json({ message: "Chýba token" });
+      const gct = await storage.getGuardianToken(token);
+      if (!gct) return res.status(404).json({ message: "Token neexistuje" });
+      if (gct.rejected) return res.status(410).json({ message: "Žiadosť bola odmietnutá" });
+      if (new Date() > gct.expiresAt) return res.status(410).json({ message: "Platnosť tokenu vypršala" });
+      if (!gct.emailConfirmed) return res.status(400).json({ message: "Email nebol potvrdený" });
+      if (gct.needsSms) return res.status(400).json({ message: "SMS overenie je povinné pre tento token" });
+      // Idempotent: if already confirmed, succeed silently
+      const link = await storage.getAccountLinkById(gct.linkId);
+      if (link?.status === "verified") return res.json({ status: "confirmed" });
+      await storage.completeGuardianLink(gct.linkId, "email");
+      await db.insert(auditLogs).values({
+        userId: gct.targetUserId, username: null, action: "GUARDIAN_LINK_CONFIRMED",
+        module: "AccountLink", entityId: gct.guardianUserId, entityName: null,
+        oldData: null, newData: { linkId: gct.linkId, via: "email_explicit" }, ipAddress: null,
+      });
+      return res.json({ status: "confirmed" });
+    } catch (err) {
+      console.error("[GUARDIAN-ACTIVATE]", err);
       res.status(500).json({ message: "Interná chyba" });
     }
   });

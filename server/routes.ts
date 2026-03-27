@@ -289,10 +289,10 @@ async function logAudit(req: any, params: {
 
     const now = new Date();
     const auditEntry = {
-      userId: migrationOn ? null : (appUser?.id || null),
+      userId: migrationOn ? null : (getAuditActorId(req) || null),
       username: migrationOn ? "Systémový import" : (isImpersonating
         ? `${appUser?.username || 'unknown'} [simulovaný Architektom ${req.originalAppUser.username}]`
-        : (appUser?.username || 'system')),
+        : (req.auditActorUsername || appUser?.username || 'system')),
       action: params.action,
       module: params.module,
       entityId: params.entityId || null,
@@ -923,6 +923,14 @@ export async function registerRoutes(
             req.appUser = appUser;
           }
           req.auditActorId = getAuditActorId(req);
+          // When guardian is operating on managed account, also load guardian's username
+          // so audit logs carry the correct actor name (not the managed user's name)
+          if (req.session?.guardianSwitchedFromUserId) {
+            const [guardianUser] = await db.select({ username: appUsers.username }).from(appUsers).where(eq(appUsers.id, req.session.guardianSwitchedFromUserId));
+            req.auditActorUsername = guardianUser?.username || null;
+          } else {
+            req.auditActorUsername = null;
+          }
         }
       }
     } catch (err) {
@@ -21873,10 +21881,10 @@ export async function registerRoutes(
       await db.insert(auditLogs).values({
         userId: (req as any).auditActorId || appUser?.id || 0,
         action: "network_link_created",
-        entityType: "network_link",
-        entityId: String(link.id),
-        details: { subjectId, guarantorSubjectId, linkType: linkType || "active", phase: phase || "klient" },
-      } as any);
+        module: "network",
+        entityId: link.id,
+        newData: { subjectId, guarantorSubjectId, linkType: linkType || "active", phase: phase || "klient" },
+      });
 
       res.json(link);
     } catch (err: any) {
@@ -21924,9 +21932,9 @@ export async function registerRoutes(
       await db.insert(auditLogs).values({
         userId: (req as any).auditActorId || appUser?.id || 0,
         action: "guarantor_confirmed",
-        entityType: "network_link",
-        entityId: String(subjectId),
-        details: { subjectId, chosenGuarantorId, frozenCount: activeLinks.filter(l => l.guarantorSubjectId !== chosenGuarantorId).length },
+        module: "network",
+        entityId: subjectId,
+        newData: { subjectId, chosenGuarantorId, frozenCount: activeLinks.filter(l => l.guarantorSubjectId !== chosenGuarantorId).length },
       });
 
       res.json({ message: "Garant potvrdený, ostatné prepojenia zamrznuté" });
