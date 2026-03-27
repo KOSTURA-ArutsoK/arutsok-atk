@@ -62,6 +62,8 @@ function GroupDetailDialog({
   group: ClientGroupWithCount | null;
 }) {
   const { toast } = useToast();
+  const { data: dialogAppUser } = useAppUser();
+  const isDialogAdmin = ["admin", "superadmin", "prezident", "architekt"].includes((dialogAppUser as any)?.role ?? "") || !!(dialogAppUser as any)?.isAdmin;
   const [activeTab, setActiveTab] = useState("vseobecne");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -300,9 +302,14 @@ function GroupDetailDialog({
                 placeholder="Krátky popis účelu skupiny pre orientáciu administrátorov..."
                 className="min-h-[72px] resize-none"
                 maxLength={500}
+                disabled={isSystem && !isDialogAdmin}
                 data-testid="input-group-description"
               />
-              <p className="text-xs text-muted-foreground text-right">{description.length}/500</p>
+              {isSystem && !isDialogAdmin ? (
+                <p className="text-xs text-muted-foreground">Popis systémovej skupiny môže upraviť iba administrátor.</p>
+              ) : (
+                <p className="text-xs text-muted-foreground text-right">{description.length}/500</p>
+              )}
             </div>
 
             <div className="space-y-2">

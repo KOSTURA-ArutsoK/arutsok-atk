@@ -9565,6 +9565,11 @@ export async function registerRoutes(
       if ((existing as any).isPartnerGroup) {
         return res.status(403).json({ message: "Partnerskú skupinu nie je možné priamo upraviť. Spravujte ju cez modul Partneri." });
       }
+      const appUser = req.appUser;
+      const isAdminUser = appUser?.isAdmin || ["admin", "superadmin", "prezident", "architekt"].includes(appUser?.role ?? "");
+      if (existing.isSystem && !isAdminUser) {
+        return res.status(403).json({ message: "Systémovú skupinu môže upraviť iba administrátor." });
+      }
       const enforcedState = getEnforcedStateId(req);
       if (enforcedState && existing.stateId !== null && existing.stateId !== enforcedState) {
         return res.status(403).json({ message: "Pristup zamietnuty" });
@@ -16336,10 +16341,11 @@ export async function registerRoutes(
 
   {
     const systemGroups: Array<{ name: string; groupCode: string; allowLogin?: boolean; description?: string }> = [
-      { name: "Klienti", groupCode: "group_klient", description: "Základná skupina obsahujúca všetkých aktívnych klientov v systéme." },
-      { name: "Registrovaní klienti", groupCode: "group_registrovany", description: "Klienti s aktívnym prístupom do klientskej zóny (portálu)." },
-      { name: "Červený zoznam", groupCode: "group_cerveny_zoznam", description: "Subjekty s aktívnym zmluvným sporom alebo podozrením z podvodu. Prístup obmedzený, prípad v riešení." },
-      { name: "Čierny zoznam - Podvodníci", groupCode: "group_cierny_zoznam", allowLogin: false, description: "Subjekty s preukázaným zmluvným podvodom alebo závažnou trestnou činnosťou. Prihlásenie zakázané." },
+      { name: "Klienti", groupCode: "group_klient", description: "Základná skupina obsahujúca všetkých aktívnych klientov evidovaných v systéme." },
+      { name: "Registrovaní klienti", groupCode: "group_registrovany", description: "Klienti s aktívnym prístupom do klientskej zóny (portálu). Prístup riadia oprávnenia skupiny." },
+      { name: "Červený zoznam", groupCode: "group_cerveny_zoznam", description: "Subjekty s preukázaným alebo podozrivým zmluvným podvodom (napr. poistný podvod). Aktívny prípad v riešení — prístup obmedzený." },
+      { name: "Čierny zoznam - Podvodníci", groupCode: "group_cierny_zoznam", allowLogin: false, description: "Subjekty s právoplatne zisteným zmluvným podvodom alebo závažnou trestnou činnosťou voči spoločnosti. Prihlásenie do portálu zakázané." },
+      { name: "Oranžový zoznam — klamári", groupCode: "group_oranzovy_zoznam_klamari", description: "Subjekty, ktoré sa preukázateľne dopustili nepravdivého hlásenia alebo klamlivého konania voči poradcovi. Evidenčný zoznam — nie je podmienkou vylúčenia z iných skupín." },
     ];
     for (const sg of systemGroups) {
       const existing = await db.select().from(clientGroups).where(eq(clientGroups.groupCode, sg.groupCode));
