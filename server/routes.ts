@@ -2316,6 +2316,25 @@ export async function registerRoutes(
             validTo: newTo ? new Date(newTo) : null,
             endReason: toChanged && newTo ? 'Zmena dátumu platnosti' : null,
           });
+
+          // Sync validFrom/validUntil to subject_links for the officer's subject
+          const officerSubjectId = updated.subjectId ?? oldOfficer?.subjectId;
+          if (officerSubjectId) {
+            try {
+              const slinks = await storage.getSubjectLinksBySubjectId(officerSubjectId);
+              for (const sl of slinks) {
+                if (sl.isActive && sl.status === "verified") {
+                  await storage.updateSubjectLinkValidity(
+                    sl.id,
+                    newFrom ? new Date(newFrom) : null,
+                    newTo ? new Date(newTo) : null,
+                  );
+                }
+              }
+            } catch (slinkErr) {
+              console.warn("[MANDATE SYNC] Could not sync subject_link validity:", slinkErr);
+            }
+          }
         }
       } catch (mandateErr) {
         console.error("[MANDATE LOG]", mandateErr);

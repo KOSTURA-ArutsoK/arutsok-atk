@@ -756,11 +756,15 @@ export interface IStorage {
   getSubjectLinkByToken(emailToken: string): Promise<SubjectLink | undefined>;
   getSubjectLinkById(id: number): Promise<SubjectLink | undefined>;
   getSubjectLinksByUserId(userId: number): Promise<SubjectLink[]>;
+  getSubjectLinksBySubjectId(subjectId: number): Promise<SubjectLink[]>;
   confirmSubjectLinkEmail(id: number): Promise<void>;
   confirmSubjectLinkSms(id: number): Promise<void>;
   completeSubjectLink(id: number, via: string): Promise<void>;
   rejectSubjectLink(id: number): Promise<void>;
   revokeSubjectLink(id: number, revokedBy: number, reason?: string): Promise<void>;
+  reactivateSubjectLink(id: number, reactivatedBy: number): Promise<void>;
+  updateSubjectLinkValidity(id: number, validFrom: Date | null, validUntil: Date | null): Promise<void>;
+  autoExpireSubjectLinks(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5707,6 +5711,11 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(subjectLinks.userId, userId), eq(subjectLinks.rejected, false)));
   }
 
+  async getSubjectLinksBySubjectId(subjectId: number): Promise<SubjectLink[]> {
+    return db.select().from(subjectLinks)
+      .where(and(eq(subjectLinks.subjectId, subjectId), eq(subjectLinks.rejected, false)));
+  }
+
   async confirmSubjectLinkEmail(id: number): Promise<void> {
     await db.update(subjectLinks).set({ emailConfirmed: true })
       .where(eq(subjectLinks.id, id));
@@ -5742,6 +5751,42 @@ export class DatabaseStorage implements IStorage {
       revokedBy,
       revokedReason: reason ?? null,
     }).where(eq(subjectLinks.id, id));
+  }
+
+  async reactivateSubjectLink(id: number, reactivatedBy: number): Promise<void> {
+    await db.update(subjectLinks).set({
+      status: "verified",
+      isActive: true,
+      revokedAt: null,
+      revokedBy: null,
+      revokedReason: null,
+      validUntil: null,
+    }).where(eq(subjectLinks.id, id));
+  }
+
+  async updateSubjectLinkValidity(id: number, validFrom: Date | null, validUntil: Date | null): Promise<void> {
+    await db.update(subjectLinks).set({ validFrom, validUntil }).where(eq(subjectLinks.id, id));
+  }
+
+  async autoExpireSubjectLinks(): Promise<number> {
+    const now = new Date();
+    const expired = await db.select({ id: subjectLinks.id })
+      .from(subjectLinks)
+      .where(and(
+        eq(subjectLinks.isActive, true),
+        eq(subjectLinks.status, "verified"),
+        isNotNull(subjectLinks.validUntil),
+        lte(subjectLinks.validUntil, now),
+      ));
+    if (expired.length === 0) return 0;
+    const ids = expired.map(r => r.id);
+    await db.update(subjectLinks).set({
+      isActive: false,
+      status: "expired",
+      revokedAt: now,
+      revokedReason: "auto_expired_validity",
+    }).where(inArray(subjectLinks.id, ids));
+    return ids.length;
   }
 }
 

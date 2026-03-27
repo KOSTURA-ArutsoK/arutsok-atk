@@ -2305,7 +2305,11 @@ export async function setupAuth(app: Express) {
 
       // Subject links (subjectLinks table — direct explicit subject-user bindings)
       const userSubjectLinks = await storage.getSubjectLinksByUserId(req.session.userId);
-      const activeSubjectLinks = userSubjectLinks.filter(sl => sl.isActive && sl.status === "verified");
+      const now = new Date();
+      const activeSubjectLinks = userSubjectLinks.filter(sl =>
+        sl.isActive && sl.status === "verified" &&
+        !(sl.validUntil && sl.validUntil <= now)
+      );
       for (const sl of activeSubjectLinks) {
         const key = `subject:${sl.subjectId}`;
         if (seenContextKeys.has(key)) continue;
@@ -2826,6 +2830,7 @@ export async function setupAuth(app: Express) {
         return res.status(401).json({ message: "Neautorizovaný prístup" });
       }
       const links = await storage.getSubjectLinksByUserId(req.session.userId);
+      const nowTs = new Date();
       const enriched = await Promise.all(links.map(async (sl) => {
         const [subject] = await db.select({
           id: subjects.id, type: subjects.type, companyName: subjects.companyName,
@@ -2833,11 +2838,15 @@ export async function setupAuth(app: Express) {
         }).from(subjects).where(eq(subjects.id, sl.subjectId));
         const subjectName = subject?.companyName || [subject?.firstName, subject?.lastName].filter(Boolean).join(" ") || subject?.uid || "Neznámy";
         const ico = (subject?.details as { ico?: string } | null)?.ico ?? null;
+        const isTemporallyExpired = !!(sl.validUntil && sl.validUntil <= nowTs);
         return {
           linkId: sl.id, subjectId: sl.subjectId, subjectName, subjectType: subject?.type ?? null,
           ico, uid: subject?.uid ?? null, status: sl.status, isActive: sl.isActive,
           needsSms: sl.needsSms, createdAt: sl.createdAt, verifiedAt: sl.verifiedAt,
-          tokenExpired: new Date() > sl.expiresAt,
+          tokenExpired: nowTs > sl.expiresAt,
+          validFrom: sl.validFrom ?? null,
+          validUntil: sl.validUntil ?? null,
+          isTemporallyExpired,
         };
       }));
       return res.json(enriched);
@@ -2878,6 +2887,62 @@ export async function setupAuth(app: Express) {
       return res.json({ success: true });
     } catch (err) {
       console.error("[SUBJECT-LINK REVOKE]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  // POST /api/subject-link/:id/reactivate — admin reactivate an expired/revoked subject link
+  app.post("/api/subject-link/:id/reactivate", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const [currentUser] = await db.select({ isAdmin: appUsers.isAdmin, role: appUsers.role }).from(appUsers).where(eq(appUsers.id, req.session.userId)).limit(1);
+      const isAdminUser = currentUser?.isAdmin || ["admin", "superadmin", "prezident", "architekt"].includes(currentUser?.role ?? "");
+      if (!isAdminUser) return res.status(403).json({ message: "Len administrátor môže reaktivovať prepojenie" });
+      const linkId = Number(req.params.id);
+      if (!linkId) return res.status(400).json({ message: "Neplatné ID" });
+      const sl = await storage.getSubjectLinkById(linkId);
+      if (!sl) return res.status(404).json({ message: "Prepojenie nenájdené" });
+      await storage.reactivateSubjectLink(linkId, req.session.userId);
+      await db.insert(auditLogs).values({
+        userId: getAuditActorId(req), username: null, action: "SUBJECT_LINK_REACTIVATED",
+        module: "SubjectLink", entityId: sl.subjectId, entityName: null,
+        oldData: { status: sl.status, isActive: sl.isActive }, newData: { linkId, reactivatedBy: req.session.userId }, ipAddress: req.ip,
+      });
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("[SUBJECT-LINK REACTIVATE]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  // PATCH /api/subject-link/:id/validity — admin set validFrom/validUntil on a subject link
+  app.patch("/api/subject-link/:id/validity", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "done") {
+        return res.status(401).json({ message: "Neautorizovaný prístup" });
+      }
+      const [currentUser] = await db.select({ isAdmin: appUsers.isAdmin, role: appUsers.role }).from(appUsers).where(eq(appUsers.id, req.session.userId)).limit(1);
+      const isAdminUser = currentUser?.isAdmin || ["admin", "superadmin", "prezident", "architekt"].includes(currentUser?.role ?? "");
+      if (!isAdminUser) return res.status(403).json({ message: "Len administrátor môže nastaviť platnosť prepojenia" });
+      const linkId = Number(req.params.id);
+      if (!linkId) return res.status(400).json({ message: "Neplatné ID" });
+      const sl = await storage.getSubjectLinkById(linkId);
+      if (!sl) return res.status(404).json({ message: "Prepojenie nenájdené" });
+      const { validFrom, validUntil } = req.body;
+      const parsedFrom = validFrom ? new Date(validFrom) : null;
+      const parsedUntil = validUntil ? new Date(validUntil) : null;
+      await storage.updateSubjectLinkValidity(linkId, parsedFrom, parsedUntil);
+      await db.insert(auditLogs).values({
+        userId: getAuditActorId(req), username: null, action: "SUBJECT_LINK_VALIDITY_UPDATED",
+        module: "SubjectLink", entityId: sl.subjectId, entityName: null,
+        oldData: { validFrom: sl.validFrom, validUntil: sl.validUntil },
+        newData: { linkId, validFrom: parsedFrom, validUntil: parsedUntil }, ipAddress: req.ip,
+      });
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("[SUBJECT-LINK VALIDITY]", err);
       res.status(500).json({ message: "Interná chyba" });
     }
   });

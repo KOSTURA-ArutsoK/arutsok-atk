@@ -2909,6 +2909,8 @@ export const subjectLinks = pgTable("subject_links", {
   revokedAt: timestamp("revoked_at"),
   revokedBy: integer("revoked_by").references(() => appUsers.id),
   revokedReason: text("revoked_reason"),
+  validFrom: timestamp("valid_from"),
+  validUntil: timestamp("valid_until"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

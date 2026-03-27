@@ -3,7 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, CheckCircle, Link, Mail, MessageSquare, ArrowRight, RefreshCw, Loader2, UserCheck, Building2, Search, ShieldCheck, Users, Clock, X, Link2, FileText } from "lucide-react";
+import { AlertTriangle, CheckCircle, Link, Mail, MessageSquare, ArrowRight, RefreshCw, Loader2, UserCheck, Building2, Search, ShieldCheck, Users, Clock, X, Link2, FileText, CalendarClock, Archive } from "lucide-react";
+import { formatDateSlovak } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 
@@ -59,6 +60,9 @@ interface SubjectLinkItem {
   createdAt: string;
   verifiedAt: string | null;
   tokenExpired: boolean;
+  validFrom: string | null;
+  validUntil: string | null;
+  isTemporallyExpired: boolean;
 }
 
 interface AccountLinkModalProps {
@@ -1097,10 +1101,10 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
               </div>
             )}
 
-            {subjectLinkListQuery.data && subjectLinkListQuery.data.filter(l => l.isActive && l.status === "verified").length > 0 && (
+            {subjectLinkListQuery.data && subjectLinkListQuery.data.filter(l => l.isActive && l.status === "verified" && !l.isTemporallyExpired).length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Aktívne prepojenia</p>
-                {subjectLinkListQuery.data.filter(l => l.isActive && l.status === "verified").map((item) => (
+                {subjectLinkListQuery.data.filter(l => l.isActive && l.status === "verified" && !l.isTemporallyExpired).map((item) => (
                   <div key={item.linkId} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30" data-testid={`subject-active-item-${item.linkId}`}>
                     <div className="w-9 h-9 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center flex-shrink-0">
                       <CheckCircle className="w-4 h-4 text-teal-600 dark:text-teal-400" />
@@ -1108,6 +1112,18 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{item.subjectName}</p>
                       <p className="text-xs text-muted-foreground">{subjectTypeLabel(item.subjectType)}{item.ico && ` — IČO: ${item.ico}`}</p>
+                      {item.validUntil && (
+                        <p className="text-xs text-teal-700 dark:text-teal-400 flex items-center gap-1 mt-0.5">
+                          <CalendarClock className="w-3 h-3" />
+                          Platné do: {formatDateSlovak(item.validUntil)}
+                        </p>
+                      )}
+                      {item.validFrom && !item.validUntil && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <CalendarClock className="w-3 h-3" />
+                          Od: {formatDateSlovak(item.validFrom)}
+                        </p>
+                      )}
                     </div>
                     <Button
                       size="sm"
@@ -1125,7 +1141,40 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
               </div>
             )}
 
-            {!subjectLinkListQuery.isLoading && (!subjectLinkListQuery.data?.length || subjectLinkListQuery.data.every(l => l.status === "revoked")) && (
+            {subjectLinkListQuery.data && subjectLinkListQuery.data.filter(l => !l.isActive || l.isTemporallyExpired || l.status === "expired").length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  <Archive className="w-3 h-3" />
+                  Archivované / vypršané
+                </p>
+                {subjectLinkListQuery.data.filter(l => !l.isActive || l.isTemporallyExpired || l.status === "expired").map((item) => {
+                  if (item.status === "pending_confirmation") return null;
+                  const expiredByValidity = item.isTemporallyExpired || item.status === "expired";
+                  return (
+                    <div key={item.linkId} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20 opacity-70" data-testid={`subject-archived-item-${item.linkId}`}>
+                      <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                        <Archive className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{item.subjectName}</p>
+                        <p className="text-xs text-muted-foreground">{subjectTypeLabel(item.subjectType)}{item.ico && ` — IČO: ${item.ico}`}</p>
+                        {expiredByValidity && item.validUntil && (
+                          <p className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1 mt-0.5">
+                            <CalendarClock className="w-3 h-3" />
+                            Platnosť skončila: {formatDateSlovak(item.validUntil)}
+                          </p>
+                        )}
+                        {!expiredByValidity && (
+                          <p className="text-xs text-muted-foreground mt-0.5">Zrušené</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {!subjectLinkListQuery.isLoading && (!subjectLinkListQuery.data || subjectLinkListQuery.data.length === 0) && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border border-border text-sm text-muted-foreground" data-testid="subject-manage-empty">
                 <Link2 className="w-4 h-4 flex-shrink-0" />
                 <span>Nemáte žiadne prepojenia so subjektmi.</span>

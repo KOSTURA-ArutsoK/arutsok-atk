@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { db } from "./db";
+import { storage } from "./storage";
 import { subjectParameters, contractInventories, contracts } from "@shared/schema";
 import { inArray, like, or, eq, isNull, and } from "drizzle-orm";
 
@@ -116,6 +117,20 @@ app.use((req, res, next) => {
   }
 
   await registerRoutes(httpServer, app);
+
+  // CRON: auto-expire subject links whose validUntil has passed (runs hourly)
+  async function runAutoExpireSubjectLinks() {
+    try {
+      const count = await storage.autoExpireSubjectLinks();
+      if (count > 0) {
+        console.log(`[CRON] Auto-expired ${count} subject link(s) past validUntil`);
+      }
+    } catch (e) {
+      console.warn("[CRON] autoExpireSubjectLinks error:", e);
+    }
+  }
+  runAutoExpireSubjectLinks();
+  setInterval(runAutoExpireSubjectLinks, 60 * 60 * 1000);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
