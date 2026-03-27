@@ -64,6 +64,7 @@ function GroupDetailDialog({
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("vseobecne");
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [entityType, setEntityType] = useState("fyzicka_osoba");
   const [allowLogin, setAllowLogin] = useState(true);
   const [allowCalculators, setAllowCalculators] = useState(true);
@@ -87,6 +88,7 @@ function GroupDetailDialog({
     if (open) {
       if (group) {
         setName(group.name || "");
+        setDescription((group as any).description || "");
         setEntityType((group as any).entityType || "fyzicka_osoba");
         setAllowLogin(group.allowLogin ?? true);
         setAllowCalculators(group.allowCalculators ?? true);
@@ -94,6 +96,7 @@ function GroupDetailDialog({
         setCustomFields(Array.isArray((group as any).customFields) ? (group as any).customFields : []);
       } else {
         setName("");
+        setDescription("");
         setEntityType("fyzicka_osoba");
         setAllowLogin(true);
         setAllowCalculators(true);
@@ -227,7 +230,7 @@ function GroupDetailDialog({
 
   const handleSave = () => {
     const processingTimeSec = Math.floor((Date.now() - startTimeRef.current) / 1000);
-    const data: any = { name, entityType, allowLogin, allowCalculators, permissionGroupId: permissionGroupId ? parseInt(permissionGroupId) : null, customFields };
+    const data: any = { name, description: description || null, entityType, allowLogin, allowCalculators, permissionGroupId: permissionGroupId ? parseInt(permissionGroupId) : null, customFields };
     if (isEditing) {
       updateMutation.mutate(data);
     } else {
@@ -285,6 +288,18 @@ function GroupDetailDialog({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Zadajte nazov skupiny"
                 data-testid="input-group-name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="group-description">Popis skupiny <span className="text-muted-foreground font-normal text-xs">(vysvetlivka k účelu)</span></Label>
+              <Textarea
+                id="group-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Krátky popis účelu skupiny pre orientáciu administrátorov..."
+                className="min-h-[72px] resize-none"
+                data-testid="input-group-description"
               />
             </div>
 
@@ -930,21 +945,26 @@ function GroupRowCells({
   return (
     <>
       <TableCell className="font-medium cursor-pointer hover-elevate" onClick={() => onEdit(group)}>
-        <span className="inline-flex items-center gap-1.5">
-          {group.isPartnerGroup
-            ? <Lock className="w-3.5 h-3.5 text-red-500 shrink-0" />
-            : group.isHoldingGroup
-              ? <Lock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-              : group.isSystem && group.groupCode === "group_cierny_zoznam"
-                ? <Ban className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                : group.isSystem
-                  ? <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  : null}
-          {group.name}
-          {group.isHoldingGroup && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/50 text-blue-500">Holding</Badge>}
-          {group.isSystem && !group.isHoldingGroup && group.groupCode !== "group_cierny_zoznam" && <Badge variant="outline" className="text-[9px] h-4 border-amber-500/50 text-amber-500">Systémová</Badge>}
-          {group.isSystem && group.groupCode === "group_cierny_zoznam" && <Badge variant="outline" className="text-[9px] h-4 border-red-500/50 text-red-500">Globálna</Badge>}
-        </span>
+        <div className="flex flex-col gap-0.5">
+          <span className="inline-flex items-center gap-1.5">
+            {group.isPartnerGroup
+              ? <Lock className="w-3.5 h-3.5 text-red-500 shrink-0" />
+              : group.isHoldingGroup
+                ? <Lock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                : group.isSystem && group.groupCode === "group_cierny_zoznam"
+                  ? <Ban className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                  : group.isSystem
+                    ? <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    : null}
+            {group.name}
+            {group.isHoldingGroup && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/50 text-blue-500">Holding</Badge>}
+            {group.isSystem && !group.isHoldingGroup && group.groupCode !== "group_cierny_zoznam" && <Badge variant="outline" className="text-[9px] h-4 border-amber-500/50 text-amber-500">Systémová</Badge>}
+            {group.isSystem && group.groupCode === "group_cierny_zoznam" && <Badge variant="outline" className="text-[9px] h-4 border-red-500/50 text-red-500">Globálna</Badge>}
+          </span>
+          {(group as any).description && (
+            <span className="text-xs text-muted-foreground font-normal line-clamp-1" data-testid={`text-group-desc-${group.id}`}>{(group as any).description}</span>
+          )}
+        </div>
       </TableCell>
       <TableCell className="w-36 text-center">
         <Badge variant="outline" data-testid={`badge-level-${group.id}`}>

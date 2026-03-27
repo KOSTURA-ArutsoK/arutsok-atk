@@ -678,6 +678,7 @@ export const clientGroups = pgTable("client_groups", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   groupCode: text("group_code").unique(),
+  description: text("description"),
   entityType: text("entity_type").notNull().default("fyzicka_osoba"),
   allowLogin: boolean("allow_login").default(true),
   allowCalculators: boolean("allow_calculators").default(true),

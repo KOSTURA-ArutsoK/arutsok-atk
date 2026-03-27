@@ -16335,21 +16335,22 @@ export async function registerRoutes(
   }
 
   {
-    const systemGroups: Array<{ name: string; groupCode: string; allowLogin?: boolean }> = [
-      { name: "Klienti", groupCode: "group_klient" },
-      { name: "Registrovaní klienti", groupCode: "group_registrovany" },
-      { name: "Červený zoznam", groupCode: "group_cerveny_zoznam" },
-      { name: "Čierny zoznam - Podvodníci", groupCode: "group_cierny_zoznam", allowLogin: false },
+    const systemGroups: Array<{ name: string; groupCode: string; allowLogin?: boolean; description?: string }> = [
+      { name: "Klienti", groupCode: "group_klient", description: "Základná skupina obsahujúca všetkých aktívnych klientov v systéme." },
+      { name: "Registrovaní klienti", groupCode: "group_registrovany", description: "Klienti s aktívnym prístupom do klientskej zóny (portálu)." },
+      { name: "Červený zoznam", groupCode: "group_cerveny_zoznam", description: "Subjekty s aktívnym zmluvným sporom alebo podozrením z podvodu. Prístup obmedzený, prípad v riešení." },
+      { name: "Čierny zoznam - Podvodníci", groupCode: "group_cierny_zoznam", allowLogin: false, description: "Subjekty s preukázaným zmluvným podvodom alebo závažnou trestnou činnosťou. Prihlásenie zakázané." },
     ];
     for (const sg of systemGroups) {
       const existing = await db.select().from(clientGroups).where(eq(clientGroups.groupCode, sg.groupCode));
       if (existing.length === 0) {
-        await db.insert(clientGroups).values({ name: sg.name, groupCode: sg.groupCode, isSystem: true, permissionLevel: 1, ...(sg.allowLogin !== undefined ? { allowLogin: sg.allowLogin } : {}) });
+        await db.insert(clientGroups).values({ name: sg.name, groupCode: sg.groupCode, isSystem: true, permissionLevel: 1, description: sg.description ?? null, ...(sg.allowLogin !== undefined ? { allowLogin: sg.allowLogin } : {}) });
         console.log(`[SEED] Created system group: ${sg.name}`);
       } else {
         const updates: any = {};
         if (!existing[0].isSystem) updates.isSystem = true;
         if (sg.allowLogin !== undefined && existing[0].allowLogin !== sg.allowLogin) updates.allowLogin = sg.allowLogin;
+        if (sg.description && !existing[0].description) updates.description = sg.description;
         if (Object.keys(updates).length > 0) {
           await db.update(clientGroups).set(updates).where(eq(clientGroups.id, existing[0].id));
         }
