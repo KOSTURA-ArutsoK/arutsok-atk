@@ -11577,7 +11577,8 @@ export async function registerRoutes(
 
   // === LIVE LOOKUP — upozornenie záujmu počas registrácie (bez vytvorenia subject_link) ===
   // Pre registračnú session: neexistuje appUser, preto sa subject_link nevytvára.
-  // Namiesto toho sa pošle len informačný e-mail kontaktu a zaloguje sa záujem do audit_logs.
+  // Namiesto toho sa pošle informačný e-mail/SMS kontaktu a zaloguje sa záujem do audit_logs.
+  // Bezpečnosť: subjectIds musia byť z live-lookup session cache (nie ľubovoľné ID).
   // Po vytvorení/prihlásení účtu môže používateľ formálne vytvoriť subject_link cez batch-initiate.
   app.post("/api/registration/live-lookup/registration-notify", async (req: any, res) => {
     try {
@@ -11598,26 +11599,53 @@ export async function registerRoutes(
         return res.status(401).json({ message: "Registračná relácia je neplatná alebo vypršala" });
       }
 
-      // Nesmie byť prihlásený — tento endpoint je len pre neautentifikovaných
+      // Nesmie byť prihlásený — tento endpoint je len pre neautentifikovaných registrujúcich sa
       if (req.appUser) {
         return res.status(400).json({ message: "Prihlásení používatelia použijú batch-initiate" });
       }
 
-      const [regSubject] = await db.select({ id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName })
+      // Bezpečnosť: Validate that requested subjectIds came from the live-lookup session cache.
+      // The live-lookup result is cached in session under live_lookup_<cleanBn>.
+      // We extract the verifiedSubject's birth number and check the cache.
+      const [regSubject] = await db.select({ id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName, birthNumber: subjects.birthNumber })
         .from(subjects).where(eq(subjects.id, regSessionSubjectId)).limit(1);
 
-      const requesterName = regSubject
-        ? [regSubject.firstName, regSubject.lastName].filter(Boolean).join(" ") || "Neznámy"
-        : "Neznámy";
+      if (!regSubject) {
+        return res.status(403).json({ message: "Registračný subjekt nenájdený" });
+      }
+
+      // Find the cached live-lookup result (stored as live_lookup_<cleanBn> in session)
+      const bnDecrypted = regSubject.birthNumber ? decryptField(regSubject.birthNumber)?.replace(/\//g, "").replace(/\s/g, "").trim() : null;
+      let allowedCandidateIds: number[] = [];
+      if (bnDecrypted && req.session) {
+        const cacheKey = `live_lookup_${bnDecrypted}`;
+        const cached = (req.session as any)[cacheKey];
+        if (cached?.candidates && Array.isArray(cached.candidates)) {
+          allowedCandidateIds = cached.candidates.map((c: { subjectId: number }) => c.subjectId);
+        }
+      }
+
+      // Reject any subjectId not present in the cached live-lookup result
+      const invalidIds = subjectIds.filter((sid: number) => !allowedCandidateIds.includes(Number(sid)));
+      if (invalidIds.length > 0) {
+        return res.status(403).json({
+          message: "Niektoré subjekty nie sú z výsledkov vyhľadávania. Odoslaná žiadosť je neplatná.",
+          invalidIds,
+        });
+      }
+
+      const requesterName = [regSubject.firstName, regSubject.lastName].filter(Boolean).join(" ") || "Neznámy";
+      const { processPendingSmsNotifications } = await import("./email");
 
       const results: { subjectId: number; status: "notified" | "no_email" | "already_pending" | "error" }[] = [];
 
-      for (const sid of subjectIds) {
+      for (const rawSid of subjectIds) {
+        const sid = Number(rawSid);
         try {
-          const [targetSubject] = await db.select().from(subjects).where(eq(subjects.id, sid)).limit(1);
+          const [targetSubject] = await db.select().from(subjects).where(and(eq(subjects.id, sid), isNull(subjects.deletedAt))).limit(1);
           if (!targetSubject) { results.push({ subjectId: sid, status: "error" }); continue; }
 
-          // Skontroluj duplikát (existujúca pending/active notifikácia od tej istej reg session)
+          // Skontroluj duplikát (existujúca pending notifikácia od tej istej registračnej session)
           const existingNotif = await db.select({ id: systemNotifications.id })
             .from(systemNotifications)
             .where(and(
@@ -11628,10 +11656,15 @@ export async function registerRoutes(
             results.push({ subjectId: sid, status: "already_pending" }); continue;
           }
 
-          const primaryEmail = targetSubject.email
-            ? (decryptField(targetSubject.email) ?? targetSubject.email)
-            : null;
+          // Kontakty z subject_contacts tabuľky (primárny email a telefón)
+          const emailContacts = await db.select().from(subjectContacts)
+            .where(and(eq(subjectContacts.subjectId, sid), eq(subjectContacts.type, "email")));
+          const primaryEmail = emailContacts.find(c => c.isPrimary)?.value ?? emailContacts[0]?.value ?? null;
           if (!primaryEmail) { results.push({ subjectId: sid, status: "no_email" }); continue; }
+
+          const phoneContacts = await db.select().from(subjectContacts)
+            .where(and(eq(subjectContacts.subjectId, sid), eq(subjectContacts.type, "phone")));
+          const primaryPhone = phoneContacts.find(c => c.isPrimary)?.value ?? phoneContacts[0]?.value ?? null;
 
           const subjectName = targetSubject.companyName
             || [targetSubject.firstName, targetSubject.lastName].filter(Boolean).join(" ")
@@ -11651,7 +11684,7 @@ export async function registerRoutes(
             recipientEmail: primaryEmail,
             recipientName: subjectName,
             recipientUserId: null,
-            recipientPhone: null,
+            recipientPhone: primaryPhone ?? undefined,
             subject: `Záujem o prepojenie účtu — ArutsoK (ATK)`,
             bodyHtml: emailHtml,
             status: "pending",
@@ -11659,11 +11692,36 @@ export async function registerRoutes(
             batchId: `reg_interest_${regSessionSubjectId}_${sid}`,
           });
 
+          // SMS upozornenie (informačné — bez kódu, keďže nie je subject_link)
+          if (primaryPhone) {
+            try {
+              await db.insert(systemNotifications).values({
+                recipientEmail: primaryEmail,
+                recipientName: subjectName,
+                recipientUserId: null,
+                recipientPhone: primaryPhone,
+                subject: `Záujem o prepojenie — ArutsoK`,
+                bodyHtml: `ArutsoK: ${requesterName} prejavil záujem o prepojenie účtu so subjektom ${subjectName}. Detaily dostanete e-mailom.`,
+                status: "pending",
+                notificationType: "subject_link_interest_sms",
+                batchId: `reg_interest_sms_${regSessionSubjectId}_${sid}`,
+              });
+              processPendingSmsNotifications().catch(() => {});
+            } catch {}
+          }
+
           await db.insert(auditLogs).values({
             userId: null, username: null, action: "SUBJECT_LINK_INTEREST_NOTED",
             module: "Registration", entityId: sid, entityName: subjectName,
             oldData: null,
-            newData: { regSubjectId: regSessionSubjectId, targetSubjectId: sid, via: "live_lookup_registration" },
+            newData: {
+              regSubjectId: regSessionSubjectId,
+              targetSubjectId: sid,
+              via: "live_lookup_registration",
+              note: "Registrujúci sa prejavil záujem o prepojenie. Formálna žiadosť bude odoslaná po vytvorení účtu.",
+              contactEmail: primaryEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2"),
+              hasSms: !!primaryPhone,
+            },
             ipAddress: req.ip,
           });
 
