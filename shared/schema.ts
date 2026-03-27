@@ -1145,7 +1145,9 @@ export const insertUserDashboardLayoutSchema = createInsertSchema(userDashboardL
 export const insertSidebarLinkSectionSchema = createInsertSchema(sidebarLinkSections).omit({ id: true, createdAt: true });
 export const insertSidebarLinkSchema = createInsertSchema(sidebarLinks).omit({ id: true, createdAt: true });
 export const insertClientTypeSchema = createInsertSchema(clientTypes).omit({ id: true, createdAt: true });
-export const insertClientGroupSchema = createInsertSchema(clientGroups).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertClientGroupSchema = createInsertSchema(clientGroups).omit({ id: true, createdAt: true, updatedAt: true }).extend({
+  description: z.string().max(500).nullable().optional(),
+});
 export const insertClientSubGroupSchema = createInsertSchema(clientSubGroups).omit({ id: true, createdAt: true });
 export const insertClientGroupMemberSchema = createInsertSchema(clientGroupMembers).omit({ id: true, createdAt: true });
 export const insertUserClientGroupMembershipSchema = createInsertSchema(userClientGroupMemberships).omit({ id: true, createdAt: true });

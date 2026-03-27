@@ -299,8 +299,10 @@ function GroupDetailDialog({
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Krátky popis účelu skupiny pre orientáciu administrátorov..."
                 className="min-h-[72px] resize-none"
+                maxLength={500}
                 data-testid="input-group-description"
               />
+              <p className="text-xs text-muted-foreground text-right">{description.length}/500</p>
             </div>
 
             <div className="space-y-2">
@@ -961,8 +963,10 @@ function GroupRowCells({
             {group.isSystem && !group.isHoldingGroup && group.groupCode !== "group_cierny_zoznam" && <Badge variant="outline" className="text-[9px] h-4 border-amber-500/50 text-amber-500">Systémová</Badge>}
             {group.isSystem && group.groupCode === "group_cierny_zoznam" && <Badge variant="outline" className="text-[9px] h-4 border-red-500/50 text-red-500">Globálna</Badge>}
           </span>
-          {(group as any).description && (
+          {(group as any).description ? (
             <span className="text-xs text-muted-foreground font-normal line-clamp-1" data-testid={`text-group-desc-${group.id}`}>{(group as any).description}</span>
+          ) : (
+            <span className="text-xs text-muted-foreground/50 font-normal italic" data-testid={`text-group-desc-empty-${group.id}`}>Bez popisu — kliknite na upraviť a doplňte účel tejto skupiny.</span>
           )}
         </div>
       </TableCell>
