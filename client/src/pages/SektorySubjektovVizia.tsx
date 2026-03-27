@@ -1609,7 +1609,10 @@ export default function SektorySubjektovVizia() {
                       </button>
                       <FieldTypeBadge type={freshParam.fieldType} />
                       {updateParamRequiredMutation.isPending && (
-                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                          Ukladám...
+                        </span>
                       )}
                     </div>
                   </div>
