@@ -1614,7 +1614,13 @@ export async function setupAuth(app: Express) {
       // ── SUBJECT MODE ───────────────────────────────────────────
       if (mode === "subject") {
         const { subjectId, ico, uid, validUntil: validUntilRaw } = req.body;
-        const validUntilDate: Date | null = validUntilRaw ? new Date(validUntilRaw) : null;
+        let validUntilDate: Date | null = null;
+        if (validUntilRaw) {
+          const parsed = new Date(validUntilRaw);
+          if (isNaN(parsed.getTime())) return res.status(400).json({ message: "Neplatný dátum platnosti (validUntil)" });
+          if (parsed <= new Date()) return res.status(400).json({ message: "Dátum platnosti musí byť v budúcnosti" });
+          validUntilDate = parsed;
+        }
         const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
         if (!currentUser) return res.status(401).json({ message: "Používateľ nenájdený" });
 
@@ -2938,6 +2944,9 @@ export async function setupAuth(app: Express) {
       const { validFrom, validUntil } = req.body;
       const parsedFrom = validFrom ? new Date(validFrom) : null;
       const parsedUntil = validUntil ? new Date(validUntil) : null;
+      if (parsedFrom && isNaN(parsedFrom.getTime())) return res.status(400).json({ message: "Neplatný dátum validFrom" });
+      if (parsedUntil && isNaN(parsedUntil.getTime())) return res.status(400).json({ message: "Neplatný dátum validUntil" });
+      if (parsedFrom && parsedUntil && parsedFrom >= parsedUntil) return res.status(400).json({ message: "validFrom musí byť pred validUntil" });
       await storage.updateSubjectLinkValidity(linkId, parsedFrom, parsedUntil);
       await db.insert(auditLogs).values({
         userId: getAuditActorId(req), username: null, action: "SUBJECT_LINK_VALIDITY_UPDATED",
