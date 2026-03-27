@@ -1,0 +1,43 @@
+#183 - Temporálna platnosť prepojení na subjekty
+What & Why
+Prepojenie používateľa na subjekt (Task #181) musí mať voliteľnú platnosť (validFrom, validUntil). Keď platnosť vyprší — napríklad skončí mandát starostu alebo konateľa — systém automaticky deaktivuje prepojenie. Používateľova karta (prihlasovacie konto) ostáva, len mu zmiznú dvere, ku ktorým stratil právo.
+
+Historická pravda zostáva nedotknutá: auditný záznam vždy ukazuje „Marek vykonal akciu v čase, keď mal platný mandát." Nič sa nemaže.
+
+Prepojenie s existujúcou tabuľkou company_officer_mandates umožňuje automatickú synchronizáciu — keď štatutárovi vyprší mandát, vyprší aj prepojenie na príslušnú spoločnosť.
+
+Done looks like
+Tabuľka subject_links (z Task #181) obsahuje polia validFrom (timestamp, nullable) a validUntil (timestamp, nullable)
+Pri vytváraní prepojenia môže iniciátor zadať voliteľný dátum platnosti — ak sa nezadá, prepojenie je časovo neobmedzené
+CRON job (rovnaká infraštruktúra ako existujúce semafory) každý deň skontroluje vypršané prepojenia a nastaví ich status = "expired"
+Keď mandát štatutára v company_officer_mandates dostane validUntil (koniec mandátu), systém automaticky syncuje zodpovedajúce subject_links.validUntil na rovnaký dátum
+V prepínači identít (Identity Picker / Context Bubble) sa zobrazujú len aktívne prepojenia (status = "verified" a validUntil IS NULL alebo validUntil > now())
+Vypršané prepojenia sú viditeľné v histórii prepojení (modál „Prepojiť ďalší účet") ako archív — s dátumom platnosti a dôvodom ukončenia
+Admin v „Prepojenia v systéme" (z Task #181) vidí aj vypršané prepojenia s možnosťou filtrovania podľa statusu
+Audit log zachováva plný kontext: akcie vykonané počas platného mandátu sú jasne označené; po vypršaní platnosti sa do audit logu zapíše udalosť SUBJECT_LINK_EXPIRED
+Prepojenie je možné manuálne predĺžiť alebo znovu aktivovať administrátorom (nastavenie nového validUntil alebo nastavenie validUntil = null)
+Out of scope
+Automatické obnovenie (renew) prepojenia bez ľudského zásahu
+Upozornenia / notifikácie pred blížiacim sa vypršaním (budúca úloha)
+Platnosť pre guardian / same-person prepojenia medzi appUsers (tam platnosť nedáva zmysel)
+Tasks
+Schema: polia platnosti na subject_links — Pridať validFrom (timestamp, nullable) a validUntil (timestamp, nullable) do tabuľky subject_links. Spustiť db:push. Existujúce záznamy ostávajú bez zmeny (NULL = neobmedzené).
+
+Backend: sync s mandátmi štatutárov — Keď sa nastaví validUntil na zázname v company_officer_mandates, systém automaticky nájde zodpovedajúce subject_links (rovnaký userId + subjectId) a syncuje validUntil. Logika v existujúcom mandate-update endpointe.
+
+Backend: CRON job na auto-expiry — Rozšíriť existujúci CRON mechanizmus (semafory, adult-transition) o dennú kontrolu vypršaných subject_links. Záznamy s validUntil < now() a status = "verified" sa prepnú na status = "expired". Každé vypršanie sa zapíše do auditLogs ako SUBJECT_LINK_EXPIRED.
+
+Backend: filtrovanie aktívnych prepojení — Rozšíriť GET /api/account-link/list a GET /api/identity-picker aby vracali len aktívne prepojenia (vylúčiť expired). Endpoint pre históriu prepojení (vrátane expired) pre zobrazenie v archíve.
+
+Frontend: zobrazenie platnosti v UI — V modáli prepojení (account-link-modal) zobraziť dátum platnosti (validUntil) pri každom prepojení, ak je nastavený. Vypršané prepojenia zobraziť v sekcii „Archív" so sivým štýlom a dátumom ukončenia. V Identity Picker a Context Bubble skryť expired prepojenia.
+
+Frontend: admin predĺženie platnosti — Na stránke „Prepojenia v systéme" (admin) pridať možnosť manuálneho predĺženia alebo reaktivácie vypršaného prepojenia — editovateľný validUntil a tlačidlo „Reaktivovať".
+
+Relevant files
+shared/schema.ts
+server/auth.ts
+server/routes.ts
+server/storage.ts
+client/src/components/account-link-modal.tsx
+client/src/components/layout/AppShell.tsx
+Dependencies

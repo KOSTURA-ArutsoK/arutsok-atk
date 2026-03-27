@@ -752,7 +752,7 @@ export interface IStorage {
   rejectGuardianLink(tokenId: number): Promise<void>;
   completeGuardianLink(linkId: number, via: string): Promise<void>;
   getPendingGuardianLinksFor(userId: number): Promise<Array<AccountLink & { token?: GuardianConfirmationToken }>>;
-  createSubjectLink(userId: number, subjectId: number, emailToken: string, smsCode: string | null, needsSms: boolean, initiatedBy: number): Promise<number>;
+  createSubjectLink(userId: number, subjectId: number, emailToken: string, smsCode: string | null, needsSms: boolean, initiatedBy: number, validUntil?: Date | null): Promise<number>;
   getSubjectLinkByToken(emailToken: string): Promise<SubjectLink | undefined>;
   getSubjectLinkById(id: number): Promise<SubjectLink | undefined>;
   getSubjectLinksByUserId(userId: number): Promise<SubjectLink[]>;
@@ -5675,7 +5675,7 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async createSubjectLink(userId: number, subjectId: number, emailToken: string, smsCode: string | null, needsSms: boolean, initiatedBy: number): Promise<number> {
+  async createSubjectLink(userId: number, subjectId: number, emailToken: string, smsCode: string | null, needsSms: boolean, initiatedBy: number, validUntil?: Date | null): Promise<number> {
     const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
     const [row] = await db.insert(subjectLinks).values({
       userId,
@@ -5690,6 +5690,7 @@ export class DatabaseStorage implements IStorage {
       isActive: false,
       expiresAt,
       initiatedBy,
+      validUntil: validUntil ?? undefined,
     }).returning({ id: subjectLinks.id });
     return row.id;
   }
@@ -5770,7 +5771,7 @@ export class DatabaseStorage implements IStorage {
 
   async autoExpireSubjectLinks(): Promise<number> {
     const now = new Date();
-    const expired = await db.select({ id: subjectLinks.id })
+    const expired = await db.select({ id: subjectLinks.id, userId: subjectLinks.userId, subjectId: subjectLinks.subjectId, validUntil: subjectLinks.validUntil })
       .from(subjectLinks)
       .where(and(
         eq(subjectLinks.isActive, true),
@@ -5786,6 +5787,22 @@ export class DatabaseStorage implements IStorage {
       revokedAt: now,
       revokedReason: "auto_expired_validity",
     }).where(inArray(subjectLinks.id, ids));
+    // Write audit log for each expired link
+    if (expired.length > 0) {
+      await db.insert(auditLogs).values(
+        expired.map(r => ({
+          userId: r.userId,
+          username: null,
+          action: "SUBJECT_LINK_EXPIRED",
+          module: "SubjectLink",
+          entityId: r.id,
+          entityName: null,
+          oldData: { status: "verified", isActive: true },
+          newData: { status: "expired", isActive: false, validUntil: r.validUntil, autoExpiredAt: now },
+          ipAddress: null,
+        }))
+      );
+    }
     return ids.length;
   }
 }

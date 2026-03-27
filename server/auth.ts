@@ -1613,7 +1613,8 @@ export async function setupAuth(app: Express) {
 
       // ── SUBJECT MODE ───────────────────────────────────────────
       if (mode === "subject") {
-        const { subjectId, ico, uid } = req.body;
+        const { subjectId, ico, uid, validUntil: validUntilRaw } = req.body;
+        const validUntilDate: Date | null = validUntilRaw ? new Date(validUntilRaw) : null;
         const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
         if (!currentUser) return res.status(401).json({ message: "Používateľ nenájdený" });
 
@@ -1669,7 +1670,7 @@ export async function setupAuth(app: Express) {
         const smsCode = needsSms ? String(Math.floor(100000 + Math.random() * 900000)) : null;
 
         const linkId = await storage.createSubjectLink(
-          req.session.userId, resolvedSubjectId!, emailToken, smsCode, needsSms, req.session.userId
+          req.session.userId, resolvedSubjectId!, emailToken, smsCode, needsSms, req.session.userId, validUntilDate
         );
 
         await db.insert(auditLogs).values({
@@ -2975,6 +2976,7 @@ export async function setupAuth(app: Express) {
           subjectId: sl.subjectId, subjectName, subjectType: subject?.type ?? null,
           status: sl.status, isActive: sl.isActive, createdAt: sl.createdAt, verifiedAt: sl.verifiedAt,
           revokedAt: sl.revokedAt, revokedReason: sl.revokedReason,
+          validFrom: sl.validFrom ?? null, validUntil: sl.validUntil ?? null,
           linkType: "subject" as const,
         };
       }));

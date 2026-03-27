@@ -145,6 +145,7 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
   const [subjectSearch, setSubjectSearch] = useState("");
   const [subjectSearchResults, setSubjectSearchResults] = useState<SubjectSearchResult[]>([]);
   const [subjectSearchLoading, setSubjectSearchLoading] = useState(false);
+  const [subjectValidUntil, setSubjectValidUntil] = useState("");
   const [subjectPendingResult, setSubjectPendingResult] = useState<{
     linkId: number;
     subjectName: string;
@@ -218,9 +219,11 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
     setError(null);
     setLoading(true);
     try {
+      const payload: Record<string, unknown> = { subjectId, mode: "subject" };
+      if (subjectValidUntil) payload.validUntil = subjectValidUntil;
       const data = await apiPost<{ status: string; linkId: number; subjectName: string; maskedEmail: string }>(
         "/api/account-link/initiate",
-        { subjectId, mode: "subject" }
+        payload
       );
       setSubjectPendingResult({ linkId: data.linkId, subjectName: data.subjectName || "", maskedEmail: data.maskedEmail || "" });
       setStep("subject_pending");
@@ -975,6 +978,34 @@ export function AccountLinkModal({ open, onClose, onSuccess }: AccountLinkModalP
                 {subjectSearchLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
               </Button>
             </form>
+
+            <div className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/20">
+              <CalendarClock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <Label htmlFor="input-subject-valid-until" className="text-xs font-medium text-muted-foreground block mb-1">
+                  Platnosť prepojenia do (voliteľné)
+                </Label>
+                <Input
+                  id="input-subject-valid-until"
+                  type="date"
+                  value={subjectValidUntil}
+                  onChange={(e) => setSubjectValidUntil(e.target.value)}
+                  min={new Date().toISOString().split("T")[0]}
+                  className="h-8 text-sm"
+                  data-testid="input-subject-valid-until"
+                />
+              </div>
+              {subjectValidUntil && (
+                <button
+                  type="button"
+                  onClick={() => setSubjectValidUntil("")}
+                  className="text-muted-foreground hover:text-foreground text-xs"
+                  data-testid="button-clear-valid-until"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
 
             {error && (
               <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
