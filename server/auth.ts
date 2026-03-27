@@ -1577,6 +1577,25 @@ export async function setupAuth(app: Express) {
           console.error("[GUARDIAN-LINK] Failed to queue confirmation email:", emailErr);
         }
 
+        // Queue SMS dispatch notification when target has phone
+        // The SMS gateway processor will pick this up and deliver via configured provider
+        if (needsSms && tu.phone) {
+          try {
+            const smsText = `ArutsoK (ATK): ${guardianName} žiada o spravovanie vášho účtu. Kód na potvrdenie ste dostali SMS správou. Platnosť 72h.`;
+            await db.insert(systemNotifications).values({
+              recipientEmail: targetEmailLower,
+              recipientName: targetName || null,
+              recipientUserId: tu.id,
+              subject: `Opatrovnícky SMS kód — ArutsoK`,
+              bodyHtml: smsText,
+              status: "pending",
+              notificationType: "guardian_sms_code",
+            });
+          } catch (smsErr) {
+            console.error("[GUARDIAN-LINK] Failed to queue SMS notification:", smsErr);
+          }
+        }
+
         return res.json({
           status: "guardian_pending",
           linkId,
@@ -2105,6 +2124,34 @@ export async function setupAuth(app: Express) {
         pushContext(entry);
       }
 
+      // When guardian is operating in managed account, expose "return to own account" context
+      if (req.session.guardianSwitchedFromUserId) {
+        const gId = req.session.guardianSwitchedFromUserId;
+        const [gUser] = await db.select().from(appUsers).where(eq(appUsers.id, gId));
+        if (gUser) {
+          let gSubject: typeof subjects.$inferSelect | null = null;
+          if (gUser.linkedSubjectId) {
+            const [gs] = await db.select().from(subjects).where(eq(subjects.id, gUser.linkedSubjectId));
+            gSubject = gs ?? null;
+          }
+          const gLabel = gSubject?.companyName
+            || [gSubject?.firstName ?? gUser.firstName, gSubject?.lastName ?? gUser.lastName].filter(Boolean).join(" ")
+            || gUser.username || gUser.email || "";
+          pushContext({
+            contextType: "guardian_return",
+            userId: gId,
+            companyId: null,
+            label: gLabel,
+            subLabel: "Váš účet (správca)",
+            type: gSubject?.type ?? "person",
+            uid: gSubject?.uid ?? null,
+            ico: null,
+            isCurrent: false,
+            isGuardian: false,
+          });
+        }
+      }
+
       res.json(result);
     } catch (err) {
       console.error("[USER CONTEXTS]", err);
@@ -2312,6 +2359,25 @@ export async function setupAuth(app: Express) {
         return res.status(400).json({ message: "Ste už v tomto kontexte" });
       }
 
+      // Special case: guardian returning to their own account (guardian_return context)
+      if (req.session.guardianSwitchedFromUserId && Number(targetUserId) === req.session.guardianSwitchedFromUserId) {
+        const [guardianUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.guardianSwitchedFromUserId));
+        if (!guardianUser) return res.status(404).json({ message: "Vlastný účet nenájdený" });
+        await db.insert(auditLogs).values({
+          userId: req.session.guardianSwitchedFromUserId, username: null, action: "GUARDIAN_ACCOUNT_RETURNED",
+          module: "AccountLink", entityId: req.session.userId, entityName: null,
+          oldData: null, newData: { returnedToUserId: req.session.guardianSwitchedFromUserId, fromManagedUserId: req.session.userId }, ipAddress: req.ip,
+        });
+        req.session.userId = req.session.guardianSwitchedFromUserId;
+        req.session.loginSubjectId = guardianUser.linkedSubjectId ?? null;
+        req.session.guardianSwitchedFromUserId = undefined;
+        req.session.loginStep = "done";
+        return req.session.save((err) => {
+          if (err) return res.status(500).json({ message: "Chyba pri návrate do vlastného konta" });
+          res.json({ success: true });
+        });
+      }
+
       let activeLink = await storage.getAccountLink(req.session.userId, Number(targetUserId));
       if (!activeLink || !activeLink.isActive || activeLink.status !== "verified") {
         const reverseLink = await storage.getAccountLink(Number(targetUserId), req.session.userId);
@@ -2395,26 +2461,58 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  // ── ROUTE ALIASES for /api/account-link/guardian-* ─────────
-  // These aliases expose the spec-required route paths in addition
-  // to the /api/guardian-confirm/* endpoints used by the frontend.
+  // ── SPEC-REQUIRED ALIASES: /api/account-link/guardian-* ─────
+  // The GET endpoint auto-confirms email upon token access (link click),
+  // activating the link directly if no SMS is required.
+  // Rate limiting on SMS verification prevents brute-force attacks.
 
-  app.get("/api/account-link/guardian-confirm", async (req, res) => {
-    const { token } = req.query;
-    if (!token || typeof token !== "string") return res.status(400).json({ message: "Chýba token" });
-    const gct = await storage.getGuardianToken(token).catch(() => undefined);
-    if (!gct) return res.status(404).json({ message: "Token neexistuje alebo bol použitý" });
-    if (gct.rejected) return res.status(410).json({ message: "Žiadosť bola odmietnutá" });
-    if (new Date() > gct.expiresAt) return res.status(410).json({ message: "Platnosť tokenu vypršala" });
-    const [guardianUser] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName, email: appUsers.email }).from(appUsers).where(eq(appUsers.id, gct.guardianUserId));
-    const [targetUser] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName }).from(appUsers).where(eq(appUsers.id, gct.targetUserId));
-    const guardianName = guardianUser ? `${guardianUser.firstName || ""} ${guardianUser.lastName || ""}`.trim() || guardianUser.email || "Neznámy" : "Neznámy";
-    const guardianEmail = guardianUser?.email || "";
-    const targetName = targetUser ? `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() || "Neznámy" : "Neznámy";
-    return res.json({ tokenId: gct.id, guardianName, guardianEmail: guardianEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2"), targetName, needsSms: gct.needsSms, emailConfirmed: gct.emailConfirmed, smsConfirmed: gct.smsConfirmed, expiresAt: gct.expiresAt });
+  const guardianSmsRateLimit = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 10,
+    message: { message: "Príliš veľa pokusov. Skúste znova o 10 minút." },
+    standardHeaders: true,
+    legacyHeaders: false,
   });
 
-  app.post("/api/account-link/guardian-verify-sms", async (req, res) => {
+  // GET /api/account-link/guardian-confirm — validates token + auto-confirms email
+  app.get("/api/account-link/guardian-confirm", async (req, res) => {
+    try {
+      const { token } = req.query;
+      if (!token || typeof token !== "string") return res.status(400).json({ message: "Chýba token" });
+      const gct = await storage.getGuardianToken(token).catch(() => undefined);
+      if (!gct) return res.status(404).json({ message: "Token neexistuje alebo bol použitý" });
+      if (gct.rejected) return res.status(410).json({ message: "Žiadosť bola odmietnutá" });
+      if (new Date() > gct.expiresAt) return res.status(410).json({ message: "Platnosť tokenu vypršala" });
+      const [guardianUser] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName, email: appUsers.email }).from(appUsers).where(eq(appUsers.id, gct.guardianUserId));
+      const [targetUser] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName }).from(appUsers).where(eq(appUsers.id, gct.targetUserId));
+      const guardianName = guardianUser ? `${guardianUser.firstName || ""} ${guardianUser.lastName || ""}`.trim() || guardianUser.email || "Neznámy" : "Neznámy";
+      const guardianEmail = guardianUser?.email || "";
+      const targetName = targetUser ? `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() || "Neznámy" : "Neznámy";
+      // Auto-confirm email if not yet confirmed
+      if (!gct.emailConfirmed) {
+        await storage.confirmGuardianEmail(gct.id);
+        if (!gct.needsSms) {
+          await storage.completeGuardianLink(gct.linkId, "email");
+          await db.insert(auditLogs).values({ userId: gct.targetUserId, username: null, action: "GUARDIAN_LINK_CONFIRMED", module: "AccountLink", entityId: gct.guardianUserId, entityName: null, oldData: null, newData: { linkId: gct.linkId, via: "email" }, ipAddress: null });
+        }
+      }
+      return res.json({
+        tokenId: gct.id, guardianName,
+        guardianEmail: guardianEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2"),
+        targetName, needsSms: gct.needsSms,
+        emailConfirmed: true,
+        smsConfirmed: gct.smsConfirmed,
+        expiresAt: gct.expiresAt,
+        status: !gct.needsSms ? "confirmed" : "sms_required",
+      });
+    } catch (err) {
+      console.error("[GUARDIAN-CONFIRM ALIAS GET]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  // POST /api/account-link/guardian-verify-sms — with rate limiting
+  app.post("/api/account-link/guardian-verify-sms", guardianSmsRateLimit, async (req, res) => {
     try {
       const { token, smsCode } = req.body;
       if (!token || !smsCode) return res.status(400).json({ message: "Chýba token alebo SMS kód" });
@@ -2423,6 +2521,7 @@ export async function setupAuth(app: Express) {
       if (gct.rejected) return res.status(410).json({ message: "Žiadosť bola odmietnutá" });
       if (new Date() > gct.expiresAt) return res.status(410).json({ message: "Platnosť tokenu vypršala" });
       if (!gct.emailConfirmed) return res.status(400).json({ message: "Najprv potvrďte email" });
+      if (gct.smsConfirmed) return res.json({ status: "confirmed" });
       if (smsCode.trim() !== gct.smsCode) return res.status(400).json({ message: "Nesprávny SMS kód" });
       await storage.confirmGuardianSms(gct.id);
       await storage.completeGuardianLink(gct.linkId, "email+sms");
@@ -2434,9 +2533,10 @@ export async function setupAuth(app: Express) {
     }
   });
 
+  // POST /api/account-link/guardian-reject — accepts token in body OR query param
   app.post("/api/account-link/guardian-reject", async (req, res) => {
     try {
-      const { token } = req.body;
+      const token = req.body?.token || (req.query?.token as string | undefined);
       if (!token) return res.status(400).json({ message: "Chýba token" });
       const gct = await storage.getGuardianToken(token);
       if (!gct) return res.status(404).json({ message: "Token neexistuje" });
@@ -2449,6 +2549,9 @@ export async function setupAuth(app: Express) {
       res.status(500).json({ message: "Interná chyba" });
     }
   });
+
+  // Also add rate limiting to primary SMS verification endpoint
+  app.use("/api/guardian-confirm/verify-sms", guardianSmsRateLimit);
 }
 
 function detectDeviceType(ua: string): "mobile" | "desktop" | "other" {

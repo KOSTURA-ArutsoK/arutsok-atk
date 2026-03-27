@@ -9,7 +9,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, UserCheck, Plus, Briefcase, User, Landmark, Heart, Grid3X3, History, ShieldCheck } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, UserCheck, Plus, Briefcase, User, Landmark, Heart, Grid3X3, History, ShieldCheck, ArrowLeft } from "lucide-react";
 import { AccountLinkModal } from "@/components/account-link-modal";
 import { apiRequest } from "@/lib/queryClient";
 import { isAdmin as checkIsAdmin, formatDateTimeSlovak } from "@/lib/utils";
@@ -865,6 +865,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       const isCompany = ctx.contextType === "officer_company";
                       const isLinked = ctx.contextType === "linked_account";
                       const isGuardian = ctx.contextType === "guardian";
+                      const isGuardianReturn = ctx.contextType === "guardian_return";
                       const isFo = ctx.contextType === "fo";
                       const isSubject = ["szco", "po", "ts", "vs", "os"].includes(ctx.contextType);
                       const ctxKey = isSubject ? ctx.subjectId : (ctx.companyId ?? ctx.userId);
@@ -874,6 +875,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       ) : isGuardian ? (
                         <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      ) : isGuardianReturn ? (
+                        <ArrowLeft className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                       ) : isSubject ? (
                         ctx.contextType === "szco" ? <Briefcase className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
                         ctx.contextType === "po" ? <Building2 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
@@ -885,9 +888,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       );
                       const iconBg = isCompany || isLinked || isGuardian
                         ? "bg-blue-100 dark:bg-blue-900/30"
-                        : isSubject
-                          ? "bg-violet-100 dark:bg-violet-900/30"
-                          : "bg-emerald-100 dark:bg-emerald-900/30";
+                        : isGuardianReturn
+                          ? "bg-amber-100 dark:bg-amber-900/30"
+                          : isSubject
+                            ? "bg-violet-100 dark:bg-violet-900/30"
+                            : "bg-emerald-100 dark:bg-emerald-900/30";
                       return (
                         <DropdownMenuItem
                           key={`${ctx.contextType}-${ctxKey}-${idx}`}
@@ -895,7 +900,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           onClick={async () => {
                             if (ctx.isCurrent) return;
                             try {
-                              if (isLinked || isGuardian) {
+                              if (isLinked || isGuardian || isGuardianReturn) {
                                 await apiRequest("POST", "/api/account-link/switch", { targetUserId: ctx.userId });
                                 window.location.href = "/";
                               } else if (isCompany) {

@@ -5587,7 +5587,6 @@ export class DatabaseStorage implements IStorage {
       .where(eq(accountLinks.id, linkId));
     const [link] = await db.select().from(accountLinks).where(eq(accountLinks.id, linkId)).limit(1);
     if (link) {
-      const mirrorLinkId = link.primaryUserId === revokedByUserId ? link.linkedUserId : link.primaryUserId;
       await db.update(accountLinks).set({ isActive: false, revokedAt: now, revokedBy: revokedByUserId, revokedReason: reason ?? null })
         .where(and(
           or(
