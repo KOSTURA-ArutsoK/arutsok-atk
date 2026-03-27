@@ -210,6 +210,56 @@ function WidthPercentEditor({
 }
 
 // ============================================================
+// ParamLabelEditor — inline rename for parameter label
+// ============================================================
+function ParamLabelEditor({
+  currentLabel,
+  onCommit,
+  isPending,
+}: {
+  currentLabel: string;
+  onCommit: (label: string) => void;
+  isPending: boolean;
+}) {
+  const [draft, setDraft] = useState(currentLabel);
+  const lastCommitted = useRef(currentLabel);
+
+  useEffect(() => {
+    setDraft(currentLabel);
+    lastCommitted.current = currentLabel;
+  }, [currentLabel]);
+
+  function handleCommit() {
+    const trimmed = draft.trim();
+    if (!trimmed || trimmed === lastCommitted.current) return;
+    lastCommitted.current = trimmed;
+    onCommit(trimmed);
+  }
+
+  return (
+    <div className="px-3 pb-2 flex-shrink-0">
+      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Názov parametra</p>
+      <input
+        type="text"
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={handleCommit}
+        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleCommit(); (e.target as HTMLInputElement).blur(); } }}
+        disabled={isPending}
+        data-testid="param-label-input"
+        className="w-full px-2 py-1 text-[12px] border border-border rounded bg-background text-foreground disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:border-primary"
+      />
+      {isPending && (
+        <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
+          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+          Ukladám...
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // SortableItem — generic drag-and-drop wrapper
 // ============================================================
 type DragHandleProps = {
@@ -567,6 +617,48 @@ export default function SektorySubjektovVizia() {
       );
       queryClient.invalidateQueries({ queryKey: paramsQK });
       toast({ title: "Šírka uložená" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message, variant: "destructive" }),
+  });
+
+  const updateParamLabelMutation = useMutation({
+    mutationFn: async ({ id, label }: { id: number; label: string }) => {
+      const r = await apiRequest("PATCH", `/api/subject-parameters/${id}`, { label });
+      if (!r.ok) { const b = await r.json().catch(() => ({})); throw new Error(b.message || "Chyba"); }
+      return r.json() as Promise<SubjectParameter>;
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData(paramsQK, (old: SubjectParameter[] | undefined) => {
+        if (!old) return old;
+        return old.map(p => p.id === updated.id ? updated : p);
+      });
+      setCtxItem(prev => prev && prev.type === "param" && prev.item.id === updated.id
+        ? { type: "param", item: updated }
+        : prev
+      );
+      queryClient.invalidateQueries({ queryKey: paramsQK });
+      toast({ title: "Názov uložený" });
+    },
+    onError: (err: any) => toast({ title: "Chyba", description: err?.message, variant: "destructive" }),
+  });
+
+  const updateParamRequiredMutation = useMutation({
+    mutationFn: async ({ id, isRequired }: { id: number; isRequired: boolean }) => {
+      const r = await apiRequest("PATCH", `/api/subject-parameters/${id}`, { isRequired });
+      if (!r.ok) { const b = await r.json().catch(() => ({})); throw new Error(b.message || "Chyba"); }
+      return r.json() as Promise<SubjectParameter>;
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData(paramsQK, (old: SubjectParameter[] | undefined) => {
+        if (!old) return old;
+        return old.map(p => p.id === updated.id ? updated : p);
+      });
+      setCtxItem(prev => prev && prev.type === "param" && prev.item.id === updated.id
+        ? { type: "param", item: updated }
+        : prev
+      );
+      queryClient.invalidateQueries({ queryKey: paramsQK });
+      toast({ title: updated.isRequired ? "Označené ako povinné" : "Označené ako nepovinné" });
     },
     onError: (err: any) => toast({ title: "Chyba", description: err?.message, variant: "destructive" }),
   });
@@ -1482,6 +1574,48 @@ export default function SektorySubjektovVizia() {
 
               <div className="border-t mx-3 mb-2 flex-shrink-0" />
 
+              {/* PARAM: label editor */}
+              {ctxItem.type === "param" && (() => {
+                const freshParam = allParams.find(p => p.id === ctxItem.item.id) ?? ctxItem.item;
+                return (
+                  <ParamLabelEditor
+                    currentLabel={freshParam.label}
+                    onCommit={(label) => updateParamLabelMutation.mutate({ id: freshParam.id, label })}
+                    isPending={updateParamLabelMutation.isPending}
+                  />
+                );
+              })()}
+
+              {/* PARAM: isRequired toggle + field type badge */}
+              {ctxItem.type === "param" && (() => {
+                const freshParam = allParams.find(p => p.id === ctxItem.item.id) ?? ctxItem.item;
+                return (
+                  <div className="px-3 pb-3 flex-shrink-0">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Vlastnosti</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => updateParamRequiredMutation.mutate({ id: freshParam.id, isRequired: !freshParam.isRequired })}
+                        disabled={updateParamRequiredMutation.isPending}
+                        data-testid="param-required-toggle"
+                        className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium border transition-all ${
+                          freshParam.isRequired
+                            ? "bg-red-500/10 text-red-600 border-red-300 dark:border-red-700"
+                            : "bg-background border-border text-muted-foreground hover:border-primary/60 hover:text-foreground"
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        <span className={`inline-block w-1.5 h-1.5 rounded-full ${freshParam.isRequired ? "bg-red-500" : "bg-muted-foreground/40"}`} />
+                        {freshParam.isRequired ? "Povinné" : "Nepovinné"}
+                      </button>
+                      <FieldTypeBadge type={freshParam.fieldType} />
+                      {updateParamRequiredMutation.isPending && (
+                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* PARAM-specific: widthPercent editor */}
               {ctxItem.type === "param" && (() => {
                 const freshParam = allParams.find(p => p.id === ctxItem.item.id) ?? ctxItem.item;
@@ -1509,21 +1643,6 @@ export default function SektorySubjektovVizia() {
                     isPending={updateSectionWidthMutation.isPending}
                     testIdPrefix="section-width"
                   />
-                );
-              })()}
-
-              {/* PARAM: type + required info */}
-              {ctxItem.type === "param" && (() => {
-                const freshParam = allParams.find(p => p.id === ctxItem.item.id) ?? ctxItem.item;
-                return (
-                  <div className="px-3 pb-3 flex-shrink-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <FieldTypeBadge type={freshParam.fieldType} />
-                      {freshParam.isRequired && (
-                        <span className="text-[10px] text-red-500 font-medium">povinné</span>
-                      )}
-                    </div>
-                  </div>
                 );
               })()}
 
