@@ -5561,7 +5561,7 @@ export class DatabaseStorage implements IStorage {
     const [link] = await db.insert(accountLinks).values({
       primaryUserId: guardianUserId,
       linkedUserId: targetUserId,
-      status: "pending",
+      status: "pending_target",
       linkType: "guardian",
       isActive: false,
       initiatedBy: guardianUserId,
@@ -5648,7 +5648,7 @@ export class DatabaseStorage implements IStorage {
       and(
         eq(accountLinks.primaryUserId, userId),
         eq(accountLinks.linkType, "guardian"),
-        eq(accountLinks.status, "pending"),
+        eq(accountLinks.status, "pending_target"),
         eq(accountLinks.isActive, false),
       )
     );

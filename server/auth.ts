@@ -1523,7 +1523,7 @@ export async function setupAuth(app: Express) {
           return res.status(409).json({ message: "Prepojenie s týmto účtom už existuje" });
         }
         const existingPending = await storage.getAccountLink(req.session.userId, tu.id);
-        if (existingPending && existingPending.linkType === "guardian" && existingPending.status === "pending") {
+        if (existingPending && existingPending.linkType === "guardian" && existingPending.status === "pending_target") {
           return res.status(409).json({ message: "Žiadosť o opatrovníctvo pre tento účet už čaká na potvrdenie" });
         }
 
@@ -1538,7 +1538,7 @@ export async function setupAuth(app: Express) {
 
         const needsSms = !!(tu.phone);
         const emailToken = crypto.randomUUID();
-        const smsCode = "151515";
+        const smsCode = String(Math.floor(100000 + Math.random() * 900000));
 
         const { linkId, tokenId } = await storage.createGuardianLink(
           req.session.userId, tu.id, emailToken, smsCode, needsSms
@@ -2052,6 +2052,11 @@ export async function setupAuth(app: Express) {
       // Linked accounts (other AppUsers)
       const links = await storage.getAccountLinks(req.session.userId);
       const linkedEntries = await Promise.all(links.map(async (link) => {
+        const isGuardianLink = link.linkType === "guardian";
+        // Guardian links are one-directional: only the guardian (primaryUserId) can switch
+        // into the managed account. The managed user does NOT get the guardian listed.
+        if (isGuardianLink && link.linkedUserId === req.session.userId) return null;
+
         const otherId = link.primaryUserId === req.session.userId ? link.linkedUserId : link.primaryUserId;
         const [otherUser] = await db.select().from(appUsers).where(eq(appUsers.id, otherId));
         if (!otherUser) return null;
@@ -2063,11 +2068,9 @@ export async function setupAuth(app: Express) {
         const otherLabel = otherSubject?.companyName
           || [otherSubject?.firstName ?? otherUser.firstName, otherSubject?.lastName ?? otherUser.lastName].filter(Boolean).join(" ")
           || otherUser.username || "";
-        const isGuardianLink = link.linkType === "guardian";
-        const isGuardian = isGuardianLink && link.primaryUserId === req.session.userId;
         const contextType = isGuardianLink ? "guardian" : "linked_account";
         const subLabel = isGuardianLink
-          ? (isGuardian ? "Spravovaný účet" : "Správca tohto účtu")
+          ? "Spravovaný účet"
           : (otherSubject?.type ? linkedAccountSubLabel(otherSubject.type, null) : "Prepojený účet");
         return {
           contextType,
@@ -2079,7 +2082,7 @@ export async function setupAuth(app: Express) {
           uid: otherSubject?.uid ?? null,
           ico: null,
           isCurrent: false,
-          isGuardian,
+          isGuardian: isGuardianLink,
         };
       }));
       for (const entry of linkedEntries.filter(Boolean)) {
@@ -2115,7 +2118,6 @@ export async function setupAuth(app: Express) {
         needsSms: gct.needsSms,
         emailConfirmed: gct.emailConfirmed,
         smsConfirmed: gct.smsConfirmed,
-        smsCode: "151515",
         expiresAt: gct.expiresAt,
       });
     } catch (err) {
@@ -2303,6 +2305,11 @@ export async function setupAuth(app: Express) {
         activeLink = reverseLink;
       }
 
+      // Guardian links are one-directional: only the guardian (primaryUserId) may switch
+      // into the managed account. The managed user may not impersonate the guardian.
+      if (activeLink.linkType === "guardian" && activeLink.linkedUserId === req.session.userId) {
+        return res.status(403).json({ message: "Opatrovník môže spravovať tento účet, nie naopak" });
+      }
       const isGuardianSwitch = activeLink.linkType === "guardian" && activeLink.primaryUserId === req.session.userId;
 
       const [currentUser] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));

@@ -15,7 +15,6 @@ interface TokenInfo {
   needsSms: boolean;
   emailConfirmed: boolean;
   smsConfirmed: boolean;
-  smsCode: string;
   expiresAt: string;
 }
 
@@ -170,10 +169,6 @@ export default function GuardianConfirm() {
                 Potvrdením udeľujete tejto osobe právo spravovať váš účet — môže sa prihlasovať a konať vo vašom mene. Opatrovníctvo môžete kedykoľvek zrušiť.
               </div>
 
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-300" data-testid="dev-hint-sms">
-                <span className="font-medium">Testovací SMS kód:</span> <span className="font-mono font-bold">{tokenInfo.smsCode}</span>
-              </div>
-
               {error && (
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
                   <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -215,10 +210,6 @@ export default function GuardianConfirm() {
                   <h2 className="text-base font-semibold text-foreground">Overenie SMS kódom</h2>
                   <p className="text-sm text-muted-foreground mt-1">Email bol potvrdený. Zadajte SMS kód zaslaný na vaše telefónne číslo.</p>
                 </div>
-              </div>
-
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-300" data-testid="dev-hint-sms">
-                <span className="font-medium">Testovací SMS kód:</span> <span className="font-mono font-bold">{tokenInfo.smsCode}</span>
               </div>
 
               {error && (

@@ -2874,7 +2874,7 @@ export const guardianConfirmationTokens = pgTable("guardian_confirmation_tokens"
   linkId: integer("link_id").notNull().references(() => accountLinks.id),
   guardianUserId: integer("guardian_user_id").notNull().references(() => appUsers.id),
   targetUserId: integer("target_user_id").notNull().references(() => appUsers.id),
-  emailToken: text("email_token").notNull(),
+  emailToken: text("email_token").notNull().unique(),
   smsCode: varchar("sms_code", { length: 6 }).notNull(),
   emailConfirmed: boolean("email_confirmed").notNull().default(false),
   smsConfirmed: boolean("sms_confirmed").notNull().default(false),
