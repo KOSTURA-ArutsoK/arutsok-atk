@@ -1640,11 +1640,17 @@ export async function setupAuth(app: Express) {
         const [subject] = await db.select().from(subjects).where(and(eq(subjects.id, resolvedSubjectId), isNull(subjects.deletedAt)));
         if (!subject) return res.status(404).json({ message: "Subjekt neexistuje" });
 
-        // Strict duplicate check: block both active/verified AND pending requests for same user↔subject pair
+        // Strict duplicate check: block both active/verified AND non-expired pending requests for same user↔subject pair
         const existingLinks = await storage.getSubjectLinksByUserId(req.session.userId);
         const existing = existingLinks.find(l => l.subjectId === resolvedSubjectId && l.isActive && l.status === "verified");
         if (existing) return res.status(409).json({ message: "Prepojenie s týmto subjektom už existuje" });
-        const existingPendingSubject = existingLinks.find(l => l.subjectId === resolvedSubjectId && !l.rejected && l.status === "pending_confirmation");
+        const now = new Date();
+        const existingPendingSubject = existingLinks.find(l =>
+          l.subjectId === resolvedSubjectId &&
+          !l.rejected &&
+          l.status === "pending_confirmation" &&
+          l.expiresAt > now
+        );
         if (existingPendingSubject) return res.status(409).json({ message: "Žiadosť o prepojenie s týmto subjektom už čaká na potvrdenie" });
 
         // Look up subject's primary email contact
@@ -2713,6 +2719,12 @@ export async function setupAuth(app: Express) {
           module: "SubjectLink", entityId: sl.subjectId, entityName: null,
           oldData: null, newData: { linkId: sl.id, via: "email" }, ipAddress: null,
         });
+        // Dual audit: second record under SubjectContext for subject-side filtering
+        await db.insert(auditLogs).values({
+          userId: sl.userId, username: null, action: "SUBJECT_LINK_CONFIRMED",
+          module: "SubjectContext", entityId: sl.subjectId, entityName: null,
+          oldData: null, newData: { linkId: sl.id, via: "email", _subjectContext: { activeSubjectId: sl.subjectId, actingUserId: sl.userId, originalModule: "SubjectLink", originalEntityId: sl.subjectId } }, ipAddress: null,
+        });
         status = "confirmed";
       }
       return res.json({
@@ -2745,6 +2757,12 @@ export async function setupAuth(app: Express) {
         module: "SubjectLink", entityId: sl.subjectId, entityName: null,
         oldData: null, newData: { linkId: sl.id, via: "email+sms" }, ipAddress: null,
       });
+      // Dual audit: second record under SubjectContext for subject-side filtering
+      await db.insert(auditLogs).values({
+        userId: sl.userId, username: null, action: "SUBJECT_LINK_CONFIRMED",
+        module: "SubjectContext", entityId: sl.subjectId, entityName: null,
+        oldData: null, newData: { linkId: sl.id, via: "email+sms", _subjectContext: { activeSubjectId: sl.subjectId, actingUserId: sl.userId, originalModule: "SubjectLink", originalEntityId: sl.subjectId } }, ipAddress: null,
+      });
       return res.json({ status: "confirmed" });
     } catch (err) {
       console.error("[SUBJECT-VERIFY-SMS]", err);
@@ -2753,18 +2771,46 @@ export async function setupAuth(app: Express) {
   });
 
   // POST /api/account-link/subject-reject — accepts subjectToken in body OR query param
+  // For pending_confirmation links: sets status="rejected" (email-token rejection by subject)
+  // For verified/active links: sets status="revoked" with revokedAt/revokedBy/revokedReason (subject-side revocation via token)
   app.post("/api/account-link/subject-reject", async (req, res) => {
     try {
       const subjectToken = req.body?.subjectToken || (req.query?.subjectToken as string | undefined);
       if (!subjectToken) return res.status(400).json({ message: "Chýba token" });
       const sl = await storage.getSubjectLinkByToken(subjectToken);
       if (!sl) return res.status(404).json({ message: "Token neexistuje" });
-      if (sl.rejected) return res.json({ status: "already_rejected" });
+      if (sl.rejected || sl.status === "rejected") return res.json({ status: "already_rejected" });
+      if (sl.status === "revoked") return res.json({ status: "already_revoked" });
+
+      if (sl.status === "verified" && sl.isActive) {
+        // Active link: subject revokes via token — use revoked status with audit fields
+        await storage.revokeSubjectLink(sl.id, sl.userId, "revoked_by_subject_token");
+        await db.insert(auditLogs).values({
+          userId: sl.userId, username: null, action: "SUBJECT_LINK_REVOKED_BY_SUBJECT",
+          module: "SubjectLink", entityId: sl.subjectId, entityName: null,
+          oldData: null, newData: { linkId: sl.id, revokedReason: "revoked_by_subject_token" }, ipAddress: null,
+        });
+        // Dual audit: second record under SubjectContext for subject-side filtering
+        await db.insert(auditLogs).values({
+          userId: sl.userId, username: null, action: "SUBJECT_LINK_REVOKED_BY_SUBJECT",
+          module: "SubjectContext", entityId: sl.subjectId, entityName: null,
+          oldData: null, newData: { linkId: sl.id, revokedReason: "revoked_by_subject_token", _subjectContext: { activeSubjectId: sl.subjectId, actingUserId: sl.userId, originalModule: "SubjectLink", originalEntityId: sl.subjectId } }, ipAddress: null,
+        });
+        return res.json({ status: "revoked" });
+      }
+
+      // Pending link: reject by subject via email token
       await storage.rejectSubjectLink(sl.id);
       await db.insert(auditLogs).values({
         userId: sl.userId, username: null, action: "SUBJECT_LINK_REJECTED",
         module: "SubjectLink", entityId: sl.subjectId, entityName: null,
         oldData: null, newData: { linkId: sl.id }, ipAddress: null,
+      });
+      // Dual audit: second record under SubjectContext for subject-side filtering
+      await db.insert(auditLogs).values({
+        userId: sl.userId, username: null, action: "SUBJECT_LINK_REJECTED",
+        module: "SubjectContext", entityId: sl.subjectId, entityName: null,
+        oldData: null, newData: { linkId: sl.id, _subjectContext: { activeSubjectId: sl.subjectId, actingUserId: sl.userId, originalModule: "SubjectLink", originalEntityId: sl.subjectId } }, ipAddress: null,
       });
       return res.json({ status: "rejected" });
     } catch (err) {
@@ -2822,6 +2868,12 @@ export async function setupAuth(app: Express) {
         userId: getAuditActorId(req), username: null, action: "SUBJECT_LINK_REVOKED",
         module: "SubjectLink", entityId: sl.subjectId, entityName: null,
         oldData: null, newData: { linkId, reason: reason ?? null }, ipAddress: req.ip,
+      });
+      // Dual audit: second record under SubjectContext for subject-side filtering
+      await db.insert(auditLogs).values({
+        userId: getAuditActorId(req), username: null, action: "SUBJECT_LINK_REVOKED",
+        module: "SubjectContext", entityId: sl.subjectId, entityName: null,
+        oldData: null, newData: { linkId, reason: reason ?? null, _subjectContext: { activeSubjectId: sl.subjectId, actingUserId: getAuditActorId(req), originalModule: "SubjectLink", originalEntityId: sl.subjectId } }, ipAddress: req.ip,
       });
       return res.json({ success: true });
     } catch (err) {
