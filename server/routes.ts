@@ -11215,12 +11215,26 @@ export async function registerRoutes(
 
       // Vyžaduje platný kontext: prihlásený používateľ alebo aktívna registračná session (< 2h)
       const isAuthUser = !!(req.appUser);
-      const regSessionSubjectId = req.session?.registrationVerifiedSubjectId;
-      const regSessionAt = req.session?.registrationVerifiedAt;
+      const regSessionSubjectId: number | undefined = (req.session as any)?.registrationVerifiedSubjectId;
+      const regSessionAt: number | undefined = (req.session as any)?.registrationVerifiedAt;
       const REG_TTL = 2 * 60 * 60 * 1000;
       const hasRegSession = !!regSessionSubjectId && !!regSessionAt && (Date.now() - regSessionAt < REG_TTL);
       if (!isAuthUser && !hasRegSession) {
         return res.status(401).json({ message: "Prihláste sa alebo dokončite overenie registrácie" });
+      }
+
+      // Bezpečnostná väzba: ak ide o registračnú session (nie prihlásený), overíme, že dopytované RČ
+      // zodpovedá overenému subjektu. Tým zabránime enumerácii iných subjektov cez registračnú session.
+      if (!isAuthUser && hasRegSession && regSessionSubjectId) {
+        const [regSubject] = await db.select({ birthNumber: subjects.birthNumber })
+          .from(subjects).where(eq(subjects.id, regSessionSubjectId)).limit(1);
+        if (!regSubject?.birthNumber) {
+          return res.status(403).json({ message: "Overenie registračnej identity zlyhalo" });
+        }
+        const regBn = decryptField(regSubject.birthNumber)?.replace(/\//g, "").replace(/\s/g, "").trim();
+        if (!regBn || regBn !== cleanBn) {
+          return res.status(403).json({ message: "Rodné číslo nezodpovedá overenému subjektu" });
+        }
       }
 
       // Rate limit: max 5 lookups per IP per 5 minutes
@@ -11409,11 +11423,10 @@ export async function registerRoutes(
     }
   });
 
-  // === LIVE LOOKUP — dávkové spustenie overenia ===
-  // Volá sa keď prihlásený alebo overený registrujúci sa používateľ chce spustiť prepojenie.
-  // Akceptuje: 1) session autentifikovaného appUser (isAuthenticated) alebo
-  //            2) session token nastaveného počas registrácie (registrationVerifiedSubjectId).
-  app.post("/api/registration/live-lookup/batch-initiate", async (req: any, res) => {
+  // === LIVE LOOKUP — dávkové spustenie overenia (vyžaduje prihlásenie) ===
+  // Volá sa keď prihlásený používateľ chce spustiť prepojenie na viac subjektov naraz.
+  // Na rozdiel od live-lookup query, toto vyžaduje plné prihlásenie (actorUserId musí existovať).
+  app.post("/api/registration/live-lookup/batch-initiate", isAuthenticated, async (req: any, res) => {
     try {
       const { subjectIds } = req.body;
       if (!Array.isArray(subjectIds) || subjectIds.length === 0) {
@@ -11424,18 +11437,9 @@ export async function registerRoutes(
       }
 
       const appUser = req.appUser;
-      const regSessionSubjectId: number | undefined = req.session?.registrationVerifiedSubjectId;
-      const regSessionAt: number | undefined = req.session?.registrationVerifiedAt;
-      const REG_SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hodiny
+      if (!appUser) return res.status(401).json({ message: "Neautorizovaný" });
 
-      // Musí byť buď prihlásený alebo mať platnú registračnú session (< 2 hodiny)
-      const isRegSession = !!regSessionSubjectId && !!regSessionAt && (Date.now() - regSessionAt < REG_SESSION_TTL_MS);
-      if (!appUser && !isRegSession) {
-        return res.status(401).json({ message: "Prihláste sa alebo dokončite registráciu" });
-      }
-
-      // Pre registračnú session vytvoríme systémovú záznam bez reálneho appUser ID
-      const actorUserId: number | null = appUser?.id ?? null;
+      const actorUserId: number = appUser.id;
 
       const results: { subjectId: number; status: "initiated" | "already_linked" | "already_pending" | "no_email" | "error"; linkId?: number; maskedEmail?: string }[] = [];
 
@@ -11485,14 +11489,12 @@ export async function registerRoutes(
           const emailToken = crypto.randomUUID();
           const smsCode = needsSms ? String(Math.floor(100000 + Math.random() * 900000)) : null;
 
-          const linkId = actorUserId
-            ? await storage.createSubjectLink(actorUserId, sid, emailToken, smsCode, needsSms, actorUserId)
-            : null;
+          const linkId = await storage.createSubjectLink(actorUserId, sid, emailToken, smsCode, needsSms, actorUserId);
 
           await db.insert(auditLogs).values({
             userId: actorUserId, username: null, action: "SUBJECT_LINK_INITIATED",
             module: "SubjectLink", entityId: sid, entityName: null,
-            oldData: null, newData: { subjectId: sid, linkId, via: isRegSession ? "live_lookup_registration" : "live_lookup_batch" }, ipAddress: req.ip,
+            oldData: null, newData: { subjectId: sid, linkId, via: "live_lookup_batch" }, ipAddress: req.ip,
           });
 
           // Dual audit: LIVE_LOOKUP_LINK_PROPOSED
@@ -11531,7 +11533,7 @@ export async function registerRoutes(
             processPendingSmsNotifications().catch(() => {});
           }
 
-          results.push({ subjectId: sid, status: "initiated", linkId: linkId ?? undefined, maskedEmail: primaryEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2") });
+          results.push({ subjectId: sid, status: "initiated", linkId, maskedEmail: primaryEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2") });
         } catch (e) {
           console.error("[BATCH-INITIATE]", e);
           results.push({ subjectId: sid, status: "error" });

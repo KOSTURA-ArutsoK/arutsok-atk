@@ -116,7 +116,6 @@ export default function RegisterPage() {
   const [liveLookupDone, setLiveLookupDone] = useState(false);
   const [candidateStatuses, setCandidateStatuses] = useState<Record<number, CandidateStatus>>({});
   const [liveLookupExpanded, setLiveLookupExpanded] = useState(true);
-  const [batchInitiating, setBatchInitiating] = useState(false);
   const [registeredSubjectId, setRegisteredSubjectId] = useState<number | null>(null);
 
   const verifyBirthButtonRef = useRef<HTMLButtonElement>(null);
@@ -271,77 +270,15 @@ export default function RegisterPage() {
     }
   }, []);
 
-  async function initiateForSubject(subjectId: number) {
+  function initiateForSubject(subjectId: number) {
     const current = candidateStatuses[subjectId];
     if (current && current !== "idle") return;
-
-    setCandidateStatuses(prev => ({ ...prev, [subjectId]: "pending" }));
-    try {
-      const res = await fetch("/api/registration/live-lookup/batch-initiate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ subjectIds: [subjectId] }),
-      });
-      if (!res.ok) {
-        if (res.status === 401) {
-          toast({
-            title: "Overenie vypršalo",
-            description: "Registračná relácia je neplatná. Začnite registráciu znova.",
-            variant: "destructive",
-          });
-          setCandidateStatuses(prev => ({ ...prev, [subjectId]: "error" }));
-          return;
-        }
-        setCandidateStatuses(prev => ({ ...prev, [subjectId]: "error" }));
-        return;
-      }
-      const data = await res.json();
-      const result = (data.results || []).find((r: { subjectId: number; status: string }) => r.subjectId === subjectId);
-      setCandidateStatuses(prev => ({ ...prev, [subjectId]: (result?.status as CandidateStatus) || "initiated" }));
-    } catch {
-      setCandidateStatuses(prev => ({ ...prev, [subjectId]: "error" }));
-    }
-  }
-
-  const selectedIds = Object.entries(candidateStatuses)
-    .filter(([, v]) => v === "selected")
-    .map(([k]) => Number(k));
-
-  async function handleBatchInitiate() {
-    if (selectedIds.length === 0) return;
-    setBatchInitiating(true);
-    try {
-      const res = await fetch("/api/registration/live-lookup/batch-initiate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ subjectIds: selectedIds }),
-      });
-      if (!res.ok) {
-        if (res.status === 401) {
-          toast({
-            title: "Overenie vypršalo",
-            description: "Registračná relácia je neplatná. Začnite registráciu znova.",
-            variant: "destructive",
-          });
-          return;
-        }
-        return;
-      }
-      const data = await res.json();
-      const results: { subjectId: number; status: string }[] = data.results || [];
-      const newStatuses = { ...candidateStatuses };
-      for (const r of results) {
-        newStatuses[r.subjectId] = r.status as CandidateStatus;
-      }
-      setCandidateStatuses(newStatuses);
-      toast({ title: "Žiadosti o prepojenie boli odoslané" });
-    } catch {
-      toast({ title: "Chyba pri odosielaní žiadostí", variant: "destructive" });
-    } finally {
-      setBatchInitiating(false);
-    }
+    // Označíme záujem — skutočná žiadosť o prepojenie sa pošle po prihlásení cez Výber identity
+    setCandidateStatuses(prev => ({ ...prev, [subjectId]: "initiated" }));
+    toast({
+      title: "Záujem zaznamenaný",
+      description: "Po prihlásení do systému môžete odoslať žiadosť o prepojenie v Nastaveniach účtu.",
+    });
   }
 
   const hasActionableStatuses = Object.values(candidateStatuses).some(
@@ -769,24 +706,9 @@ export default function RegisterPage() {
                             })}
                           </div>
 
-                          {selectedIds.length > 0 && (
-                            <Button
-                              className="w-full"
-                              onClick={handleBatchInitiate}
-                              disabled={batchInitiating}
-                              data-testid="button-live-lookup-batch-initiate"
-                            >
-                              {batchInitiating ? (
-                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Odosielam žiadosti...</>
-                              ) : (
-                                `Požiadať o prepojenie (${selectedIds.length})`
-                              )}
-                            </Button>
-                          )}
-
                           {hasActionableStatuses && (
                             <p className="text-xs text-muted-foreground text-center">
-                              Stav overení môžete sledovať po prihlásení v nastaveniach účtu.
+                              Žiadosť o prepojenie môžete odoslať po prihlásení v nastaveniach účtu.
                             </p>
                           )}
                         </>
