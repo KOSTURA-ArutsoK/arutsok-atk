@@ -5,7 +5,7 @@ import type { Express, RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
-import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts, myCompanies, subjectContacts, guardianConfirmationTokens } from "@shared/schema";
+import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts, myCompanies, subjectContacts, guardianConfirmationTokens, systemNotifications } from "@shared/schema";
 import { eq, and, or, ne, isNull, isNotNull, gte, desc, inArray, sql } from "drizzle-orm";
 import { storage } from "./storage";
 import { decryptField } from "./crypto";
@@ -328,7 +328,7 @@ export async function resolveContextLabel(user: {
       .from(appUsers).where(eq(appUsers.id, user.guardianSwitchedFromUserId));
     const guardianName = gu ? `${gu.firstName || ""} ${gu.lastName || ""}`.trim() || gu.username : "Správca";
     const targetName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username;
-    return { contextType: "guardian", contextLabel: `${guardianName} → spravuje: ${targetName}` };
+    return { contextType: "guardian", contextLabel: `${guardianName} (správca za ${targetName})` };
   }
   if (!user.activeSubjectId) {
     // FO mode — prefer linked FO subject name, fall back to user fields
@@ -1557,9 +1557,25 @@ export async function setupAuth(app: Express) {
         });
 
         const appDomain = process.env.APP_DOMAIN || req.headers.host || "localhost:5000";
-        const confirmUrl = `https://${appDomain}/potvrdenie-spravy?token=${emailToken}`;
-        console.log(`[GUARDIAN-LINK] Confirmation email for ${targetEmailLower}: ${confirmUrl}`);
-        console.log(`[GUARDIAN-LINK] SMS code (dev): ${smsCode}`);
+        const protocol = process.env.APP_DOMAIN ? "https" : req.secure ? "https" : "http";
+        const confirmUrl = `${protocol}://${appDomain}/potvrdenie-spravy?token=${emailToken}`;
+
+        const guardianName = `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || currentUser.username || "Správca";
+        const emailHtml = `<!DOCTYPE html><html lang="sk"><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#0f1923;font-family:Arial,Helvetica,sans-serif;color:#e2e8f0;"><div style="max-width:640px;margin:0 auto;padding:32px 24px;"><div style="background:#1a2332;border:1px solid #2d3748;border-radius:4px;padding:32px;"><div style="text-align:center;margin-bottom:24px;"><h2 style="margin:0;color:#63b3ed;font-size:18px;letter-spacing:1px;">ArutsoK (ATK)</h2></div><p style="color:#e2e8f0;font-size:14px;line-height:1.6;">Vážený používateľ,</p><p style="color:#e2e8f0;font-size:14px;line-height:1.6;">používateľ <strong>${guardianName}</strong> žiada o právo spravovať váš účet v systéme ArutsoK (ATK).</p><div style="text-align:center;margin:24px 0;"><a href="${confirmUrl}" style="display:inline-block;background:#2b6cb0;color:#fff;padding:12px 24px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:14px;">Potvrdiť alebo odmietnuť žiadosť</a></div><p style="color:#a0aec0;font-size:12px;line-height:1.6;">Platnosť odkazu vyprší o 72 hodín. Ak ste žiadosť neočakávali, ignorujte tento e-mail alebo ju odmietnite na vyššie uvedenom odkaze.</p><hr style="border:none;border-top:1px solid #2d3748;margin:24px 0;"><p style="font-size:11px;color:#718096;text-align:center;margin:0;">Tento e-mail bol vygenerovaný automaticky systémom ArutsoK.</p></div></div></body></html>`;
+
+        try {
+          await db.insert(systemNotifications).values({
+            recipientEmail: targetEmailLower,
+            recipientName: targetName || null,
+            recipientUserId: tu.id,
+            subject: `Žiadosť o opatrovníctvo — ArutsoK (ATK)`,
+            bodyHtml: emailHtml,
+            status: "pending",
+            notificationType: "guardian_link_request",
+          });
+        } catch (emailErr) {
+          console.error("[GUARDIAN-LINK] Failed to queue confirmation email:", emailErr);
+        }
 
         return res.json({
           status: "guardian_pending",
@@ -2212,9 +2228,9 @@ export async function setupAuth(app: Express) {
       const { reason } = req.body;
       await storage.revokeAccountLinkById(linkId, req.session.userId, reason);
       await db.insert(auditLogs).values({
-        userId: req.session.userId, username: null, action: "GUARDIAN_LINK_REVOKED",
+        userId: getAuditActorId(req), username: null, action: "GUARDIAN_LINK_REVOKED",
         module: "AccountLink", entityId: linkId, entityName: null,
-        oldData: null, newData: { linkId, reason: reason ?? null }, ipAddress: req.ip,
+        oldData: null, newData: { linkId, reason: reason ?? null, revokedBySessionUserId: req.session.userId }, ipAddress: req.ip,
       });
       return res.json({ success: true });
     } catch (err) {
@@ -2378,6 +2394,61 @@ export async function setupAuth(app: Express) {
       res.status(500).json({ message: "Interná chyba" });
     }
   });
+
+  // ── ROUTE ALIASES for /api/account-link/guardian-* ─────────
+  // These aliases expose the spec-required route paths in addition
+  // to the /api/guardian-confirm/* endpoints used by the frontend.
+
+  app.get("/api/account-link/guardian-confirm", async (req, res) => {
+    const { token } = req.query;
+    if (!token || typeof token !== "string") return res.status(400).json({ message: "Chýba token" });
+    const gct = await storage.getGuardianToken(token).catch(() => undefined);
+    if (!gct) return res.status(404).json({ message: "Token neexistuje alebo bol použitý" });
+    if (gct.rejected) return res.status(410).json({ message: "Žiadosť bola odmietnutá" });
+    if (new Date() > gct.expiresAt) return res.status(410).json({ message: "Platnosť tokenu vypršala" });
+    const [guardianUser] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName, email: appUsers.email }).from(appUsers).where(eq(appUsers.id, gct.guardianUserId));
+    const [targetUser] = await db.select({ firstName: appUsers.firstName, lastName: appUsers.lastName }).from(appUsers).where(eq(appUsers.id, gct.targetUserId));
+    const guardianName = guardianUser ? `${guardianUser.firstName || ""} ${guardianUser.lastName || ""}`.trim() || guardianUser.email || "Neznámy" : "Neznámy";
+    const guardianEmail = guardianUser?.email || "";
+    const targetName = targetUser ? `${targetUser.firstName || ""} ${targetUser.lastName || ""}`.trim() || "Neznámy" : "Neznámy";
+    return res.json({ tokenId: gct.id, guardianName, guardianEmail: guardianEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2"), targetName, needsSms: gct.needsSms, emailConfirmed: gct.emailConfirmed, smsConfirmed: gct.smsConfirmed, expiresAt: gct.expiresAt });
+  });
+
+  app.post("/api/account-link/guardian-verify-sms", async (req, res) => {
+    try {
+      const { token, smsCode } = req.body;
+      if (!token || !smsCode) return res.status(400).json({ message: "Chýba token alebo SMS kód" });
+      const gct = await storage.getGuardianToken(token);
+      if (!gct) return res.status(404).json({ message: "Token neexistuje" });
+      if (gct.rejected) return res.status(410).json({ message: "Žiadosť bola odmietnutá" });
+      if (new Date() > gct.expiresAt) return res.status(410).json({ message: "Platnosť tokenu vypršala" });
+      if (!gct.emailConfirmed) return res.status(400).json({ message: "Najprv potvrďte email" });
+      if (smsCode.trim() !== gct.smsCode) return res.status(400).json({ message: "Nesprávny SMS kód" });
+      await storage.confirmGuardianSms(gct.id);
+      await storage.completeGuardianLink(gct.linkId, "email+sms");
+      await db.insert(auditLogs).values({ userId: gct.targetUserId, username: null, action: "GUARDIAN_LINK_CONFIRMED", module: "AccountLink", entityId: gct.guardianUserId, entityName: null, oldData: null, newData: { linkId: gct.linkId, via: "email+sms" }, ipAddress: null });
+      return res.json({ status: "confirmed" });
+    } catch (err) {
+      console.error("[GUARDIAN-VERIFY-SMS ALIAS]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.post("/api/account-link/guardian-reject", async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token) return res.status(400).json({ message: "Chýba token" });
+      const gct = await storage.getGuardianToken(token);
+      if (!gct) return res.status(404).json({ message: "Token neexistuje" });
+      if (gct.rejected) return res.json({ status: "already_rejected" });
+      await storage.rejectGuardianLink(gct.id);
+      await db.insert(auditLogs).values({ userId: gct.targetUserId, username: null, action: "GUARDIAN_LINK_REJECTED", module: "AccountLink", entityId: gct.guardianUserId, entityName: null, oldData: null, newData: { linkId: gct.linkId }, ipAddress: null });
+      return res.json({ status: "rejected" });
+    } catch (err) {
+      console.error("[GUARDIAN-REJECT ALIAS]", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
 }
 
 function detectDeviceType(ua: string): "mobile" | "desktop" | "other" {
@@ -2388,6 +2459,17 @@ function detectDeviceType(ua: string): "mobile" | "desktop" | "other" {
 
 function generateOtp(): string {
   return "151515"; // TODO: remove hardcoded test code before go-live
+}
+
+/**
+ * Returns the "real" audit actor user ID for the current session.
+ * When a guardian is operating on a managed account,
+ * this returns the guardian's user ID (the true actor),
+ * not the managed user's ID stored in req.session.userId.
+ * Use this in audit log writes to correctly attribute guardian actions.
+ */
+export function getAuditActorId(req: { session: { userId?: number; guardianSwitchedFromUserId?: number } }): number {
+  return req.session.guardianSwitchedFromUserId ?? req.session.userId ?? 0;
 }
 
 export const isAuthenticated: RequestHandler = (req, res, next) => {
