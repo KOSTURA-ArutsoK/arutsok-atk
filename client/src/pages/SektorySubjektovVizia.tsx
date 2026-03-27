@@ -434,6 +434,7 @@ export default function SektorySubjektovVizia() {
         ? { type: "param", item: updated }
         : prev
       );
+      queryClient.invalidateQueries({ queryKey: paramsQK });
       toast({ title: "Šírka uložená" });
     },
     onError: (err: any) => toast({ title: "Chyba", description: err?.message, variant: "destructive" }),
@@ -454,6 +455,7 @@ export default function SektorySubjektovVizia() {
         ? { type: "section", item: updated }
         : prev
       );
+      queryClient.invalidateQueries({ queryKey: sectionsQK });
       toast({ title: "Šírka uložená" });
     },
     onError: (err: any) => toast({ title: "Chyba", description: err?.message, variant: "destructive" }),
@@ -1305,7 +1307,7 @@ export default function SektorySubjektovVizia() {
           {ctxItem && (
             <div
               ref={ctxPanelRef}
-              className="w-64 border-l bg-card flex-shrink-0 flex flex-col overflow-y-auto"
+              className="min-w-[260px] w-64 border-l bg-card flex-shrink-0 flex flex-col overflow-y-auto"
               data-testid="context-panel"
             >
               {/* Header */}
@@ -1337,7 +1339,7 @@ export default function SektorySubjektovVizia() {
               {/* Breadcrumb */}
               <div className="px-3 pb-3 flex-shrink-0">
                 <div className="flex flex-col gap-0.5 mt-1">
-                  {buildPath(ctxItem).slice(0, -1).map((step, i) => (
+                  {buildPath(ctxItem).map((step, i) => (
                     <div key={i} className="flex items-center gap-1 text-[10px] text-muted-foreground/70">
                       {i > 0 && <span className="ml-2 text-muted-foreground/30">↳</span>}
                       <span className="flex-shrink-0">{step.icon}</span>
