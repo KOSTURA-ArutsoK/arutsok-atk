@@ -448,6 +448,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             } else {
               setCompanyDivisions(divisions);
               setContextStep("division");
+              setContextOverlayOpen(true);
             }
           } else {
             setContextOverlayOpen(false);
