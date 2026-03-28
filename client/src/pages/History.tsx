@@ -139,7 +139,11 @@ export default function History() {
   );
 
   const logs = data?.logs || [];
-  const tableFilter = useSmartFilter(logs, FILTER_COLUMNS, "history");
+  const logsWithMeta = logs.map(log => ({
+    ...log,
+    userUid: log.userId ? (userMap.get(log.userId)?.uid ?? null) : null,
+  }));
+  const tableFilter = useSmartFilter(logsWithMeta, FILTER_COLUMNS, "history");
   const { sortedData: sortedLogs, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("history", COLUMNS);
   const total = data?.total || 0;
@@ -443,13 +447,8 @@ export default function History() {
                   <label className="text-xs text-muted-foreground">Používateľ</label>
                   <p className="text-sm font-medium flex items-center gap-1">
                     <User className="w-3 h-3 shrink-0" />
-                    {detailLog.username || "-"}
+                    {detailLog.userId ? (userMap.get(detailLog.userId)?.displayName || detailLog.username || "-") : (detailLog.username || "-")}
                   </p>
-                  {detailLog.userId && userMap.get(detailLog.userId)?.uid && (
-                    <p className="text-[11px] font-mono text-muted-foreground mt-0.5 tracking-tight">
-                      {formatUid(userMap.get(detailLog.userId)!.uid!)}
-                    </p>
-                  )}
                   {detailLog.userId && (
                     <p className="text-[10px] text-muted-foreground">ID používateľa: {detailLog.userId}</p>
                   )}
