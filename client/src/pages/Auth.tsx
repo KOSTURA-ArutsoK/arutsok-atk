@@ -74,7 +74,7 @@ export default function AuthPage() {
   const [entityRcEntityName, setEntityRcEntityName] = useState<string | null>(null);
   const [entityRcAttemptsLeft, setEntityRcAttemptsLeft] = useState<number>(3);
 
-  const { login, isLoggingIn } = useAuth();
+  const { isLoggingIn } = useAuth();
 
   useEffect(() => {
     const msg = sessionStorage.getItem("idle_logout_message");
@@ -101,8 +101,23 @@ export default function AuthPage() {
       if (data.loginStep === "subject_select" && data.subjects) {
         setSubjectOptions(data.subjects);
         setStep("subject_select");
+      } else if (data.loginStep === "sms_verify") {
+        setSmsPhone(data.maskedPhone || null);
+        setStep("sms_verify");
+      } else if (data.loginStep === "rc_verify") {
+        setStep("rc_verify");
+      } else if (data.loginStep === "doc_verify") {
+        setDocHint(data.documentHint || null);
+        setStep("doc_verify");
+      } else if (data.loginStep === "entity_rc_verify") {
+        setEntityRcEntityName(data.entityName || null);
+        setEntityRcAttemptsLeft(3);
+        setEntityRcValue("");
+        setStep("entity_rc_verify");
+      } else if (data.loginStep === "blocked") {
+        setBlockedMessage(data.message || "Prístup bol zamietnutý. Kontaktujte prosím podporu.");
+        setStep("blocked");
       } else {
-        await login({ email: email.trim(), password } as any);
         await finalizeLogin();
       }
     } catch (err: any) {

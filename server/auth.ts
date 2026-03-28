@@ -383,6 +383,184 @@ function linkedAccountSubLabel(type: string | null | undefined, ico: string | nu
   }
 }
 
+async function resolveSubjectLoginStep(
+  session: any,
+  user: { id: number; email: string | null; linkedSubjectId: number | null },
+  selected: any,
+  allPeers: any[],
+  ip: string | null
+): Promise<{ nextStep: string; [key: string]: any }> {
+  const hasRiskInCluster = allPeers.some((s: any) => s.listStatus === "cerveny");
+  const selectedRC = selected.birthNumber ? decryptField(selected.birthNumber) : null;
+  const selectedBirthDate = selectedRC ? parseBirthDateFromRC(selectedRC) : null;
+  const selectedAdult = selectedBirthDate ? calcAge(selectedBirthDate) >= 18 : null;
+  const name = subjectDisplayName(selected);
+
+  if (hasRiskInCluster) {
+    if (!selected.birthNumber) {
+      const [latestDoc] = await db
+        .select({ documentType: clientDocumentHistory.documentType, documentNumber: clientDocumentHistory.documentNumber })
+        .from(clientDocumentHistory)
+        .where(eq(clientDocumentHistory.subjectId, selected.id))
+        .orderBy(desc(clientDocumentHistory.archivedAt))
+        .limit(1);
+      if (!latestDoc || !latestDoc.documentNumber) {
+        return { nextStep: "blocked", message: "Identita nebola overená. Kontaktujte prosím podporu pre doplnenie údajov." };
+      }
+      session.loginSubjectId = selected.id;
+      session.loginStep = "doc_verify";
+      session.pendingVerifyReason = "risk_override";
+      return { nextStep: "doc_verify", documentHint: { documentType: latestDoc.documentType, masked: maskDocNumber(latestDoc.documentNumber!) }, reason: "risk_override" };
+    }
+    session.loginSubjectId = selected.id;
+    session.loginStep = "rc_verify";
+    session.pendingVerifyReason = "risk_override";
+    return { nextStep: "rc_verify", reason: "risk_override" };
+  }
+
+  if (isPerson(selected.type) && !selected.birthNumber) {
+    const [latestDoc] = await db
+      .select({ documentType: clientDocumentHistory.documentType, documentNumber: clientDocumentHistory.documentNumber })
+      .from(clientDocumentHistory)
+      .where(eq(clientDocumentHistory.subjectId, selected.id))
+      .orderBy(desc(clientDocumentHistory.archivedAt))
+      .limit(1);
+    if (!latestDoc || !latestDoc.documentNumber) {
+      return { nextStep: "blocked", message: "Identita nebola overená. Kontaktujte prosím podporu pre doplnenie údajov." };
+    }
+    session.loginSubjectId = selected.id;
+    session.loginStep = "doc_verify";
+    return { nextStep: "doc_verify", documentHint: { documentType: latestDoc.documentType, masked: maskDocNumber(latestDoc.documentNumber!) } };
+  }
+
+  if (isSzco(selected.type) || (isPerson(selected.type) && allPeers.some((p: any) => p.id !== selected.id && isSzco(p.type)))) {
+    const szcoPartner = isSzco(selected.type)
+      ? allPeers.find((p: any) => isPerson(p.type))
+      : allPeers.find((p: any) => isSzco(p.type));
+    if (szcoPartner && szcoPartner.birthNumber && selected.birthNumber) {
+      const szcoRC = decryptField(szcoPartner.birthNumber);
+      if (szcoRC && selectedRC && szcoRC === selectedRC) {
+        session.loginSubjectId = selected.id;
+        session.loginStep = "done";
+        await writeLoginAudit(user.id, selected.id, name, "DIRECT", "szco_fo_same_rc", ip);
+        await recordLoginHistory(user.id, ip);
+        return { nextStep: "done" };
+      }
+    }
+  }
+
+  if (isLegalEntity(selected.type) || selected.type === "mycompany") {
+    const linkedPersons = await getLinkedOfficers({
+      id: selected.id,
+      type: selected.type,
+      myCompanyId: selected.myCompanyId ?? null,
+      ico: selected.ico ?? null,
+    });
+
+    if (linkedPersons.length > 1) {
+      const peerPersonIds = new Set(
+        allPeers.filter((p: any) => isPerson(p.type) || isSzco(p.type)).map((p: any) => p.id)
+      );
+      const emailMatchedOfficers = linkedPersons.filter((o: any) => o.subjectId !== null && peerPersonIds.has(o.subjectId!));
+      if (emailMatchedOfficers.length === 1) {
+        const [foSubject] = await db
+          .select({ id: subjects.id, uid: subjects.uid, firstName: subjects.firstName, lastName: subjects.lastName, phone: subjects.phone, email: subjects.email, street: subjects.street, city: subjects.city, postalCode: subjects.postalCode, idCardNumber: subjects.idCardNumber })
+          .from(subjects)
+          .where(eq(subjects.id, emailMatchedOfficers[0].subjectId!));
+        if (foSubject) {
+          const completeness = await checkFoProfileCompleteness(foSubject);
+          if (!completeness.complete) {
+            return { nextStep: "blocked", message: `Profil fyzickej osoby (konateľa) je neúplný. Chýba: ${completeness.missingFields.join(", ")}. Kontaktujte správcu systému.` };
+          }
+          session.loginSubjectId = foSubject.id;
+          session.loginActingAsEntityId = selected.id;
+          session.loginStep = "done";
+          await writeLoginAudit(user.id, foSubject.id, subjectDisplayName(foSubject), "ENTITY_DIRECT", "email_matched_officer", ip, selected.id, { foUid: foSubject.uid, entityType: selected.type });
+          await recordLoginHistory(user.id, ip);
+          return { nextStep: "done" };
+        }
+      }
+      session.loginStep = "entity_rc_verify";
+      session.pendingEntitySubjectId = selected.id;
+      session.pendingEntityCandidateIds = linkedPersons.map((p: any) => p.subjectId);
+      session.entityRcAttempts = 0;
+      return { nextStep: "entity_rc_verify", entityName: name, entityType: selected.type };
+    }
+
+    if (linkedPersons.length === 1) {
+      const [foSubject] = await db
+        .select({ id: subjects.id, uid: subjects.uid, firstName: subjects.firstName, lastName: subjects.lastName, phone: subjects.phone, email: subjects.email, street: subjects.street, city: subjects.city, postalCode: subjects.postalCode, idCardNumber: subjects.idCardNumber })
+        .from(subjects)
+        .where(eq(subjects.id, linkedPersons[0].subjectId));
+      if (foSubject) {
+        const completeness = await checkFoProfileCompleteness(foSubject);
+        if (!completeness.complete) {
+          return { nextStep: "blocked", message: `Profil fyzickej osoby (konateľa) je neúplný. Chýba: ${completeness.missingFields.join(", ")}. Kontaktujte správcu systému.` };
+        }
+        session.loginSubjectId = foSubject.id;
+        session.loginActingAsEntityId = selected.id;
+        session.loginStep = "done";
+        await writeLoginAudit(user.id, foSubject.id, subjectDisplayName(foSubject), "ENTITY_DIRECT", "single_officer_direct", ip, selected.id, { foUid: foSubject.uid, entityType: selected.type });
+        await recordLoginHistory(user.id, ip);
+        return { nextStep: "done" };
+      }
+    }
+
+    session.loginSubjectId = selected.id;
+    session.loginStep = "done";
+    await writeLoginAudit(user.id, selected.id, name, "DIRECT", null, ip);
+    await recordLoginHistory(user.id, ip);
+    return { nextStep: "done" };
+  }
+
+  if (isPerson(selected.type) && selectedAdult === false) {
+    session.loginSubjectId = selected.id;
+    session.loginStep = "done";
+    await writeLoginAudit(user.id, selected.id, name, "DIRECT", "minor_direct", ip);
+    await recordLoginHistory(user.id, ip);
+    return { nextStep: "done" };
+  }
+
+  if (isPerson(selected.type) && selectedAdult === true) {
+    let hasAnotherAdultFo = false;
+    for (const peer of allPeers) {
+      if (peer.id !== selected.id && isPerson(peer.type) && peer.birthNumber) {
+        const peerRC = decryptField(peer.birthNumber);
+        const peerBD = peerRC ? parseBirthDateFromRC(peerRC) : null;
+        if (peerBD && calcAge(peerBD) >= 18) { hasAnotherAdultFo = true; break; }
+      }
+    }
+
+    if (!hasAnotherAdultFo) {
+      const selectedPhone = selected.phone?.replace(/\D/g, "") || "";
+      const otherPersonPhones = allPeers
+        .filter((p: any) => p.id !== selected.id && isPerson(p.type) && p.phone)
+        .map((p: any) => p.phone!.replace(/\D/g, ""));
+      const hasUniquePhone = !!selectedPhone && !otherPersonPhones.includes(selectedPhone);
+
+      if (hasUniquePhone) {
+        const code = "151515";
+        console.log(`[AUTH SMS MOCK] SMS kód pre ${selected.phone}: ${code}`);
+        session.loginSubjectId = selected.id;
+        session.loginStep = "sms_verify";
+        session.pendingSmsCode = code;
+        session.pendingSubjectPhone = selected.phone ?? null;
+        return { nextStep: "sms_verify", maskedPhone: session.pendingSubjectPhone };
+      }
+    }
+
+    session.loginSubjectId = selected.id;
+    session.loginStep = "rc_verify";
+    return { nextStep: "rc_verify" };
+  }
+
+  session.loginSubjectId = selected.id;
+  session.loginStep = "done";
+  await writeLoginAudit(user.id, selected.id, name, "DIRECT", null, ip);
+  await recordLoginHistory(user.id, ip);
+  return { nextStep: "done" };
+}
+
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
   app.use(getSession());
@@ -521,10 +699,11 @@ export async function setupAuth(app: Express) {
         };
       };
 
+      const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+
       if (peerSubjectsRaw.length === 0 && shadowOnly.length === 0) {
         req.session.loginSubjectId = null;
         req.session.loginStep = "done";
-        const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
         await recordLoginHistory(user.id, ip);
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
@@ -535,7 +714,6 @@ export async function setupAuth(app: Express) {
       if (peerSubjectsRaw.length === 1 && shadowOnly.length === 0) {
         req.session.loginSubjectId = peerSubjectsRaw[0].id;
         req.session.loginStep = "done";
-        const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
         await recordLoginHistory(user.id, ip);
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
@@ -544,6 +722,23 @@ export async function setupAuth(app: Express) {
             loginStep: "done",
           });
         });
+      }
+
+      // Auto-select primary subject when user has linkedSubjectId among their peers
+      if (user.linkedSubjectId) {
+        const autoInPeers = peerSubjectsRaw.find((s) => s.id === user.linkedSubjectId);
+        if (autoInPeers) {
+          const [selectedFull] = await db.select().from(subjects).where(and(eq(subjects.id, user.linkedSubjectId), isNull(subjects.deletedAt)));
+          if (selectedFull) {
+            const allPeers = await db.select().from(subjects).where(and(eq(subjects.email, user.email!.toLowerCase()), isNull(subjects.deletedAt)));
+            const result = await resolveSubjectLoginStep(req.session, user, selectedFull, allPeers, ip);
+            return req.session.save((err) => {
+              if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
+              const { nextStep, ...rest } = result;
+              res.json({ id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role, loginStep: nextStep, ...rest });
+            });
+          }
+        }
       }
 
       req.session.loginSubjectId = null;
@@ -674,263 +869,10 @@ export async function setupAuth(app: Express) {
         });
       }
 
-      const hasRiskInCluster = allPeers.some((s) => s.listStatus === "cerveny");
-
-      const selectedRC = selected.birthNumber ? decryptField(selected.birthNumber) : null;
-      const selectedBirthDate = selectedRC ? parseBirthDateFromRC(selectedRC) : null;
-      const selectedAdult = selectedBirthDate ? calcAge(selectedBirthDate) >= 18 : null;
-
-      const name = subjectDisplayName(selected);
-
-      if (hasRiskInCluster) {
-        if (!selected.birthNumber) {
-          const [latestDoc] = await db
-            .select({ documentType: clientDocumentHistory.documentType, documentNumber: clientDocumentHistory.documentNumber })
-            .from(clientDocumentHistory)
-            .where(eq(clientDocumentHistory.subjectId, selected.id))
-            .orderBy(desc(clientDocumentHistory.archivedAt))
-            .limit(1);
-
-          if (!latestDoc || !latestDoc.documentNumber) {
-            return req.session.save((err) => {
-              if (err) return res.status(500).json({ message: "Chyba session" });
-              res.json({ nextStep: "blocked", message: "Identita nebola overená. Kontaktujte prosím podporu pre doplnenie údajov." });
-            });
-          }
-
-          req.session.loginSubjectId = selected.id;
-          req.session.loginStep = "doc_verify";
-          req.session.pendingVerifyReason = "risk_override";
-          return req.session.save((err) => {
-            if (err) return res.status(500).json({ message: "Chyba session" });
-            res.json({
-              nextStep: "doc_verify",
-              documentHint: { documentType: latestDoc.documentType, masked: maskDocNumber(latestDoc.documentNumber!) },
-              reason: "risk_override",
-            });
-          });
-        }
-
-        req.session.loginSubjectId = selected.id;
-        req.session.loginStep = "rc_verify";
-        req.session.pendingVerifyReason = "risk_override";
-        return req.session.save((err) => {
-          if (err) return res.status(500).json({ message: "Chyba session" });
-          res.json({ nextStep: "rc_verify", reason: "risk_override" });
-        });
-      }
-
-      if (isPerson(selected.type) && !selected.birthNumber) {
-        const [latestDoc] = await db
-          .select({ documentType: clientDocumentHistory.documentType, documentNumber: clientDocumentHistory.documentNumber })
-          .from(clientDocumentHistory)
-          .where(eq(clientDocumentHistory.subjectId, selected.id))
-          .orderBy(desc(clientDocumentHistory.archivedAt))
-          .limit(1);
-
-        if (!latestDoc || !latestDoc.documentNumber) {
-          return req.session.save((err) => {
-            if (err) return res.status(500).json({ message: "Chyba session" });
-            res.json({ nextStep: "blocked", message: "Identita nebola overená. Kontaktujte prosím podporu pre doplnenie údajov." });
-          });
-        }
-
-        req.session.loginSubjectId = selected.id;
-        req.session.loginStep = "doc_verify";
-        return req.session.save((err) => {
-          if (err) return res.status(500).json({ message: "Chyba session" });
-          res.json({
-            nextStep: "doc_verify",
-            documentHint: { documentType: latestDoc.documentType, masked: maskDocNumber(latestDoc.documentNumber!) },
-          });
-        });
-      }
-
-      if (isSzco(selected.type) || (isPerson(selected.type) && allPeers.some((p) => p.id !== selected.id && isSzco(p.type)))) {
-        const szcoPartner = isSzco(selected.type)
-          ? allPeers.find((p) => isPerson(p.type))
-          : allPeers.find((p) => isSzco(p.type));
-
-        if (szcoPartner && szcoPartner.birthNumber && selected.birthNumber) {
-          const szcoRC = decryptField(szcoPartner.birthNumber);
-          if (szcoRC && selectedRC && szcoRC === selectedRC) {
-            req.session.loginSubjectId = selected.id;
-            req.session.loginStep = "done";
-            await writeLoginAudit(user.id, selected.id, name, "DIRECT", "szco_fo_same_rc", ip);
-            await recordLoginHistory(user.id, ip);
-            return req.session.save((err) => {
-              if (err) return res.status(500).json({ message: "Chyba session" });
-              res.json({ nextStep: "done" });
-            });
-          }
-        }
-      }
-
-      if (isLegalEntity(selected.type) || selected.type === "mycompany") {
-        const linkedPersons = await getLinkedOfficers({
-          id: selected.id,
-          type: selected.type,
-          myCompanyId: selected.myCompanyId ?? null,
-          ico: selected.ico ?? null,
-        });
-
-        if (linkedPersons.length > 1) {
-          // Before asking for entity RC: check if exactly one officer is already identified
-          // by being a peer subject (same email as the logged-in user).
-          // If yes, skip entity_rc_verify and treat it like a single-officer direct login.
-          const peerPersonIds = new Set(
-            allPeers
-              .filter((p) => isPerson(p.type) || isSzco(p.type))
-              .map((p) => p.id)
-          );
-          const emailMatchedOfficers = linkedPersons.filter((o) => o.subjectId !== null && peerPersonIds.has(o.subjectId!));
-
-          if (emailMatchedOfficers.length === 1) {
-            const [foSubject] = await db
-              .select({ id: subjects.id, uid: subjects.uid, firstName: subjects.firstName, lastName: subjects.lastName, phone: subjects.phone, email: subjects.email, street: subjects.street, city: subjects.city, postalCode: subjects.postalCode, idCardNumber: subjects.idCardNumber })
-              .from(subjects)
-              .where(eq(subjects.id, emailMatchedOfficers[0].subjectId!));
-
-            if (foSubject) {
-              const completeness = await checkFoProfileCompleteness(foSubject);
-              if (!completeness.complete) {
-                return req.session.save((err) => {
-                  if (err) return res.status(500).json({ message: "Chyba session" });
-                  res.json({
-                    nextStep: "blocked",
-                    message: `Profil fyzickej osoby (konateľa) je neúplný. Chýba: ${completeness.missingFields.join(", ")}. Kontaktujte správcu systému.`,
-                  });
-                });
-              }
-              req.session.loginSubjectId = foSubject.id;
-              req.session.loginActingAsEntityId = selected.id;
-              req.session.loginStep = "done";
-              await writeLoginAudit(user.id, foSubject.id, subjectDisplayName(foSubject), "ENTITY_DIRECT", "email_matched_officer", ip, selected.id, { foUid: foSubject.uid, entityType: selected.type });
-              await recordLoginHistory(user.id, ip);
-              return req.session.save((err) => {
-                if (err) return res.status(500).json({ message: "Chyba session" });
-                res.json({ nextStep: "done" });
-              });
-            }
-          }
-
-          req.session.loginStep = "entity_rc_verify";
-          req.session.pendingEntitySubjectId = selected.id;
-          req.session.pendingEntityCandidateIds = linkedPersons.map((p) => p.subjectId);
-          req.session.entityRcAttempts = 0;
-          return req.session.save((err) => {
-            if (err) return res.status(500).json({ message: "Chyba session" });
-            res.json({
-              nextStep: "entity_rc_verify",
-              entityName: name,
-              entityType: selected.type,
-            });
-          });
-        }
-
-        if (linkedPersons.length === 1) {
-          const [foSubject] = await db
-            .select({ id: subjects.id, uid: subjects.uid, firstName: subjects.firstName, lastName: subjects.lastName, phone: subjects.phone, email: subjects.email, street: subjects.street, city: subjects.city, postalCode: subjects.postalCode, idCardNumber: subjects.idCardNumber })
-            .from(subjects)
-            .where(eq(subjects.id, linkedPersons[0].subjectId));
-
-          if (foSubject) {
-            const completeness = await checkFoProfileCompleteness(foSubject);
-            if (!completeness.complete) {
-              return req.session.save((err) => {
-                if (err) return res.status(500).json({ message: "Chyba session" });
-                res.json({
-                  nextStep: "blocked",
-                  message: `Profil fyzickej osoby (konateľa) je neúplný. Chýba: ${completeness.missingFields.join(", ")}. Kontaktujte správcu systému.`,
-                });
-              });
-            }
-            // Single-officer: FO is identified, set session with FO as primary subject and entity as acting context
-            req.session.loginSubjectId = foSubject.id;
-            req.session.loginActingAsEntityId = selected.id;
-            req.session.loginStep = "done";
-            await writeLoginAudit(user.id, foSubject.id, subjectDisplayName(foSubject), "ENTITY_DIRECT", "single_officer_direct", ip, selected.id, { foUid: foSubject.uid, entityType: selected.type });
-            await recordLoginHistory(user.id, ip);
-            return req.session.save((err) => {
-              if (err) return res.status(500).json({ message: "Chyba session" });
-              res.json({ nextStep: "done" });
-            });
-          }
-        }
-
-        // No linked officer found: direct entity login (no individual FO identified)
-        req.session.loginSubjectId = selected.id;
-        req.session.loginStep = "done";
-        await writeLoginAudit(user.id, selected.id, name, "DIRECT", null, ip);
-        await recordLoginHistory(user.id, ip);
-        return req.session.save((err) => {
-          if (err) return res.status(500).json({ message: "Chyba session" });
-          res.json({ nextStep: "done" });
-        });
-      }
-
-      if (isPerson(selected.type) && selectedAdult === false) {
-        req.session.loginSubjectId = selected.id;
-        req.session.loginStep = "done";
-        await writeLoginAudit(user.id, selected.id, name, "DIRECT", "minor_direct", ip);
-        await recordLoginHistory(user.id, ip);
-        return req.session.save((err) => {
-          if (err) return res.status(500).json({ message: "Chyba session" });
-          res.json({ nextStep: "done" });
-        });
-      }
-
-      if (isPerson(selected.type) && selectedAdult === true) {
-        let hasAnotherAdultFo = false;
-        for (const peer of allPeers) {
-          if (peer.id !== selected.id && isPerson(peer.type) && peer.birthNumber) {
-            const peerRC = decryptField(peer.birthNumber);
-            const peerBD = peerRC ? parseBirthDateFromRC(peerRC) : null;
-            if (peerBD && calcAge(peerBD) >= 18) {
-              hasAnotherAdultFo = true;
-              break;
-            }
-          }
-        }
-
-        if (!hasAnotherAdultFo) {
-          // Compare phone only against other PERSON-type subjects (mycompany/entity subjects naturally share the owner's phone — they must not block SMS auth)
-          const selectedPhone = selected.phone?.replace(/\D/g, "") || "";
-          const otherPersonPhones = allPeers
-            .filter((p) => p.id !== selected.id && isPerson(p.type) && p.phone)
-            .map((p) => p.phone!.replace(/\D/g, ""));
-          // Unique if no other FO/SZČO in cluster shares the same phone
-          const hasUniquePhone = !!selectedPhone && !otherPersonPhones.includes(selectedPhone);
-
-          if (hasUniquePhone) {
-            const code = "151515"; // TODO: remove hardcoded test code before go-live
-            console.log(`[AUTH SMS MOCK] SMS kód pre ${selected.phone}: ${code}`);
-            req.session.loginSubjectId = selected.id;
-            req.session.loginStep = "sms_verify";
-            req.session.pendingSmsCode = code;
-            req.session.pendingSubjectPhone = selected.phone ?? null;
-            return req.session.save((err) => {
-              if (err) return res.status(500).json({ message: "Chyba session" });
-              res.json({ nextStep: "sms_verify", maskedPhone: req.session.pendingSubjectPhone });
-            });
-          }
-        }
-
-        req.session.loginSubjectId = selected.id;
-        req.session.loginStep = "rc_verify";
-        return req.session.save((err) => {
-          if (err) return res.status(500).json({ message: "Chyba session" });
-          res.json({ nextStep: "rc_verify" });
-        });
-      }
-
-      req.session.loginSubjectId = selected.id;
-      req.session.loginStep = "done";
-      await writeLoginAudit(user.id, selected.id, name, "DIRECT", null, ip);
-      await recordLoginHistory(user.id, ip);
+      const result = await resolveSubjectLoginStep(req.session, user, selected, allPeers, ip);
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
-        res.json({ nextStep: "done" });
+        res.json(result);
       });
     } catch (err) {
       console.error("Select subject error:", err);
