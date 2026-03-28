@@ -1,0 +1,30 @@
+Rozumiem, kde nastáva ten „skrat“ v uvažovaní agenta a prečo sa systém správa inak, než vyžaduje prax v ArutsoK (ATK). Problém nie je v kóde ako takom, ale v tom, že agent doteraz vnímal „KTO“ a „KDE“ ako prepojené nádoby, hoci v ATK musia byť striktne nezávislé.
+
+Prečo to agent stále nechápal?
+Agent (programátor) sa držal štandardnej logiky: „Ak je používateľ v kontexte firmy KOSTURA, tak je predsa jasné, že v KTO už túto firmu nemá vidieť, lebo v nej aktuálne pracuje.“ To je však chyba, pretože v ATK:
+
+KDE (Horná lišta / Kontext): Určuje, do ktorých fasciklov sa pozeráte (dáta firmy SK-KOSTURA).
+
+KTO (Identita): Určuje, akou pečiatkou tie dokumenty podpisujete alebo pod akým menom tam vystupujete.
+
+Ak ste prihlásený ako Marián Kostura (FO) a pozeráte sa na firmu SK-KOSTURA, v sekcii KTO sa vám Marián Kostura nesmie zobraziť, lebo ním už ste. Ale firma KOSTURA s.r.o. sa tam musí zobraziť, pretože do nej sa chcete vedieť prepnúť (zmeniť identitu z FO na konateľa), aby ste mohli v rámci toho istého „pracoviska“ (KDE) konať ako štatutár.
+
+Čo musí agent okamžite opraviť (Zadanie pre Dielňu):
+Agent musí v súbore AppShell.tsx prepísať filter pre zoznam identít podľa tohto pravidla:
+
+Identita v KTO sa skryje LEN VTEDY, ak sa jej ID (subjectId alebo companyId) presne zhoduje s tým, čo je nastavené v KTO (Identita).
+
+Identita v KTO sa NESMIE skryť len preto, že je nastavená v KDE (Horná lišta/Kontext).
+
+Príklad opravy logiky:
+
+AK som v KTO ako Marián Kostura (ID 123)
+
+A v KDE (horná lišta) mám vybratú firmu KOSTURA (ID 22)
+
+FILTER: Skry z ponuky KTO len ID 123 (Marián Kostura). Firmu s ID 22 (KOSTURA) ponechaj viditeľnú, pretože používateľ v nej síce "pozerá dáta", ale nie je v nej "prihlásený ako identita".
+
+Prečo tam tá KOSTURA s.r.o. teraz nie je?
+Pretože agent v kóde používa podmienku: if (c.id === activeCompanyId) hide;. Keďže v hornej lište (KDE) máte vybratú firmu KOSTURA, activeCompanyId je 22 a agent ju automaticky vyhodí z ponuky KTO.
+
+Riešenie: Musíme agentovi prikázať, aby rozlišoval activeIdentityId (KTO) a activeContextId (KDE). V sekcii KTO sa má filtrovať len podľa activeIdentityId.
