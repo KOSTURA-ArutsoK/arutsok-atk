@@ -1042,12 +1042,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {userContexts && (() => {
                   const allKtoContexts = userContexts as any[];
                   if (allKtoContexts.length <= 1) return null;
-                  const currentSubjectId = (appUser as any)?.activeSubjectId ?? null;
-                  const ktoItems = allKtoContexts.filter((c: any) => {
-                    // FO: show only when user has a personal subject active (SZČO etc.) — not when already in FO/officer mode
-                    if (c.contextType === "fo") return currentSubjectId !== null;
-                    return !c.isCurrent;
-                  });
+                  const ktoItems = allKtoContexts.filter((c: any) => c.uid != null);
                   if (ktoItems.length === 0) return null;
                   return (
                     <>
@@ -1060,6 +1055,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         const isGuardianReturn = ctx.contextType === "guardian_return";
                         const isFo = ctx.contextType === "fo";
                         const isSubject = ["szco", "po", "ts", "vs", "os"].includes(ctx.contextType);
+                        const isCurrent = !!ctx.isCurrent;
                         const ctxKey = isOfficer ? ctx.companyId : isSubject ? ctx.subjectId : (ctx.companyId ?? ctx.userId);
                         const officerType = isOfficer ? (ctx.type || "po") : null;
                         const iconEl = isLinked ? (
@@ -1094,13 +1090,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             key={`kto-${ctx.contextType}-${ctxKey}-${idx}`}
                             className="flex items-center gap-2 py-2 cursor-pointer mx-1 rounded"
                             onClick={async () => {
+                              if (isCurrent) return;
                               try {
                                 if (isLinked || isGuardian || isGuardianReturn) {
                                   await apiRequest("POST", "/api/account-link/switch", { targetUserId: ctx.userId });
                                   window.location.href = "/";
                                 } else if (isOfficer) {
-                                  // Enter officer/company identity: clear any personal subject (SZČO/etc), preserve current company
-                                  // The specific company workspace is set independently via KDE section
                                   localStorage.removeItem("atk_context_fo");
                                   await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: null });
                                   window.location.href = "/";
@@ -1127,9 +1122,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                               {iconEl}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate text-muted-foreground">{ctx.label}</p>
+                              <p className={`text-sm font-medium truncate ${isCurrent ? "text-foreground" : "text-muted-foreground"}`}>{ctx.label}</p>
                               <p className="text-xs text-muted-foreground truncate">{ctx.subLabel}</p>
                             </div>
+                            {isCurrent && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 ml-auto flex-shrink-0" />}
                           </DropdownMenuItem>
                         );
                       })}
