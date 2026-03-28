@@ -67,6 +67,8 @@ export default function AuthPage() {
   const [smsPhone, setSmsPhone] = useState<string | null>(null);
   const [docHint, setDocHint] = useState<DocumentHint | null>(null);
 
+  const [subjectSearch, setSubjectSearch] = useState("");
+
   const [smsCode, setSmsCode] = useState("");
   const [rcValue, setRcValue] = useState("");
   const [docNumber, setDocNumber] = useState("");
@@ -286,13 +288,117 @@ export default function AuthPage() {
     setEntityRcValue("");
     setEntityRcEntityName(null);
     setEntityRcAttemptsLeft(3);
+    setSubjectSearch("");
     setStep("subject_select");
   };
 
   if (step === "subject_select") {
-    const peerSubjects = subjectOptions.filter((s) => !s.isShadow);
-    const shadowSubjects = subjectOptions.filter((s) => s.isShadow);
-    const hasRiskInCluster = peerSubjects.some((s) => s.hasRisk);
+    const totalCount = subjectOptions.length;
+    const useListView = totalCount > 8;
+
+    const q = subjectSearch.trim().toLowerCase();
+    const matchesSearch = (s: SubjectOption) => {
+      if (!q) return true;
+      const name = [s.firstName, s.lastName, s.companyName].filter(Boolean).join(" ").toLowerCase();
+      const uid = (s.uid || "").replace(/\D/g, "");
+      return name.includes(q) || uid.includes(q.replace(/\D/g, ""));
+    };
+
+    const allPeerSubjects = subjectOptions.filter((s) => !s.isShadow);
+    const allShadowSubjects = subjectOptions.filter((s) => s.isShadow);
+    const peerSubjects = allPeerSubjects.filter(matchesSearch);
+    const shadowSubjects = allShadowSubjects.filter(matchesSearch);
+    const hasRiskInCluster = allPeerSubjects.some((s) => s.hasRisk);
+    const noResults = q && peerSubjects.length === 0 && shadowSubjects.length === 0;
+
+    const SubjectCardGrid = ({ s }: { s: SubjectOption }) => {
+      const name = s.firstName || s.lastName
+        ? `${s.firstName || ""} ${s.lastName || ""}`.trim()
+        : s.companyName || "Neznámy";
+      const isMinor = s.isAdult === false && s.type === "person";
+      const isCompany = s.type !== "person" && s.type !== "szco";
+      return (
+        <button
+          key={s.id}
+          onClick={() => handleSelectSubject(s.id)}
+          disabled={loading}
+          className={`flex flex-col items-start gap-1 p-3 rounded-lg border transition-colors text-left ${
+            s.isShadow
+              ? "border-dashed border-border hover:bg-accent hover:border-primary/50"
+              : s.hasRisk
+              ? "border-destructive/60 bg-destructive/5 hover:bg-destructive/10"
+              : "border-border hover:bg-accent hover:border-primary/50"
+          }`}
+          data-testid={`button-select-subject-${s.id}`}
+        >
+          <div className="flex items-center gap-1.5 w-full">
+            {s.isShadow
+              ? (isMinor ? <Baby className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" /> : <FolderOpen className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />)
+              : isMinor ? <Baby className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+              : isCompany ? <Building2 className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : null
+            }
+            {s.hasRisk && !s.isShadow && <AlertTriangle className="w-3.5 h-3.5 text-destructive flex-shrink-0" />}
+            <p className="font-medium text-sm truncate">{name}</p>
+            <ArrowRight className="w-3 h-3 text-muted-foreground ml-auto flex-shrink-0" />
+          </div>
+          <p className="text-xs text-muted-foreground">{subjectTypeLabelSk(s.type)}</p>
+          {isMinor && <p className="text-xs text-blue-500">Neplnoletá osoba</p>}
+          {s.isShadow && <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">Spravovaný profil</span>}
+          {s.phone && <p className="text-xs font-mono text-muted-foreground">{formatPhone(s.phone)}</p>}
+        </button>
+      );
+    };
+
+    const SubjectRowList = ({ s }: { s: SubjectOption }) => {
+      const name = s.firstName || s.lastName
+        ? `${s.firstName || ""} ${s.lastName || ""}`.trim()
+        : s.companyName || "Neznámy";
+      const isMinor = s.isAdult === false && s.type === "person";
+      const isCompany = s.type !== "person" && s.type !== "szco";
+      const stripColor = s.hasRisk
+        ? "bg-destructive"
+        : s.isShadow
+        ? "bg-muted-foreground/40"
+        : "bg-primary";
+      return (
+        <button
+          key={s.id}
+          onClick={() => handleSelectSubject(s.id)}
+          disabled={loading}
+          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border transition-colors text-left overflow-hidden ${
+            s.isShadow
+              ? "border-dashed border-border hover:bg-accent"
+              : s.hasRisk
+              ? "border-destructive/40 bg-destructive/5 hover:bg-destructive/10"
+              : "border-border hover:bg-accent hover:border-primary/30"
+          }`}
+          data-testid={`button-select-subject-${s.id}`}
+        >
+          <div className={`w-0.5 self-stretch rounded-full flex-shrink-0 ${stripColor}`} />
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {s.isShadow
+              ? (isMinor ? <Baby className="w-3.5 h-3.5 text-blue-500" /> : <FolderOpen className="w-3.5 h-3.5 text-muted-foreground" />)
+              : isMinor ? <Baby className="w-3.5 h-3.5 text-blue-500" />
+              : isCompany ? <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
+              : s.hasRisk ? <AlertTriangle className="w-3.5 h-3.5 text-destructive" /> : null
+            }
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm truncate">{name}</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {subjectTypeLabelSk(s.type)}
+              {s.isShadow && <span className="ml-1.5 text-muted-foreground/70">· Spravovaný</span>}
+              {s.uid && <span className="ml-1.5 font-mono">{formatUid(s.uid)}</span>}
+            </p>
+          </div>
+          {s.hasRisk && !s.isShadow && (
+            <span className="text-xs text-destructive font-medium flex-shrink-0">Riziko</span>
+          )}
+          {isMinor && <span className="text-xs text-blue-500 flex-shrink-0">Neplnoletý</span>}
+          <ArrowRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+        </button>
+      );
+    };
 
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -315,77 +421,59 @@ export default function AuthPage() {
               </div>
             )}
 
-            {renderError()}
-
-            {peerSubjects.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Vaše profily</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {peerSubjects.map((s) => {
-                    const name = s.firstName || s.lastName
-                      ? `${s.firstName || ""} ${s.lastName || ""}`.trim()
-                      : s.companyName || "Neznámy";
-                    const isMinor = s.isAdult === false && s.type === "person";
-                    const isCompany = s.type !== "person" && s.type !== "szco";
-                    return (
-                      <button
-                        key={s.id}
-                        onClick={() => handleSelectSubject(s.id)}
-                        disabled={loading}
-                        className={`flex flex-col items-start gap-1 p-3 rounded-lg border transition-colors text-left ${
-                          s.hasRisk
-                            ? "border-destructive/60 bg-destructive/5 hover:bg-destructive/10"
-                            : "border-border hover:bg-accent hover:border-primary/50"
-                        }`}
-                        data-testid={`button-select-subject-${s.id}`}
-                      >
-                        <div className="flex items-center gap-1.5 w-full">
-                          {isMinor && <Baby className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
-                          {isCompany && <Building2 className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
-                          {s.hasRisk && <AlertTriangle className="w-3.5 h-3.5 text-destructive flex-shrink-0" />}
-                          <p className="font-medium text-sm truncate">{name}</p>
-                          <ArrowRight className="w-3 h-3 text-muted-foreground ml-auto flex-shrink-0" />
-                        </div>
-                        <p className="text-xs text-muted-foreground">{subjectTypeLabelSk(s.type)}</p>
-                        {isMinor && <p className="text-xs text-blue-500">Neplnoletá osoba</p>}
-                        {s.phone && <p className="text-xs font-mono text-muted-foreground">{formatPhone(s.phone)}</p>}
-                      </button>
-                    );
-                  })}
-                </div>
+            {totalCount > 4 && (
+              <div className="relative">
+                <Input
+                  value={subjectSearch}
+                  onChange={(e) => setSubjectSearch(e.target.value)}
+                  placeholder="Hľadať podľa mena alebo UID…"
+                  className="pl-3 pr-8 h-9 text-sm"
+                  data-testid="input-subject-search"
+                  autoComplete="off"
+                />
+                {subjectSearch && (
+                  <button
+                    onClick={() => setSubjectSearch("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    data-testid="button-clear-subject-search"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             )}
 
-            {shadowSubjects.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Spravované profily</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {shadowSubjects.map((s) => {
-                    const name = s.firstName || s.lastName
-                      ? `${s.firstName || ""} ${s.lastName || ""}`.trim()
-                      : s.companyName || "Neznámy";
-                    const isMinor = s.isAdult === false && s.type === "person";
-                    return (
-                      <button
-                        key={s.id}
-                        onClick={() => handleSelectSubject(s.id)}
-                        disabled={loading}
-                        className="flex flex-col items-start gap-1 p-3 rounded-lg border border-dashed border-border hover:bg-accent hover:border-primary/50 transition-colors text-left"
-                        data-testid={`button-select-shadow-${s.id}`}
-                      >
-                        <div className="flex items-center gap-1.5 w-full">
-                          {isMinor ? <Baby className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" /> : <FolderOpen className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
-                          <p className="font-medium text-sm truncate">{name}</p>
-                          <ArrowRight className="w-3 h-3 text-muted-foreground ml-auto flex-shrink-0" />
-                        </div>
-                        <p className="text-xs text-muted-foreground">{subjectTypeLabelSk(s.type)}</p>
-                        {isMinor && <p className="text-xs text-blue-500">Neplnoletá osoba</p>}
-                        <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">Spravovaný profil</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+            {renderError()}
+
+            {noResults ? (
+              <p className="text-sm text-center text-muted-foreground py-4">Žiadny subjekt nezodpovedá hľadaniu</p>
+            ) : (
+              <>
+                {peerSubjects.length > 0 && (
+                  <div className="space-y-2">
+                    {!useListView && <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Vaše profily</p>}
+                    {useListView
+                      ? <div className="space-y-1">{peerSubjects.map((s) => <SubjectRowList key={s.id} s={s} />)}</div>
+                      : <div className="grid grid-cols-2 gap-2">{peerSubjects.map((s) => <SubjectCardGrid key={s.id} s={s} />)}</div>
+                    }
+                  </div>
+                )}
+
+                {shadowSubjects.length > 0 && (
+                  <div className="space-y-2">
+                    {!useListView && <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Spravované profily</p>}
+                    {useListView
+                      ? (
+                        <>
+                          {peerSubjects.length > 0 && <div className="border-t border-dashed border-border pt-2" />}
+                          <div className="space-y-1">{shadowSubjects.map((s) => <SubjectRowList key={s.id} s={s} />)}</div>
+                        </>
+                      )
+                      : <div className="grid grid-cols-2 gap-2">{shadowSubjects.map((s) => <SubjectCardGrid key={s.id} s={s} />)}</div>
+                    }
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
