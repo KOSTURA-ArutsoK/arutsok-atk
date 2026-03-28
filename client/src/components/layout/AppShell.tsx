@@ -121,6 +121,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [loginIdentityOptions, setLoginIdentityOptions] = useState<IdentityOption[]>([]);
   const [loginFlowPrevStep, setLoginFlowPrevStep] = useState<"identity" | "state" | null>(null);
   const contextInitRef = useRef(false);
+
+  const finishLoginContextSetup = useCallback(() => {
+    setLoginFlow(false);
+    setLoginIdentityOptions([]);
+    setLoginFlowPrevStep(null);
+    localStorage.removeItem("atk_pending_identity_setup");
+  }, []);
   const [accountLinkModalOpen, setAccountLinkModalOpen] = useState(false);
   const [loginHistoryOpen, setLoginHistoryOpen] = useState(false);
 
@@ -250,11 +257,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // 0 identity options (user has no registered contexts) — clear stale subject and fall through
+        // 0 identity options (user has no registered contexts) — clear stale subject and terminate login flow
+        finishLoginContextSetup();
         if ((appUser as any).activeSubjectId) {
           setActive.mutate({ activeSubjectId: null });
         }
-        // Fall through to needsFullContext check below (loginFlow=true ensures non-closable)
+        // Fall through to needsFullContext check below (overlay opens only if company is still needed)
       }
     }
 
@@ -442,13 +450,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             if (divisions.length === 0) {
               await autoCreateDivisionForCompany(companyId);
               setContextOverlayOpen(false);
-              setLoginFlow(false);
-              localStorage.removeItem("atk_pending_identity_setup");
+              finishLoginContextSetup();
             } else if (divisions.length === 1) {
               setActive.mutate({ activeDivisionId: divisions[0].divisionId || divisions[0].division?.id });
               setContextOverlayOpen(false);
-              setLoginFlow(false);
-              localStorage.removeItem("atk_pending_identity_setup");
+              finishLoginContextSetup();
             } else {
               setCompanyDivisions(divisions);
               setContextStep("division");
@@ -456,27 +462,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             }
           } else {
             setContextOverlayOpen(false);
-            setLoginFlow(false);
-            localStorage.removeItem("atk_pending_identity_setup");
+            finishLoginContextSetup();
           }
         } catch {
           setContextOverlayOpen(false);
-          setLoginFlow(false);
-          localStorage.removeItem("atk_pending_identity_setup");
+          finishLoginContextSetup();
         }
       }
     });
-  }, [setActive, autoCreateDivisionForCompany]);
+  }, [setActive, autoCreateDivisionForCompany, finishLoginContextSetup]);
 
   const handleContextSelectDivision = useCallback((divisionId: number | null) => {
     setActive.mutate({ activeDivisionId: divisionId }, {
       onSuccess: () => {
         setContextOverlayOpen(false);
-        setLoginFlow(false);
-        localStorage.removeItem("atk_pending_identity_setup");
+        finishLoginContextSetup();
       }
     });
-  }, [setActive]);
+  }, [setActive, finishLoginContextSetup]);
 
   const handleContextSelectIdentity = useCallback(async (ctx: IdentityOption) => {
     // subjectId is null for FO/Firma, set subjectId for SZČO (or FO with linked subject)
@@ -564,7 +567,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         toast({ title: "Chyba pri nastavení identity", variant: "destructive" });
       }
     });
-  }, [setActive, allStates, handleContextSelectCompany, handleContextSelectState, toast]);
+  }, [setActive, allStates, handleContextSelectCompany, handleContextSelectState, finishLoginContextSetup, toast]);
 
   const handleContextBack = useCallback(() => {
     if (contextStep === "division") {
