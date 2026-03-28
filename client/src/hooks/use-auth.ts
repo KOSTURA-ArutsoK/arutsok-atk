@@ -53,8 +53,7 @@ export function useAuth() {
       await apiRequest("POST", "/api/logout");
     },
     onSuccess: () => {
-      queryClient.setQueryData(["/api/auth/user"], null);
-      queryClient.clear();
+      window.location.href = '/';
     },
   });
 

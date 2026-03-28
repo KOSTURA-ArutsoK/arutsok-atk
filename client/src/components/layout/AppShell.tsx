@@ -974,7 +974,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => logout()} data-testid="button-logout" className="mx-1 rounded mb-1">
+                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); logout(); }} data-testid="button-logout" className="mx-1 rounded mb-1">
                   <LogOut className="w-4 h-4 mr-2" />
                   Odhlásiť sa
                 </DropdownMenuItem>
