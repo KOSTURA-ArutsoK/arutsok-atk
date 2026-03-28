@@ -2088,7 +2088,7 @@ export async function registerRoutes(
           if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
         }
         const uid = await storage.generateNextGlobalUid(stateCode);
-        const resolvedStateIdPO = await resolveSubjectStateId(req, companyId);
+        const resolvedStateIdPO = parsedStateId || (await resolveSubjectStateId(req, companyId));
         const subjectDataPO: any = {
           uid,
           type: 'company',
@@ -2116,6 +2116,22 @@ export async function registerRoutes(
         const existing = await findSubjectByBirthNumber(cleanBn);
         if (existing) {
           subject = existing;
+          // Sync submitted data to existing subject (only fill missing fields, don't overwrite)
+          const subjectPatch: Record<string, any> = {};
+          if (email && !existing.email) subjectPatch.email = email;
+          if (phone && !existing.phone) subjectPatch.phone = phone;
+          if (street && !(existing as any).street) subjectPatch.street = street;
+          if (streetNumber && !(existing as any).streetNumber) subjectPatch.streetNumber = streetNumber;
+          if (orientNumber && !(existing as any).orientNumber) subjectPatch.orientNumber = orientNumber;
+          if (postalCode && !(existing as any).postalCode) subjectPatch.postalCode = postalCode;
+          if (city && !(existing as any).city) subjectPatch.city = city;
+          if (idCardNumber && !(existing as any).idCardNumber) subjectPatch.idCardNumber = idCardNumber;
+          if (titleBefore && !(existing as any).titleBefore) subjectPatch.titleBefore = titleBefore;
+          if (titleAfter && !(existing as any).titleAfter) subjectPatch.titleAfter = titleAfter;
+          if (Object.keys(subjectPatch).length > 0) {
+            await db.update(subjects).set(subjectPatch).where(eq(subjects.id, existing.id));
+          }
+          // Sync subject's existing data back to officer record
           const officerSyncFromSubject: Record<string, any> = { subjectId: existing.id };
           if (existing.firstName) officerSyncFromSubject.firstName = existing.firstName;
           if (existing.lastName) officerSyncFromSubject.lastName = existing.lastName;
@@ -2129,7 +2145,7 @@ export async function registerRoutes(
           if (existing.stateId) officerSyncFromSubject.stateId = existing.stateId;
           await storage.updateCompanyOfficer(officer.id, officerSyncFromSubject as any);
           await linkSubjectToCompanyInNetwork(existing.id, companyId);
-          await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: officer.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { existingSubjectId: existing.id, existingUid: existing.uid } });
+          await logAudit(req, { action: "OFFICER_LINKED_EXISTING_SUBJECT", module: "spolocnosti", entityId: officer.id, entityName: `${firstName || ""} ${lastName || ""}`.trim() || type, newData: { existingSubjectId: existing.id, existingUid: existing.uid, subjectPatchedFields: Object.keys(subjectPatch) } });
         } else {
           let stateCode = '421';
           if (req.appUser?.activeStateId) {
@@ -2137,7 +2153,7 @@ export async function registerRoutes(
             if (st?.code && /^\d{2,3}$/.test(st.code)) stateCode = st.code;
           }
           const uid = await storage.generateNextGlobalUid(stateCode);
-          const resolvedStateId1 = await resolveSubjectStateId(req, companyId);
+          const resolvedStateId1 = parsedStateId || (await resolveSubjectStateId(req, companyId));
           const subjectData: any = {
             uid,
             type: 'person',
