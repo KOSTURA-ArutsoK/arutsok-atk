@@ -1033,12 +1033,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 </div>
 
-                {userContexts && userContexts.length > 1 && userContexts.filter((c: any) => !c.isCurrent).length > 0 && (
+                {userContexts && userContexts.filter((c: any) => !c.isCurrent && c.contextType !== "fo").length > 0 && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-3 py-1">Prihlásiť sa ako</DropdownMenuLabel>
                     {userContexts.map((ctx: any, idx: number) => {
-                      if (ctx.isCurrent) return null;
+                      if (ctx.isCurrent || ctx.contextType === "fo") return null;
                       const isCompany = ctx.contextType === "officer_company";
                       const isLinked = ctx.contextType === "linked_account";
                       const isGuardian = ctx.contextType === "guardian";
