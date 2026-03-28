@@ -24,6 +24,7 @@ interface SubjectOption {
   companyName: string | null;
   type: string | null;
   phone: string | null;
+  ico?: string | null;
   isShadow: boolean;
   isAdult: boolean | null;
   hasRisk: boolean;
@@ -302,9 +303,11 @@ export default function AuthPage() {
       if (!q) return true;
       const name = [s.firstName, s.lastName, s.companyName].filter(Boolean).join(" ").toLowerCase();
       const uid = (s.uid || "").replace(/\D/g, "");
+      const ico = (s.ico || "").replace(/\D/g, "");
       const nameMatch = name.includes(q);
       const uidMatch = qDigits.length > 0 && uid.includes(qDigits);
-      return nameMatch || uidMatch;
+      const icoMatch = qDigits.length > 0 && ico.length > 0 && ico.includes(qDigits);
+      return nameMatch || uidMatch || icoMatch;
     };
 
     const allPeerSubjects = subjectOptions.filter((s) => !s.isShadow);
@@ -361,8 +364,8 @@ export default function AuthPage() {
       const stripColor = s.hasRisk
         ? "bg-destructive"
         : s.isShadow
-        ? "bg-muted-foreground/40"
-        : "bg-primary";
+        ? "bg-muted-foreground/30"
+        : "bg-muted-foreground/60";
       return (
         <button
           key={s.id}
