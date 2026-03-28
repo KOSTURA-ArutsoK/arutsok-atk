@@ -1229,11 +1229,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <BannerIcon className="w-4 h-4 flex-shrink-0" />
                 <span className="text-sm">
                   <span className="text-orange-100">Ako oprávnená osoba </span>
-                  <strong className="text-white">{actorName}</strong>
+                  <strong className="text-white font-bold">{actorName}</strong>
                   <span className="text-orange-100"> konáte v mene </span>
-                  <strong className="text-white">{activeIdentityLabel}</strong>
+                  <strong className="text-white font-bold">{activeIdentityLabel}</strong>
                   {activeIdentityEntry?.ico && (
-                    <strong className="text-white"> (IČO: {activeIdentityEntry.ico})</strong>
+                    <strong className="text-white font-bold"> (IČO: {activeIdentityEntry.ico})</strong>
                   )}
                 </span>
               </div>
