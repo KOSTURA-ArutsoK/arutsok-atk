@@ -2040,8 +2040,12 @@ export async function registerRoutes(
       const isPO = entityType === 'po' || (rawOwnerCompanyName && rawOwnerCompanyName.trim());
       const ownerCompanyName = rawOwnerCompanyName?.trim() || null;
 
-      const parseDate = (v: any) => v && typeof v === 'string' && v.trim() ? new Date(v) : null;
-      const parsedStateId = rawStateId ? Number(rawStateId) : null;
+      const parseDate = (v: any): Date | null => {
+        if (!v || typeof v !== 'string' || !v.trim()) return null;
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? null : d;
+      };
+      const parsedStateId = rawStateId ? (isNaN(Number(rawStateId)) ? null : Number(rawStateId)) : null;
 
       // Validácia RČ ešte PRED vytvorením záznamu (len pre FO)
       let cleanBnPre: string | null = null;
