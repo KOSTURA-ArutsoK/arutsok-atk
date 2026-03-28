@@ -1038,7 +1038,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 </div>
 
-                {/* KTO: Kto bude pracovať — identity selection (alternative identities only) */}
+                {/* KTO: Kto bude pracovať — all identities with uid; active one shows checkmark, click is no-op */}
                 {userContexts && (() => {
                   const allKtoContexts = userContexts as any[];
                   if (allKtoContexts.length <= 1) return null;
