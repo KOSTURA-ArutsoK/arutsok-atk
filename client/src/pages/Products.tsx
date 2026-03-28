@@ -320,6 +320,7 @@ function ProductFormDialog({
   }, [open, editingProduct]);
 
   const handleOpenChange = useCallback((isOpen: boolean) => {
+    if (!isOpen) setContextError(null);
     onOpenChange(isOpen);
   }, [onOpenChange]);
 

@@ -22934,55 +22934,47 @@ export async function registerRoutes(
       const isSuperadmin = (req as any).appUser?.role === 'superadmin';
       let visibleSubjects = allSubjectsBuilt;
       let visibleLinks = allLinksBuilt;
+      let effectiveRoot = rootSubject;
 
       if (filterCompanyId) {
-        // Find the company node subject ID (real or virtual)
-        let companyNodeId: number | null = null;
+        // Find the company node subject (real or virtual)
         const realCompanySubj = allSubjectsRaw.find(
           s => s.type === 'mycompany' && (s as any).myCompanyId === filterCompanyId
         );
-        if (realCompanySubj) {
-          companyNodeId = realCompanySubj.id;
-        } else {
-          // Virtual mycompany subject uses id = -(mc.id)
-          companyNodeId = -(filterCompanyId);
-        }
+        const companyNodeId: number = realCompanySubj
+          ? realCompanySubj.id
+          : -(filterCompanyId); // virtual mycompany uses id = -(mc.id)
 
-        if (companyNodeId === null) {
-          // No matching company node found — return nothing
-          visibleSubjects = [];
-          visibleLinks = [];
-        } else {
-          // BFS: start ONLY from company node (not root) to stay within this company's branch
-          const visitedIds = new Set<number>([companyNodeId]);
-
-          let changed = true;
-          while (changed) {
-            changed = false;
-            for (const link of allLinksBuilt) {
-              if (visitedIds.has(link.guarantorSubjectId) && !visitedIds.has(link.subjectId)) {
-                visitedIds.add(link.subjectId);
-                changed = true;
-              }
+        // BFS: start ONLY from company node — strict branch containment, no root leakage
+        const visitedIds = new Set<number>([companyNodeId]);
+        let changed = true;
+        while (changed) {
+          changed = false;
+          for (const link of allLinksBuilt) {
+            if (visitedIds.has(link.guarantorSubjectId) && !visitedIds.has(link.subjectId)) {
+              visitedIds.add(link.subjectId);
+              changed = true;
             }
           }
-
-          // Also include the root subject so the tree has an anchor node
-          visitedIds.add(rootSubject.id);
-
-          visibleSubjects = allSubjectsBuilt.filter(s => visitedIds.has(s.id));
-          visibleLinks = allLinksBuilt.filter(
-            l => visitedIds.has(l.subjectId) && visitedIds.has(l.guarantorSubjectId)
-          );
         }
+
+        visibleSubjects = allSubjectsBuilt.filter(s => visitedIds.has(s.id));
+        visibleLinks = allLinksBuilt.filter(
+          l => visitedIds.has(l.subjectId) && visitedIds.has(l.guarantorSubjectId)
+        );
+
+        // Use the company node as the tree root in KDE mode (not the global ATK root)
+        effectiveRoot = visibleSubjects.find(s => s.id === companyNodeId) ?? rootSubject;
+
       } else if (!isSuperadmin) {
-        // Non-superadmin without KDE must not see the full tree
+        // Non-superadmin without KDE context must not see the full tree
         visibleSubjects = [];
         visibleLinks = [];
+        effectiveRoot = rootSubject;
       }
 
       res.json({
-        root: rootSubject,
+        root: effectiveRoot,
         links: visibleLinks,
         subjects: visibleSubjects,
         officerSubjectIds: Array.from(officerSubjectIds),

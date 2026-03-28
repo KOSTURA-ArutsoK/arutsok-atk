@@ -933,6 +933,7 @@ function PartnerUnifiedDialog({
     if (!isOpen) {
       setPendingLogo(null);
       setPendingLogoPreview(null);
+      setContextError(null);
     }
     onOpenChange(isOpen);
   }, [onOpenChange]);
