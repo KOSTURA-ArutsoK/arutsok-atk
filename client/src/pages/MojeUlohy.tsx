@@ -413,7 +413,10 @@ export default function MojeUlohy() {
       setRtAddToOrange(prev => { const n = { ...prev }; delete n[vars.id]; return n; });
     },
     onError: (err: any) => {
-      toast({ title: "Chyba", description: err.message || "Nepodarilo sa spracovať", variant: "destructive" });
+      const msg = err.message?.includes("409") || err.message?.includes("medzičasom")
+        ? "Ticket bol medzičasom spracovaný iným administrátorom."
+        : err.message || "Nepodarilo sa spracovať";
+      toast({ title: "Chyba", description: msg, variant: "destructive" });
     },
   });
 

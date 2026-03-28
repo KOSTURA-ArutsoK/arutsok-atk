@@ -15411,49 +15411,68 @@ export async function registerRoutes(
         )).limit(1);
       if (!ticket) return res.status(404).json({ message: "Ticket neexistuje alebo je už uzavretý" });
 
-      // Helper: add a subject to oranžový zoznam if requested
-      const maybeAddToOrangeList = async (subjectId: number) => {
+      // Helper: add a subject to oranžový zoznam if requested (idempotent)
+      const maybeAddToOrangeList = async (tx: typeof db, subjectId: number) => {
         if (!addToOrangeList) return;
-        const [orangeGroup] = await db.select().from(clientGroups)
+        const [orangeGroup] = await tx.select().from(clientGroups)
           .where(eq(clientGroups.groupCode, "group_oranzovy_zoznam_klamari")).limit(1);
         if (!orangeGroup) return;
-        const existing = await db.select().from(clientGroupMembers)
+        const existing = await tx.select().from(clientGroupMembers)
           .where(and(eq(clientGroupMembers.groupId, orangeGroup.id), eq(clientGroupMembers.subjectId, subjectId))).limit(1);
         if (existing.length === 0) {
-          await db.insert(clientGroupMembers).values({ groupId: orangeGroup.id, subjectId });
+          await tx.insert(clientGroupMembers).values({ groupId: orangeGroup.id, subjectId });
         }
       };
 
       const now = new Date();
       if (action === "approve") {
-        // Atomically revoke the link AND close the ticket
-        await db.update(subjectLinks)
-          .set({ isActive: false, revokedAt: now, revokedBy: req.appUser.id, revokedReason: ticket.reason })
-          .where(eq(subjectLinks.id, ticket.subjectLinkId));
+        await db.transaction(async (tx) => {
+          // Guard: update only if still open (prevents double-processing)
+          const updated = await tx.update(revocationTickets)
+            .set({ status: "approved", closedByAdminId: req.appUser.id, adminNote: adminNote?.trim() || null, closedAt: now })
+            .where(and(
+              eq(revocationTickets.id, ticketId),
+              or(eq(revocationTickets.status, "reported"), eq(revocationTickets.status, "investigating"))
+            )).returning({ id: revocationTickets.id });
 
-        await db.update(revocationTickets)
-          .set({ status: "approved", closedByAdminId: req.appUser.id, adminNote: adminNote?.trim() || null, closedAt: now })
-          .where(eq(revocationTickets.id, ticketId));
+          if (updated.length === 0) throw new Error("conflict");
 
-        // Optionally add the target subject to orange list (the revoked advisor's subject)
-        // We need to find the target user's own subject
-        const [targetSubjectLink] = await db.select().from(subjectLinks)
-          .where(and(eq(subjectLinks.linkedUserId, ticket.targetUserId), eq(subjectLinks.relation, "own"))).limit(1);
-        if (targetSubjectLink) await maybeAddToOrangeList(targetSubjectLink.subjectId);
+          // Revoke the subject link
+          await tx.update(subjectLinks)
+            .set({ isActive: false, revokedAt: now, revokedBy: req.appUser.id, revokedReason: ticket.reason })
+            .where(eq(subjectLinks.id, ticket.subjectLinkId));
+
+          // Optionally add the revoked advisor's own subject to oranžový zoznam
+          const [targetOwnLink] = await tx.select().from(subjectLinks)
+            .where(and(eq(subjectLinks.linkedUserId, ticket.targetUserId), eq(subjectLinks.relation, "own"))).limit(1);
+          if (targetOwnLink) await maybeAddToOrangeList(tx, targetOwnLink.subjectId);
+        });
 
         res.json({ success: true, action: "approved", message: "Prístup bol odvolaný a ticket uzavretý" });
       } else {
-        // Reject: just close ticket without revoking
-        await db.update(revocationTickets)
-          .set({ status: "rejected", closedByAdminId: req.appUser.id, adminNote: adminNote?.trim() || null, closedAt: now })
-          .where(eq(revocationTickets.id, ticketId));
+        await db.transaction(async (tx) => {
+          // Guard: update only if still open
+          const updated = await tx.update(revocationTickets)
+            .set({ status: "rejected", closedByAdminId: req.appUser.id, adminNote: adminNote?.trim() || null, closedAt: now })
+            .where(and(
+              eq(revocationTickets.id, ticketId),
+              or(eq(revocationTickets.status, "reported"), eq(revocationTickets.status, "investigating"))
+            )).returning({ id: revocationTickets.id });
 
-        // Optionally add the subject to orange list (the subject about which false report was filed)
-        await maybeAddToOrangeList(ticket.subjectId);
+          if (updated.length === 0) throw new Error("conflict");
+
+          // Optionally add the reporter's own subject to oranžový zoznam (false report = reporter is the liar)
+          const [reporterOwnLink] = await tx.select().from(subjectLinks)
+            .where(and(eq(subjectLinks.linkedUserId, ticket.reportedByUserId), eq(subjectLinks.relation, "own"))).limit(1);
+          if (reporterOwnLink) await maybeAddToOrangeList(tx, reporterOwnLink.subjectId);
+        });
 
         res.json({ success: true, action: "rejected", message: "Ticket bol zamietnutý" });
       }
     } catch (err: any) {
+      if (err.message === "conflict") {
+        return res.status(409).json({ message: "Ticket bol medzičasom spracovaný iným administrátorom" });
+      }
       res.status(500).json({ message: err.message });
     }
   });
