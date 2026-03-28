@@ -1986,6 +1986,8 @@ export async function setupAuth(app: Express) {
         type: "person",
         uid: foSubject?.uid ?? null,
         ico: null,
+        titleBefore: foSubject?.titleBefore ?? null,
+        titleAfter: foSubject?.titleAfter ?? null,
         isCurrent: currentUser.activeSubjectId === null && currentUser.activeKtoCompanyId === null,
       });
 

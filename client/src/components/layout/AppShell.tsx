@@ -9,7 +9,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, UserCheck, Plus, Briefcase, User, Landmark, Heart, Grid3X3, History, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, UserCheck, Plus, Briefcase, User, Landmark, Heart, Grid3X3, History, ShieldCheck, ArrowLeft, UserCircle2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { AccountLinkModal } from "@/components/account-link-modal";
 import { apiRequest } from "@/lib/queryClient";
@@ -698,6 +698,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isNonFoContext = hasSubjectIdentity || hasOfficerIdentity;
   const activeIdentityLabel = activeIdentityEntry?.label ?? displayName;
   const activeIdentitySubLabel = activeIdentityEntry?.subLabel ?? null;
+  const foContext = userContexts?.find((c: any) => c.contextType === 'fo');
+  const actorName = [
+    (foContext as any)?.titleBefore,
+    foContext?.label ?? displayName,
+    (foContext as any)?.titleAfter,
+  ].filter(Boolean).join(" ");
   const activeIdentityInitials = activeIdentityEntry
     ? activeIdentityEntry.label.split(/[\s,\.]+/).filter(Boolean).slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join("")
     : initials;
@@ -1183,22 +1189,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {isNonFoContext && (
             <div className="bg-orange-600 text-white px-4 py-2 flex items-center justify-between flex-shrink-0" data-testid="banner-subject-context">
               <div className="flex items-center gap-2">
-                <UserCheck className="w-4 h-4" />
+                <UserCheck className="w-4 h-4 flex-shrink-0" />
                 <span className="text-sm font-medium">
-                  Konáte v mene: {activeIdentityLabel} ({activeIdentitySubLabel ?? activeIdentityEntry?.type ?? "—"})
+                  Ako oprávnená osoba <strong>{actorName}</strong> konáte v mene {activeIdentityLabel}{(activeIdentityEntry as any)?.ico ? ` (IČO: ${(activeIdentityEntry as any).ico})` : ""}
                 </span>
               </div>
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-white hover:bg-orange-700 gap-1.5"
+                className="text-white hover:bg-orange-700 gap-1.5 whitespace-nowrap ml-4"
                 onClick={() => {
                   setActive.mutate({ activeSubjectId: null, activeKtoCompanyId: null });
                 }}
                 data-testid="button-subject-context-exit"
               >
-                <X className="w-4 h-4" />
-                Ukončiť
+                <UserCircle2 className="w-4 h-4" />
+                Prejsť do osobného profilu
               </Button>
             </div>
           )}
