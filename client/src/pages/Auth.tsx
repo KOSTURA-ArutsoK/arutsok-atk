@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield, Lock, AlertTriangle, Mail, Eye, EyeOff, Phone, CheckCircle, Users, ArrowRight, FolderOpen, Baby, CreditCard, XCircle, ChevronLeft, Building2 } from "lucide-react";
+import { Shield, Lock, AlertTriangle, Mail, Eye, EyeOff, Phone, CheckCircle, Users, ArrowRight, FolderOpen, Baby, CreditCard, XCircle, ChevronLeft, Building2, User, Share2 } from "lucide-react";
 import { formatUid, formatPhone } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,6 +29,7 @@ interface SubjectOption {
   isAdult: boolean | null;
   hasRisk: boolean;
   documentHint: DocumentHint | null;
+  groups?: string[];
 }
 
 function subjectTypeLabelSk(type: string | null): string {
@@ -52,6 +53,39 @@ function docTypeLabelSk(docType: string | null): string {
   if (t.includes("ridic") || t.includes("rp")) return "vodičského preukazu";
   return docType;
 }
+
+type AtkCategory = "HOLDING" | "CLIENT" | "NETWORK";
+const HOLDING_TYPES = new Set(["company", "organization", "state", "mycompany"]);
+
+function getAtkCategory(s: SubjectOption): AtkCategory {
+  if (HOLDING_TYPES.has(s.type ?? "")) return "HOLDING";
+  if ((s.groups ?? []).includes("group_registrovany")) return "NETWORK";
+  return "CLIENT";
+}
+
+const ATK_SECTION_META: Record<AtkCategory, { label: string; colorClass: string; stripClass: string; stripShadowClass: string; icon: (cls: string) => JSX.Element }> = {
+  HOLDING: {
+    label: "HOLDING",
+    colorClass: "text-blue-600 dark:text-blue-400",
+    stripClass: "bg-blue-500",
+    stripShadowClass: "bg-blue-300",
+    icon: (cls) => <Building2 className={cls} />,
+  },
+  CLIENT: {
+    label: "CLIENT",
+    colorClass: "text-emerald-600 dark:text-emerald-400",
+    stripClass: "bg-emerald-500",
+    stripShadowClass: "bg-emerald-300",
+    icon: (cls) => <User className={cls} />,
+  },
+  NETWORK: {
+    label: "NETWORK",
+    colorClass: "text-orange-500 dark:text-orange-400",
+    stripClass: "bg-orange-500",
+    stripShadowClass: "bg-orange-300",
+    icon: (cls) => <Share2 className={cls} />,
+  },
+};
 
 export default function AuthPage() {
   const [, navigate] = useLocation();
@@ -310,12 +344,18 @@ export default function AuthPage() {
       return nameMatch || uidMatch || icoMatch;
     };
 
-    const allPeerSubjects = subjectOptions.filter((s) => !s.isShadow);
-    const allShadowSubjects = subjectOptions.filter((s) => s.isShadow);
-    const peerSubjects = allPeerSubjects.filter(matchesSearch);
-    const shadowSubjects = allShadowSubjects.filter(matchesSearch);
-    const hasRiskInCluster = allPeerSubjects.some((s) => s.hasRisk);
-    const noResults = q && peerSubjects.length === 0 && shadowSubjects.length === 0;
+    const allFiltered = subjectOptions.filter(matchesSearch);
+    const holdingSubjects = allFiltered.filter((s) => getAtkCategory(s) === "HOLDING");
+    const clientSubjects = allFiltered.filter((s) => getAtkCategory(s) === "CLIENT");
+    const networkSubjects = allFiltered.filter((s) => getAtkCategory(s) === "NETWORK");
+    const hasRiskInCluster = subjectOptions.some((s) => s.hasRisk);
+    const noResults = q && allFiltered.length === 0;
+
+    const atkSections: { key: AtkCategory; subjects: typeof subjectOptions }[] = [
+      { key: "HOLDING", subjects: holdingSubjects },
+      { key: "CLIENT", subjects: clientSubjects },
+      { key: "NETWORK", subjects: networkSubjects },
+    ];
 
     const SubjectCardGrid = ({ s }: { s: SubjectOption }) => {
       const name = s.firstName || s.lastName
@@ -361,11 +401,13 @@ export default function AuthPage() {
         : s.companyName || "Neznámy";
       const isMinor = s.isAdult === false && s.type === "person";
       const isCompany = s.type !== "person" && s.type !== "szco";
+      const atkCat = getAtkCategory(s);
+      const meta = ATK_SECTION_META[atkCat];
       const stripColor = s.hasRisk
         ? "bg-destructive"
         : s.isShadow
-        ? "bg-muted-foreground/30"
-        : "bg-muted-foreground/60";
+        ? meta.stripShadowClass
+        : meta.stripClass;
       return (
         <button
           key={s.id}
@@ -452,32 +494,39 @@ export default function AuthPage() {
             {noResults ? (
               <p className="text-sm text-center text-muted-foreground py-4">Žiadny subjekt nezodpovedá hľadaniu</p>
             ) : (
-              <>
-                {peerSubjects.length > 0 && (
-                  <div className="space-y-2">
-                    {!useListView && <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Vaše profily</p>}
-                    {useListView
-                      ? <div className="space-y-1">{peerSubjects.map((s) => <SubjectRowList key={s.id} s={s} />)}</div>
-                      : <div className="grid grid-cols-2 gap-2">{peerSubjects.map((s) => <SubjectCardGrid key={s.id} s={s} />)}</div>
-                    }
-                  </div>
-                )}
-
-                {shadowSubjects.length > 0 && (
-                  <div className="space-y-2">
-                    {!useListView && <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Spravované profily</p>}
-                    {useListView
-                      ? (
-                        <>
-                          {peerSubjects.length > 0 && <div className="border-t border-dashed border-border pt-2" />}
-                          <div className="space-y-1">{shadowSubjects.map((s) => <SubjectRowList key={s.id} s={s} />)}</div>
-                        </>
-                      )
-                      : <div className="grid grid-cols-2 gap-2">{shadowSubjects.map((s) => <SubjectCardGrid key={s.id} s={s} />)}</div>
-                    }
-                  </div>
-                )}
-              </>
+              <div className="space-y-4">
+                {atkSections
+                  .filter((section) => section.subjects.length > 0)
+                  .map((section, idx) => {
+                    const meta = ATK_SECTION_META[section.key];
+                    return (
+                      <div key={section.key} className="space-y-1.5">
+                        {useListView ? (
+                          <>
+                            {idx > 0 && <div className="border-t border-border pt-1" />}
+                            <div className={`flex items-center gap-1.5 px-0.5 pb-0.5 ${meta.colorClass}`}>
+                              {meta.icon("w-3 h-3")}
+                              <p className="text-xs font-semibold uppercase tracking-wide">{meta.label}</p>
+                            </div>
+                            <div className="space-y-1">
+                              {section.subjects.map((s) => <SubjectRowList key={s.id} s={s} />)}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className={`flex items-center gap-1.5 px-1 ${meta.colorClass}`}>
+                              {meta.icon("w-3.5 h-3.5")}
+                              <p className="text-xs font-semibold uppercase tracking-wide">{meta.label}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {section.subjects.map((s) => <SubjectCardGrid key={s.id} s={s} />)}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
             )}
           </CardContent>
         </Card>

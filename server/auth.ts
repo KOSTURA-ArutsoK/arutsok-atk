@@ -5,7 +5,7 @@ import type { Express, RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
-import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts, myCompanies, subjectContacts, guardianConfirmationTokens, systemNotifications, subjectLinks } from "@shared/schema";
+import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts, myCompanies, subjectContacts, guardianConfirmationTokens, systemNotifications, subjectLinks, clientGroups, clientGroupMembers } from "@shared/schema";
 import { eq, and, or, ne, isNull, isNotNull, gte, desc, inArray, sql } from "drizzle-orm";
 import { storage } from "./storage";
 import { decryptField } from "./crypto";
@@ -654,6 +654,20 @@ export async function setupAuth(app: Express) {
 
       req.session.userId = user.id;
 
+      const allSubjectIds = [...peerSubjectsRaw, ...shadowOnly].map((s) => s.id);
+      const subjectGroupCodesMap = new Map<number, string[]>();
+      if (allSubjectIds.length > 0) {
+        const memberships = await db
+          .select({ subjectId: clientGroupMembers.subjectId, groupCode: clientGroups.groupCode })
+          .from(clientGroupMembers)
+          .innerJoin(clientGroups, eq(clientGroupMembers.groupId, clientGroups.id))
+          .where(inArray(clientGroupMembers.subjectId, allSubjectIds));
+        for (const m of memberships) {
+          if (!subjectGroupCodesMap.has(m.subjectId)) subjectGroupCodesMap.set(m.subjectId, []);
+          if (m.groupCode) subjectGroupCodesMap.get(m.subjectId)!.push(m.groupCode);
+        }
+      }
+
       const buildSubjectMeta = async (s: typeof peerSubjectsRaw[0], isShadow: boolean) => {
         let adultStatus: boolean | null = null;
         let documentHint: { documentType: string | null; masked: string | null } | null = null;
@@ -696,6 +710,7 @@ export async function setupAuth(app: Express) {
           isAdult: adultStatus,
           hasRisk: s.listStatus === "cerveny",
           documentHint,
+          groups: subjectGroupCodesMap.get(s.id) ?? [],
         };
       };
 
