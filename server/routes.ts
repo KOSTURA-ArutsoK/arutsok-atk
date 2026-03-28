@@ -2066,16 +2066,16 @@ export async function registerRoutes(
         streetNumber: streetNumber || null,
         orientNumber: orientNumber || null,
         postalCode: postalCode || null,
-        stateId: parsedStateId || null,
+        stateId: parsedStateId,
         idCardNumber: isPO ? null : (idCardNumber || null),
         idCardExpiry: isPO ? null : parseDate(rawIdCardExpiry),
         share: share || null,
-        validFrom: parseDate(rawValidFrom),
+        validFrom: parseDate(rawValidFrom) ?? undefined,
         validTo: parseDate(rawValidTo),
         activeFrom: parseDate(rawActiveFrom),
         inactiveFrom: parseDate(rawInactiveFrom),
         isActive: rawIsActive !== undefined ? Boolean(rawIsActive) : true,
-      } as any);
+      });
       await logAudit(req, { action: "CREATE", module: "spolocnosti", entityId: officer.id, entityName: isPO ? (ownerCompanyName || type) : (`${firstName || ""} ${lastName || ""}`.trim() || type) });
 
       let subject = null;
@@ -2099,6 +2099,11 @@ export async function registerRoutes(
           registrationStatus: 'klient',
           email: email || null,
           phone: phone || null,
+          street: street || null,
+          streetNumber: streetNumber || null,
+          orientNumber: orientNumber || null,
+          postalCode: postalCode || null,
+          city: city || null,
           details: { source: 'manual_statutory', officerId: officer.id, officerType: type },
         };
         subject = await storage.createSubject(subjectDataPO);
@@ -2138,6 +2143,8 @@ export async function registerRoutes(
             type: 'person',
             firstName: firstName || null,
             lastName: lastName || null,
+            titleBefore: titleBefore || null,
+            titleAfter: titleAfter || null,
             stateId: resolvedStateId1,
             myCompanyId: companyId,
             registeredByUserId: req.appUser?.id || null,
@@ -2145,6 +2152,12 @@ export async function registerRoutes(
             birthNumber: encryptField(cleanBn),
             email: email || null,
             phone: phone || null,
+            street: street || null,
+            streetNumber: streetNumber || null,
+            orientNumber: orientNumber || null,
+            postalCode: postalCode || null,
+            city: city || null,
+            idCardNumber: idCardNumber || null,
             details: { source: 'manual_statutory', officerId: officer.id, officerType: type },
           };
           subject = await storage.createSubject(subjectData);
