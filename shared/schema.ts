@@ -500,6 +500,7 @@ export const appUsers = pgTable("app_users", {
   activeStateId: integer("active_state_id"),
   activeDivisionId: integer("active_division_id"),
   activeSubjectId: integer("active_subject_id").references(() => subjects.id),
+  activeKtoCompanyId: integer("active_kto_company_id"),
   commissionLevel: integer("commission_level").default(1),
   managerId: integer("manager_id"),
   careerLevelId: integer("career_level_id").references(() => careerLevels.id),

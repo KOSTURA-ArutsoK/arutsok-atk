@@ -269,7 +269,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     // is one where the subject has actual records (backend already filters /api/my-companies).
     // If the current company is invalid or unset, auto-select or show company picker.
     if ((appUser as any).activeSubjectId) {
-      localStorage.removeItem("atk_context_fo");
       (async () => {
         try {
           const compsRes = await fetch("/api/my-companies", { credentials: "include" });
@@ -346,11 +345,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const currentCtx = userContexts.find((c: any) => c.isCurrent);
     const hasOtherContexts = userContexts.some((c: any) => c.contextType !== "fo");
     if (currentCtx?.contextType === "fo" && hasOtherContexts) {
-      localStorage.removeItem("atk_context_fo");
       return;
     }
-
-    localStorage.removeItem("atk_context_fo");
 
     {
       const needsFullContext = !appUser.activeStateId || !appUser.activeCompanyId;
@@ -483,7 +479,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const handleContextSelectIdentity = useCallback(async (ctx: IdentityOption) => {
     // subjectId is null for FO/Firma, set subjectId for SZČO (or FO with linked subject)
     const subjectIdToSet = ctx.subjectId;
-    setActive.mutate({ activeSubjectId: subjectIdToSet }, {
+    // KTO separation: officer sets activeKtoCompanyId; FO/SZČO clears it
+    const ktoCompanyId = ctx.type === "firma" ? (ctx.companyId ?? null) : null;
+    setActive.mutate({ activeSubjectId: subjectIdToSet, activeKtoCompanyId: ktoCompanyId }, {
       onSuccess: async () => {
         try {
           if (ctx.type === "szco" || ctx.type === "firma") {
@@ -1044,21 +1042,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   // KTO filter: skryť LEN aktívnu KTO identitu — KDE (activeCompanyId hornej lišty)
                   // nemá žiadny vplyv na viditeľnosť. "Zrkadlový kontext" ATK:
                   //   miesto práce (KDE) a podpisová identita (KTO) sú striktne nezávislé osi.
-                  const isFoMode = !appUser?.activeSubjectId &&
-                    (localStorage.getItem("atk_context_fo") === "1" || !appUser?.activeCompanyId);
+                  const activeSubjectId = appUser?.activeSubjectId ?? null;
+                  const activeKtoCompanyId = (appUser as any)?.activeKtoCompanyId ?? null;
+                  const isFoMode = !activeSubjectId && !activeKtoCompanyId;
                   const ktoItems = (userContexts as any[]).filter((c: any) => {
                     if (!allContextTypes.has(c.contextType)) return false;
                     // user-switch kontexty: API isCurrent je spoľahlivé (prepnutie účtu)
                     if (["linked_account", "guardian", "guardian_return"].includes(c.contextType))
                       return !c.isCurrent;
-                    // FO: skrytá len keď som práve FO
+                    // FO: skrytá len keď som práve FO (obe KTO polia null)
                     if (c.contextType === "fo") return !isFoMode;
                     // SZČO: skrytá len keď activeSubjectId sedí
-                    if (c.contextType === "szco") return appUser?.activeSubjectId !== c.subjectId;
-                    // officer_company: skrytá len keď som práve konateľom TEJTO firmy
-                    // (nie len preto, že je vybraná v KDE hornej lišty!)
-                    if (c.contextType === "officer_company")
-                      return isFoMode || !!appUser?.activeSubjectId || appUser?.activeCompanyId !== c.companyId;
+                    if (c.contextType === "szco") return activeSubjectId !== c.subjectId;
+                    // officer_company: skrytá len keď activeKtoCompanyId sedí tejto firme
+                    if (c.contextType === "officer_company") return activeKtoCompanyId !== c.companyId;
                     return true;
                   });
                   if (ktoItems.length === 0) return null;
@@ -1108,20 +1105,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                   await apiRequest("POST", "/api/account-link/switch", { targetUserId: ctx.userId });
                                   window.location.href = "/";
                                 } else if (isOfficer) {
-                                  localStorage.removeItem("atk_context_fo");
-                                  await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: null, activeCompanyId: ctx.companyId });
+                                  await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: null, activeKtoCompanyId: ctx.companyId });
                                   window.location.href = "/";
                                 } else if (isSzco) {
-                                  localStorage.removeItem("atk_context_fo");
                                   if (ctx.isSubjectLink && ctx.linkId) {
                                     await apiRequest("POST", "/api/account-link/switch", { subjectLinkId: ctx.linkId });
                                   } else {
-                                    await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: ctx.subjectId });
+                                    await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: ctx.subjectId, activeKtoCompanyId: null });
                                   }
                                   window.location.href = "/";
                                 } else if (isFo) {
-                                  localStorage.setItem("atk_context_fo", "1");
-                                  await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: null });
+                                  await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: null, activeKtoCompanyId: null });
                                   window.location.href = "/";
                                 }
                               } catch {
@@ -1195,7 +1189,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 variant="ghost"
                 className="text-white hover:bg-orange-700 gap-1.5"
                 onClick={() => {
-                  setActive.mutate({ activeSubjectId: null });
+                  setActive.mutate({ activeSubjectId: null, activeKtoCompanyId: null });
                 }}
                 data-testid="button-subject-context-exit"
               >

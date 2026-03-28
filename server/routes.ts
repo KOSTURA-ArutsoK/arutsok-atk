@@ -1212,6 +1212,8 @@ export async function registerRoutes(
       if (validated.activeDivisionId === null) updates.activeDivisionId = null;
       if (validated.activeSubjectId !== undefined) updates.activeSubjectId = validated.activeSubjectId;
       if (validated.activeSubjectId === null) updates.activeSubjectId = null;
+      if (validated.activeKtoCompanyId !== undefined) updates.activeKtoCompanyId = validated.activeKtoCompanyId;
+      if (validated.activeKtoCompanyId === null) updates.activeKtoCompanyId = null;
       // Two-layer model: identity (activeSubjectId) and context (activeCompanyId) are independent.
       // Company switcher sets only activeCompanyId; identity switch explicitly sends both fields.
       // Security: verify activeSubjectId is in allowed contexts (always enforced)

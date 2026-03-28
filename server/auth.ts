@@ -1986,7 +1986,7 @@ export async function setupAuth(app: Express) {
         type: "person",
         uid: foSubject?.uid ?? null,
         ico: null,
-        isCurrent: currentUser.activeCompanyId === null && currentUser.activeSubjectId === null,
+        isCurrent: currentUser.activeSubjectId === null && (currentUser as any).activeKtoCompanyId === null,
       });
 
       // Linked subjects (SZČO, PO, VS, TS, OS)
@@ -2113,7 +2113,7 @@ export async function setupAuth(app: Express) {
               type: co.subjectType ?? "po",
               uid: co.uid ?? null,
               ico: co.ico ?? null,
-              isCurrent: currentUser.activeSubjectId === null && currentUser.activeCompanyId === co.id,
+              isCurrent: currentUser.activeSubjectId === null && (currentUser as any).activeKtoCompanyId === co.id,
             });
           }
         }

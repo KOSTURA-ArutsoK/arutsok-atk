@@ -663,7 +663,7 @@ export const api = {
     setActive: {
       method: 'PUT' as const,
       path: '/api/app-user/active' as const,
-      input: z.object({ activeCompanyId: z.number().nullable().optional(), activeStateId: z.number().optional(), activeDivisionId: z.number().nullable().optional(), activeSubjectId: z.number().nullable().optional() }),
+      input: z.object({ activeCompanyId: z.number().nullable().optional(), activeStateId: z.number().optional(), activeDivisionId: z.number().nullable().optional(), activeSubjectId: z.number().nullable().optional(), activeKtoCompanyId: z.number().nullable().optional() }),
       responses: { 200: z.custom<typeof appUsers.$inferSelect>() },
     },
   },
