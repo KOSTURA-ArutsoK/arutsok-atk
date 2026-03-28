@@ -403,11 +403,7 @@ export default function AuthPage() {
       const isCompany = s.type !== "person" && s.type !== "szco";
       const atkCat = getAtkCategory(s);
       const meta = ATK_SECTION_META[atkCat];
-      const stripColor = s.hasRisk
-        ? "bg-destructive"
-        : s.isShadow
-        ? meta.stripShadowClass
-        : meta.stripClass;
+      const stripColor = s.isShadow ? meta.stripShadowClass : meta.stripClass;
       return (
         <button
           key={s.id}
