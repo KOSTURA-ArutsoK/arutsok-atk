@@ -298,11 +298,11 @@ export default function AuthPage() {
       if (ctxRes.ok) {
         const ctxData = await ctxRes.json();
         if (Array.isArray(ctxData) && ctxData.length > 1) {
-          navigate("/vyber-identity");
-          return;
+          localStorage.setItem("atk_pending_identity_setup", "1");
         }
       }
     } catch {}
+    navigate("/");
   };
 
   const renderError = () => {

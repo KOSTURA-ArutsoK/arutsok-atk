@@ -88,7 +88,7 @@ export default function IdentityPickerPage() {
 
   async function handleSelect(ctx: ContextEntry) {
     if (ctx.contextType === "fo" && !ctx.subjectId) {
-      setActive.mutate({ activeSubjectId: null, activeCompanyId: null }, {
+      setActive.mutate({ activeSubjectId: null }, {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: ["/api/user/contexts"] });
           navigate("/");

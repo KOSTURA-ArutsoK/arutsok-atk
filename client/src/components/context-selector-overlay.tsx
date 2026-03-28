@@ -1,10 +1,17 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Building2, ArrowLeft, Layers } from "lucide-react";
+import { Building2, ArrowLeft, Layers, User, Briefcase } from "lucide-react";
 import type { MyCompany, LogoEntry } from "@shared/schema";
 
 type StateItem = { id: number; name: string; code: string; flagUrl: string | null; continentId: number };
 type DivisionItem = { id: number; name: string; code: string | null; emoji?: string | null; divisionId: number; division?: { id: number; name: string; code: string | null; emoji?: string | null } };
+
+export type IdentityOption = {
+  type: "fo" | "szco" | "firma";
+  label: string;
+  subLabel: string;
+  subjectId: number | null;
+};
 
 const LEGAL_FORMS = [
   "spol. s r. o.", "spol. s r.o.", "s. r. o.", "s.r.o.",
@@ -69,13 +76,16 @@ function StateFlagImage({ src, alt, code, className }: { src: string | null | un
 
 interface ContextSelectorOverlayProps {
   open: boolean;
-  step: "state" | "company" | "division";
+  step: "identity" | "state" | "company" | "division";
   states: StateItem[];
   companies: MyCompany[];
   companyDivisions: DivisionItem[];
   currentStateId: number | null;
   currentCompanyId: number | null;
   activeStateId?: number | null;
+  loginFlow?: boolean;
+  identityContexts?: IdentityOption[];
+  onSelectIdentity?: (ctx: IdentityOption) => void;
   onSelectState: (stateId: number) => void;
   onSelectCompany: (companyId: number) => void;
   onSelectDivision: (divisionId: number | null) => void;
@@ -91,6 +101,22 @@ function getPrimaryLogo(logos: LogoEntry[] | null | undefined): string | null {
   return first?.url || null;
 }
 
+function IdentityIcon({ type, className }: { type: IdentityOption["type"]; className?: string }) {
+  switch (type) {
+    case "fo": return <User className={className} />;
+    case "szco": return <Briefcase className={className} />;
+    case "firma": return <Building2 className={className} />;
+  }
+}
+
+function identityColors(type: IdentityOption["type"]): { ring: string; bg: string; icon: string } {
+  switch (type) {
+    case "fo": return { ring: "border-emerald-400/40 group-hover:border-emerald-400 group-hover:shadow-emerald-400/30", bg: "bg-emerald-500/20", icon: "text-emerald-400" };
+    case "szco": return { ring: "border-sky-400/40 group-hover:border-sky-400 group-hover:shadow-sky-400/30", bg: "bg-sky-500/20", icon: "text-sky-400" };
+    case "firma": return { ring: "border-violet-400/40 group-hover:border-violet-400 group-hover:shadow-violet-400/30", bg: "bg-violet-500/20", icon: "text-violet-400" };
+  }
+}
+
 export function ContextSelectorOverlay({
   open,
   step,
@@ -100,6 +126,9 @@ export function ContextSelectorOverlay({
   currentStateId,
   currentCompanyId,
   activeStateId,
+  loginFlow,
+  identityContexts,
+  onSelectIdentity,
   onSelectState,
   onSelectCompany,
   onSelectDivision,
@@ -123,15 +152,67 @@ export function ContextSelectorOverlay({
   const selectedState = states.find(s => s.id === currentStateId);
   const selectedCompany = companies.find(c => c.id === currentCompanyId);
 
+  const handleBackdropClick = loginFlow ? undefined : onClose;
+
   return createPortal(
     <div
       className={`fixed inset-0 z-50 flex items-center justify-center transition-opacity duration-300 ${animating ? "opacity-0" : "opacity-100"}`}
       data-testid="context-selector-overlay"
     >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} data-testid="context-overlay-backdrop" />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleBackdropClick} data-testid="context-overlay-backdrop" />
+
+      {step === "identity" && (
+        <div className="relative z-10 flex flex-col items-center gap-8">
+          <div className="flex flex-col items-center gap-2">
+            <h2 className="text-2xl font-bold text-white tracking-tight text-center" data-testid="text-context-title">
+              Ako sa prihlásiť?
+            </h2>
+            <p className="text-sm text-white/60 text-center">Zvoľte, v akej úlohe vstúpite do systému</p>
+          </div>
+          <div className="flex flex-wrap items-start justify-center gap-10 max-w-3xl px-6">
+            {(identityContexts || []).map((ctx, idx) => {
+              const colors = identityColors(ctx.type);
+              return (
+                <button
+                  key={`${ctx.type}-${idx}`}
+                  type="button"
+                  onClick={() => onSelectIdentity?.(ctx)}
+                  className={`flex flex-col items-center gap-3 group cursor-pointer`}
+                  data-testid={`context-identity-${ctx.type}`}
+                >
+                  <div className={`w-24 h-24 rounded-full flex items-center justify-center border-2 transition-all duration-200 ${colors.ring} group-hover:shadow-lg group-hover:scale-105 ${colors.bg}`}>
+                    <IdentityIcon type={ctx.type} className={`w-10 h-10 ${colors.icon}`} />
+                  </div>
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-sm font-semibold text-center whitespace-nowrap transition-colors text-white/90 group-hover:text-white">
+                      {ctx.label}
+                    </span>
+                    <span className="text-xs text-white/50 group-hover:text-white/70 text-center max-w-[120px] leading-tight">
+                      {ctx.subLabel}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          {(!identityContexts || identityContexts.length === 0) && (
+            <p className="text-white/60 text-sm text-center">Žiadne identity k dispozícii</p>
+          )}
+        </div>
+      )}
 
       {step === "state" && (
         <div className="relative z-10 flex flex-col items-center gap-6">
+          {loginFlow && (
+            <button
+              onClick={onBack}
+              data-testid="button-context-back"
+              className="fixed left-6 top-6 z-20 flex items-center gap-2 text-white/70 hover:text-white transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="text-sm font-medium">Späť na výber identity</span>
+            </button>
+          )}
           <h2 className="text-2xl font-bold text-white tracking-tight text-center" data-testid="text-context-title">
             Vyberte štát
           </h2>
@@ -308,7 +389,6 @@ export function ContextSelectorOverlay({
                         style={{ transition: "fill 0.2s ease, stroke 0.2s ease" }}
                       />
                     </svg>
-                    {/* Emoji — absolútna pevná pozícia */}
                     <span style={{
                       position: "absolute",
                       top: 72,
@@ -322,7 +402,6 @@ export function ContextSelectorOverlay({
                       {divEmoji || "🌲"}
                     </span>
 
-                    {/* Text zóna: od spodku emotikonapo základňu trojuholníka, vycentrovaný */}
                     <div style={{
                       position: "absolute",
                       top: 83,

@@ -22,7 +22,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/use-user-profile";
-import { ContextSelectorOverlay } from "@/components/context-selector-overlay";
+import { ContextSelectorOverlay, type IdentityOption } from "@/components/context-selector-overlay";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -113,10 +113,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(open)); } catch {}
   }, []);
   const [contextOverlayOpen, setContextOverlayOpen] = useState(false);
-  const [contextStep, setContextStep] = useState<"state" | "company" | "division">("state");
+  const [contextStep, setContextStep] = useState<"identity" | "state" | "company" | "division">("state");
   const [pendingStateId, setPendingStateId] = useState<number | null>(null);
   const [pendingCompanyId, setPendingCompanyId] = useState<number | null>(null);
   const [companyDivisions, setCompanyDivisions] = useState<any[]>([]);
+  const [loginFlow, setLoginFlow] = useState(false);
+  const [loginIdentityOptions, setLoginIdentityOptions] = useState<IdentityOption[]>([]);
   const contextInitRef = useRef(false);
   const [accountLinkModalOpen, setAccountLinkModalOpen] = useState(false);
   const [loginHistoryOpen, setLoginHistoryOpen] = useState(false);
@@ -206,6 +208,47 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     // Wait for all required data including userContexts — server data is authoritative
     if (!appUser || contextInitRef.current || isClientUser || !allStates || userContexts === undefined) return;
     contextInitRef.current = true;
+
+    // LOGIN FLOW: After fresh login, check if identity + company selection is needed
+    const loginFlag = localStorage.getItem("atk_pending_identity_setup") === "1";
+    if (loginFlag) {
+      if (appUser.activeCompanyId) {
+        // Company already set from previous session — just clear the flag and fall through to normal init
+        localStorage.removeItem("atk_pending_identity_setup");
+      } else {
+        // No company set — compute identity options and show identity step
+        const foCtx = (userContexts as any[]).find((c) => c.contextType === "fo");
+        const szcoCtxs = (userContexts as any[]).filter((c) => c.contextType === "szco");
+        const officerCtxs = (userContexts as any[]).filter((c) => c.contextType === "officer_company");
+
+        const opts: IdentityOption[] = [];
+        if (foCtx) opts.push({ type: "fo", label: foCtx.label, subLabel: "Fyzická osoba", subjectId: null });
+        for (const ctx of szcoCtxs) {
+          opts.push({ type: "szco", label: ctx.label, subLabel: ctx.subLabel || "SZČO", subjectId: ctx.subjectId ?? null });
+        }
+        if (officerCtxs.length > 0) {
+          const offLabel = officerCtxs.length === 1 ? officerCtxs[0].label : `${officerCtxs.length} spoločnosti`;
+          opts.push({ type: "firma", label: "Vlastná firma", subLabel: offLabel, subjectId: null });
+        }
+
+        if (opts.length > 1) {
+          // Multiple identity options — show identity overlay first
+          setLoginIdentityOptions(opts);
+          setLoginFlow(true);
+          setContextStep("identity");
+          setContextOverlayOpen(true);
+          return; // state/company handled after identity selection in handleContextSelectIdentity
+        }
+
+        // 0 or 1 identity option — skip identity step, clear flag and fall through to state/company
+        localStorage.removeItem("atk_pending_identity_setup");
+        // For single SZČO option, pre-set the subjectId
+        if (opts.length === 1 && opts[0].type === "szco" && opts[0].subjectId) {
+          setActive.mutate({ activeSubjectId: opts[0].subjectId });
+        }
+        // Fall through to needsFullContext check below
+      }
+    }
 
     // Two-layer model: when subject identity is active, validate that the current company
     // is one where the subject has actual records (backend already filters /api/my-companies).
@@ -386,18 +429,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             if (divisions.length === 0) {
               await autoCreateDivisionForCompany(companyId);
               setContextOverlayOpen(false);
+              setLoginFlow(false);
+              localStorage.removeItem("atk_pending_identity_setup");
             } else if (divisions.length === 1) {
               setActive.mutate({ activeDivisionId: divisions[0].divisionId || divisions[0].division?.id });
               setContextOverlayOpen(false);
+              setLoginFlow(false);
+              localStorage.removeItem("atk_pending_identity_setup");
             } else {
               setCompanyDivisions(divisions);
               setContextStep("division");
             }
           } else {
             setContextOverlayOpen(false);
+            setLoginFlow(false);
+            localStorage.removeItem("atk_pending_identity_setup");
           }
         } catch {
           setContextOverlayOpen(false);
+          setLoginFlow(false);
+          localStorage.removeItem("atk_pending_identity_setup");
         }
       }
     });
@@ -407,9 +458,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setActive.mutate({ activeDivisionId: divisionId }, {
       onSuccess: () => {
         setContextOverlayOpen(false);
+        setLoginFlow(false);
+        localStorage.removeItem("atk_pending_identity_setup");
       }
     });
   }, [setActive]);
+
+  const handleContextSelectIdentity = useCallback(async (ctx: IdentityOption) => {
+    const subjectIdToSet = ctx.type === "szco" ? ctx.subjectId : null;
+    setActive.mutate({ activeSubjectId: subjectIdToSet }, {
+      onSuccess: () => {
+        // Clear flag — will be removed once company is fully set (in company/division handler)
+        // Proceed to state/company selection
+        if (!appUser?.activeStateId) {
+          setPendingStateId(null);
+          setContextStep("state");
+        } else if (!appUser?.activeCompanyId) {
+          setPendingStateId(appUser.activeStateId);
+          setContextStep("company");
+        } else {
+          // Already has state + company — done
+          setContextOverlayOpen(false);
+          setLoginFlow(false);
+          localStorage.removeItem("atk_pending_identity_setup");
+        }
+      },
+      onError: () => {
+        toast({ title: "Chyba pri nastavení identity", variant: "destructive" });
+      }
+    });
+  }, [setActive, appUser, toast]);
 
   const handleContextBack = useCallback(() => {
     if (contextStep === "division") {
@@ -417,9 +495,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       setCompanyDivisions([]);
       return;
     }
+    if (contextStep === "company") {
+      setContextStep("state");
+      setPendingStateId(null);
+      return;
+    }
+    if (contextStep === "state" && loginFlow) {
+      setContextStep("identity");
+      return;
+    }
     setContextStep("state");
     setPendingStateId(null);
-  }, [contextStep]);
+  }, [contextStep, loginFlow]);
 
   const openStateSelector = useCallback(() => {
     setPendingStateId(null);
@@ -1046,11 +1133,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         currentStateId={pendingStateId}
         currentCompanyId={pendingCompanyId}
         activeStateId={appUser?.activeStateId ?? null}
+        loginFlow={loginFlow}
+        identityContexts={loginIdentityOptions}
+        onSelectIdentity={handleContextSelectIdentity}
         onSelectState={handleContextSelectState}
         onSelectCompany={handleContextSelectCompany}
         onSelectDivision={handleContextSelectDivision}
         onBack={handleContextBack}
-        onClose={() => setContextOverlayOpen(false)}
+        onClose={loginFlow ? () => {} : () => setContextOverlayOpen(false)}
       />
       <AccountLinkModal
         open={accountLinkModalOpen}
