@@ -1038,47 +1038,45 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 </div>
 
-                {/* KTO: Kto bude pracovať — osobné identity (FO/SZČO/prepojené účty); officer_company tu nepatrí */}
+                {/* KTO: Kto bude pracovať — všetky identity: FO, SZČO, officer_company, prepojené účty */}
                 {userContexts && (() => {
-                  const activeSubjectId = (appUser as any)?.activeSubjectId ?? null;
-                  // Len osobné identity — officer_company sú pracoviská (KDE), nie kto pracuje
-                  const personalContextTypes = new Set(["fo", "szco", "linked_account", "guardian", "guardian_return"]);
-                  const personalItems = (userContexts as any[]).filter((c: any) => personalContextTypes.has(c.contextType));
-                  // isCurrent vypočítaný z activeSubjectId (nie z API — API ho má nesprávne pri FO-at-company)
-                  const withCurrent = personalItems.map((c: any) => {
-                    const isCurrent = c.contextType === "fo"
-                      ? activeSubjectId === null
-                      : c.contextType === "szco"
-                        ? activeSubjectId === c.subjectId
-                        : !!c.isCurrent;
-                    return { ...c, _isCurrent: isCurrent };
-                  });
-                  // Zobraziť len ne-aktívne (aktívna identita je už viditeľná v záhlaví dropdownu)
-                  const ktoItems = withCurrent.filter((c: any) => !c._isCurrent);
+                  const allContextTypes = new Set(["fo", "szco", "officer_company", "linked_account", "guardian", "guardian_return"]);
+                  // isCurrent z API — server ho vypočítava správne pre každý typ:
+                  //   fo: activeCompanyId===null && activeSubjectId===null
+                  //   officer_company: activeSubjectId===null && activeCompanyId===companyId
+                  //   szco/subject: activeSubjectId===subjectId
+                  const ktoItems = (userContexts as any[]).filter((c: any) => allContextTypes.has(c.contextType) && !c.isCurrent);
                   if (ktoItems.length === 0) return null;
                   return (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-3 py-1">Kto bude pracovať?</DropdownMenuLabel>
                       {ktoItems.map((ctx: any, idx: number) => {
+                        const isOfficer = ctx.contextType === "officer_company";
                         const isLinked = ctx.contextType === "linked_account";
                         const isGuardian = ctx.contextType === "guardian";
                         const isGuardianReturn = ctx.contextType === "guardian_return";
                         const isFo = ctx.contextType === "fo";
                         const isSzco = ctx.contextType === "szco";
-                        const ctxKey = isSzco ? ctx.subjectId : (ctx.companyId ?? ctx.userId);
+                        const officerType = isOfficer ? (ctx.type || "po") : null;
+                        const ctxKey = isOfficer ? ctx.companyId : isSzco ? ctx.subjectId : (ctx.companyId ?? ctx.userId);
                         const iconEl = isLinked ? (
                           <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         ) : isGuardian ? (
                           <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         ) : isGuardianReturn ? (
                           <ArrowLeft className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                        ) : isOfficer ? (
+                          officerType === "vs" ? <Landmark className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> :
+                          officerType === "ts" ? <Heart className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> :
+                          officerType === "os" ? <Grid3X3 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> :
+                          <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         ) : isSzco ? (
                           <Briefcase className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                         ) : (
                           <User className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                         );
-                        const iconBg = isLinked || isGuardian
+                        const iconBg = isOfficer || isLinked || isGuardian
                           ? "bg-blue-100 dark:bg-blue-900/30"
                           : isGuardianReturn
                             ? "bg-amber-100 dark:bg-amber-900/30"
@@ -1093,6 +1091,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                               try {
                                 if (isLinked || isGuardian || isGuardianReturn) {
                                   await apiRequest("POST", "/api/account-link/switch", { targetUserId: ctx.userId });
+                                  window.location.href = "/";
+                                } else if (isOfficer) {
+                                  localStorage.removeItem("atk_context_fo");
+                                  await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: null, activeCompanyId: ctx.companyId });
                                   window.location.href = "/";
                                 } else if (isSzco) {
                                   localStorage.removeItem("atk_context_fo");
