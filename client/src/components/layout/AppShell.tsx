@@ -9,7 +9,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, UserCheck, Plus, Briefcase, User, Landmark, Heart, Grid3X3, History, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, UserCheck, Plus, Briefcase, User, Landmark, Heart, Grid3X3, History, ShieldCheck, ArrowLeft, Check } from "lucide-react";
 import { useLocation } from "wouter";
 import { AccountLinkModal } from "@/components/account-link-modal";
 import { apiRequest } from "@/lib/queryClient";
@@ -234,9 +234,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         for (const ctx of szcoCtxs) {
           opts.push({ type: "szco", label: ctx.label, subLabel: ctx.subLabel || "SZČO", subjectId: ctx.subjectId ?? null });
         }
-        if (officerCtxs.length > 0) {
-          const offLabel = officerCtxs.length === 1 ? officerCtxs[0].label : `${officerCtxs.length} spoločnosti`;
-          opts.push({ type: "firma", label: "Vlastná firma", subLabel: offLabel, subjectId: null });
+        for (const ctx of officerCtxs) {
+          opts.push({ type: "firma", label: ctx.label, subLabel: ctx.subLabel || "Konateľ firmy", subjectId: null, companyId: ctx.companyId ?? null });
         }
 
         // loginFlow=true for ALL setup paths — makes overlay non-closable regardless of identity step
@@ -488,6 +487,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       onSuccess: async () => {
         try {
           if (ctx.type === "szco" || ctx.type === "firma") {
+            // Individual firma entry with specific company — go directly to that company
+            if (ctx.type === "firma" && ctx.companyId != null) {
+              setLoginFlowPrevStep("identity");
+              await handleContextSelectCompany(ctx.companyId, undefined);
+              return;
+            }
             // For SZČO/Firma: fetch valid companies for this subject identity
             const compsRes = await fetch("/api/my-companies", { credentials: "include" });
             if (!compsRes.ok) { setPendingStateId(null); setContextStep("state"); return; }
@@ -1033,91 +1038,141 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 </div>
 
-                {userContexts && userContexts.filter((c: any) => !c.isCurrent && c.contextType !== "fo").length > 0 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-3 py-1">Prihlásiť sa ako</DropdownMenuLabel>
-                    {userContexts.map((ctx: any, idx: number) => {
-                      if (ctx.isCurrent || ctx.contextType === "fo") return null;
-                      const isCompany = ctx.contextType === "officer_company";
-                      const isLinked = ctx.contextType === "linked_account";
-                      const isGuardian = ctx.contextType === "guardian";
-                      const isGuardianReturn = ctx.contextType === "guardian_return";
-                      const isFo = ctx.contextType === "fo";
-                      const isSubject = ["szco", "po", "ts", "vs", "os"].includes(ctx.contextType);
-                      const ctxKey = isSubject ? ctx.subjectId : (ctx.companyId ?? ctx.userId);
-                      const iconEl = isCompany ? (
-                        <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                      ) : isLinked ? (
-                        <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                      ) : isGuardian ? (
-                        <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                      ) : isGuardianReturn ? (
-                        <ArrowLeft className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                      ) : isSubject ? (
-                        ctx.contextType === "szco" ? <Briefcase className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
-                        ctx.contextType === "po" ? <Building2 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
-                        ctx.contextType === "vs" ? <Landmark className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
-                        ctx.contextType === "ts" ? <Heart className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
-                        <Grid3X3 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
-                      ) : (
-                        <User className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      );
-                      const iconBg = isCompany || isLinked || isGuardian
-                        ? "bg-blue-100 dark:bg-blue-900/30"
-                        : isGuardianReturn
-                          ? "bg-amber-100 dark:bg-amber-900/30"
-                          : isSubject
-                            ? "bg-violet-100 dark:bg-violet-900/30"
-                            : "bg-emerald-100 dark:bg-emerald-900/30";
-                      return (
-                        <DropdownMenuItem
-                          key={`${ctx.contextType}-${ctxKey}-${idx}`}
-                          className="flex items-center gap-2 py-2 cursor-pointer mx-1 rounded"
-                          onClick={async () => {
-                            if (ctx.isCurrent) return;
-                            try {
-                              if (isLinked || isGuardian || isGuardianReturn) {
-                                await apiRequest("POST", "/api/account-link/switch", { targetUserId: ctx.userId });
-                                window.location.href = "/";
-                              } else if (isCompany) {
-                                localStorage.removeItem("atk_context_fo");
-                                await apiRequest("PUT", "/api/app-user/active", { activeCompanyId: ctx.companyId, activeSubjectId: null });
-                                window.location.href = "/";
-                              } else if (isSubject) {
-                                localStorage.removeItem("atk_context_fo");
-                                if (ctx.isSubjectLink && ctx.linkId) {
-                                  await apiRequest("POST", "/api/account-link/switch", { subjectLinkId: ctx.linkId });
-                                } else {
-                                  await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: ctx.subjectId, activeCompanyId: null });
+                {/* KTO: Kto bude pracovať — identity selection (all non-officer_company contexts) */}
+                {userContexts && (() => {
+                  const currentSubjectId = (appUser as any)?.activeSubjectId ?? null;
+                  const ktoItems = (userContexts as any[]).filter((c: any) => {
+                    if (c.contextType === "officer_company") return false;
+                    if (c.contextType === "fo") return currentSubjectId !== null;
+                    if (["szco", "po", "vs", "ts", "os"].includes(c.contextType)) return c.subjectId !== currentSubjectId;
+                    return !c.isCurrent;
+                  });
+                  if (ktoItems.length === 0) return null;
+                  return (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-3 py-1">Kto bude pracovať?</DropdownMenuLabel>
+                      {ktoItems.map((ctx: any, idx: number) => {
+                        const isLinked = ctx.contextType === "linked_account";
+                        const isGuardian = ctx.contextType === "guardian";
+                        const isGuardianReturn = ctx.contextType === "guardian_return";
+                        const isFo = ctx.contextType === "fo";
+                        const isSubject = ["szco", "po", "ts", "vs", "os"].includes(ctx.contextType);
+                        const ctxKey = isSubject ? ctx.subjectId : (ctx.companyId ?? ctx.userId);
+                        const iconEl = isLinked ? (
+                          <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        ) : isGuardian ? (
+                          <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        ) : isGuardianReturn ? (
+                          <ArrowLeft className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                        ) : isSubject ? (
+                          ctx.contextType === "szco" ? <Briefcase className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
+                          ctx.contextType === "po" ? <Building2 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
+                          ctx.contextType === "vs" ? <Landmark className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
+                          ctx.contextType === "ts" ? <Heart className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
+                          <Grid3X3 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                        ) : (
+                          <User className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        );
+                        const iconBg = isLinked || isGuardian
+                          ? "bg-blue-100 dark:bg-blue-900/30"
+                          : isGuardianReturn
+                            ? "bg-amber-100 dark:bg-amber-900/30"
+                            : isSubject
+                              ? "bg-violet-100 dark:bg-violet-900/30"
+                              : "bg-emerald-100 dark:bg-emerald-900/30";
+                        return (
+                          <DropdownMenuItem
+                            key={`kto-${ctx.contextType}-${ctxKey}-${idx}`}
+                            className="flex items-center gap-2 py-2 cursor-pointer mx-1 rounded"
+                            onClick={async () => {
+                              try {
+                                if (isLinked || isGuardian || isGuardianReturn) {
+                                  await apiRequest("POST", "/api/account-link/switch", { targetUserId: ctx.userId });
+                                  window.location.href = "/";
+                                } else if (isSubject) {
+                                  localStorage.removeItem("atk_context_fo");
+                                  if (ctx.isSubjectLink && ctx.linkId) {
+                                    await apiRequest("POST", "/api/account-link/switch", { subjectLinkId: ctx.linkId });
+                                  } else {
+                                    await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: ctx.subjectId });
+                                  }
+                                  window.location.href = "/";
+                                } else if (isFo) {
+                                  localStorage.setItem("atk_context_fo", "1");
+                                  await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: null });
+                                  window.location.href = "/";
                                 }
-                                window.location.href = "/";
-                              } else if (isFo) {
-                                localStorage.setItem("atk_context_fo", "1");
-                                await apiRequest("PUT", "/api/app-user/active", { activeCompanyId: null, activeSubjectId: null });
-                                window.location.href = "/";
+                              } catch {
+                                toast({ title: "Chyba pri prepínaní identity", variant: "destructive" });
                               }
-                            } catch (err: any) {
-                              toast({ title: "Chyba pri prepínaní kontextu", variant: "destructive" });
-                            }
-                          }}
-                          data-testid={`item-context-${ctx.contextType}-${ctxKey}`}
-                        >
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${iconBg}`}>
-                            {iconEl}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium truncate ${ctx.isCurrent ? "text-foreground" : "text-muted-foreground"}`}>
-                              {ctx.label}
-                              {ctx.isCurrent && <span className="ml-1 text-xs text-emerald-600 dark:text-emerald-400">(aktívny)</span>}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate">{ctx.subLabel}</p>
-                          </div>
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </>
-                )}
+                            }}
+                            data-testid={`item-kto-${ctx.contextType}-${ctxKey}`}
+                          >
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+                              {iconEl}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate text-muted-foreground">{ctx.label}</p>
+                              <p className="text-xs text-muted-foreground truncate">{ctx.subLabel}</p>
+                            </div>
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
+
+                {/* KDE: Kde bude pracovať — workplace selection (only officer_company contexts) */}
+                {userContexts && (() => {
+                  const activeCompanyId = appUser?.activeCompanyId ?? null;
+                  const kdeItems = (userContexts as any[]).filter((c: any) => c.contextType === "officer_company");
+                  if (kdeItems.length === 0) return null;
+                  return (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-3 py-1">Kde bude pracovať?</DropdownMenuLabel>
+                      {kdeItems.map((ctx: any, idx: number) => {
+                        const isCurrentCompany = ctx.companyId === activeCompanyId;
+                        const typeIcon = ctx.type === "vs" ? (
+                          <Landmark className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        ) : ctx.type === "ts" ? (
+                          <Heart className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        ) : ctx.type === "os" ? (
+                          <Grid3X3 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        ) : (
+                          <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        );
+                        return (
+                          <DropdownMenuItem
+                            key={`kde-${ctx.companyId}-${idx}`}
+                            className="flex items-center gap-2 py-2 cursor-pointer mx-1 rounded"
+                            onClick={async () => {
+                              if (isCurrentCompany) return;
+                              try {
+                                localStorage.removeItem("atk_context_fo");
+                                await apiRequest("PUT", "/api/app-user/active", { activeCompanyId: ctx.companyId });
+                                window.location.href = "/";
+                              } catch {
+                                toast({ title: "Chyba pri prepínaní prostredia", variant: "destructive" });
+                              }
+                            }}
+                            data-testid={`item-kde-${ctx.companyId}`}
+                          >
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-100 dark:bg-blue-900/30">
+                              {typeIcon}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-medium truncate ${isCurrentCompany ? "text-foreground" : "text-muted-foreground"}`}>{ctx.label}</p>
+                              <p className="text-xs text-muted-foreground truncate">{ctx.subLabel}</p>
+                            </div>
+                            {isCurrentCompany && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 ml-auto flex-shrink-0" />}
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
 
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

@@ -11,6 +11,7 @@ export type IdentityOption = {
   label: string;
   subLabel: string;
   subjectId: number | null;
+  companyId?: number | null;
 };
 
 const LEGAL_FORMS = [
@@ -165,9 +166,9 @@ export function ContextSelectorOverlay({
         <div className="relative z-10 flex flex-col items-center gap-8">
           <div className="flex flex-col items-center gap-2">
             <h2 className="text-2xl font-bold text-white tracking-tight text-center" data-testid="text-context-title">
-              Ako sa prihlásiť?
+              Kto bude pracovať?
             </h2>
-            <p className="text-sm text-white/60 text-center">Zvoľte, v akej úlohe vstúpite do systému</p>
+            <p className="text-sm text-white/60 text-center">Vyberte svoju identitu — fyzická osoba, SZČO, konateľ alebo pridelená osoba</p>
           </div>
           <div className="flex flex-wrap items-start justify-center gap-10 max-w-3xl px-6">
             {(identityContexts || []).map((ctx, idx) => {
