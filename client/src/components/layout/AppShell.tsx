@@ -684,15 +684,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     ? `${(appUser.firstName || "U")[0]}${(appUser.lastName || "")[0] || ""}`.toUpperCase()
     : "U";
 
-  // Two-layer model: identity (activeSubjectId) and working context (activeCompanyId) are independent.
-  // Avatar and identity display are driven ONLY by activeSubjectId — company switching never changes identity.
-  const hasSubjectIdentity = !!(appUser as any)?.activeSubjectId;
+  // Two-layer model: identity (activeSubjectId/activeKtoCompanyId) and working context (activeCompanyId) are independent.
+  // Avatar and identity display are driven by activeSubjectId (SZČO) or activeKtoCompanyId (officer).
+  const hasSubjectIdentity = !!appUser?.activeSubjectId;
+  const activeKtoCompanyId = appUser?.activeKtoCompanyId ?? null;
+  const hasOfficerIdentity = !hasSubjectIdentity && !!activeKtoCompanyId;
   const activeIdentityEntry = hasSubjectIdentity
-    ? userContexts?.find((c: any) => c.subjectId === (appUser as any).activeSubjectId)
-    : null;
+    ? userContexts?.find((c: any) => c.subjectId === appUser?.activeSubjectId)
+    : hasOfficerIdentity
+      ? userContexts?.find((c: any) => c.contextType === "officer_company" && c.companyId === activeKtoCompanyId)
+      : null;
   const isActingAsLinkedSubject = !!(activeIdentityEntry as any)?.isSubjectLink && hasSubjectIdentity;
-  const isNonFoContext = hasSubjectIdentity;
-  const activeIdentityLabel = activeIdentityEntry?.label ?? (isNonFoContext ? displayName : displayName);
+  const isNonFoContext = hasSubjectIdentity || hasOfficerIdentity;
+  const activeIdentityLabel = activeIdentityEntry?.label ?? displayName;
   const activeIdentitySubLabel = activeIdentityEntry?.subLabel ?? null;
   const activeIdentityInitials = activeIdentityEntry
     ? activeIdentityEntry.label.split(/[\s,\.]+/).filter(Boolean).slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join("")
