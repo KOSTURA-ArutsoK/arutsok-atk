@@ -721,6 +721,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     foContext?.label ?? displayName,
     foContext?.titleAfter,
   ].filter(Boolean).join(" ");
+  const BannerIcon = (() => {
+    switch (activeIdentityEntry?.type) {
+      case "po":
+      case "company":
+      case "mycompany":
+        return Building2;
+      case "szco":
+        return Briefcase;
+      case "vs":
+      case "state":
+        return Landmark;
+      case "ts":
+      case "organization":
+        return Heart;
+      case "os":
+        return Grid3X3;
+      default:
+        return User;
+    }
+  })();
   const activeIdentityInitials = activeIdentityEntry
     ? activeIdentityEntry.label.split(/[\s,\.]+/).filter(Boolean).slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join("")
     : initials;
@@ -1206,15 +1226,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {isNonFoContext && (
             <div className="bg-orange-600 text-white px-4 py-2 flex items-center justify-between flex-shrink-0" data-testid="banner-subject-context">
               <div className="flex items-center gap-2">
-                <UserCheck className="w-4 h-4 flex-shrink-0" />
-                <span className="text-sm font-medium">
-                  Ako oprávnená osoba <strong>{actorName}</strong> konáte v mene {activeIdentityLabel}{activeIdentityEntry?.ico ? ` (IČO: ${activeIdentityEntry.ico})` : ""}
+                <BannerIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="text-sm">
+                  <span className="text-orange-100">Ako oprávnená osoba </span>
+                  <strong className="text-white">{actorName}</strong>
+                  <span className="text-orange-100"> konáte v mene </span>
+                  <strong className="text-white">{activeIdentityLabel}</strong>
+                  {activeIdentityEntry?.ico && (
+                    <strong className="text-white"> (IČO: {activeIdentityEntry.ico})</strong>
+                  )}
                 </span>
               </div>
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-white hover:bg-orange-700 gap-1.5 whitespace-nowrap ml-4"
+                className="text-white hover:bg-orange-700 gap-1.5 whitespace-nowrap ml-4 border border-white/60"
                 onClick={() => {
                   setActive.mutate({ activeSubjectId: null, activeKtoCompanyId: null });
                 }}
