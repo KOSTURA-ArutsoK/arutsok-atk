@@ -15443,9 +15443,10 @@ export async function registerRoutes(
             .where(eq(subjectLinks.id, ticket.subjectLinkId));
 
           // Optionally add the revoked advisor's own subject to oranžový zoznam
-          const [targetOwnLink] = await tx.select().from(subjectLinks)
-            .where(and(eq(subjectLinks.linkedUserId, ticket.targetUserId), eq(subjectLinks.relation, "own"))).limit(1);
-          if (targetOwnLink) await maybeAddToOrangeList(tx, targetOwnLink.subjectId);
+          // Use appUsers.linkedSubjectId — the user's own personal subject
+          const [targetUser] = await tx.select({ linkedSubjectId: appUsers.linkedSubjectId })
+            .from(appUsers).where(eq(appUsers.id, ticket.targetUserId)).limit(1);
+          if (targetUser?.linkedSubjectId) await maybeAddToOrangeList(tx, targetUser.linkedSubjectId);
         });
 
         res.json({ success: true, action: "approved", message: "Prístup bol odvolaný a ticket uzavretý" });
@@ -15462,9 +15463,10 @@ export async function registerRoutes(
           if (updated.length === 0) throw new Error("conflict");
 
           // Optionally add the reporter's own subject to oranžový zoznam (false report = reporter is the liar)
-          const [reporterOwnLink] = await tx.select().from(subjectLinks)
-            .where(and(eq(subjectLinks.linkedUserId, ticket.reportedByUserId), eq(subjectLinks.relation, "own"))).limit(1);
-          if (reporterOwnLink) await maybeAddToOrangeList(tx, reporterOwnLink.subjectId);
+          // Use appUsers.linkedSubjectId — the user's own personal subject
+          const [reporterUser] = await tx.select({ linkedSubjectId: appUsers.linkedSubjectId })
+            .from(appUsers).where(eq(appUsers.id, ticket.reportedByUserId)).limit(1);
+          if (reporterUser?.linkedSubjectId) await maybeAddToOrangeList(tx, reporterUser.linkedSubjectId);
         });
 
         res.json({ success: true, action: "rejected", message: "Ticket bol zamietnutý" });
