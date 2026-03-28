@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import type { Product, CommissionScheme, Partner, Parameter, ProductParameter, MyCompany } from "@shared/schema";
-import { Plus, Eye, Package, Loader2, HelpCircle, Trash2, FileText, Copy } from "lucide-react";
+import { Plus, Eye, Package, Loader2, HelpCircle, Trash2, FileText, Copy, AlertCircle } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
@@ -208,6 +208,7 @@ function ProductFormDialog({
   const [allowedSubjectTypes, setAllowedSubjectTypes] = useState<string[]>([]);
   const [notesHtml, setNotesHtml] = useState("");
   const [paramValues, setParamValues] = useState<Record<number, string>>({});
+  const [contextError, setContextError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"info" | "dokumentacia">("info");
   const [requiredDocuments, setRequiredDocuments] = useState<string[]>([]);
   const [optionalDocuments, setOptionalDocuments] = useState<string[]>([]);
@@ -249,14 +250,17 @@ function ProductFormDialog({
       onOpenChange(false);
     },
     onError: (err: any) => {
-      let msg = "Nepodarilo sa vytvorit produkt";
       try {
         const text = err?.message || "";
         const jsonPart = text.replace(/^\d+:\s*/, "");
         const data = JSON.parse(jsonPart);
-        if (data?.message) msg = data.message;
+        if (data?.code === 'CONTEXT_MISMATCH' && data?.message) {
+          setContextError(data.message);
+          return;
+        }
+        if (data?.message) { toast({ title: "Chyba", description: data.message, variant: "destructive" }); return; }
       } catch {}
-      toast({ title: "Chyba", description: msg, variant: "destructive" });
+      toast({ title: "Chyba", description: "Nepodarilo sa vytvorit produkt", variant: "destructive" });
     },
   });
 
@@ -363,6 +367,13 @@ function ProductFormDialog({
             {editingProduct ? "Upravit produkt" : "Pridat produkt"}
           </DialogTitle>
         </DialogHeader>
+        {contextError && (
+          <div className="flex gap-3 items-start border-2 border-red-500 rounded-md p-3 mb-3 text-sm bg-red-50 dark:bg-red-950 text-justify" role="alert" data-testid="alert-context-mismatch">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <span className="text-red-700 dark:text-red-300">{contextError}</span>
+          </div>
+        )}
+
         <div className="flex gap-1 border-b mb-3">
           <button
             type="button"

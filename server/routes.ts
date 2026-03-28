@@ -1782,18 +1782,18 @@ export async function registerRoutes(
     try {
       const users = await storage.getAppUsers();
       const linkedSubjectIds = users.map(u => u.linkedSubjectId).filter((id): id is number => id != null);
-      const titleMap = new Map<number, { titleBefore: string | null; titleAfter: string | null }>();
+      const titleMap = new Map<number, { titleBefore: string | null; titleAfter: string | null; uid: string | null }>();
       if (linkedSubjectIds.length > 0) {
-        const subjectRows = await db.select({ id: subjects.id, titleBefore: subjects.titleBefore, titleAfter: subjects.titleAfter })
+        const subjectRows = await db.select({ id: subjects.id, titleBefore: subjects.titleBefore, titleAfter: subjects.titleAfter, uid: subjects.uid })
           .from(subjects)
           .where(inArray(subjects.id, linkedSubjectIds));
         for (const s of subjectRows) {
-          titleMap.set(s.id, { titleBefore: s.titleBefore ?? null, titleAfter: s.titleAfter ?? null });
+          titleMap.set(s.id, { titleBefore: s.titleBefore ?? null, titleAfter: s.titleAfter ?? null, uid: s.uid ?? null });
         }
       }
       res.json(users.map(u => {
-        const titles = u.linkedSubjectId ? (titleMap.get(u.linkedSubjectId) ?? { titleBefore: null, titleAfter: null }) : { titleBefore: null, titleAfter: null };
-        return { id: u.id, username: u.username, titleBefore: titles.titleBefore, firstName: u.firstName, lastName: u.lastName, titleAfter: titles.titleAfter, uid: u.uid ?? null };
+        const subj = u.linkedSubjectId ? (titleMap.get(u.linkedSubjectId) ?? { titleBefore: null, titleAfter: null, uid: null }) : { titleBefore: null, titleAfter: null, uid: null };
+        return { id: u.id, username: u.username, titleBefore: subj.titleBefore, firstName: u.firstName, lastName: u.lastName, titleAfter: subj.titleAfter, uid: u.uid ?? subj.uid ?? null };
       }));
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
@@ -2788,7 +2788,7 @@ export async function registerRoutes(
       if (stateId) conds.push(eq(partners.stateId, stateId));
       partnersList = await db.select().from(partners).where(and(...conds)).orderBy(asc(partners.name));
     } else {
-      partnersList = await storage.getPartners(includeDeleted, stateId || undefined);
+      return res.json([]);
     }
     if (!partnersList.length) return res.json([]);
     const [productRows, partnerProductRows, partnerContractRows, contractRows] = await Promise.all([
@@ -2854,6 +2854,17 @@ export async function registerRoutes(
     try {
       const input = api.partners.create.input.parse(req.body);
       const activeCompanyId = req.appUser?.activeCompanyId ?? null;
+      const activeKtoCompanyId = req.appUser?.activeKtoCompanyId ?? null;
+      if (activeKtoCompanyId && activeCompanyId && activeKtoCompanyId !== activeCompanyId) {
+        const [[ktoC], [kdeC]] = await Promise.all([
+          db.select({ name: myCompanies.name }).from(myCompanies).where(eq(myCompanies.id, activeKtoCompanyId)).limit(1),
+          db.select({ name: myCompanies.name }).from(myCompanies).where(eq(myCompanies.id, activeCompanyId)).limit(1),
+        ]);
+        return res.status(400).json({
+          message: `Chyba kontextu: Nemôžete registrovať partnera pre ${ktoC?.name ?? 'KTO firmu'}, kým sa nachádzate v pracovisku ${kdeC?.name ?? 'KDE firmy'}. Prepnite pracovisko v hornej lište.`,
+          code: 'CONTEXT_MISMATCH',
+        });
+      }
       const { partner: created, matchedSubject } = await storage.createPartner({ ...input, myCompanyId: activeCompanyId });
       // Add to many-to-many junction (idempotent — unique constraint prevents duplicates)
       if (activeCompanyId) {
@@ -4259,10 +4270,23 @@ export async function registerRoutes(
     res.json(product);
   });
 
-  app.post(api.products.create.path, isAuthenticated, async (req, res) => {
+  app.post(api.products.create.path, isAuthenticated, async (req: any, res) => {
     try {
       const { dynamicParams, ...body } = req.body;
       const input = api.products.create.input.parse(body);
+
+      const _ktoId = req.appUser?.activeKtoCompanyId ?? null;
+      const _kdeId = req.appUser?.activeCompanyId ?? null;
+      if (_ktoId && _kdeId && _ktoId !== _kdeId) {
+        const [[ktoC], [kdeC]] = await Promise.all([
+          db.select({ name: myCompanies.name }).from(myCompanies).where(eq(myCompanies.id, _ktoId)).limit(1),
+          db.select({ name: myCompanies.name }).from(myCompanies).where(eq(myCompanies.id, _kdeId)).limit(1),
+        ]);
+        return res.status(400).json({
+          message: `Chyba kontextu: Nemôžete vytvoriť produkt pre ${ktoC?.name ?? 'KTO firmu'}, kým sa nachádzate v pracovisku ${kdeC?.name ?? 'KDE firmy'}. Prepnite pracovisko v hornej lište.`,
+          code: 'CONTEXT_MISMATCH',
+        });
+      }
 
       if (input.partnerId && input.companyId) {
         const contracts = await storage.getPartnerContracts(input.partnerId);
@@ -22897,16 +22921,57 @@ export async function registerRoutes(
 
       const partnerSubjects = [...partnerSubjectByLinkId.values(), ...partnerSubjectsUnlinked];
 
-      const allSubjects = [
+      const allSubjectsBuilt = [
         ...allSubjectsRaw.map(s => ({ ...s, isOfficer: officerSubjectIds.has(s.id) })),
         ...myCompanySubjects,
         ...partnerSubjects,
       ];
 
+      const allLinksBuilt = [...allLinks, ...virtualPartnerLinks];
+
+      // KDE isolation: if user has activeCompanyId set, restrict tree to that company's branch only
+      const filterCompanyId = (req as any).appUser?.activeCompanyId ?? null;
+      let visibleSubjects = allSubjectsBuilt;
+      let visibleLinks = allLinksBuilt;
+
+      if (filterCompanyId) {
+        // Find the company node subject ID (real or virtual)
+        let companyNodeId: number | null = null;
+        const realCompanySubj = allSubjectsRaw.find(
+          s => s.type === 'mycompany' && (s as any).myCompanyId === filterCompanyId
+        );
+        if (realCompanySubj) {
+          companyNodeId = realCompanySubj.id;
+        } else {
+          // Virtual mycompany subject uses id = -(mc.id)
+          companyNodeId = -(filterCompanyId);
+        }
+
+        // BFS: collect all subject IDs reachable from root + company node downward
+        const visitedIds = new Set<number>([rootSubject.id]);
+        if (companyNodeId !== null) visitedIds.add(companyNodeId);
+
+        let changed = true;
+        while (changed) {
+          changed = false;
+          for (const link of allLinksBuilt) {
+            if (visitedIds.has(link.guarantorSubjectId) && !visitedIds.has(link.subjectId)) {
+              visitedIds.add(link.subjectId);
+              changed = true;
+            }
+          }
+        }
+
+        visibleSubjects = allSubjectsBuilt.filter(s => visitedIds.has(s.id));
+        visibleLinks = allLinksBuilt.filter(
+          l => visitedIds.has(l.subjectId) && visitedIds.has(l.guarantorSubjectId)
+        );
+      }
+
       res.json({
         root: rootSubject,
-        links: [...allLinks, ...virtualPartnerLinks],
-        subjects: allSubjects,
+        links: visibleLinks,
+        subjects: visibleSubjects,
         officerSubjectIds: Array.from(officerSubjectIds),
       });
     } catch (err: any) {

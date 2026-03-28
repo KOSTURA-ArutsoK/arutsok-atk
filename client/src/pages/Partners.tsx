@@ -672,6 +672,9 @@ function PartnerUnifiedDialog({
   // DPH
   const [platcaDph, setPlatcaDph] = useState(false);
 
+  // Context mismatch error (KTO ≠ KDE)
+  const [contextError, setContextError] = useState<string | null>(null);
+
   // ORSR registry
   const [registryLoading, setRegistryLoading] = useState(false);
   const [registryResult, setRegistryResult] = useState<RegistryLookupResponse | null>(null);
@@ -1216,7 +1219,17 @@ function PartnerUnifiedDialog({
           }
           handleOpenChange(false);
         },
-        onError: () => { isSubmittingRef.current = false; },
+        onError: (error: any) => {
+          isSubmittingRef.current = false;
+          try {
+            const text = error?.message || "";
+            const jsonPart = text.replace(/^\d+:\s*/, "");
+            const data = JSON.parse(jsonPart);
+            if (data?.code === 'CONTEXT_MISMATCH' && data?.message) {
+              setContextError(data.message);
+            }
+          } catch {}
+        },
       });
     }
   }
@@ -1279,6 +1292,13 @@ function PartnerUnifiedDialog({
             {editingPartner ? editingPartner.name : "Pridať nového partnera"}
           </DialogTitle>
         </DialogHeader>
+
+        {contextError && (
+          <div className="flex gap-3 items-start border-2 border-red-500 rounded-md p-3 mb-3 text-sm bg-red-50 dark:bg-red-950 text-justify" role="alert" data-testid="alert-context-mismatch">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <span className="text-red-700 dark:text-red-300">{contextError}</span>
+          </div>
+        )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>

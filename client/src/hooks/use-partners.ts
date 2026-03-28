@@ -50,7 +50,14 @@ export function useCreatePartner() {
         toast({ title: "Partner vytvoreny", description: "Partner bol uspesne pridany." });
       }
     },
-    onError: () => {
+    onError: (error: any) => {
+      try {
+        const text = error?.message || "";
+        const jsonPart = text.replace(/^\d+:\s*/, "");
+        const data = JSON.parse(jsonPart);
+        if (data?.code === 'CONTEXT_MISMATCH') return;
+        if (data?.message) { toast({ title: "Chyba", description: data.message, variant: "destructive" }); return; }
+      } catch {}
       toast({ title: "Chyba", description: "Nepodarilo sa vytvorit partnera.", variant: "destructive" });
     },
   });
