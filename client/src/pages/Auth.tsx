@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Shield, Lock, AlertTriangle, Mail, Eye, EyeOff, Phone, CheckCircle, Users, ArrowRight, FolderOpen, Baby, CreditCard, XCircle, ChevronLeft, Building2 } from "lucide-react";
-import { formatUid, normalizePhone, formatPhone } from "@/lib/utils";
+import { formatUid, formatPhone } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Link, useLocation } from "wouter";
 
-type LoginStep = "credentials" | "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "blocked" | "phone_verify" | "entity_rc_verify";
+type LoginStep = "credentials" | "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "blocked" | "entity_rc_verify";
 
 interface DocumentHint {
   documentType: string | null;
@@ -29,15 +29,6 @@ interface SubjectOption {
   hasRisk: boolean;
   documentHint: DocumentHint | null;
 }
-
-interface SelectedSubject {
-  id: number;
-  firstName: string | null;
-  lastName: string | null;
-  companyName?: string | null;
-  phone: string | null;
-}
-
 
 function subjectTypeLabelSk(type: string | null): string {
   switch (type) {
@@ -72,12 +63,9 @@ export default function AuthPage() {
 
   const [step, setStep] = useState<LoginStep>("credentials");
   const [subjectOptions, setSubjectOptions] = useState<SubjectOption[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<SelectedSubject | null>(null);
   const [blockedMessage, setBlockedMessage] = useState<string>("");
   const [smsPhone, setSmsPhone] = useState<string | null>(null);
   const [docHint, setDocHint] = useState<DocumentHint | null>(null);
-
-  const [pendingSubject, setPendingSubject] = useState<SubjectOption | null>(null);
 
   const [smsCode, setSmsCode] = useState("");
   const [rcValue, setRcValue] = useState("");
@@ -85,11 +73,6 @@ export default function AuthPage() {
   const [entityRcValue, setEntityRcValue] = useState("");
   const [entityRcEntityName, setEntityRcEntityName] = useState<string | null>(null);
   const [entityRcAttemptsLeft, setEntityRcAttemptsLeft] = useState<number>(3);
-
-  const [newPhone, setNewPhone] = useState("");
-  const [phoneSmsCode, setPhoneSmsCode] = useState("");
-  const [smsSent, setSmsSent] = useState(false);
-  const [phoneConfirmed, setPhoneConfirmed] = useState(false);
 
   const { login, isLoggingIn } = useAuth();
 
@@ -118,9 +101,6 @@ export default function AuthPage() {
       if (data.loginStep === "subject_select" && data.subjects) {
         setSubjectOptions(data.subjects);
         setStep("subject_select");
-      } else if (data.loginStep === "phone_verify" && data.selectedSubject) {
-        setSelectedSubject(data.selectedSubject);
-        setStep("phone_verify");
       } else {
         await login({ email: email.trim(), password } as any);
         await finalizeLogin();
@@ -140,16 +120,11 @@ export default function AuthPage() {
   const handleSelectSubject = async (subjectId: number) => {
     setError(null);
     setLoading(true);
-    const clicked = subjectOptions.find((s) => s.id === subjectId) || null;
-    setPendingSubject(clicked);
     try {
       const res = await apiRequest("POST", "/api/login/select-subject", { subjectId });
       const data = await res.json();
 
-      if (data.nextStep === "phone_verify" && data.selectedSubject) {
-        setSelectedSubject(data.selectedSubject);
-        setStep("phone_verify");
-      } else if (data.nextStep === "sms_verify") {
+      if (data.nextStep === "sms_verify") {
         setSmsPhone(data.maskedPhone || null);
         setStep("sms_verify");
       } else if (data.nextStep === "rc_verify") {
@@ -165,34 +140,13 @@ export default function AuthPage() {
       } else if (data.nextStep === "blocked") {
         setBlockedMessage(data.message || "Identita nebola overená. Kontaktujte prosím podporu pre doplnenie údajov.");
         setStep("blocked");
-      } else if (data.loginStep === "phone_verify" && data.selectedSubject) {
-        setSelectedSubject(data.selectedSubject);
-        setStep("phone_verify");
+      } else if (data.nextStep === "done") {
+        finalizeLogin();
       }
     } catch (err: any) {
       setError("Chyba pri výbere identity");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const applyPendingSubject = (serverSubject?: { id: number; firstName: string | null; lastName: string | null; companyName: string | null; type: string | null } | null) => {
-    if (serverSubject) {
-      setSelectedSubject({
-        id: serverSubject.id,
-        firstName: serverSubject.firstName,
-        lastName: serverSubject.lastName,
-        companyName: serverSubject.companyName,
-        phone: pendingSubject?.phone ?? null,
-      });
-    } else if (pendingSubject) {
-      setSelectedSubject({
-        id: pendingSubject.id,
-        firstName: pendingSubject.firstName,
-        lastName: pendingSubject.lastName,
-        companyName: pendingSubject.companyName,
-        phone: pendingSubject.phone,
-      });
     }
   };
 
@@ -204,9 +158,8 @@ export default function AuthPage() {
     try {
       const resp = await apiRequest("POST", "/api/login/entity-rc-verify", { rc: entityRcValue.trim() });
       const data = await resp.json();
-      if (data.nextStep === "phone_verify" && data.selectedSubject) {
-        setSelectedSubject(data.selectedSubject);
-        setStep("phone_verify");
+      if (data.nextStep === "done") {
+        finalizeLogin();
       } else if (data.nextStep === "blocked") {
         setBlockedMessage(data.message || "Profil fyzickej osoby je neúplný.");
         setStep("blocked");
@@ -244,9 +197,6 @@ export default function AuthPage() {
       } else if (res?.nextStep === "blocked") {
         setBlockedMessage(res.message ?? "Prístup zamietnutý");
         setStep("blocked");
-      } else {
-        applyPendingSubject(res?.selectedSubject);
-        setStep("phone_verify");
       }
     } catch (err: any) {
       setError("Nesprávny SMS kód");
@@ -261,10 +211,8 @@ export default function AuthPage() {
     if (!rcValue.trim()) { setError("Zadajte rodné číslo"); return; }
     setLoading(true);
     try {
-      const resp = await apiRequest("POST", "/api/login/verify-rc", { rc: rcValue.trim() });
-      const res = await resp.json();
-      applyPendingSubject(res?.selectedSubject);
-      setStep("phone_verify");
+      await apiRequest("POST", "/api/login/verify-rc", { rc: rcValue.trim() });
+      finalizeLogin();
     } catch (err: any) {
       setError("Nesprávne rodné číslo");
     } finally {
@@ -278,10 +226,8 @@ export default function AuthPage() {
     if (!docNumber.trim()) { setError("Zadajte číslo dokladu"); return; }
     setLoading(true);
     try {
-      const resp = await apiRequest("POST", "/api/login/verify-doc", { docNumber: docNumber.trim() });
-      const res = await resp.json();
-      applyPendingSubject(res?.selectedSubject);
-      setStep("phone_verify");
+      await apiRequest("POST", "/api/login/verify-doc", { docNumber: docNumber.trim() });
+      finalizeLogin();
     } catch (err: any) {
       setError("Nesprávne číslo dokladu");
     } finally {
@@ -290,7 +236,6 @@ export default function AuthPage() {
   };
 
   const finalizeLogin = async () => {
-    setPhoneConfirmed(true);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] }),
       queryClient.invalidateQueries({ queryKey: ["/api/app-user/me"] }),
@@ -306,35 +251,6 @@ export default function AuthPage() {
         }
       }
     } catch {}
-  };
-
-  const handlePhoneConfirm = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      await apiRequest("POST", "/api/login/verify-phone", { confirmed: true });
-      finalizeLogin();
-    } catch {
-      setError("Chyba pri overení telefónu");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePhoneChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (!newPhone.trim()) { setError("Zadajte nové telefónne číslo"); return; }
-    if (!phoneSmsCode.trim() || phoneSmsCode.length !== 6) { setError("SMS kód musí mať 6 číslic"); return; }
-    setLoading(true);
-    try {
-      await apiRequest("POST", "/api/login/verify-phone", { confirmed: false, newPhone: newPhone.trim(), smsCode: phoneSmsCode.trim() });
-      finalizeLogin();
-    } catch {
-      setError("Chyba pri zmene telefónneho čísla");
-    } finally {
-      setLoading(false);
-    }
   };
 
   const renderError = () => {
@@ -715,127 +631,6 @@ export default function AuthPage() {
               <ChevronLeft className="w-4 h-4 mr-1" />
               Späť na výber identity
             </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (step === "phone_verify") {
-    if (phoneConfirmed) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-4">
-          <Card className="w-full max-w-md rounded-2xl">
-            <CardContent className="pt-8 pb-6 px-6 space-y-6">
-              <div className="text-center space-y-3">
-                <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto">
-                  <CheckCircle className="w-8 h-8 text-emerald-600" />
-                </div>
-                <h1 className="text-xl font-bold" data-testid="text-phone-verified">Overenie úspešné</h1>
-                <p className="text-sm text-muted-foreground">Presmerovanie do systému...</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      );
-    }
-
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md rounded-2xl">
-          <CardContent className="pt-8 pb-6 px-6 space-y-6">
-            <div className="text-center space-y-3">
-              <div className="w-14 h-14 rounded-md bg-primary/10 flex items-center justify-center mx-auto">
-                <Phone className="w-8 h-8 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold" data-testid="text-phone-verify-title">Overenie telefónu</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {selectedSubject?.firstName} {selectedSubject?.lastName}
-                  {selectedSubject?.companyName && !selectedSubject?.firstName ? selectedSubject.companyName : ""}
-                </p>
-              </div>
-            </div>
-
-            {renderError()}
-
-            {!smsSent ? (
-              <div className="space-y-4">
-                <div className="text-center p-4 rounded-lg bg-muted/50 border border-border">
-                  <p className="text-sm text-muted-foreground mb-1">Je toto vaše aktuálne telefónne číslo?</p>
-                  <p className="text-lg font-mono font-bold" data-testid="text-masked-phone">
-                    {selectedSubject?.phone || "Telefón nie je evidovaný"}
-                  </p>
-                </div>
-
-                <div className="flex gap-2 w-full">
-                  <Button
-                    onClick={handlePhoneConfirm}
-                    disabled={loading || !selectedSubject?.phone}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                    data-testid="button-phone-yes"
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    ÁNO
-                  </Button>
-                  <Button
-                    onClick={() => setSmsSent(true)}
-                    variant="outline"
-                    className="flex-1 border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20"
-                    data-testid="button-phone-no"
-                  >
-                    NIE
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handlePhoneChange} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="newPhone">Nové telefónne číslo</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      id="newPhone"
-                      type="tel"
-                      placeholder="+421 9XX XXX XXX"
-                      value={newPhone}
-                      onChange={(e) => setNewPhone(normalizePhone(e.target.value) || e.target.value)}
-                      className="pl-10"
-                      autoFocus
-                      data-testid="input-new-phone"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phoneSmsCode">SMS overovací kód (6 číslic)</Label>
-                  <Input
-                    id="phoneSmsCode"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    placeholder="000000"
-                    value={phoneSmsCode}
-                    onChange={(e) => setPhoneSmsCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    className="text-center text-2xl tracking-[0.5em] font-mono"
-                    data-testid="input-sms-code"
-                  />
-                  <p className="text-xs text-muted-foreground text-center">
-                    Overovací kód bol odoslaný na nové číslo (simulácia)
-                  </p>
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                  disabled={loading || phoneSmsCode.length !== 6}
-                  data-testid="button-verify-sms"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  {loading ? "Overujem..." : "Overiť a pokračovať"}
-                </Button>
-              </form>
-            )}
           </CardContent>
         </Card>
       </div>

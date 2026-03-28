@@ -15,7 +15,7 @@ declare module "express-session" {
   interface SessionData {
     userId: number;
     loginSubjectId: number | null;
-    loginStep: "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "phone_verify" | "entity_rc_verify" | "done";
+    loginStep: "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "entity_rc_verify" | "done";
     pendingSmsCode?: string;
     pendingSubjectPhone?: string;
     pendingVerifyReason?: string;
@@ -534,14 +534,14 @@ export async function setupAuth(app: Express) {
 
       if (peerSubjectsRaw.length === 1 && shadowOnly.length === 0) {
         req.session.loginSubjectId = peerSubjectsRaw[0].id;
-        req.session.loginStep = "phone_verify";
-        const meta = await buildSubjectMeta(peerSubjectsRaw[0], false);
+        req.session.loginStep = "done";
+        const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+        await recordLoginHistory(user.id, ip);
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
           res.json({
             id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role,
-            loginStep: "phone_verify",
-            selectedSubject: { id: meta.id, firstName: meta.firstName, lastName: meta.lastName, phone: meta.phone },
+            loginStep: "done",
           });
         });
       }
@@ -664,15 +664,13 @@ export async function setupAuth(app: Express) {
 
       if (isShadowSubject) {
         req.session.loginSubjectId = selected.id;
-        req.session.loginStep = "phone_verify";
+        req.session.loginStep = "done";
         const shadowName = subjectDisplayName(selected);
         await writeLoginAudit(user.id, selected.id, shadowName, "SHADOW_ACCESS", "shadow_direct", ip);
+        await recordLoginHistory(user.id, ip);
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba session" });
-          res.json({
-            nextStep: "phone_verify",
-            selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ?? null },
-          });
+          res.json({ nextStep: "done" });
         });
       }
 
@@ -757,11 +755,12 @@ export async function setupAuth(app: Express) {
           const szcoRC = decryptField(szcoPartner.birthNumber);
           if (szcoRC && selectedRC && szcoRC === selectedRC) {
             req.session.loginSubjectId = selected.id;
-            req.session.loginStep = "phone_verify";
+            req.session.loginStep = "done";
             await writeLoginAudit(user.id, selected.id, name, "DIRECT", "szco_fo_same_rc", ip);
+            await recordLoginHistory(user.id, ip);
             return req.session.save((err) => {
               if (err) return res.status(500).json({ message: "Chyba session" });
-              res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ?? null } });
+              res.json({ nextStep: "done" });
             });
           }
         }
@@ -805,11 +804,12 @@ export async function setupAuth(app: Express) {
               }
               req.session.loginSubjectId = foSubject.id;
               req.session.loginActingAsEntityId = selected.id;
-              req.session.loginStep = "phone_verify";
+              req.session.loginStep = "done";
               await writeLoginAudit(user.id, foSubject.id, subjectDisplayName(foSubject), "ENTITY_DIRECT", "email_matched_officer", ip, selected.id, { foUid: foSubject.uid, entityType: selected.type });
+              await recordLoginHistory(user.id, ip);
               return req.session.save((err) => {
                 if (err) return res.status(500).json({ message: "Chyba session" });
-                res.json({ nextStep: "phone_verify", selectedSubject: { id: foSubject.id, firstName: foSubject.firstName, lastName: foSubject.lastName, phone: foSubject.phone ?? null } });
+                res.json({ nextStep: "done" });
               });
             }
           }
@@ -848,32 +848,35 @@ export async function setupAuth(app: Express) {
             // Single-officer: FO is identified, set session with FO as primary subject and entity as acting context
             req.session.loginSubjectId = foSubject.id;
             req.session.loginActingAsEntityId = selected.id;
-            req.session.loginStep = "phone_verify";
+            req.session.loginStep = "done";
             await writeLoginAudit(user.id, foSubject.id, subjectDisplayName(foSubject), "ENTITY_DIRECT", "single_officer_direct", ip, selected.id, { foUid: foSubject.uid, entityType: selected.type });
+            await recordLoginHistory(user.id, ip);
             return req.session.save((err) => {
               if (err) return res.status(500).json({ message: "Chyba session" });
-              res.json({ nextStep: "phone_verify", selectedSubject: { id: foSubject.id, firstName: foSubject.firstName, lastName: foSubject.lastName, phone: foSubject.phone ?? null } });
+              res.json({ nextStep: "done" });
             });
           }
         }
 
         // No linked officer found: direct entity login (no individual FO identified)
         req.session.loginSubjectId = selected.id;
-        req.session.loginStep = "phone_verify";
+        req.session.loginStep = "done";
         await writeLoginAudit(user.id, selected.id, name, "DIRECT", null, ip);
+        await recordLoginHistory(user.id, ip);
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba session" });
-          res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, companyName: selected.companyName, phone: selected.phone ?? null } });
+          res.json({ nextStep: "done" });
         });
       }
 
       if (isPerson(selected.type) && selectedAdult === false) {
         req.session.loginSubjectId = selected.id;
-        req.session.loginStep = "phone_verify";
+        req.session.loginStep = "done";
         await writeLoginAudit(user.id, selected.id, name, "DIRECT", "minor_direct", ip);
+        await recordLoginHistory(user.id, ip);
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba session" });
-          res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ?? null } });
+          res.json({ nextStep: "done" });
         });
       }
 
@@ -922,11 +925,12 @@ export async function setupAuth(app: Express) {
       }
 
       req.session.loginSubjectId = selected.id;
-      req.session.loginStep = "phone_verify";
+      req.session.loginStep = "done";
       await writeLoginAudit(user.id, selected.id, name, "DIRECT", null, ip);
+      await recordLoginHistory(user.id, ip);
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
-        res.json({ nextStep: "phone_verify", selectedSubject: { id: selected.id, firstName: selected.firstName, lastName: selected.lastName, phone: selected.phone ?? null } });
+        res.json({ nextStep: "done" });
       });
     } catch (err) {
       console.error("Select subject error:", err);
@@ -1028,22 +1032,15 @@ export async function setupAuth(app: Express) {
 
       req.session.loginSubjectId = foundFo.id;
       req.session.loginActingAsEntityId = entitySubjectId;
-      req.session.loginStep = "phone_verify";
+      req.session.loginStep = "done";
       req.session.entityRcAttempts = undefined;
       req.session.pendingEntityCandidateIds = undefined;
       req.session.pendingEntitySubjectId = undefined;
+      await recordLoginHistory(req.session.userId, ip);
 
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
-        res.json({
-          nextStep: "phone_verify",
-          selectedSubject: {
-            id: foundFo!.id,
-            firstName: foundFo!.firstName,
-            lastName: foundFo!.lastName,
-            phone: foundFo!.phone ?? null,
-          },
-        });
+        res.json({ nextStep: "done" });
       });
     } catch (err) {
       console.error("Entity RC verify error:", err);
@@ -1070,7 +1067,6 @@ export async function setupAuth(app: Express) {
       const subjectId = req.session.loginSubjectId;
 
       const verifyReason = req.session.pendingVerifyReason ?? null;
-      let selectedSubject: { id: number; firstName: string | null; lastName: string | null; companyName: string | null; type: string | null } | null = null;
 
       if (subjectId) {
         const [s] = await db.select({
@@ -1080,10 +1076,8 @@ export async function setupAuth(app: Express) {
           postalCode: subjects.postalCode, idCardNumber: subjects.idCardNumber,
         }).from(subjects).where(eq(subjects.id, subjectId));
         if (s) {
-          selectedSubject = s;
           await writeLoginAudit(req.session.userId, subjectId, subjectDisplayName(s), "SMS", verifyReason, ip);
 
-          // FO completeness check (same gate as in verify-phone)
           if (isPerson(s.type)) {
             const completeness = await checkFoProfileCompleteness(s);
             if (!completeness.complete) {
@@ -1101,7 +1095,6 @@ export async function setupAuth(app: Express) {
         }
       }
 
-      // SMS code = phone already proven → skip phone_verify, go straight to done
       req.session.loginStep = "done";
       req.session.pendingSmsCode = undefined;
       req.session.pendingVerifyReason = undefined;
@@ -1151,12 +1144,13 @@ export async function setupAuth(app: Express) {
       const verifyReason = req.session.pendingVerifyReason ?? null;
       await writeLoginAudit(req.session.userId, subjectId, subjectDisplayName(subject), "RC", verifyReason, ip);
 
-      const selectedSubject = { id: subjectId, firstName: subject.firstName, lastName: subject.lastName, companyName: (subject as any).companyName ?? null, type: (subject as any).type ?? null };
-      req.session.loginStep = "phone_verify";
+      req.session.loginStep = "done";
       req.session.pendingVerifyReason = undefined;
+      const ip2 = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+      await recordLoginHistory(req.session.userId, ip2);
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
-        res.json({ nextStep: "phone_verify", selectedSubject });
+        res.json({ nextStep: "done" });
       });
     } catch (err) {
       console.error("Verify RC error:", err);
@@ -1197,110 +1191,18 @@ export async function setupAuth(app: Express) {
       const verifyReason = req.session.pendingVerifyReason ?? null;
       const [s] = await db.select({ id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type })
         .from(subjects).where(eq(subjects.id, subjectId));
-      const selectedSubject = s ?? null;
       await writeLoginAudit(req.session.userId, subjectId, s ? subjectDisplayName(s) : null, "DOC", verifyReason, ip);
 
-      req.session.loginStep = "phone_verify";
+      req.session.loginStep = "done";
       req.session.pendingVerifyReason = undefined;
+      const ip2 = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+      await recordLoginHistory(req.session.userId, ip2);
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
-        res.json({ nextStep: "phone_verify", selectedSubject });
+        res.json({ nextStep: "done" });
       });
     } catch (err) {
       console.error("Verify doc error:", err);
-      res.status(500).json({ message: "Interná chyba" });
-    }
-  });
-
-  app.post("/api/login/verify-phone", loginLimiter, async (req, res) => {
-    try {
-      if (!req.session.userId) {
-        return res.status(401).json({ message: "Neautorizovaný prístup" });
-      }
-
-      if (req.session.loginStep !== "phone_verify") {
-        return res.status(403).json({ message: "Neplatný krok prihlásenia" });
-      }
-
-      const { confirmed, newPhone, smsCode } = req.body;
-      const subjectId = req.session.loginSubjectId;
-      const userId = req.session.userId;
-
-      let auditAction = "login_identity_verified";
-      let auditNewData: any = {};
-
-      if (subjectId) {
-        const [subject] = await db.select().from(subjects).where(eq(subjects.id, subjectId));
-
-        if (!confirmed) {
-          if (!newPhone || !smsCode) {
-            return res.status(400).json({ message: "Zadajte nové telefónne číslo a SMS kód" });
-          }
-
-          if (!/^\d{6}$/.test(smsCode)) {
-            return res.status(400).json({ message: "SMS kód musí mať 6 číslic" });
-          }
-
-          await db
-            .update(subjects)
-            .set({ phone: newPhone })
-            .where(eq(subjects.id, subjectId));
-
-          auditAction = "login_phone_changed";
-          auditNewData = { phone: newPhone, previousPhone: subject?.phone || null };
-        } else {
-          auditNewData = { phone: subject?.phone || null, confirmed: true };
-        }
-
-        await db.insert(auditLogs).values({
-          userId,
-          username: null,
-          action: auditAction,
-          module: "Auth",
-          entityId: subjectId,
-          entityName: subject ? `${subject.firstName} ${subject.lastName}` : null,
-          oldData: null,
-          newData: auditNewData,
-          ipAddress: (req.headers["x-forwarded-for"] as string)?.split(",")[0] || req.ip || null,
-        });
-
-        // Rule 2: completeness check for FO subjects (any context, including direct FO login)
-        if (subject && isPerson(subject.type)) {
-          const completeness = await checkFoProfileCompleteness({
-            id: subject.id,
-            firstName: subject.firstName,
-            lastName: subject.lastName,
-            phone: confirmed ? subject.phone : (newPhone ?? subject.phone),
-            email: subject.email,
-            street: subject.street,
-            city: subject.city,
-            postalCode: subject.postalCode,
-            idCardNumber: subject.idCardNumber,
-          });
-          if (!completeness.complete) {
-            return req.session.save((err) => {
-              if (err) return res.status(500).json({ message: "Chyba session" });
-              res.json({
-                nextStep: "blocked",
-                message: `Profil je neúplný. Chýba: ${completeness.missingFields.join(", ")}. Kontaktujte správcu systému.`,
-              });
-            });
-          }
-        }
-      }
-
-      req.session.loginStep = "done";
-      const ip2 = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
-      await recordLoginHistory(userId, ip2);
-
-      req.session.save((err) => {
-        if (err) {
-          return res.status(500).json({ message: "Chyba session" });
-        }
-        res.json({ loginStep: "done", ok: true });
-      });
-    } catch (err) {
-      console.error("Verify phone error:", err);
       res.status(500).json({ message: "Interná chyba" });
     }
   });
