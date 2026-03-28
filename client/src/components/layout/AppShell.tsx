@@ -1038,18 +1038,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 </div>
 
-                {/* KTO: Kto bude pracovať — identity selection (all non-officer_company contexts) */}
+                {/* KTO: Kto bude pracovať — identity selection (all non-current contexts) */}
                 {userContexts && (() => {
-                  const currentSubjectId = (appUser as any)?.activeSubjectId ?? null;
-                  const ktoItems = (userContexts as any[]).filter((c: any) => {
-                    // officer_company: only show when there IS a personal subject to clear (clicking = enter FO/officer mode)
-                    // Hidden when already in FO mode (activeSubjectId===null) since no identity change is possible
-                    if (c.contextType === "officer_company") return !c.isCurrent && currentSubjectId !== null;
-                    if (c.contextType === "fo") return currentSubjectId !== null;
-                    if (["szco", "po", "vs", "ts", "os"].includes(c.contextType)) return c.subjectId !== currentSubjectId;
-                    return !c.isCurrent;
-                  });
-                  if (ktoItems.length === 0) return null;
+                  const allKtoContexts = userContexts as any[];
+                  if (allKtoContexts.length <= 1) return null;
+                  const ktoItems = allKtoContexts.filter((c: any) => !c.isCurrent);
                   return (
                     <>
                       <DropdownMenuSeparator />
@@ -1138,48 +1131,46 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   );
                 })()}
 
-                {/* KDE: Kde bude pracovať — workplace selection (only officer_company contexts) */}
-                {userContexts && (() => {
+                {/* KDE: Kde bude pracovať — workplace selection (all accessible companies from /api/my-companies) */}
+                {companies && companies.length > 1 && (() => {
                   const activeCompanyId = appUser?.activeCompanyId ?? null;
-                  const kdeItems = (userContexts as any[]).filter((c: any) => c.contextType === "officer_company");
-                  if (kdeItems.length <= 1) return null;
                   return (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-3 py-1">Kde bude pracovať?</DropdownMenuLabel>
-                      {kdeItems.map((ctx: any, idx: number) => {
-                        const isCurrentCompany = ctx.companyId === activeCompanyId;
-                        const typeIcon = ctx.type === "vs" ? (
+                      {companies.map((c) => {
+                        const isCurrentCompany = c.id === activeCompanyId;
+                        const typeIcon = c.subjectType === "vs" ? (
                           <Landmark className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                        ) : ctx.type === "ts" ? (
+                        ) : c.subjectType === "ts" ? (
                           <Heart className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                        ) : ctx.type === "os" ? (
+                        ) : c.subjectType === "os" ? (
                           <Grid3X3 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         ) : (
                           <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         );
                         return (
                           <DropdownMenuItem
-                            key={`kde-${ctx.companyId}-${idx}`}
+                            key={`kde-${c.id}`}
                             className="flex items-center gap-2 py-2 cursor-pointer mx-1 rounded"
                             onClick={async () => {
                               if (isCurrentCompany) return;
                               try {
                                 localStorage.removeItem("atk_context_fo");
-                                await apiRequest("PUT", "/api/app-user/active", { activeCompanyId: ctx.companyId });
+                                await apiRequest("PUT", "/api/app-user/active", { activeCompanyId: c.id });
                                 window.location.href = "/";
                               } catch {
                                 toast({ title: "Chyba pri prepínaní prostredia", variant: "destructive" });
                               }
                             }}
-                            data-testid={`item-kde-${ctx.companyId}`}
+                            data-testid={`item-kde-${c.id}`}
                           >
                             <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-100 dark:bg-blue-900/30">
                               {typeIcon}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-medium truncate ${isCurrentCompany ? "text-foreground" : "text-muted-foreground"}`}>{ctx.label}</p>
-                              <p className="text-xs text-muted-foreground truncate">{ctx.subLabel}</p>
+                              <p className={`text-sm font-medium truncate ${isCurrentCompany ? "text-foreground" : "text-muted-foreground"}`}>{c.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{c.code}</p>
                             </div>
                             {isCurrentCompany && <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 ml-auto flex-shrink-0" />}
                           </DropdownMenuItem>
