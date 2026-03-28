@@ -1042,7 +1042,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {userContexts && (() => {
                   const currentSubjectId = (appUser as any)?.activeSubjectId ?? null;
                   const ktoItems = (userContexts as any[]).filter((c: any) => {
-                    if (c.contextType === "officer_company") return false;
+                    // officer_company: show if not current company-identity (isCurrent = activeSubjectId===null && activeCompanyId===co.id)
+                    if (c.contextType === "officer_company") return !c.isCurrent;
                     if (c.contextType === "fo") return currentSubjectId !== null;
                     if (["szco", "po", "vs", "ts", "os"].includes(c.contextType)) return c.subjectId !== currentSubjectId;
                     return !c.isCurrent;
@@ -1053,18 +1054,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-3 py-1">Kto bude pracovať?</DropdownMenuLabel>
                       {ktoItems.map((ctx: any, idx: number) => {
+                        const isOfficer = ctx.contextType === "officer_company";
                         const isLinked = ctx.contextType === "linked_account";
                         const isGuardian = ctx.contextType === "guardian";
                         const isGuardianReturn = ctx.contextType === "guardian_return";
                         const isFo = ctx.contextType === "fo";
                         const isSubject = ["szco", "po", "ts", "vs", "os"].includes(ctx.contextType);
-                        const ctxKey = isSubject ? ctx.subjectId : (ctx.companyId ?? ctx.userId);
+                        const ctxKey = isOfficer ? ctx.companyId : isSubject ? ctx.subjectId : (ctx.companyId ?? ctx.userId);
+                        const officerType = isOfficer ? (ctx.type || "po") : null;
                         const iconEl = isLinked ? (
                           <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         ) : isGuardian ? (
                           <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         ) : isGuardianReturn ? (
                           <ArrowLeft className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                        ) : isOfficer ? (
+                          officerType === "vs" ? <Landmark className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> :
+                          officerType === "ts" ? <Heart className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> :
+                          officerType === "os" ? <Grid3X3 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> :
+                          <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         ) : isSubject ? (
                           ctx.contextType === "szco" ? <Briefcase className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
                           ctx.contextType === "po" ? <Building2 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
@@ -1074,7 +1082,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         ) : (
                           <User className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                         );
-                        const iconBg = isLinked || isGuardian
+                        const iconBg = isOfficer || isLinked || isGuardian
                           ? "bg-blue-100 dark:bg-blue-900/30"
                           : isGuardianReturn
                             ? "bg-amber-100 dark:bg-amber-900/30"
@@ -1089,6 +1097,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                               try {
                                 if (isLinked || isGuardian || isGuardianReturn) {
                                   await apiRequest("POST", "/api/account-link/switch", { targetUserId: ctx.userId });
+                                  window.location.href = "/";
+                                } else if (isOfficer) {
+                                  // Acting as this company — sets both company and clears subject (FO in that company)
+                                  localStorage.removeItem("atk_context_fo");
+                                  await apiRequest("PUT", "/api/app-user/active", { activeCompanyId: ctx.companyId, activeSubjectId: null });
                                   window.location.href = "/";
                                 } else if (isSubject) {
                                   localStorage.removeItem("atk_context_fo");
@@ -1127,7 +1140,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {userContexts && (() => {
                   const activeCompanyId = appUser?.activeCompanyId ?? null;
                   const kdeItems = (userContexts as any[]).filter((c: any) => c.contextType === "officer_company");
-                  if (kdeItems.length === 0) return null;
+                  if (kdeItems.length <= 1) return null;
                   return (
                     <>
                       <DropdownMenuSeparator />
