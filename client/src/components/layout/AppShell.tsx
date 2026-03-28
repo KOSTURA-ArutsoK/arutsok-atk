@@ -1042,8 +1042,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {userContexts && (() => {
                   const currentSubjectId = (appUser as any)?.activeSubjectId ?? null;
                   const ktoItems = (userContexts as any[]).filter((c: any) => {
-                    // officer_company: show if not current company-identity (isCurrent = activeSubjectId===null && activeCompanyId===co.id)
-                    if (c.contextType === "officer_company") return !c.isCurrent;
+                    // officer_company: only show when there IS a personal subject to clear (clicking = enter FO/officer mode)
+                    // Hidden when already in FO mode (activeSubjectId===null) since no identity change is possible
+                    if (c.contextType === "officer_company") return !c.isCurrent && currentSubjectId !== null;
                     if (c.contextType === "fo") return currentSubjectId !== null;
                     if (["szco", "po", "vs", "ts", "os"].includes(c.contextType)) return c.subjectId !== currentSubjectId;
                     return !c.isCurrent;
@@ -1099,9 +1100,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                   await apiRequest("POST", "/api/account-link/switch", { targetUserId: ctx.userId });
                                   window.location.href = "/";
                                 } else if (isOfficer) {
-                                  // Acting as this company — sets both company and clears subject (FO in that company)
+                                  // Enter officer/company identity: clear any personal subject (SZČO/etc), preserve current company
+                                  // The specific company workspace is set independently via KDE section
                                   localStorage.removeItem("atk_context_fo");
-                                  await apiRequest("PUT", "/api/app-user/active", { activeCompanyId: ctx.companyId, activeSubjectId: null });
+                                  await apiRequest("PUT", "/api/app-user/active", { activeSubjectId: null });
                                   window.location.href = "/";
                                 } else if (isSubject) {
                                   localStorage.removeItem("atk_context_fo");
