@@ -9,7 +9,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useTTSContext } from "@/contexts/tts-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, UserCheck, Plus, Briefcase, User, Landmark, Heart, Grid3X3, History, ShieldCheck, ArrowLeft, Check } from "lucide-react";
+import { Moon, Sun, ChevronDown, Globe, Building2, Upload, LogOut, AlertTriangle, Timer, Volume2, VolumeX, Shield, Layers, X, LayoutGrid, Lock, UserCheck, Plus, Briefcase, User, Landmark, Heart, Grid3X3, History, ShieldCheck, ArrowLeft } from "lucide-react";
 import { useLocation } from "wouter";
 import { AccountLinkModal } from "@/components/account-link-modal";
 import { apiRequest } from "@/lib/queryClient";
@@ -1042,14 +1042,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {userContexts && (() => {
                   const activeSubjectId = (appUser as any)?.activeSubjectId ?? null;
                   // Len osobné identity — officer_company sú pracoviská (KDE), nie kto pracuje
-                  const personalContextTypes = new Set(["fo", "szco", "po", "ts", "vs", "os", "linked_account", "guardian", "guardian_return"]);
+                  const personalContextTypes = new Set(["fo", "szco", "linked_account", "guardian", "guardian_return"]);
                   const personalItems = (userContexts as any[]).filter((c: any) => personalContextTypes.has(c.contextType));
                   // isCurrent vypočítaný z activeSubjectId (nie z API — API ho má nesprávne pri FO-at-company)
                   const withCurrent = personalItems.map((c: any) => {
-                    const isSubject = ["szco", "po", "ts", "vs", "os"].includes(c.contextType);
                     const isCurrent = c.contextType === "fo"
                       ? activeSubjectId === null
-                      : isSubject
+                      : c.contextType === "szco"
                         ? activeSubjectId === c.subjectId
                         : !!c.isCurrent;
                     return { ...c, _isCurrent: isCurrent };
@@ -1066,20 +1065,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         const isGuardian = ctx.contextType === "guardian";
                         const isGuardianReturn = ctx.contextType === "guardian_return";
                         const isFo = ctx.contextType === "fo";
-                        const isSubject = ["szco", "po", "ts", "vs", "os"].includes(ctx.contextType);
-                        const ctxKey = isSubject ? ctx.subjectId : (ctx.companyId ?? ctx.userId);
+                        const isSzco = ctx.contextType === "szco";
+                        const ctxKey = isSzco ? ctx.subjectId : (ctx.companyId ?? ctx.userId);
                         const iconEl = isLinked ? (
                           <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         ) : isGuardian ? (
                           <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         ) : isGuardianReturn ? (
                           <ArrowLeft className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                        ) : isSubject ? (
-                          ctx.contextType === "szco" ? <Briefcase className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
-                          ctx.contextType === "po" ? <Building2 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
-                          ctx.contextType === "vs" ? <Landmark className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
-                          ctx.contextType === "ts" ? <Heart className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" /> :
-                          <Grid3X3 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                        ) : isSzco ? (
+                          <Briefcase className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                         ) : (
                           <User className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                         );
@@ -1087,7 +1082,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           ? "bg-blue-100 dark:bg-blue-900/30"
                           : isGuardianReturn
                             ? "bg-amber-100 dark:bg-amber-900/30"
-                            : isSubject
+                            : isSzco
                               ? "bg-violet-100 dark:bg-violet-900/30"
                               : "bg-emerald-100 dark:bg-emerald-900/30";
                         return (
@@ -1099,7 +1094,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 if (isLinked || isGuardian || isGuardianReturn) {
                                   await apiRequest("POST", "/api/account-link/switch", { targetUserId: ctx.userId });
                                   window.location.href = "/";
-                                } else if (isSubject) {
+                                } else if (isSzco) {
                                   localStorage.removeItem("atk_context_fo");
                                   if (ctx.isSubjectLink && ctx.linkId) {
                                     await apiRequest("POST", "/api/account-link/switch", { subjectLinkId: ctx.linkId });
