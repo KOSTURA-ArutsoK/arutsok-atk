@@ -92,6 +92,23 @@ function getSidebarDefault(): boolean {
   return true;
 }
 
+interface UserContextEntry {
+  contextType: string;
+  userId?: number;
+  companyId?: number | null;
+  subjectId?: number;
+  stateId?: number;
+  label: string;
+  subLabel?: string | null;
+  type?: string;
+  uid?: string | null;
+  ico?: string | null;
+  titleBefore?: string | null;
+  titleAfter?: string | null;
+  isCurrent: boolean;
+  isSubjectLink?: boolean;
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const { data: appUser } = useAppUser();
@@ -131,7 +148,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [accountLinkModalOpen, setAccountLinkModalOpen] = useState(false);
   const [loginHistoryOpen, setLoginHistoryOpen] = useState(false);
 
-  const { data: userContexts } = useQuery<any[]>({
+  const { data: userContexts } = useQuery<UserContextEntry[]>({
     queryKey: ["/api/user/contexts"],
     enabled: !!user,
     staleTime: 30000,
@@ -225,9 +242,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         localStorage.removeItem("atk_pending_identity_setup");
       } else {
         // No company set — compute identity options and show identity step
-        const foCtx = (userContexts as any[]).find((c) => c.contextType === "fo");
-        const szcoCtxs = (userContexts as any[]).filter((c) => c.contextType === "szco");
-        const officerCtxs = (userContexts as any[]).filter((c) => c.contextType === "officer_company");
+        const foCtx = (userContexts ?? []).find((c) => c.contextType === "fo");
+        const szcoCtxs = (userContexts ?? []).filter((c) => c.contextType === "szco");
+        const officerCtxs = (userContexts ?? []).filter((c) => c.contextType === "officer_company");
 
         const opts: IdentityOption[] = [];
         if (foCtx) opts.push({ type: "fo", label: foCtx.label, subLabel: "Fyzická osoba", subjectId: foCtx.subjectId ?? null });
@@ -690,19 +707,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const activeKtoCompanyId = appUser?.activeKtoCompanyId ?? null;
   const hasOfficerIdentity = !hasSubjectIdentity && !!activeKtoCompanyId;
   const activeIdentityEntry = hasSubjectIdentity
-    ? userContexts?.find((c: any) => c.subjectId === appUser?.activeSubjectId)
+    ? userContexts?.find((c) => c.subjectId === appUser?.activeSubjectId)
     : hasOfficerIdentity
-      ? userContexts?.find((c: any) => c.contextType === "officer_company" && c.companyId === activeKtoCompanyId)
+      ? userContexts?.find((c) => c.contextType === "officer_company" && c.companyId === activeKtoCompanyId)
       : null;
-  const isActingAsLinkedSubject = !!(activeIdentityEntry as any)?.isSubjectLink && hasSubjectIdentity;
+  const isActingAsLinkedSubject = !!activeIdentityEntry?.isSubjectLink && hasSubjectIdentity;
   const isNonFoContext = hasSubjectIdentity || hasOfficerIdentity;
   const activeIdentityLabel = activeIdentityEntry?.label ?? displayName;
   const activeIdentitySubLabel = activeIdentityEntry?.subLabel ?? null;
-  const foContext = userContexts?.find((c: any) => c.contextType === 'fo');
+  const foContext = userContexts?.find((c) => c.contextType === 'fo');
   const actorName = [
-    (foContext as any)?.titleBefore,
+    foContext?.titleBefore,
     foContext?.label ?? displayName,
-    (foContext as any)?.titleAfter,
+    foContext?.titleAfter,
   ].filter(Boolean).join(" ");
   const activeIdentityInitials = activeIdentityEntry
     ? activeIdentityEntry.label.split(/[\s,\.]+/).filter(Boolean).slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join("")
@@ -1055,7 +1072,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   const activeSubjectId = appUser?.activeSubjectId ?? null;
                   const activeKtoCompanyId = appUser?.activeKtoCompanyId ?? null;
                   const isFoMode = !activeSubjectId && !activeKtoCompanyId;
-                  const ktoItems = (userContexts as any[]).filter((c: any) => {
+                  const ktoItems = (userContexts ?? []).filter((c) => {
                     if (!allContextTypes.has(c.contextType)) return false;
                     // user-switch kontexty: API isCurrent je spoľahlivé (prepnutie účtu)
                     if (["linked_account", "guardian", "guardian_return"].includes(c.contextType))
@@ -1191,7 +1208,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="flex items-center gap-2">
                 <UserCheck className="w-4 h-4 flex-shrink-0" />
                 <span className="text-sm font-medium">
-                  Ako oprávnená osoba <strong>{actorName}</strong> konáte v mene {activeIdentityLabel}{(activeIdentityEntry as any)?.ico ? ` (IČO: ${(activeIdentityEntry as any).ico})` : ""}
+                  Ako oprávnená osoba <strong>{actorName}</strong> konáte v mene {activeIdentityLabel}{activeIdentityEntry?.ico ? ` (IČO: ${activeIdentityEntry.ico})` : ""}
                 </span>
               </div>
               <Button
