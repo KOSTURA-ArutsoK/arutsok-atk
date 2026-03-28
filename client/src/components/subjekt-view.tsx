@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatDateSlovak, formatDateTimeSlovak, formatUid, getDateSemaphore, getDateSemaphoreClasses, isSemaphoreDateField } from "@/lib/utils";
+import { formatDateSlovak, formatDateTimeSlovak, formatUid, getDateSemaphore, getDateSemaphoreClasses, isSemaphoreDateField, isAdmin } from "@/lib/utils";
 import { SubjectProfilePhoto } from "@/components/subject-profile-photo";
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
 
@@ -963,6 +963,17 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
     queryFn: () => apiRequest("GET", `/api/subjects/${subject.id}/documents`).then(r => r.json()),
   });
 
+  const {
+    data: accessListData,
+    isLoading: accessListLoading,
+    error: accessListError,
+  } = useQuery<AccessListEntry[]>({
+    queryKey: [`/api/subjects/${subject.id}/access-list`],
+    retry: false,
+  });
+
+  const canViewAccessList = isAdmin(appUser) || accessListLoading || (accessListData !== undefined && !accessListError);
+
   const upsertConsent = useMutation({
     mutationFn: async (data: { consentType: string; isGranted: boolean; companyId: number }) => {
       return apiRequest("POST", `/api/subjects/${subject.id}/marketing-consents`, data);
@@ -1608,14 +1619,16 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
                 return <div className="w-2 h-2 rounded-full bg-amber-500 ml-1.5" />;
               })()}
             </TabsTrigger>
-            <TabsTrigger
-              value="__opravnene__"
-              className="text-xs px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:font-semibold transition-all"
-              data-testid="tab-opravnene"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
-              Oprávnené osoby
-            </TabsTrigger>
+            {canViewAccessList && (
+              <TabsTrigger
+                value="__opravnene__"
+                className="text-xs px-3 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:font-semibold transition-all"
+                data-testid="tab-opravnene"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
+                Oprávnené osoby
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {!isClientView && (
@@ -1633,9 +1646,11 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
             />
           </TabsContent>
 
-          <TabsContent value="__opravnene__" className="mt-3" data-testid="tabcontent-opravnene">
-            <BoardroomSection subjectId={subject.id} />
-          </TabsContent>
+          {canViewAccessList && (
+            <TabsContent value="__opravnene__" className="mt-3" data-testid="tabcontent-opravnene">
+              <BoardroomSection subjectId={subject.id} accessList={accessListData} isLoading={accessListLoading} error={accessListError} />
+            </TabsContent>
+          )}
 
           {displayTabs.map(tab => {
             const rawTabCats = categoriesByTab[tab.id] || [];
@@ -2886,13 +2901,13 @@ function buildFullName(entry: AccessListEntry): string {
   return entry.titleAfter ? `${base}, ${entry.titleAfter}` : base;
 }
 
-function BoardroomSection({ subjectId }: { subjectId: number }) {
+function BoardroomSection({ subjectId, accessList, isLoading, error }: {
+  subjectId: number;
+  accessList: AccessListEntry[] | undefined;
+  isLoading: boolean;
+  error: Error | null;
+}) {
   const [warningModalOpen, setWarningModalOpen] = useState(false);
-
-  const { data: accessList, isLoading, error } = useQuery<AccessListEntry[]>({
-    queryKey: [`/api/subjects/${subjectId}/access-list`],
-    retry: false,
-  });
 
   const is403 = error instanceof Error && error.message.startsWith("403");
 
