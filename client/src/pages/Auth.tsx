@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Shield, Lock, AlertTriangle, Mail, Eye, EyeOff, Phone, CheckCircle, Users, ArrowRight, FolderOpen, Baby, CreditCard, XCircle, ChevronLeft, Building2 } from "lucide-react";
-import { formatUid, normalizePhone } from "@/lib/utils";
+import { formatUid, normalizePhone, formatPhone } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -417,7 +417,7 @@ export default function AuthPage() {
                         </div>
                         <p className="text-xs text-muted-foreground">{subjectTypeLabelSk(s.type)}</p>
                         {isMinor && <p className="text-xs text-blue-500">Neplnoletá osoba</p>}
-                        {s.phone && <p className="text-xs font-mono text-muted-foreground">{s.phone}</p>}
+                        {s.phone && <p className="text-xs font-mono text-muted-foreground">{formatPhone(s.phone)}</p>}
                       </button>
                     );
                   })}

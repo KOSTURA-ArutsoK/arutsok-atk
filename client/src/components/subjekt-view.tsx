@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formatDateSlovak, formatDateTimeSlovak, formatUid, getDateSemaphore, getDateSemaphoreClasses, isSemaphoreDateField, isAdmin } from "@/lib/utils";
+import { formatDateSlovak, formatDateTimeSlovak, formatUid, formatPhone, getDateSemaphore, getDateSemaphoreClasses, isSemaphoreDateField, isAdmin } from "@/lib/utils";
 import { SubjectProfilePhoto } from "@/components/subject-profile-photo";
 import { FieldHistoryIndicator } from "@/components/field-history-indicator";
 
@@ -3958,7 +3958,7 @@ function GuardianshipSection({ subjectId }: { subjectId: number }) {
                   {(g.email || g.phone) && (
                     <div className="flex items-center gap-2 mt-0.5">
                       {g.email && <span className="text-[9px] text-muted-foreground">{g.email}</span>}
-                      {g.phone && <span className="text-[9px] text-muted-foreground">{g.phone}</span>}
+                      {g.phone && <span className="text-[9px] text-muted-foreground">{formatPhone(g.phone)}</span>}
                     </div>
                   )}
                 </div>
@@ -3997,7 +3997,7 @@ function GuardianshipSection({ subjectId }: { subjectId: number }) {
                   <div className="flex items-center gap-2 mt-0.5">
                     {w.dateOfBirth && <span className="text-[9px] text-muted-foreground">Nar.: {new Date(w.dateOfBirth).toLocaleDateString("sk-SK")}</span>}
                     {w.email && <span className="text-[9px] text-muted-foreground">{w.email}</span>}
-                    {w.phone && <span className="text-[9px] text-muted-foreground">{w.phone}</span>}
+                    {w.phone && <span className="text-[9px] text-muted-foreground">{formatPhone(w.phone)}</span>}
                   </div>
                 </div>
                 <Button variant="ghost" size="icon" className="p-0 text-destructive shrink-0"

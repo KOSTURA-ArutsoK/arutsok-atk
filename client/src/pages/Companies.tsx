@@ -9,7 +9,7 @@ import { ConditionalDelete } from "@/components/conditional-delete";
 import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, ChevronRight, Phone, Mail, GitBranch, Info, UserCheck, UserPlus, Users, Camera, UserCog, Archive, Briefcase } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { formatDateSlovak, formatDateTimeSlovak, formatUid } from "@/lib/utils";
+import { formatDateSlovak, formatDateTimeSlovak, formatUid, formatPhone } from "@/lib/utils";
 import { useToast as useToastCompanyDiv } from "@/hooks/use-toast";
 import type { CompanyLogoHistory, Division } from "@shared/schema";
 
@@ -1915,7 +1915,7 @@ function CompanyFormDialog({
                               <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                                 {br.activeFrom && <span>Od: {br.activeFrom}</span>}
                                 {br.isActive === false && br.cancelledAt && <span className="text-destructive">Zrušená: {br.cancelledAt}</span>}
-                                {brPhones.map((p, i) => <span key={i} className="flex items-center gap-0.5"><Phone className="w-2.5 h-2.5" />{p}</span>)}
+                                {brPhones.map((p, i) => <span key={i} className="flex items-center gap-0.5"><Phone className="w-2.5 h-2.5" />{formatPhone(p)}</span>)}
                                 {brEmails.map((e, i) => <span key={i} className="flex items-center gap-0.5"><Mail className="w-2.5 h-2.5" />{e}</span>)}
                               </div>
                             </div>
@@ -2264,7 +2264,7 @@ function CompanyDetailDialog({
                           <p className="text-muted-foreground text-xs">{[br.street, br.streetNumber, br.postalCode, br.city, br.stateId ? getStateName(br.stateId) : null].filter(Boolean).join(", ") || "Bez adresy"}</p>
                           {(brPhones.length > 0 || brEmails.length > 0) && (
                             <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                              {brPhones.map((p, i) => <span key={i} className="flex items-center gap-0.5"><Phone className="w-2.5 h-2.5" />{p}</span>)}
+                              {brPhones.map((p, i) => <span key={i} className="flex items-center gap-0.5"><Phone className="w-2.5 h-2.5" />{formatPhone(p)}</span>)}
                               {brEmails.map((e, i) => <span key={i} className="flex items-center gap-0.5"><Mail className="w-2.5 h-2.5" />{e}</span>)}
                             </div>
                           )}
