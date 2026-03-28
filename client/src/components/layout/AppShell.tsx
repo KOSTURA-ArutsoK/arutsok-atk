@@ -222,7 +222,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         const officerCtxs = (userContexts as any[]).filter((c) => c.contextType === "officer_company");
 
         const opts: IdentityOption[] = [];
-        if (foCtx) opts.push({ type: "fo", label: foCtx.label, subLabel: "Fyzická osoba", subjectId: null });
+        if (foCtx) opts.push({ type: "fo", label: foCtx.label, subLabel: "Fyzická osoba", subjectId: foCtx.subjectId ?? null });
         for (const ctx of szcoCtxs) {
           opts.push({ type: "szco", label: ctx.label, subLabel: ctx.subLabel || "SZČO", subjectId: ctx.subjectId ?? null });
         }
@@ -465,29 +465,69 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [setActive]);
 
   const handleContextSelectIdentity = useCallback(async (ctx: IdentityOption) => {
-    const subjectIdToSet = ctx.type === "szco" ? ctx.subjectId : null;
+    // subjectId is null for FO/Firma, set subjectId for SZČO (or FO with linked subject)
+    const subjectIdToSet = ctx.subjectId;
     setActive.mutate({ activeSubjectId: subjectIdToSet }, {
-      onSuccess: () => {
-        // Clear flag — will be removed once company is fully set (in company/division handler)
-        // Proceed to state/company selection
-        if (!appUser?.activeStateId) {
+      onSuccess: async () => {
+        try {
+          if (ctx.type === "szco" || ctx.type === "firma") {
+            // For SZČO/Firma: fetch valid companies for this subject identity
+            const compsRes = await fetch("/api/my-companies", { credentials: "include" });
+            if (!compsRes.ok) { setPendingStateId(null); setContextStep("state"); return; }
+            const validComps = await compsRes.json();
+            if (validComps.length === 0) {
+              // No companies for this identity — close overlay, done
+              setContextOverlayOpen(false);
+              setLoginFlow(false);
+              localStorage.removeItem("atk_pending_identity_setup");
+              return;
+            }
+            if (validComps.length === 1) {
+              // Single company — auto-select it (handleContextSelectCompany handles divisions + flag clear)
+              await handleContextSelectCompany(validComps[0].id);
+            } else {
+              // Multiple companies — show company picker (skip state if all share one state)
+              const uniqueStateIds = [...new Set(
+                validComps.map((c: any) => c.stateId).filter((id: any) => id != null)
+              )] as number[];
+              if (uniqueStateIds.length === 1) {
+                setPendingStateId(uniqueStateIds[0]);
+                setContextStep("company");
+              } else {
+                setPendingStateId(null);
+                setContextStep("state");
+              }
+            }
+          } else {
+            // FO identity: run the same auto-select pipeline as initial context init
+            const activeStates = (allStates || []).filter((s: any) => s.isActive);
+            if (activeStates.length === 1) {
+              const singleStateId = activeStates[0].id;
+              const compsRes = await fetch("/api/my-companies", { credentials: "include" });
+              if (compsRes.ok) {
+                const allComps = await compsRes.json();
+                const stateComps = allComps.filter((c: any) => c.stateId === singleStateId);
+                if (stateComps.length === 1) {
+                  // Single state + single company — auto-select (handleContextSelectCompany handles rest)
+                  await handleContextSelectCompany(stateComps[0].id);
+                  return;
+                }
+              }
+            }
+            // Multiple states or multiple companies — show state picker
+            setPendingStateId(null);
+            setContextStep("state");
+          }
+        } catch {
           setPendingStateId(null);
           setContextStep("state");
-        } else if (!appUser?.activeCompanyId) {
-          setPendingStateId(appUser.activeStateId);
-          setContextStep("company");
-        } else {
-          // Already has state + company — done
-          setContextOverlayOpen(false);
-          setLoginFlow(false);
-          localStorage.removeItem("atk_pending_identity_setup");
         }
       },
       onError: () => {
         toast({ title: "Chyba pri nastavení identity", variant: "destructive" });
       }
     });
-  }, [setActive, appUser, toast]);
+  }, [setActive, allStates, handleContextSelectCompany, toast]);
 
   const handleContextBack = useCallback(() => {
     if (contextStep === "division") {
