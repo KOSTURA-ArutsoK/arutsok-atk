@@ -1041,14 +1041,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {/* KTO: Kto bude pracovať — všetky identity: FO, SZČO, officer_company, prepojené účty */}
                 {userContexts && (() => {
                   const allContextTypes = new Set(["fo", "szco", "officer_company", "linked_account", "guardian", "guardian_return"]);
-                  // FO mód: activeSubjectId===null a (localStorage flag alebo activeCompanyId===null).
-                  // Keď je FO mód aktívny, officer_company záznamy sa nikdy nepovažujú za isCurrent
-                  // (API vracia isCurrent=true pre officer_company ak activeCompanyId sedí — ale to je
-                  // nesprávne keď si súčasne v FO móde s nastaveným activeCompanyId).
-                  const isFoMode = !appUser?.activeSubjectId && (localStorage.getItem("atk_context_fo") === "1" || !appUser?.activeCompanyId);
+                  // KTO filter: skryť LEN aktívnu KTO identitu — KDE (activeCompanyId hornej lišty)
+                  // nemá žiadny vplyv na viditeľnosť. "Zrkadlový kontext" ATK:
+                  //   miesto práce (KDE) a podpisová identita (KTO) sú striktne nezávislé osi.
+                  const isFoMode = !appUser?.activeSubjectId &&
+                    (localStorage.getItem("atk_context_fo") === "1" || !appUser?.activeCompanyId);
                   const ktoItems = (userContexts as any[]).filter((c: any) => {
                     if (!allContextTypes.has(c.contextType)) return false;
-                    if (c.isCurrent && !(isFoMode && c.contextType === "officer_company")) return false;
+                    // user-switch kontexty: API isCurrent je spoľahlivé (prepnutie účtu)
+                    if (["linked_account", "guardian", "guardian_return"].includes(c.contextType))
+                      return !c.isCurrent;
+                    // FO: skrytá len keď som práve FO
+                    if (c.contextType === "fo") return !isFoMode;
+                    // SZČO: skrytá len keď activeSubjectId sedí
+                    if (c.contextType === "szco") return appUser?.activeSubjectId !== c.subjectId;
+                    // officer_company: skrytá len keď som práve konateľom TEJTO firmy
+                    // (nie len preto, že je vybraná v KDE hornej lišty!)
+                    if (c.contextType === "officer_company")
+                      return isFoMode || !!appUser?.activeSubjectId || appUser?.activeCompanyId !== c.companyId;
                     return true;
                   });
                   if (ktoItems.length === 0) return null;
