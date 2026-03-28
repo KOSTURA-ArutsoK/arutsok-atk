@@ -478,10 +478,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             if (!compsRes.ok) { setPendingStateId(null); setContextStep("state"); return; }
             const validComps = await compsRes.json();
             if (validComps.length === 0) {
-              // No companies for this identity — close overlay, done
-              setContextOverlayOpen(false);
-              setLoginFlow(false);
-              localStorage.removeItem("atk_pending_identity_setup");
+              // No companies for this identity — keep overlay open at state step
+              // (mandatory company selection must not be bypassed in loginFlow)
+              setLoginFlowPrevStep(null);
+              setPendingStateId(null);
+              setContextStep("state");
               return;
             }
             if (validComps.length === 1) {

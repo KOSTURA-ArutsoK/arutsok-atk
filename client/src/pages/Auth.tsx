@@ -293,15 +293,7 @@ export default function AuthPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/app-user/me"] }),
       queryClient.invalidateQueries({ queryKey: ["/api/home-popup-data"] }),
     ]);
-    try {
-      const ctxRes = await fetch("/api/user/contexts", { credentials: "include" });
-      if (ctxRes.ok) {
-        const ctxData = await ctxRes.json();
-        if (Array.isArray(ctxData) && ctxData.length > 1) {
-          localStorage.setItem("atk_pending_identity_setup", "1");
-        }
-      }
-    } catch {}
+    localStorage.setItem("atk_pending_identity_setup", "1");
     navigate("/");
   };
 
