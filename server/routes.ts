@@ -4001,13 +4001,14 @@ export async function registerRoutes(
         }
 
         if (guarantorSubjectId && guarantorSubjectId !== created.id) {
-          await db.insert(networkLinks).values({
+          const linkPayload: typeof networkLinks.$inferInsert = {
             subjectId: created.id,
             guarantorSubjectId,
             linkType: 'active',
             phase: 'klient',
             confirmedByUserId: _appUser?.id ?? null,
-          } as any).onConflictDoNothing();
+          };
+          await db.insert(networkLinks).values(linkPayload).onConflictDoNothing();
         }
       }
 
