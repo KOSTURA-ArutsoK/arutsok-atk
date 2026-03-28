@@ -429,9 +429,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const handleContextSelectCompany = useCallback(async (companyId: number, preStateId?: number) => {
     setPendingCompanyId(companyId);
-    const companyMutationData: Record<string, unknown> = { activeCompanyId: companyId, activeDivisionId: null };
-    if (preStateId != null) companyMutationData.activeStateId = preStateId;
-    setActive.mutate(companyMutationData as any, {
+    setActive.mutate({
+      activeCompanyId: companyId,
+      activeDivisionId: null,
+      ...(preStateId != null ? { activeStateId: preStateId } : {}),
+    }, {
       onSuccess: async () => {
         try {
           const res = await fetch(`/api/companies/${companyId}/divisions`, { credentials: "include" });
@@ -505,11 +507,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 validComps.map((c: any) => c.stateId).filter((id: any) => id != null)
               )] as number[];
               if (uniqueStateIds.length === 1) {
-                // State auto-skipped — show company step immediately, persist activeStateId in background
+                // State auto-skipped — delegate state persistence to handleContextSelectState (sets step on success)
                 setLoginFlowPrevStep("identity");
                 setPendingStateId(uniqueStateIds[0]);
-                setContextStep("company");
-                setActive.mutate({ activeStateId: uniqueStateIds[0], activeCompanyId: null, activeDivisionId: null } as any);
+                handleContextSelectState(uniqueStateIds[0]);
               } else {
                 // State step will be shown — Back from state → identity
                 setLoginFlowPrevStep(null);
@@ -534,12 +535,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   return;
                 }
                 if (stateComps.length > 1) {
-                  // Single state + multiple companies — skip state, show company picker; persist state in background
+                  // Single state + multiple companies — skip state, delegate state persistence to handleContextSelectState
                   setLoginFlowPrevStep("identity");
                   setPendingStateId(singleStateId);
-                  setContextStep("company");
                   setContextOverlayOpen(true);
-                  setActive.mutate({ activeStateId: singleStateId, activeCompanyId: null, activeDivisionId: null } as any);
+                  handleContextSelectState(singleStateId);
                   return;
                 }
                 // 0 companies in this state — fall through to state picker
@@ -564,7 +564,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         toast({ title: "Chyba pri nastavení identity", variant: "destructive" });
       }
     });
-  }, [setActive, allStates, handleContextSelectCompany, toast]);
+  }, [setActive, allStates, handleContextSelectCompany, handleContextSelectState, toast]);
 
   const handleContextBack = useCallback(() => {
     if (contextStep === "division") {
