@@ -235,7 +235,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           opts.push({ type: "szco", label: ctx.label, subLabel: ctx.subLabel || "SZČO", subjectId: ctx.subjectId ?? null });
         }
         for (const ctx of officerCtxs) {
-          opts.push({ type: "firma", label: ctx.label, subLabel: ctx.subLabel || "Konateľ firmy", subjectId: null, companyId: ctx.companyId ?? null });
+          opts.push({ type: "firma", label: ctx.label, subLabel: ctx.subLabel || "Konateľ firmy", subjectId: null, companyId: ctx.companyId ?? null, stateId: ctx.stateId ?? null });
         }
 
         // loginFlow=true for ALL setup paths — makes overlay non-closable regardless of identity step
@@ -490,7 +490,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             // Individual firma entry with specific company — go directly to that company
             if (ctx.type === "firma" && ctx.companyId != null) {
               setLoginFlowPrevStep("identity");
-              await handleContextSelectCompany(ctx.companyId, undefined);
+              await handleContextSelectCompany(ctx.companyId, ctx.stateId ?? undefined);
               return;
             }
             // For SZČO/Firma: fetch valid companies for this subject identity

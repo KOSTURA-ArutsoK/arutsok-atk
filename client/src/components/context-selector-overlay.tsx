@@ -12,6 +12,7 @@ export type IdentityOption = {
   subLabel: string;
   subjectId: number | null;
   companyId?: number | null;
+  stateId?: number | null;
 };
 
 const LEGAL_FORMS = [
