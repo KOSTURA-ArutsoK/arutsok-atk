@@ -22929,8 +22929,9 @@ export async function registerRoutes(
 
       const allLinksBuilt = [...allLinks, ...virtualPartnerLinks];
 
-      // KDE isolation: if user has activeCompanyId set, restrict tree to that company's branch only
+      // KDE isolation: restrict tree to the company's branch when KDE is set
       const filterCompanyId = (req as any).appUser?.activeCompanyId ?? null;
+      const isSuperadmin = (req as any).appUser?.role === 'superadmin';
       let visibleSubjects = allSubjectsBuilt;
       let visibleLinks = allLinksBuilt;
 
@@ -22947,25 +22948,37 @@ export async function registerRoutes(
           companyNodeId = -(filterCompanyId);
         }
 
-        // BFS: collect all subject IDs reachable from root + company node downward
-        const visitedIds = new Set<number>([rootSubject.id]);
-        if (companyNodeId !== null) visitedIds.add(companyNodeId);
+        if (companyNodeId === null) {
+          // No matching company node found — return nothing
+          visibleSubjects = [];
+          visibleLinks = [];
+        } else {
+          // BFS: start ONLY from company node (not root) to stay within this company's branch
+          const visitedIds = new Set<number>([companyNodeId]);
 
-        let changed = true;
-        while (changed) {
-          changed = false;
-          for (const link of allLinksBuilt) {
-            if (visitedIds.has(link.guarantorSubjectId) && !visitedIds.has(link.subjectId)) {
-              visitedIds.add(link.subjectId);
-              changed = true;
+          let changed = true;
+          while (changed) {
+            changed = false;
+            for (const link of allLinksBuilt) {
+              if (visitedIds.has(link.guarantorSubjectId) && !visitedIds.has(link.subjectId)) {
+                visitedIds.add(link.subjectId);
+                changed = true;
+              }
             }
           }
-        }
 
-        visibleSubjects = allSubjectsBuilt.filter(s => visitedIds.has(s.id));
-        visibleLinks = allLinksBuilt.filter(
-          l => visitedIds.has(l.subjectId) && visitedIds.has(l.guarantorSubjectId)
-        );
+          // Also include the root subject so the tree has an anchor node
+          visitedIds.add(rootSubject.id);
+
+          visibleSubjects = allSubjectsBuilt.filter(s => visitedIds.has(s.id));
+          visibleLinks = allLinksBuilt.filter(
+            l => visitedIds.has(l.subjectId) && visitedIds.has(l.guarantorSubjectId)
+          );
+        }
+      } else if (!isSuperadmin) {
+        // Non-superadmin without KDE must not see the full tree
+        visibleSubjects = [];
+        visibleLinks = [];
       }
 
       res.json({
