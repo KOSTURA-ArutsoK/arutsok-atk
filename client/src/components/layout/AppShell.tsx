@@ -243,10 +243,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           return; // state/company handled after identity selection in handleContextSelectIdentity
         }
 
-        // 0 or 1 identity option — auto-skip identity step, fall through to state/company
-        // loginFlow is already true so the overlay will be non-closable
-        if (opts.length === 1 && opts[0].type === "szco" && opts[0].subjectId) {
-          setActive.mutate({ activeSubjectId: opts[0].subjectId });
+        if (opts.length === 1) {
+          // Single identity option — auto-skip identity step but properly apply via full pipeline
+          // This ensures activeSubjectId is set correctly and the auto-select pipeline runs
+          setContextOverlayOpen(true);
+          handleContextSelectIdentity(opts[0]);
+          return;
+        }
+
+        // 0 identity options (user has no registered contexts) — clear stale subject and fall through
+        if ((appUser as any).activeSubjectId) {
+          setActive.mutate({ activeSubjectId: null });
         }
         // Fall through to needsFullContext check below (loginFlow=true ensures non-closable)
       }
@@ -401,6 +408,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         })();
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appUser, isClientUser, autoCreateDivisionForCompany, allStates, userContexts]);
 
   const handleContextSelectState = useCallback((stateId: number) => {
@@ -523,9 +531,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   await handleContextSelectCompany(stateComps[0].id);
                   return;
                 }
+                if (stateComps.length > 1) {
+                  // Single state + multiple companies — skip state, show company picker
+                  setLoginFlowPrevStep("identity");
+                  setPendingStateId(singleStateId);
+                  setContextStep("company");
+                  return;
+                }
+                // 0 companies in this state — fall through to state picker
               }
             }
-            // Multiple states or multiple companies — show state picker; Back from state → identity
+            // Multiple active states (or no companies in single state) — show state picker
             setLoginFlowPrevStep(null);
             setPendingStateId(null);
             setContextStep("state");
