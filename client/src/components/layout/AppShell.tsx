@@ -1041,11 +1041,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {/* KTO: Kto bude pracovať — všetky identity: FO, SZČO, officer_company, prepojené účty */}
                 {userContexts && (() => {
                   const allContextTypes = new Set(["fo", "szco", "officer_company", "linked_account", "guardian", "guardian_return"]);
-                  // isCurrent z API — server ho vypočítava správne pre každý typ:
-                  //   fo: activeCompanyId===null && activeSubjectId===null
-                  //   officer_company: activeSubjectId===null && activeCompanyId===companyId
-                  //   szco/subject: activeSubjectId===subjectId
-                  const ktoItems = (userContexts as any[]).filter((c: any) => allContextTypes.has(c.contextType) && !c.isCurrent);
+                  // Aktívna identita sa určuje výhradne z appUser stavu — nie z ctx.isCurrent (API ho má
+                  // nesprávne keď je FO mód + activeCompanyId nastavené súčasne).
+                  const _activeSubjectId = (appUser as any)?.activeSubjectId ?? null;
+                  const _activeCompanyId = (appUser as any)?.activeCompanyId ?? null;
+                  const isFoMode = !_activeSubjectId && (localStorage.getItem("atk_context_fo") === "1" || !_activeCompanyId);
+                  const isActiveIdentity = (c: any): boolean => {
+                    if (c.contextType === "fo") return isFoMode;
+                    if (c.contextType === "szco") return _activeSubjectId !== null && _activeSubjectId === c.subjectId;
+                    if (c.contextType === "officer_company") return !isFoMode && _activeSubjectId === null && _activeCompanyId === c.companyId;
+                    if (["linked_account", "guardian", "guardian_return"].includes(c.contextType)) return !!c.isCurrent;
+                    return false;
+                  };
+                  const ktoItems = (userContexts as any[]).filter((c: any) => allContextTypes.has(c.contextType) && !isActiveIdentity(c));
                   if (ktoItems.length === 0) return null;
                   return (
                     <>
