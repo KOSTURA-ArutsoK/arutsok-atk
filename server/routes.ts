@@ -895,6 +895,40 @@ export async function registerRoutes(
         if (migrated > 0) console.log(`[SEED] Migrated ${migrated} partner(s) → partnerCompanyLinks`);
       }
 
+      // Data fix: Kooperativa (partner ID 26) was incorrectly linked to KCO (id=24) instead of KFS (id=23)
+      // due to KDE vs KTO context confusion in partner create. Fix: move link to KFS.
+      {
+        const KOOPERATIVA_PARTNER_ID = 26;
+        const WRONG_COMPANY_ID = 24; // KCO
+        const CORRECT_COMPANY_ID = 23; // KFS
+        const [wrongLink] = await db.select({ id: partnerCompanyLinks.id })
+          .from(partnerCompanyLinks)
+          .where(and(
+            eq(partnerCompanyLinks.partnerId, KOOPERATIVA_PARTNER_ID),
+            eq(partnerCompanyLinks.myCompanyId, WRONG_COMPANY_ID)
+          ))
+          .limit(1);
+        if (wrongLink) {
+          // Check there's no correct link already (unique constraint)
+          const [correctLink] = await db.select({ id: partnerCompanyLinks.id })
+            .from(partnerCompanyLinks)
+            .where(and(
+              eq(partnerCompanyLinks.partnerId, KOOPERATIVA_PARTNER_ID),
+              eq(partnerCompanyLinks.myCompanyId, CORRECT_COMPANY_ID)
+            ))
+            .limit(1);
+          if (!correctLink) {
+            await db.update(partnerCompanyLinks)
+              .set({ myCompanyId: CORRECT_COMPANY_ID })
+              .where(eq(partnerCompanyLinks.id, wrongLink.id));
+            console.log(`[REPAIR] Kooperativa (partner ${KOOPERATIVA_PARTNER_ID}): moved link from company ${WRONG_COMPANY_ID} (KCO) to ${CORRECT_COMPANY_ID} (KFS)`);
+          } else {
+            await db.delete(partnerCompanyLinks).where(eq(partnerCompanyLinks.id, wrongLink.id));
+            console.log(`[REPAIR] Kooperativa (partner ${KOOPERATIVA_PARTNER_ID}): removed duplicate KCO link (correct KFS link already exists)`);
+          }
+        }
+      }
+
       // Repair: backfill stateId for subjects with null stateId but with a myCompanyId
       {
         const nullStateSubjects = await db
@@ -2866,10 +2900,12 @@ export async function registerRoutes(
         });
       }
       const { partner: created, matchedSubject } = await storage.createPartner({ ...input, myCompanyId: activeCompanyId });
-      // Add to many-to-many junction (idempotent — unique constraint prevents duplicates)
-      if (activeCompanyId) {
+      // Add to many-to-many junction using KTO company (not KDE) — the user acts on behalf of KTO
+      // Fallback to KDE (activeCompanyId) when KTO company is not set
+      const ktoCompanyId = activeKtoCompanyId ?? activeCompanyId;
+      if (ktoCompanyId) {
         await db.insert(partnerCompanyLinks)
-          .values({ partnerId: created.id, myCompanyId: activeCompanyId })
+          .values({ partnerId: created.id, myCompanyId: ktoCompanyId })
           .onConflictDoNothing();
       }
       await logAudit(req, { action: "CREATE", module: "partneri", entityId: created.id, entityName: created.name, newData: input });
@@ -3937,17 +3973,49 @@ export async function registerRoutes(
           input.birthNumber = encryptField(input.birthNumber);
         }
         if (!input.linkedFoId) input.linkedFoId = null;
-        const created = await storage.createSubject(input);
-        await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: created.companyName || `${created.firstName} ${created.lastName} - SZCO ${created.uid}`, newData: { ...input, birthNumber: undefined } });
-        res.status(201).json(decryptBirthNumber(created));
       } else {
         if (input.birthNumber) {
           input.birthNumber = encryptField(input.birthNumber);
         }
-        const created = await storage.createSubject(input);
-        await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: (created.firstName ? created.firstName + ' ' + created.lastName : created.companyName) || undefined, newData: { ...input, birthNumber: input.birthNumber ? '***' : undefined } });
-        res.status(201).json(decryptBirthNumber(created));
       }
+
+      const created = await storage.createSubject(input);
+
+      // Auto-create network link: resolve guarantor from KTO context
+      // Priority 1: activeKtoCompanyId → mycompany subject node
+      // Priority 2: activeSubjectId (SZČO KTO)
+      // Priority 3: linkedSubjectId (FO fallback)
+      {
+        const _appUser = req.appUser;
+        let guarantorSubjectId: number | null = null;
+
+        if (_appUser?.activeKtoCompanyId) {
+          const companySubj = await getOrCreateCompanySubject(_appUser.activeKtoCompanyId);
+          if (companySubj) guarantorSubjectId = companySubj.id;
+        }
+        if (!guarantorSubjectId && _appUser?.activeSubjectId) {
+          guarantorSubjectId = _appUser.activeSubjectId;
+        }
+        if (!guarantorSubjectId && _appUser?.linkedSubjectId) {
+          guarantorSubjectId = _appUser.linkedSubjectId;
+        }
+
+        if (guarantorSubjectId && guarantorSubjectId !== created.id) {
+          await db.insert(networkLinks).values({
+            subjectId: created.id,
+            guarantorSubjectId,
+            linkType: 'active',
+            phase: 'klient',
+            confirmedByUserId: _appUser?.id ?? null,
+          } as any).onConflictDoNothing();
+        }
+      }
+
+      const auditName = input.type === 'szco'
+        ? (created.companyName || `${created.firstName} ${created.lastName} - SZCO ${created.uid}`)
+        : ((created.firstName ? created.firstName + ' ' + created.lastName : created.companyName) || undefined);
+      await logAudit(req, { action: "CREATE", module: "subjekty", entityId: created.id, entityName: auditName, newData: { ...input, birthNumber: input.birthNumber ? '***' : undefined } });
+      res.status(201).json(decryptBirthNumber(created));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       if (err instanceof Error && err.message.includes("hierarchy")) return res.status(400).json({ message: err.message });
