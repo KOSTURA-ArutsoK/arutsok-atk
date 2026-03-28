@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, isAuthenticated, resolveContextLabel, getAuditActorId } from "./auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts, subjectLinks } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts, subjectLinks, revocationTickets } from "@shared/schema";
 import type { DocEntry, WebRoutingRule } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, syncSubjectParameters, seedAssetPanels, seedEventAndEntityPanels, seedNsVsTemplates, cleanupZombieTemplateParams, ensureOsClientType } from "./seed-subject-params";
@@ -15198,6 +15198,10 @@ export async function registerRoutes(
       }
       if (!hasAccess) return res.status(403).json({ message: "Prístup zamietnutý" });
 
+      // Admin can see recently revoked links (last 30 days) for UNDO
+      const showRevoked = isAdmin(appUser);
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
       const links = await db.select({
         id: subjectLinks.id,
         userId: subjectLinks.userId,
@@ -15206,6 +15210,8 @@ export async function registerRoutes(
         validFrom: subjectLinks.validFrom,
         validUntil: subjectLinks.validUntil,
         verifiedAt: subjectLinks.verifiedAt,
+        revokedAt: subjectLinks.revokedAt,
+        revokedReason: subjectLinks.revokedReason,
         userUsername: appUsers.username,
         userFirstName: appUsers.firstName,
         userLastName: appUsers.lastName,
@@ -15217,7 +15223,12 @@ export async function registerRoutes(
         .innerJoin(appUsers, eq(subjectLinks.userId, appUsers.id))
         .where(and(
           eq(subjectLinks.subjectId, subjectId),
-          eq(subjectLinks.isActive, true)
+          showRevoked
+            ? or(
+                eq(subjectLinks.isActive, true),
+                and(eq(subjectLinks.isActive, false), gte(subjectLinks.revokedAt, thirtyDaysAgo))
+              )
+            : eq(subjectLinks.isActive, true)
         ));
 
       // Fetch linked subject types for color coding
@@ -15244,6 +15255,21 @@ export async function registerRoutes(
         }
       }
 
+      // Fetch open tickets for all links (to show badge on row)
+      const linkIds = links.map(l => l.id);
+      const openTicketMap = new Map<number, boolean>();
+      if (linkIds.length > 0) {
+        const openTickets = await db.select({ subjectLinkId: revocationTickets.subjectLinkId })
+          .from(revocationTickets)
+          .where(and(
+            inArray(revocationTickets.subjectLinkId, linkIds),
+            or(eq(revocationTickets.status, "reported"), eq(revocationTickets.status, "investigating"))
+          ));
+        for (const t of openTickets) {
+          openTicketMap.set(t.subjectLinkId, true);
+        }
+      }
+
       const result = links.map(l => {
         const lsub = l.userLinkedSubjectId ? linkedSubjectMap.get(l.userLinkedSubjectId) : undefined;
         return {
@@ -15259,11 +15285,195 @@ export async function registerRoutes(
           validFrom: l.validFrom,
           validUntil: l.validUntil,
           verifiedAt: l.verifiedAt,
+          revokedAt: l.revokedAt,
+          revokedReason: l.revokedReason,
+          isActive: l.isActive,
           linkedSubjectType: lsub?.type ?? "person",
+          hasOpenTicket: openTicketMap.has(l.id),
         };
       });
 
       return res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // === REVOCATION TICKETS ===
+  // Import revocationTickets table at top of file is handled via schema import below
+  // POST /api/revocation-tickets — any verified user reports a stale link
+  app.post("/api/revocation-tickets", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      const { subjectLinkId, reason } = req.body;
+      if (!subjectLinkId || !reason?.trim()) {
+        return res.status(400).json({ message: "Chýba subjectLinkId alebo dôvod" });
+      }
+
+      // Load the link being reported
+      const [link] = await db.select().from(subjectLinks).where(eq(subjectLinks.id, subjectLinkId)).limit(1);
+      if (!link) return res.status(404).json({ message: "Prepojenie neexistuje" });
+      if (!link.isActive) return res.status(400).json({ message: "Prepojenie je už neaktívne" });
+
+      // Reporter must have their own active link to the same subject (or be admin)
+      if (!isAdmin(appUser)) {
+        const [myLink] = await db.select({ id: subjectLinks.id }).from(subjectLinks)
+          .where(and(
+            eq(subjectLinks.subjectId, link.subjectId),
+            eq(subjectLinks.userId, appUser.id),
+            eq(subjectLinks.isActive, true),
+            eq(subjectLinks.status, "verified")
+          )).limit(1);
+        if (!myLink) return res.status(403).json({ message: "Nemáte oprávnenie nahlásiť tento prístup" });
+      }
+
+      // Prevent duplicate open ticket for same link
+
+      const [existing] = await db.select({ id: revocationTickets.id }).from(revocationTickets)
+        .where(and(
+          eq(revocationTickets.subjectLinkId, subjectLinkId),
+          or(eq(revocationTickets.status, "reported"), eq(revocationTickets.status, "investigating"))
+        )).limit(1);
+      if (existing) return res.status(409).json({ message: "Pre toto prepojenie už existuje otvorený ticket" });
+
+      const [ticket] = await db.insert(revocationTickets).values({
+        subjectLinkId,
+        subjectId: link.subjectId,
+        reportedByUserId: appUser.id,
+        targetUserId: link.userId,
+        reason: reason.trim(),
+      }).returning();
+
+      res.status(201).json(ticket);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET /api/revocation-tickets — admin list of open tickets
+  app.get("/api/revocation-tickets", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const statusFilter = (req.query.status as string) || null;
+
+      const tickets = await db.select({
+        id: revocationTickets.id,
+        subjectLinkId: revocationTickets.subjectLinkId,
+        subjectId: revocationTickets.subjectId,
+        reportedByUserId: revocationTickets.reportedByUserId,
+        targetUserId: revocationTickets.targetUserId,
+        reason: revocationTickets.reason,
+        status: revocationTickets.status,
+        adminNote: revocationTickets.adminNote,
+        closedAt: revocationTickets.closedAt,
+        createdAt: revocationTickets.createdAt,
+        reporterFirstName: sql<string>`reporter.first_name`,
+        reporterLastName: sql<string>`reporter.last_name`,
+        reporterUid: sql<string>`reporter.uid`,
+        targetFirstName: sql<string>`target_user.first_name`,
+        targetLastName: sql<string>`target_user.last_name`,
+        targetUid: sql<string>`target_user.uid`,
+        subjectFirstName: subjects.firstName,
+        subjectLastName: subjects.lastName,
+        subjectCompanyName: subjects.companyName,
+        subjectUid: subjects.uid,
+        subjectType: subjects.type,
+      })
+        .from(revocationTickets)
+        .innerJoin(sql`app_users reporter`, sql`reporter.id = ${revocationTickets.reportedByUserId}`)
+        .innerJoin(sql`app_users target_user`, sql`target_user.id = ${revocationTickets.targetUserId}`)
+        .innerJoin(subjects, eq(revocationTickets.subjectId, subjects.id))
+        .where(statusFilter ? eq(revocationTickets.status, statusFilter) : or(eq(revocationTickets.status, "reported"), eq(revocationTickets.status, "investigating")))
+        .orderBy(desc(revocationTickets.createdAt));
+
+      res.json(tickets);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // PATCH /api/revocation-tickets/:id — admin processes ticket (approve = revoke link, reject = close ticket)
+  app.patch("/api/revocation-tickets/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Prístup zamietnutý" });
+
+      const ticketId = Number(req.params.id);
+      const { action, adminNote, addToOrangeList } = req.body; // action: "approve" | "reject"
+      if (!["approve", "reject"].includes(action)) {
+        return res.status(400).json({ message: "Akcia musí byť 'approve' alebo 'reject'" });
+      }
+
+      const [ticket] = await db.select().from(revocationTickets)
+        .where(and(
+          eq(revocationTickets.id, ticketId),
+          or(eq(revocationTickets.status, "reported"), eq(revocationTickets.status, "investigating"))
+        )).limit(1);
+      if (!ticket) return res.status(404).json({ message: "Ticket neexistuje alebo je už uzavretý" });
+
+      // Helper: add a subject to oranžový zoznam if requested
+      const maybeAddToOrangeList = async (subjectId: number) => {
+        if (!addToOrangeList) return;
+        const [orangeGroup] = await db.select().from(clientGroups)
+          .where(eq(clientGroups.groupCode, "group_oranzovy_zoznam_klamari")).limit(1);
+        if (!orangeGroup) return;
+        const existing = await db.select().from(clientGroupMembers)
+          .where(and(eq(clientGroupMembers.groupId, orangeGroup.id), eq(clientGroupMembers.subjectId, subjectId))).limit(1);
+        if (existing.length === 0) {
+          await db.insert(clientGroupMembers).values({ groupId: orangeGroup.id, subjectId });
+        }
+      };
+
+      const now = new Date();
+      if (action === "approve") {
+        // Atomically revoke the link AND close the ticket
+        await db.update(subjectLinks)
+          .set({ isActive: false, revokedAt: now, revokedBy: req.appUser.id, revokedReason: ticket.reason })
+          .where(eq(subjectLinks.id, ticket.subjectLinkId));
+
+        await db.update(revocationTickets)
+          .set({ status: "approved", closedByAdminId: req.appUser.id, adminNote: adminNote?.trim() || null, closedAt: now })
+          .where(eq(revocationTickets.id, ticketId));
+
+        // Optionally add the target subject to orange list (the revoked advisor's subject)
+        // We need to find the target user's own subject
+        const [targetSubjectLink] = await db.select().from(subjectLinks)
+          .where(and(eq(subjectLinks.linkedUserId, ticket.targetUserId), eq(subjectLinks.relation, "own"))).limit(1);
+        if (targetSubjectLink) await maybeAddToOrangeList(targetSubjectLink.subjectId);
+
+        res.json({ success: true, action: "approved", message: "Prístup bol odvolaný a ticket uzavretý" });
+      } else {
+        // Reject: just close ticket without revoking
+        await db.update(revocationTickets)
+          .set({ status: "rejected", closedByAdminId: req.appUser.id, adminNote: adminNote?.trim() || null, closedAt: now })
+          .where(eq(revocationTickets.id, ticketId));
+
+        // Optionally add the subject to orange list (the subject about which false report was filed)
+        await maybeAddToOrangeList(ticket.subjectId);
+
+        res.json({ success: true, action: "rejected", message: "Ticket bol zamietnutý" });
+      }
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // PATCH /api/subjects/:id/access-list/:linkId/undo-revoke — admin UNDO revoking a link
+  app.patch("/api/subjects/:id/access-list/:linkId/undo-revoke", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const linkId = Number(req.params.linkId);
+      if (isNaN(linkId)) return res.status(400).json({ message: "Neplatné ID" });
+
+      const [link] = await db.select().from(subjectLinks).where(eq(subjectLinks.id, linkId)).limit(1);
+      if (!link) return res.status(404).json({ message: "Prepojenie neexistuje" });
+      if (link.isActive) return res.status(400).json({ message: "Prepojenie nie je odvolané" });
+
+      await db.update(subjectLinks)
+        .set({ isActive: true, revokedAt: null, revokedBy: null, revokedReason: null })
+        .where(eq(subjectLinks.id, linkId));
+
+      res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -23279,12 +23489,59 @@ export async function registerRoutes(
           .map(p => ({ id: p.id, name: p.name, code: p.code, partnerId: p.partnerId ?? null }));
       }
 
+      // Revocation tickets (admin only)
+      let openRevocationTickets: any[] = [];
+      if (isAdmin(appUser)) {
+        openRevocationTickets = await db.select({
+          id: revocationTickets.id,
+          subjectLinkId: revocationTickets.subjectLinkId,
+          subjectId: revocationTickets.subjectId,
+          reportedByUserId: revocationTickets.reportedByUserId,
+          targetUserId: revocationTickets.targetUserId,
+          reason: revocationTickets.reason,
+          status: revocationTickets.status,
+          adminNote: revocationTickets.adminNote,
+          closedAt: revocationTickets.closedAt,
+          createdAt: revocationTickets.createdAt,
+        })
+          .from(revocationTickets)
+          .where(or(eq(revocationTickets.status, "reported"), eq(revocationTickets.status, "investigating")))
+          .orderBy(desc(revocationTickets.createdAt));
+
+        // Enrich with user and subject info
+        const rtSubjectIds = [...new Set(openRevocationTickets.map(t => t.subjectId))];
+        const rtUserIds = [...new Set([
+          ...openRevocationTickets.map(t => t.reportedByUserId),
+          ...openRevocationTickets.map(t => t.targetUserId),
+        ])];
+
+        const rtSubjects = rtSubjectIds.length > 0 ? await db.select({
+          id: subjects.id, firstName: subjects.firstName, lastName: subjects.lastName,
+          companyName: subjects.companyName, uid: subjects.uid, type: subjects.type,
+        }).from(subjects).where(inArray(subjects.id, rtSubjectIds)) : [];
+
+        const rtUsers = rtUserIds.length > 0 ? await db.select({
+          id: appUsers.id, firstName: appUsers.firstName, lastName: appUsers.lastName, uid: appUsers.uid,
+        }).from(appUsers).where(inArray(appUsers.id, rtUserIds)) : [];
+
+        const rtSubjectMap = new Map(rtSubjects.map(s => [s.id, s]));
+        const rtUserMap = new Map(rtUsers.map(u => [u.id, u]));
+
+        openRevocationTickets = openRevocationTickets.map(t => ({
+          ...t,
+          subject: rtSubjectMap.get(t.subjectId) || null,
+          reportedByUser: rtUserMap.get(t.reportedByUserId) || null,
+          targetUser: rtUserMap.get(t.targetUserId) || null,
+        }));
+      }
+
       res.json({
         tasks, subjects: relatedSubjects,
         interventions: dedupedInterventions, interventionStatuses: statusList,
         internalInterventions, rejectedContracts, archivedContracts,
         upcomingEvents, nbsReportTasks,
         companiesWithoutOfficers, productsWithoutDocs,
+        openRevocationTickets,
       });
     } catch (err: any) {
       console.error("[MY-TASKS ERROR]", err);
@@ -23486,7 +23743,15 @@ export async function registerRoutes(
         }).length;
       }
 
-      const nonCalendarCount = transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount + companiesWithoutOfficersCount + nbsReportCount + productsWithoutDocsCount;
+      // Count open revocation tickets (admin only)
+      let revocationTicketCount = 0;
+      if (isAdmin(appUser)) {
+        const rtRows = await db.select({ id: revocationTickets.id }).from(revocationTickets)
+          .where(or(eq(revocationTickets.status, "reported"), eq(revocationTickets.status, "investigating")));
+        revocationTicketCount = rtRows.length;
+      }
+
+      const nonCalendarCount = transferCount + interventionCount + internalInterventionCount + rejectedCount + archivedCount + companiesWithoutOfficersCount + nbsReportCount + productsWithoutDocsCount + revocationTicketCount;
 
       let unprocessedAcceptedSprievodkyCount = 0;
       const cutoff14 = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);

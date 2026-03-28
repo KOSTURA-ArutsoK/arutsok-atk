@@ -2922,6 +2922,26 @@ export const insertSubjectLinkSchema = createInsertSchema(subjectLinks).omit({ i
 export type SubjectLink = typeof subjectLinks.$inferSelect;
 export type InsertSubjectLink = z.infer<typeof insertSubjectLinkSchema>;
 
+// === REVOCATION TICKETS (Boardroom peer-reporting of stale/invalid access) ===
+export const revocationTickets = pgTable("revocation_tickets", {
+  id: serial("id").primaryKey(),
+  subjectLinkId: integer("subject_link_id").notNull().references(() => subjectLinks.id),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  reportedByUserId: integer("reported_by_user_id").notNull().references(() => appUsers.id),
+  targetUserId: integer("target_user_id").notNull().references(() => appUsers.id),
+  reason: text("reason").notNull(),
+  status: text("status").notNull().default("reported"),
+  assignedAdminId: integer("assigned_admin_id").references(() => appUsers.id),
+  closedByAdminId: integer("closed_by_admin_id").references(() => appUsers.id),
+  adminNote: text("admin_note"),
+  closedAt: timestamp("closed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRevocationTicketSchema = createInsertSchema(revocationTickets).omit({ id: true, createdAt: true, closedAt: true, status: true, assignedAdminId: true, closedByAdminId: true, adminNote: true });
+export type RevocationTicket = typeof revocationTickets.$inferSelect;
+export type InsertRevocationTicket = z.infer<typeof insertRevocationTicketSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

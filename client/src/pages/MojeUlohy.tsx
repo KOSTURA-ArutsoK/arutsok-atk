@@ -1,14 +1,15 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatDateTimeSlovak } from "@/lib/utils";
-import { Loader2, Check, X, ClipboardCheck, FileText, Download, AlertTriangle, ExternalLink, XCircle, CalendarDays, FileBarChart, Building2, ShieldAlert, Package } from "lucide-react";
+import { formatDateTimeSlovak, formatUid, isAdmin } from "@/lib/utils";
+import { Loader2, Check, X, ClipboardCheck, FileText, Download, AlertTriangle, ExternalLink, XCircle, CalendarDays, FileBarChart, Building2, ShieldAlert, Package, ShieldOff, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useAppUser } from "@/hooks/use-app-user";
 
 interface TransferStep {
   step: number;
@@ -100,6 +101,38 @@ interface ProductWithoutDocs {
   partnerId: number | null;
 }
 
+interface RevocationTicketUser {
+  id: number;
+  firstName: string | null;
+  lastName: string | null;
+  uid: string | null;
+}
+
+interface RevocationTicketSubject {
+  id: number;
+  firstName: string | null;
+  lastName: string | null;
+  companyName: string | null;
+  uid: string | null;
+  type: string;
+}
+
+interface RevocationTicket {
+  id: number;
+  subjectLinkId: number;
+  subjectId: number;
+  reportedByUserId: number;
+  targetUserId: number;
+  reason: string;
+  status: string;
+  adminNote: string | null;
+  closedAt: string | null;
+  createdAt: string;
+  subject: RevocationTicketSubject | null;
+  reportedByUser: RevocationTicketUser | null;
+  targetUser: RevocationTicketUser | null;
+}
+
 interface MyTasksResponse {
   tasks: TransferTask[];
   subjects: SubjectInfo[];
@@ -112,6 +145,7 @@ interface MyTasksResponse {
   nbsReportTasks?: NbsReportTask[];
   companiesWithoutOfficers?: CompanyWithoutOfficers[];
   productsWithoutDocs?: ProductWithoutDocs[];
+  openRevocationTickets?: RevocationTicket[];
 }
 
 function getSubjectName(sub: SubjectInfo | undefined): string {
@@ -314,6 +348,9 @@ export default function MojeUlohy() {
   const [rejectNote, setRejectNote] = useState<Record<number, string>>({});
   const [showReject, setShowReject] = useState<Record<number, boolean>>({});
   const [nbsBlinkActive, setNbsBlinkActive] = useState(true);
+  const [rtAdminNote, setRtAdminNote] = useState<Record<number, string>>({});
+  const [rtShowNote, setRtShowNote] = useState<Record<number, boolean>>({});
+  const [rtAddToOrange, setRtAddToOrange] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     const timer = setTimeout(() => setNbsBlinkActive(false), 10000);
@@ -355,6 +392,34 @@ export default function MojeUlohy() {
     },
   });
 
+  const rtProcessMutation = useMutation({
+    mutationFn: async ({ id, action, adminNote, addToOrangeList }: { id: number; action: "approve" | "reject"; adminNote: string; addToOrangeList: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/revocation-tickets/${id}`, { action, adminNote, addToOrangeList });
+      if (!res.ok) { const t = await res.text(); throw new Error(t || "Chyba"); }
+      return res.json();
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/my-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-tasks/count"] });
+      if (vars.action === "approve") {
+        const extra = vars.addToOrangeList ? " Poradca bol zaradený do oranžového zoznamu." : "";
+        toast({ title: "Prístup odvolaný", description: `Prepojenie bolo deaktivované a ticket uzavretý.${extra}` });
+      } else {
+        const extra = vars.addToOrangeList ? " Subjekt bol zaradený do oranžového zoznamu." : "";
+        toast({ title: "Ticket zamietnutý", description: `Hlásenie bolo uzavreté bez akcie.${extra}` });
+      }
+      setRtAdminNote(prev => { const n = { ...prev }; delete n[vars.id]; return n; });
+      setRtShowNote(prev => { const n = { ...prev }; delete n[vars.id]; return n; });
+      setRtAddToOrange(prev => { const n = { ...prev }; delete n[vars.id]; return n; });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa spracovať", variant: "destructive" });
+    },
+  });
+
+  const { data: appUser } = useAppUser();
+  const isAdminUser = isAdmin(appUser);
+
   const tasks = data?.tasks || [];
   const interventions = data?.interventions || [];
   const interventionStatuses = data?.interventionStatuses || [];
@@ -365,9 +430,10 @@ export default function MojeUlohy() {
   const nbsReportTasks = data?.nbsReportTasks || [];
   const companiesWithoutOfficers = data?.companiesWithoutOfficers || [];
   const productsWithoutDocs = data?.productsWithoutDocs || [];
+  const openRevocationTickets = data?.openRevocationTickets || [];
   const subjectMap = new Map((data?.subjects || []).map(s => [s.id, s]));
   const statusMap = new Map(interventionStatuses.map(s => [s.id, s.name]));
-  const nonCalendarCount = tasks.length + interventions.length + internalInterventions.length + rejectedContracts.length + archivedContracts.length + nbsReportTasks.length + companiesWithoutOfficers.length + productsWithoutDocs.length;
+  const nonCalendarCount = tasks.length + interventions.length + internalInterventions.length + rejectedContracts.length + archivedContracts.length + nbsReportTasks.length + companiesWithoutOfficers.length + productsWithoutDocs.length + openRevocationTickets.length;
   const totalCount = nonCalendarCount + upcomingEvents.length;
 
   const urgentNbs = nbsReportTasks.filter(t => t.daysLeft <= 14);
@@ -454,6 +520,143 @@ export default function MojeUlohy() {
                     </CardContent>
                   </Card>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {openRevocationTickets.length > 0 && isAdminUser && (
+            <div className="space-y-4" data-testid="revocation-tickets-section">
+              <div className="flex items-center gap-2">
+                <Ban className="w-5 h-5 text-red-500 animate-pulse" />
+                <h2 className="text-lg font-semibold">Hlásenia na odvolanie prístupu</h2>
+                <Badge variant="outline" className="border-red-500 text-red-400" data-testid="revocation-tickets-count">
+                  {openRevocationTickets.length}
+                </Badge>
+              </div>
+              <div className="space-y-4">
+                {openRevocationTickets.map(ticket => {
+                  const subjectName = ticket.subject
+                    ? (ticket.subject.type === "company" || ticket.subject.type === "organization" || ticket.subject.type === "state" || ticket.subject.type === "os" || ticket.subject.type === "szco"
+                        ? ticket.subject.companyName || "—"
+                        : `${ticket.subject.firstName || ""} ${ticket.subject.lastName || ""}`.trim() || "—")
+                    : "—";
+                  const reporterName = ticket.reportedByUser
+                    ? `${ticket.reportedByUser.firstName || ""} ${ticket.reportedByUser.lastName || ""}`.trim() || "—"
+                    : "—";
+                  const targetName = ticket.targetUser
+                    ? `${ticket.targetUser.firstName || ""} ${ticket.targetUser.lastName || ""}`.trim() || "—"
+                    : "—";
+                  const isProcessing = rtProcessMutation.isPending;
+                  const showNoteInput = rtShowNote[ticket.id] ?? false;
+                  const noteVal = rtAdminNote[ticket.id] ?? "";
+                  const addOrange = rtAddToOrange[ticket.id] ?? false;
+                  return (
+                    <Card key={ticket.id} className="border-l-4 border-l-red-600" data-testid={`revocation-ticket-card-${ticket.id}`}>
+                      <CardContent className="py-4 space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="outline" className="border-red-500 text-red-400 text-[10px] shrink-0">
+                                {ticket.status === "reported" ? "Nahlásené" : "Prešetruje sa"}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">{formatDateTimeSlovak(ticket.createdAt)}</span>
+                            </div>
+                            <p className="font-medium text-sm">
+                              Subjekt:{" "}
+                              <button
+                                className="text-primary underline underline-offset-2 hover:opacity-70"
+                                onClick={() => navigate(`/subjects/${ticket.subjectId}`)}
+                                data-testid={`rt-subject-link-${ticket.id}`}
+                              >
+                                {subjectName}
+                              </button>
+                              {ticket.subject?.uid && (
+                                <span className="ml-2 text-xs font-mono text-muted-foreground">{formatUid(ticket.subject.uid)}</span>
+                              )}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Poradca na odvolanie: <span className="text-foreground font-medium">{targetName}</span>
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Nahlásil: <span className="text-foreground">{reporterName}</span>
+                            </p>
+                            <div className="mt-1 p-2 rounded bg-muted/50 text-sm text-foreground">
+                              <span className="text-xs text-muted-foreground font-medium block mb-0.5">Dôvod:</span>
+                              {ticket.reason}
+                            </div>
+                          </div>
+                        </div>
+                        {showNoteInput && (
+                          <div className="space-y-3">
+                            <Textarea
+                              placeholder="Poznámka administrátora (nepovinná)"
+                              value={noteVal}
+                              onChange={e => setRtAdminNote(prev => ({ ...prev, [ticket.id]: e.target.value }))}
+                              rows={2}
+                              className="text-sm"
+                              data-testid={`rt-admin-note-${ticket.id}`}
+                            />
+                            <label className="flex items-center gap-2 cursor-pointer select-none" data-testid={`rt-orange-toggle-${ticket.id}`}>
+                              <input
+                                type="checkbox"
+                                checked={addOrange}
+                                onChange={e => setRtAddToOrange(prev => ({ ...prev, [ticket.id]: e.target.checked }))}
+                                className="accent-orange-500 w-4 h-4"
+                              />
+                              <span className="text-sm text-orange-400 font-medium">Zaradiť do oranžového zoznamu klamárov</span>
+                            </label>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 flex-wrap pt-1">
+                          {!showNoteInput ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-orange-500 text-orange-400 hover:bg-orange-500/10"
+                              onClick={() => setRtShowNote(prev => ({ ...prev, [ticket.id]: true }))}
+                              data-testid={`rt-expand-${ticket.id}`}
+                            >
+                              Spracovať
+                            </Button>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                disabled={isProcessing}
+                                onClick={() => rtProcessMutation.mutate({ id: ticket.id, action: "approve", adminNote: noteVal, addToOrangeList: addOrange })}
+                                data-testid={`rt-approve-${ticket.id}`}
+                              >
+                                {isProcessing ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <ShieldOff className="w-3 h-3 mr-1" />}
+                                Gilotína — odvolať prístup
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-green-500 text-green-400 hover:bg-green-500/10"
+                                disabled={isProcessing}
+                                onClick={() => rtProcessMutation.mutate({ id: ticket.id, action: "reject", adminNote: noteVal, addToOrangeList: addOrange })}
+                                data-testid={`rt-reject-${ticket.id}`}
+                              >
+                                <X className="w-3 h-3 mr-1" />
+                                Zamietnuť hlásenie
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-muted-foreground"
+                                onClick={() => setRtShowNote(prev => ({ ...prev, [ticket.id]: false }))}
+                                data-testid={`rt-cancel-${ticket.id}`}
+                              >
+                                Zrušiť
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
           )}

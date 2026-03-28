@@ -967,6 +967,7 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
     data: accessListData,
     isLoading: accessListLoading,
     error: accessListError,
+    refetch: refetchAccessList,
   } = useQuery<AccessListEntry[]>({
     queryKey: [`/api/subjects/${subject.id}/access-list`],
     retry: false,
@@ -1648,7 +1649,7 @@ export function SubjektView({ subject, showPdfSidebar = false, isClientView = fa
 
           {canViewAccessList && (
             <TabsContent value="__opravnene__" className="mt-3" data-testid="tabcontent-opravnene">
-              <BoardroomSection subjectId={subject.id} accessList={accessListData} isLoading={accessListLoading} error={accessListError} />
+              <BoardroomSection subjectId={subject.id} accessList={accessListData} isLoading={accessListLoading} error={accessListError} refetchAccessList={refetchAccessList} />
             </TabsContent>
           )}
 
@@ -2866,7 +2867,11 @@ type AccessListEntry = {
   validFrom: string | null;
   validUntil: string | null;
   verifiedAt: string | null;
+  revokedAt: string | null;
+  revokedReason: string | null;
+  isActive: boolean;
   linkedSubjectType: string;
+  hasOpenTicket: boolean;
 };
 
 function getAccessListRowColor(linkedSubjectType: string): { border: string; bg: string; text: string } {
@@ -2901,15 +2906,65 @@ function buildFullName(entry: AccessListEntry): string {
   return entry.titleAfter ? `${base}, ${entry.titleAfter}` : base;
 }
 
-function BoardroomSection({ subjectId, accessList, isLoading, error }: {
+function BoardroomSection({ subjectId, accessList, isLoading, error, refetchAccessList }: {
   subjectId: number;
   accessList: AccessListEntry[] | undefined;
   isLoading: boolean;
   error: Error | null;
+  refetchAccessList: () => void;
 }) {
-  const [warningModalOpen, setWarningModalOpen] = useState(false);
+  const { toast } = useToast();
+  const [reportTarget, setReportTarget] = useState<AccessListEntry | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const adminUser = useAppUser().data;
+  const isAdminUser = isAdmin(adminUser);
 
   const is403 = error instanceof Error && error.message.startsWith("403");
+
+  const reportMutation = useMutation({
+    mutationFn: async ({ subjectLinkId, reason }: { subjectLinkId: number; reason: string }) => {
+      const res = await apiRequest("POST", "/api/revocation-tickets", { subjectLinkId, reason });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || "Chyba pri nahláseníí");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Ticket vytvorený", description: "Hlásenie bolo odoslané administrátorovi." });
+      setReportTarget(null);
+      setReportReason("");
+      refetchAccessList();
+      queryClient.invalidateQueries({ queryKey: ["/api/my-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-tasks/count"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa nahlásiť", variant: "destructive" });
+    },
+  });
+
+  const undoRevokeMutation = useMutation({
+    mutationFn: async (linkId: number) => {
+      const res = await apiRequest("PATCH", `/api/subjects/${subjectId}/access-list/${linkId}/undo-revoke`, {});
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || "Chyba pri obnovení");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Prístup obnovený", description: "Prepojenie bolo znova aktivované." });
+      refetchAccessList();
+      queryClient.invalidateQueries({ queryKey: ["/api/my-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-tasks/count"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa obnoviť", variant: "destructive" });
+    },
+  });
+
+  const activeEntries = (accessList || []).filter(e => e.isActive);
+  const revokedEntries = (accessList || []).filter(e => !e.isActive);
 
   return (
     <div className="space-y-3" data-testid="boardroom-section">
@@ -2939,84 +2994,172 @@ function BoardroomSection({ subjectId, accessList, isLoading, error }: {
         </div>
       )}
 
-      {!isLoading && !error && (!accessList || accessList.length === 0) && (
+      {!isLoading && !error && activeEntries.length === 0 && revokedEntries.length === 0 && (
         <div className="py-8 text-center text-muted-foreground text-sm border-2 border-dashed border-border rounded-lg" data-testid="boardroom-empty">
           Žiadne oprávnené osoby
         </div>
       )}
 
-      {!isLoading && !error && accessList && accessList.length > 0 && (
-        <div className="w-full overflow-x-auto">
-          <table className="w-full border-collapse border-2 border-border rounded-lg text-sm" data-testid="boardroom-table">
-            <thead>
-              <tr className="bg-muted/50">
-                <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground w-full">Celé meno</th>
-                <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">UID používateľa</th>
-                <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">Typ prepojenia</th>
-                <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">Platnosť</th>
-                <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">Overené</th>
-                <th className="border-2 border-border px-3 py-2 text-center text-xs font-semibold text-muted-foreground whitespace-nowrap">Akcia</th>
-              </tr>
-            </thead>
-            <tbody>
-              {accessList.map((entry) => {
-                const colors = getAccessListRowColor(entry.linkedSubjectType);
-                const fullName = buildFullName(entry);
-                const validFromStr = entry.validFrom ? formatDateSlovak(entry.validFrom) : null;
-                const validUntilStr = entry.validUntil ? formatDateSlovak(entry.validUntil) : null;
-                const validity = validFromStr || validUntilStr
-                  ? [validFromStr || "—", validUntilStr || "∞"].join(" – ")
-                  : "—";
-                const verifiedStr = entry.verifiedAt ? formatDateSlovak(entry.verifiedAt) : "—";
-                return (
-                  <tr
-                    key={entry.id}
-                    className={`${colors.bg} border-2 ${colors.border} transition-colors`}
-                    data-testid={`boardroom-row-${entry.id}`}
-                  >
-                    <td className={`border-2 border-border px-3 py-2 font-medium ${colors.text}`} data-testid={`boardroom-name-${entry.id}`}>
-                      {fullName}
-                    </td>
-                    <td className="border-2 border-border px-3 py-2 font-mono text-xs text-muted-foreground whitespace-nowrap" data-testid={`boardroom-uid-${entry.id}`}>
-                      {formatUid(entry.uid)}
-                    </td>
-                    <td className="border-2 border-border px-3 py-2 text-xs text-muted-foreground whitespace-nowrap" data-testid={`boardroom-linktype-${entry.id}`}>
-                      —
-                    </td>
-                    <td className="border-2 border-border px-3 py-2 text-xs text-muted-foreground whitespace-nowrap" data-testid={`boardroom-validity-${entry.id}`}>
-                      {validity}
-                    </td>
-                    <td className="border-2 border-border px-3 py-2 text-xs text-muted-foreground whitespace-nowrap" data-testid={`boardroom-verified-${entry.id}`}>
-                      {verifiedStr}
-                    </td>
-                    <td className="border-2 border-border px-3 py-2 text-center whitespace-nowrap" data-testid={`boardroom-action-${entry.id}`}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
-                        onClick={() => setWarningModalOpen(true)}
-                        data-testid={`boardroom-warn-btn-${entry.id}`}
-                      >
-                        <AlertTriangle className="w-3.5 h-3.5 mr-1" />
-                        Nahlásiť
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {!isLoading && !error && (activeEntries.length > 0 || revokedEntries.length > 0) && (
+        <div className="space-y-4">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full border-collapse border-2 border-border rounded-lg text-sm" data-testid="boardroom-table">
+              <thead>
+                <tr className="bg-muted/50">
+                  <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground w-full">Celé meno</th>
+                  <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">UID používateľa</th>
+                  <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">Typ prepojenia</th>
+                  <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">Platnosť</th>
+                  <th className="border-2 border-border px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">Overené</th>
+                  <th className="border-2 border-border px-3 py-2 text-center text-xs font-semibold text-muted-foreground whitespace-nowrap">Akcia</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeEntries.map((entry) => {
+                  const colors = getAccessListRowColor(entry.linkedSubjectType);
+                  const fullName = buildFullName(entry);
+                  const validFromStr = entry.validFrom ? formatDateSlovak(entry.validFrom) : null;
+                  const validUntilStr = entry.validUntil ? formatDateSlovak(entry.validUntil) : null;
+                  const validity = validFromStr || validUntilStr
+                    ? [validFromStr || "—", validUntilStr || "∞"].join(" – ")
+                    : "—";
+                  const verifiedStr = entry.verifiedAt ? formatDateSlovak(entry.verifiedAt) : "—";
+                  return (
+                    <tr
+                      key={entry.id}
+                      className={`${colors.bg} border-2 ${colors.border} transition-colors`}
+                      data-testid={`boardroom-row-${entry.id}`}
+                    >
+                      <td className={`border-2 border-border px-3 py-2 font-medium ${colors.text}`} data-testid={`boardroom-name-${entry.id}`}>
+                        <span className="flex items-center gap-2">
+                          {fullName}
+                          {entry.hasOpenTicket && (
+                            <Badge variant="outline" className="border-amber-500 text-amber-400 text-[9px] py-0 px-1" data-testid={`boardroom-ticket-badge-${entry.id}`}>
+                              Hlásenie
+                            </Badge>
+                          )}
+                        </span>
+                      </td>
+                      <td className="border-2 border-border px-3 py-2 font-mono text-xs text-muted-foreground whitespace-nowrap" data-testid={`boardroom-uid-${entry.id}`}>
+                        {formatUid(entry.uid)}
+                      </td>
+                      <td className="border-2 border-border px-3 py-2 text-xs text-muted-foreground whitespace-nowrap" data-testid={`boardroom-linktype-${entry.id}`}>
+                        —
+                      </td>
+                      <td className="border-2 border-border px-3 py-2 text-xs text-muted-foreground whitespace-nowrap" data-testid={`boardroom-validity-${entry.id}`}>
+                        {validity}
+                      </td>
+                      <td className="border-2 border-border px-3 py-2 text-xs text-muted-foreground whitespace-nowrap" data-testid={`boardroom-verified-${entry.id}`}>
+                        {verifiedStr}
+                      </td>
+                      <td className="border-2 border-border px-3 py-2 text-center whitespace-nowrap" data-testid={`boardroom-action-${entry.id}`}>
+                        {entry.hasOpenTicket ? (
+                          <span className="text-[10px] text-amber-400 font-medium">Hlásenie čaká</span>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
+                            onClick={() => { setReportTarget(entry); setReportReason(""); }}
+                            data-testid={`boardroom-warn-btn-${entry.id}`}
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                            Nahlásiť
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {isAdminUser && revokedEntries.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Nedávno odvolané prístupy (posledných 30 dní)</p>
+              <table className="w-full border-collapse border-2 border-border/40 rounded-lg text-sm opacity-70" data-testid="boardroom-revoked-table">
+                <tbody>
+                  {revokedEntries.map((entry) => {
+                    const fullName = buildFullName(entry);
+                    return (
+                      <tr key={entry.id} className="bg-red-500/5 border-2 border-red-800/30" data-testid={`boardroom-revoked-row-${entry.id}`}>
+                        <td className="border-2 border-border/30 px-3 py-2 text-xs text-muted-foreground font-medium">
+                          <span className="flex items-center gap-2">
+                            <Ban className="w-3 h-3 text-red-500/60" />
+                            {fullName}
+                          </span>
+                        </td>
+                        <td className="border-2 border-border/30 px-3 py-2 text-[10px] text-muted-foreground/60 whitespace-nowrap">
+                          Odvolané: {entry.revokedAt ? formatDateSlovak(entry.revokedAt) : "—"}
+                        </td>
+                        <td className="border-2 border-border/30 px-3 py-2 text-[10px] text-muted-foreground/60 max-w-[200px] truncate">
+                          {entry.revokedReason || "—"}
+                        </td>
+                        <td className="border-2 border-border/30 px-3 py-2 text-center whitespace-nowrap">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                            onClick={() => undoRevokeMutation.mutate(entry.id)}
+                            disabled={undoRevokeMutation.isPending}
+                            data-testid={`boardroom-undo-btn-${entry.id}`}
+                          >
+                            {undoRevokeMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                            Obnoviť
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
-      <Dialog open={warningModalOpen} onOpenChange={setWarningModalOpen}>
+      <Dialog open={!!reportTarget} onOpenChange={(v) => { if (!v) { setReportTarget(null); setReportReason(""); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Nahlásiť neaktuálnosť prístupu</DialogTitle>
           </DialogHeader>
-          <div className="py-6 text-center text-muted-foreground text-sm">
-            Pripravuje sa…
-          </div>
+          {reportTarget && (
+            <div className="space-y-4">
+              <div className="rounded border border-amber-700/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
+                <span className="font-semibold">{buildFullName(reportTarget)}</span>
+                <span className="text-amber-300/70 ml-2 font-mono text-xs">{formatUid(reportTarget.uid)}</span>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm">Dôvod hlásenia <span className="text-destructive">*</span></Label>
+                <Textarea
+                  value={reportReason}
+                  onChange={e => setReportReason(e.target.value)}
+                  placeholder="Napr.: Táto osoba už nepracuje v organizácii od januára 2025…"
+                  className="min-h-[80px] text-sm"
+                  data-testid="input-report-reason"
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="ghost"
+                  onClick={() => { setReportTarget(null); setReportReason(""); }}
+                  data-testid="btn-cancel-report"
+                >
+                  Zrušiť
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => reportMutation.mutate({ subjectLinkId: reportTarget.id, reason: reportReason })}
+                  disabled={!reportReason.trim() || reportMutation.isPending}
+                  data-testid="btn-submit-report"
+                >
+                  {reportMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <AlertTriangle className="w-4 h-4 mr-2" />}
+                  Odoslať hlásenie
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
