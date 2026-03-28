@@ -1214,6 +1214,26 @@ export async function registerRoutes(
       if (validated.activeSubjectId === null) updates.activeSubjectId = null;
       if (validated.activeKtoCompanyId !== undefined) updates.activeKtoCompanyId = validated.activeKtoCompanyId;
       if (validated.activeKtoCompanyId === null) updates.activeKtoCompanyId = null;
+      // Security: verify activeKtoCompanyId is in user's officer companies
+      if (validated.activeKtoCompanyId != null) {
+        const isAdminUser = appUser.role === "admin" || appUser.role === "superadmin" || appUser.isAdmin;
+        if (!isAdminUser) {
+          if (!appUser.linkedSubjectId) {
+            return res.status(403).json({ message: "Nemáte oprávnenie na túto firemnú identitu" });
+          }
+          const officerRow = await db.select({ companyId: companyOfficers.companyId })
+            .from(companyOfficers)
+            .where(and(
+              eq(companyOfficers.subjectId, appUser.linkedSubjectId),
+              eq(companyOfficers.companyId, validated.activeKtoCompanyId),
+              eq(companyOfficers.isActive, true)
+            ))
+            .limit(1);
+          if (officerRow.length === 0) {
+            return res.status(403).json({ message: "Nie ste konateľom tejto firmy" });
+          }
+        }
+      }
       // Two-layer model: identity (activeSubjectId) and context (activeCompanyId) are independent.
       // Company switcher sets only activeCompanyId; identity switch explicitly sends both fields.
       // Security: verify activeSubjectId is in allowed contexts (always enforced)

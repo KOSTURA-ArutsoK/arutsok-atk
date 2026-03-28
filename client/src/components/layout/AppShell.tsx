@@ -1043,7 +1043,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   // nemá žiadny vplyv na viditeľnosť. "Zrkadlový kontext" ATK:
                   //   miesto práce (KDE) a podpisová identita (KTO) sú striktne nezávislé osi.
                   const activeSubjectId = appUser?.activeSubjectId ?? null;
-                  const activeKtoCompanyId = (appUser as any)?.activeKtoCompanyId ?? null;
+                  const activeKtoCompanyId = appUser?.activeKtoCompanyId ?? null;
                   const isFoMode = !activeSubjectId && !activeKtoCompanyId;
                   const ktoItems = (userContexts as any[]).filter((c: any) => {
                     if (!allContextTypes.has(c.contextType)) return false;
