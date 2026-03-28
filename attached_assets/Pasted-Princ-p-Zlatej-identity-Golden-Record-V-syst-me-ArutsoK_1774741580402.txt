@@ -1,0 +1,43 @@
+Princíp „Zlatej identity“ (Golden Record)
+V systéme ArutsoK (ATK) nesmie byť identita postavená na mene, ale na Unikátnom kľúči (Rodné číslo alebo IČO). Meno a adresa sú len „kabáty“, ktoré si táto identita oblieka.
+
+1. Neviditeľný zápas (The Silent Match)
+Keď špecialista z KFS zadáva novú zmluvu a napíše „Janka Ostrihoňová“ a jej rodné číslo:
+
+Systém na pozadí: Pozrie sa do Trezora a zistí: „Toto rodné číslo už má pridelené UID 421 000 000 000 999, ale volá sa tam Janka Cibulová.“
+
+Bezpečnostná clona: Špecialistovi neukáže staré údaje (izolácia), ale vyhodí mu oznámenie: „Subjekt s týmto identifikátorom už existuje. Chcete aktualizovať údaje pre novú zmluvu?“
+
+2. Globálne verziovanie polí (History over Overwrite)
+V ATK nikdy nič neprepisujeme „natvrdo“. Ak Janka zmenila priezvisko a adresu:
+
+Systém zapíše novú verziu poľa lastName (Ostrihoňová) a address (Prešovská 32).
+
+Pôvodné údaje (Cibulová, Hlavná 15) zostávajú v histórii s časovou pečiatkou.
+
+Výsledok: Janka má jedno UID, ale systém vie, že v zmluvách KCO figuruje ako Cibulová a v nových zmluvách KFS ako Ostrihoňová.
+
+🧠 Riešenie pre „Jan“ vs. „Ján“ (AI Synonymá)
+Tu využijeme tvoje pravidlo AI učenia po 5 manuálnych potvrdeniach:
+
+Problém: Cez internet príde „Jan Hus“, v systéme je „Ján Hus“.
+
+Proces: Systém sa spýta: „Je Jan Hus synonymum pre Ján Hus (UID ...002)?“.
+
+Učenie: Ak to špecialista alebo admin 5-krát manuálne potvrdí, AI v ArutsoK si vytvorí globálne pravidlo. Nabudúce už systém pri tomto UID automaticky priradí „Jan“ k „Ján“ bez otázok.
+
+🛡️ Prečo je to takto správne pre ArutsoK (ATK)?
+Čistota pre NBS: Máš jeden subjekt (jedno UID), čo je kľúčové pre AML a sledovanie rizika. NBS nezaujíma, či máš v mene dĺžeň, ich zaujíma, či je to ten istý človek.
+
+GDPR a Izolácia: Špecialista z KFS nezískal prístup k zmluvám Janky v KCO. Iba zistil, že už v systéme je, a pridal k nej aktuálne údaje.
+
+Auditná stopa: Každá zmena (Cibulová -> Ostrihoňová) zanechá stopu, kto ju zadal a na základe akej zmluvy.
+
+📐 Technický štandard v Cockpite
+Keď dôjde k takémuto rozporu, formulár by mal zobraziť „Konflikt údajov“:
+
+Vizuál: Justified layout, 2px ohraničenie v oranžovej farbe (NETWORK/Zápis).
+
+Akcia: Tlačidlo „Použiť nové údaje ako aktuálne“ (vyžaduje overenie identity).
+
+UID: Vždy viditeľné vo formáte 421 000 000 000 002.

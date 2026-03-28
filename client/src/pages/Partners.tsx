@@ -2466,6 +2466,7 @@ function PartnerUnifiedDialog({
 export default function Partners() {
   const { data: partners, isLoading } = usePartners();
   const { data: appUser } = useAppUser();
+  const { data: myCompanies } = useMyCompanies();
   const tableFilter = useSmartFilter(partners || [], PARTNER_FILTER_COLUMNS, "partners");
   const { sortedData, sortKey, sortDirection, requestSort } = useTableSort(tableFilter.filteredData);
   const columnVisibility = useColumnVisibility("partners", PARTNER_COLUMNS);
@@ -2473,6 +2474,11 @@ export default function Partners() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPartnerId, setEditingPartnerId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Partner | null>(null);
+  const [pageContextError, setPageContextError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPageContextError(null);
+  }, [appUser?.activeKtoCompanyId, appUser?.activeCompanyId]);
 
   const { data: companyDivisions } = useQuery<{ id: number; companyId: number; divisionId: number; division: { id: number; name: string; emoji: string | null; code: string | null } }[]>({
     queryKey: ["/api/companies", appUser?.activeCompanyId, "divisions"],
@@ -2525,11 +2531,23 @@ export default function Partners() {
   }, [hasManyDivisions, divisionList, divisionPartnerMap, sortedData]);
 
   function openCreate() {
+    const ktoId = appUser?.activeKtoCompanyId;
+    const kdeId = appUser?.activeCompanyId;
+    if (ktoId && kdeId && ktoId !== kdeId) {
+      const ktoName = myCompanies?.find(c => c.id === ktoId)?.name ?? `Firma #${ktoId}`;
+      const kdeName = myCompanies?.find(c => c.id === kdeId)?.name ?? `Firma #${kdeId}`;
+      setPageContextError(
+        `Chyba kontextu: Nemôžete registrovať partnera pre ${ktoName}, kým sa nachádzate v pracovisku ${kdeName}. Prepnite pracovisko v hornej lište.`
+      );
+      return;
+    }
+    setPageContextError(null);
     setEditingPartnerId(null);
     setDialogOpen(true);
   }
 
   function openPartner(partner: Partner) {
+    setPageContextError(null);
     setEditingPartnerId(partner.id);
     setDialogOpen(true);
   }
@@ -2546,6 +2564,13 @@ export default function Partners() {
           <ColumnManager columnVisibility={columnVisibility} />
         </div>
       </div>
+
+      {pageContextError && (
+        <div className="rounded-md border-2 border-red-500 bg-red-50 dark:bg-red-950/30 p-4 flex gap-3" data-testid="alert-page-context-error">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-700 dark:text-red-400 text-justify">{pageContextError}</p>
+        </div>
+      )}
 
       {canCreateRecords(appUser) && (
         <AddPartnerHexButton onClick={openCreate} />
