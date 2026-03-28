@@ -427,9 +427,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
   }, [setActive, appUser?.activeStateId]);
 
-  const handleContextSelectCompany = useCallback(async (companyId: number) => {
+  const handleContextSelectCompany = useCallback(async (companyId: number, preStateId?: number) => {
     setPendingCompanyId(companyId);
-    setActive.mutate({ activeCompanyId: companyId, activeDivisionId: null }, {
+    const companyMutationData: Record<string, unknown> = { activeCompanyId: companyId, activeDivisionId: null };
+    if (preStateId != null) companyMutationData.activeStateId = preStateId;
+    setActive.mutate(companyMutationData as any, {
       onSuccess: async () => {
         try {
           const res = await fetch(`/api/companies/${companyId}/divisions`, { credentials: "include" });
@@ -494,20 +496,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               return;
             }
             if (validComps.length === 1) {
-              // Single company — auto-select (handleContextSelectCompany handles divisions + flag clear)
-              // State is auto-skipped; overlay opens only if division choice needed
+              // Single company — auto-select; include stateId so activeStateId is persisted even when state step is skipped
               setLoginFlowPrevStep("identity");
-              await handleContextSelectCompany(validComps[0].id);
+              await handleContextSelectCompany(validComps[0].id, validComps[0].stateId ?? undefined);
             } else {
               // Multiple companies — open overlay for company/state picker
               const uniqueStateIds = [...new Set(
                 validComps.map((c: any) => c.stateId).filter((id: any) => id != null)
               )] as number[];
               if (uniqueStateIds.length === 1) {
-                // State auto-skipped — Back from company → identity
+                // State auto-skipped — show company step immediately, persist activeStateId in background
                 setLoginFlowPrevStep("identity");
                 setPendingStateId(uniqueStateIds[0]);
                 setContextStep("company");
+                setActive.mutate({ activeStateId: uniqueStateIds[0], activeCompanyId: null, activeDivisionId: null } as any);
               } else {
                 // State step will be shown — Back from state → identity
                 setLoginFlowPrevStep(null);
@@ -526,18 +528,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 const allComps = await compsRes.json();
                 const stateComps = allComps.filter((c: any) => c.stateId === singleStateId);
                 if (stateComps.length === 1) {
-                  // Single state + single company — auto-select (handleContextSelectCompany handles rest)
-                  // State auto-skipped; if division step appears, Back → identity
+                  // Single state + single company — auto-select; include stateId so activeStateId is persisted
                   setLoginFlowPrevStep("identity");
-                  await handleContextSelectCompany(stateComps[0].id);
+                  await handleContextSelectCompany(stateComps[0].id, singleStateId);
                   return;
                 }
                 if (stateComps.length > 1) {
-                  // Single state + multiple companies — skip state, show company picker
+                  // Single state + multiple companies — skip state, show company picker; persist state in background
                   setLoginFlowPrevStep("identity");
                   setPendingStateId(singleStateId);
                   setContextStep("company");
                   setContextOverlayOpen(true);
+                  setActive.mutate({ activeStateId: singleStateId, activeCompanyId: null, activeDivisionId: null } as any);
                   return;
                 }
                 // 0 companies in this state — fall through to state picker
