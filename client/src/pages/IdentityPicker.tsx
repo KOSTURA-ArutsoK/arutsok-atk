@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Shield, User, Building2, Landmark, Heart, Globe, Loader2, ChevronRight, LogOut } from "lucide-react";
+import { Shield, User, Building2, Landmark, Heart, Globe, Loader2, ChevronRight, LogOut, Info } from "lucide-react";
 import { useSetActiveContext } from "@/hooks/use-app-user";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -225,9 +225,18 @@ export default function IdentityPickerPage() {
             </div>
           )}
 
-          <p className="text-center text-xs text-muted-foreground mt-8">
-            Kontext môžete kedykoľvek zmeniť v hornej lište po prihlásení
-          </p>
+          <div className="mt-8 flex gap-3 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40 px-4 py-3 text-left">
+            <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500" />
+            <div className="text-xs text-blue-800 dark:text-blue-300 space-y-1">
+              <p>
+                <span className="font-semibold">Horná lišta</span> (po prihlásení) slúži na prepínanie pracovného kontextu —
+                štát, firma (spoločnosť) a divízia.
+              </p>
+              <p>
+                Vybranú identitu môžete kedykoľvek zmeniť cez <span className="font-semibold">menu vpravo hore</span> (ikona používateľa) alebo priamo z hornej lišty.
+              </p>
+            </div>
+          </div>
         </div>
       </main>
     </div>

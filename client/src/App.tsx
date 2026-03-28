@@ -103,6 +103,24 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
+function AuthOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage />;
+  }
+
+  return <>{children}</>;
+}
+
 function ClientProfilePage() {
   const { data: appUser } = useAppUser();
   const { data: subject, isLoading } = useQuery<Subject>({
@@ -195,7 +213,7 @@ function Router() {
       <Route path="/register" component={RegisterPage} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/potvrdenie-spravy" component={GuardianConfirm} />
-      <Route path="/vyber-identity" component={() => <PrivateRoute><IdentityPicker /></PrivateRoute>} />
+      <Route path="/vyber-identity" component={() => <AuthOnlyRoute><IdentityPicker /></AuthOnlyRoute>} />
       <Route path="/client-zone" component={ClientZone} />
       <Route path="/client-profile" component={PrivateClientProfile} />
       
