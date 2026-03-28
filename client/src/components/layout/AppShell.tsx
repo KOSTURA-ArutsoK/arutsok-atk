@@ -119,6 +119,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [companyDivisions, setCompanyDivisions] = useState<any[]>([]);
   const [loginFlow, setLoginFlow] = useState(false);
   const [loginIdentityOptions, setLoginIdentityOptions] = useState<IdentityOption[]>([]);
+  const [loginFlowPrevStep, setLoginFlowPrevStep] = useState<"identity" | "state" | null>(null);
   const contextInitRef = useRef(false);
   const [accountLinkModalOpen, setAccountLinkModalOpen] = useState(false);
   const [loginHistoryOpen, setLoginHistoryOpen] = useState(false);
@@ -231,22 +232,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           opts.push({ type: "firma", label: "Vlastná firma", subLabel: offLabel, subjectId: null });
         }
 
+        // loginFlow=true for ALL setup paths — makes overlay non-closable regardless of identity step
+        setLoginFlow(true);
+
         if (opts.length > 1) {
-          // Multiple identity options — show identity overlay first
+          // Multiple identity options — show identity step first
           setLoginIdentityOptions(opts);
-          setLoginFlow(true);
           setContextStep("identity");
           setContextOverlayOpen(true);
           return; // state/company handled after identity selection in handleContextSelectIdentity
         }
 
-        // 0 or 1 identity option — skip identity step, clear flag and fall through to state/company
-        localStorage.removeItem("atk_pending_identity_setup");
-        // For single SZČO option, pre-set the subjectId
+        // 0 or 1 identity option — auto-skip identity step, fall through to state/company
+        // loginFlow is already true so the overlay will be non-closable
         if (opts.length === 1 && opts[0].type === "szco" && opts[0].subjectId) {
           setActive.mutate({ activeSubjectId: opts[0].subjectId });
         }
-        // Fall through to needsFullContext check below
+        // Fall through to needsFullContext check below (loginFlow=true ensures non-closable)
       }
     }
 
@@ -484,6 +486,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             }
             if (validComps.length === 1) {
               // Single company — auto-select it (handleContextSelectCompany handles divisions + flag clear)
+              // State is auto-skipped; if company step appears (multi-division), Back → identity
+              setLoginFlowPrevStep("identity");
               await handleContextSelectCompany(validComps[0].id);
             } else {
               // Multiple companies — show company picker (skip state if all share one state)
@@ -491,9 +495,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 validComps.map((c: any) => c.stateId).filter((id: any) => id != null)
               )] as number[];
               if (uniqueStateIds.length === 1) {
+                // State auto-skipped — Back from company should return to identity
+                setLoginFlowPrevStep("identity");
                 setPendingStateId(uniqueStateIds[0]);
                 setContextStep("company");
               } else {
+                // State step will be shown — Back from state → identity
+                setLoginFlowPrevStep(null);
                 setPendingStateId(null);
                 setContextStep("state");
               }
@@ -509,12 +517,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 const stateComps = allComps.filter((c: any) => c.stateId === singleStateId);
                 if (stateComps.length === 1) {
                   // Single state + single company — auto-select (handleContextSelectCompany handles rest)
+                  // State auto-skipped; if division step appears, Back → identity
+                  setLoginFlowPrevStep("identity");
                   await handleContextSelectCompany(stateComps[0].id);
                   return;
                 }
               }
             }
-            // Multiple states or multiple companies — show state picker
+            // Multiple states or multiple companies — show state picker; Back from state → identity
+            setLoginFlowPrevStep(null);
             setPendingStateId(null);
             setContextStep("state");
           }
@@ -536,17 +547,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       return;
     }
     if (contextStep === "company") {
-      setContextStep("state");
-      setPendingStateId(null);
+      if (loginFlow && loginFlowPrevStep === "identity") {
+        // State was auto-skipped — go back to identity
+        setLoginFlowPrevStep(null);
+        setContextStep("identity");
+        setPendingStateId(null);
+      } else {
+        setContextStep("state");
+        setPendingStateId(null);
+      }
       return;
     }
-    if (contextStep === "state" && loginFlow) {
+    if (contextStep === "state" && loginFlow && loginIdentityOptions.length > 1) {
+      // Identity step was shown — go back to it
       setContextStep("identity");
       return;
     }
     setContextStep("state");
     setPendingStateId(null);
-  }, [contextStep, loginFlow]);
+  }, [contextStep, loginFlow, loginFlowPrevStep, loginIdentityOptions.length]);
 
   const openStateSelector = useCallback(() => {
     setPendingStateId(null);

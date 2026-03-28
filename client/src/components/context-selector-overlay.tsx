@@ -203,7 +203,7 @@ export function ContextSelectorOverlay({
 
       {step === "state" && (
         <div className="relative z-10 flex flex-col items-center gap-6">
-          {loginFlow && (
+          {loginFlow && (identityContexts?.length ?? 0) > 1 && (
             <button
               onClick={onBack}
               data-testid="button-context-back"
