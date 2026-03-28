@@ -1033,7 +1033,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </div>
                 </div>
 
-                {userContexts && userContexts.length > 0 && (
+                {userContexts && userContexts.filter((c: any) => !c.isCurrent).length > 0 && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="text-xs text-muted-foreground font-normal px-3 py-1">Prihlásiť sa ako</DropdownMenuLabel>
