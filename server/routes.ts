@@ -2028,11 +2028,20 @@ export async function registerRoutes(
     try {
       const companyId = Number(req.params.companyId);
       if (isNaN(companyId)) return res.status(400).json({ message: "Neplatné ID firmy" });
-      const { type, titleBefore, firstName, lastName, titleAfter, city, birthNumber: bnRaw, ownerCompanyName: rawOwnerCompanyName, entityType } = req.body;
+      const { type, titleBefore, firstName, lastName, titleAfter, city, birthNumber: bnRaw, ownerCompanyName: rawOwnerCompanyName, entityType,
+        email, phone, street, streetNumber, orientNumber, postalCode, stateId: rawStateId,
+        idCardNumber, idCardExpiry: rawIdCardExpiry,
+        share, validFrom: rawValidFrom, validTo: rawValidTo,
+        activeFrom: rawActiveFrom, inactiveFrom: rawInactiveFrom,
+        isActive: rawIsActive,
+      } = req.body;
       if (!type) return res.status(400).json({ message: "Typ štatutára je povinný" });
 
       const isPO = entityType === 'po' || (rawOwnerCompanyName && rawOwnerCompanyName.trim());
       const ownerCompanyName = rawOwnerCompanyName?.trim() || null;
+
+      const parseDate = (v: any) => v && typeof v === 'string' && v.trim() ? new Date(v) : null;
+      const parsedStateId = rawStateId ? Number(rawStateId) : null;
 
       // Validácia RČ ešte PRED vytvorením záznamu (len pre FO)
       let cleanBnPre: string | null = null;
@@ -2051,8 +2060,22 @@ export async function registerRoutes(
         titleAfter: isPO ? null : (titleAfter || null),
         ownerCompanyName: isPO ? ownerCompanyName : null,
         city: city || null,
-        isActive: true,
-      });
+        email: email || null,
+        phone: phone || null,
+        street: street || null,
+        streetNumber: streetNumber || null,
+        orientNumber: orientNumber || null,
+        postalCode: postalCode || null,
+        stateId: parsedStateId || null,
+        idCardNumber: isPO ? null : (idCardNumber || null),
+        idCardExpiry: isPO ? null : parseDate(rawIdCardExpiry),
+        share: share || null,
+        validFrom: parseDate(rawValidFrom),
+        validTo: parseDate(rawValidTo),
+        activeFrom: parseDate(rawActiveFrom),
+        inactiveFrom: parseDate(rawInactiveFrom),
+        isActive: rawIsActive !== undefined ? Boolean(rawIsActive) : true,
+      } as any);
       await logAudit(req, { action: "CREATE", module: "spolocnosti", entityId: officer.id, entityName: isPO ? (ownerCompanyName || type) : (`${firstName || ""} ${lastName || ""}`.trim() || type) });
 
       let subject = null;
@@ -2074,6 +2097,8 @@ export async function registerRoutes(
           myCompanyId: companyId,
           registeredByUserId: req.appUser?.id || null,
           registrationStatus: 'klient',
+          email: email || null,
+          phone: phone || null,
           details: { source: 'manual_statutory', officerId: officer.id, officerType: type },
         };
         subject = await storage.createSubject(subjectDataPO);
@@ -2118,6 +2143,8 @@ export async function registerRoutes(
             registeredByUserId: req.appUser?.id || null,
             registrationStatus: 'klient',
             birthNumber: encryptField(cleanBn),
+            email: email || null,
+            phone: phone || null,
             details: { source: 'manual_statutory', officerId: officer.id, officerType: type },
           };
           subject = await storage.createSubject(subjectData);

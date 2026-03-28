@@ -6,7 +6,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { PhoneInput } from "@/components/phone-input";
 import { AddCompanyCard } from "@/components/AddCompanyCard";
 import { ConditionalDelete } from "@/components/conditional-delete";
-import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronUp, ChevronRight, Phone, Mail, GitBranch, Info, UserCheck, UserPlus, Users, Camera, UserCog, Archive, Briefcase } from "lucide-react";
+import { Plus, Building2, Pencil, Trash2, Eye, Upload, FileText, X, Download, Clock, MapPin, FileCheck, Image, Loader2, Search, CheckCircle2, AlertCircle, ChevronDown, ChevronRight, Phone, Mail, GitBranch, Info, UserCheck, UserPlus, Users, Camera, UserCog, Archive, Briefcase } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDateSlovak, formatDateTimeSlovak, formatUid, formatPhone } from "@/lib/utils";
@@ -2863,7 +2863,9 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
   const [localDirectors, setLocalDirectors] = useState<RegistryDirector[] | null>(null);
   const [fetchingRegistry, setFetchingRegistry] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
-  const [manualForm, setManualForm] = useState({ titleBefore: "", firstName: "", lastName: "", titleAfter: "", type: "Konateľ", city: "", rc: "", entityType: "fo" as "fo" | "po", ownerCompanyName: "" });
+  const MANUAL_FORM_DEFAULTS = { titleBefore: "", firstName: "", lastName: "", titleAfter: "", type: "Konateľ", city: "", rc: "", entityType: "fo" as "fo" | "po", ownerCompanyName: "", email: "", phone: "", street: "", streetNumber: "", orientNumber: "", postalCode: "", stateId: "", idCardNumber: "", idCardExpiry: "", share: "", validFrom: "", validTo: "", activeFrom: "", inactiveFrom: "", isOfficerActive: true };
+  const [manualForm, setManualForm] = useState(MANUAL_FORM_DEFAULTS);
+  const [manualFormErrors, setManualFormErrors] = useState<Record<string, string>>({});
   const [pendingRegistryDir, setPendingRegistryDir] = useState<RegistryDirector | null>(null);
   const [rcInput, setRcInput] = useState("");
   const [pendingOfficerForRc, setPendingOfficerForRc] = useState<any | null>(null);
@@ -2989,8 +2991,21 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
       if (!companyId) throw new Error("Firma musí byť najprv uložená");
       const body: Record<string, any> = {
         type: data.type,
-        city: data.city || null,
         entityType: data.entityType,
+        email: data.email || null,
+        phone: data.phone || null,
+        street: data.street || null,
+        streetNumber: data.streetNumber || null,
+        orientNumber: data.orientNumber || null,
+        postalCode: data.postalCode || null,
+        city: data.city || null,
+        stateId: data.stateId && data.stateId !== "none" ? Number(data.stateId) : null,
+        share: data.share || null,
+        validFrom: data.validFrom || null,
+        validTo: data.validTo || null,
+        activeFrom: data.activeFrom || null,
+        inactiveFrom: data.isOfficerActive ? null : (data.inactiveFrom || null),
+        isActive: data.isOfficerActive,
       };
       if (data.entityType === 'po') {
         body.ownerCompanyName = data.ownerCompanyName || null;
@@ -3000,6 +3015,8 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
         body.lastName = data.lastName || null;
         body.titleAfter = data.titleAfter || null;
         body.birthNumber = data.rc || null;
+        body.idCardNumber = data.idCardNumber || null;
+        body.idCardExpiry = data.idCardExpiry || null;
       }
       const resp = await apiRequest("POST", `/api/my-companies/${companyId}/officers`, body);
       if (!resp.ok) {
@@ -3013,7 +3030,8 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
       const desc = data?.subject?.uid ? `UID: ${formatUid(data.subject.uid)}` : undefined;
       toast({ title: "Štatutár pridaný", description: desc });
       setShowManualForm(false);
-      setManualForm({ titleBefore: "", firstName: "", lastName: "", titleAfter: "", type: "Konateľ", city: "", rc: "", entityType: "fo", ownerCompanyName: "" });
+      setManualFormErrors({});
+      setManualForm(MANUAL_FORM_DEFAULTS);
     },
     onError: (err: any) => toast({ title: "Chyba", description: err?.message || "Nepodarilo sa pridať štatutára", variant: "destructive" }),
   });
@@ -3145,158 +3163,235 @@ function CompanyOfficersSection({ companyId, registryDirectors, companyUid, comp
             size="sm"
             variant="outline"
             className="text-xs h-7"
-            onClick={() => setShowManualForm(v => !v)}
+            onClick={() => setShowManualForm(true)}
             data-testid="button-toggle-manual-officer-form"
           >
-            {showManualForm ? <ChevronUp className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
-            {showManualForm ? "Zavrieť" : "Pridať manuálne"}
+            <Plus className="w-3 h-3 mr-1" />
+            Pridať manuálne
           </Button>
         </div>
       </div>
 
-      {showManualForm && (
-        <div className="border border-border rounded-md p-3 space-y-3 bg-muted/20" data-testid="panel-manual-officer-form">
-          <div className="flex items-center gap-2">
-            <p className="text-xs font-medium text-muted-foreground flex-1">Nový štatutár / vlastník – manuálny zápis</p>
-            <div className="flex rounded-md overflow-hidden border border-border text-xs">
-              <button
-                type="button"
-                onClick={() => setManualForm(f => ({ ...f, entityType: "fo", ownerCompanyName: "" }))}
-                className={`px-2 py-1 ${manualForm.entityType === "fo" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
-                data-testid="button-entity-type-fo"
-              >FO</button>
-              <button
-                type="button"
-                onClick={() => setManualForm(f => ({ ...f, entityType: "po", titleBefore: "", firstName: "", lastName: "", titleAfter: "", rc: "" }))}
-                className={`px-2 py-1 ${manualForm.entityType === "po" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
-                data-testid="button-entity-type-po"
-              >PO</button>
-            </div>
-          </div>
+      <Dialog open={showManualForm} onOpenChange={(open) => { if (!open) { setShowManualForm(false); setManualFormErrors({}); setManualForm(MANUAL_FORM_DEFAULTS); } }}>
+        <DialogContent className="max-w-2xl" data-testid="dialog-add-officer">
+          <DialogHeader>
+            <DialogTitle>Pridať štatutára</DialogTitle>
+            <DialogDescription>Rodné číslo sa ukladá zašifrované. Záznam bude prepojený so subjektom v zozname klientov.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1 pr-1 max-h-[70vh] overflow-y-auto">
 
-          {manualForm.entityType === "fo" ? (
-            <>
-              <div className="grid grid-cols-[80px_1fr_1fr_80px] gap-2">
-                <Input
-                  placeholder="Titul pred"
-                  value={manualForm.titleBefore}
-                  onChange={e => setManualForm(f => ({ ...f, titleBefore: e.target.value }))}
-                  className="h-8 text-xs"
-                  data-testid="input-manual-title-before"
-                />
-                <Input
-                  placeholder="Meno *"
-                  value={manualForm.firstName}
-                  onChange={e => setManualForm(f => ({ ...f, firstName: e.target.value }))}
-                  className="h-8 text-xs"
-                  data-testid="input-manual-first-name"
-                />
-                <Input
-                  placeholder="Priezvisko *"
-                  value={manualForm.lastName}
-                  onChange={e => setManualForm(f => ({ ...f, lastName: e.target.value }))}
-                  className="h-8 text-xs"
-                  data-testid="input-manual-last-name"
-                />
-                <Input
-                  placeholder="Titul za"
-                  value={manualForm.titleAfter}
-                  onChange={e => setManualForm(f => ({ ...f, titleAfter: e.target.value }))}
-                  className="h-8 text-xs"
-                  data-testid="input-manual-title-after"
-                />
+            {/* FO / PO prepínač */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Typ subjektu:</span>
+              <div className="flex rounded-md overflow-hidden border border-border text-xs">
+                <button type="button" onClick={() => setManualForm(f => ({ ...f, entityType: "fo", ownerCompanyName: "" }))} className={`px-3 py-1 ${manualForm.entityType === "fo" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`} data-testid="button-entity-type-fo">FO</button>
+                <button type="button" onClick={() => setManualForm(f => ({ ...f, entityType: "po", titleBefore: "", firstName: "", lastName: "", titleAfter: "", rc: "", idCardNumber: "", idCardExpiry: "" }))} className={`px-3 py-1 ${manualForm.entityType === "po" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`} data-testid="button-entity-type-po">PO</button>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Select
-                  value={manualForm.type}
-                  onValueChange={v => setManualForm(f => ({ ...f, type: v }))}
-                >
-                  <SelectTrigger className="h-8 text-xs" data-testid="select-manual-officer-type">
-                    <SelectValue placeholder="Funkcia" />
+            </div>
+
+            {/* R1: UID + RC (len FO) / Názov spoločnosti (PO) */}
+            {manualForm.entityType === "fo" ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">UID</label>
+                  <div className="h-8 flex items-center px-3 rounded border border-border bg-muted/30 text-xs font-mono text-muted-foreground italic">Bude vygenerované</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Rodné číslo</label>
+                  <Input className="h-8 text-sm" placeholder="napr. 800101/1234" value={manualForm.rc} onChange={e => setManualForm(f => ({ ...f, rc: e.target.value }))} inputMode="numeric" data-testid="input-manual-officer-rc" />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Názov spoločnosti <span className="text-red-500">*</span></label>
+                <Input className={`h-8 text-sm ${manualFormErrors.ownerCompanyName ? "border-red-500" : ""}`} placeholder="napr. ABC s.r.o." value={manualForm.ownerCompanyName} onChange={e => { setManualForm(f => ({ ...f, ownerCompanyName: e.target.value })); if (manualFormErrors.ownerCompanyName) setManualFormErrors(p => { const n = {...p}; delete n.ownerCompanyName; return n; }); }} data-testid="input-manual-owner-company-name" />
+                {manualFormErrors.ownerCompanyName && <p className="text-xs text-red-500">{manualFormErrors.ownerCompanyName}</p>}
+              </div>
+            )}
+
+            {/* R2: Tituly + Meno + Priezvisko (len FO) */}
+            {manualForm.entityType === "fo" && (
+              <div className="grid grid-cols-4 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Titul pred</label>
+                  <Input className="h-8 text-sm" placeholder="Ing." value={manualForm.titleBefore} onChange={e => setManualForm(f => ({ ...f, titleBefore: e.target.value }))} data-testid="input-manual-officer-titlebefore" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Meno</label>
+                  <Input className="h-8 text-sm" value={manualForm.firstName} onChange={e => setManualForm(f => ({ ...f, firstName: e.target.value }))} data-testid="input-manual-officer-firstname" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Priezvisko</label>
+                  <Input className="h-8 text-sm" value={manualForm.lastName} onChange={e => setManualForm(f => ({ ...f, lastName: e.target.value }))} data-testid="input-manual-officer-lastname" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Titul za</label>
+                  <Input className="h-8 text-sm" placeholder="PhD." value={manualForm.titleAfter} onChange={e => setManualForm(f => ({ ...f, titleAfter: e.target.value }))} data-testid="input-manual-officer-titleafter" />
+                </div>
+              </div>
+            )}
+
+            {/* R3: Email + Telefón */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Email <span className="text-red-500">*</span></label>
+                <Input className={`h-8 text-sm ${manualFormErrors.email ? "border-red-500" : ""}`} type="email" placeholder="napr. jan@firma.sk" value={manualForm.email} onChange={e => { setManualForm(f => ({ ...f, email: e.target.value })); if (manualFormErrors.email) setManualFormErrors(p => { const n = {...p}; delete n.email; return n; }); }} data-testid="input-manual-officer-email" />
+                {manualFormErrors.email && <p className="text-xs text-red-500">{manualFormErrors.email}</p>}
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Telefón <span className="text-red-500">*</span></label>
+                <PhoneInput value={manualForm.phone} onChange={val => { setManualForm(f => ({ ...f, phone: val })); if (manualFormErrors.phone) setManualFormErrors(p => { const n = {...p}; delete n.phone; return n; }); }} initialDialCode={officerSectionStates?.find(s => s.id === officerAppUser?.activeStateId)?.code} error={!!manualFormErrors.phone} data-testid="input-manual-officer-phone" />
+                {manualFormErrors.phone && <p className="text-xs text-red-500">{manualFormErrors.phone}</p>}
+              </div>
+            </div>
+
+            {/* R4: Ulica + Číslo popisné + Číslo orientačné */}
+            <div className="grid grid-cols-4 gap-3">
+              <div className="col-span-2 space-y-1">
+                <label className="text-xs text-muted-foreground">Ulica <span className="text-red-500">*</span></label>
+                <Input className={`h-8 text-sm ${manualFormErrors.street ? "border-red-500" : ""}`} value={manualForm.street} onChange={e => { setManualForm(f => ({ ...f, street: e.target.value })); if (manualFormErrors.street) setManualFormErrors(p => { const n = {...p}; delete n.street; return n; }); }} data-testid="input-manual-officer-street" />
+                {manualFormErrors.street && <p className="text-xs text-red-500">{manualFormErrors.street}</p>}
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Číslo popisné</label>
+                <Input className="h-8 text-sm" value={manualForm.streetNumber} onChange={e => setManualForm(f => ({ ...f, streetNumber: e.target.value }))} data-testid="input-manual-officer-streetnumber" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Číslo orientačné <span className="text-red-500">*</span></label>
+                <Input className={`h-8 text-sm ${manualFormErrors.orientNumber ? "border-red-500" : ""}`} value={manualForm.orientNumber} onChange={e => { setManualForm(f => ({ ...f, orientNumber: e.target.value })); if (manualFormErrors.orientNumber) setManualFormErrors(p => { const n = {...p}; delete n.orientNumber; return n; }); }} data-testid="input-manual-officer-orientnumber" />
+                {manualFormErrors.orientNumber && <p className="text-xs text-red-500">{manualFormErrors.orientNumber}</p>}
+              </div>
+            </div>
+
+            {/* R5: PSČ + Mesto + Štát */}
+            <div className="grid grid-cols-5 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">PSČ <span className="text-red-500">*</span></label>
+                <Input className={`h-8 text-sm ${manualFormErrors.postalCode ? "border-red-500" : ""}`} value={manualForm.postalCode} onChange={e => { setManualForm(f => ({ ...f, postalCode: e.target.value })); if (manualFormErrors.postalCode) setManualFormErrors(p => { const n = {...p}; delete n.postalCode; return n; }); }} data-testid="input-manual-officer-postalcode" />
+                {manualFormErrors.postalCode && <p className="text-xs text-red-500">{manualFormErrors.postalCode}</p>}
+              </div>
+              <div className="col-span-2 space-y-1">
+                <label className="text-xs text-muted-foreground">Mesto / obec <span className="text-red-500">*</span></label>
+                <Input className={`h-8 text-sm ${manualFormErrors.city ? "border-red-500" : ""}`} value={manualForm.city} onChange={e => { setManualForm(f => ({ ...f, city: e.target.value })); if (manualFormErrors.city) setManualFormErrors(p => { const n = {...p}; delete n.city; return n; }); }} data-testid="input-manual-officer-city" />
+                {manualFormErrors.city && <p className="text-xs text-red-500">{manualFormErrors.city}</p>}
+              </div>
+              <div className="col-span-2 space-y-1">
+                <label className="text-xs text-muted-foreground">Štát <span className="text-red-500">*</span></label>
+                <Select value={manualForm.stateId} onValueChange={val => { setManualForm(f => ({ ...f, stateId: val })); if (manualFormErrors.stateId) setManualFormErrors(p => { const n = {...p}; delete n.stateId; return n; }); }}>
+                  <SelectTrigger className={`h-8 text-sm ${manualFormErrors.stateId ? "border-red-500" : ""}`} data-testid="select-manual-officer-state">
+                    <SelectValue placeholder="Vybrať" />
                   </SelectTrigger>
                   <SelectContent>
-                    {OFFICER_TYPES.map(t => (
-                      <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
+                    <SelectItem value="none">—</SelectItem>
+                    {officerSectionStates?.map(s => (
+                      <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <Input
-                  placeholder="Mesto (nepovinné)"
-                  value={manualForm.city}
-                  onChange={e => setManualForm(f => ({ ...f, city: e.target.value }))}
-                  className="h-8 text-xs"
-                  data-testid="input-manual-city"
-                />
-                <Input
-                  placeholder="Rodné číslo *"
-                  value={manualForm.rc}
-                  onChange={e => setManualForm(f => ({ ...f, rc: e.target.value }))}
-                  className="h-8 text-xs"
-                  inputMode="numeric"
-                  data-testid="input-manual-rc"
-                />
+                {manualFormErrors.stateId && <p className="text-xs text-red-500">{manualFormErrors.stateId}</p>}
               </div>
-            </>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                placeholder="Názov spoločnosti *"
-                value={manualForm.ownerCompanyName}
-                onChange={e => setManualForm(f => ({ ...f, ownerCompanyName: e.target.value }))}
-                className="h-8 text-xs col-span-2"
-                data-testid="input-manual-owner-company-name"
-              />
-              <Select
-                value={manualForm.type}
-                onValueChange={v => setManualForm(f => ({ ...f, type: v }))}
-              >
-                <SelectTrigger className="h-8 text-xs" data-testid="select-manual-officer-type-po">
-                  <SelectValue placeholder="Funkcia" />
-                </SelectTrigger>
-                <SelectContent>
-                  {OFFICER_TYPES.map(t => (
-                    <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                placeholder="Mesto (nepovinné)"
-                value={manualForm.city}
-                onChange={e => setManualForm(f => ({ ...f, city: e.target.value }))}
-                className="h-8 text-xs"
-                data-testid="input-manual-city-po"
-              />
             </div>
-          )}
 
-          <div className="flex justify-end">
+            {/* R6: Číslo OP + Platnosť OP (len FO) */}
+            {manualForm.entityType === "fo" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Číslo občianskeho preukazu <span className="text-red-500">*</span></label>
+                  <Input className={`h-8 text-sm ${manualFormErrors.idCardNumber ? "border-red-500" : ""}`} placeholder="napr. AB123456" value={manualForm.idCardNumber} onChange={e => { setManualForm(f => ({ ...f, idCardNumber: e.target.value })); if (manualFormErrors.idCardNumber) setManualFormErrors(p => { const n = {...p}; delete n.idCardNumber; return n; }); }} data-testid="input-manual-officer-idcardnumber" />
+                  {manualFormErrors.idCardNumber && <p className="text-xs text-red-500">{manualFormErrors.idCardNumber}</p>}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Platnosť OP <span className="text-red-500">*</span></label>
+                  <Input type="date" className={`h-8 text-sm ${manualFormErrors.idCardExpiry ? "border-red-500" : ""}`} value={manualForm.idCardExpiry} onChange={e => { setManualForm(f => ({ ...f, idCardExpiry: e.target.value })); if (manualFormErrors.idCardExpiry) setManualFormErrors(p => { const n = {...p}; delete n.idCardExpiry; return n; }); }} data-testid="input-manual-officer-idcardexpiry" />
+                  {manualFormErrors.idCardExpiry && <p className="text-xs text-red-500">{manualFormErrors.idCardExpiry}</p>}
+                </div>
+              </div>
+            )}
+
+            {/* R7: Funkcia + Obchodný podiel */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Funkcia / typ <span className="text-red-500">*</span></label>
+                <Input className={`h-8 text-sm ${manualFormErrors.type ? "border-red-500" : ""}`} placeholder="Konateľ" value={manualForm.type} onChange={e => { setManualForm(f => ({ ...f, type: e.target.value })); if (manualFormErrors.type) setManualFormErrors(p => { const n = {...p}; delete n.type; return n; }); }} data-testid="input-manual-officer-type" />
+                {manualFormErrors.type && <p className="text-xs text-red-500">{manualFormErrors.type}</p>}
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Obchodný podiel <span className="text-red-500">*</span></label>
+                <Input className={`h-8 text-sm ${manualFormErrors.share ? "border-red-500" : ""}`} placeholder="napr. 50%" value={manualForm.share} onChange={e => { setManualForm(f => ({ ...f, share: e.target.value })); if (manualFormErrors.share) setManualFormErrors(p => { const n = {...p}; delete n.share; return n; }); }} data-testid="input-manual-officer-share" />
+                {manualFormErrors.share && <p className="text-xs text-red-500">{manualFormErrors.share}</p>}
+              </div>
+            </div>
+
+            {/* R8: Platnosť od + Platnosť do */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Platnosť od</label>
+                <Input type="date" className="h-8 text-sm" value={manualForm.validFrom} onChange={e => setManualForm(f => ({ ...f, validFrom: e.target.value }))} data-testid="input-manual-officer-validfrom" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Platnosť do</label>
+                <Input type="date" className="h-8 text-sm" value={manualForm.validTo} onChange={e => setManualForm(f => ({ ...f, validTo: e.target.value }))} data-testid="input-manual-officer-validto" />
+              </div>
+            </div>
+
+            {/* R9: Aktívny/Neaktívny + dátumy */}
+            <div className="space-y-2">
+              <Button type="button" variant="outline" size="sm" className={manualForm.isOfficerActive ? "border-green-600 text-green-500 hover:bg-green-950/30 h-8 text-sm" : "border-red-600 text-red-500 hover:bg-red-950/30 h-8 text-sm"} onClick={() => setManualForm(f => ({ ...f, isOfficerActive: !f.isOfficerActive }))} data-testid="button-toggle-manual-officer-active">
+                {manualForm.isOfficerActive ? "🟢 Aktívny" : "🔴 Neaktívny"}
+              </Button>
+              <div className={`grid gap-2 ${manualForm.isOfficerActive ? "grid-cols-1 max-w-[200px]" : "grid-cols-2"}`}>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Aktívny od <span className="text-red-500">*</span></label>
+                  <Input type="date" className={`h-8 text-sm ${manualFormErrors.activeFrom ? "border-red-500" : ""}`} value={manualForm.activeFrom} onChange={e => { setManualForm(f => ({ ...f, activeFrom: e.target.value })); if (manualFormErrors.activeFrom) setManualFormErrors(p => { const n = {...p}; delete n.activeFrom; return n; }); }} data-testid="input-manual-officer-activefrom" />
+                  {manualFormErrors.activeFrom && <p className="text-xs text-red-500">{manualFormErrors.activeFrom}</p>}
+                </div>
+                {!manualForm.isOfficerActive && (
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Neaktívny od</label>
+                    <Input type="date" className="h-8 text-sm" value={manualForm.inactiveFrom} onChange={e => setManualForm(f => ({ ...f, inactiveFrom: e.target.value }))} data-testid="input-manual-officer-inactivefrom" />
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => { setShowManualForm(false); setManualFormErrors({}); setManualForm(MANUAL_FORM_DEFAULTS); }} data-testid="button-manual-officer-cancel">
+              Zrušiť
+            </Button>
             <Button
               type="button"
-              size="sm"
-              className="h-8 text-xs"
               onClick={() => {
+                const errs: Record<string, string> = {};
+                if (!manualForm.email.trim()) errs.email = "Povinné pole";
+                if (!manualForm.phone.trim()) errs.phone = "Povinné pole";
+                if (!manualForm.street.trim()) errs.street = "Povinné pole";
+                if (!manualForm.orientNumber.trim()) errs.orientNumber = "Povinné pole";
+                if (!manualForm.postalCode.trim()) errs.postalCode = "Povinné pole";
+                if (!manualForm.city.trim()) errs.city = "Povinné pole";
+                if (!manualForm.stateId || manualForm.stateId === "none") errs.stateId = "Povinné pole";
+                if (!manualForm.type.trim()) errs.type = "Povinné pole";
+                if (!manualForm.share.trim()) errs.share = "Povinné pole";
+                if (!manualForm.activeFrom.trim()) errs.activeFrom = "Povinné pole";
                 if (manualForm.entityType === "fo") {
-                  if (!manualForm.firstName.trim() && !manualForm.lastName.trim()) {
-                    toast({ title: "Chyba", description: "Zadajte aspoň meno alebo priezvisko", variant: "destructive" });
-                    return;
-                  }
+                  if (!manualForm.idCardNumber.trim()) errs.idCardNumber = "Povinné pole";
+                  if (!manualForm.idCardExpiry.trim()) errs.idCardExpiry = "Povinné pole";
                 } else {
-                  if (!manualForm.ownerCompanyName.trim()) {
-                    toast({ title: "Chyba", description: "Zadajte názov spoločnosti", variant: "destructive" });
-                    return;
-                  }
+                  if (!manualForm.ownerCompanyName.trim()) errs.ownerCompanyName = "Povinné pole";
                 }
+                if (Object.keys(errs).length > 0) { setManualFormErrors(errs); return; }
+                setManualFormErrors({});
                 createManualMutation.mutate(manualForm);
               }}
               disabled={createManualMutation.isPending}
               data-testid="button-save-manual-officer"
             >
-              {createManualMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
-              Uložiť {manualForm.entityType === "po" ? "spoločnosť" : "štatutára"}
+              {createManualMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              Uložiť
             </Button>
-          </div>
-        </div>
-      )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {officers.length > 0 && (
         <div className="space-y-2">
