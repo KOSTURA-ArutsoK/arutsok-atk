@@ -297,11 +297,14 @@ export default function AuthPage() {
     const useListView = totalCount > 8;
 
     const q = subjectSearch.trim().toLowerCase();
+    const qDigits = q.replace(/\D/g, "");
     const matchesSearch = (s: SubjectOption) => {
       if (!q) return true;
       const name = [s.firstName, s.lastName, s.companyName].filter(Boolean).join(" ").toLowerCase();
       const uid = (s.uid || "").replace(/\D/g, "");
-      return name.includes(q) || uid.includes(q.replace(/\D/g, ""));
+      const nameMatch = name.includes(q);
+      const uidMatch = qDigits.length > 0 && uid.includes(qDigits);
+      return nameMatch || uidMatch;
     };
 
     const allPeerSubjects = subjectOptions.filter((s) => !s.isShadow);
@@ -421,27 +424,25 @@ export default function AuthPage() {
               </div>
             )}
 
-            {totalCount > 4 && (
-              <div className="relative">
-                <Input
-                  value={subjectSearch}
-                  onChange={(e) => setSubjectSearch(e.target.value)}
-                  placeholder="Hľadať podľa mena alebo UID…"
-                  className="pl-3 pr-8 h-9 text-sm"
-                  data-testid="input-subject-search"
-                  autoComplete="off"
-                />
-                {subjectSearch && (
-                  <button
-                    onClick={() => setSubjectSearch("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    data-testid="button-clear-subject-search"
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            )}
+            <div className="relative">
+              <Input
+                value={subjectSearch}
+                onChange={(e) => setSubjectSearch(e.target.value)}
+                placeholder="Hľadať podľa mena alebo UID…"
+                className="pl-3 pr-8 h-9 text-sm"
+                data-testid="input-subject-search"
+                autoComplete="off"
+              />
+              {subjectSearch && (
+                <button
+                  onClick={() => setSubjectSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  data-testid="button-clear-subject-search"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
 
             {renderError()}
 
