@@ -1781,7 +1781,20 @@ export async function registerRoutes(
   app.get("/api/audit-logs/users", isAuthenticated, async (_req, res) => {
     try {
       const users = await storage.getAppUsers();
-      res.json(users.map(u => ({ id: u.id, username: u.username, firstName: u.firstName, lastName: u.lastName, uid: u.uid ?? null })));
+      const linkedSubjectIds = users.map(u => u.linkedSubjectId).filter((id): id is number => id != null);
+      const titleMap = new Map<number, { titleBefore: string | null; titleAfter: string | null }>();
+      if (linkedSubjectIds.length > 0) {
+        const subjectRows = await db.select({ id: subjects.id, titleBefore: subjects.titleBefore, titleAfter: subjects.titleAfter })
+          .from(subjects)
+          .where(inArray(subjects.id, linkedSubjectIds));
+        for (const s of subjectRows) {
+          titleMap.set(s.id, { titleBefore: s.titleBefore ?? null, titleAfter: s.titleAfter ?? null });
+        }
+      }
+      res.json(users.map(u => {
+        const titles = u.linkedSubjectId ? (titleMap.get(u.linkedSubjectId) ?? { titleBefore: null, titleAfter: null }) : { titleBefore: null, titleAfter: null };
+        return { id: u.id, username: u.username, titleBefore: titles.titleBefore, firstName: u.firstName, lastName: u.lastName, titleAfter: titles.titleAfter, uid: u.uid ?? null };
+      }));
     } catch (err) {
       res.status(500).json({ message: "Internal error" });
     }

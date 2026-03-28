@@ -75,6 +75,7 @@ const PAGE_SIZE = 25;
 const COLUMNS: ColumnDef[] = [
   { key: "id", label: "ID" },
   { key: "createdAt", label: "Cas" },
+  { key: "userUid", label: "UID" },
   { key: "username", label: "Pouzivatel" },
   { key: "action", label: "Akcia" },
   { key: "module", label: "Modul" },
@@ -85,6 +86,7 @@ const COLUMNS: ColumnDef[] = [
 const FILTER_COLUMNS: SmartColumnDef[] = [
   { key: "id", label: "ID", type: "number" },
   { key: "createdAt", label: "Cas", type: "date" },
+  { key: "userUid", label: "UID", type: "text" },
   { key: "username", label: "Pouzivatel", type: "text" },
   { key: "action", label: "Akcia", type: "text" },
   { key: "module", label: "Modul", type: "text" },
@@ -119,7 +121,7 @@ export default function History() {
     },
   });
 
-  const { data: users } = useQuery<{ id: number; username: string; firstName: string | null; lastName: string | null; uid: string | null }[]>({
+  const { data: users } = useQuery<{ id: number; username: string; titleBefore: string | null; firstName: string | null; lastName: string | null; titleAfter: string | null; uid: string | null }[]>({
     queryKey: ["/api/audit-logs/users"],
   });
 
@@ -128,7 +130,9 @@ export default function History() {
     (users || []).map(u => [
       u.id,
       {
-        displayName: u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.username,
+        displayName: (u.firstName && u.lastName)
+          ? [u.titleBefore, u.firstName, u.lastName, u.titleAfter].filter(Boolean).join(" ")
+          : u.username,
         uid: u.uid ?? null,
       },
     ])
@@ -271,7 +275,9 @@ export default function History() {
                 <SelectContent>
                   <SelectItem value="all">Vsetci pouzivatelia</SelectItem>
                   {(users || []).map(u => {
-                    const name = u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.username;
+                    const name = (u.firstName && u.lastName)
+                      ? [u.titleBefore, u.firstName, u.lastName, u.titleAfter].filter(Boolean).join(" ")
+                      : u.username;
                     const uid = u.uid ? formatUid(u.uid) : null;
                     return (
                       <SelectItem key={u.id} value={String(u.id)}>
@@ -328,7 +334,8 @@ export default function History() {
                   <TableRow>
                     {columnVisibility.isVisible("id") && <TableHead className="w-[50px]" sortKey="id" sortDirection={sortKey === "id" ? sortDirection : null} onSort={requestSort}>ID</TableHead>}
                     {columnVisibility.isVisible("createdAt") && <TableHead className="w-[160px]" sortKey="createdAt" sortDirection={sortKey === "createdAt" ? sortDirection : null} onSort={requestSort}>Cas</TableHead>}
-                    {columnVisibility.isVisible("username") && <TableHead className="w-[150px]" sortKey="username" sortDirection={sortKey === "username" ? sortDirection : null} onSort={requestSort}>Používateľ</TableHead>}
+                    {columnVisibility.isVisible("userUid") && <TableHead className="w-[120px]">UID</TableHead>}
+                    {columnVisibility.isVisible("username") && <TableHead className="w-[160px]" sortKey="username" sortDirection={sortKey === "username" ? sortDirection : null} onSort={requestSort}>Používateľ</TableHead>}
                     {columnVisibility.isVisible("action") && <TableHead className="w-[90px]" sortKey="action" sortDirection={sortKey === "action" ? sortDirection : null} onSort={requestSort}>Akcia</TableHead>}
                     {columnVisibility.isVisible("module") && <TableHead className="w-[120px]" sortKey="module" sortDirection={sortKey === "module" ? sortDirection : null} onSort={requestSort}>Modul</TableHead>}
                     {columnVisibility.isVisible("entityName") && <TableHead sortKey="entityName" sortDirection={sortKey === "entityName" ? sortDirection : null} onSort={requestSort}>Entita</TableHead>}
@@ -341,14 +348,16 @@ export default function History() {
                     <TableRow key={log.id} className="hover-elevate cursor-pointer" onClick={() => setDetailLog(log)} data-testid={`row-audit-log-${log.id}`}>
                       {columnVisibility.isVisible("id") && <TableCell className="font-mono text-xs text-muted-foreground">{log.id}</TableCell>}
                       {columnVisibility.isVisible("createdAt") && <TableCell className="text-xs">{formatDate(log.createdAt)}</TableCell>}
+                      {columnVisibility.isVisible("userUid") && (
+                        <TableCell className="font-mono text-[11px] text-muted-foreground tracking-tight whitespace-nowrap">
+                          {log.userId && userMap.get(log.userId)?.uid ? formatUid(userMap.get(log.userId)!.uid!) : "-"}
+                        </TableCell>
+                      )}
                       {columnVisibility.isVisible("username") && (
                         <TableCell className="text-xs">
-                          <div className="font-medium leading-tight">{log.username || "-"}</div>
-                          {log.userId && userMap.get(log.userId)?.uid && (
-                            <div className="font-mono text-[10px] text-muted-foreground tracking-tight">
-                              {formatUid(userMap.get(log.userId)!.uid!)}
-                            </div>
-                          )}
+                          <div className="font-medium leading-tight">
+                            {log.userId ? (userMap.get(log.userId)?.displayName || log.username || "-") : (log.username || "-")}
+                          </div>
                         </TableCell>
                       )}
                       {columnVisibility.isVisible("action") && <TableCell>
