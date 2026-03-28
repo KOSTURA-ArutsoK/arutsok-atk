@@ -293,6 +293,20 @@ export default function AuthPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/app-user/me"] }),
       queryClient.invalidateQueries({ queryKey: ["/api/home-popup-data"] }),
     ]);
+    // If user has linked accounts or guardian access, use old identity picker for account switching
+    try {
+      const ctxRes = await fetch("/api/user/contexts", { credentials: "include" });
+      if (ctxRes.ok) {
+        const ctxData = await ctxRes.json();
+        const hasLinked = Array.isArray(ctxData) && ctxData.some(
+          (c: any) => c.contextType === "linked_account" || c.contextType === "guardian"
+        );
+        if (hasLinked) {
+          navigate("/vyber-identity");
+          return;
+        }
+      }
+    } catch {}
     localStorage.setItem("atk_pending_identity_setup", "1");
     navigate("/");
   };

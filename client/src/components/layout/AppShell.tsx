@@ -244,9 +244,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }
 
         if (opts.length === 1) {
-          // Single identity option — auto-skip identity step but properly apply via full pipeline
-          // This ensures activeSubjectId is set correctly and the auto-select pipeline runs
-          setContextOverlayOpen(true);
+          // Single identity option — auto-skip identity step, apply identity and run pipeline
+          // Only opens overlay if user interaction is actually needed (company/division choice)
           handleContextSelectIdentity(opts[0]);
           return;
         }
@@ -486,25 +485,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             if (!compsRes.ok) { setPendingStateId(null); setContextStep("state"); return; }
             const validComps = await compsRes.json();
             if (validComps.length === 0) {
-              // No companies for this identity — keep overlay open at state step
-              // (mandatory company selection must not be bypassed in loginFlow)
+              // No companies for this identity — show state picker (mandatory, non-closable)
               setLoginFlowPrevStep(null);
               setPendingStateId(null);
               setContextStep("state");
+              setContextOverlayOpen(true);
               return;
             }
             if (validComps.length === 1) {
-              // Single company — auto-select it (handleContextSelectCompany handles divisions + flag clear)
-              // State is auto-skipped; if company step appears (multi-division), Back → identity
+              // Single company — auto-select (handleContextSelectCompany handles divisions + flag clear)
+              // State is auto-skipped; overlay opens only if division choice needed
               setLoginFlowPrevStep("identity");
               await handleContextSelectCompany(validComps[0].id);
             } else {
-              // Multiple companies — show company picker (skip state if all share one state)
+              // Multiple companies — open overlay for company/state picker
               const uniqueStateIds = [...new Set(
                 validComps.map((c: any) => c.stateId).filter((id: any) => id != null)
               )] as number[];
               if (uniqueStateIds.length === 1) {
-                // State auto-skipped — Back from company should return to identity
+                // State auto-skipped — Back from company → identity
                 setLoginFlowPrevStep("identity");
                 setPendingStateId(uniqueStateIds[0]);
                 setContextStep("company");
@@ -514,6 +513,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 setPendingStateId(null);
                 setContextStep("state");
               }
+              setContextOverlayOpen(true);
             }
           } else {
             // FO identity: run the same auto-select pipeline as initial context init
@@ -536,6 +536,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   setLoginFlowPrevStep("identity");
                   setPendingStateId(singleStateId);
                   setContextStep("company");
+                  setContextOverlayOpen(true);
                   return;
                 }
                 // 0 companies in this state — fall through to state picker
@@ -545,13 +546,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             setLoginFlowPrevStep(null);
             setPendingStateId(null);
             setContextStep("state");
+            setContextOverlayOpen(true);
           }
         } catch {
           setPendingStateId(null);
           setContextStep("state");
+          setContextOverlayOpen(true);
         }
       },
       onError: () => {
+        setPendingStateId(null);
+        setContextStep("state");
+        setContextOverlayOpen(true);
         toast({ title: "Chyba pri nastavení identity", variant: "destructive" });
       }
     });
