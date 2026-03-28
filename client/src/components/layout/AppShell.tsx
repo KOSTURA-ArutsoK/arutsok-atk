@@ -1180,7 +1180,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </DropdownMenu>
           </header>
 
-          {isActingAsLinkedSubject && (
+          {isNonFoContext && (
             <div className="bg-orange-600 text-white px-4 py-2 flex items-center justify-between flex-shrink-0" data-testid="banner-subject-context">
               <div className="flex items-center gap-2">
                 <UserCheck className="w-4 h-4" />
