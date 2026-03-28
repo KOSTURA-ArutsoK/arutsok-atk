@@ -803,6 +803,20 @@ export async function setupAuth(app: Express) {
       const peerIds = new Set(peerSubjectsRaw.map((s) => s.id));
       const shadowOnly = shadowSubjectsRaw.filter((s) => !peerIds.has(s.id));
 
+      const allSubjectIdsGet = [...peerSubjectsRaw, ...shadowOnly].map((s) => s.id);
+      const groupCodesMapGet = new Map<number, string[]>();
+      if (allSubjectIdsGet.length > 0) {
+        const mems = await db
+          .select({ subjectId: clientGroupMembers.subjectId, groupCode: clientGroups.groupCode })
+          .from(clientGroupMembers)
+          .innerJoin(clientGroups, eq(clientGroupMembers.groupId, clientGroups.id))
+          .where(inArray(clientGroupMembers.subjectId, allSubjectIdsGet));
+        for (const m of mems) {
+          if (!groupCodesMapGet.has(m.subjectId)) groupCodesMapGet.set(m.subjectId, []);
+          if (m.groupCode) groupCodesMapGet.get(m.subjectId)!.push(m.groupCode);
+        }
+      }
+
       const buildMeta = async (s: typeof peerSubjectsRaw[0], isShadow: boolean) => {
         let adultStatus: boolean | null = null;
         let documentHint: { documentType: string | null; masked: string | null } | null = null;
@@ -814,7 +828,7 @@ export async function setupAuth(app: Express) {
             documentHint = doc ? { documentType: doc.documentType, masked: doc.documentNumber ? maskDocNumber(doc.documentNumber) : null } : { documentType: null, masked: null };
           }
         }
-        return { id: s.id, uid: s.uid, firstName: s.firstName, lastName: s.lastName, companyName: s.companyName, type: s.type, phone: s.phone ?? null, isShadow, isAdult: adultStatus, hasRisk: s.listStatus === "cerveny", documentHint };
+        return { id: s.id, uid: s.uid, firstName: s.firstName, lastName: s.lastName, companyName: s.companyName, type: s.type, phone: s.phone ?? null, isShadow, isAdult: adultStatus, hasRisk: s.listStatus === "cerveny", documentHint, groups: groupCodesMapGet.get(s.id) ?? [] };
       };
 
       const peerMetas = await Promise.all(peerSubjectsRaw.map((s) => buildMeta(s, false)));
