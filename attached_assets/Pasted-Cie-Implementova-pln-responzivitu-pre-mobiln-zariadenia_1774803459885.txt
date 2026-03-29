@@ -1,0 +1,48 @@
+Cieľ: Implementovať plnú responzivitu pre mobilné zariadenia (MT) a tablety pri zachovaní 100 % integrity súčasného PC layoutu. Pracujeme v testovacom prostredí s testovacími dátami.
+
+1. Globálne pravidlá (Breakpoints):
+
+PC (>1024px): Žiadna zmena. Súčasný dizajn musí zostať 1:1.
+
+Tablet (<1024px) & Mobil (<768px): Aktivuj "Mobile Mode".
+
+2. Navigácia a Horná lišta (KTO/KDE):
+
+Sidebar: Na mobile ho skry do "Hamburger menu" (vľavo hore). Pri kliknutí na položku menu sa sidebar musí automaticky zavrieť.
+
+KTO/KDE Chips: V hornej lište povoľ horizontálny scroll (posun prstom). Čipy nesmú meniť veľkosť, ale musia byť odsunuté tak, aby boli čitateľné.
+
+Touch Targets: Všetky interaktívne prvky (čipy, tlačidlá) musia mať na mobile minimálnu výšku 44px pre pohodlné ovládanie palcom.
+
+3. Transformácia komponentov (Dashboard & Tabuľky):
+
+Dashboard Cards: Prepni z mriežky (Grid) na stĺpec (Stack). Karty sa radia pod seba na celú šírku displeja.
+
+Evidencia zmlúv (Tabuľky): Pri šírke pod 768px transformuj každý riadok tabuľky na samostatnú Kartu (Card View).
+
+Zobraz kľúčové polia: Partner, Klient, Stav, Číslo zmluvy.
+
+Zachovaj 2px stroke (obrys) a drop-shadow/glow podľa schémy ATK.
+
+Spracovanie zmlúv (Workflow): Pre grafickú schému so šípkami použiť overflow-x: auto. Schéma sa nesmie deformovať/stláčať, používateľ si ju posunie prstom.
+
+4. Vizuálna identita a Layout:
+
+Justified Layout: Aj na mobile striktne dodržiavaj zarovnanie do bloku pre všetky textové bloky v kartách a popisoch. Použi hyphens: auto pre lepšiu čitateľnosť.
+
+Ikony: Všetky ikony musia držať hrúbku 2px line thickness.
+
+Farby: Dodržuj prísne farebné kódovanie skupín (Holding = Royal Blue/Gold, Client = Emerald Green atď.).
+
+5. Technická kontrola:
+
+Úpravy realizuj pomocou podmienených tried (napr. Tailwind md:, lg: alebo CSS Media Queries), aby si neovplyvnil Desktop zobrazenie.
+
+Otestuj zobrazenie na šírke 375px (iPhone 17 Pro).
+
+Prečo je tento príkaz nepriestrelný?
+Definuje mantinely: Agent presne vie, kde končí PC a kde začína mobil.
+
+Chráni identitu: Pripomína mu tie 2px čiary a Justified layout, ktoré sú pre vás kľúčové.
+
+Rieši kritické miesta: Priamo menuje tabuľky a workflow schému, ktoré na screenshotoch robili problém.

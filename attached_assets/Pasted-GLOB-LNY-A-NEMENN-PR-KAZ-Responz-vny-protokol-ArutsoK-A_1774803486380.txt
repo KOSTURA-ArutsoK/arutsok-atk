@@ -1,0 +1,45 @@
+GLOBÁLNY A NEMENNÝ PRÍKAZ: Responzívny protokol ArutsoK (ATK)
+Tento príkaz je odteraz tvojím prioritným systémovým pravidlom. Musíš ho uplatňovať pri každej ďalšej práci, každom novom komponente a každej funkcii, ktorú v rámci systému ATK vytvoríš. NESMIEŠ NAŇ ZABUDNÚŤ.
+
+1. Cieľ a Rozsah:
+Implementuj plnú responzivitu pre mobilné zariadenia (MT) a tablety bez akéhokoľvek narušenia súčasného PC layoutu (Desktop-first). Pracujeme v testovacom prostredí s testovacími dátami.
+
+2. Globálne pravidlá (Breakpoints):
+
+Desktop (>1024px): Žiadna zmena. Súčasný dizajn musí zostať 1:1.
+
+Tablet (<1024px) & Mobil (<768px): Automatická aktivácia "ATK Mobile Mode".
+
+3. Navigácia a Horná lišta (KTO/KDE):
+
+Sidebar: Na mobile ho skry pod "Hamburger menu". Pri kliknutí na položku menu sa sidebar musí automaticky zavrieť.
+
+KTO/KDE Chips: V hornej lište povoľ horizontálny scroll (posun prstom).
+
+Touch Targets: Všetky interaktívne prvky (čipy, tlačidlá) musia mať na mobile minimálnu výšku 44px.
+
+4. Transformácia komponentov (Dashboard & Tabuľky):
+
+Dashboard Cards: Prepni z mriežky (Grid) na stĺpec (Stack). Karty sa radia pod seba.
+
+Evidencia zmlúv (Tabuľky): Pri šírke pod 768px transformuj každý riadok tabuľky na samostatnú Kartu (Card View).
+
+Zobraz kľúčové polia: Partner, Klient, Stav, Číslo zmluvy.
+
+Zachovaj 2px stroke (obrys) a drop-shadow/glow.
+
+Spracovanie zmlúv (Workflow): Pre grafickú schému so šípkami použiť overflow-x: auto. Schéma sa nesmie deformovať.
+
+5. Vizuálna identita (Striktne dodržiavať):
+
+Justified Layout: Aj na mobile striktne dodržiavaj zarovnanie do bloku pre všetky textové bloky v kartách a popisoch.
+
+Ikony: Všetky ikony musia držať hrúbku 2px line thickness.
+
+Farby: Dodržuj prísne farebné kódovanie skupín (Holding, Partner, Client, Risk).
+
+6. TRVALÁ PLATNOSŤ (Global Persistence):
+
+Toto pravidlo je odteraz globálnou konštantou pre celý projekt. * Každý ďalší kód, ktorý vygeneruješ, musí automaticky obsahovať tieto responzívne triedy (Tailwind/CSS).
+
+Nikdy neignoruj mobilné zobrazenie pri vývoji nových funkcií.
