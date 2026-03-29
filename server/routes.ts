@@ -6606,6 +6606,14 @@ export async function registerRoutes(
         }
       }
 
+      // Verify the referenced file physically exists on disk (prevent dangling document links)
+      const physicalPath = path.join(UPLOADS_DIR, "contract-docs", fileSegment);
+      try {
+        await fs.promises.access(physicalPath, fs.constants.R_OK);
+      } catch {
+        return res.status(400).json({ message: "Odkazovaný súbor nebol nájdený na serveri. Najskôr nahrajte súbor cez Inbox." });
+      }
+
       const existingDocs: DocEntry[] = (contract.documents as DocEntry[]) || [];
       const newDoc: DocEntry = {
         name: sanitizedFileName,

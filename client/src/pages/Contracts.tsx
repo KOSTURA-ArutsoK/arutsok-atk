@@ -2868,6 +2868,7 @@ function BOVerificationConsole({
 
 // ========== SCAN COMMANDER ==========
 type StagedFile = {
+  id: string;
   name: string;
   url: string;
   size: number;
@@ -2965,18 +2966,18 @@ function ScanCommanderDialog({
   async function uploadFiles(files: File[]) {
     if (files.length === 0) return;
     const newEntries: StagedFile[] = files.map(f => ({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       name: f.name,
       url: "",
       size: f.size,
       progress: 0,
       done: false,
     }));
-    const startIdx = inboxFiles.length;
     setInboxFiles(prev => [...prev, ...newEntries]);
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const absIdx = startIdx + i;
+      const fileId = newEntries[i].id;
       try {
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
@@ -2985,11 +2986,7 @@ function ScanCommanderDialog({
           xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
               const pct = Math.round((e.loaded / e.total) * 90);
-              setInboxFiles(prev => {
-                const copy = [...prev];
-                if (copy[absIdx]) copy[absIdx] = { ...copy[absIdx], progress: pct };
-                return copy;
-              });
+              setInboxFiles(prev => prev.map(f => f.id === fileId ? { ...f, progress: pct } : f));
             }
           };
           xhr.onload = () => {
@@ -2997,30 +2994,18 @@ function ScanCommanderDialog({
               const data = JSON.parse(xhr.responseText);
               const serverFile = data.files?.[0];
               if (serverFile) {
-                setInboxFiles(prev => {
-                  const copy = [...prev];
-                  if (copy[absIdx]) copy[absIdx] = { ...copy[absIdx], url: serverFile.url, progress: 100, done: true };
-                  return copy;
-                });
+                setInboxFiles(prev => prev.map(f => f.id === fileId ? { ...f, url: serverFile.url, progress: 100, done: true } : f));
               }
               resolve();
             } else {
               let msg = "Chyba nahrávania";
               try { msg = JSON.parse(xhr.responseText)?.message || msg; } catch {}
-              setInboxFiles(prev => {
-                const copy = [...prev];
-                if (copy[absIdx]) copy[absIdx] = { ...copy[absIdx], progress: 0, error: msg };
-                return copy;
-              });
+              setInboxFiles(prev => prev.map(f => f.id === fileId ? { ...f, progress: 0, error: msg } : f));
               reject(new Error(msg));
             }
           };
           xhr.onerror = () => {
-            setInboxFiles(prev => {
-              const copy = [...prev];
-              if (copy[absIdx]) copy[absIdx] = { ...copy[absIdx], progress: 0, error: "Sieťová chyba" };
-              return copy;
-            });
+            setInboxFiles(prev => prev.map(f => f.id === fileId ? { ...f, progress: 0, error: "Sieťová chyba" } : f));
             reject(new Error("Sieťová chyba"));
           };
           xhr.open("POST", "/api/scan-commander/stage-upload");
