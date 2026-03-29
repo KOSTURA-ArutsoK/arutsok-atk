@@ -9255,24 +9255,25 @@ export async function registerRoutes(
       if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
       const { verifications } = await storage.getContractParamVerifications(contractId);
       // Determine required params from product display_params (requireVerification=true), else all VERIFIABLE_PARAMS
-      let requiredParamKeys: string[] = [];
+      const ALL_VERIF_KEYS = ["meno","priezvisko","titul_pred","titul_za","datum_narodenia","rodne_cislo","cislo_op","telefon","email","ulica","psc","mesto","stat","iban","swift","gdpr_suhlas","cislo_zmluvy","datum_podpisu","datum_ucinnosti","datum_exspiracie","poistna_suma","poistne_lehotne","poistne_rocne","produkt","partner"];
+      let requiredParamKeys: string[] | null = null; // null = no product config
       if (contract.productId) {
         const displayParams = await db.select()
           .from(productDisplayParams)
           .where(and(eq(productDisplayParams.productId, contract.productId), eq(productDisplayParams.displayInSummary, true)));
         if (displayParams.length > 0) {
+          // Product has display params configured; use only those with requireVerification
           requiredParamKeys = displayParams.filter(p => p.requireVerification).map(p => p.paramKey);
         }
       }
-      if (requiredParamKeys.length === 0) {
-        // No product config: require verification of all VERIFIABLE_PARAMS
-        requiredParamKeys = ["meno","priezvisko","titul_pred","titul_za","datum_narodenia","rodne_cislo","cislo_op","telefon","email","ulica","psc","mesto","stat","iban","swift","gdpr_suhlas","cislo_zmluvy","datum_podpisu","datum_ucinnosti","datum_exspiracie","poistna_suma","poistne_lehotne","poistne_rocne","produkt","partner"];
-      }
+      // Only fall back to ALL_VERIF_KEYS when there is NO product display param config at all
+      const finalRequiredKeys = requiredParamKeys !== null ? requiredParamKeys : ALL_VERIF_KEYS;
       const DONE_STATUSES = ["ok", "sync_subject", "corrected_snapshot"];
       const verifiedKeys = new Set(verifications.filter(v => DONE_STATUSES.includes(v.status)).map(v => v.paramKey));
-      const verifiedCount = requiredParamKeys.filter(k => verifiedKeys.has(k)).length;
-      const total = requiredParamKeys.length;
-      const isFullyVerified = total > 0 && verifiedCount === total;
+      const verifiedCount = finalRequiredKeys.filter(k => verifiedKeys.has(k)).length;
+      const total = finalRequiredKeys.length;
+      // If product config exists with 0 requireVerification params, total=0 → isFullyVerified=true (nothing required)
+      const isFullyVerified = total === 0 || verifiedCount === total;
       res.json({ verifications, verified: verifiedCount, total, isFullyVerified });
     } catch (err) {
       console.error("[verification-status] GET error:", err);
@@ -9296,6 +9297,8 @@ export async function registerRoutes(
       const contractRows = await db.select({ id: contracts.id, productId: contracts.productId })
         .from(contracts).where(inArray(contracts.id, contractIds));
       const productIds = [...new Set(contractRows.map(c => c.productId).filter(Boolean))] as number[];
+      // productRequiredMap: null entry = product has no display param config (fall back to ALL)
+      // present entry = product configured; use only requireVerification=true params (may be [])
       let productRequiredMap: Map<number, string[]> = new Map();
       if (productIds.length > 0) {
         const allDisplayParams = await db.select().from(productDisplayParams)
@@ -9303,6 +9306,7 @@ export async function registerRoutes(
         for (const pid of productIds) {
           const params = allDisplayParams.filter(p => p.productId === pid);
           if (params.length > 0) {
+            // Product has display param config; store only requireVerification ones (may be empty array)
             productRequiredMap.set(pid, params.filter(p => p.requireVerification).map(p => p.paramKey));
           }
         }
@@ -9310,13 +9314,15 @@ export async function registerRoutes(
       const result: Record<number, { isFullyVerified: boolean; verified: number; total: number }> = {};
       for (const c of contractRows) {
         const verifs = allVerifs.filter(v => v.contractId === c.id);
-        const requiredKeys = (c.productId && productRequiredMap.has(c.productId) && (productRequiredMap.get(c.productId)?.length ?? 0) > 0)
-          ? (productRequiredMap.get(c.productId) ?? ALL_PARAM_KEYS)
-          : ALL_PARAM_KEYS;
+        // If productRequiredMap has an entry, product was configured (use it, even if empty [])
+        // If no entry, no product config → fall back to ALL_PARAM_KEYS
+        const hasProductConfig = c.productId != null && productRequiredMap.has(c.productId);
+        const requiredKeys = hasProductConfig ? (productRequiredMap.get(c.productId!) ?? []) : ALL_PARAM_KEYS;
         const verifiedKeys = new Set(verifs.filter(v => DONE_STATUSES.includes(v.status)).map(v => v.paramKey));
         const verifiedCount = requiredKeys.filter(k => verifiedKeys.has(k)).length;
         const total = requiredKeys.length;
-        result[c.id] = { isFullyVerified: total > 0 && verifiedCount === total, verified: verifiedCount, total };
+        // If product config exists with 0 requireVerification params → total=0 → isFullyVerified=true
+        result[c.id] = { isFullyVerified: total === 0 || verifiedCount === total, verified: verifiedCount, total };
       }
       res.json(result);
     } catch (err) {

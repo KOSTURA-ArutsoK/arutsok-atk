@@ -2402,6 +2402,12 @@ function BOVerificationConsole({
     return u ? `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.username : `ID ${userId}`;
   };
 
+  const getAppUserUid = (userId: number | null | undefined) => {
+    if (!userId) return null;
+    const u = appUsersAll?.find(u => u.id === userId);
+    return u?.uid ?? null;
+  };
+
   const STATUS_BADGE: Record<string, { label: string; color: string }> = {
     ok: { label: "✓ OK", color: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30" },
     sync_subject: { label: "↑ Sync", color: "bg-blue-500/15 text-blue-600 border-blue-500/30" },
@@ -2602,7 +2608,11 @@ function BOVerificationConsole({
                             </p>
                             {v && (
                               <p className="text-[10px] text-muted-foreground mt-0.5">
-                                {getAppUserName(v.verifiedByUserId)} · {v.verifiedAt ? formatDateTimeSlovak(v.verifiedAt) : ""}
+                                {getAppUserName(v.verifiedByUserId)}
+                                {getAppUserUid(v.verifiedByUserId) ? (
+                                  <> · <span className="font-mono" data-testid={`text-verifier-uid-${param.key}`}>{formatUid(getAppUserUid(v.verifiedByUserId)!)}</span></>
+                                ) : null}
+                                {v.verifiedAt ? <> · {formatDateTimeSlovak(v.verifiedAt)}</> : ""}
                               </p>
                             )}
                           </div>
@@ -5054,24 +5064,27 @@ export default function Contracts() {
                       )}
                       {contract.lifecyclePhase === 8 && (
                         <>
-                          {isAdmin(appUser) && (() => {
-                            const vs = phase8VerifStatuses[contract.id];
+                          {(() => {
+                            const vs = isAdmin(appUser) ? phase8VerifStatuses[contract.id] : undefined;
                             const isVerified = vs?.isFullyVerified ?? false;
+                            const showDetail = isAdmin(appUser) && vs != null;
                             return (
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span
-                                    className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[10px] font-semibold whitespace-nowrap cursor-default ${isVerified ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-600" : "border-orange-500/60 bg-orange-500/10 text-orange-600"}`}
+                                    className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[10px] font-semibold whitespace-nowrap cursor-default ${showDetail && isVerified ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-600" : "border-orange-500/60 bg-orange-500/10 text-orange-600"}`}
                                     data-testid={`badge-bo-status-${contract.id}`}
                                   >
-                                    {isVerified ? <CheckCircle2 className="w-2.5 h-2.5" /> : <AlertCircle className="w-2.5 h-2.5" />}
-                                    {isVerified ? "BO overené" : "BO čaká"}
+                                    {showDetail && isVerified ? <CheckCircle2 className="w-2.5 h-2.5" /> : <AlertCircle className="w-2.5 h-2.5" />}
+                                    {showDetail && isVerified ? "BO overené" : "BO čaká"}
                                   </span>
                                 </TooltipTrigger>
                                 <TooltipContent className="text-xs">
-                                  {isVerified
+                                  {showDetail && isVerified
                                     ? `Parametre overené (${vs?.verified ?? 0}/${vs?.total ?? 0})`
-                                    : `Zmluva čaká na manuálnu BO kontrolu (${vs?.verified ?? 0}/${vs?.total ?? 0} overených)`}
+                                    : showDetail
+                                      ? `Zmluva čaká na manuálnu BO kontrolu (${vs?.verified ?? 0}/${vs?.total ?? 0} overených)`
+                                      : "Zmluva čaká na manuálnu BO kontrolu parametrov"}
                                 </TooltipContent>
                               </Tooltip>
                             );
