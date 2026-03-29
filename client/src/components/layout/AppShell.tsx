@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, createContext, useContext } from "react";
 import { createPortal } from "react-dom";
 import { useIdleTimeout } from "@/hooks/use-idle-timeout";
 import { useGlobalClickLogger } from "@/hooks/use-global-click-logger";
@@ -35,6 +35,10 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const SIDEBAR_STORAGE_KEY = "arutsok-sidebar-open";
+
+type LoginHistoryContextValue = { openLoginHistory: () => void };
+export const LoginHistoryContext = createContext<LoginHistoryContextValue>({ openLoginHistory: () => {} });
+export function useLoginHistory() { return useContext(LoginHistoryContext); }
 
 type LoginHistoryRow = {
   id: number;
@@ -862,6 +866,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
+    <LoginHistoryContext.Provider value={{ openLoginHistory: () => setLoginHistoryOpen(true) }}>
     <SidebarProvider open={sidebarOpen} onOpenChange={handleSidebarChange} style={sidebarStyle as React.CSSProperties}>
       <div className="flex h-screen w-full">
         <AppSidebar />
@@ -1389,5 +1394,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {warningOverlay}
     </SidebarProvider>
+    </LoginHistoryContext.Provider>
   );
 }

@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useLoginHistory } from "@/components/layout/AppShell";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DndContext,
@@ -116,6 +117,7 @@ interface ContractStats {
 
 export default function Dashboard() {
   const { data: appUser } = useAppUser();
+  const { openLoginHistory } = useLoginHistory();
   const [, navigate] = useLocation();
   const { data: companies } = useMyCompanies();
   const { data: subjects } = useQuery<Subject[]>({ queryKey: ["/api/subjects"] });
@@ -735,8 +737,10 @@ export default function Dashboard() {
             }
             return (
               <div
-                className="flex items-center gap-2 mt-2"
+                className="flex items-center gap-2 mt-2 cursor-pointer rounded px-1 -mx-1 hover:bg-muted/60 transition-colors"
                 data-testid="banner-admin-login-status"
+                onClick={openLoginHistory}
+                title="Otvoriť archív prihlásení"
               >
                 <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <span className="text-xs text-muted-foreground">
