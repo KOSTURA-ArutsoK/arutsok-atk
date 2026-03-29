@@ -2423,6 +2423,17 @@ function BOVerificationConsole({
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa postúpiť zmluvu", variant: "destructive" }),
   });
 
+  const moveToInterventionMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/contracts/${contract!.id}/move-to-internal-intervention`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 8] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      toast({ title: "Interná intervencia", description: "Kontrakt bol presunutý do interných intervencií" });
+      onClose();
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa presunúť kontrakt do interných intervencií", variant: "destructive" }),
+  });
+
   if (!contract) return null;
 
   const getVerification = (paramKey: string) => verifications.find(v => v.paramKey === paramKey);
@@ -2516,6 +2527,17 @@ function BOVerificationConsole({
               <TooltipContent>Najskôr vytvorte retro-snapshot</TooltipContent>
             )}
           </Tooltip>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-orange-500 text-orange-500 hover:bg-orange-500/10 hover:text-orange-400"
+            onClick={() => moveToInterventionMutation.mutate()}
+            disabled={moveToInterventionMutation.isPending}
+            data-testid="button-bo-internal-intervention"
+          >
+            {moveToInterventionMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <AlertTriangle className="w-3.5 h-3.5 mr-1" />}
+            Interná intervencia
+          </Button>
           <Button size="sm" variant="ghost" onClick={onClose} data-testid="button-bo-close">
             <X className="w-4 h-4" />
           </Button>
@@ -2826,6 +2848,7 @@ export default function Contracts() {
   const [deletingContract, setDeletingContract] = useState<Contract | null>(null);
   const [viewingContract, setViewingContract] = useState<Contract | null>(null);
   const [boConsoleContract, setBoConsoleContract] = useState<Contract | null>(null);
+  const [phase8SupiskaQueue, setPhase8SupiskaQueue] = useState<number[]>([]);
   const [nahratieViewContract, setNahratieViewContract] = useState<Contract | null>(null);
   const [docChecklistContract, setDocChecklistContract] = useState<Contract | null>(null);
   const [docChecklistCheckedReq, setDocChecklistCheckedReq] = useState<Set<number>>(new Set());
@@ -3695,6 +3718,7 @@ export default function Contracts() {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 9] });
       toast({ title: "Súpiska vytvorená", description: `Súpiska č. ${data.sequenceNumber} s ${data.moved} kontraktmi` });
       setRerouteSelectedIds([]);
+      setPhase8SupiskaQueue([]);
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť súpisku", variant: "destructive" }),
   });
@@ -10347,12 +10371,12 @@ export default function Contracts() {
                   <div className="flex items-center gap-3 p-3 border-b flex-wrap">
                     {phaseDef && (() => { const I = phaseDef.icon; return <I className={`w-4 h-4 ${phaseDef.color} shrink-0`} />; })()}
                     <p className="text-xs text-muted-foreground flex-1">{phaseLabels[phaseId]}</p>
-                    {phaseId === 8 && rerouteSelectedIds.length > 0 && activeFolder === 8 && (
+                    {phaseId === 8 && phase8SupiskaQueue.length > 0 && activeFolder === 8 && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Vybraných: <span className="font-bold text-foreground">{rerouteSelectedIds.length}/25</span></span>
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => createProcessingSupiskaMutation.mutate(rerouteSelectedIds)} disabled={createProcessingSupiskaMutation.isPending} data-testid="button-create-supiska">
+                        <span className="text-xs text-muted-foreground">V rade: <span className="font-bold text-foreground">{phase8SupiskaQueue.length}</span></span>
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => createProcessingSupiskaMutation.mutate(phase8SupiskaQueue)} disabled={createProcessingSupiskaMutation.isPending} data-testid="button-create-supiska">
                           {createProcessingSupiskaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <ListChecks className="w-3.5 h-3.5 mr-1.5" />}
-                          Vytvoriť súpisku ({rerouteSelectedIds.length}/25)
+                          Vytvoriť súpisku ({phase8SupiskaQueue.length})
                         </Button>
                       </div>
                     )}
@@ -10500,9 +10524,119 @@ export default function Contracts() {
                         if (!hasContent) return (
                           <p className="text-sm text-muted-foreground text-center py-8" data-testid={`text-no-phase-${phaseId}`}>Žiadne kontrakty v tejto fáze</p>
                         );
+                        const contractTypeLabels: Record<string, string> = { Nova: "Nová", Prestupova: "Prestupová", Zmenova: "Zmenová", Dodatok: "Dodatok" };
                         return (
                         <div className="divide-y">
-                          {looseContracts.length > 0 && (
+                          {phaseId === 8 && looseContracts.length > 0 && (() => {
+                            const p8groups = new Map<string, Contract[]>();
+                            looseContracts.forEach(c => {
+                              const partnerName = partners?.find(p => p.id === c.partnerId)?.name || "Neznámy partner";
+                              const productName = products?.find(p => p.id === c.productId)?.name || allSectorProducts?.find(sp => sp.id === c.sectorProductId)?.name || "Neznámy produkt";
+                              const key = `${partnerName} — ${productName}`;
+                              if (!p8groups.has(key)) p8groups.set(key, []);
+                              p8groups.get(key)!.push(c);
+                            });
+                            const p8sortedGroups = Array.from(p8groups.entries()).sort((a, b) => a[0].localeCompare(b[0], "sk"));
+                            return (
+                              <div className="divide-y">
+                                {p8sortedGroups.map(([groupName, groupContracts], gIdx) => {
+                                  const toggleKey = 400000 + gIdx;
+                                  const isGroupExpanded = expandedSprievodky.has(toggleKey);
+                                  return (
+                                    <div key={groupName}>
+                                      <div
+                                        className="flex items-center gap-3 p-3 cursor-pointer hover-elevate flex-wrap bg-background"
+                                        onClick={() => toggleSprievodkaExpanded(toggleKey)}
+                                        data-testid={`button-toggle-p8group-${groupName.replace(/\s/g, '-')}`}
+                                      >
+                                        {isGroupExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+                                        <LayoutGrid className="w-4 h-4 text-emerald-500 shrink-0" />
+                                        <span className="text-sm font-medium flex-1">{groupName}</span>
+                                        <Badge variant="outline" className="text-xs">{groupContracts.length} {groupContracts.length === 1 ? "zmluva" : groupContracts.length < 5 ? "zmluvy" : "zmluv"}</Badge>
+                                      </div>
+                                      <div style={{ display: isGroupExpanded ? 'block' : 'none' }}>
+                                        <div className="border-t">
+                                          <table className="w-full text-xs">
+                                            <thead>
+                                              <tr className="border-b bg-muted/30">
+                                                <th className="p-2 w-8 text-center font-medium text-muted-foreground">#</th>
+                                                <th className="p-2 text-left font-medium text-muted-foreground">Číslo kontraktu</th>
+                                                <th className="p-2 text-left font-medium text-muted-foreground">Partner</th>
+                                                <th className="p-2 text-left font-medium text-muted-foreground">Produkt</th>
+                                                <th className="p-2 text-left font-medium text-muted-foreground">Typ zmluvy</th>
+                                                <th className="p-2 text-left font-medium text-muted-foreground" title={NAVRH_LABEL_FULL}>{NAVRH_LABEL_SHORT}</th>
+                                                <th className="p-2 text-left font-medium text-muted-foreground">Číslo zmluvy</th>
+                                                <th className="p-2 text-left font-medium text-muted-foreground">Subjekt</th>
+                                                <th className="p-2 text-right font-medium text-muted-foreground">Akcie</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {groupContracts.map(contract => {
+                                                const vs = isAdmin(appUser) ? phase8VerifStatuses[contract.id] : undefined;
+                                                const isFullyVerified = vs?.isFullyVerified === true;
+                                                const isPartiallyVerified = !isFullyVerified && (vs?.verified ?? 0) > 0;
+                                                const inQueue = phase8SupiskaQueue.includes(contract.id);
+                                                const queuePos = phase8SupiskaQueue.indexOf(contract.id);
+                                                const rowBg = inQueue
+                                                  ? "bg-emerald-500/15 hover:bg-emerald-500/20"
+                                                  : isFullyVerified
+                                                    ? "bg-blue-500/15 hover:bg-blue-500/20"
+                                                    : isPartiallyVerified
+                                                      ? "bg-amber-500/10 hover:bg-amber-500/15"
+                                                      : "bg-background hover:bg-muted/30";
+                                                const handleRowClick = () => {
+                                                  if (inQueue) {
+                                                    setPhase8SupiskaQueue(prev => prev.filter(id => id !== contract.id));
+                                                  } else if (isFullyVerified) {
+                                                    setPhase8SupiskaQueue(prev => [...prev, contract.id]);
+                                                  } else {
+                                                    setBoConsoleContract(contract);
+                                                  }
+                                                };
+                                                const subName8 = getSubjectDisplayName(contract.subjectId);
+                                                return (
+                                                  <tr
+                                                    key={contract.id}
+                                                    className={`border-b cursor-pointer transition-colors ${rowBg}`}
+                                                    onClick={handleRowClick}
+                                                    data-testid={`row-phase8-contract-${contract.id}`}
+                                                  >
+                                                    <td className="p-2 text-center font-bold text-emerald-600 w-8">
+                                                      {inQueue ? queuePos + 1 : ""}
+                                                    </td>
+                                                    <td className="p-2 font-mono text-blue-500 font-bold">{contract.contractNumber || "—"}</td>
+                                                    <td className="p-2" title={getPartnerName(contract)}>{getPartnerCode(contract)}</td>
+                                                    <td className="p-2" title={getProductName(contract)}>{getProductCode(contract)}</td>
+                                                    <td className="p-2 text-muted-foreground">{contractTypeLabels[(contract as any).contractType ?? ""] ?? "—"}</td>
+                                                    <td className="p-2 font-mono">{contract.proposalNumber || "—"}</td>
+                                                    <td className="p-2 font-mono">{contract.insuranceContractNumber || "—"}</td>
+                                                    <td className="p-2">{subName8}</td>
+                                                    <td className="p-2 text-right" onClick={e => e.stopPropagation()}>
+                                                      <div className="flex items-center justify-end gap-1">
+                                                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openView(contract)} data-testid={`button-view-p8-${contract.id}`}>
+                                                          <Eye className="w-3 h-3" />
+                                                        </Button>
+                                                        {canEditRecords(appUser) && (
+                                                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEdit(contract)} data-testid={`button-edit-p8-${contract.id}`}>
+                                                            <Pencil className="w-3 h-3" />
+                                                          </Button>
+                                                        )}
+                                                      </div>
+                                                    </td>
+                                                  </tr>
+                                                );
+                                              })}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+                          {phaseId !== 8 && looseContracts.length > 0 && (
                             <div>
                               <div className="flex items-center gap-3 p-3 border-b bg-emerald-500/5">
                                 <ListChecks className="w-4 h-4 text-emerald-500 shrink-0" />
