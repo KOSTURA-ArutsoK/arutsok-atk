@@ -6496,13 +6496,48 @@ export async function registerRoutes(
     });
   }, async (req: any, res) => {
     try {
+      const MAX_BATCH_SIZE = 100 * 1024 * 1024;
+      const MAX_DAILY_QUOTA = 500 * 1024 * 1024;
+
       const files = (req.files && Array.isArray(req.files)) ? req.files : [];
+
+      const cleanupFiles = () => {
+        if (files.length > 0) files.forEach((f: any) => fs.unlink(f.path, () => {}));
+      };
+
       if (files.length === 0) return res.status(400).json({ message: "Žiadne súbory" });
 
       const totalSize = files.reduce((s: number, f: any) => s + f.size, 0);
-      if (totalSize > 200 * 1024 * 1024) {
-        files.forEach((f: any) => fs.unlink(f.path, () => {}));
-        return res.status(413).json({ message: `Celková veľkosť dávky presahuje 200 MB.` });
+      if (totalSize > MAX_BATCH_SIZE) {
+        cleanupFiles();
+        return res.status(413).json({ message: `Celková veľkosť dávky presahuje 100 MB. Nahrajte menej súborov naraz.` });
+      }
+
+      const userId = req.appUser?.id;
+      if (userId) {
+        const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const recentUploads = await db.select({ newData: auditLogs.newData }).from(auditLogs).where(
+          and(
+            eq(auditLogs.userId, userId),
+            sql`${auditLogs.action} IN ('CONTRACT_UPLOAD_DOCUMENTS', 'SCAN_COMMANDER_STAGE_UPLOAD')`,
+            gte(auditLogs.createdAt, since24h)
+          )
+        );
+        let totalUploadedBytes = 0;
+        for (const log of recentUploads) {
+          const nd = log.newData as any;
+          if (nd?.totalBytesAdded) totalUploadedBytes += nd.totalBytesAdded;
+          if (nd?.totalBytes) totalUploadedBytes += nd.totalBytes;
+        }
+        if (totalUploadedBytes + totalSize > MAX_DAILY_QUOTA) {
+          cleanupFiles();
+          await logAudit(req, {
+            action: "UPLOAD_QUOTA_EXCEEDED",
+            module: "zmluvy",
+            newData: { dailyUsedBytes: totalUploadedBytes, attemptedBytes: totalSize, dailyLimitBytes: MAX_DAILY_QUOTA },
+          });
+          return res.status(429).json({ message: `Denný limit nahrávania (500 MB / 24h) bol prekročený. Skúste neskôr.` });
+        }
       }
 
       if (files.length > 0) {
@@ -6538,6 +6573,25 @@ export async function registerRoutes(
       if (!contractId || !fileUrl || !fileName) {
         return res.status(400).json({ message: "Chýbajú povinné polia: contractId, fileUrl, fileName" });
       }
+
+      // Security: only allow internal contract-docs file URLs
+      const ALLOWED_FILE_URL_PREFIX = "/api/files/contract-docs/";
+      const normalizedUrl = String(fileUrl).trim();
+      if (!normalizedUrl.startsWith(ALLOWED_FILE_URL_PREFIX)) {
+        return res.status(400).json({ message: "Neplatná URL súboru — povolené sú iba interné cesty k nahratým dokumentom." });
+      }
+      // Verify filename segment doesn't escape the directory
+      const fileSegment = normalizedUrl.slice(ALLOWED_FILE_URL_PREFIX.length);
+      if (!fileSegment || fileSegment.includes("/") || fileSegment.includes("..") || fileSegment.includes("\0")) {
+        return res.status(400).json({ message: "Neplatný názov súboru v URL." });
+      }
+
+      // Sanitize fileName: strip path separators, null bytes, limit length
+      const sanitizedFileName = String(fileName).replace(/[/\\:*?"<>|\0]/g, "_").slice(0, 255).trim();
+      if (!sanitizedFileName) {
+        return res.status(400).json({ message: "Neplatný názov súboru." });
+      }
+
       const appUser = req.appUser;
       const now = new Date();
 
@@ -6546,8 +6600,8 @@ export async function registerRoutes(
 
       const existingDocs: DocEntry[] = (contract.documents as DocEntry[]) || [];
       const newDoc: DocEntry = {
-        name: fileName,
-        url: fileUrl,
+        name: sanitizedFileName,
+        url: normalizedUrl,
         uploadedAt: now.toISOString(),
       };
       const allDocs = [...existingDocs, newDoc];
