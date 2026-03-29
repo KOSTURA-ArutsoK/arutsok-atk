@@ -2314,14 +2314,19 @@ function BOVerificationConsole({
 
   const verifications = verifData?.verifications ?? [];
 
-  // Determine params to show: displayParams if configured, else full VERIFIABLE_PARAMS
-  const paramsToShow = displayParams.length > 0
-    ? VERIFIABLE_PARAMS.filter(p => displayParams.some(d => d.paramKey === p.key && d.displayInSummary))
-    : VERIFIABLE_PARAMS;
+  // Determine params to show: use displayParams directly (with label + paramGroup stored)
+  const paramsToShow = displayParams
+    .filter(d => d.displayInSummary)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map(d => ({
+      key: d.paramKey,
+      label: d.label ?? d.paramKey,
+      group: (d.paramGroup ?? "subjekt") as string,
+    }));
 
-  const paramsRequiringVerif = displayParams.length > 0
-    ? paramsToShow.filter(p => displayParams.find(d => d.paramKey === p.key)?.requireVerification)
-    : paramsToShow;
+  const paramsRequiringVerif = paramsToShow.filter(p =>
+    displayParams.find(d => d.paramKey === p.key)?.requireVerification
+  );
 
   const snapshot = (contract as any)?.subjectSnapshot as Record<string, any> | null | undefined;
   const isHistorical = !snapshot;

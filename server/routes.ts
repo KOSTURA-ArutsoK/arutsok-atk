@@ -12721,6 +12721,51 @@ export async function registerRoutes(
     }
   });
 
+  // === PRODUCT SUBJECT PARAMS — dynamické parametre subjektu podľa allowedSubjectTypes ===
+  app.get("/api/products/:id/subject-params", isAuthenticated, async (req, res) => {
+    try {
+      const productId = Number(req.params.id);
+      if (!Number.isFinite(productId)) return res.status(400).json({ message: "Neplatné ID produktu" });
+      const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
+      if (!product) return res.status(404).json({ message: "Produkt nenájdený" });
+      const allowedTypes: string[] = (product as any).allowedSubjectTypes || [];
+      const typeToClientId: Record<string, number> = { person: 1, szco: 3, company: 4, organization: 5, state: 6, os: 7 };
+      const allClientIds = [1, 3, 4, 5, 6, 7];
+      const clientIds = allowedTypes.length > 0
+        ? allowedTypes.map(t => typeToClientId[t]).filter(Boolean)
+        : allClientIds;
+      const typeLabels: Record<number, string> = { 1: "FO", 3: "SZČO", 4: "PO", 5: "TS", 6: "VS", 7: "OS" };
+      const result: { clientTypeId: number; typeLabel: string; fields: any[] }[] = [];
+      for (const clientTypeId of clientIds) {
+        const allSections = await db.select().from(subjectParamSections)
+          .where(eq(subjectParamSections.clientTypeId, clientTypeId))
+          .orderBy(subjectParamSections.sortOrder);
+        const allFields = await db.select().from(subjectParameters)
+          .where(and(eq(subjectParameters.clientTypeId, clientTypeId), eq(subjectParameters.isActive, true)))
+          .orderBy(subjectParameters.sortOrder);
+        const panels = allSections.filter(s => s.isPanel || !!s.parentSectionId);
+        const panelMap = new Map(panels.map(p => [p.id, p.name]));
+        const fields = allFields
+          .filter(f => !f.isHidden && f.fieldKey)
+          .map(f => ({
+            fieldKey: f.fieldKey,
+            label: f.label,
+            shortLabel: f.shortLabel,
+            panelName: f.panelId ? (panelMap.get(f.panelId) ?? null) : null,
+            folderCategory: f.fieldCategory,
+            sortOrder: f.sortOrder ?? 0,
+          }));
+        if (fields.length > 0) {
+          result.push({ clientTypeId, typeLabel: typeLabels[clientTypeId] ?? String(clientTypeId), fields });
+        }
+      }
+      res.json(result);
+    } catch (err) {
+      console.error("[product-subject-params] error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   // === PRODUCT-PARAMETER ASSIGNMENTS ===
   app.get("/api/products/:id/parameters", isAuthenticated, async (req, res) => {
     try {

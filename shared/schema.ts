@@ -2958,6 +2958,7 @@ export const productDisplayParams = pgTable("product_display_params", {
   displayInSummary: boolean("display_in_summary").notNull().default(true),
   requireVerification: boolean("require_verification").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
+  paramGroup: text("param_group").default("subjekt"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (t) => ({
   uniq: uniqueIndex("pdp_product_param_uniq").on(t.productId, t.paramKey),

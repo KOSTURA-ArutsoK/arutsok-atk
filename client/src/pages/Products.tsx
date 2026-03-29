@@ -57,7 +57,6 @@ import { RichTextEditor } from "@/components/rich-text-editor";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { HelpIcon } from "@/components/help-icon";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
-import { VERIFIABLE_PARAMS, type VerifiableParam } from "@shared/verifiable-params";
 import type { ProductDisplayParam } from "@shared/schema";
 
 const PRODUCT_COLUMNS: ColumnDef[] = [
@@ -260,8 +259,61 @@ function ProductFormDialog({
     enabled: !!editingProduct?.id,
   });
 
+  const { data: productSubjectParamsRaw } = useQuery<{ clientTypeId: number; typeLabel: string; fields: { fieldKey: string; label: string; shortLabel?: string; panelName?: string | null; folderCategory?: string }[] }[]>({
+    queryKey: ["/api/products", editingProduct?.id, "subject-params"],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${editingProduct!.id}/subject-params`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!editingProduct?.id,
+  });
+
+  const { data: productPanelsWithParams } = useQuery<{ id: number; name: string; parameters: { id: number; name: string; paramType: string }[] }[]>({
+    queryKey: ["/api/products", editingProduct?.id, "panels-with-parameters"],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${editingProduct!.id}/panels-with-parameters`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!editingProduct?.id,
+  });
+
+  const dynamicSubjectFields = useMemo(() => {
+    if (!productSubjectParamsRaw || productSubjectParamsRaw.length === 0) return [];
+    const seen = new Set<string>();
+    const result: { key: string; label: string; typeLabel: string; panelName: string | null }[] = [];
+    const multiType = productSubjectParamsRaw.length > 1;
+    for (const typeGroup of productSubjectParamsRaw) {
+      for (const f of typeGroup.fields) {
+        if (seen.has(f.fieldKey)) continue;
+        seen.add(f.fieldKey);
+        result.push({ key: f.fieldKey, label: f.label, typeLabel: multiType ? typeGroup.typeLabel : "", panelName: f.panelName ?? null });
+      }
+    }
+    return result;
+  }, [productSubjectParamsRaw]);
+
+  const dynamicContractFields = useMemo(() => {
+    const seen = new Set<number>();
+    const result: { key: string; label: string; panelName: string | null }[] = [];
+    for (const panel of (productPanelsWithParams || [])) {
+      for (const param of (panel.parameters || [])) {
+        if (seen.has(param.id)) continue;
+        seen.add(param.id);
+        result.push({ key: `param_${param.id}`, label: param.name, panelName: panel.name });
+      }
+    }
+    for (const param of assignedParams) {
+      if (seen.has(param.id)) continue;
+      seen.add(param.id);
+      result.push({ key: `param_${param.id}`, label: param.name, panelName: null });
+    }
+    return result;
+  }, [productPanelsWithParams, assignedParams]);
+
   const saveDisplayParamsMutation = useMutation({
-    mutationFn: (params: Array<{ paramKey: string; label: string; displayInSummary: boolean; requireVerification: boolean; sortOrder: number }>) =>
+    mutationFn: (params: Array<{ paramKey: string; label: string; displayInSummary: boolean; requireVerification: boolean; sortOrder: number; paramGroup: string }>) =>
       apiRequest("PUT", `/api/products/${editingProduct!.id}/display-params`, params),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products", editingProduct?.id, "display-params"] });
@@ -803,103 +855,128 @@ function ProductFormDialog({
               Pravidlo: <strong>čo sa nezobrazuje, to sa neoveruje</strong>.
             </p>
 
-            {/* Subjekt group */}
+            {/* Parametre subjektu — dynamicky z profilu subjektu */}
             <div className="rounded-xl border border-blue-500/25 bg-blue-500/5 p-4 space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300 pb-1 border-b border-blue-500/20">Parametre subjektu</p>
-              <div className="space-y-0">
-                {/* Header row */}
-                <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1">
-                  <span className="text-[11px] text-muted-foreground font-medium">Parameter</span>
-                  <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Zobrazovať</span>
-                  <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Overiť BO</span>
+              {dynamicSubjectFields.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-2 italic">
+                  {allowedSubjectTypes.length === 0
+                    ? "Najprv nastavte typ subjektu v záložke Info (Pre koho je produkt určený)."
+                    : "Žiadne polia subjektu nenájdené."}
+                </p>
+              ) : (
+                <div className="space-y-0">
+                  <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1">
+                    <span className="text-[11px] text-muted-foreground font-medium">Parameter</span>
+                    <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Zobrazovať</span>
+                    <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Overiť BO</span>
+                  </div>
+                  {dynamicSubjectFields.map((param, i) => {
+                    const cfg = displayParamConfig[param.key] || { display: false, verify: false };
+                    return (
+                      <div
+                        key={param.key}
+                        className={`grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1.5 rounded ${i % 2 === 0 ? "bg-background/50" : ""}`}
+                        data-testid={`row-display-param-${param.key}`}
+                      >
+                        <div className="min-w-0">
+                          <span className="text-sm">{param.label}</span>
+                          {(param.typeLabel || param.panelName) && (
+                            <span className="text-[10px] text-muted-foreground ml-1.5">
+                              {[param.panelName, param.typeLabel].filter(Boolean).join(" · ")}
+                            </span>
+                          )}
+                        </div>
+                        <div className="w-24 flex justify-center">
+                          <Switch
+                            checked={cfg.display}
+                            onCheckedChange={(checked) => {
+                              setDisplayParamConfig(prev => ({
+                                ...prev,
+                                [param.key]: { display: checked, verify: checked ? prev[param.key]?.verify ?? false : false },
+                              }));
+                            }}
+                            data-testid={`switch-display-${param.key}`}
+                          />
+                        </div>
+                        <div className="w-24 flex justify-center">
+                          <Switch
+                            checked={cfg.display ? cfg.verify : false}
+                            disabled={!cfg.display}
+                            onCheckedChange={(checked) => {
+                              setDisplayParamConfig(prev => ({
+                                ...prev,
+                                [param.key]: { display: prev[param.key]?.display ?? false, verify: checked },
+                              }));
+                            }}
+                            data-testid={`switch-verify-${param.key}`}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                {VERIFIABLE_PARAMS.filter(p => p.group === "subjekt").map((param, i) => {
-                  const cfg = displayParamConfig[param.key] || { display: false, verify: false };
-                  return (
-                    <div
-                      key={param.key}
-                      className={`grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1.5 rounded ${i % 2 === 0 ? "bg-background/50" : ""}`}
-                      data-testid={`row-display-param-${param.key}`}
-                    >
-                      <span className="text-sm">{param.label}</span>
-                      <div className="w-24 flex justify-center">
-                        <Switch
-                          checked={cfg.display}
-                          onCheckedChange={(checked) => {
-                            setDisplayParamConfig(prev => ({
-                              ...prev,
-                              [param.key]: { display: checked, verify: checked ? prev[param.key]?.verify ?? false : false },
-                            }));
-                          }}
-                          data-testid={`switch-display-${param.key}`}
-                        />
-                      </div>
-                      <div className="w-24 flex justify-center">
-                        <Switch
-                          checked={cfg.display ? cfg.verify : false}
-                          disabled={!cfg.display}
-                          onCheckedChange={(checked) => {
-                            setDisplayParamConfig(prev => ({
-                              ...prev,
-                              [param.key]: { display: prev[param.key]?.display ?? false, verify: checked },
-                            }));
-                          }}
-                          data-testid={`switch-verify-${param.key}`}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              )}
             </div>
 
-            {/* Zmluva group */}
+            {/* Parametre zmluvy — z panelov sektorov + priradených parametrov produktu */}
             <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300 pb-1 border-b border-amber-500/20">Parametre zmluvy</p>
-              <div className="space-y-0">
-                <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1">
-                  <span className="text-[11px] text-muted-foreground font-medium">Parameter</span>
-                  <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Zobrazovať</span>
-                  <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Overiť BO</span>
+              {dynamicContractFields.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-2 italic">
+                  Produkt nemá priradené žiadne parametre. Pridajte parametre v Sektory a Odvetvia Zmlúv alebo v Knižnici parametrov.
+                </p>
+              ) : (
+                <div className="space-y-0">
+                  <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1">
+                    <span className="text-[11px] text-muted-foreground font-medium">Parameter</span>
+                    <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Zobrazovať</span>
+                    <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Overiť BO</span>
+                  </div>
+                  {dynamicContractFields.map((param, i) => {
+                    const cfg = displayParamConfig[param.key] || { display: false, verify: false };
+                    return (
+                      <div
+                        key={param.key}
+                        className={`grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1.5 rounded ${i % 2 === 0 ? "bg-background/50" : ""}`}
+                        data-testid={`row-display-param-${param.key}`}
+                      >
+                        <div className="min-w-0">
+                          <span className="text-sm">{param.label}</span>
+                          {param.panelName && (
+                            <span className="text-[10px] text-muted-foreground ml-1.5">{param.panelName}</span>
+                          )}
+                        </div>
+                        <div className="w-24 flex justify-center">
+                          <Switch
+                            checked={cfg.display}
+                            onCheckedChange={(checked) => {
+                              setDisplayParamConfig(prev => ({
+                                ...prev,
+                                [param.key]: { display: checked, verify: checked ? prev[param.key]?.verify ?? false : false },
+                              }));
+                            }}
+                            data-testid={`switch-display-${param.key}`}
+                          />
+                        </div>
+                        <div className="w-24 flex justify-center">
+                          <Switch
+                            checked={cfg.display ? cfg.verify : false}
+                            disabled={!cfg.display}
+                            onCheckedChange={(checked) => {
+                              setDisplayParamConfig(prev => ({
+                                ...prev,
+                                [param.key]: { display: prev[param.key]?.display ?? false, verify: checked },
+                              }));
+                            }}
+                            data-testid={`switch-verify-${param.key}`}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                {VERIFIABLE_PARAMS.filter(p => p.group === "zmluva").map((param, i) => {
-                  const cfg = displayParamConfig[param.key] || { display: false, verify: false };
-                  return (
-                    <div
-                      key={param.key}
-                      className={`grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1.5 rounded ${i % 2 === 0 ? "bg-background/50" : ""}`}
-                      data-testid={`row-display-param-${param.key}`}
-                    >
-                      <span className="text-sm">{param.label}</span>
-                      <div className="w-24 flex justify-center">
-                        <Switch
-                          checked={cfg.display}
-                          onCheckedChange={(checked) => {
-                            setDisplayParamConfig(prev => ({
-                              ...prev,
-                              [param.key]: { display: checked, verify: checked ? prev[param.key]?.verify ?? false : false },
-                            }));
-                          }}
-                          data-testid={`switch-display-${param.key}`}
-                        />
-                      </div>
-                      <div className="w-24 flex justify-center">
-                        <Switch
-                          checked={cfg.display ? cfg.verify : false}
-                          disabled={!cfg.display}
-                          onCheckedChange={(checked) => {
-                            setDisplayParamConfig(prev => ({
-                              ...prev,
-                              [param.key]: { display: prev[param.key]?.display ?? false, verify: checked },
-                            }));
-                          }}
-                          data-testid={`switch-verify-${param.key}`}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t">
@@ -910,16 +987,19 @@ function ProductFormDialog({
               <Button
                 type="button"
                 onClick={() => {
-                  const params = VERIFIABLE_PARAMS
-                    .filter(p => displayParamConfig[p.key]?.display)
-                    .map((p, i) => ({
-                      paramKey: p.key,
-                      label: p.label,
-                      displayInSummary: true,
-                      requireVerification: displayParamConfig[p.key]?.verify ?? false,
-                      sortOrder: i,
-                    }));
-                  saveDisplayParamsMutation.mutate(params);
+                  let sortIdx = 0;
+                  const allParams: { paramKey: string; label: string; displayInSummary: boolean; requireVerification: boolean; sortOrder: number; paramGroup: string }[] = [];
+                  for (const p of dynamicSubjectFields) {
+                    if (displayParamConfig[p.key]?.display) {
+                      allParams.push({ paramKey: p.key, label: p.label, displayInSummary: true, requireVerification: displayParamConfig[p.key]?.verify ?? false, sortOrder: sortIdx++, paramGroup: "subjekt" });
+                    }
+                  }
+                  for (const p of dynamicContractFields) {
+                    if (displayParamConfig[p.key]?.display) {
+                      allParams.push({ paramKey: p.key, label: p.label, displayInSummary: true, requireVerification: displayParamConfig[p.key]?.verify ?? false, sortOrder: sortIdx++, paramGroup: "zmluva" });
+                    }
+                  }
+                  saveDisplayParamsMutation.mutate(allParams);
                 }}
                 disabled={saveDisplayParamsMutation.isPending}
                 data-testid="button-save-display-params"

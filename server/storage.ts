@@ -5871,7 +5871,7 @@ export class DatabaseStorage implements IStorage {
 
   async upsertProductDisplayParam(productId: number, paramKey: string, data: Partial<InsertProductDisplayParam>): Promise<ProductDisplayParam> {
     const [row] = await db.insert(productDisplayParams)
-      .values({ productId, paramKey, label: data.label ?? null, displayInSummary: data.displayInSummary ?? true, requireVerification: data.requireVerification ?? false, sortOrder: data.sortOrder ?? 0 })
+      .values({ productId, paramKey, label: data.label ?? null, displayInSummary: data.displayInSummary ?? true, requireVerification: data.requireVerification ?? false, sortOrder: data.sortOrder ?? 0, paramGroup: data.paramGroup ?? "subjekt" })
       .onConflictDoUpdate({
         target: [productDisplayParams.productId, productDisplayParams.paramKey],
         set: {
@@ -5879,6 +5879,7 @@ export class DatabaseStorage implements IStorage {
           displayInSummary: data.displayInSummary ?? true,
           requireVerification: data.requireVerification ?? false,
           sortOrder: data.sortOrder ?? 0,
+          paramGroup: data.paramGroup ?? "subjekt",
         },
       })
       .returning();
