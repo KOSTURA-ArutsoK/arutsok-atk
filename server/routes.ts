@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, isAuthenticated, resolveContextLabel, getAuditActorId } from "./auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts, subjectLinks, revocationTickets, insertProductDisplayParamSchema, insertContractParamVerificationSchema } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts, subjectLinks, revocationTickets, insertProductDisplayParamSchema, insertContractParamVerificationSchema, productDisplayParams } from "@shared/schema";
 import type { DocEntry, WebRoutingRule } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, syncSubjectParameters, seedAssetPanels, seedEventAndEntityPanels, seedNsVsTemplates, cleanupZombieTemplateParams, ensureOsClientType } from "./seed-subject-params";
@@ -9119,6 +9119,20 @@ export async function registerRoutes(
     }
   });
 
+  // Maps VERIFIABLE_PARAM keys to subject DB column names
+  const PARAM_KEY_TO_SUBJECT_FIELD: Record<string, string> = {
+    meno: "firstName",
+    priezvisko: "lastName",
+    titul_pred: "titleBefore",
+    titul_za: "titleAfter",
+    rodne_cislo: "birthNumber",
+    cislo_op: "idCardNumber",
+    telefon: "phone",
+    email: "email",
+    iban: "iban",
+    swift: "swift",
+  };
+
   app.post("/api/contracts/:contractId/param-verifications", isAuthenticated, async (req: any, res) => {
     try {
       const contractId = Number(req.params.contractId);
@@ -9130,6 +9144,28 @@ export async function registerRoutes(
       const parsed = bodySchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors.map(e => e.message).join("; ") });
       const { paramKey, status, oldValue, newValue, note } = parsed.data;
+
+      // Fetch the contract to get subjectId and current snapshot
+      const [contract] = await db.select().from(contracts).where(eq(contracts.id, contractId));
+      if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
+
+      // Side-effect: sync_subject — update the subject's field with the snapshot value
+      if (status === "sync_subject" && newValue && contract.subjectId) {
+        const subjectField = PARAM_KEY_TO_SUBJECT_FIELD[paramKey];
+        if (subjectField) {
+          await db.update(subjects).set({ [subjectField]: newValue }).where(eq(subjects.id, contract.subjectId));
+          await logAudit(req, { action: "Uprava", module: "klienti", entityId: contract.subjectId, entityName: `BO sync z verifikácie zmluvy ${contractId}: ${paramKey} → ${newValue}` });
+        }
+      }
+
+      // Side-effect: corrected_snapshot — update the specific key in the contract's subject_snapshot
+      if (status === "corrected_snapshot" && newValue !== undefined) {
+        const currentSnapshot = (contract.subjectSnapshot as Record<string, any>) || {};
+        const updatedSnapshot = { ...currentSnapshot, [paramKey]: newValue };
+        await db.update(contracts).set({ subjectSnapshot: updatedSnapshot }).where(eq(contracts.id, contractId));
+        await logAudit(req, { action: "Uprava", module: "zmluvy_snapshot", entityId: contractId, entityName: `BO oprava snapshotu: ${paramKey} ${oldValue} → ${newValue}` });
+      }
+
       const row = await storage.upsertContractParamVerification({
         contractId,
         paramKey,
@@ -9152,6 +9188,15 @@ export async function registerRoutes(
     try {
       const contractId = Number(req.params.id);
       if (!Number.isFinite(contractId)) return res.status(400).json({ message: "Neplatné ID zmluvy" });
+      const [contract] = await db.select().from(contracts).where(eq(contracts.id, contractId));
+      if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
+      if (!isAdmin(req.appUser)) {
+        const isOwner = contract.uploadedByUserId === req.appUser?.id;
+        const inChain = contract.uploadedByUserId
+          ? await isInManagerChain(req.appUser.id, contract.uploadedByUserId, req.appUser.activeCompanyId)
+          : false;
+        if (!isOwner && !inChain) return res.status(403).json({ message: "Nemáte oprávnenie upravovať túto zmluvu" });
+      }
       const bodySchema = z.object({
         snapshot: z.record(z.any()),
         retroactive: z.boolean().optional(),
@@ -9179,10 +9224,29 @@ export async function registerRoutes(
     try {
       const contractId = Number(req.params.id);
       if (!Number.isFinite(contractId)) return res.status(400).json({ message: "Neplatné ID zmluvy" });
+      const [contract] = await db.select({ id: contracts.id, productId: contracts.productId }).from(contracts).where(eq(contracts.id, contractId));
+      if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
       const { verifications } = await storage.getContractParamVerifications(contractId);
-      const verified = verifications.filter(v => ["ok", "sync_subject", "corrected_snapshot"].includes(v.status));
-      const hasAny = verifications.length > 0;
-      res.json({ verifications, verified: verified.length, total: verifications.length, isFullyVerified: hasAny && verified.length === verifications.length });
+      // Determine required params from product display_params (requireVerification=true), else all VERIFIABLE_PARAMS
+      let requiredParamKeys: string[] = [];
+      if (contract.productId) {
+        const displayParams = await db.select()
+          .from(productDisplayParams)
+          .where(and(eq(productDisplayParams.productId, contract.productId), eq(productDisplayParams.displayInSummary, true)));
+        if (displayParams.length > 0) {
+          requiredParamKeys = displayParams.filter(p => p.requireVerification).map(p => p.paramKey);
+        }
+      }
+      if (requiredParamKeys.length === 0) {
+        // No product config: require verification of all VERIFIABLE_PARAMS
+        requiredParamKeys = ["meno","priezvisko","titul_pred","titul_za","datum_narodenia","rodne_cislo","cislo_op","telefon","email","ulica","psc","mesto","stat","iban","swift","gdpr_suhlas","cislo_zmluvy","datum_podpisu","datum_ucinnosti","datum_exspiracie","poistna_suma","poistne_lehotne","poistne_rocne","produkt","partner"];
+      }
+      const DONE_STATUSES = ["ok", "sync_subject", "corrected_snapshot"];
+      const verifiedKeys = new Set(verifications.filter(v => DONE_STATUSES.includes(v.status)).map(v => v.paramKey));
+      const verifiedCount = requiredParamKeys.filter(k => verifiedKeys.has(k)).length;
+      const total = requiredParamKeys.length;
+      const isFullyVerified = total > 0 && verifiedCount === total;
+      res.json({ verifications, verified: verifiedCount, total, isFullyVerified });
     } catch (err) {
       console.error("[verification-status] GET error:", err);
       res.status(500).json({ message: "Internal error" });

@@ -2216,41 +2216,53 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
 
 // ─── BO Verification Console (Task #220) ─────────────────────────────────────
 
-function getSnapshotValue(snapshot: Record<string, any> | null | undefined, paramKey: string): string {
-  if (!snapshot) return "";
-  const keyMap: Record<string, string[]> = {
-    meno: ["firstName", "first_name"],
-    priezvisko: ["lastName", "last_name"],
-    titul_pred: ["titleBefore", "title_before"],
-    titul_za: ["titleAfter", "title_after"],
-    datum_narodenia: ["birthDate", "birth_date"],
-    rodne_cislo: ["birthNumber", "birth_number"],
-    cislo_op: ["idCardNumber", "id_card_number"],
-    telefon: ["phone"],
-    email: ["email"],
-    ulica: ["street"],
-    psc: ["postalCode", "postal_code"],
-    mesto: ["city"],
-    stat: ["stateId", "state_id"],
-    iban: ["iban"],
-    swift: ["swift"],
-    gdpr_suhlas: ["gdprConsent", "gdpr_consent"],
-    cislo_zmluvy: ["contractNumber", "contract_number"],
-    datum_podpisu: ["signedDate", "signed_date"],
-    datum_ucinnosti: ["effectiveDate", "effective_date"],
-    datum_exspiracie: ["expiryDate", "expiry_date"],
-    poistna_suma: ["insuredSum", "insured_sum", "poistna_suma"],
-    poistne_lehotne: ["premiumAmount", "premium_amount"],
-    poistne_rocne: ["annualPremium", "annual_premium"],
-    produkt: ["product", "productName"],
-    partner: ["partner", "partnerName"],
-  };
-  const keys = keyMap[paramKey] || [paramKey];
-  for (const k of keys) {
-    if (snapshot[k] !== undefined && snapshot[k] !== null) {
-      const v = snapshot[k];
-      if (typeof v === "object") return JSON.stringify(v);
-      return String(v);
+const SNAPSHOT_KEY_MAP: Record<string, string[]> = {
+  meno: ["firstName", "first_name"],
+  priezvisko: ["lastName", "last_name"],
+  titul_pred: ["titleBefore", "title_before"],
+  titul_za: ["titleAfter", "title_after"],
+  datum_narodenia: ["birthDate", "birth_date"],
+  rodne_cislo: ["birthNumber", "birth_number"],
+  cislo_op: ["idCardNumber", "id_card_number"],
+  telefon: ["phone"],
+  email: ["email"],
+  ulica: ["street"],
+  psc: ["postalCode", "postal_code"],
+  mesto: ["city"],
+  stat: ["stateId", "state_id"],
+  iban: ["iban"],
+  swift: ["swift"],
+  gdpr_suhlas: ["gdprConsent", "gdpr_consent"],
+  cislo_zmluvy: ["contractNumber", "contract_number"],
+  datum_podpisu: ["signedDate", "signed_date"],
+  datum_ucinnosti: ["effectiveDate", "effective_date"],
+  datum_exspiracie: ["expiryDate", "expiry_date"],
+  poistna_suma: ["insuredSum", "insured_sum", "poistna_suma"],
+  poistne_lehotne: ["premiumAmount", "premium_amount"],
+  poistne_rocne: ["annualPremium", "annual_premium"],
+  produkt: ["product", "productName"],
+  partner: ["partner", "partnerName"],
+};
+
+function getSnapshotValue(snapshot: Record<string, any> | null | undefined, paramKey: string, subjectFallback?: Record<string, any> | null): string {
+  const keys = SNAPSHOT_KEY_MAP[paramKey] || [paramKey];
+  if (snapshot) {
+    for (const k of keys) {
+      if (snapshot[k] !== undefined && snapshot[k] !== null) {
+        const v = snapshot[k];
+        if (typeof v === "object") return JSON.stringify(v);
+        return String(v);
+      }
+    }
+  }
+  // Fallback to current subject data when snapshot field is missing
+  if (subjectFallback) {
+    for (const k of keys) {
+      if (subjectFallback[k] !== undefined && subjectFallback[k] !== null) {
+        const v = subjectFallback[k];
+        if (typeof v === "object") return JSON.stringify(v);
+        return String(v);
+      }
     }
   }
   return "";
@@ -2308,6 +2320,9 @@ function BOVerificationConsole({
   const snapshot = (contract as any)?.subjectSnapshot as Record<string, any> | null | undefined;
   const isHistorical = !snapshot;
 
+  // Get current subject data for fallback when snapshot field is missing
+  const currentSubject = subjects?.find(s => s.id === contract?.subjectId) as Record<string, any> | undefined;
+
   // Retro-snapshot form state
   const [retroValues, setRetroValues] = useState<Record<string, string>>({});
   const [retroSaving, setRetroSaving] = useState(false);
@@ -2353,10 +2368,11 @@ function BOVerificationConsole({
   });
 
   const moveToPhase9Mutation = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/contracts/${contract!.id}/lifecycle`, { phase: 9 }),
+    mutationFn: () => apiRequest("PATCH", `/api/contracts/${contract!.id}/lifecycle-phase`, { phase: 9 }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 8] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 9] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       toast({ title: "Postúpené do fázy 9", description: "Zmluva odoslaná obchodnému partnerovi" });
       onClose();
     },
@@ -2550,7 +2566,7 @@ function BOVerificationConsole({
                   {params.map((param, i) => {
                     const v = getVerification(param.key);
                     const done = isVerifDone(v);
-                    const snapshotVal = getSnapshotValue(snapshot, param.key);
+                    const snapshotVal = getSnapshotValue(snapshot, param.key, currentSubject);
                     const isCorrecting = correctionParam === param.key;
                     const isSyncing = syncParam === param.key;
                     const requiresVerif = paramsRequiringVerif.some(p => p.key === param.key);
