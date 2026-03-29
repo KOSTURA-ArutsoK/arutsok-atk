@@ -11170,6 +11170,98 @@ export default function Contracts() {
               {contractView ? `Žiadne zmluvy v sekcii "${VIEW_TITLES[contractView]}"` : "Ziadne zmluvy"}
             </p>
           ) : (
+            <>
+            <div className="block md:hidden divide-y divide-border">
+              {sortedMain.map(contract => {
+                const status = statuses?.find(s => s.id === contract.statusId);
+                const freshness = getFreshnessSemaphore(contract.updatedAt);
+                const statusColor = status ? getSmartStatusColor(status.color, contract.expiryDate) : null;
+                return (
+                  <div key={contract.id} className="p-3 space-y-2" data-testid={`card-contract-mobile-${contract.id}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-mono text-sm font-bold text-blue-500 flex items-center gap-1 min-w-0">
+                        {contract.isLocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
+                        {contract.contractNumber || "-"}
+                      </span>
+                      {status && statusColor ? (
+                        <span
+                          className="inline-flex items-center justify-center px-2 py-0.5 rounded-md border text-[11px] font-medium leading-tight whitespace-normal shrink-0"
+                          style={{ borderColor: statusColor, color: statusColor, backgroundColor: `${statusColor}15` }}
+                          data-testid={`badge-contract-status-mobile-${contract.id}`}
+                        >
+                          {status.name}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="text-sm">
+                      <span className="text-muted-foreground text-xs">Klient: </span>
+                      <span data-testid={`text-contract-subject-mobile-${contract.id}`}>{getSubjectDisplay(contract.subjectId)}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      {getPartnerCode(contract) && getPartnerCode(contract) !== "-" && (
+                        <span title={getPartnerName(contract)} data-testid={`text-contract-partner-mobile-${contract.id}`}>
+                          Partner: <span className="text-foreground font-medium">{getPartnerCode(contract)}</span>
+                        </span>
+                      )}
+                      {getProductCode(contract) && getProductCode(contract) !== "-" && (
+                        <span title={getProductName(contract)} data-testid={`text-contract-product-mobile-${contract.id}`}>
+                          Produkt: <span className="text-foreground font-medium">{getProductCode(contract)}</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      {contract.annualPremium != null && (
+                        <span data-testid={`text-contract-annual-mobile-${contract.id}`}>
+                          Poistné: <span className="font-mono font-semibold text-foreground">{formatAmount(contract.annualPremium, contract.currency)}</span>
+                        </span>
+                      )}
+                      {contract.signedDate && (
+                        <span data-testid={`text-contract-date-mobile-${contract.id}`}>
+                          Uzatvorená: <span className="text-foreground">{formatDate(contract.signedDate)}</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1" data-testid={`text-freshness-mobile-${contract.id}`}>
+                          <div
+                            className={`w-2 h-2 rounded-full shrink-0${freshness.blink ? " animate-pulse" : ""}`}
+                            style={{ backgroundColor: freshness.color }}
+                          />
+                          <span className="text-xs text-muted-foreground">{freshness.label}</span>
+                        </div>
+                        {Array.isArray(contract.documents) && contract.documents.length > 0 && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold" data-testid={`text-docs-count-mobile-${contract.id}`}>
+                            🗂️ {contract.documents.length}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-0.5 flex-nowrap">
+                        <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => openView(contract)} data-testid={`button-view-contract-mobile-${contract.id}`}>
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        {canEditRecords(appUser) && (
+                          <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => openEdit(contract)} data-testid={`button-edit-contract-mobile-${contract.id}`}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {canDeleteRecords(appUser) && !!(contract as any).incompleteData && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => openDelete(contract)} data-testid={`button-delete-contract-mobile-${contract.id}`}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Zmazať prázdny záznam</TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="hidden md:block">
             <div className="relative overflow-auto" style={{ maxHeight: 'calc(100vh - 300px)' }}>
             <Table stickyHeader>
               <TableHeader>
@@ -11314,6 +11406,8 @@ export default function Contracts() {
               </TableBody>
             </Table>
             </div>
+            </div>
+            </>
           )}
         </CardContent>
       </Card>
