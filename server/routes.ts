@@ -9106,6 +9106,43 @@ export async function registerRoutes(
     }
   });
 
+  // === CONTRACT PARAM VERIFICATIONS (Task #218) ===
+  app.get("/api/contracts/:contractId/param-verifications", isAuthenticated, async (req: any, res) => {
+    try {
+      const contractId = Number(req.params.contractId);
+      const result = await storage.getContractParamVerifications(contractId);
+      res.json(result);
+    } catch (err) {
+      console.error("[param-verifications] GET error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/contracts/:contractId/param-verifications", isAuthenticated, async (req: any, res) => {
+    try {
+      const contractId = Number(req.params.contractId);
+      const user = (req as any).appUser;
+      const { paramKey, status, oldValue, newValue, note } = req.body;
+      if (!paramKey) return res.status(400).json({ message: "paramKey je povinný" });
+      const allowedStatuses = ["pending", "ok", "sync_subject", "corrected_snapshot"];
+      if (!allowedStatuses.includes(status)) return res.status(400).json({ message: "Neplatný status" });
+      const row = await storage.upsertContractParamVerification({
+        contractId,
+        paramKey,
+        status,
+        oldValue: oldValue ?? null,
+        newValue: newValue ?? null,
+        note: note ?? null,
+        verifiedByUserId: user.id,
+      });
+      await logAudit(req, { action: "Uprava", module: "zmluvy_verifikacia", entityId: contractId, entityName: `Verifikácia parametra: ${paramKey} → ${status}` });
+      res.json(row);
+    } catch (err) {
+      console.error("[param-verifications] POST error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   app.post("/api/supisky/:id/log-view", isAuthenticated, async (req: any, res) => {
     try {
       const supiskaId = Number(req.params.id);
@@ -12339,6 +12376,58 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (err) {
       console.error("Set product sectors error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // === PRODUCT DISPLAY PARAMS (Task #218) ===
+  app.get("/api/products/:id/display-params", isAuthenticated, async (req, res) => {
+    try {
+      const productId = Number(req.params.id);
+      const params = await storage.getProductDisplayParams(productId);
+      res.json(params);
+    } catch (err) {
+      console.error("[display-params] GET error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/products/:id/display-params", isAuthenticated, async (req: any, res) => {
+    try {
+      const productId = Number(req.params.id);
+      const { paramKey, label, displayInSummary, requireVerification, sortOrder } = req.body;
+      if (!paramKey) return res.status(400).json({ message: "paramKey je povinný" });
+      const row = await storage.upsertProductDisplayParam(productId, paramKey, { label, displayInSummary, requireVerification, sortOrder });
+      await logAudit(req, { action: "Uprava", module: "Produkty", entityId: productId, entityName: `Parametere zobrazenia: ${paramKey}` });
+      res.json(row);
+    } catch (err) {
+      console.error("[display-params] POST error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.put("/api/products/:id/display-params", isAuthenticated, async (req: any, res) => {
+    try {
+      const productId = Number(req.params.id);
+      const params = req.body;
+      if (!Array.isArray(params)) return res.status(400).json({ message: "Očakáva sa pole parametrov" });
+      const rows = await storage.setProductDisplayParams(productId, params);
+      await logAudit(req, { action: "Uprava", module: "Produkty", entityId: productId, entityName: "Hromadné nastavenie parametrov zobrazenia" });
+      res.json(rows);
+    } catch (err) {
+      console.error("[display-params] PUT error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.delete("/api/products/:id/display-params/:paramKey", isAuthenticated, async (req: any, res) => {
+    try {
+      const productId = Number(req.params.id);
+      const { paramKey } = req.params;
+      await storage.deleteProductDisplayParam(productId, paramKey);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("[display-params] DELETE error:", err);
       res.status(500).json({ message: "Internal error" });
     }
   });

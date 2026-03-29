@@ -2943,6 +2943,44 @@ export const insertRevocationTicketSchema = createInsertSchema(revocationTickets
 export type RevocationTicket = typeof revocationTickets.$inferSelect;
 export type InsertRevocationTicket = z.infer<typeof insertRevocationTicketSchema>;
 
+// === PRODUCT DISPLAY PARAMS (Parametre zobrazenia a verifikácie pre produkt) ===
+export const productDisplayParams = pgTable("product_display_params", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id").notNull().references(() => products.id),
+  paramKey: text("param_key").notNull(),
+  label: text("label"),
+  displayInSummary: boolean("display_in_summary").notNull().default(true),
+  requireVerification: boolean("require_verification").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => ({
+  uniq: uniqueIndex("pdp_product_param_uniq").on(t.productId, t.paramKey),
+}));
+
+export const insertProductDisplayParamSchema = createInsertSchema(productDisplayParams).omit({ id: true, createdAt: true });
+export type ProductDisplayParam = typeof productDisplayParams.$inferSelect;
+export type InsertProductDisplayParam = z.infer<typeof insertProductDisplayParamSchema>;
+
+// === CONTRACT PARAM VERIFICATIONS (Verifikácia parametrov zmluvy BO pracovníkom) ===
+export const contractParamVerifications = pgTable("contract_param_verifications", {
+  id: serial("id").primaryKey(),
+  contractId: integer("contract_id").notNull().references(() => contracts.id),
+  paramKey: text("param_key").notNull(),
+  status: text("status").$type<"pending" | "ok" | "sync_subject" | "corrected_snapshot">().notNull().default("pending"),
+  verifiedByUserId: integer("verified_by_user_id").references(() => appUsers.id),
+  verifiedAt: timestamp("verified_at"),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => ({
+  uniq: uniqueIndex("cpv_contract_param_uniq").on(t.contractId, t.paramKey),
+}));
+
+export const insertContractParamVerificationSchema = createInsertSchema(contractParamVerifications).omit({ id: true, createdAt: true, verifiedAt: true });
+export type ContractParamVerification = typeof contractParamVerifications.$inferSelect;
+export type InsertContractParamVerification = z.infer<typeof insertContractParamVerificationSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

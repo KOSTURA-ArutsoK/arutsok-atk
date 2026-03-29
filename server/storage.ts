@@ -152,6 +152,10 @@ import {
   type GuardianConfirmationToken,
   subjectLinks,
   type SubjectLink,
+  productDisplayParams,
+  type ProductDisplayParam, type InsertProductDisplayParam,
+  contractParamVerifications,
+  type ContractParamVerification, type InsertContractParamVerification,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -443,6 +447,16 @@ export interface IStorage {
   getSubjectIdsWhereUserIsAcquirer(userId: number): Promise<number[]>;
   checkContractDuplicate(contractNumber: string): Promise<{ exists: boolean; contract?: Contract; subjectName?: string }>;
   findContractsByNumbers(params: { contractNumber?: string; proposalNumber?: string }): Promise<Array<{ id: number; contractNumber: string | null; proposalNumber: string | null; stateId: number | null; subjectName: string; titleBefore: string; titleAfter: string; lifecyclePhase: number | null; partnerId: number | null; }>>;
+
+  // Product Display Params (Task #218)
+  getProductDisplayParams(productId: number): Promise<ProductDisplayParam[]>;
+  upsertProductDisplayParam(productId: number, paramKey: string, data: Partial<InsertProductDisplayParam>): Promise<ProductDisplayParam>;
+  deleteProductDisplayParam(productId: number, paramKey: string): Promise<void>;
+  setProductDisplayParams(productId: number, params: Omit<InsertProductDisplayParam, "productId">[]): Promise<ProductDisplayParam[]>;
+
+  // Contract Param Verifications (Task #218)
+  getContractParamVerifications(contractId: number): Promise<{ verifications: ContractParamVerification[]; isHistorical: boolean }>;
+  upsertContractParamVerification(data: InsertContractParamVerification & { verifiedByUserId: number }): Promise<ContractParamVerification>;
 
   getSystemContractStatusByName(name: string): Promise<ContractStatus | undefined>;
   getAcceptedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
@@ -5804,6 +5818,72 @@ export class DatabaseStorage implements IStorage {
       );
     }
     return ids.length;
+  }
+
+  // ─── Product Display Params (Task #218) ──────────────────────────────────────
+
+  async getProductDisplayParams(productId: number): Promise<ProductDisplayParam[]> {
+    return db.select().from(productDisplayParams)
+      .where(eq(productDisplayParams.productId, productId))
+      .orderBy(productDisplayParams.sortOrder, productDisplayParams.id);
+  }
+
+  async upsertProductDisplayParam(productId: number, paramKey: string, data: Partial<InsertProductDisplayParam>): Promise<ProductDisplayParam> {
+    const [row] = await db.insert(productDisplayParams)
+      .values({ productId, paramKey, label: data.label ?? null, displayInSummary: data.displayInSummary ?? true, requireVerification: data.requireVerification ?? false, sortOrder: data.sortOrder ?? 0 })
+      .onConflictDoUpdate({
+        target: [productDisplayParams.productId, productDisplayParams.paramKey],
+        set: {
+          label: data.label ?? null,
+          displayInSummary: data.displayInSummary ?? true,
+          requireVerification: data.requireVerification ?? false,
+          sortOrder: data.sortOrder ?? 0,
+        },
+      })
+      .returning();
+    return row;
+  }
+
+  async deleteProductDisplayParam(productId: number, paramKey: string): Promise<void> {
+    await db.delete(productDisplayParams).where(
+      and(eq(productDisplayParams.productId, productId), eq(productDisplayParams.paramKey, paramKey))
+    );
+  }
+
+  async setProductDisplayParams(productId: number, params: Omit<InsertProductDisplayParam, "productId">[]): Promise<ProductDisplayParam[]> {
+    await db.delete(productDisplayParams).where(eq(productDisplayParams.productId, productId));
+    if (params.length === 0) return [];
+    return db.insert(productDisplayParams)
+      .values(params.map((p, i) => ({ ...p, productId, sortOrder: p.sortOrder ?? i })))
+      .returning();
+  }
+
+  // ─── Contract Param Verifications (Task #218) ────────────────────────────────
+
+  async getContractParamVerifications(contractId: number): Promise<{ verifications: ContractParamVerification[]; isHistorical: boolean }> {
+    const verifications = await db.select().from(contractParamVerifications)
+      .where(eq(contractParamVerifications.contractId, contractId))
+      .orderBy(contractParamVerifications.createdAt);
+    return { verifications, isHistorical: verifications.length === 0 };
+  }
+
+  async upsertContractParamVerification(data: InsertContractParamVerification & { verifiedByUserId: number }): Promise<ContractParamVerification> {
+    const now = new Date();
+    const [row] = await db.insert(contractParamVerifications)
+      .values({ ...data, verifiedAt: now })
+      .onConflictDoUpdate({
+        target: [contractParamVerifications.contractId, contractParamVerifications.paramKey],
+        set: {
+          status: data.status,
+          verifiedByUserId: data.verifiedByUserId,
+          verifiedAt: now,
+          oldValue: data.oldValue ?? null,
+          newValue: data.newValue ?? null,
+          note: data.note ?? null,
+        },
+      })
+      .returning();
+    return row;
   }
 }
 
