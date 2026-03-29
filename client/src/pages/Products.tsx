@@ -217,7 +217,9 @@ function ProductFormDialog({
   // Display params state for "Parametre zhrnutia zmluvy" tab
   type DisplayParamState = { display: boolean; verify: boolean };
   const [displayParamConfig, setDisplayParamConfig] = useState<Record<string, DisplayParamState>>({});
-  const [expandedSubjectPanels, setExpandedSubjectPanels] = useState<Set<string>>(new Set());
+  const [expandedSubjKategorie, setExpandedSubjKategorie] = useState<Set<string>>(new Set());
+  const [expandedSubjBloky, setExpandedSubjBloky] = useState<Set<string>>(new Set());
+  const [expandedSubjPanely, setExpandedSubjPanely] = useState<Set<string>>(new Set());
   const [expandedContractPanels, setExpandedContractPanels] = useState<Set<string>>(new Set());
   const [requiredDocuments, setRequiredDocuments] = useState<string[]>([]);
   const [optionalDocuments, setOptionalDocuments] = useState<string[]>([]);
@@ -261,7 +263,9 @@ function ProductFormDialog({
     enabled: !!editingProduct?.id,
   });
 
-  const { data: productSubjectParamsRaw } = useQuery<{ clientTypeId: number; typeLabel: string; fields: { fieldKey: string; label: string; shortLabel?: string; panelName?: string | null; folderCategory?: string }[] }[]>({
+  type SubjectField = { fieldKey: string; label: string; shortLabel?: string; folderCategory?: string; sortOrder?: number; panelId: number | null; panelName: string | null; blokId: number | null; blokName: string | null; kategoriaId: number | null; kategoriaName: string | null };
+  type SubjectTypeGroup = { clientTypeId: number; typeLabel: string; fields: SubjectField[] };
+  const { data: productSubjectParamsRaw } = useQuery<SubjectTypeGroup[]>({
     queryKey: ["/api/products", editingProduct?.id, "subject-params"],
     queryFn: async () => {
       const res = await fetch(`/api/products/${editingProduct!.id}/subject-params`, { credentials: "include" });
@@ -314,15 +318,6 @@ function ProductFormDialog({
     return result;
   }, [productPanelsWithParams, assignedParams]);
 
-  useEffect(() => {
-    if (!open || !productSubjectParamsRaw?.length) return;
-    const keys = new Set<string>();
-    for (const tg of productSubjectParamsRaw) {
-      const panelNames = [...new Set(tg.fields.map(f => f.panelName ?? "__none__"))];
-      for (const p of panelNames) keys.add(`subjekt_${tg.clientTypeId}_${p}`);
-    }
-    setExpandedSubjectPanels(keys);
-  }, [open, productSubjectParamsRaw]);
 
   useEffect(() => {
     if (!open || !productPanelsWithParams?.length) return;
@@ -902,68 +897,118 @@ function ProductFormDialog({
                           </p>
                         ) : (productSubjectParamsRaw || []).map(typeGroup => {
                           const multiType = (productSubjectParamsRaw || []).length > 1;
-                          const panelMap = new Map<string, typeof typeGroup.fields>();
+
+                          // Build 3-level tree: Kategória → Blok → Panel → fields
+                          type SPanelNode = { panelId: number|null; panelName: string|null; fields: typeof typeGroup.fields };
+                          type SBlokNode  = { blokId: number|null; blokName: string|null; panels: SPanelNode[] };
+                          type SKatNode   = { katId: number|null; katName: string|null; bloky: SBlokNode[] };
+                          const katGroups: SKatNode[] = [];
+                          const katIdx = new Map<string, number>();
                           for (const f of typeGroup.fields) {
-                            const k = f.panelName ?? "__none__";
-                            if (!panelMap.has(k)) panelMap.set(k, []);
-                            panelMap.get(k)!.push(f);
+                            const katKey = String(f.kategoriaId ?? "__none__");
+                            if (!katIdx.has(katKey)) { katIdx.set(katKey, katGroups.length); katGroups.push({ katId: f.kategoriaId, katName: f.kategoriaName, bloky: [] }); }
+                            const kat = katGroups[katIdx.get(katKey)!];
+                            let blok = kat.bloky.find(b => b.blokId === f.blokId);
+                            if (!blok) { blok = { blokId: f.blokId, blokName: f.blokName, panels: [] }; kat.bloky.push(blok); }
+                            let panel = blok.panels.find(p => p.panelId === f.panelId);
+                            if (!panel) { panel = { panelId: f.panelId, panelName: f.panelName, fields: [] }; blok.panels.push(panel); }
+                            panel.fields.push(f);
                           }
-                          const panelGroups = Array.from(panelMap.entries()).map(([k, flds]) => ({
-                            panelName: k === "__none__" ? null : k,
-                            panelKey: `subjekt_${typeGroup.clientTypeId}_${k}`,
-                            fields: flds,
-                          }));
+
                           return (
-                            <div key={typeGroup.clientTypeId}>
+                            <div key={typeGroup.clientTypeId} className="space-y-1">
                               {multiType && (
                                 <div className="px-2 pt-1.5 pb-0.5 flex items-center gap-1.5">
                                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{typeGroup.typeLabel}</span>
                                   <div className="h-px flex-1 bg-border/60" />
                                 </div>
                               )}
-                              {panelGroups.map(group => {
-                                const isExp = expandedSubjectPanels.has(group.panelKey);
-                                const actCnt = group.fields.filter(f => displayParamConfig[f.fieldKey]?.display).length;
+                              {katGroups.map(kat => {
+                                const katKey = `${typeGroup.clientTypeId}_kat_${kat.katId ?? "__none__"}`;
+                                const katIsExp = expandedSubjKategorie.has(katKey);
+                                const katActCnt = kat.bloky.flatMap(b => b.panels.flatMap(p => p.fields)).filter(f => displayParamConfig[f.fieldKey]?.display).length;
                                 return (
-                                  <div key={group.panelKey} className="border border-border/50 rounded-lg overflow-hidden">
+                                  <div key={katKey} className="border border-border/50 rounded-lg overflow-hidden">
+                                    {/* ── Kategória row ── */}
                                     <button
                                       type="button"
                                       className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/40 transition-colors text-left"
-                                      onClick={() => setExpandedSubjectPanels(prev => {
-                                        const next = new Set(prev);
-                                        if (next.has(group.panelKey)) next.delete(group.panelKey); else next.add(group.panelKey);
-                                        return next;
-                                      })}
-                                      data-testid={`toggle-panel-${group.panelKey}`}
+                                      onClick={() => setExpandedSubjKategorie(prev => { const s = new Set(prev); s.has(katKey) ? s.delete(katKey) : s.add(katKey); return s; })}
+                                      data-testid={`toggle-kat-${katKey}`}
                                     >
-                                      {isExp ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
-                                      <FolderOpen className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
-                                      <span className="text-sm font-medium flex-1 truncate">{group.panelName ?? "Ostatné"}</span>
-                                      {actCnt > 0 && <Badge variant="secondary" className="text-[10px] px-1.5">{actCnt}</Badge>}
+                                      {katIsExp ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
+                                      <FolderOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                                      <span className="text-sm font-medium flex-1 truncate">{kat.katName ?? "Ostatné"}</span>
+                                      {katActCnt > 0 && <Badge variant="secondary" className="text-[10px] px-1.5">{katActCnt}</Badge>}
                                     </button>
-                                    {isExp && (
-                                      <div className="border-t border-border/30">
-                                        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-1 bg-muted/20">
-                                          <span className="text-[10px] text-muted-foreground font-medium">Parameter</span>
-                                          <span className="text-[10px] text-muted-foreground font-medium w-24 text-center">Zobrazovať</span>
-                                          <span className="text-[10px] text-muted-foreground font-medium w-24 text-center">Overiť BO</span>
+
+                                    {katIsExp && kat.bloky.map(blok => {
+                                      const blokKey = `blok_${blok.blokId ?? "__none__"}`;
+                                      const blokIsExp = expandedSubjBloky.has(blokKey);
+                                      const blokActCnt = blok.panels.flatMap(p => p.fields).filter(f => displayParamConfig[f.fieldKey]?.display).length;
+                                      return (
+                                        <div key={blokKey} className="border-t border-border/30">
+                                          {/* ── Blok row ── */}
+                                          <button
+                                            type="button"
+                                            className="w-full flex items-center gap-2 pl-6 pr-3 py-1.5 hover:bg-muted/40 transition-colors text-left"
+                                            onClick={() => setExpandedSubjBloky(prev => { const s = new Set(prev); s.has(blokKey) ? s.delete(blokKey) : s.add(blokKey); return s; })}
+                                            data-testid={`toggle-blok-${blokKey}`}
+                                          >
+                                            {blokIsExp ? <ChevronDown className="w-3 h-3 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
+                                            <FolderOpen className="w-3 h-3 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+                                            <span className="text-xs font-medium flex-1 truncate">{blok.blokName ?? "Ostatné"}</span>
+                                            {blokActCnt > 0 && <Badge variant="secondary" className="text-[10px] px-1">{blokActCnt}</Badge>}
+                                          </button>
+
+                                          {blokIsExp && blok.panels.map(panel => {
+                                            const panelKey = `panel_${panel.panelId ?? "__none__"}`;
+                                            const panelIsExp = expandedSubjPanely.has(panelKey);
+                                            const panelActCnt = panel.fields.filter(f => displayParamConfig[f.fieldKey]?.display).length;
+                                            return (
+                                              <div key={panelKey} className="border-t border-border/20">
+                                                {/* ── Panel row ── */}
+                                                <button
+                                                  type="button"
+                                                  className="w-full flex items-center gap-2 pl-10 pr-3 py-1.5 hover:bg-muted/40 transition-colors text-left"
+                                                  onClick={() => setExpandedSubjPanely(prev => { const s = new Set(prev); s.has(panelKey) ? s.delete(panelKey) : s.add(panelKey); return s; })}
+                                                  data-testid={`toggle-panel-${panelKey}`}
+                                                >
+                                                  {panelIsExp ? <ChevronDown className="w-3 h-3 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
+                                                  <FolderOpen className="w-3 h-3 text-blue-400 dark:text-blue-300 flex-shrink-0" />
+                                                  <span className="text-xs flex-1 truncate">{panel.panelName ?? "Ostatné"}</span>
+                                                  {panelActCnt > 0 && <Badge variant="secondary" className="text-[10px] px-1">{panelActCnt}</Badge>}
+                                                </button>
+
+                                                {panelIsExp && (
+                                                  <div className="border-t border-border/20">
+                                                    <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-1 bg-muted/20">
+                                                      <span className="text-[10px] text-muted-foreground font-medium">Parameter</span>
+                                                      <span className="text-[10px] text-muted-foreground font-medium w-24 text-center">Zobrazovať</span>
+                                                      <span className="text-[10px] text-muted-foreground font-medium w-24 text-center">Overiť BO</span>
+                                                    </div>
+                                                    {panel.fields.map((f, i) => {
+                                                      const cfg = displayParamConfig[f.fieldKey] || { display: false, verify: false };
+                                                      return (
+                                                        <div key={f.fieldKey} className={`grid grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-1.5 ${i % 2 === 0 ? "bg-background/50" : ""}`} data-testid={`row-display-param-${f.fieldKey}`}>
+                                                          <span className="text-sm truncate">{f.label}</span>
+                                                          <div className="w-24 flex justify-center">
+                                                            <Switch checked={cfg.display} onCheckedChange={(checked) => setDisplayParamConfig(prev => ({ ...prev, [f.fieldKey]: { display: checked, verify: checked ? prev[f.fieldKey]?.verify ?? false : false } }))} data-testid={`switch-display-${f.fieldKey}`} />
+                                                          </div>
+                                                          <div className="w-24 flex justify-center">
+                                                            <Switch checked={cfg.display ? cfg.verify : false} disabled={!cfg.display} onCheckedChange={(checked) => setDisplayParamConfig(prev => ({ ...prev, [f.fieldKey]: { display: prev[f.fieldKey]?.display ?? false, verify: checked } }))} data-testid={`switch-verify-${f.fieldKey}`} />
+                                                          </div>
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
                                         </div>
-                                        {group.fields.map((f, i) => {
-                                          const cfg = displayParamConfig[f.fieldKey] || { display: false, verify: false };
-                                          return (
-                                            <div key={f.fieldKey} className={`grid grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-1.5 ${i % 2 === 0 ? "bg-background/50" : ""}`} data-testid={`row-display-param-${f.fieldKey}`}>
-                                              <span className="text-sm truncate">{f.label}</span>
-                                              <div className="w-24 flex justify-center">
-                                                <Switch checked={cfg.display} onCheckedChange={(checked) => setDisplayParamConfig(prev => ({ ...prev, [f.fieldKey]: { display: checked, verify: checked ? prev[f.fieldKey]?.verify ?? false : false } }))} data-testid={`switch-display-${f.fieldKey}`} />
-                                              </div>
-                                              <div className="w-24 flex justify-center">
-                                                <Switch checked={cfg.display ? cfg.verify : false} disabled={!cfg.display} onCheckedChange={(checked) => setDisplayParamConfig(prev => ({ ...prev, [f.fieldKey]: { display: prev[f.fieldKey]?.display ?? false, verify: checked } }))} data-testid={`switch-verify-${f.fieldKey}`} />
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
+                                      );
+                                    })}
                                   </div>
                                 );
                               })}

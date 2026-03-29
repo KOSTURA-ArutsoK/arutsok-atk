@@ -12747,18 +12747,33 @@ export async function registerRoutes(
         const allFields = await db.select().from(subjectParameters)
           .where(and(eq(subjectParameters.clientTypeId, clientTypeId), eq(subjectParameters.isActive, true)))
           .orderBy(subjectParameters.sortOrder);
-        const panels = allSections.filter(s => s.isPanel || !!s.parentSectionId);
-        const panelMap = new Map(panels.map(p => [p.id, p.name]));
+        const sectionMap = new Map(allSections.map(s => [s.id, s]));
         const fields = allFields
           .filter(f => !f.isHidden && f.fieldKey)
-          .map(f => ({
-            fieldKey: f.fieldKey,
-            label: f.label,
-            shortLabel: f.shortLabel,
-            panelName: f.panelId ? (panelMap.get(f.panelId) ?? null) : null,
-            folderCategory: f.fieldCategory,
-            sortOrder: f.sortOrder ?? 0,
-          }));
+          .map(f => {
+            // Resolve effective panel: direct panelId, or via rowId → riadok.parentSectionId
+            let effectivePanelId: number | null = f.panelId ?? null;
+            if (!effectivePanelId && f.rowId) {
+              const row = sectionMap.get(f.rowId);
+              if (row) effectivePanelId = row.parentSectionId ?? null;
+            }
+            const panel    = effectivePanelId ? (sectionMap.get(effectivePanelId) ?? null) : null;
+            const blok     = panel?.parentSectionId ? (sectionMap.get(panel.parentSectionId) ?? null) : null;
+            const kategoria = blok?.parentSectionId ? (sectionMap.get(blok.parentSectionId) ?? null) : null;
+            return {
+              fieldKey: f.fieldKey,
+              label: f.label,
+              shortLabel: f.shortLabel,
+              folderCategory: f.fieldCategory,
+              sortOrder: f.sortOrder ?? 0,
+              panelId:      panel?.id      ?? null,
+              panelName:    panel?.name    ?? null,
+              blokId:       blok?.id       ?? null,
+              blokName:     blok?.name     ?? null,
+              kategoriaId:  kategoria?.id   ?? null,
+              kategoriaName: kategoria?.name ?? null,
+            };
+          });
         if (fields.length > 0) {
           result.push({ clientTypeId, typeLabel: typeLabels[clientTypeId] ?? String(clientTypeId), fields });
         }
