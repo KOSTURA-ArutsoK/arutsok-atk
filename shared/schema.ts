@@ -440,6 +440,10 @@ export const products = pgTable("products", {
   deletedAt: timestamp("deleted_at"),
   deletedFromIp: text("deleted_from_ip"),
   processingTimeSec: integer("processing_time_sec").default(0),
+  parentProductId: integer("parent_product_id"),
+  versionLabel: text("version_label"),
+  isArchived: boolean("is_archived").default(false),
+  archivedAt: timestamp("archived_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

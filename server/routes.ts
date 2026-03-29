@@ -4321,9 +4321,10 @@ export async function registerRoutes(
   // === GLOBAL PRODUCT CATALOG ===
   app.get(api.products.list.path, isAuthenticated, async (req: any, res) => {
     const includeDeleted = req.query.includeDeleted === 'true';
+    const includeArchived = req.query.includeArchived === 'true';
     const stateId = getEnforcedStateId(req);
     const filterCompanyId = req.query.companyId ? Number(req.query.companyId) : (req.appUser?.activeCompanyId || null);
-    const allProducts = await storage.getProducts(includeDeleted);
+    const allProducts = await storage.getProducts(includeDeleted, includeArchived);
     if (!filterCompanyId && !stateId) return res.json(allProducts);
     const filtered = allProducts.filter(p => {
       if (filterCompanyId && p.companyId !== filterCompanyId) return false;
@@ -4412,6 +4413,46 @@ export async function registerRoutes(
 
   app.get(api.products.byPartner.path, isAuthenticated, async (req, res) => {
     res.json(await storage.getProductsByPartner(Number(req.params.partnerId)));
+  });
+
+  app.post("/api/products/:id/clone", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Len administrátor môže klonovať produkty" });
+      const id = Number(req.params.id);
+      const versionLabelSchema = z.object({ versionLabel: z.string().min(1).max(100) });
+      const { versionLabel } = versionLabelSchema.parse(req.body);
+      const cloned = await storage.cloneProduct(id, versionLabel, req.appUser?.username || "system");
+      await logAudit(req, { action: "CLONE", module: "produkty", entityId: id, newData: { clonedProductId: cloned.id, versionLabel } });
+      res.status(201).json(cloned);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      if (err instanceof Error && err.message === "Product not found") return res.status(404).json({ message: err.message });
+      throw err;
+    }
+  });
+
+  app.patch("/api/products/:id/archive", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isAdmin(req.appUser)) return res.status(403).json({ message: "Len administrátor môže archivovať produkty" });
+      const id = Number(req.params.id);
+      const archived = await storage.archiveProduct(id);
+      await logAudit(req, { action: "ARCHIVE", module: "produkty", entityId: id });
+      res.json(archived);
+    } catch (err) {
+      if (err instanceof Error && err.message === "Product not found") return res.status(404).json({ message: err.message });
+      throw err;
+    }
+  });
+
+  app.get("/api/products/:id/version-history", isAuthenticated, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const allVersions = await storage.getProducts(false, true);
+      const versions = allVersions.filter(p => p.parentProductId === id || p.id === id);
+      res.json(versions);
+    } catch (err) {
+      throw err;
+    }
   });
 
   // === COMMISSIONS ===
@@ -5446,6 +5487,13 @@ export async function registerRoutes(
       for (const field of allowedFields) {
         if (req.body[field] !== undefined) {
           updateData[field] = req.body[field];
+        }
+      }
+
+      if (updateData.productId) {
+        const [linkedProduct] = await db.select({ isArchived: products.isArchived }).from(products).where(eq(products.id, updateData.productId)).limit(1);
+        if (linkedProduct?.isArchived) {
+          return res.status(400).json({ message: "Archivovaný produkt nie je možné priradiť k novej zmluve." });
         }
       }
 

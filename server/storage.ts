@@ -280,13 +280,15 @@ export interface IStorage {
   createSubjectDocument(data: InsertSubjectDocument): Promise<SubjectDocument>;
   getLatestDocByType(subjectId: number, docType: string): Promise<SubjectDocument | undefined>;
   
-  getProducts(includeDeleted?: boolean): Promise<Product[]>;
+  getProducts(includeDeleted?: boolean, includeArchived?: boolean): Promise<Product[]>;
   getProduct(id: number): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: number, updates: Partial<InsertProduct>): Promise<Product>;
   softDeleteProduct(id: number, deletedBy: string, ip: string): Promise<void>;
   restoreProduct(id: number): Promise<void>;
   getProductsByPartner(partnerId: number): Promise<Product[]>;
+  cloneProduct(id: number, versionLabel: string, clonedByUsername: string): Promise<Product>;
+  archiveProduct(id: number): Promise<Product>;
   getCommissions(productId?: number): Promise<CommissionScheme[]>;
   createCommission(commission: InsertCommissionScheme): Promise<CommissionScheme>;
 
@@ -2154,10 +2156,13 @@ export class DatabaseStorage implements IStorage {
     return doc;
   }
 
-  async getProducts(includeDeleted?: boolean) {
-    const productList = includeDeleted
-      ? await db.select().from(products).orderBy(desc(products.createdAt))
-      : await db.select().from(products).where(eq(products.isDeleted, false)).orderBy(desc(products.createdAt));
+  async getProducts(includeDeleted?: boolean, includeArchived?: boolean) {
+    let conditions: any[] = [];
+    if (!includeDeleted) conditions.push(eq(products.isDeleted, false));
+    if (!includeArchived) conditions.push(or(eq(products.isArchived, false), isNull(products.isArchived)));
+    const productList = conditions.length > 0
+      ? await db.select().from(products).where(and(...conditions)).orderBy(desc(products.createdAt))
+      : await db.select().from(products).orderBy(desc(products.createdAt));
     const countRows = await db.execute(
       sql`SELECT product_id, COUNT(*) as cnt FROM contracts WHERE product_id IS NOT NULL AND is_deleted = false GROUP BY product_id`
     );
@@ -2166,6 +2171,42 @@ export class DatabaseStorage implements IStorage {
       countMap[Number(row.product_id)] = Number(row.cnt);
     }
     return productList.map(p => ({ ...p, contractsCount: countMap[p.id] || 0 }));
+  }
+
+  async cloneProduct(id: number, versionLabel: string, clonedByUsername: string): Promise<Product> {
+    const original = await this.getProduct(id);
+    if (!original) throw new Error("Product not found");
+    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = original as any;
+    const cloneData: any = {
+      ...rest,
+      versionLabel: versionLabel || null,
+      parentProductId: original.parentProductId ?? id,
+      isArchived: false,
+      archivedAt: null,
+      isDeleted: false,
+      deletedBy: null,
+      deletedAt: null,
+      deletedFromIp: null,
+      processingTimeSec: 0,
+    };
+    const [cloned] = await db.insert(products).values(cloneData).returning();
+    const displayParams = await db.select().from(productDisplayParams).where(eq(productDisplayParams.productId, id));
+    if (displayParams.length > 0) {
+      await db.insert(productDisplayParams).values(
+        displayParams.map(dp => {
+          const { id: _dpId, productId: _dpPid, ...dpRest } = dp as any;
+          return { ...dpRest, productId: cloned.id };
+        })
+      );
+    }
+    return cloned;
+  }
+
+  async archiveProduct(id: number): Promise<Product> {
+    const original = await this.getProduct(id);
+    if (!original) throw new Error("Product not found");
+    const [updated] = await db.update(products).set({ isArchived: true, archivedAt: new Date(), updatedAt: new Date() } as any).where(eq(products.id, id)).returning();
+    return updated;
   }
 
   async getProduct(id: number) {

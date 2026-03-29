@@ -3,7 +3,7 @@ import DOMPurify from "dompurify";
 import { AddProductCard } from "@/components/AddProductCard";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDateSlovak, canCreateRecords, canEditRecords, canDeleteRecords } from "@/lib/utils";
+import { formatDateSlovak, canCreateRecords, canEditRecords, canDeleteRecords, isAdmin } from "@/lib/utils";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useSmartFilter } from "@/hooks/use-smart-filter";
 import type { SmartColumnDef } from "@/hooks/use-smart-filter";
@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import type { Product, CommissionScheme, Partner, Parameter, ProductParameter, MyCompany } from "@shared/schema";
-import { Plus, Eye, Package, Loader2, HelpCircle, Trash2, FileText, Copy, AlertCircle } from "lucide-react";
+import { Plus, Eye, Package, Loader2, HelpCircle, Trash2, FileText, Copy, AlertCircle, Archive, GitBranch, ChevronDown, ChevronRight, History } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
@@ -212,6 +212,8 @@ function ProductFormDialog({
   const [paramValues, setParamValues] = useState<Record<number, string>>({});
   const [contextError, setContextError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"info" | "dokumentacia" | "parametre">("info");
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+  const [cloneVersionLabel, setCloneVersionLabel] = useState("");
 
   // Display params state for "Parametre zhrnutia zmluvy" tab
   type DisplayParamState = { display: boolean; verify: boolean };
@@ -268,6 +270,28 @@ function ProductFormDialog({
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa uložiť parametre", variant: "destructive" }),
   });
 
+  const cloneMutation = useMutation({
+    mutationFn: (versionLabel: string) => apiRequest("POST", `/api/products/${editingProduct?.id}/clone`, { versionLabel }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({ title: "Klon vytvorený", description: "Nová verzia produktu bola vytvorená" });
+      setCloneDialogOpen(false);
+      setCloneVersionLabel("");
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa klonovať produkt", variant: "destructive" }),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: () => apiRequest("PATCH", `/api/products/${editingProduct?.id}/archive`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({ title: "Archivované", description: "Produkt bol archivovaný" });
+      onOpenChange(false);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa archivovať produkt", variant: "destructive" }),
+  });
+
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/products", data),
     onSuccess: () => {
@@ -313,6 +337,8 @@ function ProductFormDialog({
       setActiveTab("info");
       setNewDocName("");
       setDisplayParamConfig({});
+      setCloneDialogOpen(false);
+      setCloneVersionLabel("");
       if (editingProduct) {
         setPartnerId(editingProduct.partnerId?.toString() || "");
         setCode(editingProduct.code || "");
@@ -397,13 +423,28 @@ function ProductFormDialog({
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent size={activeTab === "dokumentacia" ? "xl" : activeTab === "parametre" ? "lg" : "md"}>
         <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
-          <DialogTitle data-testid="text-product-dialog-title">
-            {editingProduct ? "Upravit produkt" : "Pridat produkt"}
-          </DialogTitle>
+          <div className="flex items-start justify-between gap-2">
+            <DialogTitle data-testid="text-product-dialog-title">
+              {editingProduct ? "Upravit produkt" : "Pridat produkt"}
+            </DialogTitle>
+            {editingProduct && (editingProduct as any).isArchived && (
+              <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 shrink-0 mt-0.5" data-testid="badge-product-archived">
+                <Archive className="w-3 h-3 mr-1" />
+                Archivovaný{(editingProduct as any).versionLabel ? ` · ${(editingProduct as any).versionLabel}` : ""}
+              </Badge>
+            )}
+            {editingProduct && !(editingProduct as any).isArchived && (editingProduct as any).versionLabel && (
+              <Badge variant="outline" className="shrink-0 mt-0.5 font-mono text-xs" data-testid="badge-product-version">
+                <GitBranch className="w-3 h-3 mr-1" />
+                {(editingProduct as any).versionLabel}
+              </Badge>
+            )}
+          </div>
         </DialogHeader>
         {contextError && (
           <div className="flex gap-3 items-start border-2 border-red-500 rounded-md p-3 mb-3 text-sm bg-red-50 dark:bg-red-950 text-justify" role="alert" data-testid="alert-context-mismatch">
@@ -648,6 +689,53 @@ function ProductFormDialog({
               />
             </div>
 
+            {editingProduct && isAdmin(appUser) && (
+              <div className="rounded-lg border border-dashed border-border p-3 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                  <History className="w-3.5 h-3.5" />
+                  Správa verzií
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {!(editingProduct as any).isArchived && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCloneDialogOpen(true)}
+                      data-testid="button-clone-product"
+                    >
+                      <GitBranch className="w-3.5 h-3.5 mr-1.5" />
+                      Klonovať ako novú verziu
+                    </Button>
+                  )}
+                  {!(editingProduct as any).isArchived && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-orange-600 border-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950"
+                      onClick={() => {
+                        if (confirm(`Naozaj archivovať produkt „${editingProduct.name}"? Archivovaný produkt nie je možné priradiť k novým zmluvám.`)) {
+                          archiveMutation.mutate();
+                        }
+                      }}
+                      disabled={archiveMutation.isPending}
+                      data-testid="button-archive-product"
+                    >
+                      <Archive className="w-3.5 h-3.5 mr-1.5" />
+                      {archiveMutation.isPending ? "Archivujem..." : "Archivovať verziu"}
+                    </Button>
+                  )}
+                  {(editingProduct as any).isArchived && (
+                    <p className="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1">
+                      <Archive className="w-3.5 h-3.5" />
+                      Tento produkt je archivovaný a nie je možné ho priradiť k novým zmluvám.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-end mt-6">
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-product-cancel">
                 Zrusit
@@ -849,6 +937,46 @@ function ProductFormDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    {cloneDialogOpen && editingProduct && (
+      <Dialog open={cloneDialogOpen} onOpenChange={setCloneDialogOpen}>
+        <DialogContent size="sm">
+          <DialogHeader>
+            <DialogTitle>Klonovať produkt ako novú verziu</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Vytvorí sa presná kópia produktu <strong>{editingProduct.name}</strong> s novým štítkom verzie. Pôvodný produkt zostane nezmenený.
+            </p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Štítok verzie *</label>
+              <Input
+                value={cloneVersionLabel}
+                onChange={e => setCloneVersionLabel(e.target.value)}
+                placeholder="napr. v2026_04_01"
+                data-testid="input-clone-version-label"
+              />
+              <p className="text-xs text-muted-foreground">Odporúčaný formát: v{new Date().getFullYear()}_{String(new Date().getMonth() + 1).padStart(2, '0')}_{String(new Date().getDate()).padStart(2, '0')}</p>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t">
+              <Button type="button" variant="outline" onClick={() => { setCloneDialogOpen(false); setCloneVersionLabel(""); }} data-testid="button-clone-cancel">
+                Zrušiť
+              </Button>
+              <Button
+                type="button"
+                onClick={() => { if (cloneVersionLabel.trim()) cloneMutation.mutate(cloneVersionLabel.trim()); }}
+                disabled={!cloneVersionLabel.trim() || cloneMutation.isPending}
+                data-testid="button-clone-confirm"
+              >
+                <GitBranch className="w-4 h-4 mr-1.5" />
+                {cloneMutation.isPending ? "Klonujem..." : "Vytvoriť klon"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )}
+    </>
   );
 }
 
@@ -1181,6 +1309,61 @@ function DeleteProductDialog({
   );
 }
 
+function ProductVersionHistoryRow({ productId, colSpanCount, onEditVersion, expanded }: {
+  productId: number;
+  colSpanCount: number;
+  onEditVersion: (product: Product) => void;
+  expanded: boolean;
+}) {
+  const { data: versions, isLoading } = useQuery<Product[]>({
+    queryKey: ["/api/products", productId, "version-history"],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${productId}/version-history`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: expanded,
+  });
+  const childVersions = (versions || []).filter(v => v.id !== productId);
+  if (!expanded) return null;
+  return (
+    <TableRow className="bg-muted/20">
+      <TableCell colSpan={colSpanCount} className="py-2 px-6">
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Načítavam históriu verzií...
+          </div>
+        ) : childVersions.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic">Žiadne iné verzie pre tento produkt.</p>
+        ) : (
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">História verzií</p>
+            {childVersions.map(v => (
+              <div key={v.id} className="flex items-center gap-3 text-xs">
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium ${(v as any).isArchived ? "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300" : "bg-primary/10 text-primary"}`}>
+                  {(v as any).isArchived && <Archive className="w-2.5 h-2.5" />}
+                  {(v as any).versionLabel || `ID ${v.id}`}
+                </span>
+                <span className="text-muted-foreground">{v.name}</span>
+                <span className="text-muted-foreground font-mono">{v.code}</span>
+                {(v as any).isArchived && <span className="text-orange-600 dark:text-orange-400 text-[10px]">archivovaný</span>}
+                <button
+                  className="ml-auto text-primary hover:underline text-[11px]"
+                  onClick={() => onEditVersion(v)}
+                  data-testid={`button-edit-version-${v.id}`}
+                >
+                  Otvoriť
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export default function Products() {
   const { data: appUser } = useAppUser();
   const { data: products, isLoading } = useProducts();
@@ -1193,6 +1376,7 @@ export default function Products() {
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [expandedVersionHistory, setExpandedVersionHistory] = useState<Set<number>>(new Set());
 
   const columnVisibility = useColumnVisibility("products", PRODUCT_COLUMNS);
   const activeProducts = products?.filter(p => !p.isDeleted) || [];
@@ -1329,10 +1513,32 @@ export default function Products() {
               </TableHeader>
               <TableBody>
                 {(() => {
+                  const colSpanCount = [
+                    columnVisibility.isVisible("partnerId"),
+                    columnVisibility.isVisible("name"),
+                    columnVisibility.isVisible("code"),
+                    columnVisibility.isVisible("displayName"),
+                    columnVisibility.isVisible("allowedSpecialists"),
+                    true,
+                  ].filter(Boolean).length;
+
                   const renderProductRow = (product: Product) => (
+                    <>
                     <TableRow key={product.id} data-testid={`row-product-${product.id}`} onRowClick={() => handleEdit(product)}>
                       {columnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(product.partnerId)}</TableCell>}
-                      {columnVisibility.isVisible("name") && <TableCell className="text-sm">{product.name}</TableCell>}
+                      {columnVisibility.isVisible("name") && (
+                        <TableCell className="text-sm">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {product.name}
+                            {(product as any).versionLabel && (
+                              <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0" data-testid={`badge-version-${product.id}`}>
+                                <GitBranch className="w-2.5 h-2.5 mr-0.5" />
+                                {(product as any).versionLabel}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
                       {columnVisibility.isVisible("code") && <TableCell className="text-sm">{product.code}</TableCell>}
                       {columnVisibility.isVisible("displayName") && <TableCell className="text-sm">{product.displayName || "-"}</TableCell>}
                       {columnVisibility.isVisible("allowedSpecialists") && <TableCell>
@@ -1347,6 +1553,28 @@ export default function Products() {
                       </TableCell>}
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedVersionHistory(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(product.id)) next.delete(product.id);
+                                    else next.add(product.id);
+                                    return next;
+                                  });
+                                }}
+                                data-testid={`button-version-history-${product.id}`}
+                              >
+                                {expandedVersionHistory.has(product.id) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>História verzií</TooltipContent>
+                          </Tooltip>
                           <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setDetailProduct(product); }} data-testid={`button-view-product-${product.id}`}>
                             <Eye className="w-4 h-4" />
                           </Button>
@@ -1356,6 +1584,13 @@ export default function Products() {
                         </div>
                       </TableCell>
                     </TableRow>
+                    <ProductVersionHistoryRow
+                      productId={product.id}
+                      colSpanCount={colSpanCount}
+                      onEditVersion={handleEdit}
+                      expanded={expandedVersionHistory.has(product.id)}
+                    />
+                    </>
                   );
                   if (groupedProducts) {
                     return groupedProducts.flatMap(group => [
