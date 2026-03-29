@@ -2176,8 +2176,8 @@ export class DatabaseStorage implements IStorage {
   async cloneProduct(id: number, versionLabel: string): Promise<Product> {
     const original = await this.getProduct(id);
     if (!original) throw new Error("Product not found");
-    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = original as any;
-    const cloneData: any = {
+    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = original;
+    const cloneData: Omit<typeof products.$inferInsert, 'id' | 'createdAt' | 'updatedAt'> = {
       ...rest,
       versionLabel: versionLabel || null,
       parentProductId: original.parentProductId ?? id,
@@ -2194,7 +2194,7 @@ export class DatabaseStorage implements IStorage {
     if (displayParams.length > 0) {
       await db.insert(productDisplayParams).values(
         displayParams.map(dp => {
-          const { id: _dpId, productId: _dpPid, ...dpRest } = dp as any;
+          const { id: _dpId, productId: _dpPid, ...dpRest } = dp;
           return { ...dpRest, productId: cloned.id };
         })
       );

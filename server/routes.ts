@@ -5504,10 +5504,11 @@ export async function registerRoutes(
         }
       }
 
-      if (updateData.productId) {
+      // Only reject archived product when productId is being changed to a different (new) product
+      if (updateData.productId && updateData.productId !== contract.productId) {
         const [linkedProduct] = await db.select({ isArchived: products.isArchived }).from(products).where(eq(products.id, updateData.productId)).limit(1);
         if (linkedProduct?.isArchived) {
-          return res.status(400).json({ message: "Archivovaný produkt nie je možné priradiť k novej zmluve." });
+          return res.status(400).json({ message: "Archivovaný produkt nie je možné priradiť k zmluve." });
         }
       }
 
