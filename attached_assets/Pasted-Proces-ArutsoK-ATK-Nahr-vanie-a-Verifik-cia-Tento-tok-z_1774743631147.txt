@@ -1,0 +1,41 @@
+Proces ArutsoK (ATK): Nahrávanie a Verifikácia
+Tento tok zabezpečí, že zmluva zostane archívom a subjekt (UID 421...) bude aktuálnou pravdou.
+
+1. Fáza: Nahrávanie a Snapshot (Automatika)
+Keď špecialista nahrá zmluvu (napr. PZP), systém urobí Snapshot (fotokópiu) všetkých údajov z (a) zmluvy a (b) karty subjektu v tom stave, v akom sú.
+
+Tento snapshot sa už nikdy nezmení. Je to dôkaz toho, čo sa nahrávalo.
+
+Kým Backoffice nezasiahne, pri zmluve svieti v hornej časti oranžové upozornenie: „DATA NOT VERIFIED“ (viditeľné len pre Admin/BO).
+
+2. Fáza: Manuálna kontrola (Zaskrtávanie)
+Backoffice pracovník si otvorí „Zhrnutie zmluvy“. Tu uvidí zoznam parametrov (napr. Meno, Priezvisko, Adresa, Rodné číslo, Číslo OP).
+
+Kontrola: BO pracovník porovnáva fyzickú zmluvu (sken) s tým, čo je v systéme.
+
+Akcia: Ak je parameter správny, „zaskrtne“ ho.
+
+Oprava: Ak nájde chybu (napr. preklep v adrese), opraví ju iba v Subjekte (UID 421 000 000 000 002). Na „Snapshot“ zmluvy nesiahne, ten musí zostať tak, ako bol nahrávaný.
+
+3. Fáza: Schválenie a Zobrazenie
+Až po manuálnom potvrdení všetkých vybraných parametrov zmizne status „Neskontrolované“.
+
+Vybrané parametre sa následne zobrazia klientovi v jeho zhrnutí ako overené a platné.
+
+🛡️ Prečo je toto riešenie pre ATK špičkové?
+Eliminácia chýb: Systém automaticky upozorní na rozdiely (delta), ale posledné slovo má človek (Backoffice). Tým sa do Trezora nedostanú nezmysly.
+
+Právna ochrana: Ak by prišlo k sporu, máš dôkaz: „Toto sa nahralo (Snapshot), ale toto sme manuálne opravili v subjekte (Verified).“
+
+Dôveryhodnosť: Klient aj špecialista vidia, že dáta prešli „ľudským okom“ a sú 100% v poriadku.
+
+📐 Technický štandard verifikačného okna
+Keď bude agent toto okno pre Backoffice vytvárať, musí dodržať tieto parametre:
+
+Rozloženie: Prísny Justified layout (zarovnanie do bloku).
+
+Vizuál: Interaktívny zoznam s „checkboxami“ (zaskrtávacie políčka) s ohraničením 2px.
+
+Status Bar: V hornej časti okna výrazný pruh Vibrant Orange pre stav „Neskontrolované“ a Emerald Green pre stav „Overené“.
+
+UID: V každom kroku kontroly musí byť viditeľné UID vo formáte 421 000 000 000 002.
