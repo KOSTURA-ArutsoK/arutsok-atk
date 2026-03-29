@@ -580,6 +580,7 @@ export const auditLogs = pgTable("audit_logs", {
   newData: jsonb("new_data"),
   processingTimeSec: integer("processing_time_sec").default(0),
   ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
   integrityHash: text("integrity_hash"),
   createdAt: timestamp("created_at").defaultNow(),
 });

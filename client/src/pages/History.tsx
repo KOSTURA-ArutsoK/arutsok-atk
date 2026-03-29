@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatDateTimeSlovak, formatUid } from "@/lib/utils";
+import { parseUserAgent } from "@/lib/parseUserAgent";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useSmartFilter } from "@/hooks/use-smart-filter";
 import type { SmartColumnDef } from "@/hooks/use-smart-filter";
@@ -480,9 +481,13 @@ export default function History() {
                     {formatProcessingTime(detailLog.processingTimeSec ?? 0)}
                   </p>
                 </div>
-                <div className="col-span-2">
+                <div>
                   <label className="text-xs text-muted-foreground">IP adresa</label>
                   <p className="text-sm font-mono">{detailLog.ipAddress || "-"}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Zariadenie</label>
+                  <p className="text-sm font-mono" title={detailLog.userAgent || undefined}>{parseUserAgent(detailLog.userAgent)}</p>
                 </div>
               </div>
 

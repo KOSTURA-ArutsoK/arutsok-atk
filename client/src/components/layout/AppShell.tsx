@@ -14,6 +14,7 @@ import { useLocation } from "wouter";
 import { AccountLinkModal } from "@/components/account-link-modal";
 import { apiRequest } from "@/lib/queryClient";
 import { isAdmin as checkIsAdmin, formatDateTimeSlovak } from "@/lib/utils";
+import { parseUserAgent } from "@/lib/parseUserAgent";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
@@ -47,24 +48,6 @@ type LoginHistoryRow = {
   logoutReason: string | null;
 };
 
-function parseUserAgent(ua: string | null): string {
-  if (!ua) return "–";
-  let os = "Neznámy OS";
-  let browser = "Neznámy prehliadač";
-  if (/iPhone/i.test(ua)) os = "iPhone";
-  else if (/iPad/i.test(ua)) os = "iPad";
-  else if (/Android/i.test(ua)) os = "Android";
-  else if (/Windows NT/i.test(ua)) os = "Windows";
-  else if (/Macintosh|Mac OS X/i.test(ua)) os = "macOS";
-  else if (/Linux/i.test(ua)) os = "Linux";
-  else if (/CrOS/i.test(ua)) os = "Chrome OS";
-  if (/Edg\//i.test(ua)) browser = "Edge";
-  else if (/OPR\/|Opera/i.test(ua)) browser = "Opera";
-  else if (/Chrome\/(?!.*Chromium)/i.test(ua)) browser = "Chrome";
-  else if (/Firefox/i.test(ua)) browser = "Firefox";
-  else if (/Safari\/(?!.*Chrome)/i.test(ua)) browser = "Safari";
-  return `${os} · ${browser}`;
-}
 
 function formatDuration(loginAt: string, logoutAt: string | null): string {
   if (!logoutAt) return "aktívna";

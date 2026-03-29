@@ -301,6 +301,7 @@ async function logAudit(req: any, params: {
       newData: newDataWithImpersonation,
       processingTimeSec: processingTime,
       ipAddress: migrationOn ? "migration" : (typeof ip === 'string' ? ip : JSON.stringify(ip)),
+      userAgent: migrationOn ? null : (req.headers?.['user-agent'] as string | undefined ?? null),
       createdAt: now,
     };
     await storage.createAuditLog({ ...auditEntry, integrityHash: null });
@@ -15004,6 +15005,7 @@ export async function registerRoutes(
         module: "subjects",
         entityId: subjectId,
         entityName: `GDPR export subjektu ${subjectId}`,
+        userAgent: req.headers['user-agent'] as string | undefined ?? null,
       });
       
       res.setHeader('Content-Type', 'application/json');
@@ -15034,6 +15036,7 @@ export async function registerRoutes(
         userId: appUser.id, username: appUser.username, action: "DOCUMENT_VIEWED",
         module: "dokumentacia", entityId: subjectId,
         entityName: `Zobrazenie dokumentu ${req.params.docId} subjektu ${subjectId}`,
+        userAgent: req.headers['user-agent'] as string | undefined ?? null,
       });
       res.json({ ok: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
@@ -15048,6 +15051,7 @@ export async function registerRoutes(
         userId: appUser.id, username: appUser.username, action: "DOCUMENT_PRINTED",
         module: "dokumentacia", entityId: subjectId,
         entityName: `Tlač dokumentu ${req.params.docId} subjektu ${subjectId}`,
+        userAgent: req.headers['user-agent'] as string | undefined ?? null,
       });
       res.json({ ok: true });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
@@ -15279,6 +15283,7 @@ export async function registerRoutes(
         module: "dokumentacia", entityId: subjectId,
         entityName: `Generovanie ${dbDocType} dokumentu pre subjekt ${subjectId}`,
         newData: { docType: dbDocType, auditCode, filename },
+        userAgent: req.headers['user-agent'] as string | undefined ?? null,
       });
 
       res.json(savedDoc);
@@ -16994,6 +16999,7 @@ export async function registerRoutes(
         module: "subjects",
         entityId: subjectId,
         entityName: `Náhľad profilu subjektu ${subjectId}`,
+        userAgent: ua || null,
       });
 
       await db.insert(activityEvents).values({
@@ -17026,6 +17032,7 @@ export async function registerRoutes(
         entityId: subjectId,
         entityName: `Zobrazenie citlivých polí: ${fields.join(", ")}`,
         newData: { fields },
+        userAgent: req.headers['user-agent'] as string | undefined ?? null,
       });
       res.json({ ok: true });
     } catch (err: any) {
@@ -18780,6 +18787,7 @@ export async function registerRoutes(
         entityName: found?.name || `Sekcia ${sectionId}`,
         oldData: found || null,
         newData: null,
+        userAgent: req.headers['user-agent'] as string | undefined ?? null,
       });
       res.json({ success: true });
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
@@ -19044,6 +19052,7 @@ export async function registerRoutes(
         entityName: param?.label || `Parameter ${paramId}`,
         oldData: param || null,
         newData: null,
+        userAgent: req.headers['user-agent'] as string | undefined ?? null,
       });
       res.json({ success: true });
     } catch (err: any) {
@@ -19873,6 +19882,7 @@ export async function registerRoutes(
         entityName: found?.name || `Šablóna ${templateId}`,
         oldData: found || null,
         newData: null,
+        userAgent: req.headers['user-agent'] as string | undefined ?? null,
       });
       res.json({ success: true });
     } catch (err) { res.status(500).json({ message: "Internal error" }); }
@@ -19956,6 +19966,7 @@ export async function registerRoutes(
         entityName: found?.extractedKey || `Neznáme pole ${fieldId}`,
         oldData: found || null,
         newData: null,
+        userAgent: req.headers['user-agent'] as string | undefined ?? null,
       });
       res.json({ success: true });
     } catch (err) { res.status(500).json({ message: "Internal error" }); }

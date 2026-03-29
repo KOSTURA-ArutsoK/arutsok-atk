@@ -2963,7 +2963,7 @@ export function getAuditActorId(req: { session: { userId?: number; guardianSwitc
  * Usage: await writeAuditLog(req, { action: "ENTITY_UPDATED", module: "subjects", entityId: 42, ... });
  */
 export async function writeAuditLog(
-  req: { session: { userId?: number; guardianSwitchedFromUserId?: number }; ip?: string },
+  req: { session: { userId?: number; guardianSwitchedFromUserId?: number }; ip?: string; headers?: Record<string, string | string[] | undefined> },
   params: {
     action: string;
     module: string;
@@ -2974,6 +2974,7 @@ export async function writeAuditLog(
   }
 ): Promise<void> {
   const actorId = getAuditActorId(req);
+  const ua = req.headers?.['user-agent'] as string | undefined ?? null;
   const baseEntry = {
     username: null as null,
     action: params.action,
@@ -2983,6 +2984,7 @@ export async function writeAuditLog(
     oldData: params.oldData ?? null,
     newData: params.newData ?? null,
     ipAddress: req.ip ?? null,
+    userAgent: ua,
   };
   // Write user-side audit entry (actor record)
   await db.insert(auditLogs).values({ ...baseEntry, userId: actorId });
@@ -3017,6 +3019,7 @@ export async function writeAuditLog(
         },
         userId: actorId,
         ipAddress: req.ip ?? null,
+        userAgent: ua,
       });
     }
   }
