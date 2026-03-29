@@ -10594,12 +10594,12 @@ export default function Contracts() {
             </DialogHeader>
             <div className="overflow-auto max-h-[60vh]">
               {(() => {
-                const previewContracts = activeContracts
-                  .filter(c => selectedIds.includes(c.id))
-                  .sort((a, b) => selectedIds.indexOf(a.id) - selectedIds.indexOf(b.id));
-                const contractTypeLabel: Record<string, string> = {
+                const contractTypeLabelPreview: Record<string, string> = {
                   Nova: "Nová", Prestupova: "Prestupová", Zmenova: "Zmenová", Dodatok: "Dodatok",
                 };
+                const previewContracts = contracts
+                  .filter(c => selectedIds.includes(c.id))
+                  .sort((a, b) => selectedIds.indexOf(a.id) - selectedIds.indexOf(b.id));
                 if (previewContracts.length === 0) {
                   return <p className="text-sm text-muted-foreground text-center py-8">Žiadne označené zmluvy</p>;
                 }
@@ -10619,11 +10619,11 @@ export default function Contracts() {
                       {previewContracts.map((c, idx) => (
                         <tr key={c.id} className={idx % 2 === 0 ? "bg-card" : "bg-muted/20"} data-testid={`row-preview-${c.id}`}>
                           <td className="px-2 py-1.5 text-center font-semibold text-primary border-b border-border/50">{idx + 1}</td>
-                          <td className="px-2 py-1.5 border-b border-border/50 font-medium">{(c as any).partnerName || "—"}</td>
+                          <td className="px-2 py-1.5 border-b border-border/50 font-medium">{getPartnerName(c)}</td>
                           <td className="px-2 py-1.5 border-b border-border/50">{getProductName(c)}</td>
-                          <td className="px-2 py-1.5 border-b border-border/50">{contractTypeLabel[(c as any).contractType || "Nova"] || (c as any).contractType || "Nová"}</td>
-                          <td className="px-2 py-1.5 border-b border-border/50 whitespace-nowrap">{(c as any).contractDate ? formatDate((c as any).contractDate) : "—"}</td>
-                          <td className="px-2 py-1.5 border-b border-border/50 font-mono">{(c as any).contractNumber || "—"}</td>
+                          <td className="px-2 py-1.5 border-b border-border/50">{contractTypeLabelPreview[c.contractType ?? "Nova"] ?? c.contractType ?? "Nová"}</td>
+                          <td className="px-2 py-1.5 border-b border-border/50 whitespace-nowrap">{c.signedDate ? formatDate(c.signedDate) : "—"}</td>
+                          <td className="px-2 py-1.5 border-b border-border/50 font-mono">{c.contractNumber ?? "—"}</td>
                         </tr>
                       ))}
                     </tbody>
