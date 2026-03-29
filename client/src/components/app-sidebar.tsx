@@ -472,6 +472,11 @@ export function AppSidebar() {
   const visibleZmluvySubItems = zmluvySubItems.filter(item => item.roles.includes(userRole));
   const showZmluvyCascade = visibleZmluvySubItems.length > 1;
 
+  const ktoEqualsKde =
+    !!appUser?.activeKtoCompanyId &&
+    !!appUser?.activeCompanyId &&
+    appUser.activeKtoCompanyId === appUser.activeCompanyId;
+
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
@@ -831,17 +836,19 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              <CollapsibleMenu
-                label="Partneri a produkty"
-                icon={Briefcase}
-                items={partneriProduktyItems}
-                location={location}
-                searchString={currentSearch}
-                testId="nav-menu-partneri-produkty"
-                menuId="partneri"
-                openMenuId={openMenuId}
-                setOpenMenuId={setOpenMenuId}
-              />
+              {ktoEqualsKde && (
+                <CollapsibleMenu
+                  label="Partneri a produkty"
+                  icon={Briefcase}
+                  items={partneriProduktyItems}
+                  location={location}
+                  searchString={currentSearch}
+                  testId="nav-menu-partneri-produkty"
+                  menuId="partneri"
+                  openMenuId={openMenuId}
+                  setOpenMenuId={setOpenMenuId}
+                />
+              )}
               <Collapsible
                 open={openMenuId === "klienti"}
                 onOpenChange={(val) => setOpenMenuId(val ? "klienti" : null)}
