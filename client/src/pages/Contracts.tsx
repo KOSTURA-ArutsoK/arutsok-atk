@@ -2854,6 +2854,9 @@ export default function Contracts() {
   useEffect(() => { try { localStorage.setItem("nahr_phase5Checklist", JSON.stringify(phase5DocSavedState)); } catch {} }, [phase5DocSavedState]);
   const [rerouteDialogOpen, setRerouteDialogOpen] = useState(false);
   const [rerouteSource, setRerouteSource] = useState<"neprijate" | "archiv" | "spracovanie" | null>(null);
+  // Preview table column widths: #, Partner, Produkt, Typ, Dát., Č.návrhu, Č.zmluvy, Dokumenty
+  const [previewColWidths, setPreviewColWidths] = useState<number[]>([40, 140, 120, 90, 90, 110, 110, 300]);
+  const previewResizing = useRef<{ colIdx: number; startX: number; startWidth: number } | null>(null);
 
   const [expandedSprievodky, setExpandedSprievodky] = useState<Set<number>>(new Set());
   const [centralAcceptedIds, setCentralAcceptedIds] = useState<Set<number>>(new Set());
@@ -10603,18 +10606,45 @@ export default function Contracts() {
                 if (previewContracts.length === 0) {
                   return <p className="text-sm text-muted-foreground text-center py-8">Žiadne označené zmluvy</p>;
                 }
+                const handleResizerMouseDown = (e: React.MouseEvent, colIdx: number) => {
+                  e.preventDefault();
+                  previewResizing.current = { colIdx, startX: e.clientX, startWidth: previewColWidths[colIdx] };
+                  const onMouseMove = (me: MouseEvent) => {
+                    if (!previewResizing.current) return;
+                    const { colIdx: ci, startX, startWidth } = previewResizing.current;
+                    const newWidth = Math.max(50, startWidth + me.clientX - startX);
+                    setPreviewColWidths(prev => prev.map((w, i) => i === ci ? newWidth : w));
+                  };
+                  const onMouseUp = () => {
+                    previewResizing.current = null;
+                    document.removeEventListener("mousemove", onMouseMove);
+                    document.removeEventListener("mouseup", onMouseUp);
+                  };
+                  document.addEventListener("mousemove", onMouseMove);
+                  document.addEventListener("mouseup", onMouseUp);
+                };
+                const thBase = "px-2 py-1.5 text-left font-medium text-muted-foreground border-b relative overflow-hidden select-none";
+                const resizer = (colIdx: number) => (
+                  <div
+                    onMouseDown={e => handleResizerMouseDown(e, colIdx)}
+                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 z-10"
+                  />
+                );
                 return (
-                  <table className="w-full text-xs border-separate border-spacing-0">
+                  <table className="text-xs border-separate border-spacing-0" style={{ tableLayout: "fixed", width: previewColWidths.reduce((a, b) => a + b, 0) }}>
+                    <colgroup>
+                      {previewColWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
+                    </colgroup>
                     <thead className="sticky top-0 z-10 bg-card">
                       <tr className="bg-muted/50">
-                        <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b w-10">#</th>
-                        <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Partner</th>
-                        <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Produkt</th>
-                        <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Typ zmluvy</th>
-                        <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Dát. uzatv.</th>
-                        <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Č. návrhu</th>
-                        <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Č. zmluvy</th>
-                        <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b">Dokumenty</th>
+                        <th className={`${thBase} text-center`}>#  {resizer(0)}</th>
+                        <th className={thBase}>Partner{resizer(1)}</th>
+                        <th className={thBase}>Produkt{resizer(2)}</th>
+                        <th className={thBase}>Typ zmluvy{resizer(3)}</th>
+                        <th className={thBase}>Dát. uzatv.{resizer(4)}</th>
+                        <th className={thBase}>Č. návrhu{resizer(5)}</th>
+                        <th className={thBase}>Č. zmluvy{resizer(6)}</th>
+                        <th className={thBase}>Dokumenty{resizer(7)}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -10626,16 +10656,17 @@ export default function Contracts() {
                           ...(saved?.opt ?? []).map((i: number) => productDocs.optional[i]).filter((d): d is string => Boolean(d)),
                           ...(saved?.checkedExtra ?? []).map((i: number) => saved?.extra?.[i]).filter((d): d is string => Boolean(d)),
                         ];
+                        const tdBase = "px-2 py-1.5 border-b border-border/50 overflow-hidden text-ellipsis";
                         return (
                           <tr key={c.id} className={idx % 2 === 0 ? "bg-card" : "bg-muted/20"} data-testid={`row-preview-${c.id}`}>
-                            <td className="px-2 py-1.5 text-center font-semibold text-primary border-b border-border/50">{idx + 1}</td>
-                            <td className="px-2 py-1.5 border-b border-border/50 font-medium">{getPartnerName(c)}</td>
-                            <td className="px-2 py-1.5 border-b border-border/50">{getProductName(c)}</td>
-                            <td className="px-2 py-1.5 border-b border-border/50">{contractTypeLabelPreview[c.contractType ?? "Nova"] ?? c.contractType ?? "Nová"}</td>
-                            <td className="px-2 py-1.5 border-b border-border/50 whitespace-nowrap">{c.signedDate ? formatDate(c.signedDate) : "—"}</td>
-                            <td className="px-2 py-1.5 border-b border-border/50 font-mono text-[11px]">{c.proposalNumber ?? "—"}</td>
-                            <td className="px-2 py-1.5 border-b border-border/50 font-mono text-[11px]">{c.contractNumber ?? "—"}</td>
-                            <td className="px-2 py-1.5 border-b border-border/50">
+                            <td className={`${tdBase} text-center font-semibold text-primary`}>{idx + 1}</td>
+                            <td className={`${tdBase} font-medium`} title={getPartnerName(c)}>{getPartnerName(c)}</td>
+                            <td className={tdBase} title={getProductName(c)}>{getProductName(c)}</td>
+                            <td className={tdBase}>{contractTypeLabelPreview[c.contractType ?? "Nova"] ?? c.contractType ?? "Nová"}</td>
+                            <td className={`${tdBase} whitespace-nowrap`}>{c.signedDate ? formatDate(c.signedDate) : "—"}</td>
+                            <td className={`${tdBase} font-mono text-[11px]`}>{c.proposalNumber ?? "—"}</td>
+                            <td className={`${tdBase} font-mono text-[11px]`}>{c.contractNumber ?? "—"}</td>
+                            <td className={tdBase}>
                               {submittedDocs.length > 0 ? (
                                 <div className="flex flex-col gap-0.5">
                                   {submittedDocs.map((doc, di) => (
