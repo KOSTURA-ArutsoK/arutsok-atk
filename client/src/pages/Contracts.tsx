@@ -1569,6 +1569,7 @@ function ContractDetailDialog({
   companies: MyCompany[];
   states: { id: number; name: string; code: string }[];
 }) {
+  const { data: dialogAppUser } = useAppUser();
   const subjectName = subjects?.find(s => s.id === contract?.subjectId);
   const partnerName = partners?.find(p => p.id === contract?.partnerId)?.name || "-";
   const sectorProduct = sectorProducts?.find(p => p.id === contract?.sectorProductId);
@@ -1647,7 +1648,7 @@ function ContractDetailDialog({
                 </div>
               </div>
             )}
-            {verifStatus && !verifStatus.isFullyVerified && (contract.lifecyclePhase ?? 0) >= 8 && (
+            {isAdmin(dialogAppUser) && verifStatus && !verifStatus.isFullyVerified && (contract.lifecyclePhase ?? 0) >= 8 && (
               <div className="mb-3 px-3 py-2 bg-orange-500/10 border-2 border-orange-500 rounded" data-testid="banner-bo-unverified">
                 <div className="flex items-center gap-2 text-orange-600 text-xs font-semibold">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
@@ -1655,7 +1656,7 @@ function ContractDetailDialog({
                 </div>
               </div>
             )}
-            {verifStatus && verifStatus.isFullyVerified && (
+            {isAdmin(dialogAppUser) && verifStatus && verifStatus.isFullyVerified && (
               <div className="mb-3 px-3 py-2 bg-emerald-500/10 border border-emerald-500/50 rounded" data-testid="banner-bo-verified">
                 <div className="flex items-center gap-2 text-emerald-600 text-xs font-semibold">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
@@ -3242,6 +3243,18 @@ export default function Contracts() {
       return res.json();
     },
     enabled: isEvidencia,
+  });
+
+  const phase8Ids = phase8Contracts.map(c => c.id);
+  const { data: phase8VerifStatuses = {} } = useQuery<Record<number, { isFullyVerified: boolean; verified: number; total: number }>>({
+    queryKey: ["/api/contracts/verification-statuses", phase8Ids.join(",")],
+    queryFn: async () => {
+      if (phase8Ids.length === 0) return {};
+      const res = await fetch(`/api/contracts/verification-statuses?ids=${phase8Ids.join(",")}`, { credentials: "include" });
+      if (!res.ok) return {};
+      return res.json();
+    },
+    enabled: isEvidencia && isAdmin(appUser) && phase8Ids.length > 0,
   });
 
   const { data: phase9Contracts = [] } = useQuery<Contract[]>({
@@ -5041,18 +5054,28 @@ export default function Contracts() {
                       )}
                       {contract.lifecyclePhase === 8 && (
                         <>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span
-                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-orange-500/60 bg-orange-500/10 text-orange-600 text-[10px] font-semibold whitespace-nowrap cursor-default"
-                                data-testid={`badge-bo-status-${contract.id}`}
-                              >
-                                <AlertCircle className="w-2.5 h-2.5" />
-                                BO čaká
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent className="text-xs">Zmluva čaká na manuálnu BO kontrolu parametrov</TooltipContent>
-                          </Tooltip>
+                          {isAdmin(appUser) && (() => {
+                            const vs = phase8VerifStatuses[contract.id];
+                            const isVerified = vs?.isFullyVerified ?? false;
+                            return (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span
+                                    className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[10px] font-semibold whitespace-nowrap cursor-default ${isVerified ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-600" : "border-orange-500/60 bg-orange-500/10 text-orange-600"}`}
+                                    data-testid={`badge-bo-status-${contract.id}`}
+                                  >
+                                    {isVerified ? <CheckCircle2 className="w-2.5 h-2.5" /> : <AlertCircle className="w-2.5 h-2.5" />}
+                                    {isVerified ? "BO overené" : "BO čaká"}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent className="text-xs">
+                                  {isVerified
+                                    ? `Parametre overené (${vs?.verified ?? 0}/${vs?.total ?? 0})`
+                                    : `Zmluva čaká na manuálnu BO kontrolu (${vs?.verified ?? 0}/${vs?.total ?? 0} overených)`}
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          })()}
                           <Button
                             size="sm"
                             variant="outline"

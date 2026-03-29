@@ -9158,11 +9158,18 @@ export async function registerRoutes(
         if (!isOwner && !inChain) return res.status(403).json({ message: "Nemáte oprávnenie overovať túto zmluvu" });
       }
 
-      // Side-effect: sync_subject — update the subject's field with the snapshot value
+      // Side-effect: sync_subject — update the subject's field with the snapshot value via storage.updateSubject
       if (status === "sync_subject" && newValue && contract.subjectId) {
         const subjectField = PARAM_KEY_TO_SUBJECT_FIELD[paramKey];
         if (subjectField) {
-          await db.update(subjects).set({ [subjectField]: newValue }).where(eq(subjects.id, contract.subjectId));
+          const updatePayload: Record<string, any> = { [subjectField]: newValue };
+          await storage.updateSubject(
+            contract.subjectId,
+            updatePayload,
+            user.id,
+            `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.username,
+            `BO sync z verifikácie zmluvy ${contractId}: ${paramKey}`
+          );
           await logAudit(req, { action: "Uprava", module: "klienti", entityId: contract.subjectId, entityName: `BO sync z verifikácie zmluvy ${contractId}: ${paramKey} → ${newValue}` });
         }
       }
@@ -9269,6 +9276,51 @@ export async function registerRoutes(
       res.json({ verifications, verified: verifiedCount, total, isFullyVerified });
     } catch (err) {
       console.error("[verification-status] GET error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // ─── GET /api/contracts/verification-statuses?ids=1,2,3 — batch BO status ───
+  app.get("/api/contracts/verification-statuses", isAuthenticated, async (req: any, res) => {
+    try {
+      const idsParam = String(req.query.ids || "");
+      const contractIds = idsParam.split(",").map(Number).filter(Number.isFinite);
+      if (contractIds.length === 0) return res.json({});
+      const ALL_PARAM_KEYS = ["meno","priezvisko","titul_pred","titul_za","datum_narodenia","rodne_cislo","cislo_op","telefon","email","ulica","psc","mesto","stat","iban","swift","gdpr_suhlas","cislo_zmluvy","datum_podpisu","datum_ucinnosti","datum_exspiracie","poistna_suma","poistne_lehotne","poistne_rocne","produkt","partner"];
+      const DONE_STATUSES = ["ok", "sync_subject", "corrected_snapshot"];
+      // Fetch all verifications for these contracts in one query
+      const allVerifs = await db.select()
+        .from(contractParamVerifications)
+        .where(inArray(contractParamVerifications.contractId, contractIds));
+      // Fetch product display params for all relevant product IDs
+      const contractRows = await db.select({ id: contracts.id, productId: contracts.productId })
+        .from(contracts).where(inArray(contracts.id, contractIds));
+      const productIds = [...new Set(contractRows.map(c => c.productId).filter(Boolean))] as number[];
+      let productRequiredMap: Map<number, string[]> = new Map();
+      if (productIds.length > 0) {
+        const allDisplayParams = await db.select().from(productDisplayParams)
+          .where(and(inArray(productDisplayParams.productId, productIds), eq(productDisplayParams.displayInSummary, true)));
+        for (const pid of productIds) {
+          const params = allDisplayParams.filter(p => p.productId === pid);
+          if (params.length > 0) {
+            productRequiredMap.set(pid, params.filter(p => p.requireVerification).map(p => p.paramKey));
+          }
+        }
+      }
+      const result: Record<number, { isFullyVerified: boolean; verified: number; total: number }> = {};
+      for (const c of contractRows) {
+        const verifs = allVerifs.filter(v => v.contractId === c.id);
+        const requiredKeys = (c.productId && productRequiredMap.has(c.productId) && (productRequiredMap.get(c.productId)?.length ?? 0) > 0)
+          ? (productRequiredMap.get(c.productId) ?? ALL_PARAM_KEYS)
+          : ALL_PARAM_KEYS;
+        const verifiedKeys = new Set(verifs.filter(v => DONE_STATUSES.includes(v.status)).map(v => v.paramKey));
+        const verifiedCount = requiredKeys.filter(k => verifiedKeys.has(k)).length;
+        const total = requiredKeys.length;
+        result[c.id] = { isFullyVerified: total > 0 && verifiedCount === total, verified: verifiedCount, total };
+      }
+      res.json(result);
+    } catch (err) {
+      console.error("[verification-statuses] batch GET error:", err);
       res.status(500).json({ message: "Internal error" });
     }
   });
