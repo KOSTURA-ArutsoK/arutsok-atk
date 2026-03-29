@@ -14,7 +14,7 @@ import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Sub
 import { VERIFIABLE_PARAMS } from "@shared/verifiable-params";
 import { validateSlovakICO } from "@shared/ico-validator";
 import { ATK_SYSTEM_ID, ATK_SUPERADMIN_ID } from "@shared/constants";
-import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, AlertCircle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building, Building2, ArrowLeftRight, Info, Download, Landmark, Network, Library } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, AlertCircle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building, Building2, ArrowLeftRight, Info, Download, Landmark, Network, Library, ImageIcon, File } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { BlueprintRenderer, ContractBlueprintView } from "@/components/blueprint-renderer";
@@ -2925,6 +2925,8 @@ function ScanCommanderDialog({
     setImgZoom(100);
     setImgInvert(false);
     setDocxError(null);
+    setDocxLoading(false);
+    setPreviewLoading(false);
     if (docxContainerRef.current) docxContainerRef.current.innerHTML = '';
   }
 
@@ -3140,9 +3142,9 @@ function ScanCommanderDialog({
   function getFileTypeIcon(name: string, className = "w-3.5 h-3.5 shrink-0") {
     const ext = name.split('.').pop()?.toLowerCase() ?? '';
     if (ext === 'pdf') return <FileText className={`${className} text-red-500`} />;
-    if (['jpg','jpeg','png','gif','webp','bmp'].includes(ext)) return <FileText className={`${className} text-amber-500`} />;
-    if (['doc','docx'].includes(ext)) return <FileText className={`${className} text-blue-500`} />;
-    return <FileText className={`${className} text-muted-foreground`} />;
+    if (['jpg','jpeg','png','gif','webp','bmp'].includes(ext)) return <ImageIcon className={`${className} text-amber-500`} />;
+    if (['doc','docx'].includes(ext)) return <FileCheck className={`${className} text-blue-500`} />;
+    return <File className={`${className} text-muted-foreground`} />;
   }
 
   function getFileTypeBadge(name: string) {
