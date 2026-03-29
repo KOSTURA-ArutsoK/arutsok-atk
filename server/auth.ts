@@ -243,7 +243,7 @@ async function checkFoProfileCompleteness(subject: {
   return { complete: missing.length === 0, missingFields: missing };
 }
 
-async function recordLoginHistory(userId: number, ip: string | null, guardianSwitchedFromUserId?: number) {
+async function recordLoginHistory(userId: number, ip: string | null, guardianSwitchedFromUserId?: number, userAgent?: string | null) {
   const loginNow = new Date();
   const tenSecsAgo = new Date(loginNow.getTime() - 10000);
   const [recent] = await db.select().from(appUserLoginHistory)
@@ -274,6 +274,7 @@ async function recordLoginHistory(userId: number, ip: string | null, guardianSwi
       appUserId: userId,
       loginAt: loginNow,
       ipAddress: ip,
+      userAgent: userAgent ?? null,
       contextType,
       contextLabel,
     });
@@ -388,7 +389,8 @@ async function resolveSubjectLoginStep(
   user: { id: number; email: string | null; linkedSubjectId: number | null },
   selected: any,
   allPeers: any[],
-  ip: string | null
+  ip: string | null,
+  userAgent?: string | null
 ): Promise<{ nextStep: string; [key: string]: any }> {
   const hasRiskInCluster = allPeers.some((s: any) => s.listStatus === "cerveny");
   const selectedRC = selected.birthNumber ? decryptField(selected.birthNumber) : null;
@@ -443,7 +445,7 @@ async function resolveSubjectLoginStep(
         session.loginSubjectId = selected.id;
         session.loginStep = "done";
         await writeLoginAudit(user.id, selected.id, name, "DIRECT", "szco_fo_same_rc", ip);
-        await recordLoginHistory(user.id, ip);
+        await recordLoginHistory(user.id, ip, undefined, req.headers['user-agent'] as string | undefined);
         return { nextStep: "done" };
       }
     }
@@ -476,7 +478,7 @@ async function resolveSubjectLoginStep(
           session.loginActingAsEntityId = selected.id;
           session.loginStep = "done";
           await writeLoginAudit(user.id, foSubject.id, subjectDisplayName(foSubject), "ENTITY_DIRECT", "email_matched_officer", ip, selected.id, { foUid: foSubject.uid, entityType: selected.type });
-          await recordLoginHistory(user.id, ip);
+          await recordLoginHistory(user.id, ip, undefined, req.headers['user-agent'] as string | undefined);
           return { nextStep: "done" };
         }
       }
@@ -501,7 +503,7 @@ async function resolveSubjectLoginStep(
         session.loginActingAsEntityId = selected.id;
         session.loginStep = "done";
         await writeLoginAudit(user.id, foSubject.id, subjectDisplayName(foSubject), "ENTITY_DIRECT", "single_officer_direct", ip, selected.id, { foUid: foSubject.uid, entityType: selected.type });
-        await recordLoginHistory(user.id, ip);
+        await recordLoginHistory(user.id, ip, undefined, req.headers['user-agent'] as string | undefined);
         return { nextStep: "done" };
       }
     }
@@ -509,7 +511,7 @@ async function resolveSubjectLoginStep(
     session.loginSubjectId = selected.id;
     session.loginStep = "done";
     await writeLoginAudit(user.id, selected.id, name, "DIRECT", null, ip);
-    await recordLoginHistory(user.id, ip);
+    await recordLoginHistory(user.id, ip, undefined, userAgent);
     return { nextStep: "done" };
   }
 
@@ -517,7 +519,7 @@ async function resolveSubjectLoginStep(
     session.loginSubjectId = selected.id;
     session.loginStep = "done";
     await writeLoginAudit(user.id, selected.id, name, "DIRECT", "minor_direct", ip);
-    await recordLoginHistory(user.id, ip);
+    await recordLoginHistory(user.id, ip, undefined, userAgent);
     return { nextStep: "done" };
   }
 
@@ -557,7 +559,7 @@ async function resolveSubjectLoginStep(
   session.loginSubjectId = selected.id;
   session.loginStep = "done";
   await writeLoginAudit(user.id, selected.id, name, "DIRECT", null, ip);
-  await recordLoginHistory(user.id, ip);
+  await recordLoginHistory(user.id, ip, undefined, userAgent);
   return { nextStep: "done" };
 }
 
@@ -719,7 +721,7 @@ export async function setupAuth(app: Express) {
       if (peerSubjectsRaw.length === 0 && shadowOnly.length === 0) {
         req.session.loginSubjectId = null;
         req.session.loginStep = "done";
-        await recordLoginHistory(user.id, ip);
+        await recordLoginHistory(user.id, ip, undefined, req.headers['user-agent'] as string | undefined);
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
           res.json({ id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role, loginStep: "done" });
@@ -729,7 +731,7 @@ export async function setupAuth(app: Express) {
       if (peerSubjectsRaw.length === 1 && shadowOnly.length === 0) {
         req.session.loginSubjectId = peerSubjectsRaw[0].id;
         req.session.loginStep = "done";
-        await recordLoginHistory(user.id, ip);
+        await recordLoginHistory(user.id, ip, undefined, req.headers['user-agent'] as string | undefined);
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
           res.json({
@@ -746,7 +748,7 @@ export async function setupAuth(app: Express) {
           const [selectedFull] = await db.select().from(subjects).where(and(eq(subjects.id, user.linkedSubjectId), isNull(subjects.deletedAt)));
           if (selectedFull) {
             const allPeers = await db.select().from(subjects).where(and(eq(subjects.email, user.email!.toLowerCase()), isNull(subjects.deletedAt)));
-            const result = await resolveSubjectLoginStep(req.session, user, selectedFull, allPeers, ip);
+            const result = await resolveSubjectLoginStep(req.session, user, selectedFull, allPeers, ip, req.headers['user-agent'] as string | undefined);
             return req.session.save((err) => {
               if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
               const { nextStep, ...rest } = result;
@@ -891,14 +893,14 @@ export async function setupAuth(app: Express) {
         req.session.loginStep = "done";
         const shadowName = subjectDisplayName(selected);
         await writeLoginAudit(user.id, selected.id, shadowName, "SHADOW_ACCESS", "shadow_direct", ip);
-        await recordLoginHistory(user.id, ip);
+        await recordLoginHistory(user.id, ip, undefined, req.headers['user-agent'] as string | undefined);
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba session" });
           res.json({ nextStep: "done" });
         });
       }
 
-      const result = await resolveSubjectLoginStep(req.session, user, selected, allPeers, ip);
+      const result = await resolveSubjectLoginStep(req.session, user, selected, allPeers, ip, req.headers['user-agent'] as string | undefined);
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
         res.json(result);
@@ -1007,7 +1009,7 @@ export async function setupAuth(app: Express) {
       req.session.entityRcAttempts = undefined;
       req.session.pendingEntityCandidateIds = undefined;
       req.session.pendingEntitySubjectId = undefined;
-      await recordLoginHistory(req.session.userId, ip);
+      await recordLoginHistory(req.session.userId, ip, undefined, req.headers['user-agent'] as string | undefined);
 
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
@@ -1070,7 +1072,7 @@ export async function setupAuth(app: Express) {
       req.session.pendingSmsCode = undefined;
       req.session.pendingVerifyReason = undefined;
       const userId2 = req.session.userId;
-      await recordLoginHistory(userId2, ip);
+      await recordLoginHistory(userId2, ip, undefined, req.headers['user-agent'] as string | undefined);
 
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
@@ -1118,7 +1120,7 @@ export async function setupAuth(app: Express) {
       req.session.loginStep = "done";
       req.session.pendingVerifyReason = undefined;
       const ip2 = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
-      await recordLoginHistory(req.session.userId, ip2);
+      await recordLoginHistory(req.session.userId, ip2, undefined, req.headers['user-agent'] as string | undefined);
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
         res.json({ nextStep: "done" });
@@ -1167,7 +1169,7 @@ export async function setupAuth(app: Express) {
       req.session.loginStep = "done";
       req.session.pendingVerifyReason = undefined;
       const ip2 = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
-      await recordLoginHistory(req.session.userId, ip2);
+      await recordLoginHistory(req.session.userId, ip2, undefined, req.headers['user-agent'] as string | undefined);
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
         res.json({ nextStep: "done" });

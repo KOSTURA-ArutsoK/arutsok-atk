@@ -41,10 +41,30 @@ type LoginHistoryRow = {
   loginAt: string;
   logoutAt: string | null;
   ipAddress: string | null;
+  userAgent: string | null;
   contextType: string | null;
   contextLabel: string | null;
   logoutReason: string | null;
 };
+
+function parseUserAgent(ua: string | null): string {
+  if (!ua) return "–";
+  let os = "Neznámy OS";
+  let browser = "Neznámy prehliadač";
+  if (/iPhone/i.test(ua)) os = "iPhone";
+  else if (/iPad/i.test(ua)) os = "iPad";
+  else if (/Android/i.test(ua)) os = "Android";
+  else if (/Windows NT/i.test(ua)) os = "Windows";
+  else if (/Macintosh|Mac OS X/i.test(ua)) os = "macOS";
+  else if (/Linux/i.test(ua)) os = "Linux";
+  else if (/CrOS/i.test(ua)) os = "Chrome OS";
+  if (/Edg\//i.test(ua)) browser = "Edge";
+  else if (/OPR\/|Opera/i.test(ua)) browser = "Opera";
+  else if (/Chrome\/(?!.*Chromium)/i.test(ua)) browser = "Chrome";
+  else if (/Firefox/i.test(ua)) browser = "Firefox";
+  else if (/Safari\/(?!.*Chrome)/i.test(ua)) browser = "Safari";
+  return `${os} · ${browser}`;
+}
 
 function formatDuration(loginAt: string, logoutAt: string | null): string {
   if (!logoutAt) return "aktívna";
@@ -1331,6 +1351,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Trvanie</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">IP adresa</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Kontext</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Zariadenie</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Dôvod ukončenia</th>
                   </tr>
                 </thead>
@@ -1362,6 +1383,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         </td>
                         <td className="px-4 py-3 max-w-[200px] truncate" title={row.contextLabel || undefined}>
                           {row.contextLabel || <span className="text-muted-foreground">–</span>}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground" title={row.userAgent || undefined}>
+                          {parseUserAgent(row.userAgent)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           {isActive ? (

@@ -1347,6 +1347,7 @@ export async function registerRoutes(
           appUserId: appUser.id,
           loginAt: new Date(),
           ipAddress: ip,
+          userAgent: (req.headers['user-agent'] as string | undefined) ?? null,
           contextType: newContextType,
           contextLabel: newContextLabel,
         });

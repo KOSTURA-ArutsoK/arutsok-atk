@@ -139,13 +139,6 @@ export default function Dashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [editOrder, setEditOrder] = useState<string[]>([]);
   const [redListDialogOpen, setRedListDialogOpen] = useState(false);
-  const [loginHistoryOpen, setLoginHistoryOpen] = useState(false);
-
-  const { data: loginHistory } = useQuery<{ id: number; appUserId: number; loginAt: string; logoutAt: string | null; ipAddress: string | null; contextType: string | null; contextLabel: string | null }[]>({
-    queryKey: ["/api/app-user/login-history"],
-    enabled: loginHistoryOpen,
-  });
-
   const formatDuration = (loginAt: string, logoutAt: string | null): string => {
     if (!logoutAt) return "—";
     const ms = new Date(logoutAt).getTime() - new Date(loginAt).getTime();
@@ -733,61 +726,6 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={loginHistoryOpen} onOpenChange={setLoginHistoryOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Archív prihlásení
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-1 max-h-96 overflow-y-auto pr-1" data-testid="login-history-list">
-            {!loginHistory ? (
-              <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Načítava sa...
-              </div>
-            ) : loginHistory.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8 italic">Žiadne záznamy o prihláseniach.</p>
-            ) : (
-              <div className="rounded border border-border overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-muted/50 border-b border-border">
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">#</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dátum a čas</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Trvanie</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Kontext</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">IP adresa</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loginHistory.map((entry, i) => {
-                      const d = new Date(entry.loginAt);
-                      return (
-                        <tr key={entry.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20" data-testid={`login-history-row-${entry.id}`}>
-                          <td className="px-3 py-2 text-muted-foreground text-xs">{loginHistory.length - i}</td>
-                          <td className="px-3 py-2 font-mono text-xs">
-                            {formatDateTimeSlovak(d)}
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground font-mono text-xs tabular-nums">
-                            {formatDuration(entry.loginAt, entry.logoutAt)}
-                          </td>
-                          <td className="px-3 py-2 text-xs" data-testid={`login-history-context-${entry.id}`}>
-                            {entry.contextLabel || <span className="text-muted-foreground">—</span>}
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground font-mono text-xs">{entry.ipAddress || "—"}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold" data-testid="text-dashboard-title">Prehľad</h2>
@@ -806,14 +744,12 @@ export default function Dashboard() {
               return "pred menej ako minútou";
             }
             return (
-              <button
-                type="button"
-                onClick={() => setLoginHistoryOpen(true)}
-                className="flex items-center gap-2 mt-2 group cursor-pointer hover:opacity-80 transition-opacity text-left"
+              <div
+                className="flex items-center gap-2 mt-2"
                 data-testid="banner-admin-login-status"
               >
                 <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+                <span className="text-xs text-muted-foreground">
                   <span className="font-semibold uppercase tracking-wide text-[10px]">Login Status</span>
                   {" — "}
                   {lastLoginAt ? (
@@ -826,9 +762,8 @@ export default function Dashboard() {
                   ) : (
                     <span className="italic opacity-60">prvé prihlásenie</span>
                   )}
-                  <span className="ml-1.5 opacity-40 text-[10px]">▸ archív</span>
                 </span>
-              </button>
+              </div>
             );
           })()}
         </div>
