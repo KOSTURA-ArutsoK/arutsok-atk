@@ -9149,6 +9149,15 @@ export async function registerRoutes(
       const [contract] = await db.select().from(contracts).where(eq(contracts.id, contractId));
       if (!contract) return res.status(404).json({ message: "Zmluva nenájdená" });
 
+      // Authorization: admin/superadmin/prezident/architekt can always verify; others only within their chain
+      if (!isAdmin(user)) {
+        const isOwner = contract.uploadedByUserId === user.id;
+        const inChain = contract.uploadedByUserId
+          ? await isInManagerChain(user.id, contract.uploadedByUserId, user.activeCompanyId)
+          : false;
+        if (!isOwner && !inChain) return res.status(403).json({ message: "Nemáte oprávnenie overovať túto zmluvu" });
+      }
+
       // Side-effect: sync_subject — update the subject's field with the snapshot value
       if (status === "sync_subject" && newValue && contract.subjectId) {
         const subjectField = PARAM_KEY_TO_SUBJECT_FIELD[paramKey];
@@ -9159,11 +9168,22 @@ export async function registerRoutes(
       }
 
       // Side-effect: corrected_snapshot — update the specific key in the contract's subject_snapshot
+      // Uses canonical snapshot key (first in map) to stay consistent with frontend reads
       if (status === "corrected_snapshot" && newValue !== undefined) {
         const currentSnapshot = (contract.subjectSnapshot as Record<string, any>) || {};
-        const updatedSnapshot = { ...currentSnapshot, [paramKey]: newValue };
+        const SNAPSHOT_PARAM_KEY_MAP: Record<string, string> = {
+          meno: "firstName", priezvisko: "lastName", titul_pred: "titleBefore", titul_za: "titleAfter",
+          datum_narodenia: "birthDate", rodne_cislo: "birthNumber", cislo_op: "idCardNumber",
+          telefon: "phone", email: "email", ulica: "street", psc: "postalCode", mesto: "city",
+          stat: "stateId", iban: "iban", swift: "swift", gdpr_suhlas: "gdprConsent",
+          cislo_zmluvy: "contractNumber", datum_podpisu: "signedDate", datum_ucinnosti: "effectiveDate",
+          datum_exspiracie: "expiryDate", poistna_suma: "insuredSum", poistne_lehotne: "premiumAmount",
+          poistne_rocne: "annualPremium", produkt: "product", partner: "partner",
+        };
+        const canonicalKey = SNAPSHOT_PARAM_KEY_MAP[paramKey] || paramKey;
+        const updatedSnapshot = { ...currentSnapshot, [canonicalKey]: newValue };
         await db.update(contracts).set({ subjectSnapshot: updatedSnapshot }).where(eq(contracts.id, contractId));
-        await logAudit(req, { action: "Uprava", module: "zmluvy_snapshot", entityId: contractId, entityName: `BO oprava snapshotu: ${paramKey} ${oldValue} → ${newValue}` });
+        await logAudit(req, { action: "Uprava", module: "zmluvy_snapshot", entityId: contractId, entityName: `BO oprava snapshotu: ${paramKey} (${canonicalKey}) ${oldValue} → ${newValue}` });
       }
 
       const row = await storage.upsertContractParamVerification({

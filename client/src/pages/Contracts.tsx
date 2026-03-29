@@ -1585,7 +1585,7 @@ function ContractDetailDialog({
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    enabled: !!contract?.id && contract?.lifecyclePhase === 8,
+    enabled: !!contract?.id && (contract?.lifecyclePhase ?? 0) >= 8,
   });
 
   if (!contract) {
@@ -1647,7 +1647,7 @@ function ContractDetailDialog({
                 </div>
               </div>
             )}
-            {contract.lifecyclePhase === 8 && verifStatus && !verifStatus.isFullyVerified && (
+            {verifStatus && !verifStatus.isFullyVerified && (contract.lifecyclePhase ?? 0) >= 8 && (
               <div className="mb-3 px-3 py-2 bg-orange-500/10 border-2 border-orange-500 rounded" data-testid="banner-bo-unverified">
                 <div className="flex items-center gap-2 text-orange-600 text-xs font-semibold">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
@@ -1655,7 +1655,7 @@ function ContractDetailDialog({
                 </div>
               </div>
             )}
-            {contract.lifecyclePhase === 8 && verifStatus && verifStatus.isFullyVerified && (
+            {verifStatus && verifStatus.isFullyVerified && (
               <div className="mb-3 px-3 py-2 bg-emerald-500/10 border border-emerald-500/50 rounded" data-testid="banner-bo-verified">
                 <div className="flex items-center gap-2 text-emerald-600 text-xs font-semibold">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
@@ -2216,6 +2216,11 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
 
 // ─── BO Verification Console (Task #220) ─────────────────────────────────────
 
+// Params that can be synced back to the subject (have a DB column mapping)
+const SUBJECT_SYNCABLE_PARAMS = new Set([
+  "meno", "priezvisko", "titul_pred", "titul_za", "rodne_cislo", "cislo_op", "telefon", "email", "iban", "swift",
+]);
+
 const SNAPSHOT_KEY_MAP: Record<string, string[]> = {
   meno: ["firstName", "first_name"],
   priezvisko: ["lastName", "last_name"],
@@ -2614,16 +2619,18 @@ function BOVerificationConsole({
                               >
                                 <Check className="w-3 h-3 mr-0.5" />OK
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 px-2 text-[11px] border-blue-500 text-blue-600 hover:bg-blue-500/10"
-                                disabled={verifMutation.isPending}
-                                onClick={() => setSyncParam(param.key)}
-                                data-testid={`button-sync-${param.key}`}
-                              >
-                                <ArrowUp className="w-3 h-3 mr-0.5" />Sync subjekt
-                              </Button>
+                              {SUBJECT_SYNCABLE_PARAMS.has(param.key) && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-[11px] border-blue-500 text-blue-600 hover:bg-blue-500/10"
+                                  disabled={verifMutation.isPending}
+                                  onClick={() => setSyncParam(param.key)}
+                                  data-testid={`button-sync-${param.key}`}
+                                >
+                                  <ArrowUp className="w-3 h-3 mr-0.5" />Sync subjekt
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -5034,6 +5041,18 @@ export default function Contracts() {
                       )}
                       {contract.lifecyclePhase === 8 && (
                         <>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-orange-500/60 bg-orange-500/10 text-orange-600 text-[10px] font-semibold whitespace-nowrap cursor-default"
+                                data-testid={`badge-bo-status-${contract.id}`}
+                              >
+                                <AlertCircle className="w-2.5 h-2.5" />
+                                BO čaká
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="text-xs">Zmluva čaká na manuálnu BO kontrolu parametrov</TooltipContent>
+                          </Tooltip>
                           <Button
                             size="sm"
                             variant="outline"
