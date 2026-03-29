@@ -2936,7 +2936,124 @@ export default function Subjects() {
             </div>
           </div>
 
-          <Card>
+          {/* Mobile card list — only on small screens */}
+          <div className="block md:hidden space-y-2" data-testid="subjects-mobile-cards">
+            {isLoading && (
+              <div className="text-center py-8 text-muted-foreground text-sm">Načítavam...</div>
+            )}
+            {!isLoading && sortedData.length === 0 && (
+              <div className="text-center py-12 text-muted-foreground text-sm" data-testid="text-empty-subjects-mobile">
+                Žiadne subjekty nenájdené
+              </div>
+            )}
+            {sortedData.map((subject) => {
+              const details = (subject.details || {}) as Record<string, any>;
+              const dynFields = details.dynamicFields || {};
+              const isPerson = subject.type === 'person';
+              const osCtId = clientTypes?.find(ct => ct.code === 'OS')?.id;
+              const isOsSubject = !!(osCtId && (subject as any).clientTypeId === osCtId);
+              const subjectTypeCode = (() => {
+                if (subject.type === 'system') return 'SYS';
+                if (subject.type === 'person') return 'FO';
+                if (subject.type === 'szco') return 'SZCO';
+                if (isOsSubject) return 'OS';
+                if (subject.type === 'company') return 'PO';
+                return subject.type;
+              })();
+              const fullName = (() => {
+                if (subject.type === 'system') return subject.companyName || 'ArutsoK - ATK';
+                if (isPerson) return [subject.firstName, subject.lastName].filter(Boolean).join(' ') || '-';
+                return subject.companyName || '-';
+              })();
+              const status = getSubjectStatus(subject, activeCompanyId);
+              const rs = (subject as any).registrationStatus || 'klient';
+              const rsConfig = REGISTRATION_STATUS_LABELS[rs] || REGISTRATION_STATUS_LABELS.tiper;
+              const hasAlertBehavior = (() => {
+                const commType = dynFields.typ_komunikacie || "";
+                const noteAccess = dynFields.poznamka_pristup || "";
+                return commType.toLowerCase().includes("agresívna") || noteAccess.trim().length > 0;
+              })();
+              return (
+                <div
+                  key={subject.id}
+                  className="border rounded-lg p-3 bg-card space-y-2 cursor-pointer hover:bg-muted/30 transition-colors"
+                  data-testid={`card-subject-mobile-${subject.id}`}
+                  onClick={() => setViewTarget(subject)}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {isPerson ? (
+                        <User className="w-4 h-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
+                      )}
+                      <span className="font-semibold text-sm truncate">{fullName}</span>
+                      {(subject as any).effectiveListStatus === "cierny" && (
+                        <Ban className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                      )}
+                      {(subject as any).effectiveListStatus === "cerveny" && (
+                        <AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                      )}
+                      {hasAlertBehavior && (
+                        <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 animate-pulse" />
+                      )}
+                    </div>
+                    <Badge variant={rsConfig.variant} className={`${rsConfig.className} text-[10px] shrink-0 whitespace-nowrap`}>
+                      {rsConfig.label}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs text-muted-foreground">{formatUid(subject.uid)}</span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-medium ${status.bgColor} ${status.borderColor} ${status.textColor}`}
+                    >
+                      {status.label}
+                    </span>
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                      {subjectTypeCode}
+                    </Badge>
+                  </div>
+                  <div
+                    className="flex items-center gap-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      onClick={() => setViewTarget(subject)}
+                      data-testid={`button-view-subject-mobile-${subject.id}`}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      onClick={() => { window.location.href = `/profil-subjektu?id=${subject.id}`; }}
+                      data-testid={`button-profil-subject-mobile-${subject.id}`}
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                    </Button>
+                    {canEditRecords(appUser) && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => setEditTarget(subject as any)}
+                        data-testid={`button-edit-subject-mobile-${subject.id}`}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop/tablet table — hidden on small screens */}
+          <Card className="hidden md:block">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
               <Table stickyHeader>

@@ -2128,7 +2128,8 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         ))}
       </svg>
       <div className="relative z-10 space-y-6" data-testid="folder-tabs">
-        <div className="grid grid-cols-5 gap-6 px-4">
+        <div className="overflow-x-auto">
+        <div className="grid grid-cols-5 gap-6 px-4 min-w-[640px]">
           {folderDefs.map(f => {
             const FIcon = f.icon;
             const isActive = activeFolder === f.id;
@@ -2169,7 +2170,9 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
             );
           })}
         </div>
-        <div className="grid grid-cols-5 gap-6 px-4">
+        </div>
+        <div className="overflow-x-auto">
+        <div className="grid grid-cols-5 gap-6 px-4 min-w-[640px]">
           {row2FolderDefs.map(f => {
             const FIcon = f.icon;
             const isActive = activeFolder === f.id;
@@ -2209,6 +2212,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
               </div>
             );
           })}
+        </div>
         </div>
       </div>
     </div>
