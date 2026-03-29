@@ -12728,9 +12728,13 @@ export async function registerRoutes(
       if (!Number.isFinite(productId)) return res.status(400).json({ message: "Neplatné ID produktu" });
       const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
       if (!product) return res.status(404).json({ message: "Produkt nenájdený" });
-      const allowedTypes: string[] = (product as any).allowedSubjectTypes || [];
       const typeToClientId: Record<string, number> = { person: 1, szco: 3, company: 4, organization: 5, state: 6, os: 7 };
       const allClientIds = [1, 3, 4, 5, 6, 7];
+      // Accept explicit types from query param (from local form state); fallback to DB value
+      const rawTypesParam = req.query.types as string | undefined;
+      const allowedTypes: string[] = rawTypesParam
+        ? rawTypesParam.split(",").map(s => s.trim()).filter(Boolean)
+        : ((product as any).allowedSubjectTypes || []);
       const clientIds = allowedTypes.length > 0
         ? allowedTypes.map(t => typeToClientId[t]).filter(Boolean)
         : allClientIds;

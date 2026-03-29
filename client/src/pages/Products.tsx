@@ -315,23 +315,23 @@ function ProductFormDialog({
   }, [productPanelsWithParams, assignedParams]);
 
   useEffect(() => {
-    if (!productSubjectParamsRaw?.length) return;
+    if (!open || !productSubjectParamsRaw?.length) return;
     const keys = new Set<string>();
     for (const tg of productSubjectParamsRaw) {
       const panelNames = [...new Set(tg.fields.map(f => f.panelName ?? "__none__"))];
       for (const p of panelNames) keys.add(`subjekt_${tg.clientTypeId}_${p}`);
     }
     setExpandedSubjectPanels(keys);
-  }, [productSubjectParamsRaw]);
+  }, [open, productSubjectParamsRaw]);
 
   useEffect(() => {
-    if (!productPanelsWithParams?.length) return;
+    if (!open || !productPanelsWithParams?.length) return;
     const keys = new Set<string>([
       ...productPanelsWithParams.map(p => `contract_${p.id}`),
       "contract___none__",
     ]);
     setExpandedContractPanels(keys);
-  }, [productPanelsWithParams]);
+  }, [open, productPanelsWithParams]);
 
   const saveDisplayParamsMutation = useMutation({
     mutationFn: (params: Array<{ paramKey: string; label: string; displayInSummary: boolean; requireVerification: boolean; sortOrder: number; paramGroup: string }>) =>
