@@ -2382,6 +2382,7 @@ function BOVerificationConsole({
   const pdfBlobUrlsRef = useRef<string[]>([]);
   const [pdfBlobUrls, setPdfBlobUrls] = useState<Record<string, string>>({});
   const [pdfLoadErrors, setPdfLoadErrors] = useState<Record<string, boolean>>({});
+  const contractDocUrlsKey = (((contract as any)?.documents ?? []) as { url: string }[]).map(d => d.url).join("|");
 
   useEffect(() => {
     if (!open || !contract) return;
@@ -2408,7 +2409,7 @@ function BOVerificationConsole({
       pdfBlobUrlsRef.current.forEach(u => URL.revokeObjectURL(u));
       pdfBlobUrlsRef.current = [];
     };
-  }, [open, contract?.id]);
+  }, [open, contract?.id, contractDocUrlsKey]);
 
   // Correction state
   const [correctionParam, setCorrectionParam] = useState<string | null>(null);
