@@ -445,7 +445,7 @@ async function resolveSubjectLoginStep(
         session.loginSubjectId = selected.id;
         session.loginStep = "done";
         await writeLoginAudit(user.id, selected.id, name, "DIRECT", "szco_fo_same_rc", ip);
-        await recordLoginHistory(user.id, ip, undefined, req.headers['user-agent'] as string | undefined);
+        await recordLoginHistory(user.id, ip, undefined, userAgent);
         return { nextStep: "done" };
       }
     }
@@ -478,7 +478,7 @@ async function resolveSubjectLoginStep(
           session.loginActingAsEntityId = selected.id;
           session.loginStep = "done";
           await writeLoginAudit(user.id, foSubject.id, subjectDisplayName(foSubject), "ENTITY_DIRECT", "email_matched_officer", ip, selected.id, { foUid: foSubject.uid, entityType: selected.type });
-          await recordLoginHistory(user.id, ip, undefined, req.headers['user-agent'] as string | undefined);
+          await recordLoginHistory(user.id, ip, undefined, userAgent);
           return { nextStep: "done" };
         }
       }
@@ -503,7 +503,7 @@ async function resolveSubjectLoginStep(
         session.loginActingAsEntityId = selected.id;
         session.loginStep = "done";
         await writeLoginAudit(user.id, foSubject.id, subjectDisplayName(foSubject), "ENTITY_DIRECT", "single_officer_direct", ip, selected.id, { foUid: foSubject.uid, entityType: selected.type });
-        await recordLoginHistory(user.id, ip, undefined, req.headers['user-agent'] as string | undefined);
+        await recordLoginHistory(user.id, ip, undefined, userAgent);
         return { nextStep: "done" };
       }
     }
