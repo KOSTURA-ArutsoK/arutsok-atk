@@ -9110,6 +9110,7 @@ export async function registerRoutes(
   app.get("/api/contracts/:contractId/param-verifications", isAuthenticated, async (req: any, res) => {
     try {
       const contractId = Number(req.params.contractId);
+      if (!Number.isFinite(contractId)) return res.status(400).json({ message: "Neplatné ID zmluvy" });
       const result = await storage.getContractParamVerifications(contractId);
       res.json(result);
     } catch (err) {
@@ -9121,8 +9122,11 @@ export async function registerRoutes(
   app.post("/api/contracts/:contractId/param-verifications", isAuthenticated, async (req: any, res) => {
     try {
       const contractId = Number(req.params.contractId);
+      if (!Number.isFinite(contractId)) return res.status(400).json({ message: "Neplatné ID zmluvy" });
       const user = (req as any).appUser;
-      const bodySchema = insertContractParamVerificationSchema.omit({ contractId: true, verifiedByUserId: true });
+      const bodySchema = insertContractParamVerificationSchema.omit({ contractId: true, verifiedByUserId: true }).extend({
+        status: z.enum(["pending", "ok", "sync_subject", "corrected_snapshot"]),
+      });
       const parsed = bodySchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors.map(e => e.message).join("; ") });
       const { paramKey, status, oldValue, newValue, note } = parsed.data;
@@ -12384,6 +12388,7 @@ export async function registerRoutes(
   app.get("/api/products/:id/display-params", isAuthenticated, async (req, res) => {
     try {
       const productId = Number(req.params.id);
+      if (!Number.isFinite(productId)) return res.status(400).json({ message: "Neplatné ID produktu" });
       const params = await storage.getProductDisplayParams(productId);
       res.json(params);
     } catch (err) {
@@ -12395,6 +12400,7 @@ export async function registerRoutes(
   app.post("/api/products/:id/display-params", isAuthenticated, async (req: any, res) => {
     try {
       const productId = Number(req.params.id);
+      if (!Number.isFinite(productId)) return res.status(400).json({ message: "Neplatné ID produktu" });
       const bodySchema = insertProductDisplayParamSchema.omit({ productId: true });
       const parsed = bodySchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors.map(e => e.message).join("; ") });
@@ -12411,6 +12417,7 @@ export async function registerRoutes(
   app.put("/api/products/:id/display-params", isAuthenticated, async (req: any, res) => {
     try {
       const productId = Number(req.params.id);
+      if (!Number.isFinite(productId)) return res.status(400).json({ message: "Neplatné ID produktu" });
       const bulkSchema = z.array(insertProductDisplayParamSchema.omit({ productId: true }));
       const parsed = bulkSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors.map(e => e.message).join("; ") });
