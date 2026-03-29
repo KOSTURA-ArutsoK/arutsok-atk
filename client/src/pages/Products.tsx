@@ -424,7 +424,7 @@ function ProductFormDialog({
         setName(editingProduct.name || "");
         setDescription(editingProduct.description || "");
         setAllowedSpecialists((editingProduct.allowedSpecialists || []) as number[]);
-        setAllowedRecommenders(((editingProduct as any).allowedRecommenders || []) as number[]);
+        setAllowedRecommenders((editingProduct.allowedRecommenders || []) as number[]);
         setAllowedSubjectTypes((editingProduct as any).allowedSubjectTypes || []);
         setNotesHtml(editingProduct.notes || "");
         setRequiredDocuments((editingProduct as any).requiredDocuments || []);
@@ -1498,11 +1498,11 @@ function ProductDetailDialog({
               </div>
             </div>
           )}
-          {(product as any).allowedRecommenders && (product as any).allowedRecommenders.length > 0 && (
+          {product.allowedRecommenders && product.allowedRecommenders.length > 0 && (
             <div>
               <span className="text-xs text-muted-foreground">Povolení odporúčatelia</span>
               <div className="flex items-center gap-1 mt-1 flex-wrap">
-                {getGroupNames((product as any).allowedRecommenders as number[]).map(name => (
+                {getGroupNames(product.allowedRecommenders as number[]).map(name => (
                   <Badge key={name} variant="outline">{name}</Badge>
                 ))}
               </div>

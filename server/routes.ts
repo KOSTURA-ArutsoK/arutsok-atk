@@ -4525,7 +4525,17 @@ export async function registerRoutes(
         const allLinks = await db.select({
           subjectId: networkLinks.subjectId,
           guarantorSubjectId: networkLinks.guarantorSubjectId,
-        }).from(networkLinks).where(eq(networkLinks.isActive, true));
+        }).from(networkLinks)
+          .leftJoin(contracts, eq(networkLinks.sourceContractId, contracts.id))
+          .where(and(
+            eq(networkLinks.isActive, true),
+            activeCompanyId
+              ? or(
+                  isNull(networkLinks.sourceContractId),
+                  eq(contracts.companyId, activeCompanyId)
+                )
+              : undefined
+          ));
         const subtreeSet = new Set<number>([linkedSubjectId]);
         let changed = true;
         while (changed) {
