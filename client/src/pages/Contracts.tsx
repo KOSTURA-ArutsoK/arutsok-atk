@@ -10537,10 +10537,11 @@ export default function Contracts() {
                               p8groups.get(key)!.push(c);
                             });
                             const p8sortedGroups = Array.from(p8groups.entries()).sort((a, b) => a[0].localeCompare(b[0], "sk"));
+                            const p8hashKey = (s: string) => 400000 + (Math.abs(s.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)) % 99999);
                             return (
                               <div className="divide-y">
-                                {p8sortedGroups.map(([groupName, groupContracts], gIdx) => {
-                                  const toggleKey = 400000 + gIdx;
+                                {p8sortedGroups.map(([groupName, groupContracts]) => {
+                                  const toggleKey = p8hashKey(groupName);
                                   const isGroupExpanded = expandedSprievodky.has(toggleKey);
                                   return (
                                     <div key={groupName}>
