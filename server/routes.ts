@@ -9147,6 +9147,48 @@ export async function registerRoutes(
     }
   });
 
+  // ─── PATCH /api/contracts/:id/subject-snapshot — retro-snapshot (Task #220) ───
+  app.patch("/api/contracts/:id/subject-snapshot", isAuthenticated, async (req: any, res) => {
+    try {
+      const contractId = Number(req.params.id);
+      if (!Number.isFinite(contractId)) return res.status(400).json({ message: "Neplatné ID zmluvy" });
+      const bodySchema = z.object({
+        snapshot: z.record(z.any()),
+        retroactive: z.boolean().optional(),
+      });
+      const parsed = bodySchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors.map(e => e.message).join("; ") });
+      const { snapshot, retroactive } = parsed.data;
+      const now = new Date();
+      const snapshotData = retroactive ? { ...snapshot, retroactive: true, capturedAt: now.toISOString() } : snapshot;
+      const [updated] = await db.update(contracts)
+        .set({ subjectSnapshot: snapshotData, subjectSnapshotAt: now })
+        .where(eq(contracts.id, contractId))
+        .returning();
+      if (!updated) return res.status(404).json({ message: "Zmluva nenájdená" });
+      await logAudit(req, { action: "Uprava", module: "zmluvy_snapshot", entityId: contractId, entityName: retroactive ? "Retro-snapshot subjektu" : "Aktualizácia snapshotu subjektu" });
+      res.json(updated);
+    } catch (err) {
+      console.error("[subject-snapshot] PATCH error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // ─── GET /api/contracts/:id/verification-status — BO summary (Task #220) ───
+  app.get("/api/contracts/:id/verification-status", isAuthenticated, async (req: any, res) => {
+    try {
+      const contractId = Number(req.params.id);
+      if (!Number.isFinite(contractId)) return res.status(400).json({ message: "Neplatné ID zmluvy" });
+      const { verifications } = await storage.getContractParamVerifications(contractId);
+      const verified = verifications.filter(v => ["ok", "sync_subject", "corrected_snapshot"].includes(v.status));
+      const hasAny = verifications.length > 0;
+      res.json({ verifications, verified: verified.length, total: verifications.length, isFullyVerified: hasAny && verified.length === verifications.length });
+    } catch (err) {
+      console.error("[verification-status] GET error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   app.post("/api/supisky/:id/log-view", isAuthenticated, async (req: any, res) => {
     try {
       const supiskaId = Number(req.params.id);

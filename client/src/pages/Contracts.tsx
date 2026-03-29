@@ -10,7 +10,8 @@ import { useSmartFilter } from "@/hooks/use-smart-filter";
 import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
 import { useLocation, useSearch } from "wouter";
-import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer, ImportLog } from "@shared/schema";
+import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Subject, Partner, Product, MyCompany, Sector, Section, SectorProduct, ClientGroup, ClientType, AppUser, ContractAcquirer, ImportLog, ProductDisplayParam, ContractParamVerification } from "@shared/schema";
+import { VERIFIABLE_PARAMS } from "@shared/verifiable-params";
 import { validateSlovakICO } from "@shared/ico-validator";
 import { ATK_SYSTEM_ID, ATK_SUPERADMIN_ID } from "@shared/constants";
 import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, AlertCircle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building, Building2, ArrowLeftRight, Info, Download, Landmark, Network, Library } from "lucide-react";
@@ -1577,6 +1578,16 @@ function ContractDetailDialog({
   const companyName = companies?.find(c => c.id === contract?.companyId)?.name || "-";
   const stateName = states?.find(s => s.id === contract?.stateId)?.name || "-";
 
+  const { data: verifStatus } = useQuery<{ isFullyVerified: boolean; total: number; verified: number }>({
+    queryKey: ["/api/contracts", contract?.id, "verification-status"],
+    queryFn: async () => {
+      const res = await fetch(`/api/contracts/${contract!.id}/verification-status`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!contract?.id && contract?.lifecyclePhase === 8,
+  });
+
   if (!contract) {
     return (
       <Dialog open={false} onOpenChange={onClose}>
@@ -1633,6 +1644,22 @@ function ContractDetailDialog({
                 <div className="flex items-center gap-2 text-red-400 text-xs font-medium">
                   <span>🛑</span>
                   <span>Provízny stop — Prvá zmluva v divízii. Beneficient: <strong>{(contract as any).commissionRedirectedToName || "Nadriadený neurčený"}</strong></span>
+                </div>
+              </div>
+            )}
+            {contract.lifecyclePhase === 8 && verifStatus && !verifStatus.isFullyVerified && (
+              <div className="mb-3 px-3 py-2 bg-orange-500/10 border-2 border-orange-500 rounded" data-testid="banner-bo-unverified">
+                <div className="flex items-center gap-2 text-orange-600 text-xs font-semibold">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  Údaje neboli manuálne overené — zmluva čaká na BO kontrolu ({verifStatus.verified}/{verifStatus.total} overených)
+                </div>
+              </div>
+            )}
+            {contract.lifecyclePhase === 8 && verifStatus && verifStatus.isFullyVerified && (
+              <div className="mb-3 px-3 py-2 bg-emerald-500/10 border border-emerald-500/50 rounded" data-testid="banner-bo-verified">
+                <div className="flex items-center gap-2 text-emerald-600 text-xs font-semibold">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  Parametre zmluvy boli overené BO pracovníkom ({verifStatus.verified}/{verifStatus.total})
                 </div>
               </div>
             )}
@@ -2187,6 +2214,492 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
   );
 }
 
+// ─── BO Verification Console (Task #220) ─────────────────────────────────────
+
+function getSnapshotValue(snapshot: Record<string, any> | null | undefined, paramKey: string): string {
+  if (!snapshot) return "";
+  const keyMap: Record<string, string[]> = {
+    meno: ["firstName", "first_name"],
+    priezvisko: ["lastName", "last_name"],
+    titul_pred: ["titleBefore", "title_before"],
+    titul_za: ["titleAfter", "title_after"],
+    datum_narodenia: ["birthDate", "birth_date"],
+    rodne_cislo: ["birthNumber", "birth_number"],
+    cislo_op: ["idCardNumber", "id_card_number"],
+    telefon: ["phone"],
+    email: ["email"],
+    ulica: ["street"],
+    psc: ["postalCode", "postal_code"],
+    mesto: ["city"],
+    stat: ["stateId", "state_id"],
+    iban: ["iban"],
+    swift: ["swift"],
+    gdpr_suhlas: ["gdprConsent", "gdpr_consent"],
+    cislo_zmluvy: ["contractNumber", "contract_number"],
+    datum_podpisu: ["signedDate", "signed_date"],
+    datum_ucinnosti: ["effectiveDate", "effective_date"],
+    datum_exspiracie: ["expiryDate", "expiry_date"],
+    poistna_suma: ["insuredSum", "insured_sum", "poistna_suma"],
+    poistne_lehotne: ["premiumAmount", "premium_amount"],
+    poistne_rocne: ["annualPremium", "annual_premium"],
+    produkt: ["product", "productName"],
+    partner: ["partner", "partnerName"],
+  };
+  const keys = keyMap[paramKey] || [paramKey];
+  for (const k of keys) {
+    if (snapshot[k] !== undefined && snapshot[k] !== null) {
+      const v = snapshot[k];
+      if (typeof v === "object") return JSON.stringify(v);
+      return String(v);
+    }
+  }
+  return "";
+}
+
+function BOVerificationConsole({
+  contract,
+  open,
+  onClose,
+  subjects,
+  products,
+  appUsersAll,
+}: {
+  contract: Contract | null;
+  open: boolean;
+  onClose: () => void;
+  subjects?: Subject[];
+  products?: Product[];
+  appUsersAll?: AppUser[];
+}) {
+  const { toast } = useToast();
+  const { data: appUser } = useAppUser();
+
+  const { data: displayParams = [] } = useQuery<ProductDisplayParam[]>({
+    queryKey: ["/api/products", contract?.productId, "display-params"],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${contract!.productId}/display-params`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: open && !!contract?.productId,
+  });
+
+  const { data: verifData, refetch: refetchVerif } = useQuery<{ verifications: ContractParamVerification[]; isHistorical: boolean }>({
+    queryKey: ["/api/contracts", contract?.id, "param-verifications"],
+    queryFn: async () => {
+      const res = await fetch(`/api/contracts/${contract!.id}/param-verifications`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: open && !!contract?.id,
+  });
+
+  const verifications = verifData?.verifications ?? [];
+
+  // Determine params to show: displayParams if configured, else full VERIFIABLE_PARAMS
+  const paramsToShow = displayParams.length > 0
+    ? VERIFIABLE_PARAMS.filter(p => displayParams.some(d => d.paramKey === p.key && d.displayInSummary))
+    : VERIFIABLE_PARAMS;
+
+  const paramsRequiringVerif = displayParams.length > 0
+    ? paramsToShow.filter(p => displayParams.find(d => d.paramKey === p.key)?.requireVerification)
+    : paramsToShow;
+
+  const snapshot = (contract as any)?.subjectSnapshot as Record<string, any> | null | undefined;
+  const isHistorical = !snapshot;
+
+  // Retro-snapshot form state
+  const [retroValues, setRetroValues] = useState<Record<string, string>>({});
+  const [retroSaving, setRetroSaving] = useState(false);
+  const [showRetroForm, setShowRetroForm] = useState(false);
+
+  useEffect(() => {
+    if (open && contract) {
+      setRetroValues({});
+      setShowRetroForm(isHistorical);
+    }
+  }, [open, contract?.id, isHistorical]);
+
+  // Correction state
+  const [correctionParam, setCorrectionParam] = useState<string | null>(null);
+  const [correctionValue, setCorrectionValue] = useState("");
+
+  // Sync subject confirm
+  const [syncParam, setSyncParam] = useState<string | null>(null);
+
+  const verifMutation = useMutation({
+    mutationFn: (data: { paramKey: string; status: string; oldValue?: string; newValue?: string; note?: string }) =>
+      apiRequest("POST", `/api/contracts/${contract!.id}/param-verifications`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", contract?.id, "param-verifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", contract?.id, "verification-status"] });
+      setCorrectionParam(null);
+      setCorrectionValue("");
+      setSyncParam(null);
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa uložiť verifikáciu", variant: "destructive" }),
+  });
+
+  const retroSnapshotMutation = useMutation({
+    mutationFn: (snapshot: Record<string, string>) =>
+      apiRequest("PATCH", `/api/contracts/${contract!.id}/subject-snapshot`, { snapshot, retroactive: true }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 8] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      toast({ title: "Snapshot vytvorený", description: "Retro-snapshot uložený. Konzola sa reštartuje." });
+      onClose();
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa uložiť snapshot", variant: "destructive" }),
+  });
+
+  const moveToPhase9Mutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/contracts/${contract!.id}/lifecycle`, { phase: 9 }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 8] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 9] });
+      toast({ title: "Postúpené do fázy 9", description: "Zmluva odoslaná obchodnému partnerovi" });
+      onClose();
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa postúpiť zmluvu", variant: "destructive" }),
+  });
+
+  if (!contract) return null;
+
+  const getVerification = (paramKey: string) => verifications.find(v => v.paramKey === paramKey);
+
+  const isVerifDone = (v: ContractParamVerification | undefined) =>
+    v && ["ok", "sync_subject", "corrected_snapshot"].includes(v.status);
+
+  const allRequiredVerified = paramsRequiringVerif.every(p => isVerifDone(getVerification(p.key)));
+
+  const scanDocs = ((contract as any).documents || []) as { name: string; url: string }[];
+
+  const getAppUserName = (userId: number | null | undefined) => {
+    if (!userId) return "—";
+    const u = appUsersAll?.find(u => u.id === userId);
+    return u ? `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.username : `ID ${userId}`;
+  };
+
+  const STATUS_BADGE: Record<string, { label: string; color: string }> = {
+    ok: { label: "✓ OK", color: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30" },
+    sync_subject: { label: "↑ Sync", color: "bg-blue-500/15 text-blue-600 border-blue-500/30" },
+    corrected_snapshot: { label: "✎ Opravené", color: "bg-amber-500/15 text-amber-600 border-amber-500/30" },
+    pending: { label: "Čaká", color: "bg-orange-500/15 text-orange-600 border-orange-500/30" },
+  };
+
+  const subjektParams = paramsToShow.filter(p => p.group === "subjekt");
+  const zmluvaParams = paramsToShow.filter(p => p.group === "zmluva");
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent size="full" className="p-0 overflow-hidden flex flex-col h-[96vh] max-h-[96vh]">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b bg-background shrink-0 flex-wrap">
+          <ListChecks className="w-5 h-5 text-orange-500" />
+          <div className="flex-1 min-w-0">
+            <h2 className="font-semibold text-sm" data-testid="text-bo-console-title">
+              BO Verifikačná konzola — {contract.contractNumber || formatUid(contract.uid)}
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              {(contract as any).productName || products?.find(p => p.id === contract.productId)?.name || "Produkt"}
+            </p>
+          </div>
+          {/* Verification status badge */}
+          {isHistorical ? (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border-2 border-orange-500 bg-orange-500/10 text-orange-600 text-xs font-semibold" data-testid="badge-bo-historical">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              HISTORICKÝ ZÁZNAM – ČAKÁ NA VERIFIKÁCIU ZO SKENU
+            </span>
+          ) : verifications.length === 0 ? (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-orange-500/50 bg-orange-500/10 text-orange-600 text-xs font-medium" data-testid="badge-bo-unverified">
+              <AlertCircle className="w-3.5 h-3.5" />
+              Neskontrolované
+            </span>
+          ) : allRequiredVerified ? (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-emerald-500/50 bg-emerald-500/10 text-emerald-600 text-xs font-medium" data-testid="badge-bo-verified">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Overené
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-orange-500/50 bg-orange-500/10 text-orange-600 text-xs font-medium" data-testid="badge-bo-partial">
+              <AlertCircle className="w-3.5 h-3.5" />
+              Čiastočne overené ({verifications.filter(v => isVerifDone(v)).length}/{paramsRequiringVerif.length})
+            </span>
+          )}
+          {/* Advance to phase 9 */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  disabled={!allRequiredVerified || isHistorical || moveToPhase9Mutation.isPending}
+                  onClick={() => moveToPhase9Mutation.mutate()}
+                  data-testid="button-bo-advance-phase9"
+                >
+                  {moveToPhase9Mutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5 mr-1" />}
+                  Odoslať obchodnému partnerovi
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {!allRequiredVerified && (
+              <TooltipContent>Najskôr overte všetky povinné parametre</TooltipContent>
+            )}
+            {isHistorical && (
+              <TooltipContent>Najskôr vytvorte retro-snapshot</TooltipContent>
+            )}
+          </Tooltip>
+          <Button size="sm" variant="ghost" onClick={onClose} data-testid="button-bo-close">
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Body — split screen */}
+        <div className="flex-1 flex overflow-hidden min-h-0">
+          {/* Left: Scan viewer */}
+          <div className="w-1/2 border-r flex flex-col min-h-0 bg-muted/20">
+            <div className="px-3 py-2 border-b bg-background shrink-0">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sken zmluvy</span>
+            </div>
+            <div className="flex-1 overflow-auto p-2">
+              {scanDocs.length > 0 ? (
+                <div className="space-y-3">
+                  {scanDocs.map((doc, i) => (
+                    <div key={i} className="border rounded-lg overflow-hidden">
+                      <div className="px-2 py-1 border-b bg-background text-xs text-muted-foreground flex items-center gap-1">
+                        <FileText className="w-3 h-3" />
+                        {doc.name}
+                        <a href={doc.url} target="_blank" rel="noopener noreferrer" className="ml-auto text-primary hover:underline">
+                          <Download className="w-3 h-3" />
+                        </a>
+                      </div>
+                      {doc.url.toLowerCase().endsWith('.pdf') ? (
+                        <iframe src={doc.url} className="w-full" style={{ height: '600px' }} title={doc.name} />
+                      ) : (
+                        <img src={doc.url} alt={doc.name} className="w-full object-contain" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+                  <ScanLine className="w-10 h-10 opacity-30" />
+                  <p className="text-sm">Žiadne skeny k tejto zmluve</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Verification params */}
+          <div className="w-1/2 flex flex-col min-h-0">
+            <div className="px-3 py-2 border-b bg-background shrink-0">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Verifikačné polia</span>
+            </div>
+            <div className="flex-1 overflow-auto p-3 space-y-4">
+
+              {/* Historical — retro snapshot form */}
+              {isHistorical && (
+                <div className="rounded-xl border-2 border-orange-500 bg-orange-500/5 p-4 space-y-3" data-testid="panel-retro-snapshot">
+                  <div className="flex items-center gap-2 text-orange-600 font-semibold text-sm">
+                    <AlertTriangle className="w-4 h-4" />
+                    HISTORICKÝ ZÁZNAM – ČAKÁ NA VERIFIKÁCIU ZO SKENU
+                  </div>
+                  <p className="text-xs text-muted-foreground">Zmluva nemá uložený snapshot subjektu. BO pracovník vyplní hodnoty zo skenu a vytvorí retro-snapshot.</p>
+                  <div className="space-y-2">
+                    {VERIFIABLE_PARAMS.map(p => (
+                      <div key={p.key} className="grid grid-cols-[120px_1fr] items-center gap-2">
+                        <label className="text-xs text-muted-foreground">{p.label}</label>
+                        <Input
+                          value={retroValues[p.key] || ""}
+                          onChange={e => setRetroValues(prev => ({ ...prev, [p.key]: e.target.value }))}
+                          className="h-7 text-sm"
+                          placeholder={`Hodnota zo skenu…`}
+                          data-testid={`input-retro-${p.key}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-end pt-2 border-t">
+                    <Button
+                      size="sm"
+                      className="bg-orange-600 hover:bg-orange-700 text-white"
+                      disabled={retroSnapshotMutation.isPending}
+                      onClick={() => retroSnapshotMutation.mutate(retroValues)}
+                      data-testid="button-save-retro-snapshot"
+                    >
+                      {retroSnapshotMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Check className="w-3.5 h-3.5 mr-1" />}
+                      Uložiť retro-snapshot
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Normal verification flow */}
+              {!isHistorical && paramsToShow.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-8">Pre tento produkt nie sú nakonfigurované parametre zhrnutia.</p>
+              )}
+
+              {!isHistorical && [
+                { label: "Parametre subjektu", params: subjektParams, color: "blue" as const },
+                { label: "Parametre zmluvy", params: zmluvaParams, color: "amber" as const },
+              ].map(({ label, params, color }) => params.length === 0 ? null : (
+                <div key={label} className={`rounded-xl border p-3 space-y-2 ${color === "blue" ? "border-blue-500/25 bg-blue-500/5" : "border-amber-500/25 bg-amber-500/5"}`}>
+                  <p className={`text-xs font-semibold uppercase tracking-wide pb-1 border-b ${color === "blue" ? "text-blue-700 dark:text-blue-300 border-blue-500/20" : "text-amber-700 dark:text-amber-300 border-amber-500/20"}`}>
+                    {label}
+                  </p>
+                  {params.map((param, i) => {
+                    const v = getVerification(param.key);
+                    const done = isVerifDone(v);
+                    const snapshotVal = getSnapshotValue(snapshot, param.key);
+                    const isCorrecting = correctionParam === param.key;
+                    const isSyncing = syncParam === param.key;
+                    const requiresVerif = paramsRequiringVerif.some(p => p.key === param.key);
+
+                    return (
+                      <div
+                        key={param.key}
+                        className={`border rounded-lg p-3 ${done ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-background"} ${i % 2 === 0 ? "" : "opacity-95"}`}
+                        data-testid={`panel-param-${param.key}`}
+                      >
+                        <div className="flex items-start gap-2 flex-wrap">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-medium">{param.label}</span>
+                              {requiresVerif && <span className="text-[10px] text-orange-500 font-semibold">• povinné</span>}
+                              {v && (
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-medium ${STATUS_BADGE[v.status]?.color}`}>
+                                  {STATUS_BADGE[v.status]?.label}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm font-mono mt-0.5 break-all" data-testid={`text-snapshot-val-${param.key}`}>
+                              {isCorrecting && v?.newValue ? <span className="line-through text-muted-foreground mr-1">{snapshotVal}</span> : null}
+                              {v?.newValue && v.status === "corrected_snapshot" ? (
+                                <><span className="line-through text-muted-foreground mr-1">{snapshotVal}</span><span className="text-emerald-600">{v.newValue}</span></>
+                              ) : snapshotVal || <span className="text-muted-foreground italic">—</span>}
+                            </p>
+                            {v && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {getAppUserName(v.verifiedByUserId)} · {v.verifiedAt ? formatDateTimeSlovak(v.verifiedAt) : ""}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Action buttons */}
+                          {!done && !isCorrecting && !isSyncing && (
+                            <div className="flex gap-1 shrink-0 flex-wrap">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-[11px] border-emerald-500 text-emerald-600 hover:bg-emerald-500/10"
+                                disabled={verifMutation.isPending}
+                                onClick={() => verifMutation.mutate({ paramKey: param.key, status: "ok" })}
+                                data-testid={`button-ok-${param.key}`}
+                              >
+                                <Check className="w-3 h-3 mr-0.5" />OK
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-[11px] border-blue-500 text-blue-600 hover:bg-blue-500/10"
+                                disabled={verifMutation.isPending}
+                                onClick={() => setSyncParam(param.key)}
+                                data-testid={`button-sync-${param.key}`}
+                              >
+                                <ArrowUp className="w-3 h-3 mr-0.5" />Sync subjekt
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-[11px] border-amber-500 text-amber-600 hover:bg-amber-500/10"
+                                disabled={verifMutation.isPending}
+                                onClick={() => { setCorrectionParam(param.key); setCorrectionValue(snapshotVal); }}
+                                data-testid={`button-correct-${param.key}`}
+                              >
+                                <Pencil className="w-3 h-3 mr-0.5" />Opraviť
+                              </Button>
+                            </div>
+                          )}
+
+                          {done && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                              onClick={() => verifMutation.mutate({ paramKey: param.key, status: "pending" })}
+                              title="Zrušiť verifikáciu"
+                              data-testid={`button-reset-${param.key}`}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Sync confirm sub-panel */}
+                        {isSyncing && (
+                          <div className="mt-2 p-2 rounded border-2 border-blue-500 bg-blue-500/5 space-y-2" data-testid={`panel-sync-${param.key}`}>
+                            <p className="text-xs font-medium text-blue-700">Potvrďte synchronizáciu subjektu</p>
+                            <p className="text-xs text-muted-foreground">Hodnota <strong>{snapshotVal || "—"}</strong> bude zapísaná do karty subjektu (parametre: <em>{param.key}</em>).</p>
+                            <div className="flex gap-1 justify-end">
+                              <Button size="sm" variant="ghost" className="h-6 text-[11px]" onClick={() => setSyncParam(null)}>Zrušiť</Button>
+                              <Button
+                                size="sm"
+                                className="h-6 bg-blue-600 hover:bg-blue-700 text-white text-[11px]"
+                                disabled={verifMutation.isPending}
+                                onClick={() => verifMutation.mutate({ paramKey: param.key, status: "sync_subject", newValue: snapshotVal })}
+                                data-testid={`button-confirm-sync-${param.key}`}
+                              >
+                                {verifMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Check className="w-3 h-3 mr-1" />}
+                                Potvrdiť sync
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Correction sub-panel */}
+                        {isCorrecting && (
+                          <div className="mt-2 p-2 rounded border-2 border-amber-500 bg-amber-500/5 space-y-2" data-testid={`panel-correction-${param.key}`}>
+                            <p className="text-xs font-medium text-amber-700">Oprava hodnoty v snapshote</p>
+                            <div className="grid grid-cols-[80px_1fr] items-center gap-2">
+                              <span className="text-[11px] text-muted-foreground">Pôvodná:</span>
+                              <span className="text-[11px] font-mono line-through">{snapshotVal || "—"}</span>
+                              <span className="text-[11px] text-muted-foreground">Nová:</span>
+                              <Input
+                                value={correctionValue}
+                                onChange={e => setCorrectionValue(e.target.value)}
+                                className="h-7 text-sm"
+                                autoFocus
+                                data-testid={`input-correction-${param.key}`}
+                              />
+                            </div>
+                            <div className="flex gap-1 justify-end">
+                              <Button size="sm" variant="ghost" className="h-6 text-[11px]" onClick={() => setCorrectionParam(null)}>Zrušiť</Button>
+                              <Button
+                                size="sm"
+                                className="h-6 bg-amber-600 hover:bg-amber-700 text-white text-[11px]"
+                                disabled={verifMutation.isPending || !correctionValue.trim()}
+                                onClick={() => verifMutation.mutate({ paramKey: param.key, status: "corrected_snapshot", oldValue: snapshotVal, newValue: correctionValue.trim() })}
+                                data-testid={`button-confirm-correction-${param.key}`}
+                              >
+                                {verifMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Check className="w-3 h-3 mr-1" />}
+                                Uložiť opravu
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Contracts() {
   const { data: appUser } = useAppUser();
   const activeStateId = appUser?.activeStateId ?? null;
@@ -2227,6 +2740,7 @@ export default function Contracts() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingContract, setDeletingContract] = useState<Contract | null>(null);
   const [viewingContract, setViewingContract] = useState<Contract | null>(null);
+  const [boConsoleContract, setBoConsoleContract] = useState<Contract | null>(null);
   const [nahratieViewContract, setNahratieViewContract] = useState<Contract | null>(null);
   const [docChecklistContract, setDocChecklistContract] = useState<Contract | null>(null);
   const [docChecklistCheckedReq, setDocChecklistCheckedReq] = useState<Set<number>>(new Set());
@@ -4503,17 +5017,29 @@ export default function Contracts() {
                         </Button>
                       )}
                       {contract.lifecyclePhase === 8 && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 border-orange-500 text-orange-500 hover:bg-orange-500/10 hover:text-orange-400"
-                          onClick={(e) => { e.stopPropagation(); moveToInterventionMutation.mutate(contract.id); }}
-                          disabled={moveToInterventionMutation.isPending}
-                          data-testid={`button-internal-intervention-${contract.id}`}
-                        >
-                          {moveToInterventionMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <AlertTriangle className="w-3 h-3 mr-1" />}
-                          <span className="text-[11px]">Interná intervencia</span>
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 border-violet-500 text-violet-600 hover:bg-violet-500/10 hover:text-violet-500"
+                            onClick={(e) => { e.stopPropagation(); setBoConsoleContract(contract); }}
+                            data-testid={`button-bo-console-${contract.id}`}
+                          >
+                            <ListChecks className="w-3 h-3 mr-1" />
+                            <span className="text-[11px]">BO Kontrola</span>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 border-orange-500 text-orange-500 hover:bg-orange-500/10 hover:text-orange-400"
+                            onClick={(e) => { e.stopPropagation(); moveToInterventionMutation.mutate(contract.id); }}
+                            disabled={moveToInterventionMutation.isPending}
+                            data-testid={`button-internal-intervention-${contract.id}`}
+                          >
+                            {moveToInterventionMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <AlertTriangle className="w-3 h-3 mr-1" />}
+                            <span className="text-[11px]">Interná intervencia</span>
+                          </Button>
+                        </>
                       )}
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
                         <Eye className="w-3.5 h-3.5" />
@@ -10327,6 +10853,15 @@ export default function Contracts() {
         {docChecklistDialog}
         {phase5DocDialog}
         {importDialog}
+
+        <BOVerificationConsole
+          contract={boConsoleContract}
+          open={!!boConsoleContract}
+          onClose={() => setBoConsoleContract(null)}
+          subjects={subjects || []}
+          products={products || []}
+          appUsersAll={appUsersAll || []}
+        />
       </div>
     );
   }
@@ -10596,6 +11131,15 @@ export default function Contracts() {
       {docChecklistDialog}
       {phase5DocDialog}
       {importDialog}
+
+      <BOVerificationConsole
+        contract={boConsoleContract}
+        open={!!boConsoleContract}
+        onClose={() => setBoConsoleContract(null)}
+        subjects={subjects || []}
+        products={products || []}
+        appUsersAll={appUsersAll || []}
+      />
 
       <Dialog open={bulkDateDialogOpen} onOpenChange={setBulkDateDialogOpen}>
         <DialogContent className="max-w-md">
