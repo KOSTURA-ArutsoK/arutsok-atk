@@ -6481,6 +6481,110 @@ export async function registerRoutes(
     }
   });
 
+  // ===== SCAN COMMANDER — Stage Upload =====
+  app.post("/api/scan-commander/stage-upload", isAuthenticated, (req, _res, next) => {
+    (req as any)._uploadSection = "contract-docs";
+    next();
+  }, (req: any, res: any, next: any) => {
+    contractDocsUpload.array("files", 150)(req, res, (err: any) => {
+      if (err) {
+        if (err.code === "LIMIT_FILE_SIZE") return res.status(413).json({ message: `Súbor je príliš veľký. Max. limit je 25 MB.` });
+        if (err.code === "LIMIT_UNEXPECTED_FILE") return res.status(400).json({ message: `Príliš veľa súborov naraz (max. 150).` });
+        return res.status(400).json({ message: err.message || "Chyba pri nahrávaní" });
+      }
+      next();
+    });
+  }, async (req: any, res) => {
+    try {
+      const files = (req.files && Array.isArray(req.files)) ? req.files : [];
+      if (files.length === 0) return res.status(400).json({ message: "Žiadne súbory" });
+
+      const totalSize = files.reduce((s: number, f: any) => s + f.size, 0);
+      if (totalSize > 200 * 1024 * 1024) {
+        files.forEach((f: any) => fs.unlink(f.path, () => {}));
+        return res.status(413).json({ message: `Celková veľkosť dávky presahuje 200 MB.` });
+      }
+
+      if (files.length > 0) {
+        const multiScan = await scanMultipleFiles(files);
+        if (!multiScan.safe) {
+          return res.status(400).json({ message: `⚠️ Bezpečnostná chyba: Súbor "${multiScan.failedFile}" bol vyhodnotený ako rizikový. ${multiScan.reason}` });
+        }
+      }
+
+      const result = files.map((f: any) => ({
+        name: f.originalname,
+        url: `/api/files/contract-docs/${f.filename}`,
+        size: f.size,
+      }));
+
+      await logAudit(req, {
+        action: "SCAN_COMMANDER_STAGE_UPLOAD",
+        module: "zmluvy",
+        newData: { fileCount: files.length, totalBytes: totalSize },
+      });
+
+      res.json({ files: result });
+    } catch (err: any) {
+      console.error("POST /api/scan-commander/stage-upload error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  // ===== SCAN COMMANDER — Pair file with contract =====
+  app.post("/api/scan-commander/pair", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractId, fileUrl, fileName } = req.body;
+      if (!contractId || !fileUrl || !fileName) {
+        return res.status(400).json({ message: "Chýbajú povinné polia: contractId, fileUrl, fileName" });
+      }
+      const appUser = req.appUser;
+      const now = new Date();
+
+      const [contract] = await db.select().from(contracts).where(eq(contracts.id, Number(contractId)));
+      if (!contract) return res.status(404).json({ message: "Kontrakt nenájdený" });
+
+      const existingDocs: DocEntry[] = (contract.documents as DocEntry[]) || [];
+      const newDoc: DocEntry = {
+        name: fileName,
+        url: fileUrl,
+        uploadedAt: now.toISOString(),
+      };
+      const allDocs = [...existingDocs, newDoc];
+
+      const [updated] = await db.update(contracts).set({
+        documents: allDocs,
+        scansUploaded: true,
+        ocrDataAssigned: true,
+        lifecyclePhase: contract.lifecyclePhase === 6 ? 8 : contract.lifecyclePhase,
+        updatedAt: now,
+      }).where(eq(contracts.id, Number(contractId))).returning();
+
+      if (contract.lifecyclePhase === 6) {
+        await db.insert(contractLifecycleHistory).values({
+          contractId: Number(contractId),
+          phase: 8,
+          phaseName: "Manuálna kontrola kontraktov",
+          changedByUserId: appUser?.id || null,
+          note: "Scan Commander — priradenie skenu, presun do fázy 8",
+        });
+      }
+
+      await logAudit(req, {
+        action: "SCAN_COMMANDER_PAIR",
+        module: "zmluvy",
+        entityId: Number(contractId),
+        entityName: contract.contractNumber || contract.proposalNumber || `ID ${contractId}`,
+        newData: { fileName, fileUrl, movedToPhase8: contract.lifecyclePhase === 6 },
+      });
+
+      res.json({ success: true, contract: updated });
+    } catch (err: any) {
+      console.error("POST /api/scan-commander/pair error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
   app.post("/api/contracts/create-processing-supiska", isAuthenticated, async (req: any, res) => {
     try {
       const { contractIds } = req.body;

@@ -2866,6 +2866,463 @@ function BOVerificationConsole({
   );
 }
 
+// ========== SCAN COMMANDER ==========
+type StagedFile = {
+  name: string;
+  url: string;
+  size: number;
+  progress: number;
+  done: boolean;
+  error?: string;
+  pairedContractId?: number;
+  pairedContractName?: string;
+};
+
+function ScanCommanderDialog({
+  open,
+  onClose,
+  commanderContracts,
+  subjects,
+  partners,
+  products,
+}: {
+  open: boolean;
+  onClose: () => void;
+  commanderContracts: Contract[];
+  subjects?: Subject[];
+  partners?: Partner[];
+  products?: Product[];
+}) {
+  const { toast } = useToast();
+  const [inboxFiles, setInboxFiles] = useState<StagedFile[]>([]);
+  const [selectedFileUrl, setSelectedFileUrl] = useState<string | null>(null);
+  const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
+  const [pairing, setPairing] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  // Track internal contract state (paired counts) locally
+  const [localPairedCounts, setLocalPairedCounts] = useState<Record<number, number>>({});
+
+  // PDF blob URL for selected file preview
+  const previewBlobUrlRef = useRef<string | null>(null);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setInboxFiles([]);
+      setSelectedFileUrl(null);
+      setSelectedContractId(null);
+      setLocalPairedCounts({});
+      if (previewBlobUrlRef.current) {
+        URL.revokeObjectURL(previewBlobUrlRef.current);
+        previewBlobUrlRef.current = null;
+      }
+      setPreviewBlobUrl(null);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!selectedFileUrl) {
+      if (previewBlobUrlRef.current) {
+        URL.revokeObjectURL(previewBlobUrlRef.current);
+        previewBlobUrlRef.current = null;
+      }
+      setPreviewBlobUrl(null);
+      return;
+    }
+    const isPdf = selectedFileUrl.toLowerCase().includes('.pdf');
+    if (!isPdf) {
+      if (previewBlobUrlRef.current) {
+        URL.revokeObjectURL(previewBlobUrlRef.current);
+        previewBlobUrlRef.current = null;
+      }
+      setPreviewBlobUrl(selectedFileUrl);
+      return;
+    }
+    setPreviewLoading(true);
+    let active = true;
+    fetch(selectedFileUrl, { credentials: 'include' })
+      .then(r => { if (!r.ok) throw new Error('fetch failed'); return r.blob(); })
+      .then(blob => {
+        if (!active) return;
+        if (previewBlobUrlRef.current) URL.revokeObjectURL(previewBlobUrlRef.current);
+        const blobUrl = URL.createObjectURL(blob);
+        previewBlobUrlRef.current = blobUrl;
+        setPreviewBlobUrl(blobUrl);
+      })
+      .catch(() => { if (active) setPreviewBlobUrl(null); })
+      .finally(() => { if (active) setPreviewLoading(false); });
+    return () => { active = false; };
+  }, [selectedFileUrl]);
+
+  function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  async function uploadFiles(files: File[]) {
+    if (files.length === 0) return;
+    const newEntries: StagedFile[] = files.map(f => ({
+      name: f.name,
+      url: "",
+      size: f.size,
+      progress: 0,
+      done: false,
+    }));
+    const startIdx = inboxFiles.length;
+    setInboxFiles(prev => [...prev, ...newEntries]);
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const absIdx = startIdx + i;
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          const formData = new FormData();
+          formData.append("files", file);
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 90);
+              setInboxFiles(prev => {
+                const copy = [...prev];
+                if (copy[absIdx]) copy[absIdx] = { ...copy[absIdx], progress: pct };
+                return copy;
+              });
+            }
+          };
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              const data = JSON.parse(xhr.responseText);
+              const serverFile = data.files?.[0];
+              if (serverFile) {
+                setInboxFiles(prev => {
+                  const copy = [...prev];
+                  if (copy[absIdx]) copy[absIdx] = { ...copy[absIdx], url: serverFile.url, progress: 100, done: true };
+                  return copy;
+                });
+              }
+              resolve();
+            } else {
+              let msg = "Chyba nahrávania";
+              try { msg = JSON.parse(xhr.responseText)?.message || msg; } catch {}
+              setInboxFiles(prev => {
+                const copy = [...prev];
+                if (copy[absIdx]) copy[absIdx] = { ...copy[absIdx], progress: 0, error: msg };
+                return copy;
+              });
+              reject(new Error(msg));
+            }
+          };
+          xhr.onerror = () => {
+            setInboxFiles(prev => {
+              const copy = [...prev];
+              if (copy[absIdx]) copy[absIdx] = { ...copy[absIdx], progress: 0, error: "Sieťová chyba" };
+              return copy;
+            });
+            reject(new Error("Sieťová chyba"));
+          };
+          xhr.open("POST", "/api/scan-commander/stage-upload");
+          xhr.withCredentials = true;
+          xhr.send(formData);
+        });
+      } catch {}
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) uploadFiles(files);
+  }
+
+  function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) uploadFiles(files);
+    e.target.value = "";
+  }
+
+  async function handlePair() {
+    if (!selectedFileUrl || !selectedContractId) return;
+    const fileEntry = inboxFiles.find(f => f.url === selectedFileUrl);
+    if (!fileEntry || !fileEntry.done) return;
+    setPairing(true);
+    try {
+      const res = await fetch("/api/scan-commander/pair", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contractId: selectedContractId, fileUrl: selectedFileUrl, fileName: fileEntry.name }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Chyba párovania");
+      }
+      const contract = commanderContracts.find(c => c.id === selectedContractId);
+      const contractLabel = contract?.contractNumber || contract?.proposalNumber || `ID ${selectedContractId}`;
+      setInboxFiles(prev => prev.map(f =>
+        f.url === selectedFileUrl
+          ? { ...f, pairedContractId: selectedContractId, pairedContractName: contractLabel }
+          : f
+      ));
+      setLocalPairedCounts(prev => ({ ...prev, [selectedContractId]: (prev[selectedContractId] || 0) + 1 }));
+      setSelectedFileUrl(null);
+      setSelectedContractId(null);
+      toast({ title: "Priradené", description: `Sken "${fileEntry.name}" priradený k ${contractLabel}` });
+    } catch (err: any) {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    } finally {
+      setPairing(false);
+    }
+  }
+
+  const selectedFile = inboxFiles.find(f => f.url === selectedFileUrl);
+  const canPair = !!selectedFileUrl && !!selectedContractId && selectedFile?.done && !selectedFile?.pairedContractId && !pairing;
+  const isPdf = !!selectedFileUrl && selectedFileUrl.toLowerCase().includes('.pdf');
+  const isImage = selectedFileUrl ? /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(selectedFileUrl) : false;
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent size="full" noInnerScroll className="p-0 overflow-hidden flex flex-col h-[96vh] max-h-[96vh]">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b bg-background shrink-0 flex-wrap">
+          <Inbox className="w-5 h-5 text-blue-500" />
+          <div className="flex-1 min-w-0">
+            <h2 className="font-semibold text-sm" data-testid="text-scan-commander-title">
+              ATK Scan Commander — Hromadné nahrávanie skenov
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              {commanderContracts.length === 1
+                ? `Zmluva: ${commanderContracts[0].contractNumber || commanderContracts[0].proposalNumber || `ID ${commanderContracts[0].id}`}`
+                : `${commanderContracts.length} zmlúv v Trezore`}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {selectedFile && selectedContractId && (
+              <Button
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={!canPair}
+                onClick={handlePair}
+                data-testid="button-scan-pair"
+              >
+                {pairing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Check className="w-4 h-4 mr-1.5" />}
+                Priradiť
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={onClose} data-testid="button-scan-commander-close">
+              Zavrieť
+            </Button>
+          </div>
+        </div>
+
+        {/* 3-panel body */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+
+          {/* LEFT: PDF/Image Preview */}
+          <div className="w-[35%] border-r flex flex-col min-h-0 bg-muted/10">
+            <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2">
+              <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground">Náhľad</span>
+              {selectedFile && (
+                <span className="text-xs text-foreground font-mono truncate ml-1">{selectedFile.name}</span>
+              )}
+            </div>
+            <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center">
+              {!selectedFileUrl ? (
+                <div className="text-center text-muted-foreground p-6">
+                  <Eye className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Kliknite na súbor v Inboxe</p>
+                </div>
+              ) : previewLoading ? (
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+              ) : previewBlobUrl && isPdf ? (
+                <embed
+                  key={previewBlobUrl}
+                  src={previewBlobUrl}
+                  type="application/pdf"
+                  className="w-full h-full"
+                  style={{ minHeight: 0 }}
+                />
+              ) : previewBlobUrl && isImage ? (
+                <img
+                  src={previewBlobUrl}
+                  alt={selectedFile?.name}
+                  className="max-w-full max-h-full object-contain p-2"
+                />
+              ) : (
+                <div className="text-center text-muted-foreground p-6">
+                  <FileText className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">Náhľad nie je dostupný</p>
+                  <a href={selectedFileUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-500 underline mt-1 block">
+                    Otvoriť súbor
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* MIDDLE: Inbox */}
+          <div className="w-[32%] border-r flex flex-col min-h-0">
+            <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2">
+              <Inbox className="w-3.5 h-3.5 text-blue-500" />
+              <span className="text-xs font-medium">Inbox</span>
+              <Badge variant="outline" className="text-xs ml-auto">{inboxFiles.length} súborov</Badge>
+            </div>
+
+            {/* Drop zone */}
+            <div
+              className={`mx-3 mt-3 mb-2 rounded-lg border-2 border-dashed flex flex-col items-center justify-center py-4 px-3 transition-colors cursor-pointer shrink-0 ${
+                isDragOver ? "border-blue-500 bg-blue-500/10" : "border-blue-400/50 hover:border-blue-500 hover:bg-blue-500/5"
+              }`}
+              onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => document.getElementById("scan-commander-file-input")?.click()}
+              data-testid="dropzone-scan-commander"
+            >
+              <Upload className="w-6 h-6 text-blue-500 mb-1" />
+              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Pretiahnite skeny sem</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">alebo kliknite pre výber súborov</p>
+              <input
+                id="scan-commander-file-input"
+                type="file"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp,.doc,.docx"
+                className="hidden"
+                onChange={handleFileInput}
+              />
+            </div>
+
+            {/* File list */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 space-y-1">
+              {inboxFiles.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center pt-4">Žiadne súbory</p>
+              )}
+              {inboxFiles.map((f, idx) => {
+                const isSelected = f.url === selectedFileUrl;
+                const isPaired = !!f.pairedContractId;
+                return (
+                  <div
+                    key={idx}
+                    className={`rounded-md border px-2 py-1.5 cursor-pointer transition-colors ${
+                      isPaired
+                        ? "bg-emerald-500/10 border-emerald-500/30"
+                        : isSelected
+                        ? "bg-blue-500/15 border-blue-500/50"
+                        : "hover:bg-muted/40 border-border"
+                    } ${!f.done && !f.error ? "opacity-70" : ""}`}
+                    onClick={() => { if (f.done && f.url) setSelectedFileUrl(f.url === selectedFileUrl ? null : f.url); }}
+                    data-testid={`file-inbox-${idx}`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <FileText className={`w-3.5 h-3.5 shrink-0 ${isPaired ? "text-emerald-500" : isSelected ? "text-blue-500" : "text-muted-foreground"}`} />
+                      <span className="text-xs font-mono truncate flex-1">{f.name}</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{formatBytes(f.size)}</span>
+                    </div>
+                    {f.error ? (
+                      <p className="text-[10px] text-red-500 mt-0.5">{f.error}</p>
+                    ) : !f.done ? (
+                      <div className="mt-1 h-1 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full bg-blue-500 transition-all" style={{ width: `${f.progress}%` }} />
+                      </div>
+                    ) : isPaired ? (
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5 truncate">→ {f.pairedContractName}</p>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* RIGHT: Trezor (contracts) */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2">
+              <Archive className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="text-xs font-medium">Trezor zmlúv</span>
+              <Badge variant="outline" className="text-xs ml-auto">{commanderContracts.length} zmlúv</Badge>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              {commanderContracts.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-8">Žiadne zmluvy</p>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b bg-muted/30 sticky top-0">
+                      <th className="p-2 text-left font-medium text-muted-foreground">Číslo zmluvy</th>
+                      <th className="p-2 text-left font-medium text-muted-foreground">Návrh</th>
+                      <th className="p-2 text-left font-medium text-muted-foreground">Partner</th>
+                      <th className="p-2 text-left font-medium text-muted-foreground">Subjekt</th>
+                      <th className="p-2 text-center font-medium text-muted-foreground">Skeny</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {commanderContracts.map(c => {
+                      const isSelected = c.id === selectedContractId;
+                      const paired = localPairedCounts[c.id] || 0;
+                      const hasPaired = paired > 0;
+                      const sub = subjects?.find(s => s.id === c.subjectId);
+                      const subName = sub ? [sub.titleBefore, sub.firstName, sub.lastName, sub.titleAfter].filter(Boolean).join(" ") || sub.companyName || "—" : "—";
+                      const partnerName = partners?.find(p => p.id === c.partnerId)?.code || partners?.find(p => p.id === c.partnerId)?.name || "—";
+                      return (
+                        <tr
+                          key={c.id}
+                          className={`border-b cursor-pointer transition-colors ${
+                            isSelected
+                              ? "bg-emerald-500/15 border-emerald-500/30"
+                              : hasPaired
+                              ? "bg-emerald-500/5 hover:bg-emerald-500/10"
+                              : "hover:bg-muted/30"
+                          }`}
+                          onClick={() => setSelectedContractId(c.id === selectedContractId ? null : c.id)}
+                          data-testid={`row-trezor-contract-${c.id}`}
+                        >
+                          <td className="p-2 font-mono text-blue-500 font-bold">{c.contractNumber || "—"}</td>
+                          <td className="p-2 font-mono text-muted-foreground">{c.proposalNumber || "—"}</td>
+                          <td className="p-2">{partnerName}</td>
+                          <td className="p-2 truncate max-w-[160px]">{subName}</td>
+                          <td className="p-2 text-center">
+                            {hasPaired ? (
+                              <Badge className="text-[10px] bg-emerald-600 text-white">{paired}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            {/* Pair hint */}
+            <div className="px-3 py-2 border-t shrink-0 bg-muted/20">
+              {!selectedFileUrl && !selectedContractId && (
+                <p className="text-[10px] text-muted-foreground">
+                  1. Kliknite na súbor v Inboxe → 2. Kliknite na zmluvu v Trezore → 3. Stlačte "Priradiť"
+                </p>
+              )}
+              {selectedFileUrl && !selectedContractId && (
+                <p className="text-[10px] text-blue-500">Vyberte zmluvu v Trezore, ku ktorej chcete priradiť sken</p>
+              )}
+              {!selectedFileUrl && selectedContractId && (
+                <p className="text-[10px] text-emerald-600">Vyberte sken z Inboxu pre priradenie k tejto zmluve</p>
+              )}
+              {selectedFileUrl && selectedContractId && (
+                <p className="text-[10px] text-emerald-600 font-medium">
+                  Hotovo — stlačte "Priradiť" na spárovanie
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Contracts() {
   const { data: appUser } = useAppUser();
   const activeStateId = appUser?.activeStateId ?? null;
@@ -2968,6 +3425,15 @@ export default function Contracts() {
   const [sprievodkaDialogOpen, setSprievodkaDialogOpen] = useState(false);
   const [sprievodkaPrinted, setSprievodkaPrinted] = useState(false);
   const [rerouteSelectedIds, setRerouteSelectedIds] = useState<number[]>([]);
+
+  // Scan Commander
+  const [commanderOpen, setCommanderOpen] = useState(false);
+  const [commanderContracts, setCommanderContracts] = useState<Contract[]>([]);
+  function openCommander(contracts: Contract[]) {
+    setCommanderContracts(contracts);
+    setCommanderOpen(true);
+  }
+
   useEffect(() => { try { localStorage.setItem("nahr_savedChecklist", JSON.stringify(docChecklistSavedState)); } catch {} }, [docChecklistSavedState]);
   useEffect(() => { try { localStorage.setItem("nahr_partialChecklist", JSON.stringify(docChecklistPartialState)); } catch {} }, [docChecklistPartialState]);
   useEffect(() => { try { localStorage.setItem("nahr_phase5Checklist", JSON.stringify(phase5DocSavedState)); } catch {} }, [phase5DocSavedState]);
@@ -10446,9 +10912,12 @@ export default function Contracts() {
                           {assignOcrDataMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <ScanLine className="w-3.5 h-3.5 mr-1.5" />}
                           Priradiť ku skenom — dátová linka
                         </Button>
-                        <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => assignScansMutation.mutate(rerouteSelectedIds)} disabled={assignScansMutation.isPending} data-testid="button-assign-scans">
-                          {assignScansMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Upload className="w-3.5 h-3.5 mr-1.5" />}
-                          Manuálne nahrať skeny
+                        <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => {
+                          const selected = phaseContracts.filter(c => rerouteSelectedIds.includes(c.id));
+                          openCommander(selected);
+                        }} data-testid="button-assign-scans">
+                          <Upload className="w-3.5 h-3.5 mr-1.5" />
+                          Nahrať skeny ({rerouteSelectedIds.length})
                         </Button>
                       </div>
                     )}
@@ -10492,6 +10961,15 @@ export default function Contracts() {
                                     <LayoutGrid className="w-4 h-4 text-cyan-500 shrink-0" />
                                     <span className="text-sm font-medium flex-1">{groupName}</span>
                                     <Badge variant="outline" className="text-xs">{groupContracts.length} {groupContracts.length === 1 ? "zmluva" : groupContracts.length < 5 ? "zmluvy" : "zmluv"}</Badge>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 text-xs px-2 border-emerald-500/40 text-emerald-600 hover:bg-emerald-500/10"
+                                      onClick={(e) => { e.stopPropagation(); openCommander(groupContracts); }}
+                                      data-testid={`button-group-upload-scans-${groupName.replace(/\s/g, '-')}`}
+                                    >
+                                      <Inbox className="w-3 h-3 mr-1" />Nahrať skeny
+                                    </Button>
                                   </div>
                                   <div style={{ display: isGroupExpanded ? 'block' : 'none' }}>
                                     <div className="border-t">
@@ -10558,8 +11036,8 @@ export default function Contracts() {
                                                   {hasScans ? <Check className="w-4 h-4 text-green-500 inline" /> : <span className="text-muted-foreground">—</span>}
                                                 </td>
                                                 <td className="p-2 text-right">
-                                                  <Button size="sm" variant="ghost" className="h-6 text-xs px-2" onClick={() => manualCompletePhase6Mutation.mutate(contract.id)} disabled={manualCompletePhase6Mutation.isPending} data-testid={`button-manual-complete-${contract.id}`}>
-                                                    <Upload className="w-3 h-3 mr-1" />Manuálne dokončiť
+                                                  <Button size="sm" variant="ghost" className="h-6 text-xs px-2 text-purple-600 hover:text-purple-700 hover:bg-purple-500/10" onClick={() => openCommander([contract])} data-testid={`button-manual-complete-${contract.id}`}>
+                                                    <Inbox className="w-3 h-3 mr-1" />Nahrať skeny
                                                   </Button>
                                                 </td>
                                               </tr>
@@ -11323,6 +11801,15 @@ export default function Contracts() {
           products={products || []}
           appUsersAll={appUsersAll || []}
         />
+
+        <ScanCommanderDialog
+          open={commanderOpen}
+          onClose={() => setCommanderOpen(false)}
+          commanderContracts={commanderContracts}
+          subjects={subjects || []}
+          partners={partners || []}
+          products={products || []}
+        />
       </div>
     );
   }
@@ -11694,6 +12181,15 @@ export default function Contracts() {
         subjects={subjects || []}
         products={products || []}
         appUsersAll={appUsersAll || []}
+      />
+
+      <ScanCommanderDialog
+        open={commanderOpen}
+        onClose={() => setCommanderOpen(false)}
+        commanderContracts={commanderContracts}
+        subjects={subjects || []}
+        partners={partners || []}
+        products={products || []}
       />
 
       <Dialog open={bulkDateDialogOpen} onOpenChange={setBulkDateDialogOpen}>
