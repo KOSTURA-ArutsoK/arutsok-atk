@@ -472,6 +472,9 @@ export function AppSidebar() {
   const visibleZmluvySubItems = zmluvySubItems.filter(item => item.roles.includes(userRole));
   const showZmluvyCascade = visibleZmluvySubItems.length > 1;
 
+  // Sekcia "Partneri & Produkty" sa zobrazuje IBA keď KTO = KDE.
+  // Oba musia byť non-null A zhodné — ak jeden z nich nie je nastavený,
+  // sekcia je tiež skrytá (žiadny kontext → žiadny prístup).
   const ktoEqualsKde =
     !!appUser?.activeKtoCompanyId &&
     !!appUser?.activeCompanyId &&
