@@ -555,11 +555,12 @@ fs.mkdirSync(path.join(UPLOADS_DIR, "flags"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "status-change-docs"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "subject-photos"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "supiska-attachments"), { recursive: true });
+fs.mkdirSync(path.join(UPLOADS_DIR, "contract-docs"), { recursive: true });
 
 const uploadStorage = multer.diskStorage({
   destination: (req, _file, cb) => {
     const section = (req.params as any).section || (req as any)._uploadSection;
-    const validDirs = ["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs", "subject-photos", "datova-linka", "supiska-attachments"];
+    const validDirs = ["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs", "subject-photos", "datova-linka", "supiska-attachments", "contract-docs"];
     const dir = validDirs.includes(section) ? section : "official";
     cb(null, path.join(UPLOADS_DIR, dir));
   },
@@ -4982,7 +4983,7 @@ export async function registerRoutes(
   app.get("/api/files/:section/:filename", isAuthenticated, (req, res) => {
     const section = req.params.section as string;
     const filename = req.params.filename as string;
-    if (!["official", "work", "tax", "logos", "amendments", "profiles", "flags", "status-change-docs", "generated-docs"].includes(section)) return res.status(400).json({ message: "Invalid section" });
+    if (!["official", "work", "tax", "logos", "amendments", "profiles", "flags", "status-change-docs", "generated-docs", "contract-docs"].includes(section)) return res.status(400).json({ message: "Invalid section" });
     const filePath = path.join(UPLOADS_DIR, section, filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -4992,6 +4993,24 @@ export async function registerRoutes(
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     }
     res.sendFile(filePath);
+  });
+
+  app.get("/api/files/:filename", isAuthenticated, (req, res) => {
+    const filename = req.params.filename as string;
+    const ext = path.extname(filename).toLowerCase();
+    const inlineTypes = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".pdf"]);
+    const searchDirs = ["official", "contract-docs"];
+    for (const dir of searchDirs) {
+      const filePath = path.join(UPLOADS_DIR, dir, filename);
+      if (fs.existsSync(filePath)) {
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        if (!inlineTypes.has(ext)) {
+          res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+        }
+        return res.sendFile(filePath);
+      }
+    }
+    return res.status(404).json({ message: "File not found" });
   });
 
   app.delete("/api/my-companies/:companyId/files/:section", isAuthenticated, async (req, res) => {
@@ -5841,7 +5860,7 @@ export async function registerRoutes(
       for (const file of newFiles) {
         newDocs.push({
           name: file.originalname,
-          url: `/api/files/${file.filename}`,
+          url: `/api/files/contract-docs/${file.filename}`,
           uploadedAt: new Date().toISOString(),
           fileSize: file.size,
         });

@@ -2459,7 +2459,7 @@ function BOVerificationConsole({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent size="full" className="p-0 overflow-hidden flex flex-col h-[96vh] max-h-[96vh]">
+      <DialogContent size="full" noInnerScroll className="p-0 overflow-hidden flex flex-col h-[96vh] max-h-[96vh]">
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b bg-background shrink-0 flex-wrap">
           <ListChecks className="w-5 h-5 text-orange-500" />

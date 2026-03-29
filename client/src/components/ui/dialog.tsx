@@ -32,6 +32,7 @@ type DialogSize = "auto" | "sm" | "md" | "lg" | "xl" | "full";
 
 interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
   size?: DialogSize;
+  noInnerScroll?: boolean;
 }
 
 const SIZE_CLASSES: Record<DialogSize, string> = {
@@ -48,7 +49,7 @@ const FOOTER_DISPLAY_NAME = "DialogFooter";
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, size = "auto", ...props }, ref) => {
+>(({ className, children, size = "auto", noInnerScroll = false, ...props }, ref) => {
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const [computedSize, setComputedSize] = React.useState<DialogSize>(size);
 
@@ -156,9 +157,11 @@ const DialogContent = React.forwardRef<
         )}
         {...props}
       >
-        <div className={cn("flex-1 min-h-0 overflow-y-auto px-6", hasFooter ? "pb-4" : "pb-6")}>
-          {otherChildren}
-        </div>
+        {noInnerScroll ? otherChildren : (
+          <div className={cn("flex-1 min-h-0 overflow-y-auto px-6", hasFooter ? "pb-4" : "pb-6")}>
+            {otherChildren}
+          </div>
+        )}
 
         {hasFooter && footerChildren}
 
