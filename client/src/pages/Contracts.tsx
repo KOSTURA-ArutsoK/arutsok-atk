@@ -2897,9 +2897,14 @@ function ScanCommanderDialog({
   const { toast } = useToast();
   const [inboxFiles, setInboxFiles] = useState<StagedFile[]>([]);
   const [selectedFileUrl, setSelectedFileUrl] = useState<string | null>(null);
-  const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
+  const [selectedInboxIds, setSelectedInboxIds] = useState<Set<string>>(new Set());
+  const [inboxCursorIndex, setInboxCursorIndex] = useState<number>(-1);
+  const lastInboxSelectIndex = useRef<number>(-1);
+  const [selectedContractIds, setSelectedContractIds] = useState<Set<number>>(new Set());
   const [pairing, setPairing] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [unpairing, setUnpairing] = useState<string | null>(null);
+  const [expandedContractDocs, setExpandedContractDocs] = useState<Set<number>>(new Set());
 
   // Track internal contract state (paired counts) locally
   const [localPairedCounts, setLocalPairedCounts] = useState<Record<number, number>>({});
@@ -2934,7 +2939,10 @@ function ScanCommanderDialog({
     if (!open) {
       setInboxFiles([]);
       setSelectedFileUrl(null);
-      setSelectedContractId(null);
+      setSelectedInboxIds(new Set());
+      setInboxCursorIndex(-1);
+      setSelectedContractIds(new Set());
+      setExpandedContractDocs(new Set());
       setLocalPairedCounts({});
       if (previewBlobUrlRef.current) {
         URL.revokeObjectURL(previewBlobUrlRef.current);
@@ -3097,35 +3105,62 @@ function ScanCommanderDialog({
   }
 
   async function handlePair() {
-    if (!selectedFileUrl || !selectedContractId) return;
-    const fileEntry = inboxFiles.find(f => f.url === selectedFileUrl);
-    if (!fileEntry || !fileEntry.done) return;
+    if (selectedInboxIds.size === 0 || selectedContractIds.size === 0) return;
+    const filesToPair = inboxFiles.filter(f =>
+      selectedInboxIds.has(f.id) && f.done && !f.pairedContractId && f.url
+    );
+    if (filesToPair.length === 0) return;
     setPairing(true);
     try {
-      const res = await fetch("/api/scan-commander/pair", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contractId: selectedContractId, fileUrl: selectedFileUrl, fileName: fileEntry.name }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || "Chyba párovania");
+      let totalSuccessFiles = 0;
+      const contractCount = selectedContractIds.size;
+      for (const fileEntry of filesToPair) {
+        const res = await fetch("/api/scan-commander/pair", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contractIds: [...selectedContractIds],
+            fileUrl: fileEntry.url,
+            fileName: fileEntry.name,
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.message || "Chyba párovania");
+        }
+        const data = await res.json();
+        const successIds: number[] = (data.results || []).filter((r: any) => r.success).map((r: any) => r.contractId);
+        if (successIds.length > 0) {
+          totalSuccessFiles++;
+          const firstContract = commanderContracts.find(c => c.id === successIds[0]);
+          const firstLabel = firstContract?.contractNumber || firstContract?.proposalNumber || `ID ${successIds[0]}`;
+          const pairedLabel = successIds.length === 1 ? firstLabel : `${firstLabel} + ${successIds.length - 1} ďalšie`;
+          setInboxFiles(prev => prev.map(f =>
+            f.id === fileEntry.id ? { ...f, pairedContractId: successIds[0], pairedContractName: pairedLabel } : f
+          ));
+          setLocalPairedCounts(prev => {
+            const next = { ...prev };
+            for (const cid of successIds) next[cid] = (next[cid] || 0) + 1;
+            return next;
+          });
+        }
       }
-      const contract = commanderContracts.find(c => c.id === selectedContractId);
-      const contractLabel = contract?.contractNumber || contract?.proposalNumber || `ID ${selectedContractId}`;
-      setInboxFiles(prev => prev.map(f =>
-        f.url === selectedFileUrl
-          ? { ...f, pairedContractId: selectedContractId, pairedContractName: contractLabel }
-          : f
-      ));
-      setLocalPairedCounts(prev => ({ ...prev, [selectedContractId]: (prev[selectedContractId] || 0) + 1 }));
+      if (totalSuccessFiles === 0) throw new Error("Žiadna zmluva nebola priradená.");
+      setSelectedInboxIds(new Set());
+      setSelectedContractIds(new Set());
       setSelectedFileUrl(null);
-      setSelectedContractId(null);
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/phase6"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/phase8"] });
-      toast({ title: "Priradené", description: `Sken "${fileEntry.name}" priradený k ${contractLabel}` });
+      const desc = totalSuccessFiles === 1
+        ? (contractCount === 1
+            ? `Sken priradený k 1 zmluve`
+            : `Sken priradený k ${contractCount} zmluvám`)
+        : (contractCount === 1
+            ? `${totalSuccessFiles} skenov priradených k 1 zmluve`
+            : `${totalSuccessFiles} skenov priradených k ${contractCount} zmluvám`);
+      toast({ title: "Priradené", description: desc });
     } catch (err: any) {
       toast({ title: "Chyba", description: err.message, variant: "destructive" });
     } finally {
@@ -3133,11 +3168,109 @@ function ScanCommanderDialog({
     }
   }
 
+  async function handleUnpair(contractId: number, fileUrl: string) {
+    const key = `${contractId}:${fileUrl}`;
+    setUnpairing(key);
+    try {
+      const res = await fetch("/api/scan-commander/pair", {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contractId, fileUrl }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Chyba pri rušení priradenia");
+      }
+      setLocalPairedCounts(prev => ({
+        ...prev,
+        [contractId]: Math.max(0, (prev[contractId] || 0) - 1),
+      }));
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/phase6"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/phase8"] });
+      toast({ title: "Priradenie zrušené", description: "Dokument bol odstránený zo zmluvy." });
+    } catch (err: any) {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    } finally {
+      setUnpairing(null);
+    }
+  }
+
   const selectedFile = inboxFiles.find(f => f.url === selectedFileUrl);
-  const canPair = !!selectedFileUrl && !!selectedContractId && selectedFile?.done && !selectedFile?.pairedContractId && !pairing;
+  const nSelectableFiles = inboxFiles.filter(f => selectedInboxIds.has(f.id) && f.done && !f.pairedContractId).length;
+  const canPair = nSelectableFiles > 0 && selectedContractIds.size > 0 && !pairing;
+  const pairButtonLabel = (() => {
+    const nF = nSelectableFiles;
+    const nC = selectedContractIds.size;
+    if (nF > 1 && nC > 1) return `Priradiť (${nF} × ${nC})`;
+    if (nF > 1) return `Priradiť (${nF} skenov)`;
+    if (nC > 1) return `Priradiť (${nC} zmluvy)`;
+    return "Priradiť";
+  })();
   const isPdf = !!selectedFileUrl && selectedFileUrl.toLowerCase().includes('.pdf');
   const isImage = selectedFileUrl ? /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(selectedFileUrl) : false;
   const isDocx = selectedFileUrl ? /\.(docx?|doc)$/i.test(selectedFileUrl) : false;
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setInboxCursorIndex(prev => {
+          const next = Math.min(inboxFiles.length - 1, prev + 1);
+          if (next >= 0 && inboxFiles[next]?.url) setSelectedFileUrl(inboxFiles[next].url);
+          return next;
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setInboxCursorIndex(prev => {
+          const next = Math.max(0, prev <= 0 ? 0 : prev - 1);
+          if (inboxFiles[next]?.url) setSelectedFileUrl(inboxFiles[next].url);
+          return next;
+        });
+      } else if (e.key === " " && !e.shiftKey) {
+        e.preventDefault();
+        const file = inboxCursorIndex >= 0 ? inboxFiles[inboxCursorIndex] : null;
+        if (file?.done && !file.pairedContractId) {
+          setSelectedInboxIds(prev => {
+            const next = new Set(prev);
+            if (next.has(file.id)) next.delete(file.id);
+            else next.add(file.id);
+            return next;
+          });
+        }
+      } else if (e.key === " " && e.shiftKey) {
+        e.preventDefault();
+        if (inboxCursorIndex >= 0 && lastInboxSelectIndex.current >= 0) {
+          const lo = Math.min(inboxCursorIndex, lastInboxSelectIndex.current);
+          const hi = Math.max(inboxCursorIndex, lastInboxSelectIndex.current);
+          const rangeIds = inboxFiles.slice(lo, hi + 1)
+            .filter(f => f.done && !f.pairedContractId)
+            .map(f => f.id);
+          setSelectedInboxIds(prev => {
+            const next = new Set(prev);
+            rangeIds.forEach(id => next.add(id));
+            return next;
+          });
+        }
+      } else if ((e.key === "a" || e.key === "A") && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        const allIds = inboxFiles.filter(f => f.done && !f.pairedContractId).map(f => f.id);
+        setSelectedInboxIds(new Set(allIds));
+        const last = inboxFiles.filter(f => f.done && !f.pairedContractId).at(-1);
+        if (last?.url) setSelectedFileUrl(last.url);
+        setInboxCursorIndex(inboxFiles.length - 1);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (canPair && !pairing) handlePair();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, inboxFiles, inboxCursorIndex, selectedInboxIds, selectedContractIds, canPair, pairing]);
 
   function getFileTypeIcon(name: string, className = "w-3.5 h-3.5 shrink-0") {
     const ext = name.split('.').pop()?.toLowerCase() ?? '';
@@ -3172,7 +3305,7 @@ function ScanCommanderDialog({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {selectedFile && selectedContractId && (
+            {(selectedInboxIds.size > 0 || selectedContractIds.size > 0) && (
               <Button
                 size="sm"
                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -3181,7 +3314,7 @@ function ScanCommanderDialog({
                 data-testid="button-scan-pair"
               >
                 {pairing ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Check className="w-4 h-4 mr-1.5" />}
-                Priradiť
+                {pairButtonLabel}
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={onClose} data-testid="button-scan-commander-close">
@@ -3321,7 +3454,13 @@ function ScanCommanderDialog({
             <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2">
               <Inbox className="w-3.5 h-3.5 text-blue-500" />
               <span className="text-xs font-medium">Inbox</span>
-              <Badge variant="outline" className="text-xs ml-auto">{inboxFiles.length} súborov</Badge>
+              {selectedInboxIds.size > 0 && (
+                <Badge className="text-xs bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-400/50">
+                  {selectedInboxIds.size} vybraných
+                </Badge>
+              )}
+              <span className="text-[9px] text-muted-foreground ml-auto hidden sm:inline">↑↓ Space Ctrl+A Enter</span>
+              <Badge variant="outline" className="text-xs">{inboxFiles.length} súborov</Badge>
             </div>
 
             {/* Drop zone */}
@@ -3337,12 +3476,12 @@ function ScanCommanderDialog({
             >
               <Upload className="w-6 h-6 text-blue-500 mb-1" />
               <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Pretiahnite skeny sem</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">alebo kliknite pre výber súborov</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">PDF, obrázky, Word, ZIP — kliknite pre výber</p>
               <input
                 id="scan-commander-file-input"
                 type="file"
                 multiple
-                accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp,.doc,.docx"
+                accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp,.doc,.docx,.zip"
                 className="hidden"
                 onChange={handleFileInput}
               />
@@ -3354,25 +3493,70 @@ function ScanCommanderDialog({
                 <p className="text-xs text-muted-foreground text-center pt-4">Žiadne súbory</p>
               )}
               {inboxFiles.map((f, idx) => {
-                const isSelected = f.url === selectedFileUrl;
+                const isPreview = f.url === selectedFileUrl;
+                const isInboxSelected = selectedInboxIds.has(f.id);
+                const isCursor = inboxCursorIndex === idx;
                 const isPaired = !!f.pairedContractId;
+                const isUploadDone = f.done && !f.error;
                 return (
                   <div
-                    key={idx}
+                    key={f.id}
                     className={`rounded-md border px-2 py-1.5 cursor-pointer transition-colors ${
                       isPaired
                         ? "bg-emerald-500/10 border-emerald-500/30"
-                        : isSelected
-                        ? "bg-blue-500/15 border-blue-500/50"
+                        : isInboxSelected
+                        ? "bg-orange-500/10 border-orange-500 ring-1 ring-orange-500/40"
+                        : isCursor
+                        ? "bg-blue-500/10 border-blue-400"
+                        : isPreview
+                        ? "bg-blue-500/10 border-blue-400/50"
                         : "hover:bg-muted/40 border-border"
                     } ${!f.done && !f.error ? "opacity-70" : ""}`}
-                    onClick={() => { if (f.done && f.url) setSelectedFileUrl(f.url === selectedFileUrl ? null : f.url); }}
+                    onClick={(e) => {
+                      if (!f.done || !f.url) return;
+                      lastInboxSelectIndex.current = idx;
+                      setInboxCursorIndex(idx);
+                      setSelectedFileUrl(f.url);
+                      if (e.ctrlKey || e.metaKey) {
+                        setSelectedInboxIds(prev => {
+                          const next = new Set(prev);
+                          if (next.has(f.id)) next.delete(f.id);
+                          else next.add(f.id);
+                          return next;
+                        });
+                      } else {
+                        setSelectedInboxIds(new Set([f.id]));
+                      }
+                    }}
                     data-testid={`file-inbox-${idx}`}
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
+                      {isUploadDone && !isPaired ? (
+                        <input
+                          type="checkbox"
+                          className="h-3 w-3 shrink-0 accent-orange-500"
+                          checked={isInboxSelected}
+                          onChange={(e2) => {
+                            e2.stopPropagation();
+                            setSelectedInboxIds(prev => {
+                              const next = new Set(prev);
+                              if (next.has(f.id)) next.delete(f.id);
+                              else next.add(f.id);
+                              return next;
+                            });
+                            if (f.url) setSelectedFileUrl(f.url);
+                          }}
+                          onClick={(e2) => e2.stopPropagation()}
+                          data-testid={`checkbox-inbox-${idx}`}
+                        />
+                      ) : (
+                        <span className="w-3 h-3 shrink-0" />
+                      )}
                       {isPaired
                         ? getFileTypeIcon(f.name, `w-3.5 h-3.5 shrink-0 text-emerald-500`)
-                        : isSelected
+                        : isInboxSelected
+                        ? getFileTypeIcon(f.name, `w-3.5 h-3.5 shrink-0 text-orange-500`)
+                        : isPreview
                         ? getFileTypeIcon(f.name, `w-3.5 h-3.5 shrink-0 text-blue-500`)
                         : getFileTypeIcon(f.name)}
                       <span className="text-xs font-mono truncate flex-1">{f.name}</span>
@@ -3408,6 +3592,7 @@ function ScanCommanderDialog({
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b bg-muted/30 sticky top-0">
+                      <th className="p-2 w-7"></th>
                       <th className="p-2 text-left font-medium text-muted-foreground">Číslo zmluvy</th>
                       <th className="p-2 text-left font-medium text-muted-foreground">Návrh</th>
                       <th className="p-2 text-left font-medium text-muted-foreground">Partner</th>
@@ -3417,37 +3602,107 @@ function ScanCommanderDialog({
                   </thead>
                   <tbody>
                     {commanderContracts.map(c => {
-                      const isSelected = c.id === selectedContractId;
-                      const paired = localPairedCounts[c.id] || 0;
-                      const hasPaired = paired > 0;
+                      const isSelected = selectedContractIds.has(c.id);
+                      const existingDocs: Array<{ name: string; url: string; uploadedAt: string }> = (c.documents as any) || [];
+                      const totalDocs = existingDocs.length;
+                      const hasDocs = totalDocs > 0;
+                      const isExpanded = expandedContractDocs.has(c.id);
                       const sub = subjects?.find(s => s.id === c.subjectId);
                       const subName = sub ? [sub.titleBefore, sub.firstName, sub.lastName, sub.titleAfter].filter(Boolean).join(" ") || sub.companyName || "—" : "—";
                       const partnerName = partners?.find(p => p.id === c.partnerId)?.code || partners?.find(p => p.id === c.partnerId)?.name || "—";
                       return (
-                        <tr
-                          key={c.id}
-                          className={`border-b cursor-pointer transition-colors ${
-                            isSelected
-                              ? "bg-emerald-500/15 border-emerald-500/30"
-                              : hasPaired
-                              ? "bg-emerald-500/5 hover:bg-emerald-500/10"
-                              : "hover:bg-muted/30"
-                          }`}
-                          onClick={() => setSelectedContractId(c.id === selectedContractId ? null : c.id)}
-                          data-testid={`row-trezor-contract-${c.id}`}
-                        >
-                          <td className="p-2 font-mono text-blue-500 font-bold">{c.contractNumber || "—"}</td>
-                          <td className="p-2 font-mono text-muted-foreground">{c.proposalNumber || "—"}</td>
-                          <td className="p-2">{partnerName}</td>
-                          <td className="p-2 truncate max-w-[160px]">{subName}</td>
-                          <td className="p-2 text-center">
-                            {hasPaired ? (
-                              <Badge className="text-[10px] bg-emerald-600 text-white">{paired}</Badge>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                        </tr>
+                        <Fragment key={c.id}>
+                          <tr
+                            className={`border-b cursor-pointer transition-colors ${
+                              isSelected
+                                ? "bg-emerald-500/15 border-emerald-500/30"
+                                : hasDocs
+                                ? "bg-emerald-500/5 hover:bg-emerald-500/10"
+                                : "hover:bg-muted/30"
+                            }`}
+                            onClick={() => {
+                              setSelectedContractIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                                return next;
+                              });
+                            }}
+                            data-testid={`row-trezor-contract-${c.id}`}
+                          >
+                            <td className="p-2 text-center" onClick={e => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  setSelectedContractIds(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                                    return next;
+                                  });
+                                }}
+                                className="accent-emerald-600 w-3.5 h-3.5 cursor-pointer"
+                                data-testid={`checkbox-trezor-${c.id}`}
+                              />
+                            </td>
+                            <td className="p-2 font-mono text-blue-500 font-bold">{c.contractNumber || "—"}</td>
+                            <td className="p-2 font-mono text-muted-foreground">{c.proposalNumber || "—"}</td>
+                            <td className="p-2">{partnerName}</td>
+                            <td className="p-2 truncate max-w-[120px]">{subName}</td>
+                            <td className="p-2 text-center">
+                              {hasDocs ? (
+                                <button
+                                  className="inline-flex items-center gap-1"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setExpandedContractDocs(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                                      return next;
+                                    });
+                                  }}
+                                  data-testid={`button-trezor-docs-${c.id}`}
+                                >
+                                  <Badge className="text-[10px] bg-emerald-600 text-white">{totalDocs}</Badge>
+                                  {isExpanded
+                                    ? <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                                    : <ChevronRight className="w-3 h-3 text-muted-foreground" />}
+                                </button>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                          </tr>
+                          {isExpanded && hasDocs && (
+                            <tr key={`docs-${c.id}`} className="bg-muted/10">
+                              <td colSpan={6} className="px-3 py-1.5">
+                                <div className="space-y-0.5">
+                                  {existingDocs.map((doc, di) => {
+                                    const unpairKey = `${c.id}:${doc.url}`;
+                                    const isUnpairing = unpairing === unpairKey;
+                                    return (
+                                      <div
+                                        key={di}
+                                        className="flex items-center gap-2 text-[11px] text-muted-foreground py-0.5"
+                                      >
+                                        {getFileTypeIcon(doc.name, "w-3 h-3 shrink-0")}
+                                        <span className="flex-1 truncate">{doc.name}</span>
+                                        <button
+                                          className="text-red-400 hover:text-red-600 transition-colors disabled:opacity-40 shrink-0"
+                                          title="Zrušiť priradenie"
+                                          disabled={isUnpairing}
+                                          onClick={e => { e.stopPropagation(); handleUnpair(c.id, doc.url); }}
+                                          data-testid={`button-unpair-${c.id}-${di}`}
+                                        >
+                                          {isUnpairing ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
                       );
                     })}
                   </tbody>
@@ -3456,20 +3711,24 @@ function ScanCommanderDialog({
             </div>
             {/* Pair hint */}
             <div className="px-3 py-2 border-t shrink-0 bg-muted/20">
-              {!selectedFileUrl && !selectedContractId && (
+              {selectedInboxIds.size === 0 && selectedContractIds.size === 0 && (
                 <p className="text-[10px] text-muted-foreground">
-                  1. Kliknite na súbor v Inboxe → 2. Kliknite na zmluvu v Trezore → 3. Stlačte "Priradiť"
+                  Zaškrtnite skeny v Inboxe (Ctrl+A = všetky) → zaškrtnite zmluvy → Priradiť (alebo Enter)
                 </p>
               )}
-              {selectedFileUrl && !selectedContractId && (
-                <p className="text-[10px] text-blue-500">Vyberte zmluvu v Trezore, ku ktorej chcete priradiť sken</p>
+              {selectedInboxIds.size > 0 && selectedContractIds.size === 0 && (
+                <p className="text-[10px] text-blue-500">
+                  {selectedInboxIds.size === 1 ? "1 sken vybraný" : `${selectedInboxIds.size} skenov vybraných`} — zaškrtnite zmluvy v Trezore
+                </p>
               )}
-              {!selectedFileUrl && selectedContractId && (
-                <p className="text-[10px] text-emerald-600">Vyberte sken z Inboxu pre priradenie k tejto zmluve</p>
+              {selectedInboxIds.size === 0 && selectedContractIds.size > 0 && (
+                <p className="text-[10px] text-emerald-600">
+                  {selectedContractIds.size === 1 ? "1 zmluva vybraná" : `${selectedContractIds.size} zmluvy vybrané`} — zaškrtnite skeny v Inboxe
+                </p>
               )}
-              {selectedFileUrl && selectedContractId && (
+              {selectedInboxIds.size > 0 && selectedContractIds.size > 0 && (
                 <p className="text-[10px] text-emerald-600 font-medium">
-                  Hotovo — stlačte "Priradiť" na spárovanie
+                  Hotovo — stlačte "{pairButtonLabel}" alebo Enter
                 </p>
               )}
             </div>

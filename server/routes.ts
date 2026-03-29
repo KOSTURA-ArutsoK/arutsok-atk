@@ -22,6 +22,7 @@ import { detectAmbiguousName } from "./name-parser";
 import { validateSlovakRC } from "@shared/rc-validator";
 import { validateSlovakICO } from "@shared/ico-validator";
 import { scanUploadedFile, scanMultipleFiles, sanitizeExcelWorkbook, checkClamAvStatus } from "./services/file-security";
+import unzipper from "unzipper";
 import { ATK_SYSTEM_ID, ATK_SUPERADMIN_ID } from "@shared/constants";
 
 
@@ -593,6 +594,7 @@ const ALLOWED_FILE_TYPES: Record<string, Set<string>> = {
   ".avi":  new Set(["video/x-msvideo"]),
   ".mkv":  new Set(["video/x-matroska"]),
   ".webm": new Set(["video/webm"]),
+  ".zip":  new Set(["application/zip", "application/x-zip-compressed", "application/x-zip", "application/octet-stream"]),
 };
 
 const VIDEO_EXTENSIONS = new Set([".mp4", ".mov", ".avi", ".mkv", ".webm"]);
@@ -6547,16 +6549,78 @@ export async function registerRoutes(
         }
       }
 
-      const result = files.map((f: any) => ({
-        name: f.originalname,
-        url: `/api/files/contract-docs/${f.filename}`,
-        size: f.size,
-      }));
+      const ZIP_MAX_FILES = 150;
+      const ZIP_MAX_UNCOMPRESSED = 300 * 1024 * 1024; // 300 MB
+
+      const result: Array<{ name: string; url: string; size: number }> = [];
+      let extractedCount = 0;
+
+      for (const f of files) {
+        const lowerName = (f.originalname || "").toLowerCase();
+        const isZip = lowerName.endsWith(".zip") ||
+          f.mimetype === "application/zip" ||
+          f.mimetype === "application/x-zip-compressed" ||
+          f.mimetype === "application/x-zip";
+
+        if (!isZip) {
+          result.push({ name: f.originalname, url: `/api/files/contract-docs/${f.filename}`, size: f.size });
+          continue;
+        }
+
+        // Attempt ZIP extraction
+        let dir: unzipper.CentralDirectory;
+        try {
+          dir = await unzipper.Open.file(f.path);
+        } catch {
+          // Not a valid ZIP — serve as-is
+          result.push({ name: f.originalname, url: `/api/files/contract-docs/${f.filename}`, size: f.size });
+          continue;
+        }
+
+        const fileEntries = dir.files.filter((e: unzipper.File) => e.type === "File");
+
+        if (fileEntries.length > ZIP_MAX_FILES) {
+          fs.unlink(f.path, () => {});
+          return res.status(400).json({ message: `ZIP súbor "${f.originalname}" obsahuje príliš veľa súborov (max. ${ZIP_MAX_FILES}).` });
+        }
+
+        const totalUncompressed = fileEntries.reduce((s: number, e: unzipper.File) => s + (e.uncompressedSize || 0), 0);
+        if (totalUncompressed > ZIP_MAX_UNCOMPRESSED) {
+          fs.unlink(f.path, () => {});
+          return res.status(400).json({ message: `ZIP súbor "${f.originalname}" je po rozbalení príliš veľký (max. 300 MB).` });
+        }
+
+        for (const entry of fileEntries) {
+          const baseName = (entry.path || "").split("/").pop() || "";
+          if (!baseName || baseName.startsWith(".")) continue;
+
+          const sanitized = baseName.replace(/[^a-zA-Z0-9._\u2010-\u2015\u00C0-\u024F -]/g, "_");
+          if (!sanitized) continue;
+
+          const uniqueName = `${Date.now()}_${crypto.randomBytes(4).toString("hex")}_${sanitized}`;
+          const destPath = path.join(UPLOADS_DIR, "contract-docs", uniqueName);
+
+          try {
+            const buf = await entry.buffer();
+            await fs.promises.writeFile(destPath, buf);
+            result.push({
+              name: baseName,
+              url: `/api/files/contract-docs/${uniqueName}`,
+              size: entry.uncompressedSize || buf.length,
+            });
+            extractedCount++;
+          } catch (writeErr) {
+            console.error("ZIP extract write error:", writeErr);
+          }
+        }
+
+        fs.unlink(f.path, () => {});
+      }
 
       await logAudit(req, {
         action: "SCAN_COMMANDER_STAGE_UPLOAD",
         module: "zmluvy",
-        newData: { fileCount: files.length, totalBytes: totalSize },
+        newData: { fileCount: files.length, totalBytes: totalSize, extractedFromZip: extractedCount },
       });
 
       res.json({ files: result });
@@ -6569,9 +6633,17 @@ export async function registerRoutes(
   // ===== SCAN COMMANDER — Pair file with contract =====
   app.post("/api/scan-commander/pair", isAuthenticated, async (req: any, res) => {
     try {
-      const { contractId, fileUrl, fileName } = req.body;
-      if (!contractId || !fileUrl || !fileName) {
-        return res.status(400).json({ message: "Chýbajú povinné polia: contractId, fileUrl, fileName" });
+      const { fileUrl, fileName } = req.body;
+      // Accept contractIds (array) or legacy contractId (single)
+      const rawIds: unknown[] = Array.isArray(req.body.contractIds)
+        ? req.body.contractIds
+        : req.body.contractId != null
+          ? [req.body.contractId]
+          : [];
+      const contractIds = rawIds.map(Number).filter(id => !isNaN(id) && id > 0);
+
+      if (contractIds.length === 0 || !fileUrl || !fileName) {
+        return res.status(400).json({ message: "Chýbajú povinné polia: contractId(s), fileUrl, fileName" });
       }
 
       // Security: only allow internal contract-docs file URLs
@@ -6580,33 +6652,17 @@ export async function registerRoutes(
       if (!normalizedUrl.startsWith(ALLOWED_FILE_URL_PREFIX)) {
         return res.status(400).json({ message: "Neplatná URL súboru — povolené sú iba interné cesty k nahratým dokumentom." });
       }
-      // Verify filename segment doesn't escape the directory
       const fileSegment = normalizedUrl.slice(ALLOWED_FILE_URL_PREFIX.length);
       if (!fileSegment || fileSegment.includes("/") || fileSegment.includes("..") || fileSegment.includes("\0")) {
         return res.status(400).json({ message: "Neplatný názov súboru v URL." });
       }
 
-      // Sanitize fileName: strip path separators, null bytes, limit length
       const sanitizedFileName = String(fileName).replace(/[/\\:*?"<>|\0]/g, "_").slice(0, 255).trim();
       if (!sanitizedFileName) {
         return res.status(400).json({ message: "Neplatný názov súboru." });
       }
 
-      const appUser = req.appUser;
-      const now = new Date();
-
-      const [contract] = await db.select().from(contracts).where(eq(contracts.id, Number(contractId)));
-      if (!contract) return res.status(404).json({ message: "Kontrakt nenájdený" });
-
-      // Tenant-scope authorization: non-admin users may only modify contracts in their active company
-      if (!isAdmin(appUser)) {
-        const userCompanyId = appUser?.activeCompanyId ?? null;
-        if (userCompanyId && contract.companyId && contract.companyId !== userCompanyId) {
-          return res.status(403).json({ message: "Nemáte oprávnenie upravovať tento kontrakt." });
-        }
-      }
-
-      // Verify the referenced file physically exists on disk (prevent dangling document links)
+      // Verify the referenced file physically exists on disk once (same file for all contracts)
       const physicalPath = path.join(UPLOADS_DIR, "contract-docs", fileSegment);
       try {
         await fs.promises.access(physicalPath, fs.constants.R_OK);
@@ -6614,43 +6670,121 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Odkazovaný súbor nebol nájdený na serveri. Najskôr nahrajte súbor cez Inbox." });
       }
 
-      const existingDocs: DocEntry[] = (contract.documents as DocEntry[]) || [];
-      const newDoc: DocEntry = {
-        name: sanitizedFileName,
-        url: normalizedUrl,
-        uploadedAt: now.toISOString(),
-      };
-      const allDocs = [...existingDocs, newDoc];
+      const appUser = req.appUser;
+      const now = new Date();
+      const results: { contractId: number; success: boolean; message?: string }[] = [];
 
-      const [updated] = await db.update(contracts).set({
-        documents: allDocs,
-        scansUploaded: true,
-        ocrDataAssigned: true,
-        lifecyclePhase: contract.lifecyclePhase === 6 ? 8 : contract.lifecyclePhase,
-        updatedAt: now,
-      }).where(eq(contracts.id, Number(contractId))).returning();
+      for (const contractId of contractIds) {
+        const [contract] = await db.select().from(contracts).where(eq(contracts.id, contractId));
+        if (!contract) {
+          results.push({ contractId, success: false, message: "Kontrakt nenájdený" });
+          continue;
+        }
 
-      if (contract.lifecyclePhase === 6) {
-        await db.insert(contractLifecycleHistory).values({
-          contractId: Number(contractId),
-          phase: 8,
-          phaseName: "Manuálna kontrola kontraktov",
-          changedByUserId: appUser?.id || null,
-          note: "Scan Commander — priradenie skenu, presun do fázy 8",
+        // Tenant-scope authorization
+        if (!isAdmin(appUser)) {
+          const userCompanyId = appUser?.activeCompanyId ?? null;
+          if (userCompanyId && contract.companyId && contract.companyId !== userCompanyId) {
+            results.push({ contractId, success: false, message: "Nemáte oprávnenie upravovať tento kontrakt." });
+            continue;
+          }
+        }
+
+        const existingDocs: DocEntry[] = (contract.documents as DocEntry[]) || [];
+        const newDoc: DocEntry = { name: sanitizedFileName, url: normalizedUrl, uploadedAt: now.toISOString() };
+        const allDocs = [...existingDocs, newDoc];
+
+        await db.update(contracts).set({
+          documents: allDocs,
+          scansUploaded: true,
+          ocrDataAssigned: true,
+          lifecyclePhase: contract.lifecyclePhase === 6 ? 8 : contract.lifecyclePhase,
+          updatedAt: now,
+        }).where(eq(contracts.id, contractId));
+
+        if (contract.lifecyclePhase === 6) {
+          await db.insert(contractLifecycleHistory).values({
+            contractId,
+            phase: 8,
+            phaseName: "Manuálna kontrola kontraktov",
+            changedByUserId: appUser?.id || null,
+            note: "Scan Commander — priradenie skenu, presun do fázy 8",
+          });
+        }
+
+        await logAudit(req, {
+          action: "SCAN_COMMANDER_PAIR",
+          module: "zmluvy",
+          entityId: contractId,
+          entityName: contract.contractNumber || contract.proposalNumber || `ID ${contractId}`,
+          newData: { fileName, fileUrl, movedToPhase8: contract.lifecyclePhase === 6 },
         });
+
+        results.push({ contractId, success: true });
       }
 
+      const anySuccess = results.some(r => r.success);
+      res.json({ success: anySuccess, results });
+    } catch (err: any) {
+      console.error("POST /api/scan-commander/pair error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  app.delete("/api/scan-commander/pair", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractId, fileUrl } = req.body;
+      if (!contractId || !fileUrl) {
+        return res.status(400).json({ message: "Chýbajú povinné polia: contractId, fileUrl" });
+      }
+
+      // Security: only allow internal contract-docs file URLs
+      const ALLOWED_FILE_URL_PREFIX = "/api/files/contract-docs/";
+      const normalizedUrl = String(fileUrl).trim();
+      if (!normalizedUrl.startsWith(ALLOWED_FILE_URL_PREFIX)) {
+        return res.status(400).json({ message: "Neplatná URL súboru." });
+      }
+      const fileSegment = normalizedUrl.slice(ALLOWED_FILE_URL_PREFIX.length);
+      if (!fileSegment || fileSegment.includes("/") || fileSegment.includes("..") || fileSegment.includes("\0")) {
+        return res.status(400).json({ message: "Neplatný názov súboru v URL." });
+      }
+
+      const appUser = req.appUser;
+      const [contract] = await db.select().from(contracts).where(eq(contracts.id, Number(contractId)));
+      if (!contract) return res.status(404).json({ message: "Kontrakt nenájdený" });
+
+      // Tenant-scope authorization
+      if (!isAdmin(appUser)) {
+        const userCompanyId = appUser?.activeCompanyId ?? null;
+        if (userCompanyId && contract.companyId && contract.companyId !== userCompanyId) {
+          return res.status(403).json({ message: "Nemáte oprávnenie upravovať tento kontrakt." });
+        }
+      }
+
+      const existingDocs: DocEntry[] = (contract.documents as DocEntry[]) || [];
+      const filteredDocs = existingDocs.filter(d => d.url !== normalizedUrl);
+
+      if (filteredDocs.length === existingDocs.length) {
+        return res.status(404).json({ message: "Dokument s touto URL nebol nájdený v zmluve." });
+      }
+
+      await db.update(contracts).set({
+        documents: filteredDocs,
+        scansUploaded: filteredDocs.length > 0,
+        updatedAt: new Date(),
+      }).where(eq(contracts.id, Number(contractId)));
+
       await logAudit(req, {
-        action: "SCAN_COMMANDER_PAIR",
+        action: "SCAN_COMMANDER_UNPAIR",
         module: "zmluvy",
         entityId: Number(contractId),
         entityName: contract.contractNumber || contract.proposalNumber || `ID ${contractId}`,
-        newData: { fileName, fileUrl, movedToPhase8: contract.lifecyclePhase === 6 },
+        newData: { fileUrl, removedDocCount: existingDocs.length - filteredDocs.length },
       });
 
-      res.json({ success: true, contract: updated });
+      res.json({ success: true });
     } catch (err: any) {
-      console.error("POST /api/scan-commander/pair error:", err);
+      console.error("DELETE /api/scan-commander/pair error:", err);
       res.status(500).json({ message: err?.message || "Internal error" });
     }
   });
