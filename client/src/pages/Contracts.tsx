@@ -2089,7 +2089,9 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
   }, []);
 
   return (
-    <div ref={containerRef} className="relative rounded-lg border bg-card p-4 overflow-visible" data-testid="workflow-diagram">
+    <div className="relative rounded-lg border bg-card overflow-hidden" data-testid="workflow-diagram">
+      <div className="overflow-x-auto">
+      <div ref={containerRef} className="relative p-4 min-w-[640px]">
       <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
         <defs>
           <filter id="arrow-shadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -2128,8 +2130,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
         ))}
       </svg>
       <div className="relative z-10 space-y-6" data-testid="folder-tabs">
-        <div className="overflow-x-auto">
-        <div className="grid grid-cols-5 gap-6 px-4 min-w-[640px]">
+        <div className="grid grid-cols-5 gap-6 px-4">
           {folderDefs.map(f => {
             const FIcon = f.icon;
             const isActive = activeFolder === f.id;
@@ -2170,9 +2171,7 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
             );
           })}
         </div>
-        </div>
-        <div className="overflow-x-auto">
-        <div className="grid grid-cols-5 gap-6 px-4 min-w-[640px]">
+        <div className="grid grid-cols-5 gap-6 px-4">
           {row2FolderDefs.map(f => {
             const FIcon = f.icon;
             const isActive = activeFolder === f.id;
@@ -2213,7 +2212,8 @@ function WorkflowDiagram({ folderDefs, row2FolderDefs, activeFolder, onFolderCli
             );
           })}
         </div>
-        </div>
+      </div>
+      </div>
       </div>
     </div>
   );
