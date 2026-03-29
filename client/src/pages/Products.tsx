@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
 import type { Product, CommissionScheme, Partner, Parameter, ProductParameter, MyCompany } from "@shared/schema";
-import { Plus, Eye, Package, Loader2, HelpCircle, Trash2, FileText, Copy, AlertCircle, Archive, GitBranch, ChevronDown, ChevronRight, History } from "lucide-react";
+import { Plus, Eye, Package, Loader2, HelpCircle, Trash2, FileText, Copy, AlertCircle, Archive, GitBranch, ChevronDown, ChevronRight, History, FolderOpen } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
@@ -217,6 +217,8 @@ function ProductFormDialog({
   // Display params state for "Parametre zhrnutia zmluvy" tab
   type DisplayParamState = { display: boolean; verify: boolean };
   const [displayParamConfig, setDisplayParamConfig] = useState<Record<string, DisplayParamState>>({});
+  const [expandedSubjectPanels, setExpandedSubjectPanels] = useState<Set<string>>(new Set());
+  const [expandedContractPanels, setExpandedContractPanels] = useState<Set<string>>(new Set());
   const [requiredDocuments, setRequiredDocuments] = useState<string[]>([]);
   const [optionalDocuments, setOptionalDocuments] = useState<string[]>([]);
   const [requiredDocumentsReceived, setRequiredDocumentsReceived] = useState<string[]>([]);
@@ -311,6 +313,25 @@ function ProductFormDialog({
     }
     return result;
   }, [productPanelsWithParams, assignedParams]);
+
+  useEffect(() => {
+    if (!productSubjectParamsRaw?.length) return;
+    const keys = new Set<string>();
+    for (const tg of productSubjectParamsRaw) {
+      const panelNames = [...new Set(tg.fields.map(f => f.panelName ?? "__none__"))];
+      for (const p of panelNames) keys.add(`subjekt_${tg.clientTypeId}_${p}`);
+    }
+    setExpandedSubjectPanels(keys);
+  }, [productSubjectParamsRaw]);
+
+  useEffect(() => {
+    if (!productPanelsWithParams?.length) return;
+    const keys = new Set<string>([
+      ...productPanelsWithParams.map(p => `contract_${p.id}`),
+      "contract___none__",
+    ]);
+    setExpandedContractPanels(keys);
+  }, [productPanelsWithParams]);
 
   const saveDisplayParamsMutation = useMutation({
     mutationFn: (params: Array<{ paramKey: string; label: string; displayInSummary: boolean; requireVerification: boolean; sortOrder: number; paramGroup: string }>) =>
@@ -505,7 +526,7 @@ function ProductFormDialog({
           </div>
         )}
 
-        <div className="flex gap-1 border-b mb-3">
+        <div className="flex gap-1 border-b mb-3 sticky top-0 z-[8] bg-background -mx-6 px-6">
           <button
             type="button"
             className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors ${activeTab === "info" ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
@@ -855,159 +876,258 @@ function ProductFormDialog({
               Pravidlo: <strong>čo sa nezobrazuje, to sa neoveruje</strong>.
             </p>
 
-            {/* Parametre subjektu — dynamicky z profilu subjektu */}
-            <div className="rounded-xl border border-blue-500/25 bg-blue-500/5 p-4 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300 pb-1 border-b border-blue-500/20">Parametre subjektu</p>
-              {dynamicSubjectFields.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2 italic">
-                  {allowedSubjectTypes.length === 0
-                    ? "Najprv nastavte typ subjektu v záložke Info (Pre koho je produkt určený)."
-                    : "Žiadne polia subjektu nenájdené."}
-                </p>
-              ) : (
-                <div className="space-y-0">
-                  <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1">
-                    <span className="text-[11px] text-muted-foreground font-medium">Parameter</span>
-                    <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Zobrazovať</span>
-                    <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Overiť BO</span>
-                  </div>
-                  {dynamicSubjectFields.map((param, i) => {
-                    const cfg = displayParamConfig[param.key] || { display: false, verify: false };
-                    return (
-                      <div
-                        key={param.key}
-                        className={`grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1.5 rounded ${i % 2 === 0 ? "bg-background/50" : ""}`}
-                        data-testid={`row-display-param-${param.key}`}
-                      >
-                        <div className="min-w-0">
-                          <span className="text-sm">{param.label}</span>
-                          {(param.typeLabel || param.panelName) && (
-                            <span className="text-[10px] text-muted-foreground ml-1.5">
-                              {[param.panelName, param.typeLabel].filter(Boolean).join(" · ")}
-                            </span>
-                          )}
-                        </div>
-                        <div className="w-24 flex justify-center">
-                          <Switch
-                            checked={cfg.display}
-                            onCheckedChange={(checked) => {
-                              setDisplayParamConfig(prev => ({
-                                ...prev,
-                                [param.key]: { display: checked, verify: checked ? prev[param.key]?.verify ?? false : false },
-                              }));
-                            }}
-                            data-testid={`switch-display-${param.key}`}
-                          />
-                        </div>
-                        <div className="w-24 flex justify-center">
-                          <Switch
-                            checked={cfg.display ? cfg.verify : false}
-                            disabled={!cfg.display}
-                            onCheckedChange={(checked) => {
-                              setDisplayParamConfig(prev => ({
-                                ...prev,
-                                [param.key]: { display: prev[param.key]?.display ?? false, verify: checked },
-                              }));
-                            }}
-                            data-testid={`switch-verify-${param.key}`}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            {/* Scrollovateľný obsah s accordion sekciami */}
+            {(() => {
+              const subjektActive = dynamicSubjectFields.filter(p => displayParamConfig[p.key]?.display).length;
+              const zmluvaActive = dynamicContractFields.filter(p => displayParamConfig[p.key]?.display).length;
+              return (
+                <>
+                  <div className="overflow-y-auto max-h-[50vh] space-y-2 pr-0.5">
 
-            {/* Parametre zmluvy — z panelov sektorov + priradených parametrov produktu */}
-            <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300 pb-1 border-b border-amber-500/20">Parametre zmluvy</p>
-              {dynamicContractFields.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2 italic">
-                  Produkt nemá priradené žiadne parametre. Pridajte parametre v Sektory a Odvetvia Zmlúv alebo v Knižnici parametrov.
-                </p>
-              ) : (
-                <div className="space-y-0">
-                  <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1">
-                    <span className="text-[11px] text-muted-foreground font-medium">Parameter</span>
-                    <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Zobrazovať</span>
-                    <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Overiť BO</span>
-                  </div>
-                  {dynamicContractFields.map((param, i) => {
-                    const cfg = displayParamConfig[param.key] || { display: false, verify: false };
-                    return (
-                      <div
-                        key={param.key}
-                        className={`grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1.5 rounded ${i % 2 === 0 ? "bg-background/50" : ""}`}
-                        data-testid={`row-display-param-${param.key}`}
-                      >
-                        <div className="min-w-0">
-                          <span className="text-sm">{param.label}</span>
-                          {param.panelName && (
-                            <span className="text-[10px] text-muted-foreground ml-1.5">{param.panelName}</span>
-                          )}
-                        </div>
-                        <div className="w-24 flex justify-center">
-                          <Switch
-                            checked={cfg.display}
-                            onCheckedChange={(checked) => {
-                              setDisplayParamConfig(prev => ({
-                                ...prev,
-                                [param.key]: { display: checked, verify: checked ? prev[param.key]?.verify ?? false : false },
-                              }));
-                            }}
-                            data-testid={`switch-display-${param.key}`}
-                          />
-                        </div>
-                        <div className="w-24 flex justify-center">
-                          <Switch
-                            checked={cfg.display ? cfg.verify : false}
-                            disabled={!cfg.display}
-                            onCheckedChange={(checked) => {
-                              setDisplayParamConfig(prev => ({
-                                ...prev,
-                                [param.key]: { display: prev[param.key]?.display ?? false, verify: checked },
-                              }));
-                            }}
-                            data-testid={`switch-verify-${param.key}`}
-                          />
-                        </div>
+                    {/* ── Parametre subjektu ── */}
+                    <div className="rounded-xl border border-blue-500/25 bg-blue-500/5 overflow-hidden">
+                      <div className="sticky top-0 z-[5] bg-blue-50 dark:bg-blue-950/80 px-3 py-2.5 border-b border-blue-500/20 flex items-center gap-2">
+                        <FolderOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                        <span className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">Parametre subjektu</span>
+                        {subjektActive > 0 && (
+                          <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">{subjektActive} aktívnych</Badge>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                      <div className="p-2 space-y-1.5">
+                        {(productSubjectParamsRaw || []).length === 0 ? (
+                          <p className="text-xs text-muted-foreground py-2 italic px-2">
+                            {allowedSubjectTypes.length === 0
+                              ? "Najprv nastavte typ subjektu v záložke Info (Pre koho je produkt určený)."
+                              : "Žiadne polia subjektu nenájdené."}
+                          </p>
+                        ) : (productSubjectParamsRaw || []).map(typeGroup => {
+                          const multiType = (productSubjectParamsRaw || []).length > 1;
+                          const panelMap = new Map<string, typeof typeGroup.fields>();
+                          for (const f of typeGroup.fields) {
+                            const k = f.panelName ?? "__none__";
+                            if (!panelMap.has(k)) panelMap.set(k, []);
+                            panelMap.get(k)!.push(f);
+                          }
+                          const panelGroups = Array.from(panelMap.entries()).map(([k, flds]) => ({
+                            panelName: k === "__none__" ? null : k,
+                            panelKey: `subjekt_${typeGroup.clientTypeId}_${k}`,
+                            fields: flds,
+                          }));
+                          return (
+                            <div key={typeGroup.clientTypeId}>
+                              {multiType && (
+                                <div className="px-2 pt-1.5 pb-0.5 flex items-center gap-1.5">
+                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{typeGroup.typeLabel}</span>
+                                  <div className="h-px flex-1 bg-border/60" />
+                                </div>
+                              )}
+                              {panelGroups.map(group => {
+                                const isExp = expandedSubjectPanels.has(group.panelKey);
+                                const actCnt = group.fields.filter(f => displayParamConfig[f.fieldKey]?.display).length;
+                                return (
+                                  <div key={group.panelKey} className="border border-border/50 rounded-lg overflow-hidden">
+                                    <button
+                                      type="button"
+                                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/40 transition-colors text-left"
+                                      onClick={() => setExpandedSubjectPanels(prev => {
+                                        const next = new Set(prev);
+                                        if (next.has(group.panelKey)) next.delete(group.panelKey); else next.add(group.panelKey);
+                                        return next;
+                                      })}
+                                      data-testid={`toggle-panel-${group.panelKey}`}
+                                    >
+                                      {isExp ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
+                                      <FolderOpen className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+                                      <span className="text-sm font-medium flex-1 truncate">{group.panelName ?? "Ostatné"}</span>
+                                      {actCnt > 0 && <Badge variant="secondary" className="text-[10px] px-1.5">{actCnt}</Badge>}
+                                    </button>
+                                    {isExp && (
+                                      <div className="border-t border-border/30">
+                                        <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-1 bg-muted/20">
+                                          <span className="text-[10px] text-muted-foreground font-medium">Parameter</span>
+                                          <span className="text-[10px] text-muted-foreground font-medium w-24 text-center">Zobrazovať</span>
+                                          <span className="text-[10px] text-muted-foreground font-medium w-24 text-center">Overiť BO</span>
+                                        </div>
+                                        {group.fields.map((f, i) => {
+                                          const cfg = displayParamConfig[f.fieldKey] || { display: false, verify: false };
+                                          return (
+                                            <div key={f.fieldKey} className={`grid grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-1.5 ${i % 2 === 0 ? "bg-background/50" : ""}`} data-testid={`row-display-param-${f.fieldKey}`}>
+                                              <span className="text-sm truncate">{f.label}</span>
+                                              <div className="w-24 flex justify-center">
+                                                <Switch checked={cfg.display} onCheckedChange={(checked) => setDisplayParamConfig(prev => ({ ...prev, [f.fieldKey]: { display: checked, verify: checked ? prev[f.fieldKey]?.verify ?? false : false } }))} data-testid={`switch-display-${f.fieldKey}`} />
+                                              </div>
+                                              <div className="w-24 flex justify-center">
+                                                <Switch checked={cfg.display ? cfg.verify : false} disabled={!cfg.display} onCheckedChange={(checked) => setDisplayParamConfig(prev => ({ ...prev, [f.fieldKey]: { display: prev[f.fieldKey]?.display ?? false, verify: checked } }))} data-testid={`switch-verify-${f.fieldKey}`} />
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-            <div className="flex items-center justify-between pt-2 border-t">
-              <p className="text-xs text-muted-foreground">
-                Zobrazované: <strong>{Object.values(displayParamConfig).filter(c => c.display).length}</strong> /
-                Overované BO: <strong>{Object.values(displayParamConfig).filter(c => c.display && c.verify).length}</strong>
-              </p>
-              <Button
-                type="button"
-                onClick={() => {
-                  let sortIdx = 0;
-                  const allParams: { paramKey: string; label: string; displayInSummary: boolean; requireVerification: boolean; sortOrder: number; paramGroup: string }[] = [];
-                  for (const p of dynamicSubjectFields) {
-                    if (displayParamConfig[p.key]?.display) {
-                      allParams.push({ paramKey: p.key, label: p.label, displayInSummary: true, requireVerification: displayParamConfig[p.key]?.verify ?? false, sortOrder: sortIdx++, paramGroup: "subjekt" });
-                    }
-                  }
-                  for (const p of dynamicContractFields) {
-                    if (displayParamConfig[p.key]?.display) {
-                      allParams.push({ paramKey: p.key, label: p.label, displayInSummary: true, requireVerification: displayParamConfig[p.key]?.verify ?? false, sortOrder: sortIdx++, paramGroup: "zmluva" });
-                    }
-                  }
-                  saveDisplayParamsMutation.mutate(allParams);
-                }}
-                disabled={saveDisplayParamsMutation.isPending}
-                data-testid="button-save-display-params"
-              >
-                {saveDisplayParamsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Uložiť parametre
-              </Button>
-            </div>
+                    {/* ── Parametre zmluvy ── */}
+                    <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 overflow-hidden">
+                      <div className="sticky top-0 z-[5] bg-amber-50 dark:bg-amber-950/80 px-3 py-2.5 border-b border-amber-500/20 flex items-center gap-2">
+                        <FolderOpen className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                        <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">Parametre zmluvy</span>
+                        {zmluvaActive > 0 && (
+                          <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">{zmluvaActive} aktívnych</Badge>
+                        )}
+                      </div>
+                      <div className="p-2 space-y-1.5">
+                        {dynamicContractFields.length === 0 ? (
+                          <p className="text-xs text-muted-foreground py-2 italic px-2">
+                            Produkt nemá priradené žiadne parametre. Pridajte parametre v Sektory a Odvetvia Zmlúv alebo v Knižnici parametrov.
+                          </p>
+                        ) : (
+                          <>
+                            {(productPanelsWithParams || []).map(panel => {
+                              const cKey = `contract_${panel.id}`;
+                              const isExp = expandedContractPanels.has(cKey);
+                              const panelPs = (panel.parameters || []).map(p => ({ key: `param_${p.id}`, label: p.name }));
+                              const actCnt = panelPs.filter(p => displayParamConfig[p.key]?.display).length;
+                              return (
+                                <div key={cKey} className="border border-border/50 rounded-lg overflow-hidden">
+                                  <button
+                                    type="button"
+                                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/40 transition-colors text-left"
+                                    onClick={() => setExpandedContractPanels(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(cKey)) next.delete(cKey); else next.add(cKey);
+                                      return next;
+                                    })}
+                                    data-testid={`toggle-panel-${cKey}`}
+                                  >
+                                    {isExp ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
+                                    <FolderOpen className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 flex-shrink-0" />
+                                    <span className="text-sm font-medium flex-1 truncate">{panel.name}</span>
+                                    {actCnt > 0 && <Badge variant="secondary" className="text-[10px] px-1.5">{actCnt}</Badge>}
+                                  </button>
+                                  {isExp && (
+                                    <div className="border-t border-border/30">
+                                      <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-1 bg-muted/20">
+                                        <span className="text-[10px] text-muted-foreground font-medium">Parameter</span>
+                                        <span className="text-[10px] text-muted-foreground font-medium w-24 text-center">Zobrazovať</span>
+                                        <span className="text-[10px] text-muted-foreground font-medium w-24 text-center">Overiť BO</span>
+                                      </div>
+                                      {panelPs.map((p, i) => {
+                                        const cfg = displayParamConfig[p.key] || { display: false, verify: false };
+                                        return (
+                                          <div key={p.key} className={`grid grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-1.5 ${i % 2 === 0 ? "bg-background/50" : ""}`} data-testid={`row-display-param-${p.key}`}>
+                                            <span className="text-sm truncate">{p.label}</span>
+                                            <div className="w-24 flex justify-center">
+                                              <Switch checked={cfg.display} onCheckedChange={(checked) => setDisplayParamConfig(prev => ({ ...prev, [p.key]: { display: checked, verify: checked ? prev[p.key]?.verify ?? false : false } }))} data-testid={`switch-display-${p.key}`} />
+                                            </div>
+                                            <div className="w-24 flex justify-center">
+                                              <Switch checked={cfg.display ? cfg.verify : false} disabled={!cfg.display} onCheckedChange={(checked) => setDisplayParamConfig(prev => ({ ...prev, [p.key]: { display: prev[p.key]?.display ?? false, verify: checked } }))} data-testid={`switch-verify-${p.key}`} />
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {(() => {
+                              const panelIds = new Set((productPanelsWithParams || []).flatMap(pp => pp.parameters.map(p => p.id)));
+                              const extra = assignedParams.filter(p => !panelIds.has(p.id));
+                              if (extra.length === 0) return null;
+                              const cKey = "contract___none__";
+                              const isExp = expandedContractPanels.has(cKey);
+                              const actCnt = extra.filter(p => displayParamConfig[`param_${p.id}`]?.display).length;
+                              return (
+                                <div key={cKey} className="border border-border/50 rounded-lg overflow-hidden">
+                                  <button
+                                    type="button"
+                                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/40 transition-colors text-left"
+                                    onClick={() => setExpandedContractPanels(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(cKey)) next.delete(cKey); else next.add(cKey);
+                                      return next;
+                                    })}
+                                    data-testid={`toggle-panel-${cKey}`}
+                                  >
+                                    {isExp ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
+                                    <FolderOpen className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 flex-shrink-0" />
+                                    <span className="text-sm font-medium flex-1 truncate">Ostatné parametre</span>
+                                    {actCnt > 0 && <Badge variant="secondary" className="text-[10px] px-1.5">{actCnt}</Badge>}
+                                  </button>
+                                  {isExp && (
+                                    <div className="border-t border-border/30">
+                                      <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-1 bg-muted/20">
+                                        <span className="text-[10px] text-muted-foreground font-medium">Parameter</span>
+                                        <span className="text-[10px] text-muted-foreground font-medium w-24 text-center">Zobrazovať</span>
+                                        <span className="text-[10px] text-muted-foreground font-medium w-24 text-center">Overiť BO</span>
+                                      </div>
+                                      {extra.map((p, i) => {
+                                        const pKey = `param_${p.id}`;
+                                        const cfg = displayParamConfig[pKey] || { display: false, verify: false };
+                                        return (
+                                          <div key={pKey} className={`grid grid-cols-[1fr_auto_auto] items-center gap-2 px-4 py-1.5 ${i % 2 === 0 ? "bg-background/50" : ""}`} data-testid={`row-display-param-${pKey}`}>
+                                            <span className="text-sm truncate">{p.name}</span>
+                                            <div className="w-24 flex justify-center">
+                                              <Switch checked={cfg.display} onCheckedChange={(checked) => setDisplayParamConfig(prev => ({ ...prev, [pKey]: { display: checked, verify: checked ? prev[pKey]?.verify ?? false : false } }))} data-testid={`switch-display-${pKey}`} />
+                                            </div>
+                                            <div className="w-24 flex justify-center">
+                                              <Switch checked={cfg.display ? cfg.verify : false} disabled={!cfg.display} onCheckedChange={(checked) => setDisplayParamConfig(prev => ({ ...prev, [pKey]: { display: prev[pKey]?.display ?? false, verify: checked } }))} data-testid={`switch-verify-${pKey}`} />
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>{/* end scroll */}
+
+                  {/* Footer — mimo scroll kontajnera */}
+                  <div className="flex items-center justify-between pt-2 border-t mt-1">
+                    <p className="text-xs text-muted-foreground">
+                      Zobrazované: <strong>{subjektActive + zmluvaActive}</strong> /
+                      Overované BO: <strong>{Object.values(displayParamConfig).filter(c => c.display && c.verify).length}</strong>
+                    </p>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        let sortIdx = 0;
+                        const allParams: { paramKey: string; label: string; displayInSummary: boolean; requireVerification: boolean; sortOrder: number; paramGroup: string }[] = [];
+                        for (const p of dynamicSubjectFields) {
+                          if (displayParamConfig[p.key]?.display) {
+                            allParams.push({ paramKey: p.key, label: p.label, displayInSummary: true, requireVerification: displayParamConfig[p.key]?.verify ?? false, sortOrder: sortIdx++, paramGroup: "subjekt" });
+                          }
+                        }
+                        for (const p of dynamicContractFields) {
+                          if (displayParamConfig[p.key]?.display) {
+                            allParams.push({ paramKey: p.key, label: p.label, displayInSummary: true, requireVerification: displayParamConfig[p.key]?.verify ?? false, sortOrder: sortIdx++, paramGroup: "zmluva" });
+                          }
+                        }
+                        saveDisplayParamsMutation.mutate(allParams);
+                      }}
+                      disabled={saveDisplayParamsMutation.isPending}
+                      data-testid="button-save-display-params"
+                    >
+                      {saveDisplayParamsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Uložiť parametre
+                    </Button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
 
