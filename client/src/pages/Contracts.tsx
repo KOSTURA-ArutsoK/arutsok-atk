@@ -2391,7 +2391,7 @@ function BOVerificationConsole({
   const getVerification = (paramKey: string) => verifications.find(v => v.paramKey === paramKey);
 
   const isVerifDone = (v: ContractParamVerification | undefined) =>
-    v && ["ok", "sync_subject", "corrected_snapshot"].includes(v.status);
+    v && ["ok", "not_ok", "sync_subject", "corrected_snapshot"].includes(v.status);
 
   const allRequiredVerified = paramsRequiringVerif.every(p => isVerifDone(getVerification(p.key)));
 
@@ -2410,10 +2410,11 @@ function BOVerificationConsole({
   };
 
   const STATUS_BADGE: Record<string, { label: string; color: string }> = {
-    ok: { label: "✓ OK", color: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30" },
-    sync_subject: { label: "↑ Sync", color: "bg-blue-500/15 text-blue-600 border-blue-500/30" },
-    corrected_snapshot: { label: "✎ Opravené", color: "bg-amber-500/15 text-amber-600 border-amber-500/30" },
-    pending: { label: "Čaká", color: "bg-orange-500/15 text-orange-600 border-orange-500/30" },
+    pending:            { label: "Neskontrolované",  color: "bg-blue-600/10 text-blue-700 border-blue-600/30 dark:text-blue-300" },
+    ok:                 { label: "✓ OK",             color: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30" },
+    not_ok:             { label: "✗ NIE OK",         color: "bg-orange-500/15 text-orange-600 border-orange-500/30" },
+    sync_subject:       { label: "↑ Sync",           color: "bg-sky-500/15 text-sky-600 border-sky-500/30" },
+    corrected_snapshot: { label: "✎ Opravené",       color: "bg-amber-500/15 text-amber-600 border-amber-500/30" },
   };
 
   const subjektParams = paramsToShow.filter(p => p.group === "subjekt");
@@ -2576,18 +2577,38 @@ function BOVerificationConsole({
                   <p className={`text-xs font-semibold uppercase tracking-wide pb-1 border-b ${color === "blue" ? "text-blue-700 dark:text-blue-300 border-blue-500/20" : "text-amber-700 dark:text-amber-300 border-amber-500/20"}`}>
                     {label}
                   </p>
-                  {params.map((param, i) => {
+                  {params.map((param) => {
                     const v = getVerification(param.key);
-                    const done = isVerifDone(v);
+                    const currentStatus = v?.status ?? "pending";
                     const snapshotVal = getSnapshotValue(snapshot, param.key, currentSubject);
                     const isCorrecting = correctionParam === param.key;
                     const isSyncing = syncParam === param.key;
                     const requiresVerif = paramsRequiringVerif.some(p => p.key === param.key);
 
+                    // Click-cycle: pending → ok → not_ok → pending
+                    // Only cycle for the three click-cycle states; sync_subject/corrected_snapshot use X reset
+                    const isCycleable = currentStatus === "pending" || currentStatus === "ok" || currentStatus === "not_ok";
+                    const handleRowClick = () => {
+                      if (verifMutation.isPending || isCorrecting || isSyncing) return;
+                      if (!isCycleable) return;
+                      const nextStatus = currentStatus === "pending" ? "ok"
+                        : currentStatus === "ok" ? "not_ok"
+                        : "pending";
+                      verifMutation.mutate({ paramKey: param.key, status: nextStatus });
+                    };
+
+                    // Row border/bg based on status (ATK color groups)
+                    const rowClass = currentStatus === "ok" || currentStatus === "sync_subject" || currentStatus === "corrected_snapshot"
+                      ? "border-emerald-500/30 bg-emerald-500/5"
+                      : currentStatus === "not_ok"
+                        ? "border-orange-500/40 bg-orange-500/10"
+                        : "border-blue-500/30 bg-blue-500/5";
+
                     return (
                       <div
                         key={param.key}
-                        className={`border rounded-lg p-3 ${done ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-background"} ${i % 2 === 0 ? "" : "opacity-95"}`}
+                        className={`border rounded-lg p-3 transition-colors ${rowClass} ${isCycleable && !isCorrecting && !isSyncing ? "cursor-pointer select-none" : ""}`}
+                        onClick={handleRowClick}
                         data-testid={`panel-param-${param.key}`}
                       >
                         <div className="flex items-start gap-2 flex-wrap">
@@ -2595,14 +2616,16 @@ function BOVerificationConsole({
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-xs font-medium">{param.label}</span>
                               {requiresVerif && <span className="text-[10px] text-orange-500 font-semibold">• povinné</span>}
-                              {v && (
-                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-medium ${STATUS_BADGE[v.status]?.color}`}>
-                                  {STATUS_BADGE[v.status]?.label}
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-medium ${STATUS_BADGE[currentStatus]?.color ?? ""}`}>
+                                {STATUS_BADGE[currentStatus]?.label ?? currentStatus}
+                              </span>
+                              {currentStatus === "not_ok" && v?.reason && (
+                                <span className="text-[10px] font-bold uppercase tracking-wide text-orange-600">
+                                  {v.reason === "missing_mandatory_data" ? "CHÝBAJÚCI ÚDAJ" : "NEOVERENÉ / SPORNÉ"}
                                 </span>
                               )}
                             </div>
                             <p className="text-sm font-mono mt-0.5 break-all" data-testid={`text-snapshot-val-${param.key}`}>
-                              {isCorrecting && v?.newValue ? <span className="line-through text-muted-foreground mr-1">{snapshotVal}</span> : null}
                               {v?.newValue && v.status === "corrected_snapshot" ? (
                                 <><span className="line-through text-muted-foreground mr-1">{snapshotVal}</span><span className="text-emerald-600">{v.newValue}</span></>
                               ) : snapshotVal || <span className="text-muted-foreground italic">—</span>}
@@ -2618,29 +2641,19 @@ function BOVerificationConsole({
                             )}
                           </div>
 
-                          {/* Action buttons */}
-                          {!done && !isCorrecting && !isSyncing && (
-                            <div className="flex gap-1 shrink-0 flex-wrap">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 px-2 text-[11px] border-emerald-500 text-emerald-600 hover:bg-emerald-500/10"
-                                disabled={verifMutation.isPending}
-                                onClick={() => verifMutation.mutate({ paramKey: param.key, status: "ok" })}
-                                data-testid={`button-ok-${param.key}`}
-                              >
-                                <Check className="w-3 h-3 mr-0.5" />OK
-                              </Button>
+                          {/* SYNC and OPRAVIŤ action buttons — always at end of row, stop propagation */}
+                          {!isCorrecting && !isSyncing && (
+                            <div className="flex gap-1 shrink-0 flex-wrap" onClick={e => e.stopPropagation()}>
                               {SUBJECT_SYNCABLE_PARAMS.has(param.key) && (
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="h-7 px-2 text-[11px] border-blue-500 text-blue-600 hover:bg-blue-500/10"
+                                  className="h-7 px-2 text-[11px] border-sky-500 text-sky-600 hover:bg-sky-500/10"
                                   disabled={verifMutation.isPending}
                                   onClick={() => setSyncParam(param.key)}
                                   data-testid={`button-sync-${param.key}`}
                                 >
-                                  <ArrowUp className="w-3 h-3 mr-0.5" />Sync subjekt
+                                  <ArrowUp className="w-3 h-3 mr-0.5" />Sync
                                 </Button>
                               )}
                               <Button
@@ -2653,33 +2666,33 @@ function BOVerificationConsole({
                               >
                                 <Pencil className="w-3 h-3 mr-0.5" />Opraviť
                               </Button>
+                              {/* X reset only for sync_subject / corrected_snapshot terminal states */}
+                              {(currentStatus === "sync_subject" || currentStatus === "corrected_snapshot") && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                                  onClick={() => verifMutation.mutate({ paramKey: param.key, status: "pending" })}
+                                  title="Zrušiť verifikáciu"
+                                  data-testid={`button-reset-${param.key}`}
+                                >
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              )}
                             </div>
-                          )}
-
-                          {done && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground shrink-0"
-                              onClick={() => verifMutation.mutate({ paramKey: param.key, status: "pending" })}
-                              title="Zrušiť verifikáciu"
-                              data-testid={`button-reset-${param.key}`}
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
                           )}
                         </div>
 
                         {/* Sync confirm sub-panel */}
                         {isSyncing && (
-                          <div className="mt-2 p-2 rounded border-2 border-blue-500 bg-blue-500/5 space-y-2" data-testid={`panel-sync-${param.key}`}>
-                            <p className="text-xs font-medium text-blue-700">Potvrďte synchronizáciu subjektu</p>
+                          <div className="mt-2 p-2 rounded border-2 border-sky-500 bg-sky-500/5 space-y-2" data-testid={`panel-sync-${param.key}`}>
+                            <p className="text-xs font-medium text-sky-700">Potvrďte synchronizáciu subjektu</p>
                             <p className="text-xs text-muted-foreground">Hodnota <strong>{snapshotVal || "—"}</strong> bude zapísaná do karty subjektu (parametre: <em>{param.key}</em>).</p>
                             <div className="flex gap-1 justify-end">
                               <Button size="sm" variant="ghost" className="h-6 text-[11px]" onClick={() => setSyncParam(null)}>Zrušiť</Button>
                               <Button
                                 size="sm"
-                                className="h-6 bg-blue-600 hover:bg-blue-700 text-white text-[11px]"
+                                className="h-6 bg-sky-600 hover:bg-sky-700 text-white text-[11px]"
                                 disabled={verifMutation.isPending}
                                 onClick={() => verifMutation.mutate({ paramKey: param.key, status: "sync_subject", newValue: snapshotVal })}
                                 data-testid={`button-confirm-sync-${param.key}`}
@@ -5064,7 +5077,7 @@ export default function Contracts() {
                         </Button>
                       )}
                       {contract.lifecyclePhase === 8 && (
-                        <>
+                        <span className="contents">
                           {(() => {
                             const vs = isAdmin(appUser) ? phase8VerifStatuses[contract.id] : undefined;
                             const isVerified = vs?.isFullyVerified ?? false;
@@ -5111,7 +5124,7 @@ export default function Contracts() {
                             {moveToInterventionMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <AlertTriangle className="w-3 h-3 mr-1" />}
                             <span className="text-[11px]">Interná intervencia</span>
                           </Button>
-                        </>
+                        </span>
                       )}
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openView(contract)} data-testid={`button-view-contract-${contract.id}`}>
                         <Eye className="w-3.5 h-3.5" />

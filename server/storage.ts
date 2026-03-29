@@ -5875,6 +5875,7 @@ export class DatabaseStorage implements IStorage {
         target: [contractParamVerifications.contractId, contractParamVerifications.paramKey],
         set: {
           status: data.status,
+          reason: data.reason ?? null,
           verifiedByUserId: data.verifiedByUserId,
           verifiedAt: now,
           oldValue: data.oldValue ?? null,

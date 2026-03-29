@@ -9139,7 +9139,7 @@ export async function registerRoutes(
       if (!Number.isFinite(contractId)) return res.status(400).json({ message: "Neplatné ID zmluvy" });
       const user = (req as any).appUser;
       const bodySchema = insertContractParamVerificationSchema.omit({ contractId: true, verifiedByUserId: true }).extend({
-        status: z.enum(["pending", "ok", "sync_subject", "corrected_snapshot"]),
+        status: z.enum(["pending", "ok", "not_ok", "sync_subject", "corrected_snapshot"]),
       });
       const parsed = bodySchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors.map(e => e.message).join("; ") });
@@ -9193,10 +9193,30 @@ export async function registerRoutes(
         await logAudit(req, { action: "Uprava", module: "zmluvy_snapshot", entityId: contractId, entityName: `BO oprava snapshotu: ${paramKey} (${canonicalKey}) ${oldValue} → ${newValue}` });
       }
 
+      // Auto-detect reason for not_ok: look up snapshot value for this param
+      const NOT_OK_SNAPSHOT_KEY_MAP: Record<string, string> = {
+        meno: "firstName", priezvisko: "lastName", titul_pred: "titleBefore", titul_za: "titleAfter",
+        datum_narodenia: "birthDate", rodne_cislo: "birthNumber", cislo_op: "idCardNumber",
+        telefon: "phone", email: "email", ulica: "street", psc: "postalCode", mesto: "city",
+        stat: "stateId", iban: "iban", swift: "swift", gdpr_suhlas: "gdprConsent",
+        cislo_zmluvy: "contractNumber", datum_podpisu: "signedDate", datum_ucinnosti: "effectiveDate",
+        datum_exspiracie: "expiryDate", poistna_suma: "insuredSum", poistne_lehotne: "premiumAmount",
+        poistne_rocne: "annualPremium", produkt: "product", partner: "partner",
+      };
+      let autoReason: "missing_mandatory_data" | "irresolvable_conflict" | null = null;
+      if (status === "not_ok") {
+        const snapshot = (contract.subjectSnapshot as Record<string, unknown>) || {};
+        const canonicalKey = NOT_OK_SNAPSHOT_KEY_MAP[paramKey] || paramKey;
+        const snapshotValue = snapshot[canonicalKey] ?? snapshot[paramKey];
+        const isEmpty = snapshotValue === undefined || snapshotValue === null || String(snapshotValue).trim() === "";
+        autoReason = isEmpty ? "missing_mandatory_data" : "irresolvable_conflict";
+      }
+
       const row = await storage.upsertContractParamVerification({
         contractId,
         paramKey,
         status,
+        reason: autoReason,
         oldValue: oldValue ?? null,
         newValue: newValue ?? null,
         note: note ?? null,
@@ -9268,7 +9288,7 @@ export async function registerRoutes(
       }
       // Only fall back to ALL_VERIF_KEYS when there is NO product display param config at all
       const finalRequiredKeys = requiredParamKeys !== null ? requiredParamKeys : ALL_VERIF_KEYS;
-      const DONE_STATUSES = ["ok", "sync_subject", "corrected_snapshot"];
+      const DONE_STATUSES = ["ok", "not_ok", "sync_subject", "corrected_snapshot"];
       const verifiedKeys = new Set(verifications.filter(v => DONE_STATUSES.includes(v.status)).map(v => v.paramKey));
       const verifiedCount = finalRequiredKeys.filter(k => verifiedKeys.has(k)).length;
       const total = finalRequiredKeys.length;
@@ -9288,7 +9308,7 @@ export async function registerRoutes(
       const contractIds = idsParam.split(",").map(Number).filter(Number.isFinite);
       if (contractIds.length === 0) return res.json({});
       const ALL_PARAM_KEYS = ["meno","priezvisko","titul_pred","titul_za","datum_narodenia","rodne_cislo","cislo_op","telefon","email","ulica","psc","mesto","stat","iban","swift","gdpr_suhlas","cislo_zmluvy","datum_podpisu","datum_ucinnosti","datum_exspiracie","poistna_suma","poistne_lehotne","poistne_rocne","produkt","partner"];
-      const DONE_STATUSES = ["ok", "sync_subject", "corrected_snapshot"];
+      const DONE_STATUSES = ["ok", "not_ok", "sync_subject", "corrected_snapshot"];
       // Fetch all verifications for these contracts in one query
       const allVerifs = await db.select()
         .from(contractParamVerifications)
