@@ -1523,8 +1523,8 @@ export default function Products() {
                   ].filter(Boolean).length;
 
                   const renderProductRow = (product: Product) => (
-                    <>
-                    <TableRow key={product.id} data-testid={`row-product-${product.id}`} onRowClick={() => handleEdit(product)}>
+                    <React.Fragment key={product.id}>
+                    <TableRow data-testid={`row-product-${product.id}`} onRowClick={() => handleEdit(product)}>
                       {columnVisibility.isVisible("partnerId") && <TableCell className="text-sm">{getPartnerName(product.partnerId)}</TableCell>}
                       {columnVisibility.isVisible("name") && (
                         <TableCell className="text-sm">
@@ -1590,7 +1590,7 @@ export default function Products() {
                       onEditVersion={handleEdit}
                       expanded={expandedVersionHistory.has(product.id)}
                     />
-                    </>
+                    </React.Fragment>  
                   );
                   if (groupedProducts) {
                     return groupedProducts.flatMap(group => [

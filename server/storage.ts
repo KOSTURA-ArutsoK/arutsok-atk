@@ -287,7 +287,7 @@ export interface IStorage {
   softDeleteProduct(id: number, deletedBy: string, ip: string): Promise<void>;
   restoreProduct(id: number): Promise<void>;
   getProductsByPartner(partnerId: number): Promise<Product[]>;
-  cloneProduct(id: number, versionLabel: string, clonedByUsername: string): Promise<Product>;
+  cloneProduct(id: number, versionLabel: string): Promise<Product>;
   archiveProduct(id: number): Promise<Product>;
   getCommissions(productId?: number): Promise<CommissionScheme[]>;
   createCommission(commission: InsertCommissionScheme): Promise<CommissionScheme>;
@@ -2173,7 +2173,7 @@ export class DatabaseStorage implements IStorage {
     return productList.map(p => ({ ...p, contractsCount: countMap[p.id] || 0 }));
   }
 
-  async cloneProduct(id: number, versionLabel: string, clonedByUsername: string): Promise<Product> {
+  async cloneProduct(id: number, versionLabel: string): Promise<Product> {
     const original = await this.getProduct(id);
     if (!original) throw new Error("Product not found");
     const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = original as any;

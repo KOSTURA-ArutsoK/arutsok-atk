@@ -4421,7 +4421,7 @@ export async function registerRoutes(
       const id = Number(req.params.id);
       const versionLabelSchema = z.object({ versionLabel: z.string().min(1).max(100) });
       const { versionLabel } = versionLabelSchema.parse(req.body);
-      const cloned = await storage.cloneProduct(id, versionLabel, req.appUser?.username || "system");
+      const cloned = await storage.cloneProduct(id, versionLabel);
       await logAudit(req, { action: "CLONE", module: "produkty", entityId: id, newData: { clonedProductId: cloned.id, versionLabel } });
       res.status(201).json(cloned);
     } catch (err) {
@@ -4444,15 +4444,25 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/products/:id/version-history", isAuthenticated, async (req, res) => {
+  app.get("/api/products/:id/version-history", isAuthenticated, async (req: any, res) => {
     try {
       const id = Number(req.params.id);
+      // Apply the same company/state scoping as the main products list endpoint
+      const stateId = getEnforcedStateId(req);
+      const filterCompanyId = req.appUser?.activeCompanyId || null;
       const allVersions = await storage.getProducts(false, true);
-      // Resolve the family root: if the requested product is itself a clone, find the root
-      const requestedProduct = allVersions.find(p => p.id === id);
-      const rootId = requestedProduct?.parentProductId ?? id;
-      // Return all versions in the family (root + all direct clones of root)
-      const versions = allVersions.filter(p => p.id === rootId || p.parentProductId === rootId);
+      // Scope to the same context as the requester
+      const scopedVersions = allVersions.filter(p => {
+        if (filterCompanyId && p.companyId !== filterCompanyId) return false;
+        if (stateId && p.stateId && p.stateId !== stateId) return false;
+        return true;
+      });
+      // Resolve the family root within the scoped set only
+      const requestedProduct = scopedVersions.find(p => p.id === id);
+      if (!requestedProduct) return res.status(404).json({ message: "Product not found" });
+      const rootId = requestedProduct.parentProductId ?? id;
+      // Return all versions in the family (root + all direct clones of root) — still scoped
+      const versions = scopedVersions.filter(p => p.id === rootId || p.parentProductId === rootId);
       res.json(versions);
     } catch (err) {
       throw err;
