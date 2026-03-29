@@ -80,6 +80,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarSeparator,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   Collapsible,
@@ -370,8 +371,14 @@ function SidebarGroupCollapsible({ groupName, links }: { groupName: string; link
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const { setOpenMobile } = useSidebar();
   const { data: appUser } = useAppUser();
   const { helpEnabled, toggleHelp } = useHelp();
+
+  useEffect(() => {
+    setOpenMobile(false);
+  }, [location, setOpenMobile]);
+
   const { data: pointsData } = useQuery<{ points: number }>({
     queryKey: ["/api/app-users/my-points"],
     staleTime: 1000 * 60 * 5,

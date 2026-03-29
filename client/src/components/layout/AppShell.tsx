@@ -872,10 +872,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0">
           <header className="h-14 border-b border-border bg-card flex items-center px-3 gap-2 flex-shrink-0">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <SidebarTrigger data-testid="button-sidebar-toggle" className="min-h-[44px] md:min-h-0 flex-shrink-0" />
 
             <div className="flex-1" />
 
+            <div className="overflow-x-auto min-w-0 flex-shrink">
             {(() => {
               const canSwitch = checkIsAdmin(appUser);
               const activeDivName = activeDivision?.division?.name || activeDivision?.name;
@@ -884,7 +885,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
               return (
                 <div
-                  className="flex items-center gap-1.5 rounded-full h-10 px-2"
+                  className="flex items-center gap-1.5 rounded-full min-h-[44px] md:min-h-0 md:h-10 px-2 w-max"
                   style={{
                     background: "hsl(222 20% 20%)",
                     border: "1px solid hsl(222 15% 28%)",
@@ -897,7 +898,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <button
                         type="button"
                         onClick={canSwitch ? openStateSelector : undefined}
-                        className={`flex items-center justify-center gap-1.5 px-2.5 h-7 rounded-full ${canSwitch ? "holding-chip cursor-pointer" : "cursor-default"}`}
+                        className={`flex items-center justify-center gap-1.5 px-2.5 min-h-[44px] md:min-h-0 md:h-7 rounded-full flex-shrink-0 ${canSwitch ? "holding-chip cursor-pointer" : "cursor-default"}`}
                         style={{
                           background: "hsl(222 15% 28%)",
                           border: "1px solid hsl(222 12% 36%)",
@@ -923,7 +924,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <button
                         type="button"
                         onClick={canSwitch ? openCompanySelector : undefined}
-                        className={`flex items-center gap-1.5 px-2.5 h-7 rounded-full ${canSwitch ? "holding-chip cursor-pointer" : "cursor-default"}`}
+                        className={`flex items-center gap-1.5 px-2.5 min-h-[44px] md:min-h-0 md:h-7 rounded-full flex-shrink-0 ${canSwitch ? "holding-chip cursor-pointer" : "cursor-default"}`}
                         style={{
                           background: "hsl(222 15% 28%)",
                           border: "1px solid hsl(222 12% 36%)",
@@ -955,7 +956,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <>
                       {activeDivisions!.length <= 5 ? (
                         <div
-                          className="flex items-center gap-0.5 h-7 px-1.5 rounded-full"
+                          className="flex items-center gap-0.5 min-h-[44px] md:min-h-0 md:h-7 px-1.5 rounded-full flex-shrink-0"
                           style={{
                             background: "hsl(222 15% 28%)",
                             border: "1px solid hsl(222 12% 36%)",
@@ -1001,7 +1002,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             <button
                               type="button"
                               onClick={openDivisionSelector}
-                              className="flex items-center gap-1.5 px-2.5 h-7 rounded-full holding-chip cursor-pointer"
+                              className="flex items-center gap-1.5 px-2.5 min-h-[44px] md:min-h-0 md:h-7 rounded-full holding-chip cursor-pointer flex-shrink-0"
                               style={{
                                 background: "hsl(222 15% 28%)",
                                 border: "1px solid hsl(222 12% 36%)"
@@ -1027,8 +1028,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               );
             })()}
+            </div>
 
-            <div className="flex-1" />
+            <div className="hidden md:block flex-1" />
 
 
             <div
@@ -1044,6 +1046,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               size="icon"
               variant="ghost"
               onClick={tts.toggle}
+              className="min-h-[44px] md:min-h-0 flex-shrink-0"
               data-testid="button-tts-toggle"
             >
               {tts.enabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
@@ -1053,6 +1056,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               size="icon"
               variant="ghost"
               onClick={toggleTheme}
+              className="min-h-[44px] md:min-h-0 flex-shrink-0"
               data-testid="button-theme-toggle"
             >
               {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -1069,7 +1073,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button type="button" className="flex items-center gap-2 rounded-md px-1 py-0.5 hover-elevate" data-testid="button-user-menu">
+                <button type="button" className="flex items-center gap-2 rounded-md px-1 py-0.5 hover-elevate min-h-[44px] md:min-h-0 flex-shrink-0" data-testid="button-user-menu">
                   <Avatar className="w-8 h-8">
                     <AvatarImage src={isNonFoContext ? undefined : profilePhotoUrl} />
                     <AvatarFallback className="bg-primary/10 text-primary text-xs">{activeIdentityInitials}</AvatarFallback>
