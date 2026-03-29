@@ -9119,7 +9119,7 @@ export async function registerRoutes(
     }
   });
 
-  // Maps VERIFIABLE_PARAM keys to subject DB column names
+  // Maps VERIFIABLE_PARAM keys to subject DB column names (sync_subject side-effect)
   const PARAM_KEY_TO_SUBJECT_FIELD: Record<string, string> = {
     meno: "firstName",
     priezvisko: "lastName",
@@ -9131,6 +9131,18 @@ export async function registerRoutes(
     email: "email",
     iban: "iban",
     swift: "swift",
+  };
+
+  // Maps VERIFIABLE_PARAM keys to canonical subjectSnapshot JSON keys
+  // Single source of truth — used by corrected_snapshot and not_ok reason detection
+  const PARAM_KEY_TO_SNAPSHOT_KEY: Record<string, string> = {
+    meno: "firstName", priezvisko: "lastName", titul_pred: "titleBefore", titul_za: "titleAfter",
+    datum_narodenia: "birthDate", rodne_cislo: "birthNumber", cislo_op: "idCardNumber",
+    telefon: "phone", email: "email", ulica: "street", psc: "postalCode", mesto: "city",
+    stat: "stateId", iban: "iban", swift: "swift", gdpr_suhlas: "gdprConsent",
+    cislo_zmluvy: "contractNumber", datum_podpisu: "signedDate", datum_ucinnosti: "effectiveDate",
+    datum_exspiracie: "expiryDate", poistna_suma: "insuredSum", poistne_lehotne: "premiumAmount",
+    poistne_rocne: "annualPremium", produkt: "product", partner: "partner",
   };
 
   app.post("/api/contracts/:contractId/param-verifications", isAuthenticated, async (req: any, res) => {
@@ -9175,38 +9187,20 @@ export async function registerRoutes(
       }
 
       // Side-effect: corrected_snapshot — update the specific key in the contract's subject_snapshot
-      // Uses canonical snapshot key (first in map) to stay consistent with frontend reads
+      // Uses canonical snapshot key (from shared PARAM_KEY_TO_SNAPSHOT_KEY) to stay consistent with frontend reads
       if (status === "corrected_snapshot" && newValue !== undefined) {
         const currentSnapshot = (contract.subjectSnapshot as Record<string, any>) || {};
-        const SNAPSHOT_PARAM_KEY_MAP: Record<string, string> = {
-          meno: "firstName", priezvisko: "lastName", titul_pred: "titleBefore", titul_za: "titleAfter",
-          datum_narodenia: "birthDate", rodne_cislo: "birthNumber", cislo_op: "idCardNumber",
-          telefon: "phone", email: "email", ulica: "street", psc: "postalCode", mesto: "city",
-          stat: "stateId", iban: "iban", swift: "swift", gdpr_suhlas: "gdprConsent",
-          cislo_zmluvy: "contractNumber", datum_podpisu: "signedDate", datum_ucinnosti: "effectiveDate",
-          datum_exspiracie: "expiryDate", poistna_suma: "insuredSum", poistne_lehotne: "premiumAmount",
-          poistne_rocne: "annualPremium", produkt: "product", partner: "partner",
-        };
-        const canonicalKey = SNAPSHOT_PARAM_KEY_MAP[paramKey] || paramKey;
+        const canonicalKey = PARAM_KEY_TO_SNAPSHOT_KEY[paramKey] || paramKey;
         const updatedSnapshot = { ...currentSnapshot, [canonicalKey]: newValue };
         await db.update(contracts).set({ subjectSnapshot: updatedSnapshot }).where(eq(contracts.id, contractId));
         await logAudit(req, { action: "Uprava", module: "zmluvy_snapshot", entityId: contractId, entityName: `BO oprava snapshotu: ${paramKey} (${canonicalKey}) ${oldValue} → ${newValue}` });
       }
 
-      // Auto-detect reason for not_ok: look up snapshot value for this param
-      const NOT_OK_SNAPSHOT_KEY_MAP: Record<string, string> = {
-        meno: "firstName", priezvisko: "lastName", titul_pred: "titleBefore", titul_za: "titleAfter",
-        datum_narodenia: "birthDate", rodne_cislo: "birthNumber", cislo_op: "idCardNumber",
-        telefon: "phone", email: "email", ulica: "street", psc: "postalCode", mesto: "city",
-        stat: "stateId", iban: "iban", swift: "swift", gdpr_suhlas: "gdprConsent",
-        cislo_zmluvy: "contractNumber", datum_podpisu: "signedDate", datum_ucinnosti: "effectiveDate",
-        datum_exspiracie: "expiryDate", poistna_suma: "insuredSum", poistne_lehotne: "premiumAmount",
-        poistne_rocne: "annualPremium", produkt: "product", partner: "partner",
-      };
+      // Auto-detect reason for not_ok: look up snapshot value for this param using shared key map
       let autoReason: "missing_mandatory_data" | "irresolvable_conflict" | null = null;
       if (status === "not_ok") {
         const snapshot = (contract.subjectSnapshot as Record<string, unknown>) || {};
-        const canonicalKey = NOT_OK_SNAPSHOT_KEY_MAP[paramKey] || paramKey;
+        const canonicalKey = PARAM_KEY_TO_SNAPSHOT_KEY[paramKey] || paramKey;
         const snapshotValue = snapshot[canonicalKey] ?? snapshot[paramKey];
         const isEmpty = snapshotValue === undefined || snapshotValue === null || String(snapshotValue).trim() === "";
         autoReason = isEmpty ? "missing_mandatory_data" : "irresolvable_conflict";
