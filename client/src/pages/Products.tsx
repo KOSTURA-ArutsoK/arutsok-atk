@@ -951,7 +951,7 @@ function ProductFormDialog({
                                     </button>
 
                                     {katIsExp && kat.bloky.map(blok => {
-                                      const blokKey = `${typeGroup.clientTypeId}_blok_${blok.blokId ?? "__none__"}`;
+                                      const blokKey = `${katKey}_blok_${blok.blokId ?? "__none__"}`;
                                       const blokIsExp = expandedSubjBloky.has(blokKey);
                                       const blokActCnt = blok.panels.flatMap(p => p.fields).filter(f => displayParamConfig[f.fieldKey]?.display).length;
                                       return (
@@ -970,7 +970,7 @@ function ProductFormDialog({
                                           </button>
 
                                           {blokIsExp && blok.panels.map(panel => {
-                                            const panelKey = `${typeGroup.clientTypeId}_panel_${panel.panelId ?? "__none__"}`;
+                                            const panelKey = `${blokKey}_panel_${panel.panelId ?? "__none__"}`;
                                             const panelIsExp = expandedSubjPanely.has(panelKey);
                                             const panelActCnt = panel.fields.filter(f => displayParamConfig[f.fieldKey]?.display).length;
                                             return (
