@@ -23386,8 +23386,9 @@ export async function registerRoutes(
 
       const allLinksBuilt = [...allLinks, ...virtualPartnerLinks];
 
-      // KDE isolation: restrict tree to the company's branch when KDE is set
-      const filterCompanyId = (req as any).appUser?.activeCompanyId ?? null;
+      // KTO-first isolation: when acting as a company (KTO context), show that company's branch.
+      // Fallback to KDE (workspace company) when no KTO is set.
+      const filterCompanyId = (req as any).appUser?.activeKtoCompanyId ?? (req as any).appUser?.activeCompanyId ?? null;
       const isSuperadmin = (req as any).appUser?.role === 'superadmin';
       let visibleSubjects = allSubjectsBuilt;
       let visibleLinks = allLinksBuilt;
