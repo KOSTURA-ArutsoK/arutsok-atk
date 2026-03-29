@@ -2354,6 +2354,7 @@ function BOVerificationConsole({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", contract?.id, "param-verifications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", contract?.id, "verification-status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/verification-statuses"] });
       setCorrectionParam(null);
       setCorrectionValue("");
       setSyncParam(null);
