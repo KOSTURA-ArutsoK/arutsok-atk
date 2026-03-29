@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, isAuthenticated, resolveContextLabel, getAuditActorId } from "./auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts, subjectLinks, revocationTickets } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts, subjectLinks, revocationTickets, insertProductDisplayParamSchema, insertContractParamVerificationSchema } from "@shared/schema";
 import type { DocEntry, WebRoutingRule } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, syncSubjectParameters, seedAssetPanels, seedEventAndEntityPanels, seedNsVsTemplates, cleanupZombieTemplateParams, ensureOsClientType } from "./seed-subject-params";
@@ -9122,10 +9122,10 @@ export async function registerRoutes(
     try {
       const contractId = Number(req.params.contractId);
       const user = (req as any).appUser;
-      const { paramKey, status, oldValue, newValue, note } = req.body;
-      if (!paramKey) return res.status(400).json({ message: "paramKey je povinný" });
-      const allowedStatuses = ["pending", "ok", "sync_subject", "corrected_snapshot"];
-      if (!allowedStatuses.includes(status)) return res.status(400).json({ message: "Neplatný status" });
+      const bodySchema = insertContractParamVerificationSchema.omit({ contractId: true, verifiedByUserId: true });
+      const parsed = bodySchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors.map(e => e.message).join("; ") });
+      const { paramKey, status, oldValue, newValue, note } = parsed.data;
       const row = await storage.upsertContractParamVerification({
         contractId,
         paramKey,
@@ -12395,8 +12395,10 @@ export async function registerRoutes(
   app.post("/api/products/:id/display-params", isAuthenticated, async (req: any, res) => {
     try {
       const productId = Number(req.params.id);
-      const { paramKey, label, displayInSummary, requireVerification, sortOrder } = req.body;
-      if (!paramKey) return res.status(400).json({ message: "paramKey je povinný" });
+      const bodySchema = insertProductDisplayParamSchema.omit({ productId: true });
+      const parsed = bodySchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors.map(e => e.message).join("; ") });
+      const { paramKey, label, displayInSummary, requireVerification, sortOrder } = parsed.data;
       const row = await storage.upsertProductDisplayParam(productId, paramKey, { label, displayInSummary, requireVerification, sortOrder });
       await logAudit(req, { action: "Uprava", module: "Produkty", entityId: productId, entityName: `Parametere zobrazenia: ${paramKey}` });
       res.json(row);
@@ -12409,9 +12411,10 @@ export async function registerRoutes(
   app.put("/api/products/:id/display-params", isAuthenticated, async (req: any, res) => {
     try {
       const productId = Number(req.params.id);
-      const params = req.body;
-      if (!Array.isArray(params)) return res.status(400).json({ message: "Očakáva sa pole parametrov" });
-      const rows = await storage.setProductDisplayParams(productId, params);
+      const bulkSchema = z.array(insertProductDisplayParamSchema.omit({ productId: true }));
+      const parsed = bulkSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors.map(e => e.message).join("; ") });
+      const rows = await storage.setProductDisplayParams(productId, parsed.data);
       await logAudit(req, { action: "Uprava", module: "Produkty", entityId: productId, entityName: "Hromadné nastavenie parametrov zobrazenia" });
       res.json(rows);
     } catch (err) {
