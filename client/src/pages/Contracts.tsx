@@ -3070,6 +3070,9 @@ function ScanCommanderDialog({
       setLocalPairedCounts(prev => ({ ...prev, [selectedContractId]: (prev[selectedContractId] || 0) + 1 }));
       setSelectedFileUrl(null);
       setSelectedContractId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/phase6"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/phase8"] });
       toast({ title: "Priradené", description: `Sken "${fileEntry.name}" priradený k ${contractLabel}` });
     } catch (err: any) {
       toast({ title: "Chyba", description: err.message, variant: "destructive" });
@@ -10913,7 +10916,7 @@ export default function Contracts() {
                           Priradiť ku skenom — dátová linka
                         </Button>
                         <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => {
-                          const selected = phaseContracts.filter(c => rerouteSelectedIds.includes(c.id));
+                          const selected = phase6Contracts.filter((c: Contract) => rerouteSelectedIds.includes(c.id));
                           openCommander(selected);
                         }} data-testid="button-assign-scans">
                           <Upload className="w-3.5 h-3.5 mr-1.5" />

@@ -6598,6 +6598,14 @@ export async function registerRoutes(
       const [contract] = await db.select().from(contracts).where(eq(contracts.id, Number(contractId)));
       if (!contract) return res.status(404).json({ message: "Kontrakt nenájdený" });
 
+      // Tenant-scope authorization: non-admin users may only modify contracts in their active company
+      if (!isAdmin(appUser)) {
+        const userCompanyId = appUser?.activeCompanyId ?? null;
+        if (userCompanyId && contract.companyId && contract.companyId !== userCompanyId) {
+          return res.status(403).json({ message: "Nemáte oprávnenie upravovať tento kontrakt." });
+        }
+      }
+
       const existingDocs: DocEntry[] = (contract.documents as DocEntry[]) || [];
       const newDoc: DocEntry = {
         name: sanitizedFileName,
