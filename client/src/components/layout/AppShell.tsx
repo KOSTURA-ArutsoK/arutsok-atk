@@ -885,7 +885,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
               return (
                 <div
-                  className="flex items-center gap-1.5 rounded-full min-h-[44px] md:min-h-0 md:h-10 px-2 w-max"
+                  className="flex flex-nowrap items-center gap-1.5 rounded-full min-h-[44px] md:min-h-0 md:h-10 px-2 w-max"
                   style={{
                     background: "hsl(222 20% 20%)",
                     border: "1px solid hsl(222 15% 28%)",
@@ -976,7 +976,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                   <button
                                     type="button"
                                     onClick={() => handleContextSelectDivision(divId)}
-                                    className={`w-6 h-6 rounded-full flex items-center justify-center text-sm holding-chip-emoji ${
+                                    className={`w-6 h-6 rounded-full flex items-center justify-center text-sm holding-chip-emoji relative after:absolute after:content-[''] after:-inset-[10px] md:after:hidden ${
                                       isActiveDivision
                                         ? "ring-2 ring-zinc-400 bg-zinc-400/20"
                                         : "hover:bg-zinc-400/15"

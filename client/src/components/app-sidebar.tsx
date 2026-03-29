@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useHelp } from "@/contexts/help-context";
@@ -379,6 +379,13 @@ export function AppSidebar() {
     setOpenMobile(false);
   }, [location, setOpenMobile]);
 
+  const handleNavClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('a[href]')) {
+      setOpenMobile(false);
+    }
+  }, [setOpenMobile]);
+
   const { data: pointsData } = useQuery<{ points: number }>({
     queryKey: ["/api/app-users/my-points"],
     staleTime: 1000 * 60 * 5,
@@ -503,7 +510,7 @@ export function AppSidebar() {
 
       <SidebarSeparator />
 
-      <SidebarContent>
+      <SidebarContent onClick={handleNavClick}>
         <SidebarGroup>
           <SidebarGroupLabel>Moduly</SidebarGroupLabel>
           <SidebarGroupContent>
