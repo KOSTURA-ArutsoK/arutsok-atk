@@ -57,6 +57,8 @@ import { RichTextEditor } from "@/components/rich-text-editor";
 import { ProcessingSaveButton } from "@/components/processing-save-button";
 import { HelpIcon } from "@/components/help-icon";
 import { MultiSelectCheckboxes } from "@/components/multi-select-checkboxes";
+import { VERIFIABLE_PARAMS, type VerifiableParam } from "@shared/verifiable-params";
+import type { ProductDisplayParam } from "@shared/schema";
 
 const PRODUCT_COLUMNS: ColumnDef[] = [
   { key: "partnerId", label: "Partner" },
@@ -209,7 +211,11 @@ function ProductFormDialog({
   const [notesHtml, setNotesHtml] = useState("");
   const [paramValues, setParamValues] = useState<Record<number, string>>({});
   const [contextError, setContextError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"info" | "dokumentacia">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "dokumentacia" | "parametre">("info");
+
+  // Display params state for "Parametre zhrnutia zmluvy" tab
+  type DisplayParamState = { display: boolean; verify: boolean };
+  const [displayParamConfig, setDisplayParamConfig] = useState<Record<string, DisplayParamState>>({});
   const [requiredDocuments, setRequiredDocuments] = useState<string[]>([]);
   const [optionalDocuments, setOptionalDocuments] = useState<string[]>([]);
   const [requiredDocumentsReceived, setRequiredDocumentsReceived] = useState<string[]>([]);
@@ -241,6 +247,26 @@ function ProductFormDialog({
     const param = allParameters?.find(p => p.id === pp.parameterId);
     return param ? { ...param, overrideRequired: pp.overrideRequired, overrideHelpText: pp.overrideHelpText } : null;
   }).filter(Boolean) as (Parameter & { overrideRequired?: boolean | null; overrideHelpText?: string | null })[];
+
+  const { data: existingDisplayParams } = useQuery<ProductDisplayParam[]>({
+    queryKey: ["/api/products", editingProduct?.id, "display-params"],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${editingProduct!.id}/display-params`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!editingProduct?.id,
+  });
+
+  const saveDisplayParamsMutation = useMutation({
+    mutationFn: (params: Array<{ paramKey: string; label: string; displayInSummary: boolean; requireVerification: boolean; sortOrder: number }>) =>
+      apiRequest("PUT", `/api/products/${editingProduct!.id}/display-params`, params),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products", editingProduct?.id, "display-params"] });
+      toast({ title: "Uložené", description: "Parametre zhrnutia uložené" });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa uložiť parametre", variant: "destructive" }),
+  });
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/products", data),
@@ -286,6 +312,7 @@ function ProductFormDialog({
       timerRef.current = performance.now();
       setActiveTab("info");
       setNewDocName("");
+      setDisplayParamConfig({});
       if (editingProduct) {
         setPartnerId(editingProduct.partnerId?.toString() || "");
         setCode(editingProduct.code || "");
@@ -318,6 +345,16 @@ function ProductFormDialog({
       setDocSection("central");
     }
   }, [open, editingProduct]);
+
+  // Sync display params when loaded from server
+  useEffect(() => {
+    if (!existingDisplayParams) return;
+    const config: Record<string, { display: boolean; verify: boolean }> = {};
+    for (const p of existingDisplayParams) {
+      config[p.paramKey] = { display: p.displayInSummary, verify: p.requireVerification };
+    }
+    setDisplayParamConfig(config);
+  }, [existingDisplayParams]);
 
   const handleOpenChange = useCallback((isOpen: boolean) => {
     if (!isOpen) setContextError(null);
@@ -361,7 +398,7 @@ function ProductFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent size={activeTab === "dokumentacia" ? "xl" : "md"}>
+      <DialogContent size={activeTab === "dokumentacia" ? "xl" : activeTab === "parametre" ? "lg" : "md"}>
         <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
         <DialogHeader>
           <DialogTitle data-testid="text-product-dialog-title">
@@ -396,6 +433,22 @@ function ProductFormDialog({
               <Badge variant="secondary" className="text-[10px] px-1.5 ml-0.5">{requiredDocuments.length + optionalDocuments.length + requiredDocumentsReceived.length + optionalDocumentsReceived.length + requiredDocumentsPartner.length + optionalDocumentsPartner.length}</Badge>
             </span>
           </button>
+          {editingProduct && (
+            <button
+              type="button"
+              className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "parametre" ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
+              onClick={() => setActiveTab("parametre")}
+              data-testid="tab-product-parametre"
+            >
+              <Package className="w-3.5 h-3.5" />
+              Parametre zhrnutia
+              {Object.values(displayParamConfig).some(c => c.display) && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 ml-0.5">
+                  {Object.values(displayParamConfig).filter(c => c.display).length}
+                </Badge>
+              )}
+            </button>
+          )}
         </div>
 
         <div style={{ display: activeTab === "info" ? 'block' : 'none' }}>
@@ -653,7 +706,146 @@ function ProductFormDialog({
             </Button>
           </div>
         </div>
-        <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+
+        {/* ─── TAB: Parametre zhrnutia zmluvy ──────────────────────────── */}
+        <div style={{ display: activeTab === "parametre" ? 'block' : 'none' }}>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Nakonfigurujte, ktoré parametre sa zobrazujú v zhrnutí zmluvy a ktoré musí Backoffice overiť.
+              Pravidlo: <strong>čo sa nezobrazuje, to sa neoveruje</strong>.
+            </p>
+
+            {/* Subjekt group */}
+            <div className="rounded-xl border border-blue-500/25 bg-blue-500/5 p-4 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300 pb-1 border-b border-blue-500/20">Parametre subjektu</p>
+              <div className="space-y-0">
+                {/* Header row */}
+                <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1">
+                  <span className="text-[11px] text-muted-foreground font-medium">Parameter</span>
+                  <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Zobrazovať</span>
+                  <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Overiť BO</span>
+                </div>
+                {VERIFIABLE_PARAMS.filter(p => p.group === "subjekt").map((param, i) => {
+                  const cfg = displayParamConfig[param.key] || { display: false, verify: false };
+                  return (
+                    <div
+                      key={param.key}
+                      className={`grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1.5 rounded ${i % 2 === 0 ? "bg-background/50" : ""}`}
+                      data-testid={`row-display-param-${param.key}`}
+                    >
+                      <span className="text-sm">{param.label}</span>
+                      <div className="w-24 flex justify-center">
+                        <Switch
+                          checked={cfg.display}
+                          onCheckedChange={(checked) => {
+                            setDisplayParamConfig(prev => ({
+                              ...prev,
+                              [param.key]: { display: checked, verify: checked ? prev[param.key]?.verify ?? false : false },
+                            }));
+                          }}
+                          data-testid={`switch-display-${param.key}`}
+                        />
+                      </div>
+                      <div className="w-24 flex justify-center">
+                        <Switch
+                          checked={cfg.display ? cfg.verify : false}
+                          disabled={!cfg.display}
+                          onCheckedChange={(checked) => {
+                            setDisplayParamConfig(prev => ({
+                              ...prev,
+                              [param.key]: { display: prev[param.key]?.display ?? false, verify: checked },
+                            }));
+                          }}
+                          data-testid={`switch-verify-${param.key}`}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Zmluva group */}
+            <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300 pb-1 border-b border-amber-500/20">Parametre zmluvy</p>
+              <div className="space-y-0">
+                <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1">
+                  <span className="text-[11px] text-muted-foreground font-medium">Parameter</span>
+                  <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Zobrazovať</span>
+                  <span className="text-[11px] text-muted-foreground font-medium w-24 text-center">Overiť BO</span>
+                </div>
+                {VERIFIABLE_PARAMS.filter(p => p.group === "zmluva").map((param, i) => {
+                  const cfg = displayParamConfig[param.key] || { display: false, verify: false };
+                  return (
+                    <div
+                      key={param.key}
+                      className={`grid grid-cols-[1fr_auto_auto] items-center gap-2 px-2 py-1.5 rounded ${i % 2 === 0 ? "bg-background/50" : ""}`}
+                      data-testid={`row-display-param-${param.key}`}
+                    >
+                      <span className="text-sm">{param.label}</span>
+                      <div className="w-24 flex justify-center">
+                        <Switch
+                          checked={cfg.display}
+                          onCheckedChange={(checked) => {
+                            setDisplayParamConfig(prev => ({
+                              ...prev,
+                              [param.key]: { display: checked, verify: checked ? prev[param.key]?.verify ?? false : false },
+                            }));
+                          }}
+                          data-testid={`switch-display-${param.key}`}
+                        />
+                      </div>
+                      <div className="w-24 flex justify-center">
+                        <Switch
+                          checked={cfg.display ? cfg.verify : false}
+                          disabled={!cfg.display}
+                          onCheckedChange={(checked) => {
+                            setDisplayParamConfig(prev => ({
+                              ...prev,
+                              [param.key]: { display: prev[param.key]?.display ?? false, verify: checked },
+                            }));
+                          }}
+                          data-testid={`switch-verify-${param.key}`}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t">
+              <p className="text-xs text-muted-foreground">
+                Zobrazované: <strong>{Object.values(displayParamConfig).filter(c => c.display).length}</strong> /
+                Overované BO: <strong>{Object.values(displayParamConfig).filter(c => c.display && c.verify).length}</strong>
+              </p>
+              <Button
+                type="button"
+                onClick={() => {
+                  const params = VERIFIABLE_PARAMS
+                    .filter(p => displayParamConfig[p.key]?.display)
+                    .map((p, i) => ({
+                      paramKey: p.key,
+                      label: p.label,
+                      displayInSummary: true,
+                      requireVerification: displayParamConfig[p.key]?.verify ?? false,
+                      sortOrder: i,
+                    }));
+                  saveDisplayParamsMutation.mutate(params);
+                }}
+                disabled={saveDisplayParamsMutation.isPending}
+                data-testid="button-save-display-params"
+              >
+                {saveDisplayParamsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Uložiť parametre
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {activeTab !== "parametre" && (
+          <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+        )}
         </form>
       </DialogContent>
     </Dialog>
