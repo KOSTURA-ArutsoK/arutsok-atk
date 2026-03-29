@@ -262,6 +262,9 @@ function formatAmount(amount: number | null | undefined, currency: string | null
   return `${amount} ${currency || "EUR"}`;
 }
 
+type AllowedSubject = { id: number; uid: string | null; firstName: string | null; lastName: string | null; companyName: string | null; type: string | null };
+type AllowedSubjectsResponse = { restricted: boolean; subjects: AllowedSubject[] };
+
 function ContractFormDialog({
   open,
   onOpenChange,
@@ -336,8 +339,6 @@ function ContractFormDialog({
     enabled: !!editingContract?.id,
   });
 
-  type AllowedSubject = { id: number; uid: string | null; firstName: string | null; lastName: string | null; companyName: string | null; type: string | null };
-  type AllowedSubjectsResponse = { restricted: boolean; subjects: AllowedSubject[] };
   const { data: mainSpecialistData } = useQuery<AllowedSubjectsResponse>({
     queryKey: ["/api/products", editingContract?.productId, "specialist-subjects"],
     queryFn: async () => {
