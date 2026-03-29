@@ -2904,10 +2904,29 @@ function ScanCommanderDialog({
   // Track internal contract state (paired counts) locally
   const [localPairedCounts, setLocalPairedCounts] = useState<Record<number, number>>({});
 
-  // PDF blob URL for selected file preview
+  // Image controls
+  const [imgRotation, setImgRotation] = useState(0);
+  const [imgZoom, setImgZoom] = useState(100);
+  const [imgInvert, setImgInvert] = useState(false);
+  const ZOOM_STEPS = [50, 75, 100, 125, 150, 200];
+
+  // PDF / image blob URL for selected file preview
   const previewBlobUrlRef = useRef<string | null>(null);
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  // DOCX preview
+  const docxContainerRef = useRef<HTMLDivElement | null>(null);
+  const [docxLoading, setDocxLoading] = useState(false);
+  const [docxError, setDocxError] = useState<string | null>(null);
+
+  function resetPreviewControls() {
+    setImgRotation(0);
+    setImgZoom(100);
+    setImgInvert(false);
+    setDocxError(null);
+    if (docxContainerRef.current) docxContainerRef.current.innerHTML = '';
+  }
 
   useEffect(() => {
     if (!open) {
@@ -2920,10 +2939,13 @@ function ScanCommanderDialog({
         previewBlobUrlRef.current = null;
       }
       setPreviewBlobUrl(null);
+      resetPreviewControls();
     }
   }, [open]);
 
   useEffect(() => {
+    resetPreviewControls();
+
     if (!selectedFileUrl) {
       if (previewBlobUrlRef.current) {
         URL.revokeObjectURL(previewBlobUrlRef.current);
@@ -2932,8 +2954,41 @@ function ScanCommanderDialog({
       setPreviewBlobUrl(null);
       return;
     }
-    const isPdf = selectedFileUrl.toLowerCase().includes('.pdf');
-    if (!isPdf) {
+
+    const url = selectedFileUrl.toLowerCase();
+    const isPdfFile = url.includes('.pdf');
+    const isDocxFile = /\.(docx?|doc)$/i.test(selectedFileUrl);
+    const isImageFile = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(selectedFileUrl);
+
+    if (isDocxFile) {
+      // Revoke any previous blob
+      if (previewBlobUrlRef.current) {
+        URL.revokeObjectURL(previewBlobUrlRef.current);
+        previewBlobUrlRef.current = null;
+      }
+      setPreviewBlobUrl(null);
+      setDocxLoading(true);
+      let active = true;
+      fetch(selectedFileUrl, { credentials: 'include' })
+        .then(r => { if (!r.ok) throw new Error('fetch failed'); return r.arrayBuffer(); })
+        .then(async (buf) => {
+          if (!active) return;
+          if (docxContainerRef.current) {
+            const { renderAsync } = await import('docx-preview');
+            docxContainerRef.current.innerHTML = '';
+            await renderAsync(buf, docxContainerRef.current, undefined, {
+              className: 'docx-preview',
+              inWrapper: false,
+              ignoreWidth: true,
+            });
+          }
+        })
+        .catch(() => { if (active) setDocxError('Náhľad DOCX nie je dostupný'); })
+        .finally(() => { if (active) setDocxLoading(false); });
+      return () => { active = false; };
+    }
+
+    if (isImageFile) {
       if (previewBlobUrlRef.current) {
         URL.revokeObjectURL(previewBlobUrlRef.current);
         previewBlobUrlRef.current = null;
@@ -2941,20 +2996,30 @@ function ScanCommanderDialog({
       setPreviewBlobUrl(selectedFileUrl);
       return;
     }
-    setPreviewLoading(true);
-    let active = true;
-    fetch(selectedFileUrl, { credentials: 'include' })
-      .then(r => { if (!r.ok) throw new Error('fetch failed'); return r.blob(); })
-      .then(blob => {
-        if (!active) return;
-        if (previewBlobUrlRef.current) URL.revokeObjectURL(previewBlobUrlRef.current);
-        const blobUrl = URL.createObjectURL(blob);
-        previewBlobUrlRef.current = blobUrl;
-        setPreviewBlobUrl(blobUrl);
-      })
-      .catch(() => { if (active) setPreviewBlobUrl(null); })
-      .finally(() => { if (active) setPreviewLoading(false); });
-    return () => { active = false; };
+
+    if (isPdfFile) {
+      setPreviewLoading(true);
+      let active = true;
+      fetch(selectedFileUrl, { credentials: 'include' })
+        .then(r => { if (!r.ok) throw new Error('fetch failed'); return r.blob(); })
+        .then(blob => {
+          if (!active) return;
+          if (previewBlobUrlRef.current) URL.revokeObjectURL(previewBlobUrlRef.current);
+          const blobUrl = URL.createObjectURL(blob);
+          previewBlobUrlRef.current = blobUrl;
+          setPreviewBlobUrl(blobUrl);
+        })
+        .catch(() => { if (active) setPreviewBlobUrl(null); })
+        .finally(() => { if (active) setPreviewLoading(false); });
+      return () => { active = false; };
+    }
+
+    // Unknown type — clear preview
+    if (previewBlobUrlRef.current) {
+      URL.revokeObjectURL(previewBlobUrlRef.current);
+      previewBlobUrlRef.current = null;
+    }
+    setPreviewBlobUrl(null);
   }, [selectedFileUrl]);
 
   function formatBytes(bytes: number): string {
@@ -3070,6 +3135,23 @@ function ScanCommanderDialog({
   const canPair = !!selectedFileUrl && !!selectedContractId && selectedFile?.done && !selectedFile?.pairedContractId && !pairing;
   const isPdf = !!selectedFileUrl && selectedFileUrl.toLowerCase().includes('.pdf');
   const isImage = selectedFileUrl ? /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(selectedFileUrl) : false;
+  const isDocx = selectedFileUrl ? /\.(docx?|doc)$/i.test(selectedFileUrl) : false;
+
+  function getFileTypeIcon(name: string, className = "w-3.5 h-3.5 shrink-0") {
+    const ext = name.split('.').pop()?.toLowerCase() ?? '';
+    if (ext === 'pdf') return <FileText className={`${className} text-red-500`} />;
+    if (['jpg','jpeg','png','gif','webp','bmp'].includes(ext)) return <FileText className={`${className} text-amber-500`} />;
+    if (['doc','docx'].includes(ext)) return <FileText className={`${className} text-blue-500`} />;
+    return <FileText className={`${className} text-muted-foreground`} />;
+  }
+
+  function getFileTypeBadge(name: string) {
+    const ext = name.split('.').pop()?.toLowerCase() ?? '';
+    if (ext === 'pdf') return <span className="text-[9px] font-bold uppercase tracking-wide text-red-500 bg-red-500/10 rounded px-1">PDF</span>;
+    if (['jpg','jpeg','png','gif','webp','bmp'].includes(ext)) return <span className="text-[9px] font-bold uppercase tracking-wide text-amber-600 bg-amber-500/10 rounded px-1">{ext.toUpperCase()}</span>;
+    if (ext === 'docx' || ext === 'doc') return <span className="text-[9px] font-bold uppercase tracking-wide text-blue-600 bg-blue-500/10 rounded px-1">W</span>;
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -3109,16 +3191,19 @@ function ScanCommanderDialog({
         {/* 3-panel body */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
 
-          {/* LEFT: PDF/Image Preview */}
+          {/* LEFT: Universal Media Container */}
           <div className="w-[35%] border-r flex flex-col min-h-0 bg-muted/10">
             <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2">
               <Eye className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-xs font-medium text-muted-foreground">Náhľad</span>
               {selectedFile && (
-                <span className="text-xs text-foreground font-mono truncate ml-1">{selectedFile.name}</span>
+                <>
+                  {getFileTypeBadge(selectedFile.name)}
+                  <span className="text-xs text-foreground font-mono truncate ml-0.5">{selectedFile.name}</span>
+                </>
               )}
             </div>
-            <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center">
+            <div className="flex-1 min-h-0 overflow-hidden relative flex items-center justify-center">
               {!selectedFileUrl ? (
                 <div className="text-center text-muted-foreground p-6">
                   <Eye className="w-10 h-10 mx-auto mb-2 opacity-30" />
@@ -3134,12 +3219,89 @@ function ScanCommanderDialog({
                   className="w-full h-full"
                   style={{ minHeight: 0 }}
                 />
-              ) : previewBlobUrl && isImage ? (
-                <img
-                  src={previewBlobUrl}
-                  alt={selectedFile?.name}
-                  className="max-w-full max-h-full object-contain p-2"
-                />
+              ) : isImage ? (
+                <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                  <img
+                    src={previewBlobUrl || selectedFileUrl}
+                    alt={selectedFile?.name}
+                    className="max-w-full max-h-full object-contain transition-transform duration-200"
+                    style={{
+                      transform: `rotate(${imgRotation}deg) scale(${imgZoom / 100})`,
+                      filter: imgInvert ? 'invert(1)' : 'none',
+                    }}
+                  />
+                  {/* Image controls toolbar */}
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-background/90 border rounded-lg px-2 py-1 shadow-sm backdrop-blur-sm">
+                    <button
+                      onClick={() => setImgRotation(r => (r - 90 + 360) % 360)}
+                      title="Otočiť doľava"
+                      className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                      data-testid="button-img-rotate-left"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    </button>
+                    <button
+                      onClick={() => setImgRotation(r => (r + 90) % 360)}
+                      title="Otočiť doprava"
+                      className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                      data-testid="button-img-rotate-right"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                    </button>
+                    <div className="w-px h-4 bg-border mx-0.5" />
+                    <button
+                      onClick={() => { const i = ZOOM_STEPS.indexOf(imgZoom); if (i > 0) setImgZoom(ZOOM_STEPS[i - 1]); }}
+                      title="Oddialiť"
+                      disabled={imgZoom <= ZOOM_STEPS[0]}
+                      className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
+                      data-testid="button-img-zoom-out"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                    </button>
+                    <span className="text-[10px] font-mono w-8 text-center text-muted-foreground">{imgZoom}%</span>
+                    <button
+                      onClick={() => { const i = ZOOM_STEPS.indexOf(imgZoom); if (i < ZOOM_STEPS.length - 1) setImgZoom(ZOOM_STEPS[i + 1]); }}
+                      title="Priblížiť"
+                      disabled={imgZoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}
+                      className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
+                      data-testid="button-img-zoom-in"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                    </button>
+                    <div className="w-px h-4 bg-border mx-0.5" />
+                    <button
+                      onClick={() => setImgInvert(v => !v)}
+                      title="Invertovať farby"
+                      className={`p-1 rounded transition-colors ${imgInvert ? 'bg-slate-700 text-white' : 'hover:bg-muted text-muted-foreground hover:text-foreground'}`}
+                      data-testid="button-img-invert"
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20V2z" fill="currentColor" stroke="none"/></svg>
+                    </button>
+                  </div>
+                </div>
+              ) : isDocx ? (
+                <div className="relative w-full h-full flex flex-col">
+                  {/* Container always mounted so renderAsync can write into it */}
+                  <div
+                    ref={docxContainerRef}
+                    className="flex-1 overflow-auto p-3 text-sm leading-relaxed"
+                    style={{ fontFamily: 'serif' }}
+                    data-testid="docx-preview-container"
+                  />
+                  {/* Loading overlay */}
+                  {docxLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-background/70">
+                      <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                    </div>
+                  )}
+                  {/* Error overlay */}
+                  {docxError && !docxLoading && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-muted-foreground p-6 bg-background/90">
+                      <FileText className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                      <p className="text-sm">{docxError}</p>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="text-center text-muted-foreground p-6">
                   <FileText className="w-10 h-10 mx-auto mb-2 opacity-40" />
@@ -3206,8 +3368,13 @@ function ScanCommanderDialog({
                     data-testid={`file-inbox-${idx}`}
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <FileText className={`w-3.5 h-3.5 shrink-0 ${isPaired ? "text-emerald-500" : isSelected ? "text-blue-500" : "text-muted-foreground"}`} />
+                      {isPaired
+                        ? getFileTypeIcon(f.name, `w-3.5 h-3.5 shrink-0 text-emerald-500`)
+                        : isSelected
+                        ? getFileTypeIcon(f.name, `w-3.5 h-3.5 shrink-0 text-blue-500`)
+                        : getFileTypeIcon(f.name)}
                       <span className="text-xs font-mono truncate flex-1">{f.name}</span>
+                      {getFileTypeBadge(f.name)}
                       <span className="text-[10px] text-muted-foreground shrink-0">{formatBytes(f.size)}</span>
                     </div>
                     {f.error ? (

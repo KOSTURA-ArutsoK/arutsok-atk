@@ -66,6 +66,7 @@
     "connect-pg-simple": "^10.0.0",
     "csv-parse": "^6.1.0",
     "date-fns": "^3.6.0",
+    "docx-preview": "^0.3.7",
     "dompurify": "^3.3.3",
     "drizzle-orm": "^0.39.3",
     "drizzle-zod": "^0.7.0",
