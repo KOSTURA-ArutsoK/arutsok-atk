@@ -139,16 +139,6 @@ export default function Dashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [editOrder, setEditOrder] = useState<string[]>([]);
   const [redListDialogOpen, setRedListDialogOpen] = useState(false);
-  const formatDuration = (loginAt: string, logoutAt: string | null): string => {
-    if (!logoutAt) return "—";
-    const ms = new Date(logoutAt).getTime() - new Date(loginAt).getTime();
-    if (ms < 0) return "—";
-    const totalSec = Math.floor(ms / 1000);
-    const h = Math.floor(totalSec / 3600);
-    const m = Math.floor((totalSec % 3600) / 60);
-    const s = totalSec % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  };
 
   const isAdminUser = useMemo(() => {
     const role = appUser?.role || "";
