@@ -10612,20 +10612,43 @@ export default function Contracts() {
                         <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Produkt</th>
                         <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Typ zmluvy</th>
                         <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Dát. uzatv.</th>
-                        <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Číslo zmluvy</th>
+                        <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b">Č. návrhu / Č. zmluvy / Dokumenty</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {previewContracts.map((c, idx) => (
-                        <tr key={c.id} className={idx % 2 === 0 ? "bg-card" : "bg-muted/20"} data-testid={`row-preview-${c.id}`}>
-                          <td className="px-2 py-1.5 text-center font-semibold text-primary border-b border-border/50">{idx + 1}</td>
-                          <td className="px-2 py-1.5 border-b border-border/50 font-medium">{getPartnerName(c)}</td>
-                          <td className="px-2 py-1.5 border-b border-border/50">{getProductName(c)}</td>
-                          <td className="px-2 py-1.5 border-b border-border/50">{contractTypeLabelPreview[c.contractType ?? "Nova"] ?? c.contractType ?? "Nová"}</td>
-                          <td className="px-2 py-1.5 border-b border-border/50 whitespace-nowrap">{c.signedDate ? formatDate(c.signedDate) : "—"}</td>
-                          <td className="px-2 py-1.5 border-b border-border/50 font-mono">{c.contractNumber ?? "—"}</td>
-                        </tr>
-                      ))}
+                      {previewContracts.map((c, idx) => {
+                        const saved = docChecklistSavedState[c.id];
+                        const productDocs = getProductDocsForContract(c);
+                        const submittedDocs: string[] = [
+                          ...(saved?.req ?? []).map((i: number) => productDocs.required[i]).filter(Boolean),
+                          ...(saved?.opt ?? []).map((i: number) => productDocs.optional[i]).filter(Boolean),
+                          ...(saved?.checkedExtra ?? []).map((i: number) => saved?.extra?.[i]).filter(Boolean),
+                        ];
+                        return (
+                          <tr key={c.id} className={idx % 2 === 0 ? "bg-card" : "bg-muted/20"} data-testid={`row-preview-${c.id}`}>
+                            <td className="px-2 py-1.5 text-center font-semibold text-primary border-b border-border/50">{idx + 1}</td>
+                            <td className="px-2 py-1.5 border-b border-border/50 font-medium">{getPartnerName(c)}</td>
+                            <td className="px-2 py-1.5 border-b border-border/50">{getProductName(c)}</td>
+                            <td className="px-2 py-1.5 border-b border-border/50">{contractTypeLabelPreview[c.contractType ?? "Nova"] ?? c.contractType ?? "Nová"}</td>
+                            <td className="px-2 py-1.5 border-b border-border/50 whitespace-nowrap">{c.signedDate ? formatDate(c.signedDate) : "—"}</td>
+                            <td className="px-2 py-1.5 border-b border-border/50">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-mono text-[11px]"><span className="text-muted-foreground">Návrh:</span> {c.proposalNumber ?? "—"}</span>
+                                {c.contractNumber && (
+                                  <span className="font-mono text-[11px]"><span className="text-muted-foreground">Zmluva:</span> {c.contractNumber}</span>
+                                )}
+                                {submittedDocs.length > 0 && (
+                                  <div className="flex flex-col gap-0.5 mt-0.5">
+                                    {submittedDocs.map((doc, di) => (
+                                      <span key={di} className="text-[10px] text-emerald-400 leading-tight">✓ {doc}</span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 );
