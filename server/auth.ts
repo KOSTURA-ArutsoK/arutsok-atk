@@ -2974,7 +2974,8 @@ export async function writeAuditLog(
   }
 ): Promise<void> {
   const actorId = getAuditActorId(req);
-  const ua = req.headers?.['user-agent'] as string | undefined ?? null;
+  const rawUa = req.headers?.['user-agent'];
+  const ua = Array.isArray(rawUa) ? (rawUa[0] ?? null) : (rawUa ?? null);
   const baseEntry = {
     username: null as null,
     action: params.action,
