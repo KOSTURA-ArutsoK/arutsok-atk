@@ -2845,6 +2845,7 @@ export default function Contracts() {
   const [selectedIds, setSelectedIds] = useState<number[]>(() => {
     try { const r = localStorage.getItem("nahr_savedChecklist"); return r ? Object.keys(JSON.parse(r)).map(Number) : []; } catch { return []; }
   });
+  const [sprievodkaPreviewOpen, setSprievodkaPreviewOpen] = useState(false);
   const [sprievodkaDialogOpen, setSprievodkaDialogOpen] = useState(false);
   const [sprievodkaPrinted, setSprievodkaPrinted] = useState(false);
   const [rerouteSelectedIds, setRerouteSelectedIds] = useState<number[]>([]);
@@ -9943,7 +9944,7 @@ export default function Contracts() {
                       Zoznam obsahuje chybné riadky
                     </span>
                   )}
-                  <Button size="sm" onClick={() => { setSprievodkaPrinted(false); setSprievodkaDialogOpen(true); }} disabled={anyRedInFolder1} data-testid="button-dispatch" className="bg-green-600 hover:bg-green-500 text-white border-green-600">
+                  <Button size="sm" onClick={() => { setSprievodkaPreviewOpen(true); }} disabled={anyRedInFolder1} data-testid="button-dispatch" className="bg-green-600 hover:bg-green-500 text-white border-green-600">
                     <Send className="w-3.5 h-3.5 mr-1.5" />
                     Vytvoriť sprievodku
                   </Button>
@@ -10582,6 +10583,70 @@ export default function Contracts() {
           });
         })()}
 
+
+        {/* ── Sprievodka preview — large read-only list of selected contracts ── */}
+        <Dialog open={sprievodkaPreviewOpen} onOpenChange={setSprievodkaPreviewOpen}>
+          <DialogContent size="xl">
+            <DialogHeader>
+              <DialogTitle data-testid="text-sprievodka-preview-title">
+                Náhľad sprievodky – označené zmluvy ({selectedIds.length})
+              </DialogTitle>
+            </DialogHeader>
+            <div className="overflow-auto max-h-[60vh]">
+              {(() => {
+                const previewContracts = activeContracts
+                  .filter(c => selectedIds.includes(c.id))
+                  .sort((a, b) => selectedIds.indexOf(a.id) - selectedIds.indexOf(b.id));
+                const contractTypeLabel: Record<string, string> = {
+                  Nova: "Nová", Prestupova: "Prestupová", Zmenova: "Zmenová", Dodatok: "Dodatok",
+                };
+                if (previewContracts.length === 0) {
+                  return <p className="text-sm text-muted-foreground text-center py-8">Žiadne označené zmluvy</p>;
+                }
+                return (
+                  <table className="w-full text-xs border-separate border-spacing-0">
+                    <thead className="sticky top-0 z-10 bg-card">
+                      <tr className="bg-muted/50">
+                        <th className="px-2 py-1.5 text-center font-medium text-muted-foreground border-b w-10">#</th>
+                        <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Partner</th>
+                        <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Produkt</th>
+                        <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Typ zmluvy</th>
+                        <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Dát. uzatv.</th>
+                        <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b whitespace-nowrap">Číslo zmluvy</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewContracts.map((c, idx) => (
+                        <tr key={c.id} className={idx % 2 === 0 ? "bg-card" : "bg-muted/20"} data-testid={`row-preview-${c.id}`}>
+                          <td className="px-2 py-1.5 text-center font-semibold text-primary border-b border-border/50">{idx + 1}</td>
+                          <td className="px-2 py-1.5 border-b border-border/50 font-medium">{(c as any).partnerName || "—"}</td>
+                          <td className="px-2 py-1.5 border-b border-border/50">{getProductName(c)}</td>
+                          <td className="px-2 py-1.5 border-b border-border/50">{contractTypeLabel[(c as any).contractType || "Nova"] || (c as any).contractType || "Nová"}</td>
+                          <td className="px-2 py-1.5 border-b border-border/50 whitespace-nowrap">{(c as any).contractDate ? formatDate((c as any).contractDate) : "—"}</td>
+                          <td className="px-2 py-1.5 border-b border-border/50 font-mono">{(c as any).contractNumber || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                );
+              })()}
+            </div>
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border/50">
+              <Button type="button" variant="outline" onClick={() => setSprievodkaPreviewOpen(false)} data-testid="button-sprievodka-preview-cancel">
+                Zrušiť
+              </Button>
+              <Button
+                type="button"
+                onClick={() => { setSprievodkaPreviewOpen(false); setSprievodkaPrinted(false); setSprievodkaDialogOpen(true); }}
+                data-testid="button-sprievodka-preview-continue"
+                className="bg-green-600 hover:bg-green-500 text-white"
+              >
+                <Send className="w-3.5 h-3.5 mr-1.5" />
+                Pokračovať →
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={sprievodkaDialogOpen} onOpenChange={(o) => { setSprievodkaDialogOpen(o); if (!o) setSprievodkaPrinted(false); }}>
           <DialogContent size="sm">
