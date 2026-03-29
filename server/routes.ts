@@ -4989,7 +4989,9 @@ export async function registerRoutes(
     res.setHeader("X-Content-Type-Options", "nosniff");
     const ext = path.extname(filename).toLowerCase();
     const inlineTypes = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".pdf"]);
-    if (!inlineTypes.has(ext)) {
+    if (inlineTypes.has(ext)) {
+      res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+    } else {
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     }
     res.sendFile(filePath);
@@ -5004,7 +5006,9 @@ export async function registerRoutes(
       const filePath = path.join(UPLOADS_DIR, dir, filename);
       if (fs.existsSync(filePath)) {
         res.setHeader("X-Content-Type-Options", "nosniff");
-        if (!inlineTypes.has(ext)) {
+        if (inlineTypes.has(ext)) {
+          res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+        } else {
           res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
         }
         return res.sendFile(filePath);

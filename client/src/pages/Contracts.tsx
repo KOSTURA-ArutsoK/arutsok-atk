@@ -2378,6 +2378,38 @@ function BOVerificationConsole({
     }
   }, [open, contract?.id, isHistorical]);
 
+  // PDF blob URL state — avoids Chrome iframe-block for authenticated PDF endpoints
+  const pdfBlobUrlsRef = useRef<string[]>([]);
+  const [pdfBlobUrls, setPdfBlobUrls] = useState<Record<string, string>>({});
+  const [pdfLoadErrors, setPdfLoadErrors] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!open || !contract) return;
+    const docs = ((contract as any).documents || []) as { name: string; url: string }[];
+    const pdfDocs = docs.filter(d => d.url.toLowerCase().endsWith('.pdf'));
+    pdfBlobUrlsRef.current.forEach(u => URL.revokeObjectURL(u));
+    pdfBlobUrlsRef.current = [];
+    setPdfBlobUrls({});
+    setPdfLoadErrors({});
+    let active = true;
+    pdfDocs.forEach(doc => {
+      fetch(doc.url, { credentials: 'include' })
+        .then(r => { if (!r.ok) throw new Error('fetch failed'); return r.blob(); })
+        .then(blob => {
+          if (!active) return;
+          const blobUrl = URL.createObjectURL(blob);
+          pdfBlobUrlsRef.current.push(blobUrl);
+          setPdfBlobUrls(prev => ({ ...prev, [doc.url]: blobUrl }));
+        })
+        .catch(() => { if (active) setPdfLoadErrors(prev => ({ ...prev, [doc.url]: true })); });
+    });
+    return () => {
+      active = false;
+      pdfBlobUrlsRef.current.forEach(u => URL.revokeObjectURL(u));
+      pdfBlobUrlsRef.current = [];
+    };
+  }, [open, contract?.id]);
+
   // Correction state
   const [correctionParam, setCorrectionParam] = useState<string | null>(null);
   const [correctionValue, setCorrectionValue] = useState("");
@@ -2563,7 +2595,33 @@ function BOVerificationConsole({
                         </a>
                       </div>
                       {doc.url.toLowerCase().endsWith('.pdf') ? (
-                        <iframe src={doc.url} className="w-full" style={{ height: '600px' }} title={doc.name} />
+                        pdfBlobUrls[doc.url] ? (
+                          <embed
+                            src={pdfBlobUrls[doc.url]}
+                            type="application/pdf"
+                            className="w-full"
+                            style={{ height: '600px' }}
+                          />
+                        ) : pdfLoadErrors[doc.url] ? (
+                          <div className="w-full flex flex-col items-center justify-center gap-2 text-muted-foreground py-10">
+                            <FileText className="w-8 h-8 opacity-30" />
+                            <p className="text-xs">PDF sa nepodarilo načítať</p>
+                            <a
+                              href={doc.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline flex items-center gap-1"
+                            >
+                              <Download className="w-3 h-3" />
+                              Stiahnuť PDF
+                            </a>
+                          </div>
+                        ) : (
+                          <div className="w-full flex flex-col items-center justify-center gap-2 text-muted-foreground py-10">
+                            <Loader2 className="w-6 h-6 animate-spin opacity-40" />
+                            <p className="text-xs">Načítavanie PDF…</p>
+                          </div>
+                        )
                       ) : (
                         <img src={doc.url} alt={doc.name} className="w-full object-contain" />
                       )}
