@@ -10588,7 +10588,7 @@ export default function Contracts() {
                                                   if (inQueue) {
                                                     setPhase8SupiskaQueue(prev => prev.filter(id => id !== contract.id));
                                                   } else if (isFullyVerified) {
-                                                    setPhase8SupiskaQueue(prev => [...prev, contract.id]);
+                                                    setPhase8SupiskaQueue(prev => prev.includes(contract.id) ? prev : [...prev, contract.id]);
                                                   } else {
                                                     setBoConsoleContract(contract);
                                                   }
@@ -10607,7 +10607,7 @@ export default function Contracts() {
                                                     <td className="p-2 font-mono text-blue-500 font-bold">{contract.contractNumber || "—"}</td>
                                                     <td className="p-2" title={getPartnerName(contract)}>{getPartnerCode(contract)}</td>
                                                     <td className="p-2" title={getProductName(contract)}>{getProductCode(contract)}</td>
-                                                    <td className="p-2 text-muted-foreground">{contractTypeLabels[(contract as any).contractType ?? ""] ?? "—"}</td>
+                                                    <td className="p-2 text-muted-foreground">{contractTypeLabels[contract.contractType ?? ""] ?? "—"}</td>
                                                     <td className="p-2 font-mono">{contract.proposalNumber || "—"}</td>
                                                     <td className="p-2 font-mono">{contract.insuranceContractNumber || "—"}</td>
                                                     <td className="p-2">{subName8}</td>
