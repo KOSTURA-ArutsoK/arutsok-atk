@@ -337,7 +337,8 @@ function ContractFormDialog({
   });
 
   type AllowedSubject = { id: number; uid: string | null; firstName: string | null; lastName: string | null; companyName: string | null; type: string | null };
-  const { data: mainSpecialistSubjects } = useQuery<AllowedSubject[]>({
+  type AllowedSubjectsResponse = { restricted: boolean; subjects: AllowedSubject[] };
+  const { data: mainSpecialistData } = useQuery<AllowedSubjectsResponse>({
     queryKey: ["/api/products", editingContract?.productId, "specialist-subjects"],
     queryFn: async () => {
       const res = await fetch(`/api/products/${editingContract!.productId}/specialist-subjects`, { credentials: "include" });
@@ -346,7 +347,7 @@ function ContractFormDialog({
     },
     enabled: !!editingContract?.productId,
   });
-  const { data: mainRecommenderSubjects } = useQuery<AllowedSubject[]>({
+  const { data: mainRecommenderData } = useQuery<AllowedSubjectsResponse>({
     queryKey: ["/api/products", editingContract?.productId, "recommender-subjects"],
     queryFn: async () => {
       const res = await fetch(`/api/products/${editingContract!.productId}/recommender-subjects`, { credentials: "include" });
@@ -1004,10 +1005,12 @@ function ContractFormDialog({
                       />
                       {(() => {
                         const searchLower = rewardSearchSpecialist.toLowerCase().trim();
-                        const specialistPool: any[] = (mainSpecialistSubjects && mainSpecialistSubjects.length > 0) ? mainSpecialistSubjects : (subjects || []);
+                        const specialistPool: AllowedSubject[] = mainSpecialistData?.restricted
+                          ? mainSpecialistData.subjects
+                          : ((subjects || []).filter(s => !s.deletedAt) as unknown as AllowedSubject[]);
                         const filtered = searchLower && searchLower.length >= 2
                           ? specialistPool.filter(s =>
-                              !(s as any).deletedAt && (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower))
+                              (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower))
                             )
                           : [];
                         return (
@@ -1110,10 +1113,12 @@ function ContractFormDialog({
                         />
                         {(() => {
                           const searchLower = rewardSearchRecommender.toLowerCase().trim();
-                          const recommenderPool: any[] = (mainRecommenderSubjects && mainRecommenderSubjects.length > 0) ? mainRecommenderSubjects : (subjects || []);
+                          const recommenderPool: AllowedSubject[] = mainRecommenderData?.restricted
+                            ? mainRecommenderData.subjects
+                            : ((subjects || []).filter(s => !s.deletedAt) as unknown as AllowedSubject[]);
                           const filtered = searchLower && searchLower.length >= 2
                             ? recommenderPool.filter(s =>
-                                !(s as any).deletedAt && (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower))
+                                (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower))
                               )
                             : [];
                           return (
@@ -2964,7 +2969,7 @@ export default function Contracts() {
   const [preSelectNewRecommenderPercentage, setPreSelectNewRecommenderPercentage] = useState("");
 
   const preSelectProductIdNum = preSelectProductId ? parseInt(preSelectProductId) : null;
-  const { data: preSelectSpecialistSubjects } = useQuery<AllowedSubject[]>({
+  const { data: preSelectSpecialistData } = useQuery<AllowedSubjectsResponse>({
     queryKey: ["/api/products", preSelectProductIdNum, "specialist-subjects"],
     queryFn: async () => {
       const res = await fetch(`/api/products/${preSelectProductIdNum}/specialist-subjects`, { credentials: "include" });
@@ -2973,7 +2978,7 @@ export default function Contracts() {
     },
     enabled: !!preSelectProductIdNum,
   });
-  const { data: preSelectRecommenderSubjects } = useQuery<AllowedSubject[]>({
+  const { data: preSelectRecommenderData } = useQuery<AllowedSubjectsResponse>({
     queryKey: ["/api/products", preSelectProductIdNum, "recommender-subjects"],
     queryFn: async () => {
       const res = await fetch(`/api/products/${preSelectProductIdNum}/recommender-subjects`, { credentials: "include" });
@@ -9272,10 +9277,12 @@ export default function Contracts() {
                         />
                         {(() => {
                           const searchLower = preSelectRewardSearchSpecialist.toLowerCase().trim();
-                          const specialistPool: any[] = (preSelectSpecialistSubjects && preSelectSpecialistSubjects.length > 0) ? preSelectSpecialistSubjects : (subjects || []);
+                          const specialistPool: AllowedSubject[] = preSelectSpecialistData?.restricted
+                            ? preSelectSpecialistData.subjects
+                            : ((subjects || []).filter(s => !s.deletedAt) as unknown as AllowedSubject[]);
                           const filtered = searchLower && searchLower.length >= 2
                             ? specialistPool.filter(s =>
-                                !(s as any).deletedAt && (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower))
+                                (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower))
                               )
                             : [];
                           return (
@@ -9400,10 +9407,12 @@ export default function Contracts() {
                           />
                           {(() => {
                             const searchLower = preSelectRewardSearchRecommender.toLowerCase().trim();
-                            const recommenderPool: any[] = (preSelectRecommenderSubjects && preSelectRecommenderSubjects.length > 0) ? preSelectRecommenderSubjects : (subjects || []);
+                            const recommenderPool: AllowedSubject[] = preSelectRecommenderData?.restricted
+                              ? preSelectRecommenderData.subjects
+                              : ((subjects || []).filter(s => !s.deletedAt) as unknown as AllowedSubject[]);
                             const filtered = searchLower && searchLower.length >= 2
                               ? recommenderPool.filter(s =>
-                                  !(s as any).deletedAt && (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower))
+                                  (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower))
                                 )
                               : [];
                             return (

@@ -1172,24 +1172,25 @@ export default function ContractForm() {
     queryKey: ["/api/subjects"],
   });
   type AllowedSubject = { id: number; uid: string | null; firstName: string | null; lastName: string | null; companyName: string | null; type: string | null };
-  const sectorProductIdNum = sectorProductId ? parseInt(sectorProductId) : null;
-  const { data: cfSpecialistSubjects } = useQuery<AllowedSubject[]>({
-    queryKey: ["/api/products", sectorProductIdNum, "specialist-subjects"],
+  type AllowedSubjectsResponse = { restricted: boolean; subjects: AllowedSubject[] };
+  const cfProductId = existingContract?.productId ?? null;
+  const { data: cfSpecialistData } = useQuery<AllowedSubjectsResponse>({
+    queryKey: ["/api/products", cfProductId, "specialist-subjects"],
     queryFn: async () => {
-      const res = await fetch(`/api/products/${sectorProductIdNum}/specialist-subjects`, { credentials: "include" });
+      const res = await fetch(`/api/products/${cfProductId}/specialist-subjects`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    enabled: !!sectorProductIdNum,
+    enabled: !!cfProductId,
   });
-  const { data: cfRecommenderSubjects } = useQuery<AllowedSubject[]>({
-    queryKey: ["/api/products", sectorProductIdNum, "recommender-subjects"],
+  const { data: cfRecommenderData } = useQuery<AllowedSubjectsResponse>({
+    queryKey: ["/api/products", cfProductId, "recommender-subjects"],
     queryFn: async () => {
-      const res = await fetch(`/api/products/${sectorProductIdNum}/recommender-subjects`, { credentials: "include" });
+      const res = await fetch(`/api/products/${cfProductId}/recommender-subjects`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    enabled: !!sectorProductIdNum,
+    enabled: !!cfProductId,
   });
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
   const { data: companies } = useQuery<MyCompany[]>({ queryKey: ["/api/my-companies"] });
@@ -2559,10 +2560,12 @@ export default function ContractForm() {
                           <h4 className="text-sm font-semibold" data-testid="text-specialist-title-zisk">Odmena pre specialistu</h4>
                           <p className="text-xs text-muted-foreground">Osoba zodpovedna za spravnost zmluvy</p>
                           {(() => {
-                            const specialistPool: any[] = (cfSpecialistSubjects && cfSpecialistSubjects.length > 0) ? cfSpecialistSubjects : (subjects || []);
+                            const specialistPool: AllowedSubject[] = cfSpecialistData?.restricted
+                              ? cfSpecialistData.subjects
+                              : ((subjects || []).filter(s => !s.deletedAt) as unknown as AllowedSubject[]);
                             const searchLower = cfRewardSearchSpecialist.toLowerCase().trim();
                             const filtered = searchLower && searchLower.length >= 2
-                              ? specialistPool.filter(s => !(s as any).deletedAt && (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower)))
+                              ? specialistPool.filter(s => (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower)))
                               : [];
                             return (
                               <div className="relative">
@@ -2642,11 +2645,13 @@ export default function ContractForm() {
                               <div key={rec.id} className="flex items-start gap-2" data-testid={`row-recommender-zisk-${idx}`}>
                                 <div className="flex-1">
                                   {(() => {
-                                    const recommenderPool: any[] = (cfRecommenderSubjects && cfRecommenderSubjects.length > 0) ? cfRecommenderSubjects : (subjects || []);
+                                    const recommenderPool: AllowedSubject[] = cfRecommenderData?.restricted
+                                      ? cfRecommenderData.subjects
+                                      : ((subjects || []).filter(s => !s.deletedAt) as unknown as AllowedSubject[]);
                                     const searchKey = rec.id;
                                     const searchLower = (cfRewardSearchRecommender[searchKey] || "").toLowerCase().trim();
                                     const filtered = searchLower && searchLower.length >= 2
-                                      ? recommenderPool.filter(s => !(s as any).deletedAt && (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower)))
+                                      ? recommenderPool.filter(s => (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower)))
                                       : [];
                                     return (
                                       <div className="relative mb-1">

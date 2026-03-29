@@ -4480,15 +4480,18 @@ export async function registerRoutes(
   app.get("/api/products/:id/specialist-subjects", isAuthenticated, async (req: any, res) => {
     try {
       const id = Number(req.params.id);
-      const [product] = await db.select().from(products).where(eq(products.id, id)).limit(1);
+      const activeCompanyId: number | undefined = req.appUser?.activeCompanyId;
+      const [product] = await db.select().from(products).where(
+        and(eq(products.id, id), activeCompanyId ? eq(products.companyId, activeCompanyId) : undefined)
+      ).limit(1);
       if (!product) return res.status(404).json({ message: "Product not found" });
-      const groupIds = (product.allowedSpecialists || []) as number[];
-      if (groupIds.length === 0) return res.json([]);
+      const groupIds: number[] = product.allowedSpecialists || [];
+      if (groupIds.length === 0) return res.json({ restricted: false, subjects: [] });
       const members = await db.select({ subjectId: clientGroupMembers.subjectId })
         .from(clientGroupMembers)
         .where(inArray(clientGroupMembers.groupId, groupIds));
       const subjectIds = [...new Set(members.map(m => m.subjectId))];
-      if (subjectIds.length === 0) return res.json([]);
+      if (subjectIds.length === 0) return res.json({ restricted: true, subjects: [] });
       const rows = await db.select({
         id: subjects.id,
         uid: subjects.uid,
@@ -4497,23 +4500,26 @@ export async function registerRoutes(
         companyName: subjects.companyName,
         type: subjects.type,
       }).from(subjects).where(and(inArray(subjects.id, subjectIds), isNull(subjects.deletedAt)));
-      res.json(rows);
+      res.json({ restricted: true, subjects: rows });
     } catch (err) { throw err; }
   });
 
   app.get("/api/products/:id/recommender-subjects", isAuthenticated, async (req: any, res) => {
     try {
       const id = Number(req.params.id);
-      const [product] = await db.select().from(products).where(eq(products.id, id)).limit(1);
+      const activeCompanyId: number | undefined = req.appUser?.activeCompanyId;
+      const [product] = await db.select().from(products).where(
+        and(eq(products.id, id), activeCompanyId ? eq(products.companyId, activeCompanyId) : undefined)
+      ).limit(1);
       if (!product) return res.status(404).json({ message: "Product not found" });
-      const groupIds = ((product as any).allowedRecommenders || []) as number[];
-      if (groupIds.length === 0) return res.json([]);
+      const groupIds: number[] = product.allowedRecommenders || [];
+      if (groupIds.length === 0) return res.json({ restricted: false, subjects: [] });
       const members = await db.select({ subjectId: clientGroupMembers.subjectId })
         .from(clientGroupMembers)
         .where(inArray(clientGroupMembers.groupId, groupIds));
       const subjectIds = [...new Set(members.map(m => m.subjectId))];
-      if (subjectIds.length === 0) return res.json([]);
-      const linkedSubjectId = req.appUser?.linkedSubjectId;
+      if (subjectIds.length === 0) return res.json({ restricted: true, subjects: [] });
+      const linkedSubjectId: number | undefined = req.appUser?.linkedSubjectId;
       let filteredSubjectIds = subjectIds;
       if (linkedSubjectId) {
         const allLinks = await db.select({
@@ -4533,7 +4539,6 @@ export async function registerRoutes(
         }
         filteredSubjectIds = subjectIds.filter(sid => subtreeSet.has(sid));
       }
-      if (filteredSubjectIds.length === 0) return res.json([]);
       const rows = await db.select({
         id: subjects.id,
         uid: subjects.uid,
@@ -4541,8 +4546,11 @@ export async function registerRoutes(
         lastName: subjects.lastName,
         companyName: subjects.companyName,
         type: subjects.type,
-      }).from(subjects).where(and(inArray(subjects.id, filteredSubjectIds), isNull(subjects.deletedAt)));
-      res.json(rows);
+      }).from(subjects).where(and(
+        filteredSubjectIds.length > 0 ? inArray(subjects.id, filteredSubjectIds) : sql`false`,
+        isNull(subjects.deletedAt)
+      ));
+      res.json({ restricted: true, subjects: rows });
     } catch (err) { throw err; }
   });
 
