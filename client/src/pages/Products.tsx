@@ -1753,6 +1753,64 @@ export default function Products() {
               Ziadne produkty.
             </div>
           ) : (
+            <>
+            <div className="block md:hidden divide-y divide-border">
+              {(groupedProducts
+                ? groupedProducts.flatMap(g => [
+                    { _dividerKey: `div-${g.division?.id ?? "none"}`, _label: (g.division?.emoji ? `${g.division.emoji} ` : "") + (g.division?.name ?? "Bez divízie") } as any,
+                    ...g.rows,
+                  ])
+                : sortedProducts
+              ).map((item: any) => {
+                if (item._dividerKey) {
+                  return (
+                    <div key={item._dividerKey} className="px-3 py-1.5 bg-muted/40 border-b">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{item._label}</span>
+                    </div>
+                  );
+                }
+                const product = item as Product;
+                return (
+                  <div key={product.id} className="p-3 space-y-2" data-testid={`card-product-mobile-${product.id}`} onClick={() => handleEdit(product)}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                        <span className="font-medium">{product.name}</span>
+                        {product.versionLabel && (
+                          <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0 shrink-0">
+                            <GitBranch className="w-2.5 h-2.5 mr-0.5" />
+                            {product.versionLabel}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      {product.partnerId && <span>Partner: <span className="text-foreground font-medium">{getPartnerName(product.partnerId)}</span></span>}
+                      {product.code && <span>Kód: <span className="font-mono text-foreground">{product.code}</span></span>}
+                      {product.displayName && <span>Zobr. kód: <span className="font-mono text-foreground">{product.displayName}</span></span>}
+                    </div>
+                    {product.allowedSpecialists && product.allowedSpecialists.length > 0 && (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {product.allowedSpecialists.slice(0, 3).map(s => (
+                          <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
+                        ))}
+                        {product.allowedSpecialists.length > 3 && (
+                          <span className="text-xs text-muted-foreground">+{product.allowedSpecialists.length - 3}</span>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                      <Button size="icon" variant="ghost" className="h-9 w-9" onClick={(e) => { e.stopPropagation(); setDetailProduct(product); }} data-testid={`button-view-product-mobile-${product.id}`}>
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      {canDeleteRecords(appUser) && (product as any).contractsCount === 0 && (
+                        <ConditionalDelete canDelete={true} onClick={() => handleDelete(product)} testId={`button-delete-product-mobile-${product.id}`} />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1861,6 +1919,8 @@ export default function Products() {
                 })()}
               </TableBody>
             </Table>
+            </div>
+            </>
           )}
         </CardContent>
       </Card>

@@ -2578,6 +2578,72 @@ export default function Partners() {
 
       <Card style={{ marginTop: -5 }}>
         <CardContent className="p-0">
+          <div className="block md:hidden">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : !partners || partners.length === 0 ? (
+              <p className="text-center py-12 text-sm text-muted-foreground" data-testid="text-partners-empty">
+                Žiadni partneri. Kliknite na "Pridať nového partnera".
+              </p>
+            ) : (
+              <div className="divide-y divide-border">
+                {(groupedPartners
+                  ? groupedPartners.flatMap(g => [
+                      { _dividerKey: `div-${g.division?.id ?? "none"}`, _label: (g.division?.emoji ? `${g.division.emoji} ` : "") + (g.division?.name ?? "Bez divízie") } as any,
+                      ...g.rows,
+                    ])
+                  : sortedData
+                ).map((item: any) => {
+                  if (item._dividerKey) {
+                    return (
+                      <div key={item._dividerKey} className="px-3 py-1.5 bg-muted/40 border-b">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{item._label}</span>
+                      </div>
+                    );
+                  }
+                  const partner = item as Partner & PartnerWithCounts;
+                  return (
+                    <div key={partner.id} className="p-3 space-y-2" data-testid={`card-partner-mobile-${partner.id}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-medium truncate">{partner.name}</span>
+                          {partner.code && <Badge variant="secondary" className="font-mono text-xs shrink-0">{partner.code}</Badge>}
+                        </div>
+                        <LifecycleStatusIcon status={partner.lifecycleStatus} />
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        {partner.uid && <span>UID: <span className="font-mono text-foreground">{formatUid(partner.uid)}</span></span>}
+                        {partner.ico && <span>IČO: <span className="text-foreground">{partner.ico}</span></span>}
+                        {partner.city && <span>{partner.city}</span>}
+                      </div>
+                      {partner.collaborationDate && (
+                        <div className="text-xs text-muted-foreground">
+                          Spolupráca od: <span className="text-foreground">{formatDateSlovak(partner.collaborationDate)}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-end gap-1">
+                        {canEditRecords(appUser) && (
+                          <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => openPartner(partner)} data-testid={`button-edit-partner-mobile-${partner.id}`}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {canDeleteRecords(appUser) && (
+                          <ConditionalDelete
+                            canDelete={!partner.uid && (partner.productsCount ?? 0) === 0 && (partner.contractsCount ?? 0) === 0}
+                            onClick={() => setDeleteTarget(partner)}
+                            testId={`button-delete-partner-mobile-${partner.id}`}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -2598,7 +2664,7 @@ export default function Partners() {
               )}
               {!isLoading && (!partners || partners.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground" data-testid="text-partners-empty">
+                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
                     Žiadni partneri. Kliknite na "Pridať nového partnera".
                   </TableCell>
                 </TableRow>
@@ -2653,6 +2719,7 @@ export default function Partners() {
               })()}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 
