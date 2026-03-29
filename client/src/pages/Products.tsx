@@ -432,16 +432,16 @@ function ProductFormDialog({
             <DialogTitle data-testid="text-product-dialog-title">
               {editingProduct ? "Upravit produkt" : "Pridat produkt"}
             </DialogTitle>
-            {editingProduct && (editingProduct as any).isArchived && (
+            {editingProduct && editingProduct.isArchived && (
               <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 shrink-0 mt-0.5" data-testid="badge-product-archived">
                 <Archive className="w-3 h-3 mr-1" />
-                Archivovaný{(editingProduct as any).versionLabel ? ` · ${(editingProduct as any).versionLabel}` : ""}
+                Archivovaný{editingProduct.versionLabel ? ` · ${editingProduct.versionLabel}` : ""}
               </Badge>
             )}
-            {editingProduct && !(editingProduct as any).isArchived && (editingProduct as any).versionLabel && (
+            {editingProduct && !editingProduct.isArchived && editingProduct.versionLabel && (
               <Badge variant="outline" className="shrink-0 mt-0.5 font-mono text-xs" data-testid="badge-product-version">
                 <GitBranch className="w-3 h-3 mr-1" />
-                {(editingProduct as any).versionLabel}
+                {editingProduct.versionLabel}
               </Badge>
             )}
           </div>
@@ -696,7 +696,7 @@ function ProductFormDialog({
                   Správa verzií
                 </p>
                 <div className="flex items-center gap-2 flex-wrap">
-                  {!(editingProduct as any).isArchived && (
+                  {!editingProduct.isArchived && (
                     <Button
                       type="button"
                       variant="outline"
@@ -708,7 +708,7 @@ function ProductFormDialog({
                       Klonovať ako novú verziu
                     </Button>
                   )}
-                  {!(editingProduct as any).isArchived && (
+                  {!editingProduct.isArchived && (
                     <Button
                       type="button"
                       variant="outline"
@@ -726,7 +726,7 @@ function ProductFormDialog({
                       {archiveMutation.isPending ? "Archivujem..." : "Archivovať verziu"}
                     </Button>
                   )}
-                  {(editingProduct as any).isArchived && (
+                  {editingProduct.isArchived && (
                     <p className="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1">
                       <Archive className="w-3.5 h-3.5" />
                       Tento produkt je archivovaný a nie je možné ho priradiť k novým zmluvám.
@@ -1341,13 +1341,13 @@ function ProductVersionHistoryRow({ productId, colSpanCount, onEditVersion, expa
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">História verzií</p>
             {childVersions.map(v => (
               <div key={v.id} className="flex items-center gap-3 text-xs">
-                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium ${(v as any).isArchived ? "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300" : "bg-primary/10 text-primary"}`}>
-                  {(v as any).isArchived && <Archive className="w-2.5 h-2.5" />}
-                  {(v as any).versionLabel || `ID ${v.id}`}
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium ${v.isArchived ? "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300" : "bg-primary/10 text-primary"}`}>
+                  {v.isArchived && <Archive className="w-2.5 h-2.5" />}
+                  {v.versionLabel || `ID ${v.id}`}
                 </span>
                 <span className="text-muted-foreground">{v.name}</span>
                 <span className="text-muted-foreground font-mono">{v.code}</span>
-                {(v as any).isArchived && <span className="text-orange-600 dark:text-orange-400 text-[10px]">archivovaný</span>}
+                {v.isArchived && <span className="text-orange-600 dark:text-orange-400 text-[10px]">archivovaný</span>}
                 <button
                   className="ml-auto text-primary hover:underline text-[11px]"
                   onClick={() => onEditVersion(v)}
@@ -1530,10 +1530,10 @@ export default function Products() {
                         <TableCell className="text-sm">
                           <div className="flex items-center gap-2 flex-wrap">
                             {product.name}
-                            {(product as any).versionLabel && (
+                            {product.versionLabel && (
                               <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0" data-testid={`badge-version-${product.id}`}>
                                 <GitBranch className="w-2.5 h-2.5 mr-0.5" />
-                                {(product as any).versionLabel}
+                                {product.versionLabel}
                               </Badge>
                             )}
                           </div>

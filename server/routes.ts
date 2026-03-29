@@ -4448,7 +4448,11 @@ export async function registerRoutes(
     try {
       const id = Number(req.params.id);
       const allVersions = await storage.getProducts(false, true);
-      const versions = allVersions.filter(p => p.parentProductId === id || p.id === id);
+      // Resolve the family root: if the requested product is itself a clone, find the root
+      const requestedProduct = allVersions.find(p => p.id === id);
+      const rootId = requestedProduct?.parentProductId ?? id;
+      // Return all versions in the family (root + all direct clones of root)
+      const versions = allVersions.filter(p => p.id === rootId || p.parentProductId === rootId);
       res.json(versions);
     } catch (err) {
       throw err;
@@ -7729,13 +7733,23 @@ export async function registerRoutes(
 
         if (input.productId && subjectForCheck?.type) {
           const productForCheck = await storage.getProduct(input.productId);
-          const allowed: string[] = (productForCheck as any)?.allowedSubjectTypes || [];
+          if (productForCheck?.isArchived) {
+            return res.status(400).json({ message: `Produkt „${productForCheck.name}" je archivovaný a nie je možné naň viazať nové zmluvy.` });
+          }
+          const allowed: string[] = productForCheck?.allowedSubjectTypes || [];
           if (allowed.length > 0 && !allowed.includes(subjectForCheck.type)) {
             const typeLabel = (t: string) => t === "person" ? "FO" : t === "szco" ? "SZČO" : t === "company" ? "PO" : t === "organization" ? "TS" : t === "state" ? "VS" : t;
             const allowedLabels = allowed.map(typeLabel).join(", ");
             const subjectLabel = typeLabel(subjectForCheck.type);
             return res.status(400).json({ message: `Produkt „${productForCheck?.name}" nie je určený pre typ subjektu ${subjectLabel}. Povolené typy: ${allowedLabels}.` });
           }
+        }
+      }
+      // Guard: even if subjectId is not provided, check that the product is not archived
+      if (input.productId) {
+        const productForArchiveCheck = await storage.getProduct(input.productId);
+        if (productForArchiveCheck?.isArchived) {
+          return res.status(400).json({ message: `Produkt „${productForArchiveCheck.name}" je archivovaný a nie je možné naň viazať nové zmluvy.` });
         }
       }
       const createData = { ...input, uploadedByUserId: appUser?.id || null } as any;

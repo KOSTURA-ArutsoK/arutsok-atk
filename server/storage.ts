@@ -2205,7 +2205,7 @@ export class DatabaseStorage implements IStorage {
   async archiveProduct(id: number): Promise<Product> {
     const original = await this.getProduct(id);
     if (!original) throw new Error("Product not found");
-    const [updated] = await db.update(products).set({ isArchived: true, archivedAt: new Date(), updatedAt: new Date() } as any).where(eq(products.id, id)).returning();
+    const [updated] = await db.update(products).set({ isArchived: true, archivedAt: new Date(), updatedAt: new Date() }).where(eq(products.id, id)).returning();
     return updated;
   }
 
