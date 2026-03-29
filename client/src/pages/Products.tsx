@@ -319,6 +319,14 @@ function ProductFormDialog({
   }, [productPanelsWithParams, assignedParams]);
 
 
+  // Reset subject accordion to fully collapsed on every dialog open
+  useEffect(() => {
+    if (!open) return;
+    setExpandedSubjKategorie(new Set());
+    setExpandedSubjBloky(new Set());
+    setExpandedSubjPanely(new Set());
+  }, [open]);
+
   useEffect(() => {
     if (!open || !productPanelsWithParams?.length) return;
     const keys = new Set<string>([
@@ -943,7 +951,7 @@ function ProductFormDialog({
                                     </button>
 
                                     {katIsExp && kat.bloky.map(blok => {
-                                      const blokKey = `blok_${blok.blokId ?? "__none__"}`;
+                                      const blokKey = `${typeGroup.clientTypeId}_blok_${blok.blokId ?? "__none__"}`;
                                       const blokIsExp = expandedSubjBloky.has(blokKey);
                                       const blokActCnt = blok.panels.flatMap(p => p.fields).filter(f => displayParamConfig[f.fieldKey]?.display).length;
                                       return (
@@ -962,7 +970,7 @@ function ProductFormDialog({
                                           </button>
 
                                           {blokIsExp && blok.panels.map(panel => {
-                                            const panelKey = `panel_${panel.panelId ?? "__none__"}`;
+                                            const panelKey = `${typeGroup.clientTypeId}_panel_${panel.panelId ?? "__none__"}`;
                                             const panelIsExp = expandedSubjPanely.has(panelKey);
                                             const panelActCnt = panel.fields.filter(f => displayParamConfig[f.fieldKey]?.display).length;
                                             return (
