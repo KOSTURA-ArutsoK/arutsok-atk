@@ -15,7 +15,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { useToast } from "@/hooks/use-toast";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
-import type { Product, CommissionScheme, Partner, Parameter, ProductParameter, MyCompany } from "@shared/schema";
+import type { Product, CommissionScheme, Partner, Parameter, ProductParameter, MyCompany, ClientGroup } from "@shared/schema";
 import { Plus, Eye, Package, Loader2, HelpCircle, Trash2, FileText, Copy, AlertCircle, Archive, GitBranch, ChevronDown, ChevronRight, History, FolderOpen } from "lucide-react";
 import { ConditionalDelete } from "@/components/conditional-delete";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -74,7 +74,6 @@ const PRODUCT_FILTER_COLUMNS: SmartColumnDef[] = [
   { key: "displayName", label: "Zobrazovací kód", type: "text" },
 ];
 
-const SPECIALIST_TYPES = ["NBS", "Zbrojny preukaz", "Reality", "Poistenie", "Dochodok", "Ine"];
 
 function formatProcessingTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -205,7 +204,11 @@ function ProductFormDialog({
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [allowedSpecialists, setAllowedSpecialists] = useState<string[]>([]);
+  const [allowedSpecialists, setAllowedSpecialists] = useState<number[]>([]);
+  const [allowedRecommenders, setAllowedRecommenders] = useState<number[]>([]);
+  const { data: clientGroups } = useQuery<ClientGroup[]>({
+    queryKey: ["/api/client-groups"],
+  });
   const [allowedSubjectTypes, setAllowedSubjectTypes] = useState<string[]>([]);
   const [notesHtml, setNotesHtml] = useState("");
   const [paramValues, setParamValues] = useState<Record<number, string>>({});
@@ -420,7 +423,8 @@ function ProductFormDialog({
         setCode(editingProduct.code || "");
         setName(editingProduct.name || "");
         setDescription(editingProduct.description || "");
-        setAllowedSpecialists(editingProduct.allowedSpecialists || []);
+        setAllowedSpecialists((editingProduct.allowedSpecialists || []) as number[]);
+        setAllowedRecommenders(((editingProduct as any).allowedRecommenders || []) as number[]);
         setAllowedSubjectTypes((editingProduct as any).allowedSubjectTypes || []);
         setNotesHtml(editingProduct.notes || "");
         setRequiredDocuments((editingProduct as any).requiredDocuments || []);
@@ -435,6 +439,7 @@ function ProductFormDialog({
         setName("");
         setDescription("");
         setAllowedSpecialists([]);
+        setAllowedRecommenders([]);
         setAllowedSubjectTypes([]);
         setNotesHtml("");
         setRequiredDocuments([]);
@@ -477,6 +482,7 @@ function ProductFormDialog({
       name,
       description,
       allowedSpecialists,
+      allowedRecommenders,
       allowedSubjectTypes,
       notes: notesHtml,
       requiredDocuments,
@@ -601,22 +607,50 @@ function ProductFormDialog({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Povoleni specialisti</label>
-              <div className="grid grid-cols-3 gap-2">
-                {SPECIALIST_TYPES.map(type => (
-                  <label key={type} className="flex items-center gap-2 text-sm cursor-pointer">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Povolení špecialisti</label>
+                <span className="text-xs text-muted-foreground">(skupiny klientov — bez výberu = bez obmedzenia)</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {(clientGroups || []).map(g => (
+                  <label key={g.id} className="flex items-center gap-2 text-sm cursor-pointer">
                     <Checkbox
-                      checked={allowedSpecialists.includes(type)}
+                      checked={allowedSpecialists.includes(g.id)}
                       onCheckedChange={(checked) => {
                         if (checked) {
-                          setAllowedSpecialists(prev => [...prev, type]);
+                          setAllowedSpecialists(prev => [...prev, g.id]);
                         } else {
-                          setAllowedSpecialists(prev => prev.filter(t => t !== type));
+                          setAllowedSpecialists(prev => prev.filter(id => id !== g.id));
                         }
                       }}
-                      data-testid={`checkbox-specialist-${type.toLowerCase().replace(/\s+/g, "-")}`}
+                      data-testid={`checkbox-specialist-group-${g.id}`}
                     />
-                    {type}
+                    {g.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Povolení odporúčatelia</label>
+                <span className="text-xs text-muted-foreground">(skupiny klientov — bez výberu = bez obmedzenia)</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {(clientGroups || []).map(g => (
+                  <label key={g.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={allowedRecommenders.includes(g.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setAllowedRecommenders(prev => [...prev, g.id]);
+                        } else {
+                          setAllowedRecommenders(prev => prev.filter(id => id !== g.id));
+                        }
+                      }}
+                      data-testid={`checkbox-recommender-group-${g.id}`}
+                    />
+                    {g.name}
                   </label>
                 ))}
               </div>
@@ -1396,16 +1430,22 @@ function ProductDetailDialog({
   partners,
   companies,
   states,
+  clientGroups,
 }: {
   product: Product;
   onClose: () => void;
   partners: Partner[];
   companies: MyCompany[];
   states: { id: number; name: string; code: string }[];
+  clientGroups: ClientGroup[];
 }) {
   const partnerName = partners?.find(p => p.id === product.partnerId)?.name || "-";
   const companyName = companies?.find(c => c.id === product.companyId)?.name || "-";
   const stateName = states?.find(s => s.id === product.stateId)?.name || "-";
+  function getGroupNames(ids: number[] | null | undefined): string[] {
+    if (!ids || ids.length === 0 || !clientGroups) return [];
+    return ids.map(id => clientGroups.find(g => g.id === id)?.name || String(id));
+  }
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -1450,10 +1490,20 @@ function ProductDetailDialog({
 
           {product.allowedSpecialists && product.allowedSpecialists.length > 0 && (
             <div>
-              <span className="text-xs text-muted-foreground">Povoleni specialisti</span>
+              <span className="text-xs text-muted-foreground">Povolení špecialisti</span>
               <div className="flex items-center gap-1 mt-1 flex-wrap">
-                {product.allowedSpecialists.map(s => (
-                  <Badge key={s} variant="outline">{s}</Badge>
+                {getGroupNames(product.allowedSpecialists as number[]).map(name => (
+                  <Badge key={name} variant="outline">{name}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          {(product as any).allowedRecommenders && (product as any).allowedRecommenders.length > 0 && (
+            <div>
+              <span className="text-xs text-muted-foreground">Povolení odporúčatelia</span>
+              <div className="flex items-center gap-1 mt-1 flex-wrap">
+                {getGroupNames((product as any).allowedRecommenders as number[]).map(name => (
+                  <Badge key={name} variant="outline">{name}</Badge>
                 ))}
               </div>
             </div>
@@ -1623,6 +1673,9 @@ export default function Products() {
   const { data: partners } = usePartners();
   const { data: companies } = useMyCompanies();
   const { data: allStates } = useStates();
+  const { data: clientGroups } = useQuery<ClientGroup[]>({
+    queryKey: ["/api/client-groups"],
+  });
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -1695,6 +1748,11 @@ export default function Products() {
   function getPartnerName(id: number | null) {
     if (!id || !partners) return "-";
     return partners.find(p => p.id === id)?.name || "-";
+  }
+
+  function getGroupNames(ids: number[] | null | undefined): string[] {
+    if (!ids || ids.length === 0 || !clientGroups) return [];
+    return ids.map(id => clientGroups.find(g => g.id === id)?.name || String(id));
   }
 
   function getCompanyName(id: number | null) {
@@ -1790,8 +1848,8 @@ export default function Products() {
                     </div>
                     {product.allowedSpecialists && product.allowedSpecialists.length > 0 && (
                       <div className="flex items-center gap-1 flex-wrap">
-                        {product.allowedSpecialists.slice(0, 3).map(s => (
-                          <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
+                        {getGroupNames(product.allowedSpecialists as number[]).slice(0, 3).map(name => (
+                          <Badge key={name} variant="outline" className="text-xs">{name}</Badge>
                         ))}
                         {product.allowedSpecialists.length > 3 && (
                           <span className="text-xs text-muted-foreground">+{product.allowedSpecialists.length - 3}</span>
@@ -1855,8 +1913,8 @@ export default function Products() {
                       {columnVisibility.isVisible("allowedSpecialists") && <TableCell>
                         <div className="flex items-center gap-1 flex-wrap">
                           {product.allowedSpecialists && product.allowedSpecialists.length > 0
-                            ? product.allowedSpecialists.map(s => (
-                                <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
+                            ? getGroupNames(product.allowedSpecialists as number[]).map(name => (
+                                <Badge key={name} variant="outline" className="text-xs">{name}</Badge>
                               ))
                             : <span className="text-xs text-muted-foreground">-</span>
                           }
@@ -1938,6 +1996,7 @@ export default function Products() {
           partners={partners || []}
           companies={companies || []}
           states={allStates || []}
+          clientGroups={clientGroups || []}
         />
       )}
 

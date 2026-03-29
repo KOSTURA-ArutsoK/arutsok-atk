@@ -1045,6 +1045,8 @@ export default function ContractForm() {
   const [rewardRecommenders, setRewardRecommenders] = useState<Array<{ id: string; uid: string; percentage: string }>>([]);
   const [rewardSpecialistUid, setRewardSpecialistUid] = useState("");
   const [rewardSpecialistPercentage, setRewardSpecialistPercentage] = useState("");
+  const [cfRewardSearchSpecialist, setCfRewardSearchSpecialist] = useState("");
+  const [cfRewardSearchRecommender, setCfRewardSearchRecommender] = useState<Record<string, string>>({});
 
   const { data: uidPrefixData } = useQuery<{ prefix: string }>({
     queryKey: ["/api/uid-prefix"],
@@ -1168,6 +1170,26 @@ export default function ContractForm() {
   const { data: allStates } = useStates();
   const { data: subjects } = useQuery<Subject[]>({
     queryKey: ["/api/subjects"],
+  });
+  type AllowedSubject = { id: number; uid: string | null; firstName: string | null; lastName: string | null; companyName: string | null; type: string | null };
+  const sectorProductIdNum = sectorProductId ? parseInt(sectorProductId) : null;
+  const { data: cfSpecialistSubjects } = useQuery<AllowedSubject[]>({
+    queryKey: ["/api/products", sectorProductIdNum, "specialist-subjects"],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${sectorProductIdNum}/specialist-subjects`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!sectorProductIdNum,
+  });
+  const { data: cfRecommenderSubjects } = useQuery<AllowedSubject[]>({
+    queryKey: ["/api/products", sectorProductIdNum, "recommender-subjects"],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${sectorProductIdNum}/recommender-subjects`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!sectorProductIdNum,
   });
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
   const { data: companies } = useQuery<MyCompany[]>({ queryKey: ["/api/my-companies"] });
@@ -2536,6 +2558,43 @@ export default function ContractForm() {
                         <CardContent className="p-4 space-y-3">
                           <h4 className="text-sm font-semibold" data-testid="text-specialist-title-zisk">Odmena pre specialistu</h4>
                           <p className="text-xs text-muted-foreground">Osoba zodpovedna za spravnost zmluvy</p>
+                          {(() => {
+                            const specialistPool: any[] = (cfSpecialistSubjects && cfSpecialistSubjects.length > 0) ? cfSpecialistSubjects : (subjects || []);
+                            const searchLower = cfRewardSearchSpecialist.toLowerCase().trim();
+                            const filtered = searchLower && searchLower.length >= 2
+                              ? specialistPool.filter(s => !(s as any).deletedAt && (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower)))
+                              : [];
+                            return (
+                              <div className="relative">
+                                <Input
+                                  value={cfRewardSearchSpecialist}
+                                  onChange={e => setCfRewardSearchSpecialist(e.target.value)}
+                                  placeholder="Hľadať špecialistu..."
+                                  className="text-sm mb-1"
+                                  data-testid="input-cf-specialist-search"
+                                />
+                                {filtered.length > 0 && (
+                                  <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" data-testid="list-cf-specialist-suggestions">
+                                    {filtered.slice(0, 8).map(s => (
+                                      <div
+                                        key={s.id}
+                                        className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent text-sm"
+                                        onClick={() => {
+                                          setRewardSpecialistUid(s.uid || "");
+                                          lookupSubjectByUid(s.uid || "");
+                                          setCfRewardSearchSpecialist("");
+                                        }}
+                                        data-testid={`row-cf-specialist-suggestion-${s.id}`}
+                                      >
+                                        <span className="font-medium text-xs">{s.type === "company" ? (s.companyName || "") : `${s.firstName || ""} ${s.lastName || ""}`}</span>
+                                        <span className="text-xs text-muted-foreground font-mono ml-auto">{s.uid}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                           <div className="flex items-start gap-2">
                             <div className="flex-1">
                               <UIDInput
@@ -2582,6 +2641,46 @@ export default function ContractForm() {
                             {rewardRecommenders.map((rec, idx) => (
                               <div key={rec.id} className="flex items-start gap-2" data-testid={`row-recommender-zisk-${idx}`}>
                                 <div className="flex-1">
+                                  {(() => {
+                                    const recommenderPool: any[] = (cfRecommenderSubjects && cfRecommenderSubjects.length > 0) ? cfRecommenderSubjects : (subjects || []);
+                                    const searchKey = rec.id;
+                                    const searchLower = (cfRewardSearchRecommender[searchKey] || "").toLowerCase().trim();
+                                    const filtered = searchLower && searchLower.length >= 2
+                                      ? recommenderPool.filter(s => !(s as any).deletedAt && (`${s.firstName || ""} ${s.lastName || ""} ${s.companyName || ""} ${s.uid || ""}`.toLowerCase().includes(searchLower)))
+                                      : [];
+                                    return (
+                                      <div className="relative mb-1">
+                                        <Input
+                                          value={cfRewardSearchRecommender[searchKey] || ""}
+                                          onChange={e => setCfRewardSearchRecommender(prev => ({ ...prev, [searchKey]: e.target.value }))}
+                                          placeholder="Hľadať odporúčateľa..."
+                                          className="text-sm"
+                                          data-testid={`input-cf-recommender-search-${idx}`}
+                                        />
+                                        {filtered.length > 0 && (
+                                          <div className="absolute top-full left-0 right-0 z-50 border rounded-md bg-popover max-h-[120px] overflow-y-auto" data-testid={`list-cf-recommender-suggestions-${idx}`}>
+                                            {filtered.slice(0, 8).map(s => (
+                                              <div
+                                                key={s.id}
+                                                className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-accent text-sm"
+                                                onClick={() => {
+                                                  const next = [...rewardRecommenders];
+                                                  next[idx] = { ...next[idx], uid: s.uid || "" };
+                                                  setRewardRecommenders(next);
+                                                  lookupSubjectByUid(s.uid || "");
+                                                  setCfRewardSearchRecommender(prev => ({ ...prev, [searchKey]: "" }));
+                                                }}
+                                                data-testid={`row-cf-recommender-suggestion-${s.id}`}
+                                              >
+                                                <span className="font-medium text-xs">{s.type === "company" ? (s.companyName || "") : `${s.firstName || ""} ${s.lastName || ""}`}</span>
+                                                <span className="text-xs text-muted-foreground font-mono ml-auto">{s.uid}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                   <UIDInput
                                     value={rec.uid}
                                     onChange={(val) => {

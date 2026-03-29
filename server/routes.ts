@@ -4477,6 +4477,75 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/products/:id/specialist-subjects", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const [product] = await db.select().from(products).where(eq(products.id, id)).limit(1);
+      if (!product) return res.status(404).json({ message: "Product not found" });
+      const groupIds = (product.allowedSpecialists || []) as number[];
+      if (groupIds.length === 0) return res.json([]);
+      const members = await db.select({ subjectId: clientGroupMembers.subjectId })
+        .from(clientGroupMembers)
+        .where(inArray(clientGroupMembers.groupId, groupIds));
+      const subjectIds = [...new Set(members.map(m => m.subjectId))];
+      if (subjectIds.length === 0) return res.json([]);
+      const rows = await db.select({
+        id: subjects.id,
+        uid: subjects.uid,
+        firstName: subjects.firstName,
+        lastName: subjects.lastName,
+        companyName: subjects.companyName,
+        type: subjects.type,
+      }).from(subjects).where(and(inArray(subjects.id, subjectIds), isNull(subjects.deletedAt)));
+      res.json(rows);
+    } catch (err) { throw err; }
+  });
+
+  app.get("/api/products/:id/recommender-subjects", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const [product] = await db.select().from(products).where(eq(products.id, id)).limit(1);
+      if (!product) return res.status(404).json({ message: "Product not found" });
+      const groupIds = ((product as any).allowedRecommenders || []) as number[];
+      if (groupIds.length === 0) return res.json([]);
+      const members = await db.select({ subjectId: clientGroupMembers.subjectId })
+        .from(clientGroupMembers)
+        .where(inArray(clientGroupMembers.groupId, groupIds));
+      const subjectIds = [...new Set(members.map(m => m.subjectId))];
+      if (subjectIds.length === 0) return res.json([]);
+      const linkedSubjectId = req.appUser?.linkedSubjectId;
+      let filteredSubjectIds = subjectIds;
+      if (linkedSubjectId) {
+        const allLinks = await db.select({
+          subjectId: networkLinks.subjectId,
+          guarantorSubjectId: networkLinks.guarantorSubjectId,
+        }).from(networkLinks).where(eq(networkLinks.isActive, true));
+        const subtreeSet = new Set<number>([linkedSubjectId]);
+        let changed = true;
+        while (changed) {
+          changed = false;
+          for (const link of allLinks) {
+            if (subtreeSet.has(link.guarantorSubjectId) && !subtreeSet.has(link.subjectId)) {
+              subtreeSet.add(link.subjectId);
+              changed = true;
+            }
+          }
+        }
+        filteredSubjectIds = subjectIds.filter(sid => subtreeSet.has(sid));
+      }
+      if (filteredSubjectIds.length === 0) return res.json([]);
+      const rows = await db.select({
+        id: subjects.id,
+        uid: subjects.uid,
+        firstName: subjects.firstName,
+        lastName: subjects.lastName,
+        companyName: subjects.companyName,
+        type: subjects.type,
+      }).from(subjects).where(and(inArray(subjects.id, filteredSubjectIds), isNull(subjects.deletedAt)));
+      res.json(rows);
+    } catch (err) { throw err; }
+  });
+
   // === COMMISSIONS ===
   app.get(api.commissions.list.path, isAuthenticated, async (req, res) => {
     const productId = req.query.productId ? parseInt(req.query.productId as string) : undefined;
