@@ -2921,7 +2921,6 @@ function ScanCommanderDialog({
   const [burstThumbnails, setBurstThumbnails] = useState<Array<{ pageNum: number; dataUrl: string | null; loading: boolean }>>([]);
   const [burstTotalPages, setBurstTotalPages] = useState(0);
   const [burstSplitting, setBurstSplitting] = useState(false);
-  const burstFileUrlRef = useRef<string | null>(null);
 
   // Image controls
   const [imgRotation, setImgRotation] = useState(0);
@@ -3054,7 +3053,6 @@ function ScanCommanderDialog({
     setBurstSplitPoints(new Set());
     setBurstThumbnails([]);
     setBurstTotalPages(0);
-    burstFileUrlRef.current = null;
   }, [selectedFileUrl]);
 
   // Also reset burst mode when dialog closes
@@ -3064,7 +3062,6 @@ function ScanCommanderDialog({
       setBurstSplitPoints(new Set());
       setBurstThumbnails([]);
       setBurstTotalPages(0);
-      burstFileUrlRef.current = null;
     }
   }, [open]);
 
@@ -3073,7 +3070,6 @@ function ScanCommanderDialog({
     if (!burstMode || !selectedFileUrl) return;
 
     let cancelled = false;
-    burstFileUrlRef.current = selectedFileUrl;
 
     async function loadThumbnails() {
       try {
@@ -3423,7 +3419,7 @@ function ScanCommanderDialog({
         e.preventDefault();
         const allIds = inboxFiles.filter(f => f.done && !f.pairedContractId && !f.splitSource).map(f => f.id);
         setSelectedInboxIds(new Set(allIds));
-        const last = inboxFiles.filter(f => f.done && !f.pairedContractId).at(-1);
+        const last = inboxFiles.filter(f => f.done && !f.pairedContractId && !f.splitSource).at(-1);
         if (last?.url) setSelectedFileUrl(last.url);
         setInboxCursorIndex(inboxFiles.length - 1);
         return;
@@ -3965,7 +3961,7 @@ function ScanCommanderDialog({
                     data-testid={`file-inbox-${idx}`}
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
-                      {isUploadDone && !isPaired ? (
+                      {isUploadDone && !isPaired && !isSplitSource ? (
                         <input
                           type="checkbox"
                           className="h-3 w-3 shrink-0 accent-orange-500"
