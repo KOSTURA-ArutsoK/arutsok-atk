@@ -6633,7 +6633,8 @@ export async function registerRoutes(
   // ===== SCAN COMMANDER — Pair file with contract =====
   app.post("/api/scan-commander/pair", isAuthenticated, async (req: any, res) => {
     try {
-      const { fileUrl, fileName } = req.body;
+      const ALLOWED_FILE_URL_PREFIX = "/api/files/contract-docs/";
+
       // Accept contractIds (array) or legacy contractId (single)
       const rawIds: unknown[] = Array.isArray(req.body.contractIds)
         ? req.body.contractIds
@@ -6641,43 +6642,64 @@ export async function registerRoutes(
           ? [req.body.contractId]
           : [];
       const contractIds = rawIds.map(Number).filter(id => !isNaN(id) && id > 0);
-
-      if (contractIds.length === 0 || !fileUrl || !fileName) {
-        return res.status(400).json({ message: "Chýbajú povinné polia: contractId(s), fileUrl, fileName" });
+      if (contractIds.length === 0) {
+        return res.status(400).json({ message: "Chýba contractId(s)" });
       }
 
-      // Security: only allow internal contract-docs file URLs
-      const ALLOWED_FILE_URL_PREFIX = "/api/files/contract-docs/";
-      const normalizedUrl = String(fileUrl).trim();
-      if (!normalizedUrl.startsWith(ALLOWED_FILE_URL_PREFIX)) {
-        return res.status(400).json({ message: "Neplatná URL súboru — povolené sú iba interné cesty k nahratým dokumentom." });
-      }
-      const fileSegment = normalizedUrl.slice(ALLOWED_FILE_URL_PREFIX.length);
-      if (!fileSegment || fileSegment.includes("/") || fileSegment.includes("..") || fileSegment.includes("\0")) {
-        return res.status(400).json({ message: "Neplatný názov súboru v URL." });
+      // Build normalized file list: accept fileUrls[] (batch) or legacy fileUrl (single)
+      type FileEntry = { url: string; name: string };
+      let fileEntries: FileEntry[] = [];
+
+      if (Array.isArray(req.body.fileUrls) && req.body.fileUrls.length > 0) {
+        // Batch mode: N files (fileUrls + fileNames arrays)
+        const urls: string[] = req.body.fileUrls.map(String);
+        const names: string[] = Array.isArray(req.body.fileNames)
+          ? req.body.fileNames.map(String)
+          : urls.map((u: string) => u.split("/").pop() || "dokument");
+        if (urls.length > 150) {
+          return res.status(400).json({ message: "Príliš veľa súborov naraz (max. 150)." });
+        }
+        fileEntries = urls.map((url, i) => ({ url, name: names[i] || names[0] || "dokument" }));
+      } else if (req.body.fileUrl) {
+        // Legacy / single-file mode
+        fileEntries = [{ url: String(req.body.fileUrl), name: String(req.body.fileName || "dokument") }];
+      } else {
+        return res.status(400).json({ message: "Chýba fileUrl alebo fileUrls" });
       }
 
-      const sanitizedFileName = String(fileName).replace(/[/\\:*?"<>|\0]/g, "_").slice(0, 255).trim();
-      if (!sanitizedFileName) {
-        return res.status(400).json({ message: "Neplatný názov súboru." });
-      }
-
-      // Verify the referenced file physically exists on disk once (same file for all contracts)
-      const physicalPath = path.join(UPLOADS_DIR, "contract-docs", fileSegment);
-      try {
-        await fs.promises.access(physicalPath, fs.constants.R_OK);
-      } catch {
-        return res.status(400).json({ message: "Odkazovaný súbor nebol nájdený na serveri. Najskôr nahrajte súbor cez Inbox." });
+      // Validate and sanitize each file entry
+      type ValidatedFile = { normalizedUrl: string; sanitizedName: string };
+      const validatedFiles: ValidatedFile[] = [];
+      for (const fe of fileEntries) {
+        const normalizedUrl = fe.url.trim();
+        if (!normalizedUrl.startsWith(ALLOWED_FILE_URL_PREFIX)) {
+          return res.status(400).json({ message: `Neplatná URL súboru "${fe.name}" — povolené sú iba interné cesty k nahratým dokumentom.` });
+        }
+        const fileSegment = normalizedUrl.slice(ALLOWED_FILE_URL_PREFIX.length);
+        if (!fileSegment || fileSegment.includes("/") || fileSegment.includes("..") || fileSegment.includes("\0")) {
+          return res.status(400).json({ message: `Neplatný názov súboru v URL pre "${fe.name}".` });
+        }
+        const sanitizedName = fe.name.replace(/[/\\:*?"<>|\0]/g, "_").slice(0, 255).trim() || "dokument";
+        // Verify physical existence
+        const physicalPath = path.join(UPLOADS_DIR, "contract-docs", fileSegment);
+        try {
+          await fs.promises.access(physicalPath, fs.constants.R_OK);
+        } catch {
+          return res.status(400).json({ message: `Súbor "${fe.name}" nebol nájdený na serveri. Najskôr ho nahrajte cez Inbox.` });
+        }
+        validatedFiles.push({ normalizedUrl, sanitizedName });
       }
 
       const appUser = req.appUser;
       const now = new Date();
-      const results: { contractId: number; success: boolean; message?: string }[] = [];
+
+      // Result structure: per file × per contract
+      const results: { fileUrl: string; contractId: number; success: boolean; message?: string }[] = [];
 
       for (const contractId of contractIds) {
         const [contract] = await db.select().from(contracts).where(eq(contracts.id, contractId));
         if (!contract) {
-          results.push({ contractId, success: false, message: "Kontrakt nenájdený" });
+          for (const vf of validatedFiles) results.push({ fileUrl: vf.normalizedUrl, contractId, success: false, message: "Kontrakt nenájdený" });
           continue;
         }
 
@@ -6685,30 +6707,35 @@ export async function registerRoutes(
         if (!isAdmin(appUser)) {
           const userCompanyId = appUser?.activeCompanyId ?? null;
           if (userCompanyId && contract.companyId && contract.companyId !== userCompanyId) {
-            results.push({ contractId, success: false, message: "Nemáte oprávnenie upravovať tento kontrakt." });
+            for (const vf of validatedFiles) results.push({ fileUrl: vf.normalizedUrl, contractId, success: false, message: "Nemáte oprávnenie upravovať tento kontrakt." });
             continue;
           }
         }
 
         const existingDocs: DocEntry[] = (contract.documents as DocEntry[]) || [];
-        const newDoc: DocEntry = { name: sanitizedFileName, url: normalizedUrl, uploadedAt: now.toISOString() };
-        const allDocs = [...existingDocs, newDoc];
+        const newDocs: DocEntry[] = validatedFiles.map(vf => ({
+          name: vf.sanitizedName,
+          url: vf.normalizedUrl,
+          uploadedAt: now.toISOString(),
+        }));
+        const allDocs = [...existingDocs, ...newDocs];
+        const wasPhase6 = contract.lifecyclePhase === 6;
 
         await db.update(contracts).set({
           documents: allDocs,
           scansUploaded: true,
           ocrDataAssigned: true,
-          lifecyclePhase: contract.lifecyclePhase === 6 ? 8 : contract.lifecyclePhase,
+          lifecyclePhase: wasPhase6 ? 8 : contract.lifecyclePhase,
           updatedAt: now,
         }).where(eq(contracts.id, contractId));
 
-        if (contract.lifecyclePhase === 6) {
+        if (wasPhase6) {
           await db.insert(contractLifecycleHistory).values({
             contractId,
             phase: 8,
             phaseName: "Manuálna kontrola kontraktov",
             changedByUserId: appUser?.id || null,
-            note: "Scan Commander — priradenie skenu, presun do fázy 8",
+            note: `Scan Commander — priradenie ${validatedFiles.length} súbor(ov), presun do fázy 8`,
           });
         }
 
@@ -6717,10 +6744,15 @@ export async function registerRoutes(
           module: "zmluvy",
           entityId: contractId,
           entityName: contract.contractNumber || contract.proposalNumber || `ID ${contractId}`,
-          newData: { fileName, fileUrl, movedToPhase8: contract.lifecyclePhase === 6 },
+          newData: {
+            fileCount: validatedFiles.length,
+            fileUrls: validatedFiles.map(vf => vf.normalizedUrl),
+            fileNames: validatedFiles.map(vf => vf.sanitizedName),
+            movedToPhase8: wasPhase6,
+          },
         });
 
-        results.push({ contractId, success: true });
+        for (const vf of validatedFiles) results.push({ fileUrl: vf.normalizedUrl, contractId, success: true });
       }
 
       const anySuccess = results.some(r => r.success);

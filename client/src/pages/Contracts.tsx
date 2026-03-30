@@ -3151,54 +3151,59 @@ function ScanCommanderDialog({
     if (filesToPair.length === 0) return;
     setPairing(true);
     try {
-      let totalSuccessFiles = 0;
       const contractCount = selectedContractIds.size;
-      for (const fileEntry of filesToPair) {
-        const res = await fetch("/api/scan-commander/pair", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contractIds: [...selectedContractIds],
-            fileUrl: fileEntry.url,
-            fileName: fileEntry.name,
-          }),
-        });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.message || "Chyba párovania");
-        }
-        const data = await res.json();
-        const successIds: number[] = (data.results || []).filter((r: any) => r.success).map((r: any) => r.contractId);
-        if (successIds.length > 0) {
-          totalSuccessFiles++;
-          const firstContract = commanderContracts.find(c => c.id === successIds[0]);
-          const firstLabel = firstContract?.contractNumber || firstContract?.proposalNumber || `ID ${successIds[0]}`;
-          const pairedLabel = successIds.length === 1 ? firstLabel : `${firstLabel} + ${successIds.length - 1} ďalšie`;
-          setInboxFiles(prev => prev.map(f =>
-            f.id === fileEntry.id ? { ...f, pairedContractId: successIds[0], pairedContractName: pairedLabel } : f
-          ));
-          setLocalPairedCounts(prev => {
-            const next = { ...prev };
-            for (const cid of successIds) next[cid] = (next[cid] || 0) + 1;
-            return next;
-          });
+      // Batch: send all selected files and all selected contracts in a single request
+      const res = await fetch("/api/scan-commander/pair", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contractIds: [...selectedContractIds],
+          fileUrls: filesToPair.map(f => f.url),
+          fileNames: filesToPair.map(f => f.name),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Chyba párovania");
+      }
+      const data = await res.json();
+      // Build a map: fileUrl → set of successful contractIds
+      const successByUrl = new Map<string, number[]>();
+      for (const r of (data.results || []) as Array<{ fileUrl: string; contractId: number; success: boolean }>) {
+        if (r.success) {
+          if (!successByUrl.has(r.fileUrl)) successByUrl.set(r.fileUrl, []);
+          successByUrl.get(r.fileUrl)!.push(r.contractId);
         }
       }
-      if (totalSuccessFiles === 0) throw new Error("Žiadna zmluva nebola priradená.");
+      let totalSuccessFiles = 0;
+      setInboxFiles(prev => prev.map(f => {
+        const successIds = successByUrl.get(f.url);
+        if (!successIds || successIds.length === 0) return f;
+        totalSuccessFiles++;
+        const firstContract = commanderContracts.find(c => c.id === successIds[0]);
+        const firstLabel = firstContract?.contractNumber || firstContract?.proposalNumber || `ID ${successIds[0]}`;
+        const pairedLabel = successIds.length === 1 ? firstLabel : `${firstLabel} + ${successIds.length - 1} ďalšie`;
+        return { ...f, pairedContractId: successIds[0], pairedContractName: pairedLabel };
+      }));
+      setLocalPairedCounts(prev => {
+        const next = { ...prev };
+        for (const [, successIds] of successByUrl) {
+          for (const cid of successIds) next[cid] = (next[cid] || 0) + 1;
+        }
+        return next;
+      });
+      if (successByUrl.size === 0) throw new Error("Žiadny súbor nebol priradený.");
       setSelectedInboxIds(new Set());
       setSelectedContractIds(new Set());
       setSelectedFileUrl(null);
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/phase6"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/phase8"] });
-      const desc = totalSuccessFiles === 1
-        ? (contractCount === 1
-            ? `Sken priradený k 1 zmluve`
-            : `Sken priradený k ${contractCount} zmluvám`)
-        : (contractCount === 1
-            ? `${totalSuccessFiles} skenov priradených k 1 zmluve`
-            : `${totalSuccessFiles} skenov priradených k ${contractCount} zmluvám`);
+      const pf = successByUrl.size;
+      const desc = pf === 1
+        ? (contractCount === 1 ? `Sken priradený k 1 zmluve` : `Sken priradený k ${contractCount} zmluvám`)
+        : (contractCount === 1 ? `${pf} skenov priradených k 1 zmluve` : `${pf} skenov priradených k ${contractCount} zmluvám`);
       toast({ title: "Priradené", description: desc });
     } catch (err: any) {
       toast({ title: "Chyba", description: err.message, variant: "destructive" });
@@ -3361,18 +3366,24 @@ function ScanCommanderDialog({
             });
           }
         } else if (e.key === "Delete" || e.key === "Backspace") {
-          // Remove current inbox file (only unpaired)
           const file = inboxCursorIndex >= 0 ? inboxFiles[inboxCursorIndex] : null;
-          if (file && !file.pairedContractId && !file.zipLoading) {
+          if (file && !file.zipLoading) {
             e.preventDefault();
-            setInboxFiles(prev => prev.filter(f => f.id !== file.id));
-            setSelectedInboxIds(prev => {
-              const next = new Set(prev);
-              next.delete(file.id);
-              return next;
-            });
-            if (selectedFileUrl === file.url) setSelectedFileUrl(null);
-            setInboxCursorIndex(prev => Math.min(prev, inboxFiles.length - 2));
+            if (file.pairedContractId) {
+              // Paired file: confirm before removal from inbox
+              if (window.confirm(`Súbor "${file.name}" je priradený k zmluve "${file.pairedContractName || '?'}". Odstrániť zo zoznamu Inboxu?`)) {
+                setInboxFiles(prev => prev.filter(f => f.id !== file.id));
+                setSelectedInboxIds(prev => { const next = new Set(prev); next.delete(file.id); return next; });
+                if (selectedFileUrl === file.url) setSelectedFileUrl(null);
+                setInboxCursorIndex(prev => Math.min(prev, inboxFiles.length - 2));
+              }
+            } else {
+              // Unpaired file: immediate removal
+              setInboxFiles(prev => prev.filter(f => f.id !== file.id));
+              setSelectedInboxIds(prev => { const next = new Set(prev); next.delete(file.id); return next; });
+              if (selectedFileUrl === file.url) setSelectedFileUrl(null);
+              setInboxCursorIndex(prev => Math.min(prev, inboxFiles.length - 2));
+            }
           }
         }
       } else {
