@@ -201,7 +201,14 @@ export default function NetworkSiet() {
 
   const { data: networkData, isLoading: loadingTree } = useQuery<{ root: any; links: NetworkLink[]; subjects: NetworkSubject[]; personalSubjectId?: number | null; officerSubjectIds?: number[] }>({
     queryKey: ["/api/network/tree", appUser?.id, appUser?.activeKtoCompanyId, appUser?.activeCompanyId],
-    queryFn: () => fetch("/api/network/tree", { credentials: "include" }).then(r => r.json()),
+    queryFn: () => {
+      const params = new URLSearchParams();
+      const companyId = appUser?.activeKtoCompanyId ?? appUser?.activeCompanyId;
+      if (companyId) params.set("companyId", String(companyId));
+      if (appUser?.linkedSubjectId) params.set("rootId", String(appUser.linkedSubjectId));
+      const qs = params.toString();
+      return fetch(`/api/network/tree${qs ? `?${qs}` : ""}`, { credentials: "include" }).then(r => r.json());
+    },
     enabled: !!appUser,
   });
 

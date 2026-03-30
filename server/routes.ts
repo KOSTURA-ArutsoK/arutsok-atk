@@ -24227,10 +24227,14 @@ export async function registerRoutes(
       // Non-admins without KTO context fall back to their KDE (workspace) company.
       const adminRoles = ['admin', 'superadmin', 'prezident', 'architekt'];
       const isAdminUser = adminRoles.includes((req as any).appUser?.role);
-      const isSuperadmin = (req as any).appUser?.role === 'superadmin';
       const ktoCompanyId = (req as any).appUser?.activeKtoCompanyId ?? null;
       const kdeCompanyId = (req as any).appUser?.activeCompanyId ?? null;
-      const filterCompanyId: number | null = ktoCompanyId ?? (isAdminUser ? null : kdeCompanyId);
+      // Allow explicit ?companyId override from client (e.g. KTO/KDE context resolved on frontend).
+      const queryCompanyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : null;
+      const queryRootId = req.query.rootId ? parseInt(req.query.rootId as string, 10) : null;
+      const filterCompanyId: number | null = queryCompanyId ?? ktoCompanyId ?? (isAdminUser ? null : kdeCompanyId);
+      // Personal scoping: prefer query param, fall back to session linkedSubjectId
+      const linkedSubjectId: number | null = queryRootId ?? (req as any).appUser?.linkedSubjectId ?? null;
       let visibleSubjects = allSubjectsBuilt;
       let visibleLinks = allLinksBuilt;
       let effectiveRoot = rootSubject;
@@ -24267,10 +24271,9 @@ export async function registerRoutes(
 
         // Personal view: if user has a linked subject within this company's tree,
         // scope further to their own subtree (downline) + upline chain to company root.
-        const userLinkedSubjectId: number | null = (req as any).appUser?.linkedSubjectId ?? null;
-        if (userLinkedSubjectId && visitedIds.has(userLinkedSubjectId)) {
+        if (linkedSubjectId && visitedIds.has(linkedSubjectId)) {
           // BFS downward from the personal node
-          const personalVisited = new Set<number>([userLinkedSubjectId]);
+          const personalVisited = new Set<number>([linkedSubjectId]);
           let pChanged = true;
           while (pChanged) {
             pChanged = false;
@@ -24282,7 +24285,7 @@ export async function registerRoutes(
             }
           }
           // Upline: traverse from personal node up to the company root
-          let cur: number = userLinkedSubjectId;
+          let cur: number = linkedSubjectId;
           while (cur !== companyNodeId) {
             const up = allLinksBuilt.find(l => l.subjectId === cur);
             if (!up) break;
@@ -24305,7 +24308,7 @@ export async function registerRoutes(
         effectiveRoot = rootSubject;
       }
 
-      const personalSubjectId: number | null = (req as any).appUser?.linkedSubjectId ?? null;
+      const personalSubjectId: number | null = linkedSubjectId;
 
       res.json({
         root: effectiveRoot,
