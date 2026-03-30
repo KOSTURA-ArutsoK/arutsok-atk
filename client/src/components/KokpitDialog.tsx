@@ -642,6 +642,7 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
           style={{ maxWidth: "95vw", width: "95vw", height: "95vh", maxHeight: "95vh" }}
           onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
         >
           {/* INNER VRSTVA — 90 vw × 90 vh */}
           <div
