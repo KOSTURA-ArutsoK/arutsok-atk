@@ -2885,6 +2885,7 @@ function ScanCommanderDialog({
   open,
   onClose,
   commanderContracts,
+  onContractFinished,
   subjects,
   partners,
   products,
@@ -2892,6 +2893,7 @@ function ScanCommanderDialog({
   open: boolean;
   onClose: () => void;
   commanderContracts: Contract[];
+  onContractFinished?: (contractId: number) => void;
   subjects?: Subject[];
   partners?: Partner[];
   products?: Product[];
@@ -3396,8 +3398,11 @@ function ScanCommanderDialog({
         throw new Error(data.message || "Chyba pri dokončení triedenia");
       }
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase/6"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase/8"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 6] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 8] });
+      onContractFinished?.(contractId);
+      setSelectedContractIds(prev => { const s = new Set(prev); s.delete(contractId); return s; });
+      setExpandedContractDocs(prev => { const s = new Set(prev); s.delete(contractId); return s; });
       toast({ title: "Triedenie dokončené", description: "Kontrakt bol presunutý do Manuálnej kontroly kontraktov (fáza 8)." });
     } catch (err: any) {
       toast({ title: "Chyba", description: err.message, variant: "destructive" });
@@ -12827,6 +12832,7 @@ export default function Contracts() {
           open={commanderOpen}
           onClose={() => setCommanderOpen(false)}
           commanderContracts={commanderContracts}
+          onContractFinished={id => setCommanderContracts(prev => prev.filter(c => c.id !== id))}
           subjects={subjects || []}
           partners={partners || []}
           products={products || []}
@@ -13208,6 +13214,7 @@ export default function Contracts() {
         open={commanderOpen}
         onClose={() => setCommanderOpen(false)}
         commanderContracts={commanderContracts}
+        onContractFinished={id => setCommanderContracts(prev => prev.filter(c => c.id !== id))}
         subjects={subjects || []}
         partners={partners || []}
         products={products || []}
