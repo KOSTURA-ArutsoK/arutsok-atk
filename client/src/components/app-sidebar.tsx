@@ -851,7 +851,7 @@ export function AppSidebar() {
 
         <SidebarSeparator />
 
-        <SidebarGroup>
+        <SidebarGroup className="py-0">
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -867,7 +867,15 @@ export function AppSidebar() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarSeparator />
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
               {ktoEqualsKde && (
                 <CollapsibleMenu
                   label="Partneri a produkty"
