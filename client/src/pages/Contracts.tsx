@@ -2597,11 +2597,11 @@ function BOVerificationConsole({
                       </div>
                       {doc.url.toLowerCase().endsWith('.pdf') ? (
                         pdfBlobUrls[doc.url] ? (
-                          <embed
+                          <iframe
                             src={pdfBlobUrls[doc.url]}
-                            type="application/pdf"
-                            className="w-full"
+                            className="w-full border-0"
                             style={{ height: '600px' }}
+                            title={doc.name}
                           />
                         ) : pdfLoadErrors[doc.url] ? (
                           <div className="w-full flex flex-col items-center justify-center gap-2 text-muted-foreground py-10">
@@ -3848,12 +3848,12 @@ function ScanCommanderDialog({
               ) : previewLoading ? (
                 <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
               ) : previewBlobUrl && isPdf ? (
-                <embed
+                <iframe
                   key={previewBlobUrl}
                   src={previewBlobUrl}
-                  type="application/pdf"
-                  className="w-full h-full"
+                  className="w-full h-full border-0"
                   style={{ minHeight: 0 }}
+                  title="PDF náhľad"
                 />
               ) : isImage ? (
                 <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
