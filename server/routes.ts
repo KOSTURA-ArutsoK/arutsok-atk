@@ -25988,6 +25988,40 @@ export async function registerRoutes(
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
+  app.get("/api/kokpit/staged-scans/deleted", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.appUser;
+      const appUserId = user?.id;
+      if (!appUserId) return res.status(400).json({ message: "Chýba používateľský kontext" });
+      const scans = await storage.getDeletedStagedScans(appUserId);
+      res.json(scans);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/kokpit/staged-scans/:id/restore", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Neplatné ID" });
+      const user = req.appUser;
+      const appUserId = user?.id;
+      if (!appUserId) return res.status(400).json({ message: "Chýba používateľský kontext" });
+      await storage.restoreDeletedStagedScan(id, appUserId);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.delete("/api/kokpit/staged-scans/:id/permanent", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Neplatné ID" });
+      const user = req.appUser;
+      const appUserId = user?.id;
+      if (!appUserId) return res.status(400).json({ message: "Chýba používateľský kontext" });
+      await storage.permanentDeleteStagedScan(id, appUserId);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   return httpServer;
 }
 

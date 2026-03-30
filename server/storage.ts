@@ -476,6 +476,9 @@ export interface IStorage {
   getStagedScans(companyId: number, appUserId: number): Promise<KokpitStagedScan[]>;
   addStagedScan(data: InsertKokpitStagedScan): Promise<KokpitStagedScan>;
   removeStagedScan(id: number, companyId: number, appUserId: number): Promise<void>;
+  getDeletedStagedScans(appUserId: number): Promise<KokpitStagedScan[]>;
+  restoreDeletedStagedScan(id: number, appUserId: number): Promise<void>;
+  permanentDeleteStagedScan(id: number, appUserId: number): Promise<void>;
 
   getSystemContractStatusByName(name: string): Promise<ContractStatus | undefined>;
   getAcceptedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
@@ -6057,6 +6060,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(kokpitStagedScans.companyId, companyId),
         eq(kokpitStagedScans.appUserId, appUserId),
+        isNull(kokpitStagedScans.deletedAt),
       ))
       .orderBy(desc(kokpitStagedScans.uploadedAt));
   }
@@ -6067,11 +6071,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   async removeStagedScan(id: number, companyId: number, appUserId: number): Promise<void> {
-    await db.delete(kokpitStagedScans)
+    await db.update(kokpitStagedScans)
+      .set({ deletedAt: new Date() })
       .where(and(
         eq(kokpitStagedScans.id, id),
         eq(kokpitStagedScans.companyId, companyId),
         eq(kokpitStagedScans.appUserId, appUserId),
+        isNull(kokpitStagedScans.deletedAt),
+      ));
+  }
+
+  async getDeletedStagedScans(appUserId: number): Promise<KokpitStagedScan[]> {
+    return db.select().from(kokpitStagedScans)
+      .where(and(
+        eq(kokpitStagedScans.appUserId, appUserId),
+        isNotNull(kokpitStagedScans.deletedAt),
+      ))
+      .orderBy(desc(kokpitStagedScans.deletedAt));
+  }
+
+  async restoreDeletedStagedScan(id: number, appUserId: number): Promise<void> {
+    await db.update(kokpitStagedScans)
+      .set({ deletedAt: null })
+      .where(and(
+        eq(kokpitStagedScans.id, id),
+        eq(kokpitStagedScans.appUserId, appUserId),
+        isNotNull(kokpitStagedScans.deletedAt),
+      ));
+  }
+
+  async permanentDeleteStagedScan(id: number, appUserId: number): Promise<void> {
+    await db.delete(kokpitStagedScans)
+      .where(and(
+        eq(kokpitStagedScans.id, id),
+        eq(kokpitStagedScans.appUserId, appUserId),
+        isNotNull(kokpitStagedScans.deletedAt),
       ));
   }
 }

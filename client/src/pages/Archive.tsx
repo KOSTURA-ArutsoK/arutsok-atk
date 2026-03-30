@@ -31,7 +31,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Building2, Briefcase, Package, RotateCcw, Lock, Loader2, Trash2, FileText, Database } from "lucide-react";
+import { Building2, Briefcase, Package, RotateCcw, Lock, Loader2, Trash2, FileText, Database, ScanLine, Image as ImageIcon, File as FileIcon } from "lucide-react";
+import type { KokpitStagedScan } from "@shared/schema";
 
 const ARCHIVE_COLUMNS: ColumnDef[] = [
   { key: "type", label: "Typ" },
@@ -96,6 +97,8 @@ export default function Archive() {
   const [restoreTarget, setRestoreTarget] = useState<{ entityType: string; id: number; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ entityType: string; id: number; name: string } | null>(null);
   const [password, setPassword] = useState("");
+  const [scanDeleteTarget, setScanDeleteTarget] = useState<KokpitStagedScan | null>(null);
+  const [scanRestoreTarget, setScanRestoreTarget] = useState<KokpitStagedScan | null>(null);
 
   const { data, isLoading } = useQuery<{
     companies: any[];
@@ -105,6 +108,39 @@ export default function Archive() {
     softDeleted: SoftDeletedEntity[];
   }>({
     queryKey: ["/api/archive/deleted"],
+  });
+
+  const { data: deletedScans = [], isLoading: scansLoading } = useQuery<KokpitStagedScan[]>({
+    queryKey: ["/api/kokpit/staged-scans/deleted"],
+  });
+
+  const restoreScanMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("POST", `/api/kokpit/staged-scans/${id}/restore`, {});
+    },
+    onSuccess: () => {
+      toast({ title: "Sken obnovený", description: "Súbor bol obnovený do príchodu KOKPIT." });
+      queryClient.invalidateQueries({ queryKey: ["/api/kokpit/staged-scans/deleted"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/kokpit/staged-scans"] });
+      setScanRestoreTarget(null);
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa obnoviť sken.", variant: "destructive" });
+    },
+  });
+
+  const permanentDeleteScanMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/kokpit/staged-scans/${id}/permanent`, {});
+    },
+    onSuccess: () => {
+      toast({ title: "Sken vymazaný", description: "Súbor bol trvalo odstránený." });
+      queryClient.invalidateQueries({ queryKey: ["/api/kokpit/staged-scans/deleted"] });
+      setScanDeleteTarget(null);
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa natrvalo vymazať sken.", variant: "destructive" });
+    },
   });
 
   const restoreMutation = useMutation({
@@ -251,6 +287,10 @@ export default function Archive() {
           <TabsTrigger value="entities" data-testid="tab-archive-entities">
             <Database className="w-4 h-4 mr-1" />
             Ostatne ({softDeleted.length})
+          </TabsTrigger>
+          <TabsTrigger value="skeny" data-testid="tab-archive-skeny">
+            <ScanLine className="w-4 h-4 mr-1" />
+            Skeny ({deletedScans.length})
           </TabsTrigger>
         </TabsList>
 
@@ -610,7 +650,151 @@ export default function Archive() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="skeny">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Vymazané skeny (kôš KOKPIT)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {scansLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : deletedScans.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Kôš skenov je prázdny.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Názov súboru</TableHead>
+                        <TableHead>Veľkosť</TableHead>
+                        <TableHead>Vymazané</TableHead>
+                        <TableHead className="text-right">Akcie</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {deletedScans.map((scan) => {
+                        const isImg = /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(scan.name);
+                        const FileIco = isImg ? ImageIcon : FileIcon;
+                        const sizeFmt = scan.size != null
+                          ? scan.size >= 1024 * 1024
+                            ? `${(scan.size / 1024 / 1024).toFixed(1)} MB`
+                            : `${(scan.size / 1024).toFixed(0)} kB`
+                          : "—";
+                        return (
+                          <TableRow key={scan.id} data-testid={`row-scan-${scan.id}`}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <FileIco className="w-4 h-4 text-muted-foreground shrink-0" />
+                                <span className="font-mono text-xs truncate max-w-[260px]">{scan.name}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{sizeFmt}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {scan.deletedAt ? new Date(scan.deletedAt).toLocaleString("sk-SK") : "—"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex gap-2 justify-end">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  data-testid={`button-restore-scan-${scan.id}`}
+                                  onClick={() => setScanRestoreTarget(scan)}
+                                >
+                                  <RotateCcw className="w-3 h-3 mr-1" />
+                                  Obnoviť
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  data-testid={`button-permdelete-scan-${scan.id}`}
+                                  onClick={() => setScanDeleteTarget(scan)}
+                                >
+                                  <Trash2 className="w-3 h-3 mr-1" />
+                                  Natrvalo
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Potvrdenie obnovy skenu */}
+      <Dialog open={!!scanRestoreTarget} onOpenChange={(open) => { if (!open) setScanRestoreTarget(null); }}>
+        <DialogContent size="md" className="flex flex-col items-start justify-start">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="w-5 h-5 text-primary" />
+              Obnoviť sken
+            </DialogTitle>
+            <DialogDescription>
+              Súbor bude obnovený do príchodu KOKPIT.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 w-full">
+            <p className="text-sm">
+              Naozaj chcete obnoviť súbor <span className="font-semibold">{scanRestoreTarget?.name}</span>?
+            </p>
+          </div>
+          <DialogFooter className="gap-2 w-full">
+            <Button variant="outline" onClick={() => setScanRestoreTarget(null)} data-testid="button-cancel-scan-restore">
+              Zrušiť
+            </Button>
+            <Button
+              onClick={() => scanRestoreTarget && restoreScanMutation.mutate(scanRestoreTarget.id)}
+              disabled={restoreScanMutation.isPending}
+              data-testid="button-confirm-scan-restore"
+            >
+              {restoreScanMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <RotateCcw className="w-4 h-4 mr-1" />}
+              Obnoviť
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Potvrdenie trvalého vymazania skenu */}
+      <Dialog open={!!scanDeleteTarget} onOpenChange={(open) => { if (!open) setScanDeleteTarget(null); }}>
+        <DialogContent size="md" className="flex flex-col items-start justify-start">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              Natrvalo vymazať sken
+            </DialogTitle>
+            <DialogDescription>
+              Táto akcia je nevratná. Súbor bude trvalo odstránený.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 w-full">
+            <p className="text-sm text-destructive font-medium">
+              Naozaj chcete natrvalo vymazať súbor <span className="font-semibold">{scanDeleteTarget?.name}</span>?
+            </p>
+          </div>
+          <DialogFooter className="gap-2 w-full">
+            <Button variant="outline" onClick={() => setScanDeleteTarget(null)} data-testid="button-cancel-scan-permdelete">
+              Zrušiť
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => scanDeleteTarget && permanentDeleteScanMutation.mutate(scanDeleteTarget.id)}
+              disabled={permanentDeleteScanMutation.isPending}
+              data-testid="button-confirm-scan-permdelete"
+            >
+              {permanentDeleteScanMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Trash2 className="w-4 h-4 mr-1" />}
+              Natrvalo vymazať
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!restoreTarget} onOpenChange={(open) => { if (!open) { setRestoreTarget(null); setPassword(""); } }}>
         <DialogContent size="md" className="flex flex-col items-start justify-start">

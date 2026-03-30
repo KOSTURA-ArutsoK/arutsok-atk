@@ -99,6 +99,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const isImagePreviewRef = useRef(false);
   const [pinnedContractIds, setPinnedContractIds] = useState<Set<number>>(new Set());
+  const [scanPendingDelete, setScanPendingDelete] = useState<string | null>(null);
 
   const { data: contractsRaw = [] } = useQuery<TrezorContract[]>({
     queryKey: ["/api/contracts", "trezor-list"],
@@ -380,7 +381,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
                   {getFileTypeBadge(file.name)}
                   <button
                     data-testid={`button-inbox-remove-${file.id}`}
-                    onClick={(e) => { e.stopPropagation(); onRemoveScanFile(file.id); }}
+                    onClick={(e) => { e.stopPropagation(); setScanPendingDelete(file.id); }}
                     className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive shrink-0"
                   >
                     <X size={10} />
@@ -509,6 +510,41 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
           </div>
         );
       })()}
+
+      {/* Potvrdenie vymazania skenu */}
+      {scanPendingDelete !== null && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="bg-background border rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 flex flex-col gap-4">
+            <p className="text-sm font-semibold text-foreground">Odstrániť sken?</p>
+            <p className="text-xs text-muted-foreground">Súbor bude presunutý do koša. Môžete ho obnoviť v Archíve.</p>
+            <div className="flex gap-2 justify-end">
+              <Button
+                size="sm"
+                variant="outline"
+                data-testid="button-confirm-delete-cancel"
+                onClick={() => setScanPendingDelete(null)}
+              >
+                Zrušiť
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                data-testid="button-confirm-delete-ok"
+                onClick={() => {
+                  onRemoveScanFile(scanPendingDelete);
+                  setScanPendingDelete(null);
+                }}
+              >
+                Odstrániť
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
