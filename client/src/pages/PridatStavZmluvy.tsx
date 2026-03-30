@@ -401,7 +401,7 @@ export default function PridatStavZmluvy() {
       <div>
         <h1 className="text-2xl font-bold">Spracovanie stavov</h1>
         <p className="text-sm text-muted-foreground">
-          Centrálne miesto pre správu stavov zmlúv — všetko, čo príde ku akejkoľvek zmluve, sa tu bude dopĺňať a spracovávať.
+          Kokpit je centrálne miesto pre správu stavov zmlúv a zmlúv.
         </p>
       </div>
 
