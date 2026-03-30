@@ -282,10 +282,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
             </div>
           ) : previewFile?.url && isPdfFile(previewFile.name) ? (
             <div className="flex flex-col w-full flex-1 gap-1.5 min-h-0">
-              <embed src={previewFile.url} type="application/pdf" className="w-full flex-1 rounded" style={{ minHeight: 200 }} data-testid="preview-pdf" />
-              <p className="text-[10px] text-muted-foreground text-center shrink-0 py-0.5">
-                Zoom nie je dostupný pre PDF — použite natívny zoom prehliadača
-              </p>
+              <iframe src={previewFile.url} className="w-full flex-1 rounded border-0" style={{ minHeight: 200 }} data-testid="preview-pdf" title={previewFile.name} />
             </div>
           ) : previewFile ? (
             <div className="text-center text-muted-foreground space-y-2">

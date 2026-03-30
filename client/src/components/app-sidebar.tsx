@@ -863,6 +863,7 @@ export function AppSidebar() {
                   <Link href="/pridat-stav-zmluvy">
                     <Target className="w-4 h-4" />
                     <span>KOKPIT</span>
+                    <span className="ml-auto text-[10px] font-normal text-yellow-500 dark:text-yellow-400 shrink-0">(Global)</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

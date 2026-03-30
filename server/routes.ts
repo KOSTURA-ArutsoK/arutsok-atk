@@ -23405,7 +23405,7 @@ export async function registerRoutes(
             const daysLeft = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
             if (daysLeft > 30) continue;
             const report = allNbs.find(r => r.year === year && r.period === period);
-            if (!report || report.status !== "sent") {
+            if (!report || (report.status !== "sent" && report.status !== "checked")) {
               nbsItems.push({ period, year, daysLeft, periodLabel: periodLabelsMap[period] || period });
             }
           }
@@ -24984,7 +24984,7 @@ export async function registerRoutes(
             const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
             if (daysLeft > 25) continue;
             const report = allNbs.find(r => r.year === year && r.period === period);
-            if (!report || report.status !== "sent") {
+            if (!report || (report.status !== "sent" && report.status !== "checked")) {
               nbsReportTasks.push({
                 period,
                 periodLabel: periodLabels[period] || period.toUpperCase(),
@@ -25256,7 +25256,7 @@ export async function registerRoutes(
             if (daysLeft > 25) continue;
 
             const report = allNbsReports.find(r => r.year === year && r.period === period);
-            if (!report || report.status !== "sent") {
+            if (!report || (report.status !== "sent" && report.status !== "checked")) {
               nbsReportCount++;
               if (daysLeft < closestDays) closestDays = daysLeft;
             }
