@@ -3276,6 +3276,55 @@ function ScanCommanderDialog({
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setIsDragOver(false);
+
+    function readAllFilesFromEntry(entry: FileSystemEntry): Promise<File[]> {
+      if (entry.isFile) {
+        return new Promise(resolve => {
+          (entry as FileSystemFileEntry).file(
+            f => resolve([f]),
+            () => resolve([]),
+          );
+        });
+      }
+      if (entry.isDirectory) {
+        const dirReader = (entry as FileSystemDirectoryEntry).createReader();
+        return new Promise(resolve => {
+          const allFiles: File[] = [];
+          function readBatch() {
+            dirReader.readEntries(async entries => {
+              if (entries.length === 0) {
+                resolve(allFiles);
+                return;
+              }
+              for (const child of entries) {
+                const childFiles = await readAllFilesFromEntry(child);
+                allFiles.push(...childFiles);
+              }
+              readBatch();
+            }, () => resolve(allFiles));
+          }
+          readBatch();
+        });
+      }
+      return Promise.resolve([]);
+    }
+
+    const items = e.dataTransfer.items;
+    if (items && items.length > 0) {
+      const entries: FileSystemEntry[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const entry = items[i].webkitGetAsEntry?.();
+        if (entry) entries.push(entry);
+      }
+      if (entries.length > 0) {
+        Promise.all(entries.map(readAllFilesFromEntry)).then(results => {
+          const all = results.flat();
+          if (all.length > 0) uploadFiles(all);
+        });
+        return;
+      }
+    }
+    // Fallback: standard files (no folder support)
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) uploadFiles(files);
   }
