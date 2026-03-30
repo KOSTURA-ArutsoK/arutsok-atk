@@ -14,7 +14,7 @@ import type { Contract, ContractStatus, ContractTemplate, ContractInventory, Sub
 import { VERIFIABLE_PARAMS } from "@shared/verifiable-params";
 import { validateSlovakICO } from "@shared/ico-validator";
 import { ATK_SYSTEM_ID, ATK_SUPERADMIN_ID } from "@shared/constants";
-import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, AlertCircle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building, Building2, ArrowLeftRight, Info, Download, Landmark, Network, Library, ImageIcon, File } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, FileText, FileCheck, Files, Loader2, Lock, LayoutGrid, Send, Upload, Inbox, CheckCircle2, ChevronDown, ChevronRight, Printer, Search, Archive, AlertTriangle, AlertCircle, Calendar, XCircle, MessageSquare, Paperclip, X, Users, User, Check, Award, Percent, History, ListChecks, ArrowRight, ArrowUpRight, ArrowUp, Clock, Ghost, Ban, HelpCircle, ScanLine, Briefcase, Building, Building2, ArrowLeftRight, Info, Download, Landmark, Network, Library, ImageIcon, File, Scissors } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { BlueprintRenderer, ContractBlueprintView } from "@/components/blueprint-renderer";
@@ -2878,6 +2878,7 @@ type StagedFile = {
   pairedContractId?: number;
   pairedContractName?: string;
   zipLoading?: boolean;
+  splitSource?: boolean;
 };
 
 function ScanCommanderDialog({
@@ -2913,6 +2914,14 @@ function ScanCommanderDialog({
   // Focus state: which panel has keyboard focus (inbox vs trezor)
   const [inboxFocused, setInboxFocused] = useState(true);
   const [trezorCursorIndex, setTrezorCursorIndex] = useState(-1);
+
+  // PDF Burst mode
+  const [burstMode, setBurstMode] = useState(false);
+  const [burstSplitPoints, setBurstSplitPoints] = useState<Set<number>>(new Set());
+  const [burstThumbnails, setBurstThumbnails] = useState<Array<{ pageNum: number; dataUrl: string | null; loading: boolean }>>([]);
+  const [burstTotalPages, setBurstTotalPages] = useState(0);
+  const [burstSplitting, setBurstSplitting] = useState(false);
+  const burstFileUrlRef = useRef<string | null>(null);
 
   // Image controls
   const [imgRotation, setImgRotation] = useState(0);
@@ -3038,6 +3047,139 @@ function ScanCommanderDialog({
     }
     setPreviewBlobUrl(null);
   }, [selectedFileUrl]);
+
+  // Reset burst mode when selected file changes
+  useEffect(() => {
+    setBurstMode(false);
+    setBurstSplitPoints(new Set());
+    setBurstThumbnails([]);
+    setBurstTotalPages(0);
+    burstFileUrlRef.current = null;
+  }, [selectedFileUrl]);
+
+  // Also reset burst mode when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setBurstMode(false);
+      setBurstSplitPoints(new Set());
+      setBurstThumbnails([]);
+      setBurstTotalPages(0);
+      burstFileUrlRef.current = null;
+    }
+  }, [open]);
+
+  // Load PDF thumbnails when burst mode is activated
+  useEffect(() => {
+    if (!burstMode || !selectedFileUrl) return;
+
+    let cancelled = false;
+    burstFileUrlRef.current = selectedFileUrl;
+
+    async function loadThumbnails() {
+      try {
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+
+        const resp = await fetch(selectedFileUrl!, { credentials: "include" });
+        if (!resp.ok) throw new Error("fetch failed");
+        const arrayBuf = await resp.arrayBuffer();
+        if (cancelled) return;
+
+        const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+        if (cancelled) return;
+
+        const numPages = pdfDoc.numPages;
+        if (numPages > 200) {
+          if (!cancelled) {
+            toast({ title: "Príliš veľa strán", description: `PDF má príliš veľa strán (max. 200, aktuálne ${numPages}).`, variant: "destructive" });
+            setBurstMode(false);
+          }
+          return;
+        }
+
+        setBurstTotalPages(numPages);
+        setBurstThumbnails(Array.from({ length: numPages }, (_, i) => ({ pageNum: i + 1, dataUrl: null, loading: true })));
+
+        for (let i = 1; i <= numPages; i++) {
+          if (cancelled) break;
+          try {
+            const page = await pdfDoc.getPage(i);
+            const viewport = page.getViewport({ scale: 0.22 });
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.round(viewport.width);
+            canvas.height = Math.round(viewport.height);
+            const ctx = canvas.getContext("2d")!;
+            await page.render({ canvasContext: ctx, viewport }).promise;
+            if (cancelled) break;
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+            setBurstThumbnails(prev => prev.map(t => t.pageNum === i ? { ...t, dataUrl, loading: false } : t));
+          } catch {
+            if (!cancelled) {
+              setBurstThumbnails(prev => prev.map(t => t.pageNum === i ? { ...t, dataUrl: null, loading: false } : t));
+            }
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          toast({ title: "Chyba náhľadu", description: "Náhľad strán PDF nie je dostupný.", variant: "destructive" });
+          setBurstMode(false);
+        }
+      }
+    }
+
+    loadThumbnails();
+    return () => { cancelled = true; };
+  }, [burstMode, selectedFileUrl]);
+
+  async function handleBurstSplit() {
+    if (!selectedFileUrl || burstSplitPoints.size === 0) return;
+    setBurstSplitting(true);
+    try {
+      const res = await fetch("/api/scan-commander/split-pdf", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileUrl: selectedFileUrl,
+          splitAfterPages: [...burstSplitPoints].sort((a, b) => a - b),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Chyba pri rozdeľovaní PDF");
+      }
+      const data = await res.json();
+      const segments: { name: string; url: string; size: number }[] = data.segments || [];
+      if (segments.length === 0) throw new Error("Server nevrátil žiadne segmenty.");
+
+      // Mark original file as split source
+      setInboxFiles(prev => prev.map(f =>
+        f.url === selectedFileUrl ? { ...f, splitSource: true } : f
+      ));
+
+      // Add new segments to inbox
+      const newEntries: StagedFile[] = segments.map(seg => ({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: seg.name,
+        url: seg.url,
+        size: seg.size,
+        progress: 100,
+        done: true,
+      }));
+      setInboxFiles(prev => [...prev, ...newEntries]);
+
+      // Exit burst mode and select first new segment
+      setBurstMode(false);
+      setBurstSplitPoints(new Set());
+      if (newEntries.length > 0) setSelectedFileUrl(newEntries[0].url);
+
+      toast({ title: "PDF rozdelené", description: `Vytvorené ${segments.length} súbory v Inboxe.` });
+    } catch (err: any) {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    } finally {
+      setBurstSplitting(false);
+    }
+  }
 
   function formatBytes(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
@@ -3242,7 +3384,7 @@ function ScanCommanderDialog({
   }
 
   const selectedFile = inboxFiles.find(f => f.url === selectedFileUrl);
-  const nSelectableFiles = inboxFiles.filter(f => selectedInboxIds.has(f.id) && f.done && !f.pairedContractId).length;
+  const nSelectableFiles = inboxFiles.filter(f => selectedInboxIds.has(f.id) && f.done && !f.pairedContractId && !f.splitSource).length;
   const canPair = nSelectableFiles > 0 && selectedContractIds.size > 0 && !pairing;
   const pairButtonLabel = (() => {
     const nF = nSelectableFiles;
@@ -3279,7 +3421,7 @@ function ScanCommanderDialog({
       // Ctrl+A: select all in inbox (only when inbox is focused)
       if ((e.key === "a" || e.key === "A") && (e.ctrlKey || e.metaKey) && inboxFocused) {
         e.preventDefault();
-        const allIds = inboxFiles.filter(f => f.done && !f.pairedContractId).map(f => f.id);
+        const allIds = inboxFiles.filter(f => f.done && !f.pairedContractId && !f.splitSource).map(f => f.id);
         setSelectedInboxIds(new Set(allIds));
         const last = inboxFiles.filter(f => f.done && !f.pairedContractId).at(-1);
         if (last?.url) setSelectedFileUrl(last.url);
@@ -3474,17 +3616,154 @@ function ScanCommanderDialog({
           {/* LEFT: Universal Media Container */}
           <div className="w-[35%] border-r flex flex-col min-h-0 bg-muted/10">
             <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2">
-              <Eye className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground">Náhľad</span>
-              {selectedFile && (
+              {burstMode ? (
+                <Scissors className="w-3.5 h-3.5 text-orange-500" />
+              ) : (
+                <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+              )}
+              <span className={`text-xs font-medium ${burstMode ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground"}`}>
+                {burstMode ? "Burst mód" : "Náhľad"}
+              </span>
+              {selectedFile && !burstMode && (
                 <>
                   {getFileTypeBadge(selectedFile.name)}
                   <span className="text-xs text-foreground font-mono truncate ml-0.5">{selectedFile.name}</span>
                 </>
               )}
+              {burstMode && burstTotalPages > 0 && (
+                <Badge className="text-xs bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-400/50">
+                  {burstTotalPages} strán
+                </Badge>
+              )}
+              <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                {isPdf && !burstMode && selectedFile && !selectedFile.splitSource && !selectedFile.pairedContractId && (
+                  <button
+                    onClick={() => setBurstMode(true)}
+                    title="Rozdeliť PDF na časti"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-orange-500/10 text-orange-700 dark:text-orange-400 hover:bg-orange-500/20 transition-colors border border-orange-400/40"
+                    data-testid="button-burst-mode-enter"
+                  >
+                    <Scissors className="w-3 h-3" />
+                    Rozdeliť PDF
+                  </button>
+                )}
+                {burstMode && (
+                  <button
+                    onClick={() => { setBurstMode(false); setBurstSplitPoints(new Set()); }}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-xs text-muted-foreground hover:bg-muted transition-colors border border-border"
+                    data-testid="button-burst-mode-cancel"
+                  >
+                    <X className="w-3 h-3" />
+                    Zrušiť
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex-1 min-h-0 overflow-hidden relative flex items-center justify-center">
-              {!selectedFileUrl ? (
+              {burstMode ? (
+                /* ===== BURST MODE PANEL ===== */
+                <div className="w-full h-full flex flex-col">
+                  <div className="flex-1 overflow-y-auto px-3 py-2 space-y-0">
+                    {burstThumbnails.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                        <Loader2 className="w-6 h-6 animate-spin mb-2" />
+                        <span className="text-xs">Načítavam strany PDF…</span>
+                      </div>
+                    ) : (
+                      burstThumbnails.map((thumb, idx) => (
+                        <div key={thumb.pageNum}>
+                          {/* Thumbnail card */}
+                          <div className="flex items-start gap-2 py-1.5">
+                            <div className="flex-shrink-0 w-[100px] h-[130px] bg-white border border-border rounded shadow-sm flex items-center justify-center overflow-hidden">
+                              {thumb.loading ? (
+                                <div className="flex flex-col items-center text-muted-foreground">
+                                  <Loader2 className="w-4 h-4 animate-spin mb-1" />
+                                  <span className="text-[9px]">{thumb.pageNum}</span>
+                                </div>
+                              ) : thumb.dataUrl ? (
+                                <img src={thumb.dataUrl} alt={`Strana ${thumb.pageNum}`} className="w-full h-full object-contain" />
+                              ) : (
+                                <div className="flex flex-col items-center text-muted-foreground">
+                                  <FileText className="w-5 h-5 mb-1 opacity-40" />
+                                  <span className="text-[9px]">Strana {thumb.pageNum}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground pt-1">
+                              <span className="font-medium text-foreground">Strana {thumb.pageNum}</span>
+                              {burstSplitPoints.has(thumb.pageNum) && (
+                                <div className="flex items-center gap-1 mt-0.5 text-orange-600 dark:text-orange-400">
+                                  <Scissors className="w-3 h-3" />
+                                  <span>Rez za touto stranou</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {/* Cut zone between pages */}
+                          {idx < burstThumbnails.length - 1 && (
+                            <button
+                              onClick={() => {
+                                setBurstSplitPoints(prev => {
+                                  const ns = new Set(prev);
+                                  if (ns.has(thumb.pageNum)) ns.delete(thumb.pageNum);
+                                  else ns.add(thumb.pageNum);
+                                  return ns;
+                                });
+                              }}
+                              className={`w-full group flex items-center gap-1 py-1 px-1 rounded transition-all ${
+                                burstSplitPoints.has(thumb.pageNum)
+                                  ? "bg-orange-500/10"
+                                  : "hover:bg-orange-500/5"
+                              }`}
+                              title={burstSplitPoints.has(thumb.pageNum) ? "Odstrániť rez" : "Umiestniť rez tu"}
+                              data-testid={`button-burst-cut-${thumb.pageNum}`}
+                            >
+                              {burstSplitPoints.has(thumb.pageNum) ? (
+                                <div className="w-full flex items-center gap-1">
+                                  <div className="flex-1 border-t-2 border-orange-500 border-dashed" />
+                                  <Scissors className="w-3 h-3 text-orange-500 flex-shrink-0" />
+                                  <div className="flex-1 border-t-2 border-orange-500 border-dashed" />
+                                </div>
+                              ) : (
+                                <div className="w-full flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div className="flex-1 border-t border-muted-foreground/30 border-dashed" />
+                                  <Scissors className="w-3 h-3 text-muted-foreground/50 flex-shrink-0" />
+                                  <div className="flex-1 border-t border-muted-foreground/30 border-dashed" />
+                                </div>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  {/* Split button at bottom */}
+                  {burstThumbnails.length > 0 && (
+                    <div className="border-t px-3 py-2 shrink-0 flex items-center gap-2 bg-background">
+                      <div className="flex-1 text-xs text-muted-foreground">
+                        {burstSplitPoints.size === 0
+                          ? "Kliknite medzi stranami pre pridanie rezov"
+                          : `${burstSplitPoints.size} rez${burstSplitPoints.size > 1 ? "y" : ""} → ${burstSplitPoints.size + 1} časti`
+                        }
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={burstSplitPoints.size === 0 || burstSplitting}
+                        onClick={handleBurstSplit}
+                        className="bg-orange-600 hover:bg-orange-700 text-white text-xs"
+                        data-testid="button-burst-split"
+                      >
+                        {burstSplitting ? (
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : (
+                          <Scissors className="w-3 h-3 mr-1" />
+                        )}
+                        Rozdeliť ({burstSplitPoints.size + 1} časti)
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : !selectedFileUrl ? (
                 <div className="text-center text-muted-foreground p-6">
                   <Eye className="w-10 h-10 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">Kliknite na súbor v Inboxe</p>
@@ -3603,7 +3882,7 @@ function ScanCommanderDialog({
               <Inbox className={`w-3.5 h-3.5 ${inboxFocused ? "text-blue-500" : "text-muted-foreground"}`} />
               <span className={`text-xs font-medium ${inboxFocused ? "text-blue-600 dark:text-blue-400" : ""}`}>Inbox</span>
               {(() => {
-                const selectable = inboxFiles.filter(f => f.done && !f.pairedContractId).length;
+                const selectable = inboxFiles.filter(f => f.done && !f.pairedContractId && !f.splitSource).length;
                 const sel = selectedInboxIds.size;
                 return (
                   <Badge className={`text-xs ${sel > 0 ? "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-400/50" : "bg-muted/50 text-muted-foreground border-border"}`}>
@@ -3649,23 +3928,26 @@ function ScanCommanderDialog({
                 const isInboxSelected = selectedInboxIds.has(f.id);
                 const isCursor = inboxCursorIndex === idx;
                 const isPaired = !!f.pairedContractId;
+                const isSplitSource = !!f.splitSource;
                 const isUploadDone = f.done && !f.error;
                 return (
                   <div
                     key={f.id}
-                    className={`rounded-md border px-2 py-1.5 cursor-pointer transition-colors ${
-                      isPaired
-                        ? "bg-emerald-500/10 border-emerald-500/30"
+                    className={`rounded-md border px-2 py-1.5 transition-colors ${
+                      isSplitSource
+                        ? "bg-muted/30 border-border opacity-60 cursor-default"
+                        : isPaired
+                        ? "bg-emerald-500/10 border-emerald-500/30 cursor-pointer"
                         : isInboxSelected
-                        ? "bg-orange-500/10 border-orange-500 ring-1 ring-orange-500/40"
+                        ? "bg-orange-500/10 border-orange-500 ring-1 ring-orange-500/40 cursor-pointer"
                         : isCursor
-                        ? "bg-blue-500/10 border-blue-400"
+                        ? "bg-blue-500/10 border-blue-400 cursor-pointer"
                         : isPreview
-                        ? "bg-blue-500/10 border-blue-400/50"
-                        : "hover:bg-muted/40 border-border"
+                        ? "bg-blue-500/10 border-blue-400/50 cursor-pointer"
+                        : "hover:bg-muted/40 border-border cursor-pointer"
                     } ${!f.done && !f.error ? "opacity-70" : ""}`}
                     onClick={(e) => {
-                      if (!f.done || !f.url) return;
+                      if (!f.done || !f.url || isSplitSource) return;
                       lastInboxSelectIndex.current = idx;
                       setInboxCursorIndex(idx);
                       setSelectedFileUrl(f.url);
@@ -3728,6 +4010,11 @@ function ScanCommanderDialog({
                       <div className="mt-1 h-1 rounded-full bg-muted overflow-hidden">
                         <div className="h-full bg-blue-500 transition-all" style={{ width: `${f.progress}%` }} />
                       </div>
+                    ) : isSplitSource ? (
+                      <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-0.5">
+                        <Scissors className="w-2.5 h-2.5 shrink-0" />
+                        Rozdelený
+                      </p>
                     ) : isPaired ? (
                       <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5 truncate">→ {f.pairedContractName}</p>
                     ) : null}

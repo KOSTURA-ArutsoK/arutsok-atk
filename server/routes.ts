@@ -6863,6 +6863,108 @@ export async function registerRoutes(
     }
   });
 
+  // ===== SCAN COMMANDER — PDF Burster: split a PDF into segments =====
+  app.post("/api/scan-commander/split-pdf", isAuthenticated, async (req: any, res) => {
+    try {
+      const ALLOWED_FILE_URL_PREFIX = "/api/files/contract-docs/";
+
+      const { fileUrl, splitAfterPages } = req.body;
+      if (!fileUrl || typeof fileUrl !== "string") {
+        return res.status(400).json({ message: "Chýba fileUrl" });
+      }
+      if (!Array.isArray(splitAfterPages) || splitAfterPages.some(p => typeof p !== "number" || p < 1)) {
+        return res.status(400).json({ message: "splitAfterPages musí byť pole kladných čísel" });
+      }
+
+      // Security: URL prefix allowlist
+      const normalizedUrl = fileUrl.trim();
+      if (!normalizedUrl.startsWith(ALLOWED_FILE_URL_PREFIX)) {
+        return res.status(400).json({ message: "Neplatná URL súboru — povolené sú iba interné cesty k nahratým dokumentom." });
+      }
+      const fileSegment = normalizedUrl.slice(ALLOWED_FILE_URL_PREFIX.length);
+      if (!fileSegment || fileSegment.includes("/") || fileSegment.includes("..") || fileSegment.includes("\0")) {
+        return res.status(400).json({ message: "Neplatný názov súboru v URL." });
+      }
+
+      const physicalPath = path.join(UPLOADS_DIR, "contract-docs", fileSegment);
+      try {
+        await fs.promises.access(physicalPath, fs.constants.R_OK);
+      } catch {
+        return res.status(404).json({ message: "Súbor nebol nájdený na serveri." });
+      }
+
+      // Load PDF with pdf-lib
+      const { PDFDocument } = await import("pdf-lib");
+      const srcBytes = await fs.promises.readFile(physicalPath);
+      let srcDoc: InstanceType<typeof PDFDocument>;
+      try {
+        srcDoc = await PDFDocument.load(srcBytes);
+      } catch {
+        return res.status(400).json({ message: "Súbor nie je platný PDF dokument." });
+      }
+
+      const totalPages = srcDoc.getPageCount();
+      if (totalPages > 200) {
+        return res.status(400).json({ message: `PDF má príliš veľa strán (max. 200, aktuálne ${totalPages}).` });
+      }
+      if (totalPages < 2) {
+        return res.status(400).json({ message: "PDF musí mať aspoň 2 strany pre rozdelenie." });
+      }
+
+      // Build segment page ranges: splitAfterPages = [2, 4] on a 6-page doc → [1-2], [3-4], [5-6]
+      const sortedCuts = [...new Set(splitAfterPages.map(Number))].sort((a, b) => a - b).filter(p => p >= 1 && p < totalPages);
+      const boundaries: number[] = [0, ...sortedCuts, totalPages]; // 0-indexed start, totalPages = exclusive end
+
+      // Derive base name without extension
+      const origExt = path.extname(fileSegment); // e.g. ".pdf"
+      const origBase = path.basename(fileSegment, origExt); // e.g. "1234_abc_scan"
+
+      const resultFiles: { name: string; url: string; size: number }[] = [];
+
+      for (let i = 0; i < boundaries.length - 1; i++) {
+        const startPage = boundaries[i]; // 0-indexed
+        const endPage = boundaries[i + 1]; // exclusive
+        const partNum = i + 1;
+
+        const newDoc = await PDFDocument.create();
+        const pageIndices = Array.from({ length: endPage - startPage }, (_, k) => startPage + k);
+        const copiedPages = await newDoc.copyPages(srcDoc, pageIndices);
+        copiedPages.forEach(p => newDoc.addPage(p));
+
+        const segBytes = await newDoc.save();
+        const segName = `${origBase}_cast${partNum}.pdf`;
+        const uniqueSegName = `${Date.now()}_${crypto.randomBytes(4).toString("hex")}_${segName}`;
+        const destPath = path.join(UPLOADS_DIR, "contract-docs", uniqueSegName);
+        await fs.promises.writeFile(destPath, segBytes);
+
+        resultFiles.push({
+          name: segName,
+          url: `${ALLOWED_FILE_URL_PREFIX}${uniqueSegName}`,
+          size: segBytes.length,
+        });
+      }
+
+      const appUser = req.appUser;
+      await logAudit(req, {
+        action: "SCAN_COMMANDER_PDF_SPLIT",
+        module: "zmluvy",
+        newData: {
+          sourceFile: fileSegment,
+          totalPages,
+          splitAfterPages: sortedCuts,
+          segmentCount: resultFiles.length,
+          segmentNames: resultFiles.map(f => f.name),
+          operatedBy: appUser?.email || appUser?.username || "unknown",
+        },
+      });
+
+      res.json({ success: true, segments: resultFiles });
+    } catch (err: any) {
+      console.error("POST /api/scan-commander/split-pdf error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
   app.post("/api/contracts/create-processing-supiska", isAuthenticated, async (req: any, res) => {
     try {
       const { contractIds } = req.body;
