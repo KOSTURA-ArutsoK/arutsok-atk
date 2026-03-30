@@ -6093,7 +6093,7 @@ export class DatabaseStorage implements IStorage {
 
   async restoreDeletedStagedScan(id: number, appUserId: number): Promise<void> {
     await db.update(kokpitStagedScans)
-      .set({ deletedAt: null })
+      .set({ deletedAt: null, deletedReason: null })
       .where(and(
         eq(kokpitStagedScans.id, id),
         eq(kokpitStagedScans.appUserId, appUserId),

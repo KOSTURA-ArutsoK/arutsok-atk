@@ -6,6 +6,7 @@ import { setupAuth, isAuthenticated, resolveContextLabel, getAuditActorId } from
 import { z } from "zod";
 import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts, subjectLinks, revocationTickets, insertProductDisplayParamSchema, insertContractParamVerificationSchema, productDisplayParams, contractParamVerifications } from "@shared/schema";
 import type { DocEntry, WebRoutingRule } from "@shared/schema";
+import { kokpitStagedScans } from "@shared/schema";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, syncSubjectParameters, seedAssetPanels, seedEventAndEntityPanels, seedNsVsTemplates, cleanupZombieTemplateParams, ensureOsClientType } from "./seed-subject-params";
 import sharp from "sharp";
@@ -26006,6 +26007,11 @@ export async function registerRoutes(
       const user = req.appUser;
       const appUserId = user?.id;
       if (!appUserId) return res.status(400).json({ message: "Chýba používateľský kontext" });
+      const [scan] = await db.select().from(kokpitStagedScans).where(eq(kokpitStagedScans.id, id)).limit(1);
+      if (!scan) return res.status(404).json({ message: "Sken nenájdený" });
+      if (scan.deletedReason === 'assigned') {
+        return res.status(403).json({ message: "Skeny priradené k zmluvám nemožno obnoviť." });
+      }
       await storage.restoreDeletedStagedScan(id, appUserId);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
