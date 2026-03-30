@@ -82,7 +82,7 @@ function isPdfFile(name: string) { return name.split('.').pop()?.toLowerCase() =
 
 interface Step1PanelProps {
   scanFiles: ScanFile[];
-  onRemoveScanFile: (id: string) => void;
+  onRemoveScanFile: (id: string, reason?: string) => void;
   onAddFiles: (files: File[]) => void;
   onComplete: (item: CompletedItem) => void;
   onSwitchTab: (tab: string) => void;
@@ -181,7 +181,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
       pairedScanIds.forEach(id => delete next[id]);
       return next;
     });
-    pairedScanIds.forEach(id => onRemoveScanFile(id));
+    pairedScanIds.forEach(id => onRemoveScanFile(id, 'assigned'));
     setPinnedContractIds(prev => { const next = new Set(prev); next.delete(contract.id); return next; });
 
     onComplete(item);
@@ -620,7 +620,7 @@ interface KokpitDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   scanFiles: ScanFile[];
-  onRemoveScanFile: (id: string) => void;
+  onRemoveScanFile: (id: string, reason?: string) => void;
   onAddFiles: (files: File[]) => void;
 }
 

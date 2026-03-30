@@ -388,12 +388,14 @@ export default function PridatStavZmluvy() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  function removeScanFile(id: string) {
+  function removeScanFile(id: string, reason: string = 'user') {
     const file = scanFiles.find(f => f.id === id);
     if (file?.dbId) {
       fetch(`/api/kokpit/staged-scans/${file.dbId}`, {
         method: "DELETE",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
       })
         .then(r => { if (r.ok) queryClient.invalidateQueries({ queryKey: ["/api/kokpit/staged-scans"] }); })
         .catch(() => {

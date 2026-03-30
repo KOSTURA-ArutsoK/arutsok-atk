@@ -25983,7 +25983,8 @@ export async function registerRoutes(
       const companyId = user?.activeCompanyId;
       const appUserId = user?.id;
       if (!companyId || !appUserId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
-      await storage.removeStagedScan(id, companyId, appUserId);
+      const reason = req.body?.reason ?? 'user';
+      await storage.removeStagedScan(id, companyId, appUserId, reason);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });

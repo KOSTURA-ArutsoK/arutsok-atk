@@ -475,7 +475,7 @@ export interface IStorage {
   // Kokpit Staged Scans (ArutsoK #249)
   getStagedScans(companyId: number, appUserId: number): Promise<KokpitStagedScan[]>;
   addStagedScan(data: InsertKokpitStagedScan): Promise<KokpitStagedScan>;
-  removeStagedScan(id: number, companyId: number, appUserId: number): Promise<void>;
+  removeStagedScan(id: number, companyId: number, appUserId: number, reason?: string): Promise<void>;
   getDeletedStagedScans(appUserId: number): Promise<KokpitStagedScan[]>;
   restoreDeletedStagedScan(id: number, appUserId: number): Promise<void>;
   permanentDeleteStagedScan(id: number, appUserId: number): Promise<void>;
@@ -6070,9 +6070,9 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  async removeStagedScan(id: number, companyId: number, appUserId: number): Promise<void> {
+  async removeStagedScan(id: number, companyId: number, appUserId: number, reason: string = 'user'): Promise<void> {
     await db.update(kokpitStagedScans)
-      .set({ deletedAt: new Date() })
+      .set({ deletedAt: new Date(), deletedReason: reason })
       .where(and(
         eq(kokpitStagedScans.id, id),
         eq(kokpitStagedScans.companyId, companyId),
@@ -6086,6 +6086,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(kokpitStagedScans.appUserId, appUserId),
         isNotNull(kokpitStagedScans.deletedAt),
+        eq(kokpitStagedScans.deletedReason, 'user'),
       ))
       .orderBy(desc(kokpitStagedScans.deletedAt));
   }
