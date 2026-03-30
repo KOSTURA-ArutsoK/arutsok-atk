@@ -168,6 +168,7 @@ const importItems = [
 const allZmluvyHrefs = [
   "/contracts",
   "/digitalne-zmluvy",
+  "/pridat-stav-zmluvy",
   ...zmluvySubItems.map(i => i.href),
   ...spracovanieZmluvChildren.map(i => i.href),
   ...nastaveniaSablonChildren.map(i => i.href),
@@ -1094,10 +1095,10 @@ export function AppSidebar() {
                       <SidebarMenuSubItem>
                         <SidebarMenuSubButton
                           asChild
-                          isActive={location === "/contract-statuses"}
+                          isActive={location === "/pridat-stav-zmluvy"}
                           data-testid="nav-pridat-stav-zmluvy"
                         >
-                          <Link href="/contract-statuses">
+                          <Link href="/pridat-stav-zmluvy">
                             <Plus className="w-3.5 h-3.5" />
                             <span>Pridať stav zmluvy</span>
                           </Link>
