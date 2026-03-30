@@ -129,17 +129,20 @@ export default function Archive() {
     },
   });
 
+  const [scanPermDeletePassword, setScanPermDeletePassword] = useState("");
+
   const permanentDeleteScanMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/kokpit/staged-scans/${id}/permanent`, {});
+    mutationFn: async ({ id, password }: { id: number; password: string }) => {
+      await apiRequest("DELETE", `/api/kokpit/staged-scans/${id}/permanent`, { password });
     },
     onSuccess: () => {
       toast({ title: "Sken vymazaný", description: "Súbor bol trvalo odstránený." });
       queryClient.invalidateQueries({ queryKey: ["/api/kokpit/staged-scans/deleted"] });
       setScanDeleteTarget(null);
+      setScanPermDeletePassword("");
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa natrvalo vymazať sken.", variant: "destructive" });
+      toast({ title: "Chyba", description: "Nesprávne heslo alebo nie ste administrátor.", variant: "destructive" });
     },
   });
 
@@ -763,7 +766,7 @@ export default function Archive() {
       </Dialog>
 
       {/* Potvrdenie trvalého vymazania skenu */}
-      <Dialog open={!!scanDeleteTarget} onOpenChange={(open) => { if (!open) setScanDeleteTarget(null); }}>
+      <Dialog open={!!scanDeleteTarget} onOpenChange={(open) => { if (!open) { setScanDeleteTarget(null); setScanPermDeletePassword(""); } }}>
         <DialogContent size="md" className="flex flex-col items-start justify-start">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -771,22 +774,40 @@ export default function Archive() {
               Natrvalo vymazať sken
             </DialogTitle>
             <DialogDescription>
-              Táto akcia je nevratná. Súbor bude trvalo odstránený.
+              Táto akcia je nevratná. Súbor bude trvalo odstránený z databázy.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 w-full">
+          <div className="space-y-4 py-4 w-full">
             <p className="text-sm text-destructive font-medium">
-              Naozaj chcete natrvalo vymazať súbor <span className="font-semibold">{scanDeleteTarget?.name}</span>?
+              Naozaj chcete natrvalo vymazať súbor <span className="font-semibold">{scanDeleteTarget?.name}</span>? Túto akciu nie je možné vrátiť.
+            </p>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Bezpečnostné heslo administrátora</label>
+              <Input
+                type="password"
+                placeholder="Zadajte heslo administrátora"
+                value={scanPermDeletePassword}
+                onChange={(e) => setScanPermDeletePassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && scanDeleteTarget && scanPermDeletePassword) {
+                    permanentDeleteScanMutation.mutate({ id: scanDeleteTarget.id, password: scanPermDeletePassword });
+                  }
+                }}
+                data-testid="input-scan-permdelete-password"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Každá operácia definitívneho vymazania je zaznamenaná v audit logu.
             </p>
           </div>
           <DialogFooter className="gap-2 w-full">
-            <Button variant="outline" onClick={() => setScanDeleteTarget(null)} data-testid="button-cancel-scan-permdelete">
+            <Button variant="outline" onClick={() => { setScanDeleteTarget(null); setScanPermDeletePassword(""); }} data-testid="button-cancel-scan-permdelete">
               Zrušiť
             </Button>
             <Button
               variant="destructive"
-              onClick={() => scanDeleteTarget && permanentDeleteScanMutation.mutate(scanDeleteTarget.id)}
-              disabled={permanentDeleteScanMutation.isPending}
+              onClick={() => scanDeleteTarget && permanentDeleteScanMutation.mutate({ id: scanDeleteTarget.id, password: scanPermDeletePassword })}
+              disabled={permanentDeleteScanMutation.isPending || !scanPermDeletePassword}
               data-testid="button-confirm-scan-permdelete"
             >
               {permanentDeleteScanMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Trash2 className="w-4 h-4 mr-1" />}

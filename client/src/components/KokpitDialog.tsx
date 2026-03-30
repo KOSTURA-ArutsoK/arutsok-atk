@@ -519,8 +519,8 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
           onClick={(e) => e.stopPropagation()}
         >
           <div className="bg-background border rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 flex flex-col gap-4">
-            <p className="text-sm font-semibold text-foreground">Odstrániť sken?</p>
-            <p className="text-xs text-muted-foreground">Súbor bude presunutý do koša. Môžete ho obnoviť v Archíve.</p>
+            <p className="text-sm font-semibold text-foreground">Presunúť sken do koša?</p>
+            <p className="text-xs text-muted-foreground">Súbor bude presunutý do koša. Môžete ho obnoviť v sekcii Archív → Skeny.</p>
             <div className="flex gap-2 justify-end">
               <Button
                 size="sm"
@@ -539,7 +539,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
                   setScanPendingDelete(null);
                 }}
               >
-                Odstrániť
+                Presunúť do koša
               </Button>
             </div>
           </div>

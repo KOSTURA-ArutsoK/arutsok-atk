@@ -26017,6 +26017,14 @@ export async function registerRoutes(
       const user = req.appUser;
       const appUserId = user?.id;
       if (!appUserId) return res.status(400).json({ message: "Chýba používateľský kontext" });
+      if (!user || !["admin", "superadmin", "prezident", "architekt"].includes(user.role)) {
+        return res.status(403).json({ message: "Nedostatočné oprávnenia" });
+      }
+      const { password } = req.body || {};
+      const archivePassword = process.env.ARCHIVE_RESTORE_PASSWORD;
+      if (!archivePassword || !password || password !== archivePassword) {
+        return res.status(401).json({ message: "Nesprávne bezpečnostné heslo" });
+      }
       await storage.permanentDeleteStagedScan(id, appUserId);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
