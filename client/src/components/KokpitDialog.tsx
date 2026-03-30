@@ -23,6 +23,7 @@ type TrezorContract = {
   subjectId: number | null;
   partnerId: number | null;
   productId: number | null;
+  lifecyclePhase?: number | null;
 };
 
 type Subject = { id: number; firstName?: string | null; lastName?: string | null; companyName?: string | null };
@@ -112,7 +113,10 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
   const { data: partners = [] } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
   const { data: products = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
 
-  const filteredContracts = !searchQuery.trim() ? [] : contractsRaw.filter(c => {
+  // Iba zmluvy fázy 10 (Prijaté obch. partnerom) sú dostupné v Kokpite
+  const phase10Contracts = contractsRaw.filter(c => c.lifecyclePhase === 10);
+
+  const filteredContracts = !searchQuery.trim() ? [] : phase10Contracts.filter(c => {
     const q = searchQuery.toLowerCase();
     const qNoSpace = q.replace(/\s/g, "");
     const uid = (c.uid ?? "").replace(/\s/g, "").toLowerCase();
@@ -405,7 +409,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
 
       {/* ─── RIGHT: Vyhľadávanie zmluvy (flex-3) ─────────────────────────── */}
       {(() => {
-        const pinnedContracts = contractsRaw.filter(c => pinnedContractIds.has(c.id));
+        const pinnedContracts = phase10Contracts.filter(c => pinnedContractIds.has(c.id));
         const extraFiltered = filteredContracts.filter(c => !pinnedContractIds.has(c.id));
         const displayedContracts = [...pinnedContracts, ...extraFiltered];
 
@@ -419,7 +423,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
                   <Pin className="w-2.5 h-2.5 mr-0.5" />{pinnedContractIds.size}
                 </Badge>
               )}
-              <Badge variant="outline" className="text-[10px] ml-auto">{contractsRaw.length} zmlúv</Badge>
+              <Badge variant="outline" className="text-[10px] ml-auto">{phase10Contracts.length} zmlúv</Badge>
             </div>
 
             <div className="px-3 py-2 border-b shrink-0">
@@ -636,6 +640,8 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
           noInnerScroll
           className="flex items-center justify-center p-0 bg-slate-200/60 dark:bg-slate-900/70 shadow-none border-0 rounded-2xl"
           style={{ maxWidth: "95vw", width: "95vw", height: "95vh", maxHeight: "95vh" }}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
         >
           {/* INNER VRSTVA — 90 vw × 90 vh */}
           <div
