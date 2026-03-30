@@ -7989,17 +7989,36 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Sprievodka nenajdena" });
       }
 
-      // Collect old inventoryIds before reassigning (to detect orphaned inventories after dispatch)
-      const oldInventoryIds = new Set<number>();
-      if (validContractIds.length > 0) {
-        const oldRows = await db.select({ inventoryId: contracts.inventoryId })
-          .from(contracts)
-          .where(and(inArray(contracts.id, validContractIds), isNotNull(contracts.inventoryId)));
-        for (const r of oldRows) {
-          if (r.inventoryId && r.inventoryId !== inventoryId) oldInventoryIds.add(r.inventoryId);
-        }
+      // Step 1: Filter out contracts already accepted by central (phase >= 5) BEFORE mutating anything
+      const phaseRows = await db.select({ id: contracts.id, lifecyclePhase: contracts.lifecyclePhase })
+        .from(contracts)
+        .where(inArray(contracts.id, validContractIds));
+      const protectedIdSet = new Set(phaseRows.filter(r => (r.lifecyclePhase ?? 0) >= 5).map(r => r.id));
+      const eligibleContractIds = validContractIds.filter(id => !protectedIdSet.has(id));
+      if (protectedIdSet.size > 0) {
+        console.warn(`[DISPATCH GUARD] Skipping ${protectedIdSet.size} contract(s) with lifecyclePhase >= 5 (ids: ${[...protectedIdSet].join(", ")}) — dispatch to inventory ${inventoryId} would regress their phase.`);
+      }
+      if (eligibleContractIds.length === 0) {
+        await logAudit(req, {
+          action: "UPDATE",
+          module: "sprievodka_dispatch_guard",
+          entityId: inventoryId,
+          entityName: `Sprievodka ID ${inventoryId}`,
+          newData: { skippedProtectedIds: [...protectedIdSet], reason: "Všetky zmluvy sú v phase >= 5, dispatch zablokovaný" },
+        });
+        return res.status(400).json({ message: "Žiadne zmluvy na odoslanie — všetky sú už na centrále" });
       }
 
+      // Step 2: Collect old inventoryIds before reassigning (to detect orphaned inventories after dispatch)
+      const oldInventoryIds = new Set<number>();
+      const oldRows = await db.select({ inventoryId: contracts.inventoryId })
+        .from(contracts)
+        .where(and(inArray(contracts.id, eligibleContractIds), isNotNull(contracts.inventoryId)));
+      for (const r of oldRows) {
+        if (r.inventoryId && r.inventoryId !== inventoryId) oldInventoryIds.add(r.inventoryId);
+      }
+
+      // Step 3: Mutate inventory and dispatch only eligible contracts
       const seqNum = await storage.getNextCounterValue("sprievodka_sequence");
       const dispatchedAt = new Date();
       await storage.updateContractInventory(inventoryId, { 
@@ -8008,18 +8027,6 @@ export async function registerRoutes(
         isDispatched: true,
         dispatchedAt,
       } as any);
-      // Filter out contracts that have already been accepted by central (phase >= 5)
-      const eligibleRows = await db.select({ id: contracts.id, lifecyclePhase: contracts.lifecyclePhase })
-        .from(contracts)
-        .where(inArray(contracts.id, validContractIds));
-      const protectedIds = eligibleRows.filter(r => (r.lifecyclePhase ?? 0) >= 5).map(r => r.id);
-      if (protectedIds.length > 0) {
-        console.warn(`[DISPATCH GUARD] Skipping ${protectedIds.length} contract(s) with lifecyclePhase >= 5 (ids: ${protectedIds.join(", ")}) — dispatch to inventory ${inventoryId} would regress their phase.`);
-      }
-      const eligibleContractIds = validContractIds.filter(id => !protectedIds.includes(id));
-      if (eligibleContractIds.length === 0) {
-        return res.status(400).json({ message: "Žiadne zmluvy na odoslanie — všetky sú už na centrále" });
-      }
       await storage.bulkAssignContractsToInventory(inventoryId, eligibleContractIds, dispatchedAt);
 
       // Delete any old inventories that are now empty
