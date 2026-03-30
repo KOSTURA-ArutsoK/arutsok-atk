@@ -96,6 +96,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
   const [pairedMap, setPairedMap] = useState<Record<string, { contractId: number; contractUid: string }>>({});
   const [zoomLevel, setZoomLevel] = useState(1);
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  const isImagePreviewRef = useRef(false);
 
   const { data: contractsRaw = [] } = useQuery<TrezorContract[]>({
     queryKey: ["/api/contracts", "trezor-list"],
@@ -184,17 +185,19 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
   const selectedIdArr = [...selectedScanIds];
   const previewFile = selectedIdArr.length === 1 ? scanFiles.find(f => f.id === selectedIdArr[0]) : null;
 
-  // Reset zoom when selected file changes
+  // Reset zoom when selected file changes; track whether current preview is an image
   useEffect(() => {
+    isImagePreviewRef.current = !!(previewFile?.url && isImageFile(previewFile.name));
     setZoomLevel(1);
   }, [previewFile?.id]);
 
   // Non-passive wheel listener for pinch-to-zoom (ctrlKey = pinch on trackpad)
+  // Only active when the current preview is an image; PDF uses native browser zoom
   useEffect(() => {
     const el = previewContainerRef.current;
     if (!el) return;
     const handler = (e: WheelEvent) => {
-      if (!e.ctrlKey) return;
+      if (!e.ctrlKey || !isImagePreviewRef.current) return;
       e.preventDefault();
       const delta = e.deltaY * -0.005;
       setZoomLevel(prev => Math.min(4, Math.max(0.25, prev + delta)));
@@ -263,7 +266,12 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
               />
             </div>
           ) : previewFile?.url && isPdfFile(previewFile.name) ? (
-            <embed src={previewFile.url} type="application/pdf" className="w-full flex-1 rounded" style={{ minHeight: 200 }} data-testid="preview-pdf" />
+            <div className="flex flex-col w-full flex-1 gap-1.5 min-h-0">
+              <embed src={previewFile.url} type="application/pdf" className="w-full flex-1 rounded" style={{ minHeight: 200 }} data-testid="preview-pdf" />
+              <p className="text-[10px] text-muted-foreground text-center shrink-0 py-0.5">
+                Zoom nie je dostupný pre PDF — použite natívny zoom prehliadača
+              </p>
+            </div>
           ) : previewFile ? (
             <div className="text-center text-muted-foreground space-y-2">
               {getFileTypeIcon(previewFile.name, "w-10 h-10 mx-auto")}
