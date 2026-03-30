@@ -417,7 +417,7 @@ export default function PridatStavZmluvy() {
     <div className="p-5 space-y-5">
       {/* Page title */}
       <div>
-        <h1 className="text-2xl font-bold">Spracovanie stavov</h1>
+        <h1 className="text-2xl font-bold">KOKPIT</h1>
         <p className="text-sm text-muted-foreground">
           Kokpit je centrálne miesto pre správu stavov zmlúv a zmlúv.
         </p>

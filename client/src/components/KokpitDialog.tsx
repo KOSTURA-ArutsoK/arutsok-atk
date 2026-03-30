@@ -651,7 +651,7 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
           >
             {/* Hlavička */}
             <div className="px-6 pt-4 pb-3 border-b shrink-0 flex items-center justify-between gap-4">
-              <DialogTitle className="text-lg font-bold">Kokpit — Spracovanie stavov</DialogTitle>
+              <DialogTitle className="text-lg font-bold">KOKPIT</DialogTitle>
               <Button
                 variant="outline"
                 size="sm"

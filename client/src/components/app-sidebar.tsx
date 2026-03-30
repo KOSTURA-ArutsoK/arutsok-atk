@@ -862,7 +862,7 @@ export function AppSidebar() {
                 >
                   <Link href="/pridat-stav-zmluvy">
                     <Target className="w-4 h-4" />
-                    <span>Pridať stav zmluvy</span>
+                    <span>KOKPIT</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
