@@ -467,8 +467,8 @@ export interface IStorage {
   getKokpitItems(companyId: number, mode: 'today' | 'history', date?: string): Promise<(KokpitItem & { contractUid?: string | null; statusName?: string | null })[]>;
   getKokpitCalendar(companyId: number, month: string): Promise<string[]>;
   createKokpitItem(data: InsertKokpitItem): Promise<KokpitItem>;
-  updateKokpitItem(id: number, data: Partial<Pick<KokpitItem, 'phase' | 'contractId' | 'statusId'>>): Promise<KokpitItem>;
-  resolveKokpitItem(id: number): Promise<KokpitItem>;
+  updateKokpitItem(id: number, companyId: number, data: Partial<Pick<KokpitItem, 'phase' | 'contractId' | 'statusId'>>): Promise<KokpitItem | undefined>;
+  resolveKokpitItem(id: number, companyId: number): Promise<KokpitItem | undefined>;
 
   getSystemContractStatusByName(name: string): Promise<ContractStatus | undefined>;
   getAcceptedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
@@ -5998,15 +5998,17 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  async updateKokpitItem(id: number, data: Partial<Pick<KokpitItem, 'phase' | 'contractId' | 'statusId'>>): Promise<KokpitItem> {
-    const [row] = await db.update(kokpitItems).set(data).where(eq(kokpitItems.id, id)).returning();
+  async updateKokpitItem(id: number, companyId: number, data: Partial<Pick<KokpitItem, 'phase' | 'contractId' | 'statusId'>>): Promise<KokpitItem | undefined> {
+    const [row] = await db.update(kokpitItems).set(data)
+      .where(and(eq(kokpitItems.id, id), eq(kokpitItems.companyId, companyId)))
+      .returning();
     return row;
   }
 
-  async resolveKokpitItem(id: number): Promise<KokpitItem> {
+  async resolveKokpitItem(id: number, companyId: number): Promise<KokpitItem | undefined> {
     const [row] = await db.update(kokpitItems)
       .set({ phase: 3, resolvedAt: new Date() })
-      .where(eq(kokpitItems.id, id))
+      .where(and(eq(kokpitItems.id, id), eq(kokpitItems.companyId, companyId)))
       .returning();
     return row;
   }

@@ -311,10 +311,11 @@ export default function PridatStavZmluvy() {
                 </span>
                 <button
                   onClick={() => setHistoryDate(null)}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-xs text-blue-600 hover:underline flex items-center gap-1"
                   data-testid="button-back-today"
                 >
-                  <X size={14} />
+                  <X size={12} />
+                  Späť na dnes
                 </button>
               </div>
             )}

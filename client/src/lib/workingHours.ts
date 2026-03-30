@@ -2,8 +2,8 @@
 
 const WORK_START = 8;
 const WORK_END = 17;
-const WORK_HOURS_PER_DAY = WORK_END - WORK_START;
-const SLA_WORKING_MINUTES = 3 * WORK_HOURS_PER_DAY * 60;
+const SLA_HOURS_PER_DAY = 8;
+const SLA_WORKING_MINUTES = 3 * SLA_HOURS_PER_DAY * 60;
 
 function easterSunday(year: number): Date {
   const a = year % 19;
@@ -111,5 +111,5 @@ export function isOverdue(createdAt: Date, now: Date = new Date()): boolean {
 
 export function isAdminAlert(createdAt: Date, now: Date = new Date()): boolean {
   const elapsed = calculateWorkingMinutesElapsed(createdAt, now);
-  return elapsed >= 15 * WORK_HOURS_PER_DAY * 60;
+  return elapsed >= 15 * SLA_HOURS_PER_DAY * 60;
 }

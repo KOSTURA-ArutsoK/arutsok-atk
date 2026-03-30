@@ -25924,17 +25924,25 @@ export async function registerRoutes(
 
   app.patch("/api/kokpit/items/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const user = req.appUser;
+      const companyId = user?.activeCompanyId;
+      if (!companyId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
       const id = parseInt(req.params.id);
       const { phase, contractId, statusId } = req.body;
-      const item = await storage.updateKokpitItem(id, { phase, contractId, statusId });
+      const item = await storage.updateKokpitItem(id, companyId, { phase, contractId, statusId });
+      if (!item) return res.status(404).json({ message: "Položka nenájdená alebo nemáte oprávnenie" });
       res.json(item);
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
   app.patch("/api/kokpit/items/:id/resolve", isAuthenticated, async (req: any, res) => {
     try {
+      const user = req.appUser;
+      const companyId = user?.activeCompanyId;
+      if (!companyId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
       const id = parseInt(req.params.id);
-      const item = await storage.resolveKokpitItem(id);
+      const item = await storage.resolveKokpitItem(id, companyId);
+      if (!item) return res.status(404).json({ message: "Položka nenájdená alebo nemáte oprávnenie" });
       res.json(item);
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
