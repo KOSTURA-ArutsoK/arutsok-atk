@@ -24225,16 +24225,34 @@ export async function registerRoutes(
       // KTO-first isolation: when acting as a specific company (KTO context), show that company's branch.
       // Admins without an explicit KTO context see the full system tree.
       // Non-admins without KTO context fall back to their KDE (workspace) company.
-      // All filtering is derived exclusively from the authenticated session (no client-supplied overrides).
       const adminRoles = ['admin', 'superadmin', 'prezident', 'architekt'];
       const isAdminUser = adminRoles.includes((req as any).appUser?.role);
       const ktoCompanyId: number | null = (req as any).appUser?.activeKtoCompanyId ?? null;
       const kdeCompanyId: number | null = (req as any).appUser?.activeCompanyId ?? null;
-      // Admin without KTO context → full system tree (filterCompanyId = null).
-      // Non-admin without KTO → falls back to their KDE workspace company.
-      const filterCompanyId: number | null = ktoCompanyId ?? (isAdminUser ? null : kdeCompanyId);
-      // Personal scoping: the user's own linked subject within the company tree.
-      const linkedSubjectId: number | null = (req as any).appUser?.linkedSubjectId ?? null;
+      const sessionLinkedSubjectId: number | null = (req as any).appUser?.linkedSubjectId ?? null;
+
+      // Accept optional ?companyId and ?rootId from frontend, but VALIDATE against session:
+      // – companyId: must match one of the user's authorized company IDs (or ignored for admins)
+      // – rootId: used as personal scoping hint; validated to be within the resolved company tree later
+      const queryCompanyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : null;
+      const queryRootId = req.query.rootId ? parseInt(req.query.rootId as string, 10) : null;
+
+      // Validate queryCompanyId: non-admins may only request their own KTO or KDE company.
+      const allowedCompanyIds = new Set<number>([ktoCompanyId, kdeCompanyId].filter(Boolean) as number[]);
+      const validatedQueryCompanyId: number | null =
+        !queryCompanyId ? null
+        : isAdminUser ? queryCompanyId          // admins may request any company
+        : allowedCompanyIds.has(queryCompanyId) ? queryCompanyId  // must match session
+        : null;                                  // reject mismatched company → ignore
+
+      // Admin without KTO context and no valid queryCompanyId → full system tree.
+      const filterCompanyId: number | null =
+        validatedQueryCompanyId ?? ktoCompanyId ?? (isAdminUser ? null : kdeCompanyId);
+
+      // Personal scoping: prefer session value (authoritative), query rootId as UI hint only.
+      // rootId is only applied if it equals the session linkedSubjectId (prevents spoofing).
+      const linkedSubjectId: number | null =
+        queryRootId && queryRootId === sessionLinkedSubjectId ? queryRootId : sessionLinkedSubjectId;
       let visibleSubjects = allSubjectsBuilt;
       let visibleLinks = allLinksBuilt;
       let effectiveRoot = rootSubject;
@@ -24298,7 +24316,9 @@ export async function registerRoutes(
           visibleLinks = allLinksBuilt.filter(
             l => personalVisited.has(l.subjectId) && personalVisited.has(l.guarantorSubjectId)
           );
-          effectiveRoot = visibleSubjects.find(s => s.id === companyNodeId) ?? effectiveRoot;
+          // Root the tree at the personal subject so their view starts from their own node.
+          // The upline chain is still included in visibleSubjects for context (ancestors visible).
+          effectiveRoot = visibleSubjects.find(s => s.id === linkedSubjectId) ?? effectiveRoot;
         }
 
       } else if (!isAdminUser) {
