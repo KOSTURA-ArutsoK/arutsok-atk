@@ -8040,6 +8040,15 @@ export async function registerRoutes(
         }
       }
 
+      if (protectedIdSet.size > 0) {
+        await logAudit(req, {
+          action: "UPDATE",
+          module: "sprievodka_dispatch_guard",
+          entityId: inventoryId,
+          entityName: `Sprievodka ID ${inventoryId}`,
+          newData: { skippedProtectedIds: [...protectedIdSet], reason: "Zmluvy v phase >= 5 vylúčené z dispatchu (čiastočný skip)" },
+        });
+      }
       await logAudit(req, {
         action: "CREATE",
         module: "sprievodka_dispatch",
