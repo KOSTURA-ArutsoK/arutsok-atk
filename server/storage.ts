@@ -157,7 +157,7 @@ import {
   contractParamVerifications,
   type ContractParamVerification, type InsertContractParamVerification,
 } from "@shared/schema";
-import { eq, and, or, ne, like, sql, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
+import { eq, and, or, ne, like, sql, lt, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
 export interface IStorage {
   generateUID(stateCode: string, continentCode?: string): Promise<string>;
@@ -3176,7 +3176,7 @@ export class DatabaseStorage implements IStorage {
           lifecyclePhase: 1,
           sortOrderInInventory: sql`CASE ${sql.join(caseFragments, sql` `)} END`,
         } as any)
-        .where(inArray(contracts.id, batch));
+        .where(and(inArray(contracts.id, batch), lt(contracts.lifecyclePhase, 5)));
     }
   }
 

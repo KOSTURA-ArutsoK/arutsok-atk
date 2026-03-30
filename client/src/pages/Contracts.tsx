@@ -5476,9 +5476,15 @@ export default function Contracts() {
 
   function handleDispatch() {
     const autoName = `Sprievodka ${new Date().toISOString().slice(0, 10)}`;
+    const phase0Ids = new Set(activeContracts.map(c => c.id));
+    const eligibleIds = selectedIds.filter(id => phase0Ids.has(id));
+    if (eligibleIds.length === 0) {
+      toast({ title: "Chyba", description: "Žiadne zmluvy na odoslanie — skontrolujte výber", variant: "destructive" });
+      return;
+    }
     dispatchMutation.mutate({
       name: autoName,
-      contractIds: selectedIds,
+      contractIds: eligibleIds,
     });
   }
 
@@ -12881,7 +12887,10 @@ export default function Contracts() {
           open={commanderOpen}
           onClose={() => setCommanderOpen(false)}
           commanderContracts={commanderContracts}
-          onContractFinished={id => setCommanderContracts(prev => prev.filter(c => c.id !== id))}
+          onContractFinished={id => {
+            setCommanderContracts(prev => prev.filter(c => c.id !== id));
+            setSelectedIds(prev => prev.filter(sid => sid !== id));
+          }}
           subjects={subjects || []}
           partners={partners || []}
           products={products || []}
@@ -13263,7 +13272,10 @@ export default function Contracts() {
         open={commanderOpen}
         onClose={() => setCommanderOpen(false)}
         commanderContracts={commanderContracts}
-        onContractFinished={id => setCommanderContracts(prev => prev.filter(c => c.id !== id))}
+        onContractFinished={id => {
+          setCommanderContracts(prev => prev.filter(c => c.id !== id));
+          setSelectedIds(prev => prev.filter(sid => sid !== id));
+        }}
         subjects={subjects || []}
         partners={partners || []}
         products={products || []}

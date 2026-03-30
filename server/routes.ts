@@ -8008,7 +8008,19 @@ export async function registerRoutes(
         isDispatched: true,
         dispatchedAt,
       } as any);
-      await storage.bulkAssignContractsToInventory(inventoryId, validContractIds, dispatchedAt);
+      // Filter out contracts that have already been accepted by central (phase >= 5)
+      const eligibleRows = await db.select({ id: contracts.id, lifecyclePhase: contracts.lifecyclePhase })
+        .from(contracts)
+        .where(inArray(contracts.id, validContractIds));
+      const protectedIds = eligibleRows.filter(r => (r.lifecyclePhase ?? 0) >= 5).map(r => r.id);
+      if (protectedIds.length > 0) {
+        console.warn(`[DISPATCH GUARD] Skipping ${protectedIds.length} contract(s) with lifecyclePhase >= 5 (ids: ${protectedIds.join(", ")}) — dispatch to inventory ${inventoryId} would regress their phase.`);
+      }
+      const eligibleContractIds = validContractIds.filter(id => !protectedIds.includes(id));
+      if (eligibleContractIds.length === 0) {
+        return res.status(400).json({ message: "Žiadne zmluvy na odoslanie — všetky sú už na centrále" });
+      }
+      await storage.bulkAssignContractsToInventory(inventoryId, eligibleContractIds, dispatchedAt);
 
       // Delete any old inventories that are now empty
       for (const oldInvId of oldInventoryIds) {
@@ -8026,9 +8038,9 @@ export async function registerRoutes(
         module: "sprievodka_dispatch",
         entityId: inventoryId,
         entityName: `Sprievodka c. ${seqNum}`,
-        newData: { contractIds: validContractIds, sequenceNumber: seqNum },
+        newData: { contractIds: eligibleContractIds, skippedProtectedIds: protectedIds, sequenceNumber: seqNum },
       });
-      res.json({ success: true, dispatchedCount: validContractIds.length, sequenceNumber: seqNum });
+      res.json({ success: true, dispatchedCount: eligibleContractIds.length, sequenceNumber: seqNum });
     } catch (err: any) {
       console.error("[DISPATCH ERROR]", err?.message || err, err?.stack);
       res.status(500).json({ message: "Chyba pri odosielani zmluv" });
