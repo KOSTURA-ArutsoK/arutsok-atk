@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { ChevronLeft, ChevronRight, X, Upload, FileText, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { TripleRingStatus } from "@/components/TripleRingStatus";
 import { KokpitDialog } from "@/components/KokpitDialog";
@@ -340,13 +341,16 @@ export default function PridatStavZmluvy() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ name: entry.name, url, size: file.size }),
             })
-              .then(r => r.ok ? r.json() : null)
+              .then(r => r.ok ? r.json() : Promise.reject(r))
               .then(saved => {
                 if (saved?.id) {
                   setScanFiles(prev => prev.map(f => f.id === fileId ? { ...f, dbId: saved.id } : f));
+                  queryClient.invalidateQueries({ queryKey: ["/api/kokpit/staged-scans"] });
                 }
               })
-              .catch(() => {});
+              .catch(() => {
+                toast({ title: "Upozornenie", description: "Sken sa nahrával, ale nepodarilo sa ho uložiť do zoznamu (bude stratený po obnovení stránky).", variant: "destructive" });
+              });
           }
         } else {
           let msg = "Chyba nahrávania";
@@ -383,7 +387,11 @@ export default function PridatStavZmluvy() {
       fetch(`/api/kokpit/staged-scans/${file.dbId}`, {
         method: "DELETE",
         credentials: "include",
-      }).catch(() => {});
+      })
+        .then(r => { if (r.ok) queryClient.invalidateQueries({ queryKey: ["/api/kokpit/staged-scans"] }); })
+        .catch(() => {
+          toast({ title: "Upozornenie", description: "Nepodarilo sa odstrániť sken z databázy.", variant: "destructive" });
+        });
     }
     setScanFiles(prev => prev.filter(f => f.id !== id));
   }
