@@ -5,6 +5,14 @@ const WORK_END = 17;
 const SLA_HOURS_PER_DAY = 8;
 const SLA_WORKING_MINUTES = 3 * SLA_HOURS_PER_DAY * 60;
 
+function pad(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function toLocalYMD(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function easterSunday(year: number): Date {
   const a = year % 19;
   const b = Math.floor(year / 100);
@@ -41,52 +49,43 @@ function getSkHolidays(year: number): Set<string> {
   ];
 
   const easter = easterSunday(year);
-  const goodFriday = new Date(easter);
-  goodFriday.setDate(easter.getDate() - 2);
-  const easterMonday = new Date(easter);
-  easterMonday.setDate(easter.getDate() + 1);
+  const goodFriday = new Date(easter.getFullYear(), easter.getMonth(), easter.getDate() - 2);
+  const easterMonday = new Date(easter.getFullYear(), easter.getMonth(), easter.getDate() + 1);
 
-  const toYMD = (d: Date) => d.toISOString().slice(0, 10);
-
-  return new Set([...fixed, toYMD(goodFriday), toYMD(easterMonday)]);
+  return new Set([...fixed, toLocalYMD(goodFriday), toLocalYMD(easterMonday)]);
 }
 
 function isWorkingDay(date: Date): boolean {
   const dow = date.getDay();
   if (dow === 0 || dow === 6) return false;
-  const ymd = date.toISOString().slice(0, 10);
   const holidays = getSkHolidays(date.getFullYear());
-  return !holidays.has(ymd);
+  return !holidays.has(toLocalYMD(date));
 }
 
 export function calculateWorkingMinutesElapsed(createdAt: Date, now: Date = new Date()): number {
   if (now <= createdAt) return 0;
 
   let elapsed = 0;
-  const cursor = new Date(createdAt);
-
-  const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), WORK_START, 0, 0, 0);
-  const dayEnd = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), WORK_END, 0, 0, 0);
+  const cursor = new Date(createdAt.getFullYear(), createdAt.getMonth(), createdAt.getDate(), WORK_START, 0, 0, 0);
 
   while (cursor < now) {
     if (!isWorkingDay(cursor)) {
       cursor.setDate(cursor.getDate() + 1);
-      cursor.setHours(WORK_START, 0, 0, 0);
       continue;
     }
 
-    const wStart = dayStart(cursor);
-    const wEnd = dayEnd(cursor);
+    const dayStart = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate(), WORK_START, 0, 0, 0);
+    const dayEnd = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate(), WORK_END, 0, 0, 0);
 
-    const periodStart = cursor < wStart ? wStart : cursor;
-    const periodEnd = now < wEnd ? now : wEnd;
+    const periodStart = createdAt > dayStart ? createdAt : dayStart;
+    const periodEnd = now < dayEnd ? now : dayEnd;
 
     if (periodStart < periodEnd) {
-      elapsed += (periodEnd.getTime() - periodStart.getTime()) / 60000;
+      const dayMinutes = (periodEnd.getTime() - periodStart.getTime()) / 60000;
+      elapsed += Math.min(dayMinutes, SLA_HOURS_PER_DAY * 60);
     }
 
     cursor.setDate(cursor.getDate() + 1);
-    cursor.setHours(WORK_START, 0, 0, 0);
   }
 
   return Math.round(elapsed);
