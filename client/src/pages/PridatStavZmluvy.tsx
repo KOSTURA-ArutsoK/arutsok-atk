@@ -390,10 +390,10 @@ export default function PridatStavZmluvy() {
 
   // Phase summary rows (only non-zero), order: Príchod, Rozdelenie, Nedokončené, Vybavené
   const phaseSummaryRows = [
-    { phase: 1 as const, count: phase1Count, label: "Príchod", color: "#1e40af" },
-    { phase: 2 as const, count: phase2Count, label: "Rozdelenie", color: "#7c3aed" },
-    { phase: null, count: overdueCount, label: "Nedokončené z minulosti", color: "#dc2626" },
-    { phase: 3 as const, count: phase3Count, label: "Vybavené dnes", color: "#059669" },
+    { phase: 1 as const, count: phase1Count, label: "2. Príchod", color: "#1e40af" },
+    { phase: 2 as const, count: phase2Count, label: "3. Rozdelenie", color: "#7c3aed" },
+    { phase: null, count: overdueCount, label: "1. Nedokončené z minulosti", color: "#dc2626" },
+    { phase: 3 as const, count: phase3Count, label: "4. Vybavené dnes", color: "#059669" },
   ].filter(row => row.count > 0);
 
   // ── Render ───────────────────────────────────────────────────────────────────

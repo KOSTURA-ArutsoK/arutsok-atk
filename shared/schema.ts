@@ -3017,7 +3017,7 @@ export const kokpitStagedScans = pgTable("kokpit_staged_scans", {
   name: text("name").notNull(),
   url: text("url").notNull(),
   size: integer("size"),
-  uploadedAt: timestamp("uploaded_at").defaultNow(),
+  uploadedAt: timestamp("uploaded_at", { withTimezone: true }).defaultNow(),
 });
 
 export const insertKokpitStagedScanSchema = createInsertSchema(kokpitStagedScans).omit({ id: true, uploadedAt: true });
