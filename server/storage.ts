@@ -158,6 +158,8 @@ import {
   type ContractParamVerification, type InsertContractParamVerification,
   kokpitItems,
   type KokpitItem, type InsertKokpitItem,
+  kokpitStagedScans,
+  type KokpitStagedScan, type InsertKokpitStagedScan,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lt, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -469,6 +471,11 @@ export interface IStorage {
   createKokpitItem(data: InsertKokpitItem): Promise<KokpitItem>;
   updateKokpitItem(id: number, companyId: number, data: Partial<Pick<KokpitItem, 'phase' | 'contractId' | 'statusId'>>): Promise<KokpitItem | undefined>;
   resolveKokpitItem(id: number, companyId: number): Promise<KokpitItem | undefined>;
+
+  // Kokpit Staged Scans (ArutsoK #249)
+  getStagedScans(companyId: number): Promise<KokpitStagedScan[]>;
+  addStagedScan(data: InsertKokpitStagedScan): Promise<KokpitStagedScan>;
+  removeStagedScan(id: number): Promise<void>;
 
   getSystemContractStatusByName(name: string): Promise<ContractStatus | undefined>;
   getAcceptedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
@@ -6017,6 +6024,21 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(kokpitItems.id, id), eq(kokpitItems.companyId, companyId)))
       .returning();
     return row;
+  }
+
+  async getStagedScans(companyId: number): Promise<KokpitStagedScan[]> {
+    return db.select().from(kokpitStagedScans)
+      .where(eq(kokpitStagedScans.companyId, companyId))
+      .orderBy(desc(kokpitStagedScans.uploadedAt));
+  }
+
+  async addStagedScan(data: InsertKokpitStagedScan): Promise<KokpitStagedScan> {
+    const [row] = await db.insert(kokpitStagedScans).values(data).returning();
+    return row;
+  }
+
+  async removeStagedScan(id: number): Promise<void> {
+    await db.delete(kokpitStagedScans).where(eq(kokpitStagedScans.id, id));
   }
 }
 

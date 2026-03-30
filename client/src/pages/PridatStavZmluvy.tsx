@@ -1,15 +1,11 @@
-import { useState, useRef, useCallback } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, X, Upload, FileText, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { TripleRingStatus } from "@/components/TripleRingStatus";
 import { KokpitDialog } from "@/components/KokpitDialog";
 import { formatRemainingHHMM, isOverdue, isAdminAlert } from "@/lib/workingHours";
 import { getSlovakNameDay } from "@/lib/slovakNameDays";
-import type { KokpitItem, ContractStatus } from "@shared/schema";
+import type { KokpitItem, KokpitStagedScan } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
 type KokpitItemExt = KokpitItem & { contractUid?: string | null; statusName?: string | null };
@@ -23,6 +19,7 @@ export type ScanFile = {
   error?: string;
   uploadedAt: number;
   url?: string;
+  dbId?: number;
 };
 
 // ── Kokpit Button ──────────────────────────────────────────────────────────────
@@ -201,57 +198,6 @@ function InlineCalendar({ selectedDate, onSelectDate }: InlineCalendarProps) {
   );
 }
 
-// ── New Item Form ─────────────────────────────────────────────────────────────
-
-function NewItemForm({ onCreated }: { onCreated: () => void }) {
-  const { toast } = useToast();
-  const [title, setTitle] = useState("");
-  const [source, setSource] = useState("");
-
-  const mutation = useMutation({
-    mutationFn: async () =>
-      (await apiRequest("POST", "/api/kokpit/items", { title: title.trim(), source: source.trim() })).json(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/kokpit/items"] });
-      toast({ title: "Položka pridaná" });
-      setTitle("");
-      setSource("");
-      onCreated();
-    },
-  });
-
-  return (
-    <div className="flex gap-2 items-end">
-      <div className="flex-1 space-y-1">
-        <label className="text-xs text-muted-foreground">Názov položky</label>
-        <Input
-          data-testid="input-new-item-title"
-          placeholder="Napr. Výpoveď od klienta Mrkvička"
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-        />
-      </div>
-      <div className="w-36 space-y-1">
-        <label className="text-xs text-muted-foreground">Zdroj</label>
-        <Input
-          data-testid="input-new-item-source"
-          placeholder="Napr. Allianz"
-          value={source}
-          onChange={e => setSource(e.target.value)}
-        />
-      </div>
-      <Button
-        data-testid="button-add-item"
-        onClick={() => mutation.mutate()}
-        disabled={!title.trim() || mutation.isPending}
-        size="sm"
-      >
-        + Pridať
-      </Button>
-    </div>
-  );
-}
-
 // ── Helper: format file size ───────────────────────────────────────────────────
 
 function fmtSize(bytes: number): string {
@@ -274,6 +220,7 @@ export default function PridatStavZmluvy() {
   const [scanFiles, setScanFiles] = useState<ScanFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dbInitializedRef = useRef(false);
 
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
@@ -300,6 +247,32 @@ export default function PridatStavZmluvy() {
       return res.json();
     },
   });
+
+  const { data: stagedScans = [], isSuccess: stagedScansLoaded } = useQuery<KokpitStagedScan[]>({
+    queryKey: ["/api/kokpit/staged-scans"],
+    queryFn: async () => {
+      const res = await fetch("/api/kokpit/staged-scans", { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    if (stagedScansLoaded && !dbInitializedRef.current) {
+      dbInitializedRef.current = true;
+      if (stagedScans.length > 0) {
+        setScanFiles(stagedScans.map(s => ({
+          id: `db-${s.id}`,
+          name: s.name,
+          size: s.size ?? 0,
+          progress: 100,
+          done: true,
+          uploadedAt: new Date(s.uploadedAt!).getTime(),
+          url: s.url,
+          dbId: s.id,
+        })));
+      }
+    }
+  }, [stagedScansLoaded, stagedScans]);
 
   const phase1Count = items.filter(i => i.phase === 1).length;
   const phase2Count = items.filter(i => i.phase === 2).length;
@@ -360,6 +333,21 @@ export default function PridatStavZmluvy() {
             url = resp?.files?.[0]?.url ?? resp?.url ?? undefined;
           } catch {}
           setScanFiles(prev => prev.map(f => f.id === fileId ? { ...f, progress: 100, done: true, url } : f));
+          if (url) {
+            fetch("/api/kokpit/staged-scans", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: entry.name, url, size: file.size }),
+            })
+              .then(r => r.ok ? r.json() : null)
+              .then(saved => {
+                if (saved?.id) {
+                  setScanFiles(prev => prev.map(f => f.id === fileId ? { ...f, dbId: saved.id } : f));
+                }
+              })
+              .catch(() => {});
+          }
         } else {
           let msg = "Chyba nahrávania";
           try { msg = JSON.parse(xhr.responseText)?.message || msg; } catch {}
@@ -390,8 +378,23 @@ export default function PridatStavZmluvy() {
   }
 
   function removeScanFile(id: string) {
+    const file = scanFiles.find(f => f.id === id);
+    if (file?.dbId) {
+      fetch(`/api/kokpit/staged-scans/${file.dbId}`, {
+        method: "DELETE",
+        credentials: "include",
+      }).catch(() => {});
+    }
     setScanFiles(prev => prev.filter(f => f.id !== id));
   }
+
+  // Phase summary rows (only non-zero), order: Príchod, Rozdelenie, Nedokončené, Vybavené
+  const phaseSummaryRows = [
+    { phase: 1 as const, count: phase1Count, label: "Príchod", color: "#1e40af" },
+    { phase: 2 as const, count: phase2Count, label: "Rozdelenie", color: "#7c3aed" },
+    { phase: null, count: overdueCount, label: "Nedokončené", color: "#dc2626" },
+    { phase: 3 as const, count: phase3Count, label: "Vybavené", color: "#059669" },
+  ].filter(row => row.count > 0);
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -408,8 +411,8 @@ export default function PridatStavZmluvy() {
       {/* 3-column top section */}
       <div className="flex gap-4 items-start">
 
-        {/* LEFT: date + meniny + calendar */}
-        <div className="shrink-0 w-48 space-y-3">
+        {/* LEFT: date + meniny + calendar — clipped to not exceed kokpit button height */}
+        <div className="shrink-0 w-48 space-y-3 max-h-[200px] overflow-hidden">
           {/* Date display */}
           <div>
             <div className="text-xs text-muted-foreground font-medium">{todayFormatted.weekday}</div>
@@ -449,45 +452,9 @@ export default function PridatStavZmluvy() {
           )}
         </div>
 
-        {/* CENTER: KOKPIT button + phase summary */}
+        {/* CENTER: KOKPIT button */}
         <div className="flex-1 flex flex-col items-center gap-3 pt-2">
           <KokpitCard onClick={() => setKokpitOpen(true)} />
-
-          {/* Phase summary rows */}
-          <div className="space-y-1.5 w-full max-w-[200px]">
-            {[
-              { phase: 1 as const, count: phase1Count, label: "Príchod", color: "#1e40af" },
-              { phase: 2 as const, count: phase2Count, label: "Rozdelenie", color: "#7c3aed" },
-              { phase: null, count: overdueCount, label: "Nedokončené z minulosti", color: "#dc2626" },
-              { phase: 3 as const, count: phase3Count, label: "Vybavené dnes", color: "#059669" },
-            ].map((row, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                {row.phase ? (
-                  <TripleRingStatus phase={row.phase} size={16} />
-                ) : (
-                  <span style={{
-                    display: "inline-block",
-                    width: 16,
-                    height: 16,
-                    borderRadius: "50%",
-                    background: "#dc2626",
-                    opacity: 0.85,
-                    flexShrink: 0,
-                  }} />
-                )}
-                <span className="text-sm font-bold w-5 text-right" style={{ color: row.color }}>
-                  {row.count}
-                </span>
-                <span className="text-xs text-muted-foreground leading-tight">{row.label}</span>
-              </div>
-            ))}
-          </div>
-
-          {!historyDate && (
-            <div className="w-full max-w-[260px] mt-1">
-              <NewItemForm onCreated={() => {}} />
-            </div>
-          )}
         </div>
 
         {/* RIGHT: Scan drop zone */}
@@ -598,15 +565,45 @@ export default function PridatStavZmluvy() {
 
       {/* Kokpit items table */}
       <div>
-        {historyDate ? (
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-            História: {historyDate.split("-").reverse().join(".")}
-          </p>
-        ) : (
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-            Dnešné aktivity + prenesené nevyriešené
-          </p>
-        )}
+        {/* Table header with phase summary on the right */}
+        <div className="flex items-center mb-2">
+          {historyDate ? (
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              História: {historyDate.split("-").reverse().join(".")}
+            </p>
+          ) : (
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Dnešné aktivity + prenesené nevyriešené
+            </p>
+          )}
+
+          {phaseSummaryRows.length > 0 && (
+            <div className="ml-auto flex items-center gap-4">
+              {phaseSummaryRows.map((row, idx) => (
+                <div key={idx} className="flex items-center gap-1.5">
+                  {row.phase ? (
+                    <TripleRingStatus phase={row.phase} size={14} />
+                  ) : (
+                    <span style={{
+                      display: "inline-block",
+                      width: 14,
+                      height: 14,
+                      borderRadius: "50%",
+                      background: "#dc2626",
+                      opacity: 0.85,
+                      flexShrink: 0,
+                    }} />
+                  )}
+                  <span className="text-xs font-bold" style={{ color: row.color }}>
+                    {row.count}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{row.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-border">

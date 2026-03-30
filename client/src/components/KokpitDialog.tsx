@@ -124,9 +124,9 @@ function Step1Panel({ scanFiles, onRemoveScanFile }: Step1PanelProps) {
   }
 
   return (
-    <div className="flex flex-1 min-h-0 divide-x">
-      {/* LEFT: Inbox */}
-      <div className="flex flex-col w-[45%] min-h-0">
+    <div className="flex flex-col flex-1 min-h-0 divide-y">
+      {/* TOP: Inbox */}
+      <div className="flex flex-col min-h-0" style={{ flex: "0 0 42%" }}>
         <div className="px-4 py-2.5 border-b shrink-0 flex items-center gap-2 bg-muted/20">
           <FileText className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-xs font-semibold">Inbox skenov</span>
@@ -224,7 +224,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile }: Step1PanelProps) {
         )}
       </div>
 
-      {/* RIGHT: Trezor */}
+      {/* BOTTOM: Trezor */}
       <div className="flex flex-col flex-1 min-h-0">
         <div className="px-4 py-2.5 border-b shrink-0 flex items-center gap-2 bg-muted/20">
           <Archive className="w-3.5 h-3.5 text-muted-foreground" />
@@ -368,7 +368,7 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile }
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           className="p-0 gap-0 flex flex-col"
-          style={{ maxWidth: "92vw", width: "92vw", height: "90vh", maxHeight: "90vh" }}
+          style={{ maxWidth: "90vw", width: "90vw", height: "85vh", maxHeight: "85vh" }}
         >
           <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
             <DialogTitle className="text-lg font-bold">Kokpit — Spracovanie stavov</DialogTitle>

@@ -25947,6 +25947,39 @@ export async function registerRoutes(
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
+  // Kokpit Staged Scans (ArutsoK #249)
+  app.get("/api/kokpit/staged-scans", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.appUser;
+      const companyId = user?.activeCompanyId;
+      if (!companyId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
+      const scans = await storage.getStagedScans(companyId);
+      res.json(scans);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/kokpit/staged-scans", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.appUser;
+      const companyId = user?.activeCompanyId;
+      const appUserId = user?.id;
+      if (!companyId || !appUserId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
+      const { name, url, size } = req.body;
+      if (!name || !url) return res.status(400).json({ message: "Chýba name alebo url" });
+      const scan = await storage.addStagedScan({ companyId, appUserId, name, url, size: size || null });
+      res.json(scan);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.delete("/api/kokpit/staged-scans/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: "Neplatné ID" });
+      await storage.removeStagedScan(id);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   return httpServer;
 }
 

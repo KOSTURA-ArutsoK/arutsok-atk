@@ -3009,6 +3009,21 @@ export const insertKokpitItemSchema = createInsertSchema(kokpitItems).omit({ id:
 export type KokpitItem = typeof kokpitItems.$inferSelect;
 export type InsertKokpitItem = z.infer<typeof insertKokpitItemSchema>;
 
+// === KOKPIT STAGED SCANS (scan persistence across page reloads) ===
+export const kokpitStagedScans = pgTable("kokpit_staged_scans", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull(),
+  appUserId: integer("app_user_id").notNull(),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  size: integer("size"),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+});
+
+export const insertKokpitStagedScanSchema = createInsertSchema(kokpitStagedScans).omit({ id: true, uploadedAt: true });
+export type KokpitStagedScan = typeof kokpitStagedScans.$inferSelect;
+export type InsertKokpitStagedScan = z.infer<typeof insertKokpitStagedScanSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };
