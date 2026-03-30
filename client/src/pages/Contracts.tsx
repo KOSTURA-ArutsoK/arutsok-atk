@@ -3276,8 +3276,8 @@ function ScanCommanderDialog({
         return;
       }
 
-      // Ctrl+A: select all in inbox (always available)
-      if ((e.key === "a" || e.key === "A") && (e.ctrlKey || e.metaKey)) {
+      // Ctrl+A: select all in inbox (only when inbox is focused)
+      if ((e.key === "a" || e.key === "A") && (e.ctrlKey || e.metaKey) && inboxFocused) {
         e.preventDefault();
         const allIds = inboxFiles.filter(f => f.done && !f.pairedContractId).map(f => f.id);
         setSelectedInboxIds(new Set(allIds));
@@ -3602,11 +3602,15 @@ function ScanCommanderDialog({
             <div className={`px-3 py-2 border-b shrink-0 flex items-center gap-2 ${inboxFocused ? "bg-blue-500/5" : ""}`}>
               <Inbox className={`w-3.5 h-3.5 ${inboxFocused ? "text-blue-500" : "text-muted-foreground"}`} />
               <span className={`text-xs font-medium ${inboxFocused ? "text-blue-600 dark:text-blue-400" : ""}`}>Inbox</span>
-              {selectedInboxIds.size > 0 && (
-                <Badge className="text-xs bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-400/50">
-                  {selectedInboxIds.size} / {inboxFiles.filter(f => f.done && !f.pairedContractId).length}
-                </Badge>
-              )}
+              {(() => {
+                const selectable = inboxFiles.filter(f => f.done && !f.pairedContractId).length;
+                const sel = selectedInboxIds.size;
+                return (
+                  <Badge className={`text-xs ${sel > 0 ? "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-400/50" : "bg-muted/50 text-muted-foreground border-border"}`}>
+                    {sel} / {selectable}
+                  </Badge>
+                );
+              })()}
               <span className="text-[9px] text-muted-foreground ml-auto hidden sm:inline">↑↓ Space Ctrl+A Tab</span>
               <Badge variant="outline" className="text-xs">{inboxFiles.length} súborov</Badge>
             </div>
@@ -3718,7 +3722,7 @@ function ScanCommanderDialog({
                         <div className="h-1 rounded-full bg-muted overflow-hidden flex-1">
                           <div className="h-full bg-amber-500 transition-all animate-pulse" style={{ width: `${f.progress}%` }} />
                         </div>
-                        <span className="text-[9px] text-amber-600 dark:text-amber-400 whitespace-nowrap">Rozbaľujem…</span>
+                        <span className="text-[9px] text-amber-600 dark:text-amber-400 whitespace-nowrap">Rozbaľujem archív…</span>
                       </div>
                     ) : !f.done ? (
                       <div className="mt-1 h-1 rounded-full bg-muted overflow-hidden">
