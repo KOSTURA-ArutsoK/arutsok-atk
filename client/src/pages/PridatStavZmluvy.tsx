@@ -419,8 +419,8 @@ export default function PridatStavZmluvy() {
       {/* 3-column top section */}
       <div className="flex gap-4 items-start">
 
-        {/* LEFT: date + meniny + calendar — clipped to not exceed kokpit button height */}
-        <div className="shrink-0 w-48 space-y-3 max-h-[200px] overflow-hidden">
+        {/* LEFT: date + meniny + calendar */}
+        <div className="shrink-0 w-48 space-y-3">
           {/* Date display */}
           <div>
             <div className="text-xs text-muted-foreground font-medium">{todayFormatted.weekday}</div>

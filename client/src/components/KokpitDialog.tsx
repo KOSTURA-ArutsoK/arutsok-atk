@@ -375,20 +375,20 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile }
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
-            <TabsList className="mx-6 mt-3 shrink-0 justify-start">
-              <TabsTrigger value="prichod" data-testid="tab-prichod">
+            <TabsList className="mx-6 mt-3 shrink-0 justify-start bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 p-1 gap-1">
+              <TabsTrigger value="prichod" data-testid="tab-prichod" className="font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
                 PRÍCHOD / SKENY
                 {scanFiles.filter(f => f.done && !f.error).length > 0 && (
                   <Badge variant="secondary" className="ml-2 text-xs">{scanFiles.filter(f => f.done && !f.error).length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="rozdelenie" data-testid="tab-rozdelenie">
+              <TabsTrigger value="rozdelenie" data-testid="tab-rozdelenie" className="font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
                 ROZDELENIE
                 {phase2Items.length > 0 && (
                   <Badge variant="secondary" className="ml-2 text-xs">{phase2Items.length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="riesenie" data-testid="tab-riesenie">
+              <TabsTrigger value="riesenie" data-testid="tab-riesenie" className="font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
                 RIEŠENIE
                 {phase3Items.length > 0 && (
                   <Badge variant="secondary" className="ml-2 text-xs">{phase3Items.length}</Badge>
