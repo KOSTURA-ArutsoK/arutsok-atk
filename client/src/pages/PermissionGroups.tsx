@@ -502,7 +502,7 @@ function GroupCard({
               {isSystem && (
                 <Badge className="text-xs bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700" data-testid={`badge-system-${group.id}`}>
                   <Lock className="w-3 h-3 mr-1" />
-                  Systemova
+                  Systémová
                 </Badge>
               )}
             </div>
@@ -551,13 +551,15 @@ function GroupCard({
 
 export default function PermissionGroupsPage() {
   const { toast } = useToast();
-  const { data: groups, isLoading } = useQuery<PermissionGroup[]>({
+  const { data: groups, isLoading: groupsLoading } = useQuery<PermissionGroup[]>({
     queryKey: ["/api/permission-groups"],
   });
 
-  const { data: clientGroups } = useQuery<ClientGroup[]>({
+  const { data: clientGroups, isLoading: clientGroupsLoading } = useQuery<ClientGroup[]>({
     queryKey: ["/api/client-groups"],
   });
+
+  const isLoading = groupsLoading || clientGroupsLoading;
 
   const { data: appUsers } = useQuery<any[]>({
     queryKey: ["/api/app-users"],
