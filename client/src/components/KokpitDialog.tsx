@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { TripleRingStatus } from "@/components/TripleRingStatus";
 import {
   FileText, Loader2, X, Archive, Search, Inbox, Upload,
-  Image as ImageIcon, File, FileCheck, Eye, CheckCircle2, Clock,
+  Image as ImageIcon, File, FileCheck, Eye, CheckCircle2, Clock, Pin,
 } from "lucide-react";
 import type { KokpitItem } from "@shared/schema";
 import type { ScanFile } from "@/pages/PridatStavZmluvy";
@@ -97,6 +97,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
   const [zoomLevel, setZoomLevel] = useState(1);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const isImagePreviewRef = useRef(false);
+  const [pinnedContractIds, setPinnedContractIds] = useState<Set<number>>(new Set());
 
   const { data: contractsRaw = [] } = useQuery<TrezorContract[]>({
     queryKey: ["/api/contracts", "trezor-list"],
@@ -176,10 +177,19 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
       return next;
     });
     pairedScanIds.forEach(id => onRemoveScanFile(id));
+    setPinnedContractIds(prev => { const next = new Set(prev); next.delete(contract.id); return next; });
 
     onComplete(item);
     onSwitchTab("rozdelenie");
     toast({ title: "Presunté do Riešenia", description: `Zmluva ${contractLabel} s ${pairedScans.length} sken(mi) presunutá.` });
+  }
+
+  function handlePinContract(contractId: number) {
+    setPinnedContractIds(prev => {
+      const next = new Set(prev);
+      if (next.has(contractId)) next.delete(contractId); else next.add(contractId);
+      return next;
+    });
   }
 
   const selectedIdArr = [...selectedScanIds];
@@ -394,77 +404,107 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
       </div>
 
       {/* ─── RIGHT: Vyhľadávanie zmluvy (flex-3) ─────────────────────────── */}
-      <div className="flex flex-col min-w-0" style={{ flex: 3 }}>
-        <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
-          <Archive className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs font-semibold">Vyhľadávanie zmluvy</span>
-          <Badge variant="outline" className="text-[10px] ml-auto">{contractsRaw.length} zmlúv</Badge>
-        </div>
+      {(() => {
+        const pinnedContracts = contractsRaw.filter(c => pinnedContractIds.has(c.id));
+        const extraFiltered = filteredContracts.filter(c => !pinnedContractIds.has(c.id));
+        const displayedContracts = [...pinnedContracts, ...extraFiltered];
 
-        <div className="px-3 py-2 border-b shrink-0">
-          <div className="relative">
-            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              data-testid="input-trezor-search"
-              placeholder="Hľadať zmluvu… (UID, číslo, subjekt, partner, produkt)"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="h-7 text-xs pl-7 pr-2"
-            />
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          {!searchQuery.trim() ? (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground py-8">
-              <Search className="w-8 h-8 opacity-20" />
-              <p className="text-xs text-center">Zadajte hľadaný výraz</p>
-              <p className="text-[10px] text-center opacity-70">UID, číslo zmluvy, subjekt, partner alebo produkt</p>
+        return (
+          <div className="flex flex-col min-w-0" style={{ flex: 3 }}>
+            <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
+              <Archive className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold">Vyhľadávanie zmluvy</span>
+              {pinnedContractIds.size > 0 && (
+                <Badge className="text-[10px] bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-400/50">
+                  <Pin className="w-2.5 h-2.5 mr-0.5" />{pinnedContractIds.size}
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-[10px] ml-auto">{contractsRaw.length} zmlúv</Badge>
             </div>
-          ) : filteredContracts.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-8">Žiadne zmluvy</p>
-          ) : (
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b bg-muted/20 sticky top-0">
-                  <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">UID</th>
-                  <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">Číslo</th>
-                  <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">Subjekt</th>
-                  <th className="py-1.5 px-2 w-28"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredContracts.map(c => {
-                  const sub = subjects.find(s => s.id === c.subjectId);
-                  const pairedCount = Object.values(pairedMap).filter(v => v.contractId === c.id).length;
-                  return (
-                    <tr key={c.id} data-testid={`row-trezor-${c.id}`} className="border-b border-border/30 hover:bg-muted/30 transition-colors">
-                      <td className="py-1.5 px-2 font-mono text-[10px] text-blue-700 dark:text-blue-400">{c.uid ?? "—"}</td>
-                      <td className="py-1.5 px-2 text-muted-foreground text-[10px]">{c.supiskaCode ?? "—"}</td>
-                      <td className="py-1.5 px-2 truncate max-w-[80px]">
-                        {subjectDisplay(sub)}
-                        {pairedCount > 0 && (
-                          <span className="ml-1 text-[9px] text-emerald-600 bg-emerald-500/10 rounded px-1">{pairedCount} sk.</span>
-                        )}
-                      </td>
-                      <td className="py-1.5 px-1.5">
-                        <div className="flex gap-1">
-                          <Button size="sm" variant="outline" data-testid={`button-assign-contract-${c.id}`} className="h-5 px-1.5 text-[10px]" onClick={() => handleAssign(c)}>
-                            Priradiť
-                          </Button>
-                          <Button size="sm" variant="outline" data-testid={`button-complete-contract-${c.id}`} className="h-5 px-1.5 text-[10px] border-emerald-500/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10" onClick={() => handleComplete(c)}>
-                            Dokončiť
-                          </Button>
-                        </div>
-                      </td>
+
+            <div className="px-3 py-2 border-b shrink-0">
+              <div className="relative">
+                <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  data-testid="input-trezor-search"
+                  placeholder="Hľadať zmluvu… (UID, číslo, subjekt, partner, produkt)"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="h-7 text-xs pl-7 pr-2"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {displayedContracts.length === 0 ? (
+                !searchQuery.trim() ? (
+                  <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground py-8">
+                    <Search className="w-8 h-8 opacity-20" />
+                    <p className="text-xs text-center">Zadajte hľadaný výraz</p>
+                    <p className="text-[10px] text-center opacity-70">UID, číslo zmluvy, subjekt, partner alebo produkt</p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-8">Žiadne zmluvy</p>
+                )
+              ) : (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b bg-muted/20 sticky top-0">
+                      <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">UID</th>
+                      <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">Číslo</th>
+                      <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">Subjekt</th>
+                      <th className="py-1.5 px-2 w-28"></th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+                  </thead>
+                  <tbody>
+                    {displayedContracts.map(c => {
+                      const isPinned = pinnedContractIds.has(c.id);
+                      const sub = subjects.find(s => s.id === c.subjectId);
+                      const pairedCount = Object.values(pairedMap).filter(v => v.contractId === c.id).length;
+                      return (
+                        <tr
+                          key={c.id}
+                          data-testid={`row-trezor-${c.id}`}
+                          className={`border-b transition-colors cursor-pointer ${
+                            isPinned
+                              ? "bg-blue-500/[0.08] border-blue-400/30 hover:bg-blue-500/[0.14]"
+                              : "border-border/30 hover:bg-muted/30"
+                          }`}
+                          onClick={() => handlePinContract(c.id)}
+                        >
+                          <td className="py-1.5 px-2 font-mono text-[10px] text-blue-700 dark:text-blue-400">
+                            <span className="flex items-center gap-1">
+                              {isPinned && <Pin className="w-2.5 h-2.5 shrink-0 text-blue-500" />}
+                              {c.uid ?? "—"}
+                            </span>
+                          </td>
+                          <td className="py-1.5 px-2 text-muted-foreground text-[10px]">{c.supiskaCode ?? "—"}</td>
+                          <td className="py-1.5 px-2 truncate max-w-[80px]">
+                            {subjectDisplay(sub)}
+                            {pairedCount > 0 && (
+                              <span className="ml-1 text-[9px] text-emerald-600 bg-emerald-500/10 rounded px-1">{pairedCount} sk.</span>
+                            )}
+                          </td>
+                          <td className="py-1.5 px-1.5" onClick={e => e.stopPropagation()}>
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="outline" data-testid={`button-assign-contract-${c.id}`} className="h-5 px-1.5 text-[10px]" onClick={() => handleAssign(c)}>
+                                Priradiť
+                              </Button>
+                              <Button size="sm" variant="outline" data-testid={`button-complete-contract-${c.id}`} className="h-5 px-1.5 text-[10px] border-emerald-500/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10" onClick={() => handleComplete(c)}>
+                                Dokončiť
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -567,7 +607,7 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
         <DialogContent className="max-w-sm">
           <DialogTitle className="text-base font-semibold">Ukončiť spracovanie?</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground mt-1">
-            Po zatvorení okna sa stratia všetky výsledky vyhľadávania zmlúv a priradenia skenov, ktoré ste neuložili do záložky <strong>Riešenie</strong>.
+            Záložka <strong>Riešenie</strong> ostáva zachovaná. Stratia sa len ukotvené zmluvy z Vyhľadávania a neukončené priradenia skenov.
           </DialogDescription>
           <div className="flex justify-end gap-2 mt-4">
             <Button
