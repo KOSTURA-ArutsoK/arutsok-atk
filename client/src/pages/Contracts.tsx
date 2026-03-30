@@ -3288,7 +3288,7 @@ function ScanCommanderDialog({
   async function handlePair() {
     if (selectedInboxIds.size === 0 || selectedContractIds.size === 0) return;
     const filesToPair = inboxFiles.filter(f =>
-      selectedInboxIds.has(f.id) && f.done && !f.pairedContractId && f.url
+      selectedInboxIds.has(f.id) && f.done && !f.pairedContractId && !f.splitSource && f.url
     );
     if (filesToPair.length === 0) return;
     setPairing(true);
@@ -3450,7 +3450,7 @@ function ScanCommanderDialog({
               // Shift+↓: extend selection
               if (next >= 0) {
                 const f = inboxFiles[next];
-                if (f?.done && !f.pairedContractId) {
+                if (f?.done && !f.pairedContractId && !f.splitSource) {
                   setSelectedInboxIds(prevSel => {
                     const ns = new Set(prevSel);
                     ns.add(f.id);
@@ -3471,7 +3471,7 @@ function ScanCommanderDialog({
             } else {
               // Shift+↑: extend selection
               const f = inboxFiles[next];
-              if (f?.done && !f.pairedContractId) {
+              if (f?.done && !f.pairedContractId && !f.splitSource) {
                 setSelectedInboxIds(prevSel => {
                   const ns = new Set(prevSel);
                   ns.add(f.id);
@@ -3485,7 +3485,7 @@ function ScanCommanderDialog({
         } else if (e.key === " " && !e.shiftKey) {
           e.preventDefault();
           const file = inboxCursorIndex >= 0 ? inboxFiles[inboxCursorIndex] : null;
-          if (file?.done && !file.pairedContractId) {
+          if (file?.done && !file.pairedContractId && !file.splitSource) {
             setSelectedInboxIds(prev => {
               const next = new Set(prev);
               if (next.has(file.id)) next.delete(file.id);
@@ -3499,7 +3499,7 @@ function ScanCommanderDialog({
             const lo = Math.min(inboxCursorIndex, lastInboxSelectIndex.current);
             const hi = Math.max(inboxCursorIndex, lastInboxSelectIndex.current);
             const rangeIds = inboxFiles.slice(lo, hi + 1)
-              .filter(f => f.done && !f.pairedContractId)
+              .filter(f => f.done && !f.pairedContractId && !f.splitSource)
               .map(f => f.id);
             setSelectedInboxIds(prev => {
               const next = new Set(prev);
