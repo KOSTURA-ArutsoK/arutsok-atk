@@ -237,7 +237,7 @@ export default function PridatStavZmluvy() {
       if (viewMode === 'week') {
         url = `/api/kokpit/items?mode=week&date=${viewDate}`;
       } else if (viewMode === 'month') {
-        url = `/api/kokpit/items?mode=month&date=${viewDate}`;
+        url = `/api/kokpit/items?mode=month&month=${viewDate.slice(0, 7)}`;
       } else if (viewDate !== todayStr) {
         url = `/api/kokpit/items?mode=history&date=${viewDate}`;
       } else {

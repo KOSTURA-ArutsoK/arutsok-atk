@@ -25890,7 +25890,9 @@ export async function registerRoutes(
       if (!companyId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
       const modeRaw = req.query.mode;
       const mode = modeRaw === 'history' ? 'history' : modeRaw === 'week' ? 'week' : modeRaw === 'month' ? 'month' : 'today';
-      const date = typeof req.query.date === 'string' ? req.query.date : undefined;
+      const date = typeof req.query.date === 'string' ? req.query.date
+        : (mode === 'month' && typeof req.query.month === 'string') ? req.query.month
+        : undefined;
       const items = await storage.getKokpitItems(companyId, mode, date);
       res.json(items);
     } catch (e: any) { res.status(500).json({ message: e.message }); }
