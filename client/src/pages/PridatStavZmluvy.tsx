@@ -280,14 +280,12 @@ export default function PridatStavZmluvy() {
   const overdueCount = items.filter(i => i.dayCreated < todayStr && !i.resolvedAt).length;
 
   function prevDay() {
-    const d = new Date(viewDate + "T00:00:00");
-    d.setDate(d.getDate() - 1);
-    setViewDate(d.toISOString().slice(0, 10));
+    const [y, m, d] = viewDate.split('-').map(Number);
+    setViewDate(new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10));
   }
   function nextDay() {
-    const d = new Date(viewDate + "T00:00:00");
-    d.setDate(d.getDate() + 1);
-    setViewDate(d.toISOString().slice(0, 10));
+    const [y, m, d] = viewDate.split('-').map(Number);
+    setViewDate(new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10));
   }
 
   function handleRowClick(_item: KokpitItemExt) {
@@ -447,10 +445,15 @@ export default function PridatStavZmluvy() {
                 calendarVisible ? "bg-muted border-blue-500/50" : "bg-muted/30 border-border"
               } ${viewDate !== todayStr ? "border-amber-400/60 text-amber-700 dark:text-amber-400" : "text-foreground"}`}
             >
-              <span className="text-muted-foreground font-normal mr-1">
-                {["Ne","Po","Ut","St","Št","Pi","So"][new Date(viewDate + "T00:00:00").getDay()]}
-              </span>
-              {new Date(viewDate + "T00:00:00").getDate()}.{new Date(viewDate + "T00:00:00").getMonth() + 1}.{new Date(viewDate + "T00:00:00").getFullYear()}
+              {(() => {
+                const vd = new Date(viewDate + "T00:00:00Z");
+                return <>
+                  <span className="text-muted-foreground font-normal mr-1">
+                    {["Ne","Po","Ut","St","Št","Pi","So"][vd.getUTCDay()]}
+                  </span>
+                  {vd.getUTCDate()}.{vd.getUTCMonth() + 1}.{vd.getUTCFullYear()}
+                </>;
+              })()}
             </button>
             <button
               data-testid="button-next-day"
@@ -635,7 +638,7 @@ export default function PridatStavZmluvy() {
             {viewMode === 'week'
               ? `Týždeň: ${viewDate}`
               : viewMode === 'month'
-              ? `Mesiac: ${new Date(viewDate + "T00:00:00").toLocaleString("sk-SK", { month: "long", year: "numeric" })}`
+              ? `Mesiac: ${new Date(viewDate + "T00:00:00Z").toLocaleString("sk-SK", { month: "long", year: "numeric", timeZone: "UTC" })}`
               : viewDate !== todayStr
               ? `História: ${viewDate.split("-").reverse().join(".")}`
               : "Dnešné aktivity + prenesené nevyriešené"}
