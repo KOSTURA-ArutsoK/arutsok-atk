@@ -4236,7 +4236,7 @@ export default function Contracts() {
   const [phase8SupiskaQueue, setPhase8SupiskaQueue] = useState<number[]>([]);
   const [supiskaPreviewOpen, setSupiskaPreviewOpen] = useState(false);
   const [supiskaPreviewLoading, setSupiskaPreviewLoading] = useState(false);
-  const [supiskaPreviewData, setSupiskaPreviewData] = useState<{ supiskaCode: string | null; contracts: { ordinal: number; contractType: string; proposalNumber: string | null; insuranceContractNumber: string | null; subjectName: string; checkedDocuments: string[] }[] } | null>(null);
+  const [supiskaPreviewData, setSupiskaPreviewData] = useState<{ supiskaCode: string | null; seqNum: number | null; contracts: { ordinal: number; contractType: string; proposalNumber: string | null; insuranceContractNumber: string | null; subjectName: string; checkedDocuments: string[] }[] } | null>(null);
   const [nahratieViewContract, setNahratieViewContract] = useState<Contract | null>(null);
   const [docChecklistContract, setDocChecklistContract] = useState<Contract | null>(null);
   const [docChecklistCheckedReq, setDocChecklistCheckedReq] = useState<Set<number>>(new Set());
@@ -12085,8 +12085,13 @@ export default function Contracts() {
                                 >
                                   {isSupExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
                                   <ListChecks className="w-4 h-4 text-muted-foreground shrink-0" />
-                                  <span className="text-sm font-medium flex-1 font-mono" data-testid={`text-supiska-name-${sup.id}`}>
-                                    {sup.supiskaCode || sup.name}
+                                  <span className="text-sm font-medium flex-1" data-testid={`text-supiska-name-${sup.id}`}>
+                                    {sup.name}
+                                    {sup.supiskaCode && (
+                                      <span className="ml-2 font-mono text-emerald-700 dark:text-emerald-400" data-testid={`text-supiska-code-${sup.id}`}>
+                                        {sup.supiskaCode}
+                                      </span>
+                                    )}
                                   </span>
                                   <Badge variant="outline" className="text-xs">{sup.contracts?.length || 0} kontraktov</Badge>
                                   {phaseId === 8 && (
@@ -12226,20 +12231,35 @@ export default function Contracts() {
                       {supiskaPreviewData.supiskaCode}
                     </p>
                   )}
+                  {supiskaPreviewData?.seqNum != null && (
+                    <p className="text-xs text-muted-foreground mt-0.5" data-testid="text-supiska-preview-seqnum">
+                      Súpiska č. {supiskaPreviewData.seqNum} – Spracovanie
+                    </p>
+                  )}
                 </div>
-                <Button
-                  className="bg-green-600 hover:bg-green-700 text-white shrink-0"
-                  onClick={() => {
-                    createProcessingSupiskaMutation.mutate(phase8SupiskaQueue, {
-                      onSuccess: () => setSupiskaPreviewOpen(false),
-                    });
-                  }}
-                  disabled={createProcessingSupiskaMutation.isPending}
-                  data-testid="button-supiska-confirm-create"
-                >
-                  {createProcessingSupiskaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <ListChecks className="w-3.5 h-3.5 mr-1.5" />}
-                  Vytvoriť a uložiť a pripraviť súpisku na odoslanie
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    onClick={() => setSupiskaPreviewOpen(false)}
+                    disabled={createProcessingSupiskaMutation.isPending}
+                    data-testid="button-supiska-cancel"
+                  >
+                    Zrušiť
+                  </Button>
+                  <Button
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => {
+                      createProcessingSupiskaMutation.mutate(phase8SupiskaQueue, {
+                        onSuccess: () => setSupiskaPreviewOpen(false),
+                      });
+                    }}
+                    disabled={createProcessingSupiskaMutation.isPending}
+                    data-testid="button-supiska-confirm-create"
+                  >
+                    {createProcessingSupiskaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <ListChecks className="w-3.5 h-3.5 mr-1.5" />}
+                    Vytvoriť a uložiť súpisku
+                  </Button>
+                </div>
               </div>
             </DialogHeader>
             <div className="overflow-auto max-h-[60vh] mt-2">

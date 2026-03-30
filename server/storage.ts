@@ -417,6 +417,7 @@ export interface IStorage {
 
   // Counters
   getNextCounterValue(counterName: string): Promise<number>;
+  peekNextCounterValue(counterName: string): Promise<number>;
 
   // Contract Inventories
   getContractInventories(stateId?: number): Promise<ContractInventory[]>;
@@ -3108,6 +3109,14 @@ export class DatabaseStorage implements IStorage {
       .values({ counterName, currentValue: 1 })
       .returning();
     return created.currentValue;
+  }
+
+  async peekNextCounterValue(counterName: string): Promise<number> {
+    const [row] = await db
+      .select()
+      .from(globalCounters)
+      .where(eq(globalCounters.counterName, counterName));
+    return row ? row.currentValue + 1 : 1;
   }
 
   // === Contract Inventories ===

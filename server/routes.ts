@@ -6979,32 +6979,36 @@ export async function registerRoutes(
       }
       const appUser = req.appUser;
 
-      const validContracts: any[] = [];
+      // Hard-fail if ANY provided ID is not a phase-8 contract
+      const fetchedContracts: any[] = [];
       for (const cid of contractIds) {
-        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, Number(cid)), eq(contracts.lifecyclePhase, 8)));
-        if (!contract) continue;
-        validContracts.push(contract);
-      }
-      if (validContracts.length === 0) {
-        return res.status(400).json({ message: "Žiadne kontrakty v správnej fáze (8)" });
+        const [contract] = await db.select().from(contracts).where(eq(contracts.id, Number(cid)));
+        if (!contract) {
+          return res.status(400).json({ message: `Kontrakt ID ${cid} neexistuje.` });
+        }
+        if (contract.lifecyclePhase !== 8) {
+          return res.status(400).json({ message: `Kontrakt ID ${cid} nie je v správnej fáze (8). Nachádza sa vo fáze ${contract.lifecyclePhase}.` });
+        }
+        fetchedContracts.push(contract);
       }
 
-      // All contracts must share the same partner and product
-      const partnerId = validContracts[0].partnerId;
-      const productId = validContracts[0].productId;
-      const mixedPartner = validContracts.some(c => c.partnerId !== partnerId);
-      const mixedProduct = validContracts.some(c => c.productId !== productId);
+      // Hard-fail on mixed partner or product
+      const partnerId = fetchedContracts[0].partnerId;
+      const productId = fetchedContracts[0].productId;
+      const mixedPartner = fetchedContracts.some(c => c.partnerId !== partnerId);
+      const mixedProduct = fetchedContracts.some(c => c.productId !== productId);
       if (mixedPartner || mixedProduct) {
         return res.status(400).json({ message: "Všetky kontrakty v súpiske musia mať rovnakého partnera a produkt." });
       }
 
       const stateId = appUser?.activeStateId || 1;
       const companyId = appUser?.activeCompanyId || null;
+      const seqNum = await storage.peekNextCounterValue("supiska_processing_sequence");
       const supiskaCode = await storage.generateSupiskaCode(stateId, companyId, partnerId, productId);
 
       const contractTypeLabels: Record<string, string> = { Nova: "Nová", Prestupova: "Prestupová", Zmenova: "Zmenová", Dodatok: "Dodatok" };
 
-      const contractDetails = validContracts.map((c: any, i: number) => {
+      const contractDetails = fetchedContracts.map((c: any, i: number) => {
         const snap = c.subjectSnapshot || {};
         let subjectName = "";
         if (snap.type === "company") {
@@ -7023,7 +7027,7 @@ export async function registerRoutes(
         };
       });
 
-      res.json({ supiskaCode, contracts: contractDetails });
+      res.json({ supiskaCode, seqNum, contracts: contractDetails });
     } catch (err: any) {
       console.error("POST /api/contracts/supiska-preview error:", err);
       res.status(500).json({ message: err?.message || "Internal error" });
@@ -7039,19 +7043,28 @@ export async function registerRoutes(
       const appUser = req.appUser;
       const now = new Date();
 
+      // Hard-fail if ANY provided ID is not a phase-8 contract
       const validContracts: any[] = [];
       for (const cid of contractIds) {
-        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, Number(cid)), eq(contracts.lifecyclePhase, 8)));
-        if (!contract) continue;
+        const [contract] = await db.select().from(contracts).where(eq(contracts.id, Number(cid)));
+        if (!contract) {
+          return res.status(400).json({ message: `Kontrakt ID ${cid} neexistuje.` });
+        }
+        if (contract.lifecyclePhase !== 8) {
+          return res.status(400).json({ message: `Kontrakt ID ${cid} nie je v správnej fáze (8). Nachádza sa vo fáze ${contract.lifecyclePhase}.` });
+        }
         validContracts.push(contract);
       }
-      if (validContracts.length === 0) {
-        return res.status(400).json({ message: "Žiadne kontrakty v správnej fáze (8)" });
-      }
 
-      // Derive partner and product from the contracts (all should be the same)
+      // Hard-fail on mixed partner or product
       const derivedPartnerId = validContracts[0]?.partnerId || null;
       const derivedProductId = validContracts[0]?.productId || null;
+      if (validContracts.some(c => c.partnerId !== derivedPartnerId)) {
+        return res.status(400).json({ message: "Všetky kontrakty v súpiske musia mať rovnakého partnera." });
+      }
+      if (validContracts.some(c => c.productId !== derivedProductId)) {
+        return res.status(400).json({ message: "Všetky kontrakty v súpiske musia mať rovnaký produkt." });
+      }
       const stateId = appUser?.activeStateId || 1;
       const companyId = appUser?.activeCompanyId || null;
       const supiskaCode = await storage.generateSupiskaCode(stateId, companyId, derivedPartnerId, derivedProductId);
