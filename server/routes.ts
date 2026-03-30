@@ -6970,6 +6970,66 @@ export async function registerRoutes(
     }
   });
 
+  // Preview endpoint — returns supiska code + contract list without creating anything
+  app.post("/api/contracts/supiska-preview", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractIds } = req.body;
+      if (!Array.isArray(contractIds) || contractIds.length === 0) {
+        return res.status(400).json({ message: "Žiadne kontrakty na náhľad súpisky" });
+      }
+      const appUser = req.appUser;
+
+      const validContracts: any[] = [];
+      for (const cid of contractIds) {
+        const [contract] = await db.select().from(contracts).where(and(eq(contracts.id, Number(cid)), eq(contracts.lifecyclePhase, 8)));
+        if (!contract) continue;
+        validContracts.push(contract);
+      }
+      if (validContracts.length === 0) {
+        return res.status(400).json({ message: "Žiadne kontrakty v správnej fáze (8)" });
+      }
+
+      // All contracts must share the same partner and product
+      const partnerId = validContracts[0].partnerId;
+      const productId = validContracts[0].productId;
+      const mixedPartner = validContracts.some(c => c.partnerId !== partnerId);
+      const mixedProduct = validContracts.some(c => c.productId !== productId);
+      if (mixedPartner || mixedProduct) {
+        return res.status(400).json({ message: "Všetky kontrakty v súpiske musia mať rovnakého partnera a produkt." });
+      }
+
+      const stateId = appUser?.activeStateId || 1;
+      const companyId = appUser?.activeCompanyId || null;
+      const supiskaCode = await storage.generateSupiskaCode(stateId, companyId, partnerId, productId);
+
+      const contractTypeLabels: Record<string, string> = { Nova: "Nová", Prestupova: "Prestupová", Zmenova: "Zmenová", Dodatok: "Dodatok" };
+
+      const contractDetails = validContracts.map((c: any, i: number) => {
+        const snap = c.subjectSnapshot || {};
+        let subjectName = "";
+        if (snap.type === "company") {
+          subjectName = snap.companyName || "";
+        } else {
+          const parts = [snap.titleBefore, snap.firstName, snap.lastName, snap.titleAfter].filter(Boolean);
+          subjectName = parts.join(" ");
+        }
+        return {
+          ordinal: i + 1,
+          contractType: contractTypeLabels[c.contractType ?? ""] ?? (c.contractType || "—"),
+          proposalNumber: c.proposalNumber || null,
+          insuranceContractNumber: c.insuranceContractNumber || null,
+          subjectName: subjectName || "—",
+          checkedDocuments: Array.isArray(c.checkedDocuments) ? c.checkedDocuments : [],
+        };
+      });
+
+      res.json({ supiskaCode, contracts: contractDetails });
+    } catch (err: any) {
+      console.error("POST /api/contracts/supiska-preview error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
   app.post("/api/contracts/create-processing-supiska", isAuthenticated, async (req: any, res) => {
     try {
       const { contractIds } = req.body;
@@ -6989,14 +7049,24 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Žiadne kontrakty v správnej fáze (8)" });
       }
 
+      // Derive partner and product from the contracts (all should be the same)
+      const derivedPartnerId = validContracts[0]?.partnerId || null;
+      const derivedProductId = validContracts[0]?.productId || null;
+      const stateId = appUser?.activeStateId || 1;
+      const companyId = appUser?.activeCompanyId || null;
+      const supiskaCode = await storage.generateSupiskaCode(stateId, companyId, derivedPartnerId, derivedProductId);
+
       const supId = await storage.generateSupiskaId();
       const seqNum = await storage.getNextCounterValue("supiska_processing_sequence");
       const newSupiska = await storage.createSupiska({
         supId,
-        name: `Súpiska č. ${seqNum} - Spracovanie`,
+        name: supiskaCode || `Súpiska č. ${seqNum} - Spracovanie`,
+        supiskaCode: supiskaCode || null,
         status: "Nova",
-        stateId: appUser?.activeStateId || 1,
-        companyId: appUser?.activeCompanyId || null,
+        stateId,
+        companyId,
+        partnerId: derivedPartnerId,
+        productId: derivedProductId,
         createdBy: appUser?.fullName || "System",
         createdByUserId: appUser?.id || null,
         supiskaType: "processing",

@@ -4234,6 +4234,9 @@ export default function Contracts() {
   const [viewingContract, setViewingContract] = useState<Contract | null>(null);
   const [boConsoleContract, setBoConsoleContract] = useState<Contract | null>(null);
   const [phase8SupiskaQueue, setPhase8SupiskaQueue] = useState<number[]>([]);
+  const [supiskaPreviewOpen, setSupiskaPreviewOpen] = useState(false);
+  const [supiskaPreviewLoading, setSupiskaPreviewLoading] = useState(false);
+  const [supiskaPreviewData, setSupiskaPreviewData] = useState<{ supiskaCode: string | null; contracts: { ordinal: number; contractType: string; proposalNumber: string | null; insuranceContractNumber: string | null; subjectName: string; checkedDocuments: string[] }[] } | null>(null);
   const [nahratieViewContract, setNahratieViewContract] = useState<Contract | null>(null);
   const [docChecklistContract, setDocChecklistContract] = useState<Contract | null>(null);
   const [docChecklistCheckedReq, setDocChecklistCheckedReq] = useState<Set<number>>(new Set());
@@ -11768,8 +11771,26 @@ export default function Contracts() {
                     {phaseId === 8 && phase8SupiskaQueue.length > 0 && activeFolder === 8 && (
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">V rade: <span className="font-bold text-foreground">{phase8SupiskaQueue.length}</span></span>
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => createProcessingSupiskaMutation.mutate(phase8SupiskaQueue)} disabled={createProcessingSupiskaMutation.isPending} data-testid="button-create-supiska">
-                          {createProcessingSupiskaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <ListChecks className="w-3.5 h-3.5 mr-1.5" />}
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={async () => {
+                          setSupiskaPreviewLoading(true);
+                          try {
+                            const res = await fetch("/api/contracts/supiska-preview", {
+                              method: "POST",
+                              credentials: "include",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ contractIds: phase8SupiskaQueue }),
+                            });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.message || "Chyba pri načítaní náhľadu");
+                            setSupiskaPreviewData(data);
+                            setSupiskaPreviewOpen(true);
+                          } catch (err: any) {
+                            toast({ title: "Chyba", description: err.message, variant: "destructive" });
+                          } finally {
+                            setSupiskaPreviewLoading(false);
+                          }
+                        }} disabled={supiskaPreviewLoading} data-testid="button-create-supiska">
+                          {supiskaPreviewLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <ListChecks className="w-3.5 h-3.5 mr-1.5" />}
                           Vytvoriť súpisku ({phase8SupiskaQueue.length})
                         </Button>
                       </div>
@@ -12064,7 +12085,9 @@ export default function Contracts() {
                                 >
                                   {isSupExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
                                   <ListChecks className="w-4 h-4 text-muted-foreground shrink-0" />
-                                  <span className="text-sm font-medium flex-1" data-testid={`text-supiska-name-${sup.id}`}>{sup.name}</span>
+                                  <span className="text-sm font-medium flex-1 font-mono" data-testid={`text-supiska-name-${sup.id}`}>
+                                    {sup.supiskaCode || sup.name}
+                                  </span>
                                   <Badge variant="outline" className="text-xs">{sup.contracts?.length || 0} kontraktov</Badge>
                                   {phaseId === 8 && (
                                     <Button
@@ -12190,6 +12213,72 @@ export default function Contracts() {
           });
         })()}
 
+
+        {/* ── Súpiska Preview Dialog (Phase 8 → create súpiska) ── */}
+        <Dialog open={supiskaPreviewOpen} onOpenChange={(v) => { if (!createProcessingSupiskaMutation.isPending) setSupiskaPreviewOpen(v); }}>
+          <DialogContent size="xl">
+            <DialogHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <DialogTitle data-testid="text-supiska-preview-title">Náhľad súpisky</DialogTitle>
+                  {supiskaPreviewData?.supiskaCode && (
+                    <p className="text-sm font-mono font-bold text-emerald-700 dark:text-emerald-400 mt-1" data-testid="text-supiska-preview-code">
+                      {supiskaPreviewData.supiskaCode}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white shrink-0"
+                  onClick={() => {
+                    createProcessingSupiskaMutation.mutate(phase8SupiskaQueue, {
+                      onSuccess: () => setSupiskaPreviewOpen(false),
+                    });
+                  }}
+                  disabled={createProcessingSupiskaMutation.isPending}
+                  data-testid="button-supiska-confirm-create"
+                >
+                  {createProcessingSupiskaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <ListChecks className="w-3.5 h-3.5 mr-1.5" />}
+                  Vytvoriť a uložiť a pripraviť súpisku na odoslanie
+                </Button>
+              </div>
+            </DialogHeader>
+            <div className="overflow-auto max-h-[60vh] mt-2">
+              {supiskaPreviewData && supiskaPreviewData.contracts.length > 0 ? (
+                <table className="w-full text-xs border-separate border-spacing-0">
+                  <thead>
+                    <tr className="bg-muted/50">
+                      <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b w-10">#</th>
+                      <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b w-24">Typ zmluvy</th>
+                      <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b w-32">Č. návrhu / zmluvy</th>
+                      <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b">Meno / Subjekt</th>
+                      <th className="px-2 py-1.5 text-left font-medium text-muted-foreground border-b">Odovzdané dokumenty</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {supiskaPreviewData.contracts.map((row) => (
+                      <tr key={row.ordinal} className="border-b hover:bg-muted/20" data-testid={`row-supiska-preview-${row.ordinal}`}>
+                        <td className="px-2 py-1.5 font-bold text-emerald-600">{row.ordinal}</td>
+                        <td className="px-2 py-1.5 text-muted-foreground">{row.contractType}</td>
+                        <td className="px-2 py-1.5 font-mono">
+                          <div>{row.proposalNumber || "—"}</div>
+                          {row.insuranceContractNumber && (
+                            <div className="text-muted-foreground text-[10px]">{row.insuranceContractNumber}</div>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5">{row.subjectName}</td>
+                        <td className="px-2 py-1.5 text-muted-foreground">
+                          {row.checkedDocuments.length > 0 ? row.checkedDocuments.join(", ") : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">Žiadne kontrakty na zobrazenie</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* ── Sprievodka preview — large read-only list of selected contracts ── */}
         <Dialog open={sprievodkaPreviewOpen} onOpenChange={setSprievodkaPreviewOpen}>
