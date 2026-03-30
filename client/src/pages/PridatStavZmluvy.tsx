@@ -26,10 +26,6 @@ function KokpitCard({ onClick }: { onClick: () => void }) {
         userSelect: "none",
         transition: "transform 0.15s ease",
         transform: pressed ? "scale(0.96)" : hovered ? "scale(1.04)" : "scale(1)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 14,
       }}
     >
       <svg
@@ -40,8 +36,11 @@ function KokpitCard({ onClick }: { onClick: () => void }) {
         style={{ overflow: "visible" }}
       >
         <defs>
-          <filter id="kokpitGlow" x="-60%" y="-60%" width="220%" height="220%">
-            <feGaussianBlur stdDeviation="14" result="blur" />
+          <filter id="kokpitGlow" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="18" result="blur" />
+          </filter>
+          <filter id="kokpitGlow2" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="10" result="blur" />
           </filter>
           <radialGradient id="outerGrad" cx="50%" cy="35%" r="60%">
             <stop offset="0%" stopColor="#1e3a6e" />
@@ -57,11 +56,17 @@ function KokpitCard({ onClick }: { onClick: () => void }) {
           </radialGradient>
         </defs>
 
-        {/* Glow pod tlačidlom */}
+        {/* Zelené podsvietenie — dvojvrstvové pre silnejší efekt */}
         <circle
-          cx="90" cy="90" r="82"
-          fill={isActive ? "rgba(57,255,20,0.9)" : "rgba(56,189,248,0.45)"}
+          cx="90" cy="90" r="90"
+          fill={isActive ? "rgba(57,255,20,1.0)" : "rgba(57,255,20,0.65)"}
           filter="url(#kokpitGlow)"
+          style={{ transition: "fill 0.2s ease" }}
+        />
+        <circle
+          cx="90" cy="90" r="84"
+          fill={isActive ? "rgba(57,255,20,0.6)" : "rgba(56,189,248,0.30)"}
+          filter="url(#kokpitGlow2)"
           style={{ transition: "fill 0.2s ease" }}
         />
 
@@ -69,77 +74,51 @@ function KokpitCard({ onClick }: { onClick: () => void }) {
         <circle
           cx="90" cy="90" r="82"
           fill="url(#outerGrad)"
-          stroke={isActive ? "rgba(245,158,11,0.75)" : "rgba(245,158,11,0.30)"}
-          strokeWidth="1.5"
+          stroke={isActive ? "rgba(245,158,11,0.90)" : "rgba(245,158,11,0.55)"}
+          strokeWidth="3.5"
           style={{ transition: "stroke 0.15s ease" }}
         />
-        {/* Vnútorný tieň vonkajšieho kruhu — zapustenie */}
-        <circle
-          cx="90" cy="90" r="82"
-          fill="none"
-          stroke="rgba(0,0,0,0.55)"
-          strokeWidth="6"
-          strokeDasharray="none"
-          style={{ filter: "blur(3px)" }}
-        />
+        <circle cx="90" cy="90" r="82" fill="none" stroke="rgba(0,0,0,0.55)" strokeWidth="6" style={{ filter: "blur(3px)" }} />
 
         {/* Stredný kruh */}
         <circle
           cx="90" cy="90" r="60"
           fill="url(#midGrad)"
-          stroke={isActive ? "rgba(245,158,11,0.55)" : "rgba(245,158,11,0.22)"}
-          strokeWidth="1.5"
+          stroke={isActive ? "rgba(245,158,11,0.80)" : "rgba(245,158,11,0.45)"}
+          strokeWidth="3.5"
           style={{ transition: "stroke 0.15s ease" }}
         />
-        <circle
-          cx="90" cy="90" r="60"
-          fill="none"
-          stroke="rgba(0,0,0,0.50)"
-          strokeWidth="5"
-          style={{ filter: "blur(2.5px)" }}
-        />
+        <circle cx="90" cy="90" r="60" fill="none" stroke="rgba(0,0,0,0.50)" strokeWidth="5" style={{ filter: "blur(2.5px)" }} />
 
         {/* Vnútorný kruh */}
         <circle
           cx="90" cy="90" r="38"
           fill="url(#innerGrad)"
-          stroke={isActive ? "rgba(245,158,11,0.70)" : "rgba(245,158,11,0.35)"}
-          strokeWidth="1.5"
+          stroke={isActive ? "rgba(245,158,11,0.85)" : "rgba(245,158,11,0.50)"}
+          strokeWidth="3.5"
           style={{ transition: "stroke 0.15s ease" }}
         />
-        <circle
-          cx="90" cy="90" r="38"
-          fill="none"
-          stroke="rgba(0,0,0,0.45)"
-          strokeWidth="4"
-          style={{ filter: "blur(2px)" }}
-        />
+        <circle cx="90" cy="90" r="38" fill="none" stroke="rgba(0,0,0,0.45)" strokeWidth="4" style={{ filter: "blur(2px)" }} />
 
-        {/* Ikona v strede — štylizovaný kokpit/priehľad */}
+        {/* KOKPIT text v strednom kruhu */}
         <text
-          x="90" y="96"
+          x="90"
+          y="90"
           textAnchor="middle"
           dominantBaseline="middle"
-          fontSize="28"
+          fontSize="13"
+          fontWeight="800"
+          fontFamily="sans-serif"
+          letterSpacing="3"
+          fill="#b8d0f0"
           style={{
-            filter: `drop-shadow(0 0 7px rgba(255,191,0,${isActive ? 1 : 0.6}))`,
+            filter: `drop-shadow(0 0 6px rgba(255,191,0,${isActive ? 0.95 : 0.50}))`,
             transition: "filter 0.15s ease",
           }}
         >
-          🎛️
+          KOKPIT
         </text>
       </svg>
-
-      <span style={{
-        fontFamily: "sans-serif",
-        fontSize: 12,
-        fontWeight: 800,
-        color: "#b8d0f0",
-        letterSpacing: "0.12em",
-        textAlign: "center",
-      }}>
-        KOKPIT
-      </span>
     </button>
   );
 }
