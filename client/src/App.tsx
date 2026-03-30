@@ -32,6 +32,7 @@ import ForgotPassword from "@/pages/ForgotPassword";
 import ClientZone from "@/pages/ClientZone";
 import Contracts from "@/pages/Contracts";
 import ContractStatuses from "@/pages/ContractStatuses";
+import PridatStavZmluvy from "@/pages/PridatStavZmluvy";
 import ContractTemplates from "@/pages/ContractTemplates";
 import ContractInventories from "@/pages/ContractInventories";
 import SupiskyPage from "@/pages/Supisky";
@@ -162,6 +163,7 @@ const PrivateArchive = () => <PrivateRoute><Archive /></PrivateRoute>;
 const PrivateContracts = () => <PrivateRoute><Contracts /></PrivateRoute>;
 const PrivateContractForm = () => <PrivateRoute><ContractForm /></PrivateRoute>;
 const PrivateContractStatuses = () => <PrivateRoute><ContractStatuses /></PrivateRoute>;
+const PrivatePridatStavZmluvy = () => <PrivateRoute><PridatStavZmluvy /></PrivateRoute>;
 const PrivateContractTemplates = () => <PrivateRoute><ContractTemplates /></PrivateRoute>;
 const PrivateContractFieldSettings = () => <PrivateRoute><ContractFieldSettings /></PrivateRoute>;
 const PrivateContractInventories = () => <PrivateRoute><ContractInventories /></PrivateRoute>;
@@ -236,6 +238,7 @@ function Router() {
       <Route path="/contracts/new" component={PrivateContractForm} />
       <Route path="/contracts/:id/edit" component={PrivateContractForm} />
       <Route path="/contract-statuses" component={PrivateContractStatuses} />
+      <Route path="/pridat-stav-zmluvy" component={PrivatePridatStavZmluvy} />
       <Route path="/contract-template-settings" component={PrivateContractTemplates} />
       <Route path="/contract-template-management" component={PrivateContractTemplates} />
       <Route path="/contract-field-settings" component={PrivateContractFieldSettings} />
