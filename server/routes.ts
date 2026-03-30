@@ -24222,10 +24222,15 @@ export async function registerRoutes(
 
       const allLinksBuilt = [...allLinks, ...virtualPartnerLinks];
 
-      // KTO-first isolation: when acting as a company (KTO context), show that company's branch.
-      // Fallback to KDE (workspace company) when no KTO is set.
-      const filterCompanyId = (req as any).appUser?.activeKtoCompanyId ?? (req as any).appUser?.activeCompanyId ?? null;
+      // KTO-first isolation: when acting as a specific company (KTO context), show that company's branch.
+      // Admins without an explicit KTO context see the full system tree.
+      // Non-admins without KTO context fall back to their KDE (workspace) company.
+      const adminRoles = ['admin', 'superadmin', 'prezident', 'architekt'];
+      const isAdminUser = adminRoles.includes((req as any).appUser?.role);
       const isSuperadmin = (req as any).appUser?.role === 'superadmin';
+      const ktoCompanyId = (req as any).appUser?.activeKtoCompanyId ?? null;
+      const kdeCompanyId = (req as any).appUser?.activeCompanyId ?? null;
+      const filterCompanyId: number | null = ktoCompanyId ?? (isAdminUser ? null : kdeCompanyId);
       let visibleSubjects = allSubjectsBuilt;
       let visibleLinks = allLinksBuilt;
       let effectiveRoot = rootSubject;
@@ -24293,8 +24298,8 @@ export async function registerRoutes(
           effectiveRoot = visibleSubjects.find(s => s.id === companyNodeId) ?? effectiveRoot;
         }
 
-      } else if (!isSuperadmin) {
-        // Non-superadmin without KDE context must not see the full tree
+      } else if (!isAdminUser) {
+        // Non-admin without KDE/KTO context must not see the full tree
         visibleSubjects = [];
         visibleLinks = [];
         effectiveRoot = rootSubject;

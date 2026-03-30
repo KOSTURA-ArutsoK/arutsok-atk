@@ -201,6 +201,8 @@ export default function NetworkSiet() {
 
   const { data: networkData, isLoading: loadingTree } = useQuery<{ root: any; links: NetworkLink[]; subjects: NetworkSubject[]; personalSubjectId?: number | null; officerSubjectIds?: number[] }>({
     queryKey: ["/api/network/tree", appUser?.id, appUser?.activeKtoCompanyId, appUser?.activeCompanyId],
+    queryFn: () => fetch("/api/network/tree", { credentials: "include" }).then(r => r.json()),
+    enabled: !!appUser,
   });
 
   // Auto-expand the path from the tree root to the logged-in user's personal node
