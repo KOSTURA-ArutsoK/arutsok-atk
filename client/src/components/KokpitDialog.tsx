@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { TripleRingStatus } from "@/components/TripleRingStatus";
-import { FileText, CheckCircle2, AlertCircle, Loader2, X, Archive, Search } from "lucide-react";
+import { FileText, Loader2, X, Archive, Search, Inbox, Upload, Image as ImageIcon, File, FileCheck } from "lucide-react";
 import type { KokpitItem } from "@shared/schema";
 import type { ScanFile } from "@/pages/PridatStavZmluvy";
 
@@ -38,16 +38,35 @@ function fmtSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function getFileTypeIcon(name: string, className = "w-3.5 h-3.5 shrink-0") {
+  const ext = name.split('.').pop()?.toLowerCase() ?? '';
+  if (ext === 'pdf') return <FileText className={`${className} text-red-500`} />;
+  if (['jpg','jpeg','png','gif','webp','bmp'].includes(ext)) return <ImageIcon className={`${className} text-amber-500`} />;
+  if (['doc','docx'].includes(ext)) return <FileCheck className={`${className} text-blue-500`} />;
+  return <File className={`${className} text-muted-foreground`} />;
+}
+
+function getFileTypeBadge(name: string) {
+  const ext = name.split('.').pop()?.toLowerCase() ?? '';
+  if (ext === 'pdf') return <span className="text-[9px] font-bold uppercase tracking-wide text-red-500 bg-red-500/10 rounded px-1">PDF</span>;
+  if (['jpg','jpeg','png','gif','webp','bmp'].includes(ext)) return <span className="text-[9px] font-bold uppercase tracking-wide text-amber-600 bg-amber-500/10 rounded px-1">{ext.toUpperCase()}</span>;
+  if (ext === 'docx' || ext === 'doc') return <span className="text-[9px] font-bold uppercase tracking-wide text-blue-600 bg-blue-500/10 rounded px-1">W</span>;
+  return null;
+}
+
 // ── KROK 1: Inbox + Trezor ────────────────────────────────────────────────────
 
 interface Step1PanelProps {
   scanFiles: ScanFile[];
   onRemoveScanFile: (id: string) => void;
+  onAddFiles: (files: File[]) => void;
 }
 
-function Step1Panel({ scanFiles, onRemoveScanFile }: Step1PanelProps) {
+function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles }: Step1PanelProps) {
   const { toast } = useToast();
   const [selectedScanIds, setSelectedScanIds] = useState<Set<string>>(new Set());
+  const [inboxDragOver, setInboxDragOver] = useState(false);
+  const inboxFileInputRef = useRef<HTMLInputElement>(null);
   const [searchUid, setSearchUid] = useState("");
   const [searchCode, setSearchCode] = useState("");
   const [searchSubject, setSearchSubject] = useState("");
@@ -127,96 +146,120 @@ function Step1Panel({ scanFiles, onRemoveScanFile }: Step1PanelProps) {
     <div className="flex flex-col flex-1 min-h-0 divide-y">
       {/* TOP: Inbox */}
       <div className="flex flex-col shrink-0" style={{ height: "40%" }}>
-        <div className="px-4 py-2.5 border-b shrink-0 flex items-center gap-2 bg-muted/20">
-          <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs font-semibold">Inbox skenov</span>
-          <Badge variant="outline" className="text-[10px] ml-auto">{scanFiles.length} súborov</Badge>
+        {/* Header */}
+        <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
+          <Inbox className="w-3.5 h-3.5 text-blue-500" />
+          <span className="text-xs font-medium text-blue-600 dark:text-blue-400">Inbox</span>
+          {(() => {
+            const selectable = scanFiles.filter(f => f.done && !f.error).length;
+            const sel = selectedScanIds.size;
+            return (
+              <Badge className={`text-xs ${sel > 0 ? "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-400/50" : "bg-muted/50 text-muted-foreground border-border"}`}>
+                {sel} / {selectable}
+              </Badge>
+            );
+          })()}
+          <Badge variant="outline" className="text-xs ml-auto">{scanFiles.length} súborov</Badge>
         </div>
-        <div className="flex-1 overflow-y-auto">
-          {scanFiles.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground p-6">
-              <FileText size={32} className="opacity-20" />
-              <p className="text-sm text-center">
-                Žiadne skeny.<br />
-                <span className="text-xs">Presuňte súbory do plochy na stránke.</span>
-              </p>
-            </div>
-          ) : (
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b bg-muted/20 sticky top-0">
-                  <th className="py-1.5 px-3 w-6"></th>
-                  <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">Súbor</th>
-                  <th className="py-1.5 px-2 text-right font-medium text-muted-foreground">Veľkosť</th>
-                  <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">Stav</th>
-                  <th className="py-1.5 px-2 w-6"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {scanFiles.map(file => {
-                  const isSelected = selectedScanIds.has(file.id);
-                  const paired = pairedMap[file.id];
-                  return (
-                    <tr
-                      key={file.id}
-                      data-testid={`row-inbox-${file.id}`}
-                      className="border-b border-border/30 cursor-pointer transition-colors"
-                      style={{ background: isSelected ? "rgba(30,64,175,0.07)" : paired ? "rgba(5,150,105,0.05)" : undefined }}
-                      onClick={() => { if (file.done && !file.error) toggleScan(file.id); }}
-                    >
-                      <td className="py-1.5 px-3">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          readOnly
-                          className="cursor-pointer"
-                          data-testid={`checkbox-scan-${file.id}`}
-                          onClick={e => { e.stopPropagation(); if (file.done && !file.error) toggleScan(file.id); }}
-                        />
-                      </td>
-                      <td className="py-1.5 px-2">
-                        <div className="flex items-center gap-1">
-                          <FileText size={11} className="text-muted-foreground shrink-0" />
-                          <span className="truncate max-w-[130px]" title={file.name}>{file.name}</span>
-                        </div>
-                        {paired && (
-                          <div className="text-[10px] text-emerald-600 font-medium mt-0.5">
-                            → {paired.contractUid}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-1.5 px-2 text-right text-muted-foreground">{fmtSize(file.size)}</td>
-                      <td className="py-1.5 px-2">
-                        {file.error ? (
-                          <span className="flex items-center gap-1 text-red-600">
-                            <AlertCircle size={10} />chyba
-                          </span>
-                        ) : file.done ? (
-                          <span className="flex items-center gap-1 text-emerald-600">
-                            <CheckCircle2 size={10} />OK
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-blue-600">
-                            <Loader2 size={10} className="animate-spin" />{file.progress}%
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-1.5 px-2">
-                        <button
-                          data-testid={`button-inbox-remove-${file.id}`}
-                          onClick={e => { e.stopPropagation(); onRemoveScanFile(file.id); }}
-                          className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                        >
-                          <X size={11} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+
+        {/* Drop zone */}
+        <div
+          className={`mx-3 mt-3 mb-2 rounded-lg border-2 border-dashed flex flex-col items-center justify-center py-4 px-3 transition-colors cursor-pointer shrink-0 ${
+            inboxDragOver ? "border-blue-500 bg-blue-500/10" : "border-blue-400/50 hover:border-blue-500 hover:bg-blue-500/5"
+          }`}
+          onDragOver={(e) => { e.preventDefault(); setInboxDragOver(true); }}
+          onDragLeave={() => setInboxDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setInboxDragOver(false);
+            const files = Array.from(e.dataTransfer.files).filter(f => f.size > 0);
+            if (files.length > 0) onAddFiles(files);
+          }}
+          onClick={() => inboxFileInputRef.current?.click()}
+          data-testid="dropzone-kokpit-inbox"
+        >
+          <Upload className="w-6 h-6 text-blue-500 mb-1" />
+          <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Pretiahnite skeny sem</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">PDF, obrázky — kliknite pre výber</p>
+          <input
+            ref={inboxFileInputRef}
+            type="file"
+            multiple
+            accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp,.doc,.docx"
+            className="hidden"
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []).filter(f => f.size > 0);
+              if (files.length > 0) onAddFiles(files);
+              e.target.value = "";
+            }}
+          />
+        </div>
+
+        {/* File list */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 space-y-1">
+          {scanFiles.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center pt-4">Žiadne súbory</p>
           )}
+          {scanFiles.map((file) => {
+            const isSelected = selectedScanIds.has(file.id);
+            const paired = pairedMap[file.id];
+            const isUploadDone = file.done && !file.error;
+            return (
+              <div
+                key={file.id}
+                data-testid={`file-inbox-${file.id}`}
+                className={`rounded-md border px-2 py-1.5 transition-colors ${
+                  paired
+                    ? "bg-emerald-500/10 border-emerald-500/30 cursor-pointer"
+                    : isSelected
+                    ? "bg-orange-500/10 border-orange-500 ring-1 ring-orange-500/40 cursor-pointer"
+                    : "hover:bg-muted/40 border-border cursor-pointer"
+                } ${!file.done && !file.error ? "opacity-70" : ""}`}
+                onClick={() => { if (isUploadDone) toggleScan(file.id); }}
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {isUploadDone && !paired ? (
+                    <input
+                      type="checkbox"
+                      className="h-3 w-3 shrink-0 accent-orange-500"
+                      checked={isSelected}
+                      onChange={(e) => { e.stopPropagation(); toggleScan(file.id); }}
+                      onClick={(e) => e.stopPropagation()}
+                      data-testid={`checkbox-scan-${file.id}`}
+                    />
+                  ) : (
+                    <span className="w-3 h-3 shrink-0" />
+                  )}
+                  {paired
+                    ? getFileTypeIcon(file.name, "w-3.5 h-3.5 shrink-0 text-emerald-500")
+                    : isSelected
+                    ? getFileTypeIcon(file.name, "w-3.5 h-3.5 shrink-0 text-orange-500")
+                    : getFileTypeIcon(file.name)}
+                  <span className="text-xs font-mono truncate flex-1">{file.name}</span>
+                  {getFileTypeBadge(file.name)}
+                  <span className="text-[10px] text-muted-foreground shrink-0">{fmtSize(file.size)}</span>
+                  <button
+                    data-testid={`button-inbox-remove-${file.id}`}
+                    onClick={(e) => { e.stopPropagation(); onRemoveScanFile(file.id); }}
+                    className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive shrink-0 ml-1"
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+                {file.error ? (
+                  <p className="text-[10px] text-red-500 mt-0.5">{file.error}</p>
+                ) : !file.done ? (
+                  <div className="mt-1 h-1 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full bg-blue-500 transition-all" style={{ width: `${file.progress}%` }} />
+                  </div>
+                ) : paired ? (
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5 truncate">→ {paired.contractUid}</p>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
+
         {selectedScanIds.size > 0 && (
           <div className="px-3 py-2 border-t text-xs text-muted-foreground bg-blue-500/5 shrink-0">
             {selectedScanIds.size} sken{selectedScanIds.size === 1 ? "" : "ov"} vybraných — vyberte zmluvu v Trezore
@@ -350,9 +393,10 @@ interface KokpitDialogProps {
   onOpenChange: (v: boolean) => void;
   scanFiles: ScanFile[];
   onRemoveScanFile: (id: string) => void;
+  onAddFiles: (files: File[]) => void;
 }
 
-export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile }: KokpitDialogProps) {
+export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, onAddFiles }: KokpitDialogProps) {
   const [activeTab, setActiveTab] = useState("prichod");
 
   const { data: items = [] } = useQuery<KokpitItemExt[]>({
@@ -398,7 +442,7 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile }
 
             {/* PRÍCHOD — Krok 1: Inbox + Trezor */}
             <TabsContent value="prichod" className="flex-1 min-h-0 m-0" style={{ display: 'flex' }}>
-              <Step1Panel scanFiles={scanFiles} onRemoveScanFile={onRemoveScanFile} />
+              <Step1Panel scanFiles={scanFiles} onRemoveScanFile={onRemoveScanFile} onAddFiles={onAddFiles} />
             </TabsContent>
 
             {/* ROZDELENIE — Krok 2 — placeholder */}

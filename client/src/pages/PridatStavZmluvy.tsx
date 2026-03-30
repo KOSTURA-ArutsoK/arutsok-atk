@@ -681,6 +681,7 @@ export default function PridatStavZmluvy() {
         onOpenChange={setKokpitOpen}
         scanFiles={scanFiles}
         onRemoveScanFile={removeScanFile}
+        onAddFiles={uploadFiles}
       />
     </div>
   );
