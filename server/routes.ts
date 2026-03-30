@@ -8045,7 +8045,7 @@ export async function registerRoutes(
         module: "sprievodka_dispatch",
         entityId: inventoryId,
         entityName: `Sprievodka c. ${seqNum}`,
-        newData: { contractIds: eligibleContractIds, skippedProtectedIds: protectedIds, sequenceNumber: seqNum },
+        newData: { contractIds: eligibleContractIds, skippedProtectedIds: [...protectedIdSet], sequenceNumber: seqNum },
       });
       res.json({ success: true, dispatchedCount: eligibleContractIds.length, sequenceNumber: seqNum });
     } catch (err: any) {
