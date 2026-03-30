@@ -6,10 +6,8 @@ export default function Novinky() {
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-3">
         <Newspaper
-          className="w-6 h-6"
+          className="w-6 h-6 stroke-blue-700 fill-amber-400"
           strokeWidth={2}
-          stroke="#1d4ed8"
-          fill="#fbbf24"
           data-testid="icon-novinky"
         />
         <h1 className="text-2xl font-bold" data-testid="text-page-title">Novinky</h1>
