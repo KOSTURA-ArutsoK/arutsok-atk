@@ -3176,7 +3176,7 @@ export class DatabaseStorage implements IStorage {
           lifecyclePhase: 1,
           sortOrderInInventory: sql`CASE ${sql.join(caseFragments, sql` `)} END`,
         } as any)
-        .where(and(inArray(contracts.id, batch), lt(contracts.lifecyclePhase, 5)));
+        .where(and(inArray(contracts.id, batch), or(isNull(contracts.lifecyclePhase), lt(contracts.lifecyclePhase, 5))));
     }
   }
 
