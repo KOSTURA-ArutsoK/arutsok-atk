@@ -791,7 +791,7 @@ export function AppSidebar() {
                         data-testid="nav-obchodne-prilezitosti"
                       >
                         <Link href="/obchodne-prilezitosti">
-                          <Target className="w-4 h-4" />
+                          <Plus className="w-4 h-4" />
                           <span>Obchodne prilezitosti</span>
                         </Link>
                       </SidebarMenuButton>
@@ -807,7 +807,7 @@ export function AppSidebar() {
                         data-testid="nav-obchodne-prilezitosti"
                       >
                         <Link href={`/obchodne-prilezitosti?id=${ops[0].id}`}>
-                          <Target className="w-4 h-4" />
+                          <Plus className="w-4 h-4" />
                           <span>Obchodna prilezitost</span>
                         </Link>
                       </SidebarMenuButton>
@@ -819,7 +819,7 @@ export function AppSidebar() {
                     <SidebarMenuItem>
                       <CollapsibleTrigger asChild>
                         <SidebarMenuButton data-testid="nav-obchodne-prilezitosti" className={isActiveOp ? "bg-accent text-accent-foreground" : ""}>
-                          <Target className="w-4 h-4" />
+                          <Plus className="w-4 h-4" />
                           <span>Obchodne prilezitosti</span>
                           <ChevronRight className={`ml-auto h-4 w-4 transition-transform ${openMenuId === menuKey ? "rotate-90" : ""}`} />
                         </SidebarMenuButton>
@@ -854,6 +854,18 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/pridat-stav-zmluvy"}
+                  data-testid="nav-pridat-stav-zmluvy"
+                >
+                  <Link href="/pridat-stav-zmluvy">
+                    <Target className="w-4 h-4" />
+                    <span>Pridať stav zmluvy</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               {ktoEqualsKde && (
                 <CollapsibleMenu
                   label="Partneri a produkty"
@@ -1090,19 +1102,6 @@ export function AppSidebar() {
                             </div>
                           </CollapsibleContent>
                         </Collapsible>
-                      </SidebarMenuSubItem>
-
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          isActive={location === "/pridat-stav-zmluvy"}
-                          data-testid="nav-pridat-stav-zmluvy"
-                        >
-                          <Link href="/pridat-stav-zmluvy">
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Pridať stav zmluvy</span>
-                          </Link>
-                        </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
 
                       <SidebarMenuSubItem>
