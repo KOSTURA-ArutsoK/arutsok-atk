@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -211,7 +211,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
           ) : previewFile?.url && isImageFile(previewFile.name) ? (
             <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-full object-contain rounded shadow-sm" data-testid="preview-image" />
           ) : previewFile?.url && isPdfFile(previewFile.name) ? (
-            <iframe src={previewFile.url} title={previewFile.name} className="w-full flex-1 border-0 rounded" style={{ minHeight: 200 }} data-testid="preview-pdf" />
+            <embed src={previewFile.url} type="application/pdf" className="w-full flex-1 rounded" style={{ minHeight: 200 }} data-testid="preview-pdf" />
           ) : previewFile ? (
             <div className="text-center text-muted-foreground space-y-2">
               {getFileTypeIcon(previewFile.name, "w-10 h-10 mx-auto")}
@@ -487,6 +487,7 @@ interface KokpitDialogProps {
 export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, onAddFiles }: KokpitDialogProps) {
   const [activeTab, setActiveTab] = useState("prichod");
   const [completedItems, setCompletedItems] = useState<CompletedItem[]>([]);
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
 
   const { data: items = [] } = useQuery<KokpitItemExt[]>({
     queryKey: ["/api/kokpit/items"],
@@ -501,6 +502,34 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
 
   return (
     <>
+      {/* Potvrdzovacie okno — Ukončiť */}
+      <Dialog open={showConfirmClose} onOpenChange={setShowConfirmClose}>
+        <DialogContent className="max-w-sm">
+          <DialogTitle className="text-base font-semibold">Ukončiť spracovanie?</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground mt-1">
+            Po zatvorení okna sa stratia všetky výsledky vyhľadávania zmlúv a priradenia skenov, ktoré ste neuložili do záložky <strong>Riešenie</strong>.
+          </DialogDescription>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="button-confirm-cancel"
+              onClick={() => setShowConfirmClose(false)}
+            >
+              Pokračovať v práci
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              data-testid="button-confirm-ukoncit"
+              onClick={() => { setShowConfirmClose(false); onOpenChange(false); }}
+            >
+              Ukončiť
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={open} onOpenChange={onOpenChange}>
         {/* OUTER VRSTVA — 95 vw × 95 vh */}
         <DialogContent
@@ -521,7 +550,7 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
                 size="sm"
                 data-testid="button-kokpit-ukoncit"
                 className="shrink-0 h-7 px-3 text-xs"
-                onClick={() => onOpenChange(false)}
+                onClick={() => setShowConfirmClose(true)}
               >
                 Ukončiť
               </Button>
