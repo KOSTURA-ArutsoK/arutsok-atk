@@ -209,16 +209,18 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles }: Step1PanelProps
                 key={file.id}
                 data-testid={`file-inbox-${file.id}`}
                 className={`rounded-md border px-2 py-1.5 transition-colors ${
-                  paired
-                    ? "bg-emerald-500/10 border-emerald-500/30 cursor-pointer"
-                    : isSelected
+                  isSelected
                     ? "bg-orange-500/10 border-orange-500 ring-1 ring-orange-500/40 cursor-pointer"
-                    : "hover:bg-muted/40 border-border cursor-pointer"
+                    : paired
+                    ? "bg-emerald-500/10 border-emerald-500/30 cursor-pointer"
+                    : isUploadDone
+                    ? "hover:bg-muted/40 border-border cursor-pointer"
+                    : "border-border"
                 } ${!file.done && !file.error ? "opacity-70" : ""}`}
                 onClick={() => { if (isUploadDone) toggleScan(file.id); }}
               >
                 <div className="flex items-center gap-1.5 min-w-0">
-                  {isUploadDone && !paired ? (
+                  {isUploadDone ? (
                     <input
                       type="checkbox"
                       className="h-3 w-3 shrink-0 accent-orange-500"
@@ -230,10 +232,10 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles }: Step1PanelProps
                   ) : (
                     <span className="w-3 h-3 shrink-0" />
                   )}
-                  {paired
-                    ? getFileTypeIcon(file.name, "w-3.5 h-3.5 shrink-0 text-emerald-500")
-                    : isSelected
+                  {isSelected
                     ? getFileTypeIcon(file.name, "w-3.5 h-3.5 shrink-0 text-orange-500")
+                    : paired
+                    ? getFileTypeIcon(file.name, "w-3.5 h-3.5 shrink-0 text-emerald-500")
                     : getFileTypeIcon(file.name)}
                   <span className="text-xs font-mono truncate flex-1">{file.name}</span>
                   {getFileTypeBadge(file.name)}
