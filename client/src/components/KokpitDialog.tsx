@@ -409,63 +409,72 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
+        {/* OUTER VRSTVA — 95 vw × 95 vh — viditeľný rám/pozadie */}
         <DialogContent
-          className="p-0 gap-0 flex flex-col"
-          style={{ maxWidth: "90vw", width: "90vw", height: "85vh", maxHeight: "85vh" }}
+          noInnerScroll
+          className="flex items-center justify-center p-0 bg-slate-200/60 dark:bg-slate-900/70 shadow-none border-0 rounded-2xl"
+          style={{ maxWidth: "95vw", width: "95vw", height: "95vh", maxHeight: "95vh" }}
         >
-          <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
-            <DialogTitle className="text-lg font-bold">Kokpit — Spracovanie stavov</DialogTitle>
-          </DialogHeader>
+          {/* INNER VRSTVA — 90 vw × 90 vh — hlavný obsah dialógu */}
+          <div
+            className="flex flex-col bg-background rounded-xl shadow-2xl border overflow-hidden"
+            style={{ width: "90vw", height: "90vh" }}
+          >
+            {/* Hlavička */}
+            <div className="px-6 pt-5 pb-3 border-b shrink-0">
+              <DialogTitle className="text-lg font-bold">Kokpit — Spracovanie stavov</DialogTitle>
+            </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
-            <TabsList className="mx-6 mt-3 shrink-0 justify-start bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 p-1 gap-1">
-              <TabsTrigger value="prichod" data-testid="tab-prichod" className="font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
-                PRÍCHOD / SKENY
-                {scanFiles.filter(f => f.done && !f.error).length > 0 && (
-                  <Badge variant="secondary" className="ml-2 text-xs">{scanFiles.filter(f => f.done && !f.error).length}</Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="rozdelenie" data-testid="tab-rozdelenie" className="font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
-                ROZDELENIE
-                {phase2Items.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 text-xs">{phase2Items.length}</Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="riesenie" data-testid="tab-riesenie" className="font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
-                RIEŠENIE
-                {phase3Items.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 text-xs">{phase3Items.length}</Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
+              <TabsList className="mx-6 mt-3 shrink-0 justify-start bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 p-1 gap-1">
+                <TabsTrigger value="prichod" data-testid="tab-prichod" className="font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
+                  PRÍCHOD / SKENY
+                  {scanFiles.filter(f => f.done && !f.error).length > 0 && (
+                    <Badge variant="secondary" className="ml-2 text-xs">{scanFiles.filter(f => f.done && !f.error).length}</Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="rozdelenie" data-testid="tab-rozdelenie" className="font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
+                  ROZDELENIE
+                  {phase2Items.length > 0 && (
+                    <Badge variant="secondary" className="ml-2 text-xs">{phase2Items.length}</Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="riesenie" data-testid="tab-riesenie" className="font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
+                  RIEŠENIE
+                  {phase3Items.length > 0 && (
+                    <Badge variant="secondary" className="ml-2 text-xs">{phase3Items.length}</Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
 
-            {/* PRÍCHOD — Krok 1: 3-stĺpcový layout */}
-            <TabsContent value="prichod" className="flex-1 min-h-0 m-0" style={{ display: 'flex' }}>
-              <Step1Panel scanFiles={scanFiles} onRemoveScanFile={onRemoveScanFile} onAddFiles={onAddFiles} />
-            </TabsContent>
+              {/* PRÍCHOD — Krok 1: 3-stĺpcový layout */}
+              <TabsContent value="prichod" className="flex-1 min-h-0 m-0" style={{ display: 'flex' }}>
+                <Step1Panel scanFiles={scanFiles} onRemoveScanFile={onRemoveScanFile} onAddFiles={onAddFiles} />
+              </TabsContent>
 
-            {/* ROZDELENIE — Krok 2 — placeholder */}
-            <TabsContent value="rozdelenie" className="flex-1 overflow-y-auto px-6 py-4">
-              <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground py-16" data-testid="placeholder-rozdelenie">
-                <TripleRingStatus phase={2} size={40} />
-                <p className="text-sm font-semibold">Rozdelenie — pripravuje sa</p>
-                <p className="text-xs text-center max-w-xs">
-                  Fáza Rozdelenia bude implementovaná v ďalšej verzii Kokpitu. Tu sa budú priraďovať skeny k zmluvám a spúšťať pracovné toky.
-                </p>
-              </div>
-            </TabsContent>
+              {/* ROZDELENIE — Krok 2 — placeholder */}
+              <TabsContent value="rozdelenie" className="flex-1 overflow-y-auto px-6 py-4">
+                <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground py-16" data-testid="placeholder-rozdelenie">
+                  <TripleRingStatus phase={2} size={40} />
+                  <p className="text-sm font-semibold">Rozdelenie — pripravuje sa</p>
+                  <p className="text-xs text-center max-w-xs">
+                    Fáza Rozdelenia bude implementovaná v ďalšej verzii Kokpitu. Tu sa budú priraďovať skeny k zmluvám a spúšťať pracovné toky.
+                  </p>
+                </div>
+              </TabsContent>
 
-            {/* RIEŠENIE — Krok 3 — placeholder */}
-            <TabsContent value="riesenie" className="flex-1 overflow-y-auto px-6 py-4">
-              <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground py-16" data-testid="placeholder-riesenie">
-                <TripleRingStatus phase={3} size={40} />
-                <p className="text-sm font-semibold">Riešenie — pripravuje sa</p>
-                <p className="text-xs text-center max-w-xs">
-                  Fáza Riešenia bude implementovaná v ďalšej verzii Kokpitu. Tu sa budú záznamy zapisovať do zmlúv a uzatvárať.
-                </p>
-              </div>
-            </TabsContent>
-          </Tabs>
+              {/* RIEŠENIE — Krok 3 — placeholder */}
+              <TabsContent value="riesenie" className="flex-1 overflow-y-auto px-6 py-4">
+                <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground py-16" data-testid="placeholder-riesenie">
+                  <TripleRingStatus phase={3} size={40} />
+                  <p className="text-sm font-semibold">Riešenie — pripravuje sa</p>
+                  <p className="text-xs text-center max-w-xs">
+                    Fáza Riešenia bude implementovaná v ďalšej verzii Kokpitu. Tu sa budú záznamy zapisovať do zmlúv a uzatvárať.
+                  </p>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
         </DialogContent>
       </Dialog>
     </>
