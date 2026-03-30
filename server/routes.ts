@@ -6977,6 +6977,9 @@ export async function registerRoutes(
       if (!Array.isArray(contractIds) || contractIds.length === 0) {
         return res.status(400).json({ message: "Žiadne kontrakty na náhľad súpisky" });
       }
+      if (contractIds.length > 25) {
+        return res.status(400).json({ message: `Súpiska môže obsahovať najviac 25 kontraktov. Odoslali ste ${contractIds.length}.` });
+      }
       const appUser = req.appUser;
 
       // Hard-fail if ANY provided ID is not a phase-8 contract
@@ -7040,6 +7043,9 @@ export async function registerRoutes(
       if (!Array.isArray(contractIds) || contractIds.length === 0) {
         return res.status(400).json({ message: "Žiadne kontrakty na zaradenie do súpisky" });
       }
+      if (contractIds.length > 25) {
+        return res.status(400).json({ message: `Súpiska môže obsahovať najviac 25 kontraktov. Odoslali ste ${contractIds.length}.` });
+      }
       const appUser = req.appUser;
       const now = new Date();
 
@@ -7073,7 +7079,7 @@ export async function registerRoutes(
       const seqNum = await storage.getNextCounterValue("supiska_processing_sequence");
       const newSupiska = await storage.createSupiska({
         supId,
-        name: supiskaCode || `Súpiska č. ${seqNum} - Spracovanie`,
+        name: `Súpiska č. ${seqNum} - Spracovanie`,
         supiskaCode: supiskaCode || null,
         status: "Nova",
         stateId,

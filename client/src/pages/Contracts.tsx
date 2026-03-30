@@ -11772,6 +11772,10 @@ export default function Contracts() {
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">V rade: <span className="font-bold text-foreground">{phase8SupiskaQueue.length}</span></span>
                         <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={async () => {
+                          if (phase8SupiskaQueue.length > 25) {
+                            toast({ title: "Príliš veľa kontraktov", description: `Súpiska môže obsahovať najviac 25 kontraktov. Máte ${phase8SupiskaQueue.length} v rade.`, variant: "destructive" });
+                            return;
+                          }
                           setSupiskaPreviewLoading(true);
                           try {
                             const res = await fetch("/api/contracts/supiska-preview", {
@@ -12257,7 +12261,7 @@ export default function Contracts() {
                     data-testid="button-supiska-confirm-create"
                   >
                     {createProcessingSupiskaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <ListChecks className="w-3.5 h-3.5 mr-1.5" />}
-                    Vytvoriť a uložiť súpisku
+                    Vytvoriť a uložiť a pripraviť súpisku na odoslanie
                   </Button>
                 </div>
               </div>
