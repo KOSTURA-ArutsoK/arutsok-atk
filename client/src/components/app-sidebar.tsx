@@ -1092,19 +1092,6 @@ export function AppSidebar() {
                       </SidebarMenuSubItem>
 
                       <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          isActive={location === "/contract-statuses"}
-                          data-testid="nav-pridat-stav-zmluvy"
-                        >
-                          <Link href="/contract-statuses">
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Pridať stav zmluvy</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-
-                      <SidebarMenuSubItem>
                         <Collapsible
                           open={zmluvySubId === "import"}
                           onOpenChange={(val) => setZmluvySubId(val ? "import" : null)}
