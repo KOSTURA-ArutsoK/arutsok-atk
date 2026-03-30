@@ -139,7 +139,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles }: Step1PanelProps
           <Eye className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-xs font-semibold">Náhľad skenu</span>
         </div>
-        <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-3 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-3 overflow-y-auto">
           {selectedScanIds.size === 0 ? (
             <div className="text-center text-muted-foreground space-y-2">
               <ImageIcon className="w-10 h-10 mx-auto opacity-20" />
