@@ -6872,8 +6872,9 @@ export async function registerRoutes(
       if (!fileUrl || typeof fileUrl !== "string") {
         return res.status(400).json({ message: "Chýba fileUrl" });
       }
-      if (!Array.isArray(splitAfterPages) || splitAfterPages.some(p => typeof p !== "number" || p < 1)) {
-        return res.status(400).json({ message: "splitAfterPages musí byť pole kladných čísel" });
+      if (!Array.isArray(splitAfterPages) || splitAfterPages.length === 0 ||
+          splitAfterPages.some(p => typeof p !== "number" || !Number.isInteger(p) || p < 1)) {
+        return res.status(400).json({ message: "splitAfterPages musí byť neprázdne pole kladných celých čísel" });
       }
 
       // Security: URL prefix allowlist
@@ -6913,6 +6914,9 @@ export async function registerRoutes(
 
       // Build segment page ranges: splitAfterPages = [2, 4] on a 6-page doc → [1-2], [3-4], [5-6]
       const sortedCuts = [...new Set(splitAfterPages.map(Number))].sort((a, b) => a - b).filter(p => p >= 1 && p < totalPages);
+      if (sortedCuts.length === 0) {
+        return res.status(400).json({ message: "Žiadne platné rezné miesta pre tento PDF — všetky čísla strán sú mimo rozsah dokumentu." });
+      }
       const boundaries: number[] = [0, ...sortedCuts, totalPages]; // 0-indexed start, totalPages = exclusive end
 
       // Derive base name without extension
