@@ -24225,16 +24225,16 @@ export async function registerRoutes(
       // KTO-first isolation: when acting as a specific company (KTO context), show that company's branch.
       // Admins without an explicit KTO context see the full system tree.
       // Non-admins without KTO context fall back to their KDE (workspace) company.
+      // All filtering is derived exclusively from the authenticated session (no client-supplied overrides).
       const adminRoles = ['admin', 'superadmin', 'prezident', 'architekt'];
       const isAdminUser = adminRoles.includes((req as any).appUser?.role);
-      const ktoCompanyId = (req as any).appUser?.activeKtoCompanyId ?? null;
-      const kdeCompanyId = (req as any).appUser?.activeCompanyId ?? null;
-      // Allow explicit ?companyId override from client (e.g. KTO/KDE context resolved on frontend).
-      const queryCompanyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : null;
-      const queryRootId = req.query.rootId ? parseInt(req.query.rootId as string, 10) : null;
-      const filterCompanyId: number | null = queryCompanyId ?? ktoCompanyId ?? (isAdminUser ? null : kdeCompanyId);
-      // Personal scoping: prefer query param, fall back to session linkedSubjectId
-      const linkedSubjectId: number | null = queryRootId ?? (req as any).appUser?.linkedSubjectId ?? null;
+      const ktoCompanyId: number | null = (req as any).appUser?.activeKtoCompanyId ?? null;
+      const kdeCompanyId: number | null = (req as any).appUser?.activeCompanyId ?? null;
+      // Admin without KTO context → full system tree (filterCompanyId = null).
+      // Non-admin without KTO → falls back to their KDE workspace company.
+      const filterCompanyId: number | null = ktoCompanyId ?? (isAdminUser ? null : kdeCompanyId);
+      // Personal scoping: the user's own linked subject within the company tree.
+      const linkedSubjectId: number | null = (req as any).appUser?.linkedSubjectId ?? null;
       let visibleSubjects = allSubjectsBuilt;
       let visibleLinks = allLinksBuilt;
       let effectiveRoot = rootSubject;
