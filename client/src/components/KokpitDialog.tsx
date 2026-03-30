@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { TripleRingStatus } from "@/components/TripleRingStatus";
-import { FileText, Loader2, X, Archive, Search, Inbox, Upload, Image as ImageIcon, File, FileCheck } from "lucide-react";
+import { FileText, Loader2, X, Archive, Search, Inbox, Upload, Image as ImageIcon, File, FileCheck, Eye } from "lucide-react";
 import type { KokpitItem } from "@shared/schema";
 import type { ScanFile } from "@/pages/PridatStavZmluvy";
 
@@ -54,7 +54,11 @@ function getFileTypeBadge(name: string) {
   return null;
 }
 
-// ── KROK 1: Inbox + Trezor ────────────────────────────────────────────────────
+const IMAGE_EXTS = ['jpg','jpeg','png','gif','webp','bmp'];
+function isImageFile(name: string) { return IMAGE_EXTS.includes(name.split('.').pop()?.toLowerCase() ?? ''); }
+function isPdfFile(name: string) { return name.split('.').pop()?.toLowerCase() === 'pdf'; }
+
+// ── KROK 1: 3-stĺpcový layout (Previewer | Inbox | Trezor) ────────────────────
 
 interface Step1PanelProps {
   scanFiles: ScanFile[];
@@ -67,11 +71,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles }: Step1PanelProps
   const [selectedScanIds, setSelectedScanIds] = useState<Set<string>>(new Set());
   const [inboxDragOver, setInboxDragOver] = useState(false);
   const inboxFileInputRef = useRef<HTMLInputElement>(null);
-  const [searchUid, setSearchUid] = useState("");
-  const [searchCode, setSearchCode] = useState("");
-  const [searchSubject, setSearchSubject] = useState("");
-  const [searchPartner, setSearchPartner] = useState("");
-  const [searchProduct, setSearchProduct] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [pairedMap, setPairedMap] = useState<Record<string, { contractId: number; contractUid: string }>>({});
 
   const { data: contractsRaw = [] } = useQuery<TrezorContract[]>({
@@ -88,33 +88,18 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles }: Step1PanelProps
   const { data: products = [] } = useQuery<Product[]>({ queryKey: ["/api/products"] });
 
   const filteredContracts = contractsRaw.filter(c => {
-    if (searchUid.trim()) {
-      const q = searchUid.replace(/\s/g, "").toLowerCase();
-      if (!(c.uid ?? "").replace(/\s/g, "").toLowerCase().includes(q)) return false;
-    }
-    if (searchCode.trim()) {
-      const q = searchCode.toLowerCase();
-      if (!(c.supiskaCode ?? "").toLowerCase().includes(q)) return false;
-    }
-    if (searchSubject.trim()) {
-      const q = searchSubject.toLowerCase();
-      const sub = subjects.find(s => s.id === c.subjectId);
-      const name = subjectDisplay(sub).toLowerCase();
-      if (!name.includes(q)) return false;
-    }
-    if (searchPartner.trim()) {
-      const q = searchPartner.toLowerCase();
-      const p = partners.find(p => p.id === c.partnerId);
-      const name = (p?.name ?? p?.code ?? "").toLowerCase();
-      if (!name.includes(q)) return false;
-    }
-    if (searchProduct.trim()) {
-      const q = searchProduct.toLowerCase();
-      const p = products.find(p => p.id === c.productId);
-      const name = (p?.name ?? "").toLowerCase();
-      if (!name.includes(q)) return false;
-    }
-    return true;
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const qNoSpace = q.replace(/\s/g, "");
+    const uid = (c.uid ?? "").replace(/\s/g, "").toLowerCase();
+    const code = (c.supiskaCode ?? "").toLowerCase();
+    const sub = subjects.find(s => s.id === c.subjectId);
+    const subName = subjectDisplay(sub).toLowerCase();
+    const partner = partners.find(p => p.id === c.partnerId);
+    const partnerName = (partner?.name ?? partner?.code ?? "").toLowerCase();
+    const product = products.find(p => p.id === c.productId);
+    const productName = (product?.name ?? "").toLowerCase();
+    return uid.includes(qNoSpace) || code.includes(q) || subName.includes(q) || partnerName.includes(q) || productName.includes(q);
   }).slice(0, 100);
 
   function toggleScan(id: string) {
@@ -127,7 +112,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles }: Step1PanelProps
 
   function handleAssign(contract: TrezorContract) {
     if (selectedScanIds.size === 0) {
-      toast({ title: "Vyberte skeny", description: "Najprv vyberte jeden alebo viac skenov v ľavom paneli.", variant: "destructive" });
+      toast({ title: "Vyberte skeny", description: "Najprv vyberte jeden alebo viac skenov v strednom paneli.", variant: "destructive" });
       return;
     }
     const contractUid = contract.uid ?? String(contract.id);
@@ -142,10 +127,62 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles }: Step1PanelProps
     toast({ title: "Pridelené", description: `${selectedScanIds.size} sken(ov) priradených ku zmluve ${contractUid}` });
   }
 
+  const selectedIdArr = [...selectedScanIds];
+  const previewFile = selectedIdArr.length === 1 ? scanFiles.find(f => f.id === selectedIdArr[0]) : null;
+
   return (
-    <div className="flex flex-col flex-1 min-h-0 divide-y">
-      {/* TOP: Inbox */}
-      <div className="flex flex-col shrink-0" style={{ height: "40%" }}>
+    <div className="flex flex-row flex-1 min-h-0 w-full">
+
+      {/* ─── LEFT: Scan previewer (~25%) ──────────────────────────────────── */}
+      <div className="flex flex-col border-r shrink-0" style={{ width: "25%", minWidth: 160 }}>
+        <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
+          <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold">Náhľad skenu</span>
+        </div>
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-3 overflow-hidden">
+          {selectedScanIds.size === 0 ? (
+            <div className="text-center text-muted-foreground space-y-2">
+              <ImageIcon className="w-10 h-10 mx-auto opacity-20" />
+              <p className="text-xs">Vyberte sken</p>
+              <p className="text-[10px] opacity-60">Zaškrtnite sken v strednom stĺpci</p>
+            </div>
+          ) : selectedScanIds.size > 1 ? (
+            <div className="text-center text-muted-foreground space-y-1">
+              <p className="text-xs font-medium">Vyberte 1 sken pre náhľad</p>
+              <p className="text-[10px]">{selectedScanIds.size} skenov vybraných</p>
+            </div>
+          ) : previewFile && !previewFile.done && !previewFile.error ? (
+            <div className="text-center text-muted-foreground space-y-2">
+              <Loader2 className="w-6 h-6 mx-auto animate-spin" />
+              <p className="text-xs">Nahráva sa… {previewFile.progress}%</p>
+            </div>
+          ) : previewFile?.url && isImageFile(previewFile.name) ? (
+            <img
+              src={previewFile.url}
+              alt={previewFile.name}
+              className="max-w-full max-h-full object-contain rounded shadow-sm"
+              data-testid="preview-image"
+            />
+          ) : previewFile?.url && isPdfFile(previewFile.name) ? (
+            <iframe
+              src={previewFile.url}
+              title={previewFile.name}
+              className="w-full flex-1 border-0 rounded"
+              style={{ minHeight: 200 }}
+              data-testid="preview-pdf"
+            />
+          ) : previewFile ? (
+            <div className="text-center text-muted-foreground space-y-2">
+              {getFileTypeIcon(previewFile.name, "w-10 h-10 mx-auto")}
+              <p className="text-xs truncate max-w-[130px]">{previewFile.name}</p>
+              <p className="text-[10px]">Náhľad nedostupný</p>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* ─── MIDDLE: Inbox / Nahrávanie (~40%) ───────────────────────────── */}
+      <div className="flex flex-col border-r shrink-0" style={{ width: "40%", minWidth: 220 }}>
         {/* Header */}
         <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
           <Inbox className="w-3.5 h-3.5 text-blue-500" />
@@ -164,7 +201,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles }: Step1PanelProps
 
         {/* Drop zone */}
         <div
-          className={`mx-3 mt-3 mb-2 rounded-lg border-2 border-dashed flex flex-col items-center justify-center py-4 px-3 transition-colors cursor-pointer shrink-0 ${
+          className={`mx-3 mt-3 mb-2 rounded-lg border-2 border-dashed flex flex-col items-center justify-center py-3 px-3 transition-colors cursor-pointer shrink-0 ${
             inboxDragOver ? "border-blue-500 bg-blue-500/10" : "border-blue-400/50 hover:border-blue-500 hover:bg-blue-500/5"
           }`}
           onDragOver={(e) => { e.preventDefault(); setInboxDragOver(true); }}
@@ -178,7 +215,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles }: Step1PanelProps
           onClick={() => inboxFileInputRef.current?.click()}
           data-testid="dropzone-kokpit-inbox"
         >
-          <Upload className="w-6 h-6 text-blue-500 mb-1" />
+          <Upload className="w-5 h-5 text-blue-500 mb-1" />
           <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Pretiahnite skeny sem</p>
           <p className="text-[10px] text-muted-foreground mt-0.5">PDF, obrázky — kliknite pre výber</p>
           <input
@@ -264,74 +301,34 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles }: Step1PanelProps
 
         {selectedScanIds.size > 0 && (
           <div className="px-3 py-2 border-t text-xs text-muted-foreground bg-blue-500/5 shrink-0">
-            {selectedScanIds.size} sken{selectedScanIds.size === 1 ? "" : "ov"} vybraných — vyberte zmluvu v Trezore
+            {selectedScanIds.size} sken{selectedScanIds.size === 1 ? "" : "ov"} vybraných — vyberte zmluvu vpravo
           </div>
         )}
       </div>
 
-      {/* BOTTOM: Trezor */}
-      <div className="flex flex-col flex-1 min-h-0">
-        <div className="px-4 py-2.5 border-b shrink-0 flex items-center gap-2 bg-muted/20">
+      {/* ─── RIGHT: Vyhľadávanie zmluvy (flex-1) ─────────────────────────── */}
+      <div className="flex flex-col flex-1 min-h-0 min-w-0">
+        <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
           <Archive className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs font-semibold">Trezor zmlúv</span>
+          <span className="text-xs font-semibold">Vyhľadávanie zmluvy</span>
           <Badge variant="outline" className="text-[10px] ml-auto">{contractsRaw.length} zmlúv</Badge>
         </div>
 
-        {/* Search inputs */}
-        <div className="px-3 py-2 border-b shrink-0 grid grid-cols-5 gap-1.5">
+        {/* Unified search input */}
+        <div className="px-3 py-2 border-b shrink-0">
           <div className="relative">
-            <Search size={10} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
-              data-testid="input-trezor-uid"
-              placeholder="UID"
-              value={searchUid}
-              onChange={e => setSearchUid(e.target.value)}
-              className="h-6 text-[11px] pl-5 pr-1"
-            />
-          </div>
-          <div className="relative">
-            <Search size={10} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              data-testid="input-trezor-code"
-              placeholder="Číslo zmluvy"
-              value={searchCode}
-              onChange={e => setSearchCode(e.target.value)}
-              className="h-6 text-[11px] pl-5 pr-1"
-            />
-          </div>
-          <div className="relative">
-            <Search size={10} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              data-testid="input-trezor-subject"
-              placeholder="Subjekt"
-              value={searchSubject}
-              onChange={e => setSearchSubject(e.target.value)}
-              className="h-6 text-[11px] pl-5 pr-1"
-            />
-          </div>
-          <div className="relative">
-            <Search size={10} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              data-testid="input-trezor-partner"
-              placeholder="Partner"
-              value={searchPartner}
-              onChange={e => setSearchPartner(e.target.value)}
-              className="h-6 text-[11px] pl-5 pr-1"
-            />
-          </div>
-          <div className="relative">
-            <Search size={10} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              data-testid="input-trezor-product"
-              placeholder="Produkt"
-              value={searchProduct}
-              onChange={e => setSearchProduct(e.target.value)}
-              className="h-6 text-[11px] pl-5 pr-1"
+              data-testid="input-trezor-search"
+              placeholder="Hľadať zmluvu… (UID, číslo, subjekt, partner, produkt)"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="h-7 text-xs pl-7 pr-2"
             />
           </div>
         </div>
 
-        {/* Contract table */}
+        {/* Contract list */}
         <div className="flex-1 overflow-y-auto">
           {filteredContracts.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-8">Žiadne zmluvy</p>
@@ -362,9 +359,9 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles }: Step1PanelProps
                         {c.uid ?? "—"}
                       </td>
                       <td className="py-1.5 px-2 text-muted-foreground">{c.supiskaCode ?? "—"}</td>
-                      <td className="py-1.5 px-2 truncate max-w-[100px]">{subjectDisplay(sub)}</td>
+                      <td className="py-1.5 px-2 truncate max-w-[80px]">{subjectDisplay(sub)}</td>
                       <td className="py-1.5 px-2 text-muted-foreground">{partner?.code ?? partner?.name ?? "—"}</td>
-                      <td className="py-1.5 px-2 text-muted-foreground truncate max-w-[80px]">{product?.name ?? "—"}</td>
+                      <td className="py-1.5 px-2 text-muted-foreground truncate max-w-[70px]">{product?.name ?? "—"}</td>
                       <td className="py-1.5 px-2">
                         <Button
                           size="sm"
@@ -442,7 +439,7 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
               </TabsTrigger>
             </TabsList>
 
-            {/* PRÍCHOD — Krok 1: Inbox + Trezor */}
+            {/* PRÍCHOD — Krok 1: 3-stĺpcový layout */}
             <TabsContent value="prichod" className="flex-1 min-h-0 m-0" style={{ display: 'flex' }}>
               <Step1Panel scanFiles={scanFiles} onRemoveScanFile={onRemoveScanFile} onAddFiles={onAddFiles} />
             </TabsContent>
