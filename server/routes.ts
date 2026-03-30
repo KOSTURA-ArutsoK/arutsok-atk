@@ -24260,6 +24260,39 @@ export async function registerRoutes(
         // Use the company node as the tree root in KDE mode (not the global ATK root)
         effectiveRoot = visibleSubjects.find(s => s.id === companyNodeId) ?? rootSubject;
 
+        // Personal view: if user has a linked subject within this company's tree,
+        // scope further to their own subtree (downline) + upline chain to company root.
+        const userLinkedSubjectId: number | null = (req as any).appUser?.linkedSubjectId ?? null;
+        if (userLinkedSubjectId && visitedIds.has(userLinkedSubjectId)) {
+          // BFS downward from the personal node
+          const personalVisited = new Set<number>([userLinkedSubjectId]);
+          let pChanged = true;
+          while (pChanged) {
+            pChanged = false;
+            for (const link of allLinksBuilt) {
+              if (personalVisited.has(link.guarantorSubjectId) && !personalVisited.has(link.subjectId)) {
+                personalVisited.add(link.subjectId);
+                pChanged = true;
+              }
+            }
+          }
+          // Upline: traverse from personal node up to the company root
+          let cur: number = userLinkedSubjectId;
+          while (cur !== companyNodeId) {
+            const up = allLinksBuilt.find(l => l.subjectId === cur);
+            if (!up) break;
+            personalVisited.add(up.guarantorSubjectId);
+            cur = up.guarantorSubjectId;
+          }
+          personalVisited.add(companyNodeId);
+
+          visibleSubjects = allSubjectsBuilt.filter(s => personalVisited.has(s.id));
+          visibleLinks = allLinksBuilt.filter(
+            l => personalVisited.has(l.subjectId) && personalVisited.has(l.guarantorSubjectId)
+          );
+          effectiveRoot = visibleSubjects.find(s => s.id === companyNodeId) ?? effectiveRoot;
+        }
+
       } else if (!isSuperadmin) {
         // Non-superadmin without KDE context must not see the full tree
         visibleSubjects = [];
@@ -24267,11 +24300,14 @@ export async function registerRoutes(
         effectiveRoot = rootSubject;
       }
 
+      const personalSubjectId: number | null = (req as any).appUser?.linkedSubjectId ?? null;
+
       res.json({
         root: effectiveRoot,
         links: visibleLinks,
         subjects: visibleSubjects,
         officerSubjectIds: Array.from(officerSubjectIds),
+        personalSubjectId,
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || "Chyba pri načítaní siete" });

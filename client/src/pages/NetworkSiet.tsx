@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useAppUser } from "@/hooks/use-app-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -165,6 +166,7 @@ const RELATION_TYPES = [
 
 export default function NetworkSiet() {
   const { toast } = useToast();
+  const { data: appUser } = useAppUser();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null);
   const [linkTypeFilter, setLinkTypeFilter] = useState<string>("all");
@@ -197,9 +199,33 @@ export default function NetworkSiet() {
   const [sourceDropdown, setSourceDropdown] = useState(false);
   const [targetDropdown, setTargetDropdown] = useState(false);
 
-  const { data: networkData, isLoading: loadingTree } = useQuery<{ root: any; links: NetworkLink[]; subjects: NetworkSubject[] }>({
-    queryKey: ["/api/network/tree"],
+  const { data: networkData, isLoading: loadingTree } = useQuery<{ root: any; links: NetworkLink[]; subjects: NetworkSubject[]; personalSubjectId?: number | null; officerSubjectIds?: number[] }>({
+    queryKey: ["/api/network/tree", appUser?.id, appUser?.activeKtoCompanyId, appUser?.activeCompanyId],
   });
+
+  // Auto-expand the path from the tree root to the logged-in user's personal node
+  useEffect(() => {
+    if (!networkData?.links || !networkData.personalSubjectId) return;
+    const pid = networkData.personalSubjectId;
+    const parentMap = new Map<number, number>();
+    for (const link of networkData.links) {
+      parentMap.set(link.subjectId, link.guarantorSubjectId);
+    }
+    const ancestorIds = new Set<number>();
+    let cur = pid;
+    while (parentMap.has(cur)) {
+      const parent = parentMap.get(cur)!;
+      ancestorIds.add(parent);
+      cur = parent;
+    }
+    if (ancestorIds.size > 0) {
+      setExpandedNodes(prev => {
+        const next = new Set(prev);
+        ancestorIds.forEach(id => next.add(id));
+        return next;
+      });
+    }
+  }, [networkData?.personalSubjectId, networkData?.links]);
 
   const { data: transferData, isLoading: loadingTransfers } = useQuery<{ requests: TransferRequest[]; subjects: NetworkSubject[] }>({
     queryKey: ["/api/network/transfer-requests", transferTab],
@@ -391,17 +417,20 @@ export default function NetworkSiet() {
     });
   }, []);
 
+  const personalSubjectId = networkData?.personalSubjectId ?? null;
+
   const renderTreeNode = useCallback((subjectId: number, depth: number = 0, link?: NetworkLink): JSX.Element | null => {
     const subject = subjectMap.get(subjectId);
     if (!subject) return null;
     const children = treeData.childrenMap?.get(subjectId) || [];
     const hasChildren = children.length > 0;
     const isExpanded = expandedNodes.has(subjectId);
+    const isPersonal = personalSubjectId != null && subjectId === personalSubjectId;
 
     return (
       <div key={subjectId} className="select-none" style={{ marginLeft: depth * 24 }}>
         <div
-          className="flex items-center gap-3 py-1 px-2 rounded hover:bg-accent/50 cursor-pointer group"
+          className={`flex items-center gap-3 py-1 px-2 rounded cursor-pointer group ${isPersonal ? "bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/15" : "hover:bg-accent/50"}`}
           onClick={() => hasChildren && toggleNode(subjectId)}
           data-testid={`tree-node-${subjectId}`}
         >
@@ -414,11 +443,13 @@ export default function NetworkSiet() {
           {/* status dot */}
           <div className={`w-2 h-2 rounded-full shrink-0 ${subject.registrationStatus === "klient" ? "bg-amber-400" : subject.registrationStatus === "tiper" ? "bg-purple-400" : "bg-muted-foreground"}`} />
           {/* name */}
-          <span className="text-sm font-medium text-foreground min-w-[180px]">{getSubjectName(subject)}</span>
+          <span className={`text-sm min-w-[180px] ${isPersonal ? "font-bold text-blue-600 dark:text-blue-400" : "font-medium text-foreground"}`}>{getSubjectName(subject)}</span>
           {/* uid – fixed width mono so columns align */}
           <span className="text-xs font-mono text-muted-foreground w-[148px] shrink-0">{formatUid(subject.uid)}</span>
           {/* badges from parent link */}
           {link && <div className="flex items-center gap-1.5 shrink-0">{linkTypeBadge(link.linkType)}{phaseBadge(link.phase)}</div>}
+          {/* personal indicator */}
+          {isPersonal && <Badge className="text-[10px] px-1.5 py-0 bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30 ml-1">Ja</Badge>}
           {/* children count */}
           {hasChildren && <span className="text-xs text-muted-foreground/50 ml-auto">{children.length}</span>}
         </div>
@@ -427,7 +458,7 @@ export default function NetworkSiet() {
         ))}
       </div>
     );
-  }, [subjectMap, treeData, expandedNodes, toggleNode]);
+  }, [subjectMap, treeData, expandedNodes, toggleNode, personalSubjectId]);
 
   return (
     <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
