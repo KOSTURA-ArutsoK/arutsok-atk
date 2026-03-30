@@ -60,7 +60,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile }: Step1PanelProps) {
     queryFn: async () => {
       const res = await fetch("/api/contracts?limit=500", { credentials: "include" });
       const data = await res.json();
-      return data.contracts ?? data ?? [];
+      return data.data ?? data.contracts ?? (Array.isArray(data) ? data : []);
     },
   });
 
