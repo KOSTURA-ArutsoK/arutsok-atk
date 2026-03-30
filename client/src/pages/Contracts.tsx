@@ -2877,6 +2877,7 @@ type StagedFile = {
   error?: string;
   pairedContractId?: number;
   pairedContractName?: string;
+  zipLoading?: boolean;
 };
 
 function ScanCommanderDialog({
@@ -2908,6 +2909,10 @@ function ScanCommanderDialog({
 
   // Track internal contract state (paired counts) locally
   const [localPairedCounts, setLocalPairedCounts] = useState<Record<number, number>>({});
+
+  // Focus state: which panel has keyboard focus (inbox vs trezor)
+  const [inboxFocused, setInboxFocused] = useState(true);
+  const [trezorCursorIndex, setTrezorCursorIndex] = useState(-1);
 
   // Image controls
   const [imgRotation, setImgRotation] = useState(0);
@@ -2944,6 +2949,8 @@ function ScanCommanderDialog({
       setSelectedContractIds(new Set());
       setExpandedContractDocs(new Set());
       setLocalPairedCounts({});
+      setInboxFocused(true);
+      setTrezorCursorIndex(-1);
       if (previewBlobUrlRef.current) {
         URL.revokeObjectURL(previewBlobUrlRef.current);
         previewBlobUrlRef.current = null;
@@ -3038,6 +3045,14 @@ function ScanCommanderDialog({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
+  function isZipFile(file: File): boolean {
+    const lower = file.name.toLowerCase();
+    return lower.endsWith(".zip") ||
+      file.type === "application/zip" ||
+      file.type === "application/x-zip-compressed" ||
+      file.type === "application/x-zip";
+  }
+
   async function uploadFiles(files: File[]) {
     if (files.length === 0) return;
     const newEntries: StagedFile[] = files.map(f => ({
@@ -3047,12 +3062,14 @@ function ScanCommanderDialog({
       size: f.size,
       progress: 0,
       done: false,
+      zipLoading: isZipFile(f),
     }));
     setInboxFiles(prev => [...prev, ...newEntries]);
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const fileId = newEntries[i].id;
+      const isZip = isZipFile(file);
       try {
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
@@ -3067,20 +3084,42 @@ function ScanCommanderDialog({
           xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
               const data = JSON.parse(xhr.responseText);
-              const serverFile = data.files?.[0];
-              if (serverFile) {
-                setInboxFiles(prev => prev.map(f => f.id === fileId ? { ...f, url: serverFile.url, progress: 100, done: true } : f));
+              const serverFiles: Array<{ name: string; url: string; size: number }> = data.files || [];
+              if (isZip && serverFiles.length > 1) {
+                // Replace the ZIP placeholder with all extracted files
+                const extractedEntries: StagedFile[] = serverFiles.map((sf, idx) => ({
+                  id: `${Date.now()}-zip-${idx}-${Math.random().toString(36).slice(2)}`,
+                  name: sf.name,
+                  url: sf.url,
+                  size: sf.size,
+                  progress: 100,
+                  done: true,
+                  zipLoading: false,
+                }));
+                setInboxFiles(prev => [
+                  ...prev.filter(f => f.id !== fileId),
+                  ...extractedEntries,
+                ]);
+              } else {
+                const serverFile = serverFiles[0];
+                if (serverFile) {
+                  setInboxFiles(prev => prev.map(f => f.id === fileId
+                    ? { ...f, url: serverFile.url, name: serverFile.name, size: serverFile.size, progress: 100, done: true, zipLoading: false }
+                    : f));
+                } else {
+                  setInboxFiles(prev => prev.filter(f => f.id !== fileId));
+                }
               }
               resolve();
             } else {
               let msg = "Chyba nahrávania";
               try { msg = JSON.parse(xhr.responseText)?.message || msg; } catch {}
-              setInboxFiles(prev => prev.map(f => f.id === fileId ? { ...f, progress: 0, error: msg } : f));
+              setInboxFiles(prev => prev.map(f => f.id === fileId ? { ...f, progress: 0, error: msg, zipLoading: false } : f));
               reject(new Error(msg));
             }
           };
           xhr.onerror = () => {
-            setInboxFiles(prev => prev.map(f => f.id === fileId ? { ...f, progress: 0, error: "Sieťová chyba" } : f));
+            setInboxFiles(prev => prev.map(f => f.id === fileId ? { ...f, progress: 0, error: "Sieťová chyba", zipLoading: false } : f));
             reject(new Error("Sieťová chyba"));
           };
           xhr.open("POST", "/api/scan-commander/stage-upload");
@@ -3217,60 +3256,155 @@ function ScanCommanderDialog({
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (e.key === "ArrowDown") {
+
+      // Tab: switch focus between Inbox and Trezor
+      if (e.key === "Tab") {
         e.preventDefault();
-        setInboxCursorIndex(prev => {
-          const next = Math.min(inboxFiles.length - 1, prev + 1);
-          if (next >= 0 && inboxFiles[next]?.url) setSelectedFileUrl(inboxFiles[next].url);
-          return next;
-        });
-      } else if (e.key === "ArrowUp") {
+        setInboxFocused(prev => !prev);
+        return;
+      }
+
+      // Enter: pair (always)
+      if (e.key === "Enter") {
         e.preventDefault();
-        setInboxCursorIndex(prev => {
-          const next = Math.max(0, prev <= 0 ? 0 : prev - 1);
-          if (inboxFiles[next]?.url) setSelectedFileUrl(inboxFiles[next].url);
-          return next;
-        });
-      } else if (e.key === " " && !e.shiftKey) {
-        e.preventDefault();
-        const file = inboxCursorIndex >= 0 ? inboxFiles[inboxCursorIndex] : null;
-        if (file?.done && !file.pairedContractId) {
-          setSelectedInboxIds(prev => {
-            const next = new Set(prev);
-            if (next.has(file.id)) next.delete(file.id);
-            else next.add(file.id);
-            return next;
-          });
-        }
-      } else if (e.key === " " && e.shiftKey) {
-        e.preventDefault();
-        if (inboxCursorIndex >= 0 && lastInboxSelectIndex.current >= 0) {
-          const lo = Math.min(inboxCursorIndex, lastInboxSelectIndex.current);
-          const hi = Math.max(inboxCursorIndex, lastInboxSelectIndex.current);
-          const rangeIds = inboxFiles.slice(lo, hi + 1)
-            .filter(f => f.done && !f.pairedContractId)
-            .map(f => f.id);
-          setSelectedInboxIds(prev => {
-            const next = new Set(prev);
-            rangeIds.forEach(id => next.add(id));
-            return next;
-          });
-        }
-      } else if ((e.key === "a" || e.key === "A") && (e.ctrlKey || e.metaKey)) {
+        if (canPair && !pairing) handlePair();
+        return;
+      }
+
+      // Ctrl+A: select all in inbox (always available)
+      if ((e.key === "a" || e.key === "A") && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         const allIds = inboxFiles.filter(f => f.done && !f.pairedContractId).map(f => f.id);
         setSelectedInboxIds(new Set(allIds));
         const last = inboxFiles.filter(f => f.done && !f.pairedContractId).at(-1);
         if (last?.url) setSelectedFileUrl(last.url);
         setInboxCursorIndex(inboxFiles.length - 1);
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        if (canPair && !pairing) handlePair();
+        return;
+      }
+
+      // R: rotate image left (always available when image is showing)
+      if ((e.key === "r" || e.key === "R") && !e.ctrlKey && !e.metaKey) {
+        if (isImage) {
+          e.preventDefault();
+          setImgRotation(r => (r - 90 + 360) % 360);
+          return;
+        }
+      }
+
+      if (inboxFocused) {
+        // === INBOX keyboard navigation ===
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setInboxCursorIndex(prev => {
+            const next = Math.min(inboxFiles.length - 1, prev + 1);
+            if (!e.shiftKey) {
+              if (next >= 0 && inboxFiles[next]?.url) setSelectedFileUrl(inboxFiles[next].url);
+            } else {
+              // Shift+↓: extend selection
+              if (next >= 0) {
+                const f = inboxFiles[next];
+                if (f?.done && !f.pairedContractId) {
+                  setSelectedInboxIds(prevSel => {
+                    const ns = new Set(prevSel);
+                    ns.add(f.id);
+                    return ns;
+                  });
+                }
+                lastInboxSelectIndex.current = next;
+              }
+            }
+            return next;
+          });
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setInboxCursorIndex(prev => {
+            const next = Math.max(0, prev <= 0 ? 0 : prev - 1);
+            if (!e.shiftKey) {
+              if (inboxFiles[next]?.url) setSelectedFileUrl(inboxFiles[next].url);
+            } else {
+              // Shift+↑: extend selection
+              const f = inboxFiles[next];
+              if (f?.done && !f.pairedContractId) {
+                setSelectedInboxIds(prevSel => {
+                  const ns = new Set(prevSel);
+                  ns.add(f.id);
+                  return ns;
+                });
+              }
+              lastInboxSelectIndex.current = next;
+            }
+            return next;
+          });
+        } else if (e.key === " " && !e.shiftKey) {
+          e.preventDefault();
+          const file = inboxCursorIndex >= 0 ? inboxFiles[inboxCursorIndex] : null;
+          if (file?.done && !file.pairedContractId) {
+            setSelectedInboxIds(prev => {
+              const next = new Set(prev);
+              if (next.has(file.id)) next.delete(file.id);
+              else next.add(file.id);
+              return next;
+            });
+          }
+        } else if (e.key === " " && e.shiftKey) {
+          e.preventDefault();
+          if (inboxCursorIndex >= 0 && lastInboxSelectIndex.current >= 0) {
+            const lo = Math.min(inboxCursorIndex, lastInboxSelectIndex.current);
+            const hi = Math.max(inboxCursorIndex, lastInboxSelectIndex.current);
+            const rangeIds = inboxFiles.slice(lo, hi + 1)
+              .filter(f => f.done && !f.pairedContractId)
+              .map(f => f.id);
+            setSelectedInboxIds(prev => {
+              const next = new Set(prev);
+              rangeIds.forEach(id => next.add(id));
+              return next;
+            });
+          }
+        } else if (e.key === "Delete" || e.key === "Backspace") {
+          // Remove current inbox file (only unpaired)
+          const file = inboxCursorIndex >= 0 ? inboxFiles[inboxCursorIndex] : null;
+          if (file && !file.pairedContractId && !file.zipLoading) {
+            e.preventDefault();
+            setInboxFiles(prev => prev.filter(f => f.id !== file.id));
+            setSelectedInboxIds(prev => {
+              const next = new Set(prev);
+              next.delete(file.id);
+              return next;
+            });
+            if (selectedFileUrl === file.url) setSelectedFileUrl(null);
+            setInboxCursorIndex(prev => Math.min(prev, inboxFiles.length - 2));
+          }
+        }
+      } else {
+        // === TREZOR keyboard navigation ===
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setTrezorCursorIndex(prev => {
+            const next = Math.min(commanderContracts.length - 1, prev + 1);
+            if (next >= 0) {
+              const c = commanderContracts[next];
+              if (c) {
+                setSelectedContractIds(new Set([c.id]));
+              }
+            }
+            return next;
+          });
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setTrezorCursorIndex(prev => {
+            const next = Math.max(0, prev <= 0 ? 0 : prev - 1);
+            const c = commanderContracts[next];
+            if (c) {
+              setSelectedContractIds(new Set([c.id]));
+            }
+            return next;
+          });
+        }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [open, inboxFiles, inboxCursorIndex, selectedInboxIds, selectedContractIds, canPair, pairing]);
+  }, [open, inboxFiles, inboxCursorIndex, selectedInboxIds, selectedContractIds, canPair, pairing, inboxFocused, trezorCursorIndex, commanderContracts, isImage, selectedFileUrl]);
 
   function getFileTypeIcon(name: string, className = "w-3.5 h-3.5 shrink-0") {
     const ext = name.split('.').pop()?.toLowerCase() ?? '';
@@ -3450,16 +3584,19 @@ function ScanCommanderDialog({
           </div>
 
           {/* MIDDLE: Inbox */}
-          <div className="w-[32%] border-r flex flex-col min-h-0">
-            <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2">
-              <Inbox className="w-3.5 h-3.5 text-blue-500" />
-              <span className="text-xs font-medium">Inbox</span>
+          <div
+            className={`w-[32%] border-r flex flex-col min-h-0 ${inboxFocused ? "ring-2 ring-inset ring-blue-500/40" : ""}`}
+            onClick={() => setInboxFocused(true)}
+          >
+            <div className={`px-3 py-2 border-b shrink-0 flex items-center gap-2 ${inboxFocused ? "bg-blue-500/5" : ""}`}>
+              <Inbox className={`w-3.5 h-3.5 ${inboxFocused ? "text-blue-500" : "text-muted-foreground"}`} />
+              <span className={`text-xs font-medium ${inboxFocused ? "text-blue-600 dark:text-blue-400" : ""}`}>Inbox</span>
               {selectedInboxIds.size > 0 && (
                 <Badge className="text-xs bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-400/50">
-                  {selectedInboxIds.size} vybraných
+                  {selectedInboxIds.size} / {inboxFiles.filter(f => f.done && !f.pairedContractId).length}
                 </Badge>
               )}
-              <span className="text-[9px] text-muted-foreground ml-auto hidden sm:inline">↑↓ Space Ctrl+A Enter</span>
+              <span className="text-[9px] text-muted-foreground ml-auto hidden sm:inline">↑↓ Space Ctrl+A Tab</span>
               <Badge variant="outline" className="text-xs">{inboxFiles.length} súborov</Badge>
             </div>
 
@@ -3565,6 +3702,13 @@ function ScanCommanderDialog({
                     </div>
                     {f.error ? (
                       <p className="text-[10px] text-red-500 mt-0.5">{f.error}</p>
+                    ) : f.zipLoading ? (
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <div className="h-1 rounded-full bg-muted overflow-hidden flex-1">
+                          <div className="h-full bg-amber-500 transition-all animate-pulse" style={{ width: `${f.progress}%` }} />
+                        </div>
+                        <span className="text-[9px] text-amber-600 dark:text-amber-400 whitespace-nowrap">Rozbaľujem…</span>
+                      </div>
                     ) : !f.done ? (
                       <div className="mt-1 h-1 rounded-full bg-muted overflow-hidden">
                         <div className="h-full bg-blue-500 transition-all" style={{ width: `${f.progress}%` }} />
@@ -3579,11 +3723,15 @@ function ScanCommanderDialog({
           </div>
 
           {/* RIGHT: Trezor (contracts) */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2">
-              <Archive className="w-3.5 h-3.5 text-emerald-500" />
-              <span className="text-xs font-medium">Trezor zmlúv</span>
-              <Badge variant="outline" className="text-xs ml-auto">{commanderContracts.length} zmlúv</Badge>
+          <div
+            className={`flex-1 flex flex-col min-h-0 ${!inboxFocused ? "ring-2 ring-inset ring-emerald-500/40" : ""}`}
+            onClick={() => setInboxFocused(false)}
+          >
+            <div className={`px-3 py-2 border-b shrink-0 flex items-center gap-2 ${!inboxFocused ? "bg-emerald-500/5" : ""}`}>
+              <Archive className={`w-3.5 h-3.5 ${!inboxFocused ? "text-emerald-500" : "text-muted-foreground"}`} />
+              <span className={`text-xs font-medium ${!inboxFocused ? "text-emerald-600 dark:text-emerald-400" : ""}`}>Trezor zmlúv</span>
+              <span className="text-[9px] text-muted-foreground ml-auto hidden sm:inline">↑↓ Tab</span>
+              <Badge variant="outline" className="text-xs">{commanderContracts.length} zmlúv</Badge>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto">
               {commanderContracts.length === 0 ? (
@@ -3601,8 +3749,9 @@ function ScanCommanderDialog({
                     </tr>
                   </thead>
                   <tbody>
-                    {commanderContracts.map(c => {
+                    {commanderContracts.map((c, cIdx) => {
                       const isSelected = selectedContractIds.has(c.id);
+                      const isTrezorCursor = !inboxFocused && trezorCursorIndex === cIdx;
                       const existingDocs: Array<{ name: string; url: string; uploadedAt: string }> = (c.documents as any) || [];
                       const totalDocs = existingDocs.length;
                       const hasDocs = totalDocs > 0;
@@ -3616,11 +3765,15 @@ function ScanCommanderDialog({
                             className={`border-b cursor-pointer transition-colors ${
                               isSelected
                                 ? "bg-emerald-500/15 border-emerald-500/30"
+                                : isTrezorCursor
+                                ? "bg-emerald-500/10 border-emerald-400"
                                 : hasDocs
                                 ? "bg-emerald-500/5 hover:bg-emerald-500/10"
                                 : "hover:bg-muted/30"
                             }`}
                             onClick={() => {
+                              setInboxFocused(false);
+                              setTrezorCursorIndex(cIdx);
                               setSelectedContractIds(prev => {
                                 const next = new Set(prev);
                                 if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
@@ -3713,22 +3866,22 @@ function ScanCommanderDialog({
             <div className="px-3 py-2 border-t shrink-0 bg-muted/20">
               {selectedInboxIds.size === 0 && selectedContractIds.size === 0 && (
                 <p className="text-[10px] text-muted-foreground">
-                  Zaškrtnite skeny v Inboxe (Ctrl+A = všetky) → zaškrtnite zmluvy → Priradiť (alebo Enter)
+                  ↑↓ navigácia · Space výber · Shift+↑↓ rozšíriť · Ctrl+A všetky · Tab prepnúť panel · R otočiť · Del zmazať
                 </p>
               )}
               {selectedInboxIds.size > 0 && selectedContractIds.size === 0 && (
                 <p className="text-[10px] text-blue-500">
-                  {selectedInboxIds.size === 1 ? "1 sken vybraný" : `${selectedInboxIds.size} skenov vybraných`} — zaškrtnite zmluvy v Trezore
+                  {selectedInboxIds.size === 1 ? "1 sken vybraný" : `${selectedInboxIds.size} skenov vybraných`} — Tab na Trezor, potom ↑↓ vybrať zmluvu, Enter priradiť
                 </p>
               )}
               {selectedInboxIds.size === 0 && selectedContractIds.size > 0 && (
                 <p className="text-[10px] text-emerald-600">
-                  {selectedContractIds.size === 1 ? "1 zmluva vybraná" : `${selectedContractIds.size} zmluvy vybrané`} — zaškrtnite skeny v Inboxe
+                  {selectedContractIds.size === 1 ? "1 zmluva vybraná" : `${selectedContractIds.size} zmluvy vybrané`} — Tab na Inbox, potom Space zaškrtnúť skeny
                 </p>
               )}
               {selectedInboxIds.size > 0 && selectedContractIds.size > 0 && (
                 <p className="text-[10px] text-emerald-600 font-medium">
-                  Hotovo — stlačte "{pairButtonLabel}" alebo Enter
+                  Hotovo — stlačte Enter alebo tlačidlo „{pairButtonLabel}"
                 </p>
               )}
             </div>
