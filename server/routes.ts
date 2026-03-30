@@ -6988,6 +6988,14 @@ export async function registerRoutes(
         return res.status(400).json({ message: `Kontrakt nie je vo fáze 6 (aktuálne vo fáze ${contract.lifecyclePhase}). Dokončiť triedenie je možné len pre kontrakty v Roztriedení kontraktov.` });
       }
 
+      // Tenant-scope authorization
+      if (!isAdmin(appUser)) {
+        const userCompanyId = appUser?.activeCompanyId ?? null;
+        if (userCompanyId && contract.companyId && contract.companyId !== userCompanyId) {
+          return res.status(403).json({ message: "Nemáte oprávnenie upravovať tento kontrakt." });
+        }
+      }
+
       const now = new Date();
       await db.update(contracts).set({
         lifecyclePhase: 8,
