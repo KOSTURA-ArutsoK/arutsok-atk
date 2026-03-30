@@ -3277,34 +3277,34 @@ function ScanCommanderDialog({
     e.preventDefault();
     setIsDragOver(false);
 
+    function getFileFromEntry(entry: FileSystemFileEntry): Promise<File> {
+      return new Promise((resolve, reject) => entry.file(resolve, reject));
+    }
+
+    function readDirEntries(reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> {
+      return new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+    }
+
     function readAllFilesFromEntry(entry: FileSystemEntry): Promise<File[]> {
       if (entry.isFile) {
-        return new Promise(resolve => {
-          (entry as FileSystemFileEntry).file(
-            f => resolve([f]),
-            () => resolve([]),
-          );
-        });
+        return getFileFromEntry(entry as FileSystemFileEntry)
+          .then(f => [f])
+          .catch(() => []);
       }
       if (entry.isDirectory) {
-        const dirReader = (entry as FileSystemDirectoryEntry).createReader();
-        return new Promise(resolve => {
-          const allFiles: File[] = [];
-          function readBatch() {
-            dirReader.readEntries(async entries => {
-              if (entries.length === 0) {
-                resolve(allFiles);
-                return;
-              }
-              for (const child of entries) {
-                const childFiles = await readAllFilesFromEntry(child);
-                allFiles.push(...childFiles);
-              }
-              readBatch();
-            }, () => resolve(allFiles));
-          }
-          readBatch();
-        });
+        const reader = (entry as FileSystemDirectoryEntry).createReader();
+        const collected: File[] = [];
+        function readNext(): Promise<File[]> {
+          return readDirEntries(reader).then(batch => {
+            if (batch.length === 0) return collected;
+            return Promise.all(batch.map(child => readAllFilesFromEntry(child)))
+              .then(results => {
+                results.forEach(r => collected.push(...r));
+                return readNext();
+              });
+          }).catch(() => collected);
+        }
+        return readNext();
       }
       return Promise.resolve([]);
     }
