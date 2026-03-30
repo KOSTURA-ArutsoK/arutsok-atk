@@ -26026,6 +26026,17 @@ export async function registerRoutes(
         return res.status(401).json({ message: "Nesprávne bezpečnostné heslo" });
       }
       await storage.permanentDeleteStagedScan(id, appUserId);
+      await logAudit(req, {
+        action: "PERMANENT_DELETE",
+        module: "kos-skeny",
+        entityId: id,
+        entityName: `staged_scan ${id}`,
+        newData: {
+          authorizedByAdminId: user.id,
+          authorizedByUsername: user.username,
+          authorizedByRole: user.role,
+        },
+      });
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });

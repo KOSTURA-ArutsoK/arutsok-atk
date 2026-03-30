@@ -291,7 +291,7 @@ export default function Archive() {
             <Database className="w-4 h-4 mr-1" />
             Ostatne ({softDeleted.length})
           </TabsTrigger>
-          <TabsTrigger value="skeny" data-testid="tab-archive-skeny">
+          <TabsTrigger value="skeny" data-testid="tab-archive-scans">
             <ScanLine className="w-4 h-4 mr-1" />
             Skeny ({deletedScans.length})
           </TabsTrigger>
