@@ -6970,6 +6970,53 @@ export async function registerRoutes(
     }
   });
 
+  // ===== SCAN COMMANDER — Finish sorting (advance phase 6 → 8 without scan) =====
+  app.post("/api/scan-commander/finish-sorting", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractId } = req.body;
+      if (!contractId || isNaN(Number(contractId))) {
+        return res.status(400).json({ message: "Chýba platný contractId" });
+      }
+      const id = Number(contractId);
+      const appUser = req.appUser;
+
+      const [contract] = await db.select().from(contracts).where(eq(contracts.id, id));
+      if (!contract) {
+        return res.status(404).json({ message: "Kontrakt nenájdený" });
+      }
+      if (contract.lifecyclePhase !== 6) {
+        return res.status(400).json({ message: `Kontrakt nie je vo fáze 6 (aktuálne vo fáze ${contract.lifecyclePhase}). Dokončiť triedenie je možné len pre kontrakty v Roztriedení kontraktov.` });
+      }
+
+      const now = new Date();
+      await db.update(contracts).set({
+        lifecyclePhase: 8,
+        updatedAt: now,
+      }).where(eq(contracts.id, id));
+
+      await db.insert(contractLifecycleHistory).values({
+        contractId: id,
+        phase: 8,
+        phaseName: "Manuálna kontrola kontraktov",
+        changedByUserId: appUser?.id || null,
+        note: "Scan Commander — Dokončiť triedenie bez skenu, presun do fázy 8",
+      });
+
+      await logAudit(req, {
+        action: "SCAN_COMMANDER_FINISH_SORTING",
+        module: "zmluvy",
+        entityId: id,
+        entityName: contract.contractNumber || contract.proposalNumber || `ID ${id}`,
+        newData: { fromPhase: 6, toPhase: 8 },
+      });
+
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("POST /api/scan-commander/finish-sorting error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
   // Preview endpoint — returns supiska code + contract list without creating anything
   app.post("/api/contracts/supiska-preview", isAuthenticated, async (req: any, res) => {
     try {

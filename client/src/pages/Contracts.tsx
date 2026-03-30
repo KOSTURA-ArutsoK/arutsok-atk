@@ -2907,6 +2907,7 @@ function ScanCommanderDialog({
   const [isDragOver, setIsDragOver] = useState(false);
   const [unpairing, setUnpairing] = useState<string | null>(null);
   const [expandedContractDocs, setExpandedContractDocs] = useState<Set<number>>(new Set());
+  const [finishingSorting, setFinishingSorting] = useState<Set<number>>(new Set());
 
   // Track internal contract state (paired counts) locally
   const [localPairedCounts, setLocalPairedCounts] = useState<Record<number, number>>({});
@@ -3378,6 +3379,30 @@ function ScanCommanderDialog({
       toast({ title: "Chyba", description: err.message, variant: "destructive" });
     } finally {
       setUnpairing(null);
+    }
+  }
+
+  async function handleFinishSorting(contractId: number) {
+    setFinishingSorting(prev => new Set(prev).add(contractId));
+    try {
+      const res = await fetch("/api/scan-commander/finish-sorting", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contractId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Chyba pri dokončení triedenia");
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase/6"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase/8"] });
+      toast({ title: "Triedenie dokončené", description: "Kontrakt bol presunutý do Manuálnej kontroly kontraktov (fáza 8)." });
+    } catch (err: any) {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    } finally {
+      setFinishingSorting(prev => { const s = new Set(prev); s.delete(contractId); return s; });
     }
   }
 
@@ -4046,6 +4071,7 @@ function ScanCommanderDialog({
                       <th className="p-2 text-left font-medium text-muted-foreground">Partner</th>
                       <th className="p-2 text-left font-medium text-muted-foreground">Subjekt</th>
                       <th className="p-2 text-center font-medium text-muted-foreground">Skeny</th>
+                      <th className="p-2 w-8"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4124,10 +4150,23 @@ function ScanCommanderDialog({
                                 <span className="text-muted-foreground">—</span>
                               )}
                             </td>
+                            <td className="p-1 text-center" onClick={e => e.stopPropagation()}>
+                              <button
+                                className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-emerald-500/15 text-emerald-600 hover:text-emerald-700 transition-colors disabled:opacity-40"
+                                title="Dokončiť triedenie — presunúť do Manuálnej kontroly (fáza 8)"
+                                disabled={finishingSorting.has(c.id)}
+                                onClick={() => handleFinishSorting(c.id)}
+                                data-testid={`button-finish-sorting-${c.id}`}
+                              >
+                                {finishingSorting.has(c.id)
+                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  : <CheckCircle2 className="w-3.5 h-3.5" />}
+                              </button>
+                            </td>
                           </tr>
                           {isExpanded && hasDocs && (
                             <tr key={`docs-${c.id}`} className="bg-muted/10">
-                              <td colSpan={6} className="px-3 py-1.5">
+                              <td colSpan={7} className="px-3 py-1.5">
                                 <div className="space-y-0.5">
                                   {existingDocs.map((doc, di) => {
                                     const unpairKey = `${c.id}:${doc.url}`;
