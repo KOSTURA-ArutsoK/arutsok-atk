@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -94,6 +94,8 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
   const inboxFileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [pairedMap, setPairedMap] = useState<Record<string, { contractId: number; contractUid: string }>>({});
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   const { data: contractsRaw = [] } = useQuery<TrezorContract[]>({
     queryKey: ["/api/contracts", "trezor-list"],
@@ -182,6 +184,25 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
   const selectedIdArr = [...selectedScanIds];
   const previewFile = selectedIdArr.length === 1 ? scanFiles.find(f => f.id === selectedIdArr[0]) : null;
 
+  // Reset zoom when selected file changes
+  useEffect(() => {
+    setZoomLevel(1);
+  }, [previewFile?.id]);
+
+  // Non-passive wheel listener for pinch-to-zoom (ctrlKey = pinch on trackpad)
+  useEffect(() => {
+    const el = previewContainerRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const delta = e.deltaY * -0.005;
+      setZoomLevel(prev => Math.min(4, Math.max(0.25, prev + delta)));
+    };
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
+  }, []);
+
   return (
     <div className="flex flex-row flex-1 min-h-0 w-full">
 
@@ -191,7 +212,22 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
           <Eye className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-xs font-semibold">Náhľad skenu</span>
         </div>
-        <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-3 overflow-y-auto">
+        <div
+          ref={previewContainerRef}
+          className="flex-1 min-h-0 flex flex-col items-center justify-center p-3 overflow-hidden relative"
+        >
+          {/* Zoom badge — klik resetuje na 100 % */}
+          {zoomLevel !== 1 && previewFile?.url && isImageFile(previewFile.name) && (
+            <button
+              data-testid="button-zoom-reset"
+              onClick={() => setZoomLevel(1)}
+              title="Kliknite pre reset na 100 %"
+              className="absolute top-2 right-2 z-10 text-[10px] font-medium bg-black/60 text-white rounded px-1.5 py-0.5 hover:bg-black/80 transition-colors"
+            >
+              {Math.round(zoomLevel * 100)} %
+            </button>
+          )}
+
           {selectedScanIds.size === 0 ? (
             <div className="text-center text-muted-foreground space-y-2">
               <ImageIcon className="w-10 h-10 mx-auto opacity-20" />
@@ -209,7 +245,23 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
               <p className="text-xs">Nahráva sa… {previewFile.progress}%</p>
             </div>
           ) : previewFile?.url && isImageFile(previewFile.name) ? (
-            <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-full object-contain rounded shadow-sm" data-testid="preview-image" />
+            <div
+              style={{
+                transform: `scale(${zoomLevel})`,
+                transformOrigin: "center center",
+                transition: "transform 0.08s ease-out",
+                maxWidth: "100%",
+                maxHeight: "100%",
+              }}
+            >
+              <img
+                src={previewFile.url}
+                alt={previewFile.name}
+                className="max-w-full max-h-full object-contain rounded shadow-sm"
+                style={{ display: "block" }}
+                data-testid="preview-image"
+              />
+            </div>
           ) : previewFile?.url && isPdfFile(previewFile.name) ? (
             <embed src={previewFile.url} type="application/pdf" className="w-full flex-1 rounded" style={{ minHeight: 200 }} data-testid="preview-pdf" />
           ) : previewFile ? (
