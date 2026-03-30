@@ -270,7 +270,6 @@ function fmtTime(ts: number): string {
 export default function PridatStavZmluvy() {
   const { toast } = useToast();
   const [kokpitOpen, setKokpitOpen] = useState(false);
-  const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [historyDate, setHistoryDate] = useState<string | null>(null);
   const [scanFiles, setScanFiles] = useState<ScanFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -307,8 +306,7 @@ export default function PridatStavZmluvy() {
   const phase3Count = items.filter(i => i.phase === 3).length;
   const overdueCount = items.filter(i => i.dayCreated < todayStr && !i.resolvedAt).length;
 
-  function handleRowClick(item: KokpitItemExt) {
-    setSelectedItemId(item.id);
+  function handleRowClick(_item: KokpitItemExt) {
     setKokpitOpen(true);
   }
 
@@ -453,7 +451,7 @@ export default function PridatStavZmluvy() {
 
         {/* CENTER: KOKPIT button + phase summary */}
         <div className="flex-1 flex flex-col items-center gap-3 pt-2">
-          <KokpitCard onClick={() => { setSelectedItemId(null); setKokpitOpen(true); }} />
+          <KokpitCard onClick={() => setKokpitOpen(true)} />
 
           {/* Phase summary rows */}
           <div className="space-y-1.5 w-full max-w-[200px]">
@@ -676,7 +674,6 @@ export default function PridatStavZmluvy() {
       <KokpitDialog
         open={kokpitOpen}
         onOpenChange={setKokpitOpen}
-        initialItemId={selectedItemId}
         scanFiles={scanFiles}
         onRemoveScanFile={removeScanFile}
       />

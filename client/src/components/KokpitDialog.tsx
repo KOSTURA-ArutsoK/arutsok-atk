@@ -98,8 +98,6 @@ function Step1Panel({ scanFiles, onRemoveScanFile }: Step1PanelProps) {
     return true;
   }).slice(0, 100);
 
-  const hasAnySearch = searchUid || searchCode || searchSubject || searchPartner || searchProduct;
-
   function toggleScan(id: string) {
     setSelectedScanIds(prev => {
       const next = new Set(prev);
@@ -290,12 +288,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile }: Step1PanelProps) {
 
         {/* Contract table */}
         <div className="flex-1 overflow-y-auto">
-          {!hasAnySearch ? (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground p-6">
-              <Search size={28} className="opacity-20" />
-              <p className="text-sm text-center">Zadajte kritériá vyhľadávania</p>
-            </div>
-          ) : filteredContracts.length === 0 ? (
+          {filteredContracts.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-8">Žiadne zmluvy</p>
           ) : (
             <table className="w-full text-xs">
@@ -355,12 +348,11 @@ function Step1Panel({ scanFiles, onRemoveScanFile }: Step1PanelProps) {
 interface KokpitDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  initialItemId?: number | null;
   scanFiles: ScanFile[];
   onRemoveScanFile: (id: string) => void;
 }
 
-export function KokpitDialog({ open, onOpenChange, initialItemId, scanFiles, onRemoveScanFile }: KokpitDialogProps) {
+export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile }: KokpitDialogProps) {
   const [activeTab, setActiveTab] = useState("prichod");
 
   const { data: items = [] } = useQuery<KokpitItemExt[]>({
