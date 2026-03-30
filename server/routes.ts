@@ -6868,7 +6868,7 @@ export async function registerRoutes(
     try {
       const ALLOWED_FILE_URL_PREFIX = "/api/files/contract-docs/";
 
-      const { fileUrl, splitAfterPages } = req.body;
+      const { fileUrl, splitAfterPages, originalName } = req.body;
       if (!fileUrl || typeof fileUrl !== "string") {
         return res.status(400).json({ message: "Chýba fileUrl" });
       }
@@ -6919,9 +6919,10 @@ export async function registerRoutes(
       }
       const boundaries: number[] = [0, ...sortedCuts, totalPages]; // 0-indexed start, totalPages = exclusive end
 
-      // Derive base name without extension
-      const origExt = path.extname(fileSegment); // e.g. ".pdf"
-      const origBase = path.basename(fileSegment, origExt); // e.g. "1234_abc_scan"
+      // Derive base name without extension — prefer originalName (user-facing) over storage filename
+      const displayName = originalName && typeof originalName === "string" ? originalName.trim() : "";
+      const origExt = path.extname(displayName || fileSegment);
+      const origBase = path.basename(displayName || fileSegment, origExt || ".pdf").replace(/[/\\:*?"<>|]/g, "_");
 
       const resultFiles: { name: string; url: string; size: number }[] = [];
 

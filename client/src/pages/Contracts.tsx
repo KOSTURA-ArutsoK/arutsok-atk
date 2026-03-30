@@ -3130,6 +3130,7 @@ function ScanCommanderDialog({
   async function handleBurstSplit() {
     if (!selectedFileUrl || burstSplitPoints.size === 0) return;
     setBurstSplitting(true);
+    const originalDisplayName = inboxFiles.find(f => f.url === selectedFileUrl)?.name;
     try {
       const res = await fetch("/api/scan-commander/split-pdf", {
         method: "POST",
@@ -3138,6 +3139,7 @@ function ScanCommanderDialog({
         body: JSON.stringify({
           fileUrl: selectedFileUrl,
           splitAfterPages: [...burstSplitPoints].sort((a, b) => a - b),
+          originalName: originalDisplayName,
         }),
       });
       if (!res.ok) {
