@@ -227,7 +227,6 @@ export default function PridatStavZmluvy() {
 
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
-  const nameDay = getSlovakNameDay(today);
 
 
   const { data: items = [], isLoading } = useQuery<KokpitItemExt[]>({
@@ -465,12 +464,15 @@ export default function PridatStavZmluvy() {
           </div>
 
           {/* Meniny */}
-          {nameDay && viewDate === todayStr && (
-            <div className="text-[11px] text-muted-foreground border-l-2 border-amber-400/60 pl-2 leading-tight">
-              <span className="font-medium text-foreground/70">Meniny:</span>{" "}
-              <span className="font-semibold">{nameDay}</span>
-            </div>
-          )}
+          {(() => {
+            const nd = getSlovakNameDay(new Date(viewDate + "T12:00:00"));
+            return nd ? (
+              <div className="text-[11px] text-muted-foreground border-l-2 border-amber-400/60 pl-2 leading-tight">
+                <span className="font-medium text-foreground/70">Meniny:</span>{" "}
+                <span className="font-semibold">{nd}</span>
+              </div>
+            ) : null;
+          })()}
 
           {/* Day / Week / Month toggle */}
           <div className="flex rounded-md border overflow-hidden text-[11px] font-medium">
@@ -636,7 +638,15 @@ export default function PridatStavZmluvy() {
         <div className="flex items-center mb-2">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             {viewMode === 'week'
-              ? `Týždeň: ${viewDate}`
+              ? (() => {
+                  const [y, mo, d] = viewDate.split('-').map(Number);
+                  const dt = new Date(Date.UTC(y, mo - 1, d));
+                  const dow = dt.getUTCDay();
+                  const mon = new Date(Date.UTC(y, mo - 1, d - (dow === 0 ? 6 : dow - 1)));
+                  const sun = new Date(Date.UTC(mon.getUTCFullYear(), mon.getUTCMonth(), mon.getUTCDate() + 6));
+                  const fmt = (x: Date) => `${x.getUTCDate()}.${x.getUTCMonth() + 1}.`;
+                  return `Týždeň: ${fmt(mon)} – ${fmt(sun)}${sun.getUTCFullYear()}`;
+                })()
               : viewMode === 'month'
               ? `Mesiac: ${new Date(viewDate + "T00:00:00Z").toLocaleString("sk-SK", { month: "long", year: "numeric", timeZone: "UTC" })}`
               : viewDate !== todayStr
