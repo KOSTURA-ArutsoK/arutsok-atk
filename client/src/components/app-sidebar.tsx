@@ -866,6 +866,7 @@ export function AppSidebar() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              <SidebarSeparator />
               {ktoEqualsKde && (
                 <CollapsibleMenu
                   label="Partneri a produkty"
