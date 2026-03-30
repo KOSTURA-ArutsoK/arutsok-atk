@@ -25907,29 +25907,29 @@ export async function registerRoutes(
   });
 
   app.post("/api/kokpit/items", isAuthenticated, async (req: any, res) => {
+    const postSchema = z.object({ title: z.string().min(1), source: z.string().optional().default("") });
+    const parsed = postSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
     try {
       const user = req.appUser;
       const companyId = user?.activeCompanyId;
       if (!companyId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
-      const today = new Date().toISOString().slice(0, 10);
-      const item = await storage.createKokpitItem({
-        ...req.body,
-        companyId,
-        phase: 1,
-        dayCreated: today,
-      });
+      const today = new Date().toLocaleDateString("sv-SE");
+      const item = await storage.createKokpitItem({ title: parsed.data.title, source: parsed.data.source, companyId, phase: 1, dayCreated: today });
       res.json(item);
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
   app.patch("/api/kokpit/items/:id", isAuthenticated, async (req: any, res) => {
+    const patchSchema = z.object({ phase: z.number().int().min(1).max(3).optional(), contractId: z.number().int().nullable().optional(), statusId: z.number().int().nullable().optional() });
+    const parsed = patchSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
     try {
       const user = req.appUser;
       const companyId = user?.activeCompanyId;
       if (!companyId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
       const id = parseInt(req.params.id);
-      const { phase, contractId, statusId } = req.body;
-      const item = await storage.updateKokpitItem(id, companyId, { phase, contractId, statusId });
+      const item = await storage.updateKokpitItem(id, companyId, parsed.data);
       if (!item) return res.status(404).json({ message: "Položka nenájdená alebo nemáte oprávnenie" });
       res.json(item);
     } catch (e: any) { res.status(500).json({ message: e.message }); }

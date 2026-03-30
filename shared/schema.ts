@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, bigint, numeric, varchar, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, bigint, numeric, varchar, index, uniqueIndex, date } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -2999,7 +2999,7 @@ export const kokpitItems = pgTable("kokpit_items", {
   contractId: integer("contract_id").references(() => contracts.id),
   statusId: integer("status_id").references(() => contractStatuses.id),
   assignedToUserId: integer("assigned_to_user_id").references(() => appUsers.id),
-  dayCreated: text("day_created").notNull(),
+  dayCreated: date("day_created").notNull(),
   resolvedAt: timestamp("resolved_at"),
   companyId: integer("company_id").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
