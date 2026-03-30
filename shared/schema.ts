@@ -2990,6 +2990,25 @@ export const insertContractParamVerificationSchema = createInsertSchema(contract
 export type ContractParamVerification = typeof contractParamVerifications.$inferSelect;
 export type InsertContractParamVerification = z.infer<typeof insertContractParamVerificationSchema>;
 
+// === KOKPIT ITEMS (ArutsoK #247 — Kokpit systém spracovania stavov zmluvy) ===
+export const kokpitItems = pgTable("kokpit_items", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  source: text("source").default(""),
+  phase: integer("phase").notNull().default(1),
+  contractId: integer("contract_id").references(() => contracts.id),
+  statusId: integer("status_id").references(() => contractStatuses.id),
+  assignedToUserId: integer("assigned_to_user_id").references(() => appUsers.id),
+  dayCreated: text("day_created").notNull(),
+  resolvedAt: timestamp("resolved_at"),
+  companyId: integer("company_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertKokpitItemSchema = createInsertSchema(kokpitItems).omit({ id: true, createdAt: true, resolvedAt: true });
+export type KokpitItem = typeof kokpitItems.$inferSelect;
+export type InsertKokpitItem = z.infer<typeof insertKokpitItemSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

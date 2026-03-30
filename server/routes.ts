@@ -25880,6 +25880,65 @@ export async function registerRoutes(
     }
   });
 
+
+  // ─── Kokpit Routes (ArutsoK #247) ─────────────────────────────────────────────
+
+  app.get("/api/kokpit/items", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.appUser;
+      const companyId = user?.activeCompanyId;
+      if (!companyId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
+      const mode = req.query.mode === 'history' ? 'history' : 'today';
+      const date = typeof req.query.date === 'string' ? req.query.date : undefined;
+      const items = await storage.getKokpitItems(companyId, mode, date);
+      res.json(items);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.get("/api/kokpit/calendar", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.appUser;
+      const companyId = user?.activeCompanyId;
+      if (!companyId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
+      const month = typeof req.query.month === 'string' ? req.query.month : new Date().toISOString().slice(0, 7);
+      const days = await storage.getKokpitCalendar(companyId, month);
+      res.json(days);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/kokpit/items", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.appUser;
+      const companyId = user?.activeCompanyId;
+      if (!companyId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
+      const today = new Date().toISOString().slice(0, 10);
+      const item = await storage.createKokpitItem({
+        ...req.body,
+        companyId,
+        phase: 1,
+        dayCreated: today,
+      });
+      res.json(item);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.patch("/api/kokpit/items/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { phase, contractId, statusId } = req.body;
+      const item = await storage.updateKokpitItem(id, { phase, contractId, statusId });
+      res.json(item);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.patch("/api/kokpit/items/:id/resolve", isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const item = await storage.resolveKokpitItem(id);
+      res.json(item);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   return httpServer;
 }
 

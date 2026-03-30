@@ -156,6 +156,8 @@ import {
   type ProductDisplayParam, type InsertProductDisplayParam,
   contractParamVerifications,
   type ContractParamVerification, type InsertContractParamVerification,
+  kokpitItems,
+  type KokpitItem, type InsertKokpitItem,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lt, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -460,6 +462,13 @@ export interface IStorage {
   // Contract Param Verifications (Task #218)
   getContractParamVerifications(contractId: number): Promise<{ verifications: ContractParamVerification[]; isHistorical: boolean }>;
   upsertContractParamVerification(data: InsertContractParamVerification & { verifiedByUserId: number }): Promise<ContractParamVerification>;
+
+  // Kokpit Items (ArutsoK #247)
+  getKokpitItems(companyId: number, mode: 'today' | 'history', date?: string): Promise<(KokpitItem & { contractUid?: string | null; statusName?: string | null })[]>;
+  getKokpitCalendar(companyId: number, month: string): Promise<string[]>;
+  createKokpitItem(data: InsertKokpitItem): Promise<KokpitItem>;
+  updateKokpitItem(id: number, data: Partial<Pick<KokpitItem, 'phase' | 'contractId' | 'statusId'>>): Promise<KokpitItem>;
+  resolveKokpitItem(id: number): Promise<KokpitItem>;
 
   getSystemContractStatusByName(name: string): Promise<ContractStatus | undefined>;
   getAcceptedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
@@ -5934,6 +5943,70 @@ export class DatabaseStorage implements IStorage {
           note: data.note ?? null,
         },
       })
+      .returning();
+    return row;
+  }
+
+  // ─── Kokpit Items (ArutsoK #247) ──────────────────────────────────────────────
+
+  async getKokpitItems(companyId: number, mode: 'today' | 'history', date?: string): Promise<(KokpitItem & { contractUid?: string | null; statusName?: string | null })[]> {
+    const today = new Date().toISOString().slice(0, 10);
+
+    const rows = await db
+      .select({
+        item: kokpitItems,
+        contractUid: contracts.uid,
+        statusName: contractStatuses.name,
+      })
+      .from(kokpitItems)
+      .leftJoin(contracts, eq(kokpitItems.contractId, contracts.id))
+      .leftJoin(contractStatuses, eq(kokpitItems.statusId, contractStatuses.id))
+      .where(
+        mode === 'history' && date
+          ? and(
+              eq(kokpitItems.companyId, companyId),
+              isNotNull(kokpitItems.resolvedAt),
+              sql`DATE(${kokpitItems.resolvedAt}) = ${date}`
+            )
+          : and(
+              eq(kokpitItems.companyId, companyId),
+              or(
+                eq(kokpitItems.dayCreated, today),
+                isNull(kokpitItems.resolvedAt)
+              )
+            )
+      )
+      .orderBy(asc(kokpitItems.dayCreated), asc(kokpitItems.id));
+
+    return rows.map(r => ({ ...r.item, contractUid: r.contractUid, statusName: r.statusName }));
+  }
+
+  async getKokpitCalendar(companyId: number, month: string): Promise<string[]> {
+    const rows = await db
+      .selectDistinct({ day: sql<string>`DATE(${kokpitItems.resolvedAt})::text` })
+      .from(kokpitItems)
+      .where(and(
+        eq(kokpitItems.companyId, companyId),
+        isNotNull(kokpitItems.resolvedAt),
+        sql`to_char(${kokpitItems.resolvedAt}, 'YYYY-MM') = ${month}`
+      ));
+    return rows.map(r => r.day).filter(Boolean);
+  }
+
+  async createKokpitItem(data: InsertKokpitItem): Promise<KokpitItem> {
+    const [row] = await db.insert(kokpitItems).values(data).returning();
+    return row;
+  }
+
+  async updateKokpitItem(id: number, data: Partial<Pick<KokpitItem, 'phase' | 'contractId' | 'statusId'>>): Promise<KokpitItem> {
+    const [row] = await db.update(kokpitItems).set(data).where(eq(kokpitItems.id, id)).returning();
+    return row;
+  }
+
+  async resolveKokpitItem(id: number): Promise<KokpitItem> {
+    const [row] = await db.update(kokpitItems)
+      .set({ phase: 3, resolvedAt: new Date() })
+      .where(eq(kokpitItems.id, id))
       .returning();
     return row;
   }
