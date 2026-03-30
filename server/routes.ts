@@ -6555,6 +6555,8 @@ export async function registerRoutes(
       const result: Array<{ name: string; url: string; size: number }> = [];
       let extractedCount = 0;
 
+      let zipExtractCount = 0; // total ZIP archives extracted
+
       for (const f of files) {
         const lowerName = (f.originalname || "").toLowerCase();
         const isZip = lowerName.endsWith(".zip") ||
@@ -6567,28 +6569,51 @@ export async function registerRoutes(
           continue;
         }
 
-        // Attempt ZIP extraction
+        // ZIP detected — attempt extraction (invalid ZIP is an error, not a fallback)
         let dir: unzipper.CentralDirectory;
         try {
           dir = await unzipper.Open.file(f.path);
         } catch {
-          // Not a valid ZIP — serve as-is
-          result.push({ name: f.originalname, url: `/api/files/contract-docs/${f.filename}`, size: f.size });
-          continue;
+          fs.unlink(f.path, () => {});
+          return res.status(400).json({ message: `Súbor "${f.originalname}" nie je platný ZIP archív.` });
         }
 
         const fileEntries = dir.files.filter((e: unzipper.File) => e.type === "File");
 
+        // ZIP bomb: max files
         if (fileEntries.length > ZIP_MAX_FILES) {
           fs.unlink(f.path, () => {});
           return res.status(400).json({ message: `ZIP súbor "${f.originalname}" obsahuje príliš veľa súborov (max. ${ZIP_MAX_FILES}).` });
         }
 
+        // ZIP bomb: max uncompressed size
         const totalUncompressed = fileEntries.reduce((s: number, e: unzipper.File) => s + (e.uncompressedSize || 0), 0);
         if (totalUncompressed > ZIP_MAX_UNCOMPRESSED) {
           fs.unlink(f.path, () => {});
           return res.status(400).json({ message: `ZIP súbor "${f.originalname}" je po rozbalení príliš veľký (max. 300 MB).` });
         }
+
+        // ZIP bomb / nesting: reject nested archives and deep paths (max depth = 1 level)
+        for (const entry of fileEntries) {
+          const entryPath = entry.path || "";
+          // Count path depth: entries deeper than 1 directory level are rejected
+          const pathParts = entryPath.split("/").filter(Boolean);
+          const depth = pathParts.length - 1; // 0 = root, 1 = one folder deep
+          if (depth > 1) {
+            fs.unlink(f.path, () => {});
+            return res.status(400).json({ message: `ZIP súbor "${f.originalname}" obsahuje vnorené priečinky hlbšie ako 1 úroveň. Vnorené archívy nie sú povolené.` });
+          }
+          // Reject nested archives
+          const baseLower = (pathParts.at(-1) || "").toLowerCase();
+          if (baseLower.endsWith(".zip") || baseLower.endsWith(".tar") || baseLower.endsWith(".gz") ||
+              baseLower.endsWith(".rar") || baseLower.endsWith(".7z")) {
+            fs.unlink(f.path, () => {});
+            return res.status(400).json({ message: `ZIP súbor "${f.originalname}" obsahuje vnorený archív "${baseLower}". Vnorené archívy nie sú povolené.` });
+          }
+        }
+
+        const filesExtractedFromThisZip: string[] = [];
+        let totalExtractedBytes = 0;
 
         for (const entry of fileEntries) {
           const baseName = (entry.path || "").split("/").pop() || "";
@@ -6603,24 +6628,41 @@ export async function registerRoutes(
           try {
             const buf = await entry.buffer();
             await fs.promises.writeFile(destPath, buf);
+            const sz = entry.uncompressedSize || buf.length;
             result.push({
               name: baseName,
               url: `/api/files/contract-docs/${uniqueName}`,
-              size: entry.uncompressedSize || buf.length,
+              size: sz,
             });
             extractedCount++;
+            filesExtractedFromThisZip.push(baseName);
+            totalExtractedBytes += sz;
           } catch (writeErr) {
             console.error("ZIP extract write error:", writeErr);
           }
         }
 
         fs.unlink(f.path, () => {});
+        zipExtractCount++;
+
+        // Audit each ZIP extraction separately
+        await logAudit(req, {
+          action: "SCAN_COMMANDER_ZIP_EXTRACT",
+          module: "zmluvy",
+          newData: {
+            archiveName: f.originalname,
+            archiveSize: f.size,
+            extractedFileCount: filesExtractedFromThisZip.length,
+            extractedFileNames: filesExtractedFromThisZip,
+            totalExtractedBytes,
+          },
+        });
       }
 
       await logAudit(req, {
         action: "SCAN_COMMANDER_STAGE_UPLOAD",
         module: "zmluvy",
-        newData: { fileCount: files.length, totalBytes: totalSize, extractedFromZip: extractedCount },
+        newData: { fileCount: files.length, totalBytes: totalSize, extractedFromZip: extractedCount, zipArchivesProcessed: zipExtractCount },
       });
 
       res.json({ files: result });
