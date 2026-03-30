@@ -392,8 +392,8 @@ export default function PridatStavZmluvy() {
   const phaseSummaryRows = [
     { phase: 1 as const, count: phase1Count, label: "Príchod", color: "#1e40af" },
     { phase: 2 as const, count: phase2Count, label: "Rozdelenie", color: "#7c3aed" },
-    { phase: null, count: overdueCount, label: "Nedokončené", color: "#dc2626" },
-    { phase: 3 as const, count: phase3Count, label: "Vybavené", color: "#059669" },
+    { phase: null, count: overdueCount, label: "Nedokončené z minulosti", color: "#dc2626" },
+    { phase: 3 as const, count: phase3Count, label: "Vybavené dnes", color: "#059669" },
   ].filter(row => row.count > 0);
 
   // ── Render ───────────────────────────────────────────────────────────────────

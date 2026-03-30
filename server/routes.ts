@@ -25952,8 +25952,9 @@ export async function registerRoutes(
     try {
       const user = req.appUser;
       const companyId = user?.activeCompanyId;
-      if (!companyId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
-      const scans = await storage.getStagedScans(companyId);
+      const appUserId = user?.id;
+      if (!companyId || !appUserId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
+      const scans = await storage.getStagedScans(companyId, appUserId);
       res.json(scans);
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
@@ -25975,7 +25976,11 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ message: "Neplatné ID" });
-      await storage.removeStagedScan(id);
+      const user = req.appUser;
+      const companyId = user?.activeCompanyId;
+      const appUserId = user?.id;
+      if (!companyId || !appUserId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
+      await storage.removeStagedScan(id, companyId, appUserId);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });

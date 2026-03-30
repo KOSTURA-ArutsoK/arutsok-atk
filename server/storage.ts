@@ -473,9 +473,9 @@ export interface IStorage {
   resolveKokpitItem(id: number, companyId: number): Promise<KokpitItem | undefined>;
 
   // Kokpit Staged Scans (ArutsoK #249)
-  getStagedScans(companyId: number): Promise<KokpitStagedScan[]>;
+  getStagedScans(companyId: number, appUserId: number): Promise<KokpitStagedScan[]>;
   addStagedScan(data: InsertKokpitStagedScan): Promise<KokpitStagedScan>;
-  removeStagedScan(id: number): Promise<void>;
+  removeStagedScan(id: number, companyId: number, appUserId: number): Promise<void>;
 
   getSystemContractStatusByName(name: string): Promise<ContractStatus | undefined>;
   getAcceptedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
@@ -6026,9 +6026,12 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  async getStagedScans(companyId: number): Promise<KokpitStagedScan[]> {
+  async getStagedScans(companyId: number, appUserId: number): Promise<KokpitStagedScan[]> {
     return db.select().from(kokpitStagedScans)
-      .where(eq(kokpitStagedScans.companyId, companyId))
+      .where(and(
+        eq(kokpitStagedScans.companyId, companyId),
+        eq(kokpitStagedScans.appUserId, appUserId),
+      ))
       .orderBy(desc(kokpitStagedScans.uploadedAt));
   }
 
@@ -6037,8 +6040,13 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  async removeStagedScan(id: number): Promise<void> {
-    await db.delete(kokpitStagedScans).where(eq(kokpitStagedScans.id, id));
+  async removeStagedScan(id: number, companyId: number, appUserId: number): Promise<void> {
+    await db.delete(kokpitStagedScans)
+      .where(and(
+        eq(kokpitStagedScans.id, id),
+        eq(kokpitStagedScans.companyId, companyId),
+        eq(kokpitStagedScans.appUserId, appUserId),
+      ));
   }
 }
 
