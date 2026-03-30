@@ -6,7 +6,7 @@ interface TripleRingStatusProps {
 
 const PHASE_COLORS: Record<1 | 2 | 3, { ring: string; glow: string; label: string }> = {
   1: { ring: "#1e40af", glow: "rgba(30,64,175,0.7)", label: "Príchod" },
-  2: { ring: "#ea580c", glow: "rgba(234,88,12,0.7)", label: "Rozdelenie" },
+  2: { ring: "#7c3aed", glow: "rgba(124,58,237,0.7)", label: "Rozdelenie" },
   3: { ring: "#059669", glow: "rgba(5,150,105,0.7)", label: "Vybavené" },
 };
 
