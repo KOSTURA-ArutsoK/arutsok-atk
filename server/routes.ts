@@ -25888,7 +25888,8 @@ export async function registerRoutes(
       const user = req.appUser;
       const companyId = user?.activeCompanyId;
       if (!companyId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
-      const mode = req.query.mode === 'history' ? 'history' : 'today';
+      const modeRaw = req.query.mode;
+      const mode = modeRaw === 'history' ? 'history' : modeRaw === 'week' ? 'week' : modeRaw === 'month' ? 'month' : 'today';
       const date = typeof req.query.date === 'string' ? req.query.date : undefined;
       const items = await storage.getKokpitItems(companyId, mode, date);
       res.json(items);

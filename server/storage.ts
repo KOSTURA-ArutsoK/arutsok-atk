@@ -466,7 +466,7 @@ export interface IStorage {
   upsertContractParamVerification(data: InsertContractParamVerification & { verifiedByUserId: number }): Promise<ContractParamVerification>;
 
   // Kokpit Items (ArutsoK #247)
-  getKokpitItems(companyId: number, mode: 'today' | 'history', date?: string): Promise<(KokpitItem & { contractUid?: string | null; statusName?: string | null })[]>;
+  getKokpitItems(companyId: number, mode: 'today' | 'history' | 'week' | 'month', date?: string): Promise<(KokpitItem & { contractUid?: string | null; statusName?: string | null })[]>;
   getKokpitCalendar(companyId: number, month: string): Promise<string[]>;
   createKokpitItem(data: InsertKokpitItem): Promise<KokpitItem>;
   updateKokpitItem(id: number, companyId: number, data: Partial<Pick<KokpitItem, 'phase' | 'contractId' | 'statusId'>>): Promise<KokpitItem | undefined>;
@@ -5956,8 +5956,48 @@ export class DatabaseStorage implements IStorage {
 
   // ─── Kokpit Items (ArutsoK #247) ──────────────────────────────────────────────
 
-  async getKokpitItems(companyId: number, mode: 'today' | 'history', date?: string): Promise<(KokpitItem & { contractUid?: string | null; statusName?: string | null })[]> {
+  async getKokpitItems(companyId: number, mode: 'today' | 'history' | 'week' | 'month', date?: string): Promise<(KokpitItem & { contractUid?: string | null; statusName?: string | null })[]> {
     const today = new Date().toISOString().slice(0, 10);
+
+    let whereClause;
+    if (mode === 'history' && date) {
+      whereClause = and(
+        eq(kokpitItems.companyId, companyId),
+        isNotNull(kokpitItems.resolvedAt),
+        sql`DATE(${kokpitItems.resolvedAt}) = ${date}`
+      );
+    } else if (mode === 'week' && date) {
+      whereClause = and(
+        eq(kokpitItems.companyId, companyId),
+        or(
+          sql`DATE_TRUNC('week', ${kokpitItems.dayCreated}::date) = DATE_TRUNC('week', ${date}::date)`,
+          and(
+            isNotNull(kokpitItems.resolvedAt),
+            sql`DATE_TRUNC('week', ${kokpitItems.resolvedAt}::date) = DATE_TRUNC('week', ${date}::date)`
+          )
+        )
+      );
+    } else if (mode === 'month' && date) {
+      const month = date.slice(0, 7);
+      whereClause = and(
+        eq(kokpitItems.companyId, companyId),
+        or(
+          sql`to_char(${kokpitItems.dayCreated}::date, 'YYYY-MM') = ${month}`,
+          and(
+            isNotNull(kokpitItems.resolvedAt),
+            sql`to_char(${kokpitItems.resolvedAt}::date, 'YYYY-MM') = ${month}`
+          )
+        )
+      );
+    } else {
+      whereClause = and(
+        eq(kokpitItems.companyId, companyId),
+        or(
+          eq(kokpitItems.dayCreated, today),
+          isNull(kokpitItems.resolvedAt)
+        )
+      );
+    }
 
     const rows = await db
       .select({
@@ -5968,21 +6008,7 @@ export class DatabaseStorage implements IStorage {
       .from(kokpitItems)
       .leftJoin(contracts, eq(kokpitItems.contractId, contracts.id))
       .leftJoin(contractStatuses, eq(kokpitItems.statusId, contractStatuses.id))
-      .where(
-        mode === 'history' && date
-          ? and(
-              eq(kokpitItems.companyId, companyId),
-              isNotNull(kokpitItems.resolvedAt),
-              sql`DATE(${kokpitItems.resolvedAt}) = ${date}`
-            )
-          : and(
-              eq(kokpitItems.companyId, companyId),
-              or(
-                eq(kokpitItems.dayCreated, today),
-                isNull(kokpitItems.resolvedAt)
-              )
-            )
-      )
+      .where(whereClause)
       .orderBy(asc(kokpitItems.dayCreated), asc(kokpitItems.id));
 
     return rows.map(r => ({ ...r.item, contractUid: r.contractUid, statusName: r.statusName }));

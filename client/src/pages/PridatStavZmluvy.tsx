@@ -217,7 +217,9 @@ function fmtTime(ts: number): string {
 export default function PridatStavZmluvy() {
   const { toast } = useToast();
   const [kokpitOpen, setKokpitOpen] = useState(false);
-  const [historyDate, setHistoryDate] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
+  const [viewDate, setViewDate] = useState(new Date().toISOString().slice(0, 10));
+  const [calendarVisible, setCalendarVisible] = useState(false);
   const [scanFiles, setScanFiles] = useState<ScanFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -227,23 +229,20 @@ export default function PridatStavZmluvy() {
   const todayStr = today.toISOString().slice(0, 10);
   const nameDay = getSlovakNameDay(today);
 
-  const todayFormatted = (() => {
-    const dayNames = ["Nedeľa","Pondelok","Utorok","Streda","Štvrtok","Piatok","Sobota"];
-    const monthNames = ["januára","februára","marca","apríla","mája","júna","júla","augusta","septembra","októbra","novembra","decembra"];
-    return {
-      weekday: dayNames[today.getDay()],
-      day: today.getDate(),
-      monthName: monthNames[today.getMonth()],
-      year: today.getFullYear(),
-    };
-  })();
 
   const { data: items = [], isLoading } = useQuery<KokpitItemExt[]>({
-    queryKey: ["/api/kokpit/items", historyDate ? "history" : "today", historyDate],
+    queryKey: ["/api/kokpit/items", viewMode, viewDate],
     queryFn: async () => {
-      const url = historyDate
-        ? `/api/kokpit/items?mode=history&date=${historyDate}`
-        : `/api/kokpit/items?mode=today`;
+      let url: string;
+      if (viewMode === 'week') {
+        url = `/api/kokpit/items?mode=week&date=${viewDate}`;
+      } else if (viewMode === 'month') {
+        url = `/api/kokpit/items?mode=month&date=${viewDate}`;
+      } else if (viewDate !== todayStr) {
+        url = `/api/kokpit/items?mode=history&date=${viewDate}`;
+      } else {
+        url = `/api/kokpit/items?mode=today`;
+      }
       const res = await fetch(url, { credentials: "include" });
       return res.json();
     },
@@ -279,6 +278,17 @@ export default function PridatStavZmluvy() {
   const phase2Count = items.filter(i => i.phase === 2).length;
   const phase3Count = items.filter(i => i.phase === 3).length;
   const overdueCount = items.filter(i => i.dayCreated < todayStr && !i.resolvedAt).length;
+
+  function prevDay() {
+    const d = new Date(viewDate + "T00:00:00");
+    d.setDate(d.getDate() - 1);
+    setViewDate(d.toISOString().slice(0, 10));
+  }
+  function nextDay() {
+    const d = new Date(viewDate + "T00:00:00");
+    d.setDate(d.getDate() + 1);
+    setViewDate(d.toISOString().slice(0, 10));
+  }
 
   function handleRowClick(_item: KokpitItemExt) {
     setKokpitOpen(true);
@@ -419,42 +429,88 @@ export default function PridatStavZmluvy() {
       {/* 3-column top section */}
       <div className="flex gap-4 items-start">
 
-        {/* LEFT: date + meniny + calendar */}
-        <div className="shrink-0 w-48 space-y-3">
-          {/* Date display */}
-          <div>
-            <div className="text-xs text-muted-foreground font-medium">{todayFormatted.weekday}</div>
-            <div className="text-3xl font-black leading-none tracking-tight text-foreground">
-              {todayFormatted.day}.
-            </div>
-            <div className="text-sm font-semibold text-muted-foreground">
-              {todayFormatted.monthName} {todayFormatted.year}
-            </div>
+        {/* LEFT: date chip + meniny + toggle + calendar */}
+        <div className="min-w-[160px] flex-1 max-w-[220px] space-y-2">
+          {/* Date chip with ← → navigation */}
+          <div className="flex items-center gap-1">
+            <button
+              data-testid="button-prev-day"
+              onClick={prevDay}
+              className="p-0.5 rounded hover:bg-muted text-muted-foreground shrink-0"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <button
+              data-testid="button-date-chip"
+              onClick={() => setCalendarVisible(v => !v)}
+              className={`flex-1 text-center rounded-md border px-2 py-1 text-xs font-semibold transition-colors hover:bg-muted/60 ${
+                calendarVisible ? "bg-muted border-blue-500/50" : "bg-muted/30 border-border"
+              } ${viewDate !== todayStr ? "border-amber-400/60 text-amber-700 dark:text-amber-400" : "text-foreground"}`}
+            >
+              <span className="text-muted-foreground font-normal mr-1">
+                {["Ne","Po","Ut","St","Št","Pi","So"][new Date(viewDate + "T00:00:00").getDay()]}
+              </span>
+              {new Date(viewDate + "T00:00:00").getDate()}.{new Date(viewDate + "T00:00:00").getMonth() + 1}.{new Date(viewDate + "T00:00:00").getFullYear()}
+            </button>
+            <button
+              data-testid="button-next-day"
+              onClick={nextDay}
+              className="p-0.5 rounded hover:bg-muted text-muted-foreground shrink-0"
+            >
+              <ChevronRight size={14} />
+            </button>
           </div>
 
           {/* Meniny */}
-          {nameDay && (
-            <div className="text-xs text-muted-foreground border-l-2 border-amber-400/60 pl-2">
+          {nameDay && viewDate === todayStr && (
+            <div className="text-[11px] text-muted-foreground border-l-2 border-amber-400/60 pl-2 leading-tight">
               <span className="font-medium text-foreground/70">Meniny:</span>{" "}
               <span className="font-semibold">{nameDay}</span>
             </div>
           )}
 
-          {/* Inline calendar */}
-          <div className="border rounded-md p-2 bg-muted/20">
-            <InlineCalendar
-              selectedDate={historyDate}
-              onSelectDate={setHistoryDate}
-            />
+          {/* Day / Week / Month toggle */}
+          <div className="flex rounded-md border overflow-hidden text-[11px] font-medium">
+            {(["day", "week", "month"] as const).map((m) => {
+              const labels = { day: "Deň", week: "Týždeň", month: "Mesiac" };
+              return (
+                <button
+                  key={m}
+                  data-testid={`button-viewmode-${m}`}
+                  onClick={() => setViewMode(m)}
+                  className={`flex-1 py-0.5 transition-colors ${
+                    viewMode === m
+                      ? "bg-blue-700 text-white"
+                      : "hover:bg-muted/60 text-muted-foreground"
+                  }`}
+                >
+                  {labels[m]}
+                </button>
+              );
+            })}
           </div>
 
-          {historyDate && (
+          {/* Collapsible inline calendar */}
+          {calendarVisible && (
+            <div className="border rounded-md p-2 bg-muted/20">
+              <InlineCalendar
+                selectedDate={viewDate !== todayStr ? viewDate : null}
+                onSelectDate={(d) => {
+                  setViewDate(d ?? todayStr);
+                  setCalendarVisible(false);
+                }}
+              />
+            </div>
+          )}
+
+          {/* Back to today */}
+          {viewDate !== todayStr && (
             <button
-              onClick={() => setHistoryDate(null)}
-              className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+              onClick={() => setViewDate(todayStr)}
+              className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               data-testid="button-back-today"
             >
-              <X size={11} />
+              <X size={10} />
               Späť na dnes
             </button>
           )}
@@ -466,7 +522,7 @@ export default function PridatStavZmluvy() {
         </div>
 
         {/* RIGHT: Scan drop zone */}
-        <div className="shrink-0 w-64 pt-2">
+        <div className="min-w-[200px] flex-1 max-w-[320px] pt-2">
           <div
             data-testid="drop-zone-scans"
             onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
@@ -575,15 +631,15 @@ export default function PridatStavZmluvy() {
       <div>
         {/* Table header with phase summary on the right */}
         <div className="flex items-center mb-2">
-          {historyDate ? (
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              História: {historyDate.split("-").reverse().join(".")}
-            </p>
-          ) : (
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Dnešné aktivity + prenesené nevyriešené
-            </p>
-          )}
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            {viewMode === 'week'
+              ? `Týždeň: ${viewDate}`
+              : viewMode === 'month'
+              ? `Mesiac: ${new Date(viewDate + "T00:00:00").toLocaleString("sk-SK", { month: "long", year: "numeric" })}`
+              : viewDate !== todayStr
+              ? `História: ${viewDate.split("-").reverse().join(".")}`
+              : "Dnešné aktivity + prenesené nevyriešené"}
+          </p>
 
           {phaseSummaryRows.length > 0 && (
             <div className="ml-auto flex items-center gap-4">
