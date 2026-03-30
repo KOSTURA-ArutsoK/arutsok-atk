@@ -127,18 +127,20 @@ export function KokpitDialog({ open, onOpenChange, initialItemId }: KokpitDialog
     },
   });
 
+  type ContractSearchRow = { id: number; uid: string | null; statusId: number | null };
+
   const contractSearch = useQuery<{ id: number; uid: string; statusId: number | null }[]>({
     queryKey: ["/api/contracts", "search-uid", uidSearch],
     queryFn: async () => {
       if (!uidSearch.trim()) return [];
       const res = await fetch(`/api/contracts?limit=500`, { credentials: "include" });
       const data = await res.json();
-      const all: any[] = data.contracts ?? data ?? [];
+      const all: ContractSearchRow[] = data.contracts ?? data ?? [];
       const q = uidSearch.replace(/\s/g, "").toLowerCase();
       return all
-        .filter((c: any) => (c.uid ?? "").replace(/\s/g, "").toLowerCase().includes(q))
+        .filter(c => (c.uid ?? "").replace(/\s/g, "").toLowerCase().includes(q))
         .slice(0, 8)
-        .map((c: any) => ({ id: c.id, uid: c.uid ?? "", statusId: c.statusId ?? null }));
+        .map(c => ({ id: c.id, uid: c.uid ?? "", statusId: c.statusId ?? null }));
     },
     enabled: uidSearch.length >= 3,
   });

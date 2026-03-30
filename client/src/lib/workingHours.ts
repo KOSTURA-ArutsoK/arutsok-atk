@@ -92,21 +92,21 @@ export function calculateWorkingMinutesElapsed(createdAt: Date, now: Date = new 
   return Math.round(elapsed);
 }
 
-export function getRemainingWorkingMinutes(createdAt: Date, now: Date = new Date()): number {
+export function getRemainingWorkingMinutes(createdAt: Date, now: Date = new Date(), slaMinutes: number = SLA_WORKING_MINUTES): number {
   const elapsed = calculateWorkingMinutesElapsed(createdAt, now);
-  return Math.max(0, SLA_WORKING_MINUTES - elapsed);
+  return Math.max(0, slaMinutes - elapsed);
 }
 
-export function formatRemainingHHMM(createdAt: Date, now: Date = new Date()): string {
-  const remaining = getRemainingWorkingMinutes(createdAt, now);
+export function formatRemainingHHMM(createdAt: Date, now: Date = new Date(), slaMinutes: number = SLA_WORKING_MINUTES): string {
+  const remaining = getRemainingWorkingMinutes(createdAt, now, slaMinutes);
   if (remaining <= 0) return "ONESKORENÉ";
   const hh = Math.floor(remaining / 60);
   const mm = remaining % 60;
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
-export function isOverdue(createdAt: Date, now: Date = new Date()): boolean {
-  return getRemainingWorkingMinutes(createdAt, now) === 0;
+export function isOverdue(createdAt: Date, now: Date = new Date(), slaMinutes: number = SLA_WORKING_MINUTES): boolean {
+  return getRemainingWorkingMinutes(createdAt, now, slaMinutes) === 0;
 }
 
 export function isAdminAlert(createdAt: Date, now: Date = new Date()): boolean {

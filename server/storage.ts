@@ -5999,6 +5999,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateKokpitItem(id: number, companyId: number, data: Partial<Pick<KokpitItem, 'phase' | 'contractId' | 'statusId'>>): Promise<KokpitItem | undefined> {
+    if (data.contractId != null) {
+      const [contract] = await db.select({ id: contracts.id })
+        .from(contracts)
+        .where(and(eq(contracts.id, data.contractId), eq(contracts.companyId, companyId)));
+      if (!contract) return undefined;
+    }
     const [row] = await db.update(kokpitItems).set(data)
       .where(and(eq(kokpitItems.id, id), eq(kokpitItems.companyId, companyId)))
       .returning();
