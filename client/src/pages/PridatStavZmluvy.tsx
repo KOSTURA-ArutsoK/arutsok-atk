@@ -314,8 +314,20 @@ export default function PridatStavZmluvy() {
 
   // ── File upload ──────────────────────────────────────────────────────────────
 
+  const MAX_SCAN_FILES = 150;
+
   function uploadFiles(files: File[]) {
     if (!files.length) return;
+
+    const remaining = MAX_SCAN_FILES - scanFiles.length;
+    if (remaining <= 0) {
+      toast({ title: "Limit dosiahnutý", description: `Môžete nahrať najviac ${MAX_SCAN_FILES} súborov naraz.`, variant: "destructive" });
+      return;
+    }
+    if (files.length > remaining) {
+      toast({ title: "Limit súborov", description: `Pridáva sa len prvých ${remaining} súborov (limit: ${MAX_SCAN_FILES}).`, variant: "destructive" });
+      files = files.slice(0, remaining);
+    }
 
     const newEntries: ScanFile[] = files.map(f => ({
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
