@@ -241,8 +241,10 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
             >
               <div className="flex items-center gap-3">
-                <div style={{ width: 80, height: 18, borderRadius: 4, background: "rgba(255,255,255,0.1)" }} />
-                <div style={{ width: 56, height: 18, borderRadius: 4, background: "rgba(255,255,255,0.07)" }} />
+                <span className="text-xs font-semibold text-blue-200/50">
+                  {new Date().toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                </span>
+                <div style={{ width: 56, height: 16, borderRadius: 4, background: "rgba(255,255,255,0.07)" }} />
               </div>
               <div
                 className="flex items-center gap-1.5 px-3 py-1 rounded"
