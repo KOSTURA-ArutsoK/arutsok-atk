@@ -700,6 +700,7 @@ export const clientGroups = pgTable("client_groups", {
   customFields: jsonb("custom_fields").$type<Array<{ name: string; type: string }>>().default([]),
   sortOrder: integer("sort_order").default(0),
   stateId: integer("state_id").references(() => states.id),
+  kokpitConfig: jsonb("kokpit_config").$type<Array<{ stateId: number | null; companyId: number | null; divisionIds: number[] }>>(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -1155,6 +1156,7 @@ export const insertSidebarLinkSchema = createInsertSchema(sidebarLinks).omit({ i
 export const insertClientTypeSchema = createInsertSchema(clientTypes).omit({ id: true, createdAt: true });
 export const insertClientGroupSchema = createInsertSchema(clientGroups).omit({ id: true, createdAt: true, updatedAt: true }).extend({
   description: z.string().max(500).nullable().optional(),
+  kokpitConfig: z.array(z.object({ stateId: z.number().nullable(), companyId: z.number().nullable(), divisionIds: z.array(z.number()) })).nullable().optional(),
 });
 export const insertClientSubGroupSchema = createInsertSchema(clientSubGroups).omit({ id: true, createdAt: true });
 export const insertClientGroupMemberSchema = createInsertSchema(clientGroupMembers).omit({ id: true, createdAt: true });

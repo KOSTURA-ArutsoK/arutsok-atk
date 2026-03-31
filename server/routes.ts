@@ -1504,6 +1504,13 @@ export async function registerRoutes(
   });
 
   // === STATES CRUD (ArutsoK 31) ===
+  app.get("/api/states", isAuthenticated, async (_req, res) => {
+    try {
+      const allStates = await db.select().from(states).where(eq(states.isActive, true)).orderBy(states.name);
+      res.json(allStates);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   app.get("/api/states/:id", isAuthenticated, async (req, res) => {
     const state = await storage.getState(Number(req.params.id));
     if (!state) return res.status(404).json({ message: "State not found" });
@@ -10840,7 +10847,7 @@ export async function registerRoutes(
     try {
       const existing = await storage.getClientGroup(Number(req.params.id));
       if (!existing) return res.status(404).json({ message: "Skupina nenajdena" });
-      if ((existing as any).isHoldingGroup) {
+      if ((existing as any).isHoldingGroup && existing.groupCode !== "kancelaria_back_office") {
         return res.status(403).json({ message: "Holding skupinu nie je možné priamo upraviť. Spravujte ju cez modul Spoločnosti." });
       }
       if ((existing as any).isPartnerGroup) {
@@ -18095,6 +18102,27 @@ export async function registerRoutes(
           await db.update(clientGroups).set(updates).where(eq(clientGroups.id, existing[0].id));
         }
       }
+    }
+  }
+
+  {
+    // Auto-create "Kancelária — Back office" as isHoldingGroup + isSystem group
+    const existing = await db.select().from(clientGroups).where(eq(clientGroups.groupCode, "kancelaria_back_office"));
+    if (existing.length === 0) {
+      await db.insert(clientGroups).values({
+        name: "Kancelária — Back office",
+        groupCode: "kancelaria_back_office",
+        isSystem: true,
+        isHoldingGroup: true,
+        permissionLevel: 1,
+        description: "Špeciálna systémová skupina pre prístup do modulu Kokpit. Členovia skupiny majú prístup k spracovaniu prijatých zmlúv.",
+      });
+      console.log("[SEED] Created system group: Kancelária — Back office");
+    } else {
+      const upd: any = {};
+      if (!existing[0].isSystem) upd.isSystem = true;
+      if (!existing[0].isHoldingGroup) upd.isHoldingGroup = true;
+      if (Object.keys(upd).length > 0) await db.update(clientGroups).set(upd).where(eq(clientGroups.id, existing[0].id));
     }
   }
 
@@ -25946,6 +25974,37 @@ export async function registerRoutes(
     }
   });
 
+
+
+  // ─── Kokpit Access Endpoint (ArutsoK #275) ─────────────────────────────────────
+  app.get("/api/kokpit/access", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.appUser;
+      const isAdminUser = user?.isAdmin || ["admin", "superadmin", "prezident", "architekt"].includes(user?.role ?? "");
+      if (isAdminUser) {
+        return res.json({ hasAccess: true, permissions: [] });
+      }
+      const linkedSubjectId = user?.linkedSubjectId;
+      if (!linkedSubjectId) return res.json({ hasAccess: false });
+      const [boGroup] = await db.select().from(clientGroups).where(eq(clientGroups.groupCode, "kancelaria_back_office"));
+      if (!boGroup) return res.json({ hasAccess: false });
+      const membership = await db.select().from(clientGroupMembers)
+        .where(and(eq(clientGroupMembers.groupId, boGroup.id), eq(clientGroupMembers.subjectId, linkedSubjectId)));
+      if (membership.length === 0) return res.json({ hasAccess: false });
+      const config = Array.isArray(boGroup.kokpitConfig) ? (boGroup.kokpitConfig as any[]) : [];
+      const permissions = await Promise.all(config.map(async (entry: any) => {
+        let companyName = null;
+        let companyCode = null;
+        if (entry.companyId) {
+          const [company] = await db.select({ name: myCompanies.name, code: myCompanies.code }).from(myCompanies).where(eq(myCompanies.id, entry.companyId));
+          companyName = company?.name ?? null;
+          companyCode = company?.code ?? null;
+        }
+        return { stateId: entry.stateId, companyId: entry.companyId, companyName, companyCode, divisionIds: entry.divisionIds || [] };
+      }));
+      res.json({ hasAccess: true, permissions });
+    } catch (e) { res.status(500).json({ message: (e as any).message }); }
+  });
 
   // ─── Kokpit Routes (ArutsoK #247) ─────────────────────────────────────────────
 

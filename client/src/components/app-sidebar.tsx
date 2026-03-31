@@ -446,6 +446,11 @@ export function AppSidebar() {
     staleTime: 1000 * 60 * 5,
   });
 
+  const { data: kokpitAccess } = useQuery<{ hasAccess: boolean; permissions: Array<{ stateId: number | null; companyId: number | null; companyName: string | null; companyCode: string | null; divisionIds: number[] }> }>({
+    queryKey: ["/api/kokpit/access"],
+    staleTime: 1000 * 60 * 2,
+  });
+
   const isAdminUser = checkIsAdmin(appUser);
   const financieItems = isAdminUser ? [...financieBaseItems, ...financieAdminItems] : financieBaseItems;
   const informacieItems = isAdminUser ? [...informacieBaseItems, ...informacieAdminItems] : informacieBaseItems;
@@ -870,25 +875,40 @@ export function AppSidebar() {
 
         <SidebarSeparator />
 
-        <SidebarGroup className="py-0">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={location === "/pridat-stav-zmluvy"}
-                  data-testid="nav-pridat-stav-zmluvy"
-                >
-                  <Link href="/pridat-stav-zmluvy">
-                    <Target className="w-4 h-4" />
-                    <span>KOKPIT</span>
-                    <span className="ml-auto text-[10px] font-normal text-yellow-500 dark:text-yellow-400 shrink-0">(Global)</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {(kokpitAccess?.hasAccess ?? isAdminUser) && (() => {
+          const perms = kokpitAccess?.permissions || [];
+          const hasCompany = perms.some(p => p.companyId !== null);
+          let kokpitLabel = "(Global)";
+          if (perms.length > 0) {
+            if (!hasCompany) {
+              kokpitLabel = "(Holding)";
+            } else {
+              const names = [...new Set(perms.filter(p => p.companyCode || p.companyName).map(p => p.companyCode || p.companyName!.split(" ")[0]))];
+              kokpitLabel = `(${names.join(" | ")})`;
+            }
+          }
+          return (
+            <SidebarGroup className="py-0">
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === "/pridat-stav-zmluvy"}
+                      data-testid="nav-pridat-stav-zmluvy"
+                    >
+                      <Link href="/pridat-stav-zmluvy">
+                        <Target className="w-4 h-4" />
+                        <span>KOKPIT</span>
+                        <span className="ml-auto text-[10px] font-normal text-yellow-500 dark:text-yellow-400 shrink-0">{kokpitLabel}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          );
+        })()}
 
         <SidebarSeparator />
 

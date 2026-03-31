@@ -77,6 +77,10 @@ function GroupDetailDialog({
   const [customFields, setCustomFields] = useState<Array<{ name: string; type: string }>>([]);
   const [newFieldName, setNewFieldName] = useState("");
   const [newFieldType, setNewFieldType] = useState("text");
+  const [kokpitConfig, setKokpitConfig] = useState<Array<{ stateId: number | null; companyId: number | null; divisionIds: number[] }>>([]);
+  const [newKokpitStateId, setNewKokpitStateId] = useState<number | null>(null);
+  const [newKokpitCompanyId, setNewKokpitCompanyId] = useState<number | null>(null);
+  const [newKokpitDivisionIds, setNewKokpitDivisionIds] = useState<number[]>([]);
   const timerRef = useRef<number>(0);
   const startTimeRef = useRef<number>(Date.now());
 
@@ -85,6 +89,7 @@ function GroupDetailDialog({
   const isHolding = !!(group as ClientGroupWithCount)?.isHoldingGroup;
   const isPartner = !!(group as ClientGroupWithCount)?.isPartnerGroup;
   const isBlacklist = group?.groupCode === "group_cierny_zoznam";
+  const isBoGroup = group?.groupCode === "kancelaria_back_office";
 
   useEffect(() => {
     if (open) {
@@ -96,6 +101,7 @@ function GroupDetailDialog({
         setAllowCalculators(group.allowCalculators ?? true);
         setPermissionGroupId(group.permissionGroupId ? String(group.permissionGroupId) : "");
         setCustomFields(Array.isArray((group as any).customFields) ? (group as any).customFields : []);
+        setKokpitConfig(Array.isArray((group as any).kokpitConfig) ? (group as any).kokpitConfig : []);
       } else {
         setName("");
         setDescription("");
@@ -104,6 +110,7 @@ function GroupDetailDialog({
         setAllowCalculators(true);
         setPermissionGroupId("");
         setCustomFields([]);
+        setKokpitConfig([]);
       }
       setActiveTab("vseobecne");
       setSubGroupName("");
@@ -111,6 +118,9 @@ function GroupDetailDialog({
       setBlacklistReason("");
       setNewFieldName("");
       setNewFieldType("text");
+      setNewKokpitStateId(null);
+      setNewKokpitCompanyId(null);
+      setNewKokpitDivisionIds([]);
       startTimeRef.current = Date.now();
     }
   }, [open, group]);
@@ -142,6 +152,21 @@ function GroupDetailDialog({
     enabled: open,
   });
 
+  const { data: allStates } = useQuery<Array<{ id: number; name: string; code: string }>>({
+    queryKey: ["/api/states"],
+    enabled: open && isBoGroup,
+  });
+
+  const { data: allDivisions } = useQuery<Array<{ id: number; name: string; code: string | null; companies: Array<{ id: number; name: string; code: string | null }> }>>({
+    queryKey: ["/api/divisions"],
+    enabled: open && isBoGroup,
+  });
+
+  const { data: boCompanies } = useQuery<MyCompany[]>({
+    queryKey: ["/api/my-companies"],
+    enabled: open && isBoGroup,
+  });
+
   const { data: searchResults } = useQuery<Subject[]>({
     queryKey: ["/api/subjects/search", searchQuery],
     queryFn: async () => {
@@ -167,6 +192,7 @@ function GroupDetailDialog({
     mutationFn: (data: any) => apiRequest("PUT", `/api/client-groups/${group?.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/client-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/kokpit/access"] });
       toast({ title: "Uspech", description: "Skupina aktualizovana" });
       onOpenChange(false);
     },
@@ -231,8 +257,10 @@ function GroupDetailDialog({
   });
 
   const handleSave = () => {
-    const processingTimeSec = Math.floor((Date.now() - startTimeRef.current) / 1000);
     const data: any = { name, description: description || null, entityType, allowLogin, allowCalculators, permissionGroupId: permissionGroupId ? parseInt(permissionGroupId) : null, customFields };
+    if (isBoGroup) {
+      data.kokpitConfig = kokpitConfig;
+    }
     if (isEditing) {
       updateMutation.mutate(data);
     } else {
@@ -277,6 +305,7 @@ function GroupDetailDialog({
             <TabsTrigger value="podskupiny" disabled={!isEditing} data-testid="tab-podskupiny">Podskupiny</TabsTrigger>
             <TabsTrigger value="klienti" disabled={!isEditing} data-testid="tab-klienti">Klienti</TabsTrigger>
             <TabsTrigger value="polia" disabled={!isEditing} data-testid="tab-polia">Vlastné polia</TabsTrigger>
+            {isBoGroup && <TabsTrigger value="kokpit" disabled={!isEditing} data-testid="tab-kokpit">Kokpit</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="vseobecne" className="flex-1 space-y-4 mt-4">
@@ -633,6 +662,158 @@ function GroupDetailDialog({
               />
             </div>
           </TabsContent>
+
+          {isBoGroup && (
+            <TabsContent value="kokpit" className="flex-1 space-y-4 mt-4">
+              <div className="space-y-3">
+                <div className="flex items-start gap-2 p-3 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-700 dark:text-yellow-400">
+                  <Shield className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                  <span>
+                    Prázdna konfigurácia = prístup ku všetkým spoločnostiam vo všetkých štátoch <strong>(Global)</strong>.
+                    Záznamy iba so štátom = <strong>(Holding)</strong>. Záznamy s konkrétnou spoločnosťou = filtrovanie podľa firmy.
+                  </span>
+                </div>
+
+                {kokpitConfig.length > 0 ? (
+                  <div className="space-y-1">
+                    {kokpitConfig.map((entry, idx) => {
+                      const stateName = allStates?.find(s => s.id === entry.stateId)?.name;
+                      const companyName = (boCompanies || []).find(c => c.id === entry.companyId)?.name;
+                      const divisionNames = (allDivisions || [])
+                        .filter(d => (entry.divisionIds || []).includes(d.id))
+                        .map(d => d.name);
+                      return (
+                        <div key={idx} className="flex items-center gap-2 px-3 py-2 rounded-md border text-sm">
+                          <div className="flex-1 flex items-center gap-2 flex-wrap">
+                            {stateName ? (
+                              <Badge variant="outline" className="text-[10px] border-blue-500/40 text-blue-600 dark:text-blue-400">{stateName}</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] text-muted-foreground">Všetky štáty</Badge>
+                            )}
+                            {companyName ? (
+                              <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-600 dark:text-emerald-400">{companyName}</Badge>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground italic">Všetky spoločnosti</span>
+                            )}
+                            {divisionNames.length > 0 && divisionNames.map(dn => (
+                              <Badge key={dn} variant="secondary" className="text-[10px]">{dn}</Badge>
+                            ))}
+                          </div>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="w-6 h-6 shrink-0 text-destructive hover:text-destructive"
+                            onClick={() => setKokpitConfig(kokpitConfig.filter((_, i) => i !== idx))}
+                            data-testid={`button-remove-kokpit-entry-${idx}`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-4 text-sm border rounded-md">
+                    Žiadne oprávnenia — prístup je globálny (všetky spoločnosti)
+                  </div>
+                )}
+
+                <div className="border rounded-md p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pridať oprávnenie</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Štát</Label>
+                      <Select
+                        value={newKokpitStateId !== null ? String(newKokpitStateId) : "null"}
+                        onValueChange={v => { setNewKokpitStateId(v === "null" ? null : Number(v)); setNewKokpitCompanyId(null); setNewKokpitDivisionIds([]); }}
+                      >
+                        <SelectTrigger className="h-8 text-xs" data-testid="select-kokpit-state">
+                          <SelectValue placeholder="Všetky štáty" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="null">Všetky štáty</SelectItem>
+                          {(allStates || []).map(s => (
+                            <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Spoločnosť</Label>
+                      <Select
+                        value={newKokpitCompanyId !== null ? String(newKokpitCompanyId) : "null"}
+                        onValueChange={v => { setNewKokpitCompanyId(v === "null" ? null : Number(v)); setNewKokpitDivisionIds([]); }}
+                      >
+                        <SelectTrigger className="h-8 text-xs" data-testid="select-kokpit-company">
+                          <SelectValue placeholder="Všetky spoločnosti" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="null">Všetky spoločnosti</SelectItem>
+                          {(boCompanies || [])
+                            .filter(c => !c.deletedAt && (newKokpitStateId === null || (c as any).stateId === newKokpitStateId))
+                            .map(c => (
+                              <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {newKokpitCompanyId !== null && (
+                    <div className="space-y-1">
+                      <Label className="text-xs">Divízie (voliteľné)</Label>
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {(allDivisions || [])
+                          .filter(d => d.companies.some(c => c.id === newKokpitCompanyId))
+                          .map(d => (
+                            <button
+                              key={d.id}
+                              type="button"
+                              onClick={() => setNewKokpitDivisionIds(prev =>
+                                prev.includes(d.id) ? prev.filter(id => id !== d.id) : [...prev, d.id]
+                              )}
+                              className={`px-2 py-0.5 rounded text-[10px] border transition-colors ${
+                                newKokpitDivisionIds.includes(d.id)
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "border-border text-muted-foreground hover:border-primary/50"
+                              }`}
+                              data-testid={`button-division-toggle-${d.id}`}
+                            >
+                              {d.name}
+                            </button>
+                          ))}
+                        {(allDivisions || []).filter(d => d.companies.some(c => c.id === newKokpitCompanyId)).length === 0 && (
+                          <span className="text-xs text-muted-foreground italic">Žiadne divízie pre túto spoločnosť</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex justify-end pt-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setKokpitConfig([...kokpitConfig, { stateId: newKokpitStateId, companyId: newKokpitCompanyId, divisionIds: newKokpitDivisionIds }]);
+                        setNewKokpitStateId(null);
+                        setNewKokpitCompanyId(null);
+                        setNewKokpitDivisionIds([]);
+                      }}
+                      data-testid="button-add-kokpit-entry"
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" />
+                      Pridať
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <ProcessingSaveButton
+                    isPending={updateMutation.isPending}
+                    onClick={handleSave}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
       </DialogContent>
     </Dialog>
@@ -1165,8 +1346,8 @@ export default function ClientGroups() {
               {TABLE_HEADER}
               <TableBody>
                 {holdingGroups.map(g => (
-                  <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer hover:bg-muted/40 transition-colors border-l-[3px] border-l-border/40" onClick={() => navigate("/companies")}>
-                    <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={() => navigate("/companies")} onDelete={openDelete} />
+                  <TableRow key={g.id} data-testid={`row-group-${g.id}`} className="cursor-pointer hover:bg-muted/40 transition-colors border-l-[3px] border-l-border/40" onClick={() => g.groupCode === "kancelaria_back_office" ? openEdit(g) : navigate("/companies")}>
+                    <GroupRowCells group={g} permGroupsData={permGroupsData} onEdit={() => g.groupCode === "kancelaria_back_office" ? openEdit(g) : navigate("/companies")} onDelete={openDelete} />
                   </TableRow>
                 ))}
                 <TableRow
