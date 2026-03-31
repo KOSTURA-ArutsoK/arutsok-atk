@@ -917,8 +917,8 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
               </Button>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
-              {/* Záložky — rovnomerné, celá šírka */}
+            {/* ── Tab lišta ── */}
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="mx-6 mt-3 shrink-0 grid grid-cols-3 bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 p-1 gap-1">
                 <TabsTrigger value="prichod" data-testid="tab-prichod" className="w-full text-center font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
                   ROZDELENIE SKENOV
@@ -939,9 +939,13 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
                   )}
                 </TabsTrigger>
               </TabsList>
+            </Tabs>
 
-              {/* ROZDELENIE SKENOV — 3-stĺpcový layout */}
-              <TabsContent value="prichod" className="flex-1 min-h-0 m-0" style={{ display: 'flex' }}>
+            {/* ── Obsah záložiek — vypĺňa celý zvyšný priestor ── */}
+            <div style={{ flex: '1 1 0', minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+
+              {/* ROZDELENIE SKENOV */}
+              <div style={{ display: activeTab === 'prichod' ? 'flex' : 'none', position: 'absolute', inset: 0 }}>
                 <Step1Panel
                   scanFiles={scanFiles}
                   onRemoveScanFile={onRemoveScanFile}
@@ -949,17 +953,15 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
                   onComplete={handleComplete}
                   onSwitchTab={setActiveTab}
                 />
-              </TabsContent>
+              </div>
 
-              {/* RIEŠENIE — 3-panel layout */}
-              <TabsContent value="rozdelenie" className="flex-1 m-0" style={{ position: 'relative', overflow: 'hidden', minHeight: 0 }}>
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                  <RieseniePanel items={allRiesenieItems} />
-                </div>
-              </TabsContent>
+              {/* RIEŠENIE */}
+              <div style={{ display: activeTab === 'rozdelenie' ? 'flex' : 'none', position: 'absolute', inset: 0, flexDirection: 'column' }}>
+                <RieseniePanel items={allRiesenieItems} />
+              </div>
 
-              {/* VYHODNOTENIE — placeholder */}
-              <TabsContent value="riesenie" className="flex-1 overflow-y-auto px-6 py-4">
+              {/* VYHODNOTENIE */}
+              <div style={{ display: activeTab === 'riesenie' ? 'flex' : 'none', position: 'absolute', inset: 0, overflowY: 'auto', padding: '1.5rem', flexDirection: 'column' }}>
                 <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground py-16" data-testid="placeholder-riesenie">
                   <TripleRingStatus phase={3} size={40} />
                   <p className="text-sm font-semibold">Vyhodnotenie — pripravuje sa</p>
@@ -967,8 +969,9 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
                     Fáza Vyhodnotenia bude implementovaná v ďalšej verzii Kokpitu.
                   </p>
                 </div>
-              </TabsContent>
-            </Tabs>
+              </div>
+
+            </div>
           </div>
         </DialogContent>
       </Dialog>
