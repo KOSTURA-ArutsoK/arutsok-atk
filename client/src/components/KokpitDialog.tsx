@@ -616,18 +616,6 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
     }
   }, [items, selectedId]);
 
-  if (items.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground" data-testid="placeholder-rozdelenie">
-        <TripleRingStatus phase={2} size={40} />
-        <p className="text-sm font-semibold">Riešenie</p>
-        <p className="text-xs text-center max-w-xs">
-          Žiadne dokončené záznamy. Po stlačení tlačidla „Dokončiť" sa zmluva s priloženými skenmi objaví tu.
-        </p>
-      </div>
-    );
-  }
-
   const selectedItem = items.find(i => i.id === selectedId) ?? null;
   const scansToShow = selectedItem?.scans ?? [];
 
@@ -643,7 +631,16 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-3 pt-2 space-y-4">
-          {!selectedItem && (
+          {items.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground pt-8">
+              <TripleRingStatus phase={2} size={32} />
+              <p className="text-xs font-semibold mt-1">Žiadne záznamy</p>
+              <p className="text-[10px] text-center max-w-[160px]">
+                Po stlačení „Dokončiť" sa zmluva s priloženými skenmi objaví tu.
+              </p>
+            </div>
+          )}
+          {items.length > 0 && !selectedItem && (
             <p className="text-xs text-muted-foreground text-center pt-8">Vyberte záznam vpravo.</p>
           )}
           {selectedItem && scansToShow.length === 0 && (
@@ -677,6 +674,13 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
               </tr>
             </thead>
             <tbody>
+              {items.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-xs text-muted-foreground">
+                    Zatiaľ žiadne dokončené záznamy.
+                  </td>
+                </tr>
+              )}
               {items.map(item => {
                 const status = contractStatuses.find(s => s.id === item.statusId);
                 const isSelected = item.id === selectedId;
