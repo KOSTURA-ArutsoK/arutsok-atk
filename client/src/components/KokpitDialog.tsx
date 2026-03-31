@@ -654,30 +654,31 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
         </div>
       </div>
 
-      {/* ─── RIGHT: Stav zmluvy ───────────────────────────────────────────── */}
-      <div className="flex flex-col min-w-0" style={{ flex: 1 }}>
+      {/* ─── RIGHT: Zoznam zmlúv ──────────────────────────────────────────── */}
+      <div className="flex flex-col min-w-0" style={{ flex: 1.1 }}>
         <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-          <span className="text-xs font-semibold">Stav zmluvy</span>
+          <span className="text-xs font-semibold">Prijaté zmluvy</span>
           <Badge className="text-xs bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-400/50 ml-auto">{items.length}</Badge>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-xs border-collapse">
             <thead>
-              <tr className="border-b bg-muted/20 sticky top-0">
-                <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">Zmluva</th>
-                <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">Subjekt</th>
-                <th className="py-1.5 px-2 text-center font-medium text-muted-foreground">Skeny</th>
-                <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">Stav</th>
-                <th className="py-1.5 px-2 text-right font-medium text-muted-foreground">Čas</th>
+              <tr>
+                <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b bg-muted/30 sticky top-0 z-10">Zmluva</th>
+                <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b bg-muted/30 sticky top-0 z-10">Subjekt</th>
+                <th className="py-1.5 px-2 text-center font-semibold text-muted-foreground border-b bg-muted/30 sticky top-0 z-10 w-10">Sk.</th>
+                <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b bg-muted/30 sticky top-0 z-10">Stav</th>
+                <th className="py-1.5 px-2 text-right font-semibold text-muted-foreground border-b bg-muted/30 sticky top-0 z-10 w-12">Čas</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-xs text-muted-foreground">
-                    Zatiaľ žiadne dokončené záznamy.
+                  <td colSpan={5} className="py-10 text-center text-xs text-muted-foreground">
+                    Zatiaľ žiadne záznamy.<br />
+                    <span className="text-[10px]">Po stlačení „Dokončiť" v ROZDELENÍ SKENOV sa zmluva objaví tu.</span>
                   </td>
                 </tr>
               )}
@@ -689,28 +690,28 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
                     key={item.id}
                     data-testid={`row-riesenie-${item.id}`}
                     onClick={() => setSelectedId(item.id)}
-                    className={`border-b border-border/40 last:border-0 cursor-pointer transition-colors ${
+                    className={`border-b border-border/30 last:border-0 cursor-pointer transition-colors ${
                       isSelected
-                        ? "bg-blue-50 dark:bg-blue-950/40"
+                        ? "bg-blue-50 dark:bg-blue-950/40 border-l-2 border-l-blue-500"
                         : "hover:bg-muted/20"
                     }`}
                   >
-                    <td className="py-1.5 px-2 font-mono text-[10px] text-blue-700 dark:text-blue-400">{item.contractLabel}</td>
-                    <td className="py-1.5 px-2 truncate max-w-[80px] text-[10px]">{item.subjectLabel}</td>
-                    <td className="py-1.5 px-2 text-center">
-                      <Badge variant="outline" className="text-[9px] px-1">{item.scans.length}</Badge>
+                    <td className="py-1 px-2 font-mono text-[10px] text-blue-700 dark:text-blue-400 whitespace-nowrap">{item.contractLabel}</td>
+                    <td className="py-1 px-2 text-[10px] max-w-[90px] truncate">{item.subjectLabel}</td>
+                    <td className="py-1 px-2 text-center">
+                      <Badge variant="outline" className="text-[9px] px-1 h-4">{item.scans.length}</Badge>
                     </td>
-                    <td className="py-1.5 px-2">
+                    <td className="py-1 px-2">
                       {status ? (
-                        <div className="flex items-center gap-1">
-                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: status.color }} />
+                        <div className="flex items-center gap-1 min-w-0">
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: status.color }} />
                           <span className="text-[10px] truncate">{status.name}</span>
                         </div>
                       ) : (
                         <span className="text-[10px] text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="py-1.5 px-2 text-right text-muted-foreground text-[10px]">{fmtTime(item.completedAt)}</td>
+                    <td className="py-1 px-2 text-right text-muted-foreground text-[10px] whitespace-nowrap">{fmtTime(item.completedAt)}</td>
                   </tr>
                 );
               })}
