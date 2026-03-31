@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
+import { isAdmin as checkIsAdmin } from "@/lib/utils";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
@@ -173,7 +174,7 @@ export default function Settings() {
   const activeCompany = companies?.find(c => c.id === appUser?.activeCompanyId);
   const activeState = states?.find(s => s.id === appUser?.activeStateId);
   const mfaLabel = appUser?.mfaType === "none" ? "Neaktivne" : appUser?.mfaType === "totp" ? "TOTP" : appUser?.mfaType || "Neaktivne";
-  const isAdmin = appUser?.role === "admin" || appUser?.role === "superadmin";
+  const isAdmin = checkIsAdmin(appUser);
   const isSuperAdmin = (() => {
     const pgName = (appUser as any)?.permissionGroup?.name?.toLowerCase() || "";
     return pgName.includes("superadmin") || pgName.includes("prezident");
