@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useAppUser } from "@/hooks/use-app-user";
 import { formatUid } from "@/lib/utils";
+import { KokpitDialogBody } from "@/components/KokpitDialog";
+import type { ScanFile } from "@/pages/PridatStavZmluvy";
 import {
   Target, Layers, FileInput, Calculator, Shield, User,
   Inbox, FileText, Clock, ChevronLeft,
@@ -14,6 +16,9 @@ interface KokpitHubProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSelectFunction: (fn: KokpitFunctionId) => void;
+  scanFiles?: ScanFile[];
+  onRemoveScanFile?: (id: string, reason?: string) => void;
+  onAddFiles?: (files: File[]) => void;
 }
 
 type KokpitAccessData = {
@@ -106,7 +111,7 @@ function SkeletonRow({ w = "100%", h = 28, opacity = 1 }: { w?: string; h?: numb
 
 const DARK_BG = "linear-gradient(160deg, #0c1e3a 0%, #07111f 100%)";
 
-export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubProps) {
+export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = [], onRemoveScanFile, onAddFiles }: KokpitHubProps) {
   const { data: appUser } = useAppUser();
   // activeLayer: ktorá vrstva je momentálne predná a interaktívna
   const [activeLayer, setActiveLayer] = useState<"hub" | "second" | "third">("hub");
@@ -171,95 +176,122 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
 
         <div className="relative w-full h-full overflow-hidden rounded-xl" style={{ background: "#040c17" }}>
 
-          {/* Vrstva 1 — spodná/zadná (95vw × 95vh): KokpitDialog skeletal */}
+          {/* Vrstva 1 — spodná/zadná (95vw × 95vh): skeletal alebo skutočný KokpitDialog obsah */}
           <div
-            className="absolute flex flex-col overflow-hidden rounded-xl border border-amber-500/10"
+            className="absolute overflow-hidden rounded-xl border border-amber-500/10"
             style={{
               width: "95vw",
               height: "95vh",
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%)",
-              background: DARK_BG,
+              background: activeLayer === "third" ? "transparent" : DARK_BG,
               opacity: activeLayer === "third" ? 1 : 0.55,
               zIndex: activeLayer === "third" ? 3 : 1,
-              padding: activeLayer === "third" ? "2.5vh 2.5vw" : "5vh 5vw",
               transition: "opacity 0.2s ease",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
-            {/* Header */}
-            <div
-              className="flex items-center gap-3 px-5 py-3 shrink-0"
-              style={{ borderBottom: "1px solid rgba(245,158,11,0.15)", background: "rgba(12,30,58,0.7)" }}
-            >
-              {activeLayer === "third" && (
-                <button
-                  onClick={handleBackToHub}
-                  className="flex items-center gap-1.5 text-[11px] font-semibold text-blue-300/70 hover:text-blue-200 mr-2 transition-colors"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                  Späť
-                </button>
-              )}
-              <Target className="w-4 h-4 text-amber-400" />
-              <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300">KOKPIT</span>
-              <div className="h-3 w-px bg-amber-500/25 mx-1" />
-              <span className="text-[11px] text-blue-300/50 font-mono">{userUid ?? "—"}</span>
-            </div>
-
-            {/* Tabs */}
-            <div
-              className="flex items-center gap-1 px-4 py-2 shrink-0"
-              style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-            >
-              {["ROZDELENIE SKENOV", "RIEŠENIE", "VYHODNOTENIE"].map((tab, i) => (
+            {activeLayer === "third" ? (
+              /* Skutočný KokpitDialog obsah */
+              <div className="flex flex-col w-full h-full">
+                {/* Späť tlačidlo nad obsahom */}
                 <div
-                  key={tab}
-                  className="px-4 py-1.5 rounded-t text-[11px] font-semibold tracking-wide"
-                  style={{
-                    background: i === 0 ? "rgba(59,130,246,0.2)" : "transparent",
-                    color: i === 0 ? "rgba(147,197,253,0.9)" : "rgba(147,197,253,0.35)",
-                    border: i === 0 ? "1px solid rgba(59,130,246,0.25)" : "1px solid transparent",
-                  }}
+                  className="flex items-center gap-3 px-5 py-2 shrink-0"
+                  style={{ borderBottom: "1px solid rgba(245,158,11,0.15)", background: "rgba(12,30,58,0.7)" }}
                 >
-                  {tab}
+                  <button
+                    onClick={handleBackToHub}
+                    className="flex items-center gap-1.5 text-[11px] font-semibold text-blue-300/70 hover:text-blue-200 transition-colors"
+                    data-testid="button-layer1-back"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    Späť
+                  </button>
+                  <div className="h-3 w-px bg-amber-500/25 mx-1" />
+                  <Target className="w-4 h-4 text-amber-400" />
+                  <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300">KOKPIT</span>
                 </div>
-              ))}
-            </div>
-
-            {/* Skeleton rows — tabuľka vypĺňa celú výšku */}
-            <div className="flex-1 px-5 pt-3 pb-4 flex flex-col justify-between overflow-hidden">
-              {/* Hlavičkový riadok */}
-              <div className="flex gap-2 pb-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                <SkeletonRow w="7%" h={18} opacity={0.7} />
-                <SkeletonRow w="16%" h={18} opacity={0.7} />
-                <SkeletonRow w="13%" h={18} opacity={0.7} />
-                <SkeletonRow w="20%" h={18} opacity={0.7} />
-                <SkeletonRow w="11%" h={18} opacity={0.7} />
-                <SkeletonRow w="15%" h={18} opacity={0.7} />
+                <div style={{ flex: "1 1 0", minHeight: 0 }}>
+                  <KokpitDialogBody
+                    scanFiles={scanFiles}
+                    onRemoveScanFile={onRemoveScanFile ?? (() => {})}
+                    onAddFiles={onAddFiles ?? (() => {})}
+                    onClose={handleBackToHub}
+                    enabled={activeLayer === "third"}
+                  />
+                </div>
               </div>
-              {/* Dátové riadky — roztiahnuté cez celú výšku */}
-              {[
-                [7,16,13,20,11,15],
-                [7,14,10,22,9,13],
-                [7,18,15,17,12,16],
-                [7,12,11,24,10,14],
-                [7,15,14,19,13,12],
-                [7,17,12,21,8,15],
-                [7,13,16,18,11,13],
-                [7,16,11,20,12,14],
-                [7,14,13,23,9,12],
-                [7,15,10,19,13,16],
-                [7,18,14,17,11,13],
-                [7,12,15,22,10,15],
-              ].map((cols, i) => (
-                <div key={i} className="flex gap-2">
-                  {cols.map((w, j) => (
-                    <SkeletonRow key={j} w={`${w}%`} h={24} opacity={0.38 + (i % 3) * 0.06} />
+            ) : (
+              /* Skeletal pozadie */
+              <>
+                {/* Header */}
+                <div
+                  className="flex items-center gap-3 px-5 py-3 shrink-0"
+                  style={{ borderBottom: "1px solid rgba(245,158,11,0.15)", background: "rgba(12,30,58,0.7)" }}
+                >
+                  <Target className="w-4 h-4 text-amber-400" />
+                  <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300">KOKPIT</span>
+                  <div className="h-3 w-px bg-amber-500/25 mx-1" />
+                  <span className="text-[11px] text-blue-300/50 font-mono">{userUid ?? "—"}</span>
+                </div>
+
+                {/* Tabs */}
+                <div
+                  className="flex items-center gap-1 px-4 py-2 shrink-0"
+                  style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+                >
+                  {["ROZDELENIE SKENOV", "RIEŠENIE", "VYHODNOTENIE"].map((tab, i) => (
+                    <div
+                      key={tab}
+                      className="px-4 py-1.5 rounded-t text-[11px] font-semibold tracking-wide"
+                      style={{
+                        background: i === 0 ? "rgba(59,130,246,0.2)" : "transparent",
+                        color: i === 0 ? "rgba(147,197,253,0.9)" : "rgba(147,197,253,0.35)",
+                        border: i === 0 ? "1px solid rgba(59,130,246,0.25)" : "1px solid transparent",
+                      }}
+                    >
+                      {tab}
+                    </div>
                   ))}
                 </div>
-              ))}
-            </div>
+
+                {/* Skeleton rows — tabuľka vypĺňa celú výšku */}
+                <div className="flex-1 px-5 pt-3 pb-4 flex flex-col justify-between overflow-hidden">
+                  {/* Hlavičkový riadok */}
+                  <div className="flex gap-2 pb-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                    <SkeletonRow w="7%" h={18} opacity={0.7} />
+                    <SkeletonRow w="16%" h={18} opacity={0.7} />
+                    <SkeletonRow w="13%" h={18} opacity={0.7} />
+                    <SkeletonRow w="20%" h={18} opacity={0.7} />
+                    <SkeletonRow w="11%" h={18} opacity={0.7} />
+                    <SkeletonRow w="15%" h={18} opacity={0.7} />
+                  </div>
+                  {/* Dátové riadky — roztiahnuté cez celú výšku */}
+                  {[
+                    [7,16,13,20,11,15],
+                    [7,14,10,22,9,13],
+                    [7,18,15,17,12,16],
+                    [7,12,11,24,10,14],
+                    [7,15,14,19,13,12],
+                    [7,17,12,21,8,15],
+                    [7,13,16,18,11,13],
+                    [7,16,11,20,12,14],
+                    [7,14,13,23,9,12],
+                    [7,15,10,19,13,16],
+                    [7,18,14,17,11,13],
+                    [7,12,15,22,10,15],
+                  ].map((cols, i) => (
+                    <div key={i} className="flex gap-2">
+                      {cols.map((w, j) => (
+                        <SkeletonRow key={j} w={`${w}%`} h={24} opacity={0.38 + (i % 3) * 0.06} />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Vrstva 2 — stredná (90vw × 90vh): PridatStavZmluvy skeletal */}

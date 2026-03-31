@@ -872,12 +872,12 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
 
 // ── Main Dialog ───────────────────────────────────────────────────────────────
 
-interface KokpitDialogProps {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
+interface KokpitDialogBodyProps {
   scanFiles: ScanFile[];
   onRemoveScanFile: (id: string, reason?: string) => void;
   onAddFiles: (files: File[]) => void;
+  onClose: () => void;
+  enabled: boolean;
 }
 
 type RiesenieRecord = {
@@ -892,16 +892,15 @@ type RiesenieRecord = {
   completedAt: string;
 };
 
-export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, onAddFiles }: KokpitDialogProps) {
+export function KokpitDialogBody({ scanFiles, onRemoveScanFile, onAddFiles, onClose, enabled }: KokpitDialogBodyProps) {
   const [activeTab, setActiveTab] = useState("prichod");
   const [completedItems, setCompletedItems] = useState<CompletedItem[]>([]);
-  const [showConfirmClose, setShowConfirmClose] = useState(false);
-  const dialogOpenedAt = useRef<number>(Date.now());
+  const openedAt = useRef<number>(Date.now());
   const { toast } = useToast();
 
   useEffect(() => {
-    if (open) dialogOpenedAt.current = Date.now();
-  }, [open]);
+    if (enabled) openedAt.current = Date.now();
+  }, [enabled]);
 
   const { data: appUser } = useAppUser();
   const activeCompanyId = appUser?.activeCompanyId ?? null;
@@ -912,13 +911,13 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
 
   const { data: myCompanies = [] } = useQuery<MyCompanyMin[]>({
     queryKey: ["/api/my-companies"],
-    enabled: open,
+    enabled,
   });
 
   const { data: companyDivisions = [] } = useQuery<CompanyDivisionMin[]>({
     queryKey: ["/api/companies", activeCompanyId, "divisions"],
     queryFn: () => fetch(`/api/companies/${activeCompanyId}/divisions`, { credentials: "include" }).then(r => r.json()),
-    enabled: open && !!activeCompanyId,
+    enabled: enabled && !!activeCompanyId,
   });
 
   const companyLabel = useMemo(() => {
@@ -935,12 +934,12 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
 
   const { data: items = [] } = useQuery<KokpitItemExt[]>({
     queryKey: ["/api/kokpit/items"],
-    enabled: open,
+    enabled,
   });
 
   const { data: dbRecords = [] } = useQuery<RiesenieRecord[]>({
     queryKey: ["/api/kokpit/riesenie-records"],
-    enabled: open,
+    enabled,
   });
 
   const phase3Items = items.filter(i => i.phase === 3);
@@ -972,7 +971,7 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
   }));
 
   const dbDisplayItems: RiesenieDisplayItem[] = dbRecords
-    .filter(r => new Date(r.completedAt).getTime() < dialogOpenedAt.current)
+    .filter(r => new Date(r.completedAt).getTime() < openedAt.current)
     .map(r => ({
       id: `db-${r.id}`,
       contractLabel: r.contractLabel ?? "—",
@@ -988,6 +987,94 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
     ...sessionDisplayItems,
     ...dbDisplayItems,
   ].sort((a, b) => b.completedAt - a.completedAt);
+
+  return (
+    <div className="flex flex-col bg-background rounded-xl shadow-2xl border overflow-hidden w-full h-full">
+      {/* Hlavička */}
+      <div className="px-6 pt-4 pb-3 border-b shrink-0 flex items-center justify-between gap-4">
+        <span className="text-lg font-bold">KOKPIT</span>
+        <Button
+          variant="outline"
+          size="sm"
+          data-testid="button-kokpit-ukoncit"
+          className="shrink-0 h-7 px-3 text-xs hover:bg-red-600 hover:text-white hover:border-red-600 dark:hover:bg-red-700 dark:hover:border-red-700"
+          onClick={onClose}
+        >
+          Ukončiť
+        </Button>
+      </div>
+
+      {/* ── Tab lišta ── */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mx-6 mt-3 shrink-0 grid grid-cols-3 bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 p-1 gap-1">
+          <TabsTrigger value="prichod" data-testid="tab-prichod" className="w-full text-center font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
+            ROZDELENIE SKENOV
+            {scanFiles.filter(f => f.done && !f.error).length > 0 && (
+              <Badge variant="secondary" className="ml-1.5 text-xs">{scanFiles.filter(f => f.done && !f.error).length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="rozdelenie" data-testid="tab-rozdelenie" className="w-full text-center font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
+            RIEŠENIE
+            {allRiesenieItems.length > 0 && (
+              <Badge variant="secondary" className="ml-1.5 text-xs">{allRiesenieItems.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="riesenie" data-testid="tab-riesenie" className="w-full text-center font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
+            VYHODNOTENIE
+            {phase3Items.length > 0 && (
+              <Badge variant="secondary" className="ml-1.5 text-xs">{phase3Items.length}</Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {/* ── Obsah záložiek — vypĺňa celý zvyšný priestor ── */}
+      <div style={{ flex: '1 1 0', minHeight: 0, overflow: 'hidden', position: 'relative' }}>
+
+        {/* ROZDELENIE SKENOV */}
+        <div style={{ display: activeTab === 'prichod' ? 'flex' : 'none', position: 'absolute', inset: 0 }}>
+          <Step1Panel
+            scanFiles={scanFiles}
+            onRemoveScanFile={onRemoveScanFile}
+            onAddFiles={onAddFiles}
+            onComplete={handleComplete}
+            onSwitchTab={setActiveTab}
+            companyLabel={companyLabel}
+            divisionLabel={divisionLabel}
+          />
+        </div>
+
+        {/* RIEŠENIE */}
+        <div style={{ display: activeTab === 'rozdelenie' ? 'flex' : 'none', position: 'absolute', inset: 0, flexDirection: 'column' }}>
+          <RieseniePanel items={allRiesenieItems} />
+        </div>
+
+        {/* VYHODNOTENIE */}
+        <div style={{ display: activeTab === 'riesenie' ? 'flex' : 'none', position: 'absolute', inset: 0, overflowY: 'auto', padding: '1.5rem', flexDirection: 'column' }}>
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground py-16" data-testid="placeholder-riesenie">
+            <TripleRingStatus phase={3} size={40} />
+            <p className="text-sm font-semibold">Vyhodnotenie — pripravuje sa</p>
+            <p className="text-xs text-center max-w-xs">
+              Fáza Vyhodnotenia bude implementovaná v ďalšej verzii Kokpitu.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+interface KokpitDialogProps {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  scanFiles: ScanFile[];
+  onRemoveScanFile: (id: string, reason?: string) => void;
+  onAddFiles: (files: File[]) => void;
+}
+
+export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, onAddFiles }: KokpitDialogProps) {
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
 
   return (
     <>
@@ -1030,81 +1117,14 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
           {/* INNER VRSTVA — 90 vw × 90 vh */}
-          <div
-            className="flex flex-col bg-background rounded-xl shadow-2xl border overflow-hidden"
-            style={{ width: "90vw", height: "90vh" }}
-          >
-            {/* Hlavička */}
-            <div className="px-6 pt-4 pb-3 border-b shrink-0 flex items-center justify-between gap-4">
-              <DialogTitle className="text-lg font-bold">KOKPIT</DialogTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                data-testid="button-kokpit-ukoncit"
-                className="shrink-0 h-7 px-3 text-xs hover:bg-red-600 hover:text-white hover:border-red-600 dark:hover:bg-red-700 dark:hover:border-red-700"
-                onClick={() => setShowConfirmClose(true)}
-              >
-                Ukončiť
-              </Button>
-            </div>
-
-            {/* ── Tab lišta ── */}
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="mx-6 mt-3 shrink-0 grid grid-cols-3 bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 p-1 gap-1">
-                <TabsTrigger value="prichod" data-testid="tab-prichod" className="w-full text-center font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
-                  ROZDELENIE SKENOV
-                  {scanFiles.filter(f => f.done && !f.error).length > 0 && (
-                    <Badge variant="secondary" className="ml-1.5 text-xs">{scanFiles.filter(f => f.done && !f.error).length}</Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="rozdelenie" data-testid="tab-rozdelenie" className="w-full text-center font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
-                  RIEŠENIE
-                  {allRiesenieItems.length > 0 && (
-                    <Badge variant="secondary" className="ml-1.5 text-xs">{allRiesenieItems.length}</Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="riesenie" data-testid="tab-riesenie" className="w-full text-center font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
-                  VYHODNOTENIE
-                  {phase3Items.length > 0 && (
-                    <Badge variant="secondary" className="ml-1.5 text-xs">{phase3Items.length}</Badge>
-                  )}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            {/* ── Obsah záložiek — vypĺňa celý zvyšný priestor ── */}
-            <div style={{ flex: '1 1 0', minHeight: 0, overflow: 'hidden', position: 'relative' }}>
-
-              {/* ROZDELENIE SKENOV */}
-              <div style={{ display: activeTab === 'prichod' ? 'flex' : 'none', position: 'absolute', inset: 0 }}>
-                <Step1Panel
-                  scanFiles={scanFiles}
-                  onRemoveScanFile={onRemoveScanFile}
-                  onAddFiles={onAddFiles}
-                  onComplete={handleComplete}
-                  onSwitchTab={setActiveTab}
-                  companyLabel={companyLabel}
-                  divisionLabel={divisionLabel}
-                />
-              </div>
-
-              {/* RIEŠENIE */}
-              <div style={{ display: activeTab === 'rozdelenie' ? 'flex' : 'none', position: 'absolute', inset: 0, flexDirection: 'column' }}>
-                <RieseniePanel items={allRiesenieItems} />
-              </div>
-
-              {/* VYHODNOTENIE */}
-              <div style={{ display: activeTab === 'riesenie' ? 'flex' : 'none', position: 'absolute', inset: 0, overflowY: 'auto', padding: '1.5rem', flexDirection: 'column' }}>
-                <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground py-16" data-testid="placeholder-riesenie">
-                  <TripleRingStatus phase={3} size={40} />
-                  <p className="text-sm font-semibold">Vyhodnotenie — pripravuje sa</p>
-                  <p className="text-xs text-center max-w-xs">
-                    Fáza Vyhodnotenia bude implementovaná v ďalšej verzii Kokpitu.
-                  </p>
-                </div>
-              </div>
-
-            </div>
+          <div style={{ width: "90vw", height: "90vh" }}>
+            <KokpitDialogBody
+              scanFiles={scanFiles}
+              onRemoveScanFile={onRemoveScanFile}
+              onAddFiles={onAddFiles}
+              onClose={() => setShowConfirmClose(true)}
+              enabled={open}
+            />
           </div>
         </DialogContent>
       </Dialog>

@@ -293,12 +293,9 @@ export default function PridatStavZmluvy() {
     setKokpitOpen(true);
   }
 
-  function handleHubSelectFunction(fn: KokpitFunctionId) {
-    setHubOpen(false);
-    if (fn === "roztriedenie-stavov") {
-      setKokpitOpen(true);
-    }
-    // zadavanie-provizii a vypocet-odmien budú implementované v samostatných dialógoch
+  function handleHubSelectFunction(_fn: KokpitFunctionId) {
+    // Hub teraz renderuje obsah priamo v Layer 1 (roztriedenie-stavov)
+    // alebo Layer 2 (zadavanie-provizii, vypocet-odmien) bez otvárania samostatného dialógu
   }
 
   // ── File upload ──────────────────────────────────────────────────────────────
@@ -750,6 +747,9 @@ export default function PridatStavZmluvy() {
         open={hubOpen}
         onOpenChange={setHubOpen}
         onSelectFunction={handleHubSelectFunction}
+        scanFiles={scanFiles}
+        onRemoveScanFile={removeScanFile}
+        onAddFiles={uploadFiles}
       />
 
       <KokpitDialog
