@@ -83,6 +83,43 @@ const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
 function isImageFile(name: string) { return IMAGE_EXTS.includes(name.split('.').pop()?.toLowerCase() ?? ''); }
 function isPdfFile(name: string) { return name.split('.').pop()?.toLowerCase() === 'pdf'; }
 
+function usePdfBlobUrl(url: string | undefined): { blobUrl: string | null; loading: boolean; error: boolean } {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const blobUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!url) {
+      if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
+      setBlobUrl(null);
+      setLoading(false);
+      setError(false);
+      return;
+    }
+    const controller = new AbortController();
+    setLoading(true);
+    setError(false);
+    setBlobUrl(null);
+    if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
+    fetch(url, { credentials: 'include', signal: controller.signal })
+      .then(r => { if (!r.ok) throw new Error('fetch failed'); return r.blob(); })
+      .then(blob => {
+        const newUrl = URL.createObjectURL(blob);
+        blobUrlRef.current = newUrl;
+        setBlobUrl(newUrl);
+      })
+      .catch(err => { if (err.name !== 'AbortError') setError(true); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => {
+      controller.abort();
+      if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
+    };
+  }, [url]);
+
+  return { blobUrl, loading, error };
+}
+
 // ── Step1Panel ────────────────────────────────────────────────────────────────
 
 interface Step1PanelProps {
@@ -209,6 +246,9 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
   const selectedIdArr = [...selectedScanIds];
   const previewFile = selectedIdArr.length === 1 ? scanFiles.find(f => f.id === selectedIdArr[0]) : null;
 
+  const previewPdfUrl = previewFile?.url && isPdfFile(previewFile.name) ? previewFile.url : undefined;
+  const { blobUrl: previewPdfBlobUrl, loading: previewPdfLoading, error: previewPdfError } = usePdfBlobUrl(previewPdfUrl);
+
   // Reset zoom when selected file changes; track whether current preview is an image
   useEffect(() => {
     isImagePreviewRef.current = !!(previewFile?.url && isImageFile(previewFile.name));
@@ -290,8 +330,21 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
               />
             </div>
           ) : previewFile?.url && isPdfFile(previewFile.name) ? (
-            <div className="flex flex-col w-full flex-1 gap-1.5 min-h-0">
-              <iframe src={previewFile.url} className="w-full flex-1 rounded border-0" style={{ minHeight: 200 }} data-testid="preview-pdf" title={previewFile.name} />
+            <div className="flex flex-col w-full flex-1 gap-1.5 min-h-0 items-center justify-center">
+              {previewPdfLoading ? (
+                <div className="text-center text-muted-foreground space-y-2">
+                  <Loader2 className="w-6 h-6 mx-auto animate-spin" />
+                  <p className="text-xs">Načítava PDF…</p>
+                </div>
+              ) : previewPdfError ? (
+                <div className="text-center text-muted-foreground space-y-2">
+                  <FileText className="w-8 h-8 mx-auto text-red-400" />
+                  <p className="text-xs">PDF sa nepodarilo načítať</p>
+                  <a href={previewFile.url} target="_blank" rel="noopener noreferrer" className="text-[10px] underline text-primary" data-testid="preview-pdf-open-link">Otvoriť v novej záložke</a>
+                </div>
+              ) : previewPdfBlobUrl ? (
+                <embed src={previewPdfBlobUrl} type="application/pdf" className="w-full flex-1 rounded border-0" style={{ minHeight: 200 }} data-testid="preview-pdf" title={previewFile.name} />
+              ) : null}
             </div>
           ) : previewFile ? (
             <div className="text-center text-muted-foreground space-y-2">
@@ -577,6 +630,8 @@ function ScanPreview({ scan, idx }: { scan: ScanInfo; idx: number }) {
   const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext);
   const isPdf = ext === 'pdf';
 
+  const { blobUrl, loading, error } = usePdfBlobUrl(isPdf ? scan.url : undefined);
+
   return (
     <div className="space-y-1" data-testid={`scan-preview-block-${idx}`}>
       <div className="flex items-center gap-1.5 px-0.5">
@@ -593,21 +648,43 @@ function ScanPreview({ scan, idx }: { scan: ScanInfo; idx: number }) {
           data-testid={`preview-riesenie-img-${idx}`}
         />
       ) : isPdf ? (
-        <iframe
-          src={scan.url}
-          title={scan.name}
-          className="w-full rounded border-0"
-          style={{ height: 420 }}
-          data-testid={`preview-riesenie-pdf-${idx}`}
-        />
+        <div className="w-full flex flex-col items-center justify-center" style={{ minHeight: 120 }}>
+          {loading ? (
+            <div className="text-center text-muted-foreground space-y-2 py-6">
+              <Loader2 className="w-6 h-6 mx-auto animate-spin" />
+              <p className="text-xs">Načítava PDF…</p>
+            </div>
+          ) : error ? (
+            <div className="text-center text-muted-foreground space-y-2 py-6">
+              <FileText className="w-8 h-8 mx-auto text-red-400" />
+              <p className="text-xs">PDF sa nepodarilo načítať</p>
+              <a href={scan.url} target="_blank" rel="noopener noreferrer" className="text-[10px] underline text-primary" data-testid={`preview-riesenie-pdf-open-${idx}`}>Otvoriť v novej záložke</a>
+            </div>
+          ) : blobUrl ? (
+            <embed
+              src={blobUrl}
+              type="application/pdf"
+              className="w-full rounded border-0"
+              style={{ height: 420 }}
+              data-testid={`preview-riesenie-pdf-${idx}`}
+            />
+          ) : null}
+        </div>
       ) : (
-        <iframe
-          src={`https://docs.google.com/viewer?url=${encodeURIComponent(scan.url)}&embedded=true`}
-          title={scan.name}
-          className="w-full rounded border-0"
-          style={{ height: 420 }}
-          data-testid={`preview-riesenie-doc-${idx}`}
-        />
+        <div className="flex flex-col items-center gap-2 py-4 text-muted-foreground" data-testid={`preview-riesenie-doc-${idx}`}>
+          {getFileTypeIcon(scan.name, "w-8 h-8")}
+          <p className="text-[11px]">{scan.name}</p>
+          <a
+            href={scan.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] underline text-primary flex items-center gap-1"
+            data-testid={`preview-riesenie-doc-open-${idx}`}
+          >
+            <FileCheck className="w-3 h-3" />
+            Otvoriť súbor
+          </a>
+        </div>
       )}
     </div>
   );
