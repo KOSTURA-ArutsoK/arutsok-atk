@@ -186,6 +186,92 @@ function DocBubble({ color, label, docs, setDocs, inputValue, setInputValue, pla
   );
 }
 
+function GroupMultiSelect({
+  groups,
+  selected,
+  onChange,
+  placeholder,
+  testIdPrefix,
+}: {
+  groups: ClientGroup[];
+  selected: number[];
+  onChange: (val: number[]) => void;
+  placeholder: string;
+  testIdPrefix: string;
+}) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const selectedGroups = groups.filter(g => selected.includes(g.id));
+  const filtered = groups.filter(g => g.name.toLowerCase().includes(search.toLowerCase()));
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div className="space-y-2" ref={containerRef}>
+      {selectedGroups.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {selectedGroups.map(g => (
+            <span key={g.id} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full border border-primary/20">
+              {g.name}
+              <button
+                type="button"
+                onClick={() => onChange(selected.filter(id => id !== g.id))}
+                className="ml-0.5 hover:text-destructive leading-none"
+                data-testid={`${testIdPrefix}-remove-${g.id}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="relative">
+        <Input
+          value={search}
+          onChange={e => { setSearch(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder={selectedGroups.length === 0 ? placeholder : `Vyhľadať ďalšiu skupinu…`}
+          className="h-8 text-sm"
+          data-testid={`${testIdPrefix}-search`}
+        />
+        {open && (
+          <div className="absolute z-50 top-full mt-1 w-full max-h-48 overflow-y-auto border rounded-md bg-background shadow-md">
+            {filtered.length === 0 ? (
+              <p className="text-sm text-muted-foreground px-3 py-2">Žiadne skupiny</p>
+            ) : (
+              filtered.map(g => (
+                <label
+                  key={g.id}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted cursor-pointer"
+                  data-testid={`${testIdPrefix}-item-${g.id}`}
+                >
+                  <Checkbox
+                    checked={selected.includes(g.id)}
+                    onCheckedChange={(checked) => {
+                      if (checked) onChange([...selected, g.id]);
+                      else onChange(selected.filter(id => id !== g.id));
+                    }}
+                  />
+                  {g.name}
+                </label>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProductFormDialog({
   open,
   onOpenChange,
@@ -213,7 +299,7 @@ function ProductFormDialog({
   const [notesHtml, setNotesHtml] = useState("");
   const [paramValues, setParamValues] = useState<Record<number, string>>({});
   const [contextError, setContextError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"info" | "dokumentacia" | "parametre">("info");
+  const [activeTab, setActiveTab] = useState<"sprievodca" | "info" | "dokumentacia" | "parametre">("info");
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [cloneVersionLabel, setCloneVersionLabel] = useState("");
 
@@ -440,7 +526,7 @@ function ProductFormDialog({
         setDescription("");
         setAllowedSpecialists([]);
         setAllowedRecommenders([]);
-        setAllowedSubjectTypes([]);
+        setAllowedSubjectTypes(["person", "szco", "company", "organization", "state", "os"]);
         setNotesHtml("");
         setRequiredDocuments([]);
         setOptionalDocuments([]);
@@ -471,6 +557,10 @@ function ProductFormDialog({
   function handleSubmit() {
     if (!code || !name) {
       toast({ title: "Chyba", description: "Kod a nazov su povinne", variant: "destructive" });
+      return;
+    }
+    if (allowedSubjectTypes.length === 0) {
+      toast({ title: "Chyba", description: "Musí byť vybraný aspoň jeden typ subjektu.", variant: "destructive" });
       return;
     }
     const processingTimeSec = Math.round((performance.now() - timerRef.current) / 1000);
@@ -538,11 +628,20 @@ function ProductFormDialog({
         <div className="flex gap-1 border-b mb-3 sticky top-0 z-[8] bg-background -mx-6 px-6">
           <button
             type="button"
+            className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === "sprievodca" ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
+            onClick={() => setActiveTab("sprievodca")}
+            data-testid="tab-product-sprievodca"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            Sprievodca
+          </button>
+          <button
+            type="button"
             className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors ${activeTab === "info" ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
             onClick={() => setActiveTab("info")}
             data-testid="tab-product-info"
           >
-            Informacie
+            Údaje
           </button>
           <button
             type="button"
@@ -551,7 +650,7 @@ function ProductFormDialog({
             data-testid="tab-product-dokumentacia"
           >
             <FileText className="w-3.5 h-3.5" />
-            Dokumentacia
+            Dokumentácia
             <span style={{ display: (requiredDocuments.length + optionalDocuments.length + requiredDocumentsReceived.length + optionalDocumentsReceived.length + requiredDocumentsPartner.length + optionalDocumentsPartner.length) > 0 ? 'inline' : 'none' }}>
               <Badge variant="secondary" className="text-[10px] px-1.5 ml-0.5">{requiredDocuments.length + optionalDocuments.length + requiredDocumentsReceived.length + optionalDocumentsReceived.length + requiredDocumentsPartner.length + optionalDocumentsPartner.length}</Badge>
             </span>
@@ -564,7 +663,7 @@ function ProductFormDialog({
               data-testid="tab-product-parametre"
             >
               <Package className="w-3.5 h-3.5" />
-              Parametre zhrnutia
+              Parametre
               {Object.values(displayParamConfig).some(c => c.display) && (
                 <Badge variant="secondary" className="text-[10px] px-1.5 ml-0.5">
                   {Object.values(displayParamConfig).filter(c => c.display).length}
@@ -574,6 +673,55 @@ function ProductFormDialog({
           )}
         </div>
 
+        {/* ─── TAB: Sprievodca ──────────────────────────── */}
+        <div style={{ display: activeTab === "sprievodca" ? 'block' : 'none' }}>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Tento sprievodca vás prevedie nastavením produktu. Aby bol produkt plne funkčný, prejdite každú záložku a vyplňte potrebné informácie.
+            </p>
+            <div className="space-y-3">
+              <div className="flex gap-3 p-3 rounded-lg border border-border bg-muted/30">
+                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">1</div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">Údaje — základné informácie</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">Zadajte <strong>partnera</strong> (poisťovňa, banka, fond), <strong>kód</strong> a <strong>názov</strong> produktu. Kód a Názov sú povinné — bez nich nie je možné produkt uložiť.</p>
+                </div>
+              </div>
+              <div className="flex gap-3 p-3 rounded-lg border border-border bg-muted/30">
+                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">2</div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">Údaje — povolení špecialisti a odporúčatelia</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">Voliteľne obmedzíte, ktoré <strong>skupiny klientov</strong> môžu s týmto produktom pracovať. Ak nič nevyberiete, produkt je prístupný všetkým skupinám.</p>
+                </div>
+              </div>
+              <div className="flex gap-3 p-3 rounded-lg border border-border bg-muted/30">
+                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">3</div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">Údaje — pre koho je produkt určený</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">Nastavte, pre ktoré <strong>typy subjektov</strong> (FO, SZČO, PO…) je produkt dostupný. Aspoň jeden typ musí byť zaškrtnutý. Odškrtnuté typy budú pri uzatváraní zmluvy odmietnuté.</p>
+                </div>
+              </div>
+              <div className="flex gap-3 p-3 rounded-lg border border-border bg-muted/30">
+                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">4</div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">Dokumentácia — zoznamy dokumentov</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">Definujte <strong>dokumenty</strong> požadované pri odovzdaní zmluvy do centrály, pri prevzatí centrálou a pri odovzdaní obchodnému partnerovi. Povinné a nepovinné položky. Ak produkt nevyžaduje žiadne dokumenty, túto záložku môžete preskočiť.</p>
+                </div>
+              </div>
+              {editingProduct && (
+                <div className="flex gap-3 p-3 rounded-lg border border-border bg-muted/30">
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">5</div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold">Parametre — zobrazenie v zhrnutí zmluvy</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">Nakonfigurujte, ktoré <strong>parametre subjektu a zmluvy</strong> sa zobrazujú v zhrnutí zmluvy a ktoré musí Backoffice overiť. Dostupné len pre uložený produkt.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ─── TAB: Údaje ──────────────────────────── */}
         <div style={{ display: activeTab === "info" ? 'block' : 'none' }}>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -611,24 +759,13 @@ function ProductFormDialog({
                 <label className="text-sm font-medium">Povolení špecialisti</label>
                 <span className="text-xs text-muted-foreground">(skupiny klientov — bez výberu = bez obmedzenia)</span>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                {(clientGroups || []).map(g => (
-                  <label key={g.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox
-                      checked={allowedSpecialists.includes(g.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setAllowedSpecialists(prev => [...prev, g.id]);
-                        } else {
-                          setAllowedSpecialists(prev => prev.filter(id => id !== g.id));
-                        }
-                      }}
-                      data-testid={`checkbox-specialist-group-${g.id}`}
-                    />
-                    {g.name}
-                  </label>
-                ))}
-              </div>
+              <GroupMultiSelect
+                groups={clientGroups || []}
+                selected={allowedSpecialists}
+                onChange={setAllowedSpecialists}
+                placeholder="Vyhľadať skupinu špecialistov…"
+                testIdPrefix="specialist-group"
+              />
             </div>
 
             <div className="space-y-2">
@@ -636,32 +773,20 @@ function ProductFormDialog({
                 <label className="text-sm font-medium">Povolení odporúčatelia</label>
                 <span className="text-xs text-muted-foreground">(skupiny klientov — bez výberu = bez obmedzenia)</span>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                {(clientGroups || []).map(g => (
-                  <label key={g.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox
-                      checked={allowedRecommenders.includes(g.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setAllowedRecommenders(prev => [...prev, g.id]);
-                        } else {
-                          setAllowedRecommenders(prev => prev.filter(id => id !== g.id));
-                        }
-                      }}
-                      data-testid={`checkbox-recommender-group-${g.id}`}
-                    />
-                    {g.name}
-                  </label>
-                ))}
-              </div>
+              <GroupMultiSelect
+                groups={clientGroups || []}
+                selected={allowedRecommenders}
+                onChange={setAllowedRecommenders}
+                placeholder="Vyhľadať skupinu odporúčateľov…"
+                testIdPrefix="recommender-group"
+              />
             </div>
 
-            <div className="rounded border border-border p-3 space-y-2">
+            <div className={`rounded border p-3 space-y-2 ${allowedSubjectTypes.length === 0 ? "border-red-400 bg-red-50 dark:bg-red-950/30" : "border-border"}`}>
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium">Pre koho je produkt určený</label>
-                <span className="text-xs text-muted-foreground">(ak nevyberiete, produkt je povolený pre všetky typy)</span>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {([
                   { val: "person", label: "FO", desc: "Fyzická osoba" },
                   { val: "szco", label: "SZČO", desc: "Živnostník" },
@@ -682,7 +807,7 @@ function ProductFormDialog({
                           setAllowedSubjectTypes(prev => [...prev, opt.val]);
                         }
                       }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-medium transition-colors ${active ? "bg-primary/15 border-primary text-primary" : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"}`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-medium transition-colors w-full ${active ? "bg-primary/15 border-primary text-primary" : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"}`}
                       data-testid={`toggle-subject-type-allowed-${opt.val}`}
                     >
                       {active && <span className="text-primary">✓</span>}
@@ -692,10 +817,10 @@ function ProductFormDialog({
                   );
                 })}
               </div>
-              {allowedSubjectTypes.length > 0 && (
-                <p className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                  <span>⚠</span>
-                  Produkt bude dostupný len pre: {allowedSubjectTypes.map(t => t === "person" ? "FO" : t === "szco" ? "SZČO" : t === "company" ? "PO" : t === "organization" ? "TS" : t === "state" ? "VS" : "OS").join(", ")}. Zmluvy s iným typom subjektu budú odmietnuté.
+              {allowedSubjectTypes.length === 0 && (
+                <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5 pt-1">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  Musí byť zaškrtnutý aspoň jeden typ subjektu.
                 </p>
               )}
             </div>
@@ -897,11 +1022,6 @@ function ProductFormDialog({
               <DocBubble color="red" label="Povinné" docs={requiredDocumentsPartner} setDocs={setRequiredDocumentsPartner} inputValue={newDocPartnerName} setInputValue={setNewDocPartnerName} placeholder="Povinný dokument..." testIdPrefix="partner-req" copyTargets={[setRequiredDocuments, setRequiredDocumentsReceived]} />
               <DocBubble color="blue" label="Nepovinné" docs={optionalDocumentsPartner} setDocs={setOptionalDocumentsPartner} inputValue={newOptDocPartnerName} setInputValue={setNewOptDocPartnerName} placeholder="Nepovinný dokument..." testIdPrefix="partner-opt" copyTargets={[setOptionalDocuments, setOptionalDocumentsReceived]} />
             </div>
-          </div>
-          <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t">
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-product-docs-cancel">
-              Zavrieť bez uloženia
-            </Button>
           </div>
         </div>
 
@@ -1218,8 +1338,19 @@ function ProductFormDialog({
           </div>
         </div>
 
-        {activeTab !== "parametre" && (
-          <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+        {activeTab !== "parametre" && activeTab !== "sprievodca" && (
+          <div className="flex items-center justify-end gap-2 pt-3 border-t mt-2">
+            {activeTab === "dokumentacia" ? (
+              <Button type="button" variant="outline" tabIndex={-1} onClick={() => handleOpenChange(false)} data-testid="button-product-docs-cancel">
+                Zavrieť bez uloženia
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-product-cancel">
+                Zrušiť
+              </Button>
+            )}
+            <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+          </div>
         )}
         </form>
       </DialogContent>
