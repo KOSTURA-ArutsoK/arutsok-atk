@@ -25998,16 +25998,15 @@ export async function registerRoutes(
       if (membership.length === 0) return res.json({ hasAccess: false });
       type KokpitConfigEntry = { stateId: number | null; companyId: number | null; divisionIds: number[] };
       const config: KokpitConfigEntry[] = boGroup.kokpitConfig ?? [];
-      const permissions = await Promise.all(config.map(async (entry) => {
-        let companyName: string | null = null;
-        let companyCode: string | null = null;
-        if (entry.companyId) {
-          const [company] = await db.select({ name: myCompanies.name, code: myCompanies.code }).from(myCompanies).where(eq(myCompanies.id, entry.companyId));
-          companyName = company?.name ?? null;
-          companyCode = company?.code ?? null;
-        }
-        return { stateId: entry.stateId, companyId: entry.companyId, companyName, companyCode, divisionIds: entry.divisionIds };
-      }));
+      const companyIds = [...new Set(config.map(e => e.companyId).filter((id): id is number => id !== null))];
+      const companyRows = companyIds.length > 0
+        ? await db.select({ id: myCompanies.id, name: myCompanies.name, code: myCompanies.code }).from(myCompanies).where(inArray(myCompanies.id, companyIds))
+        : [];
+      const companyMap = new Map(companyRows.map(c => [c.id, c]));
+      const permissions = config.map((entry) => {
+        const company = entry.companyId ? companyMap.get(entry.companyId) : undefined;
+        return { stateId: entry.stateId, companyId: entry.companyId, companyName: company?.name ?? null, companyCode: company?.code ?? null, divisionIds: entry.divisionIds };
+      });
       res.json({ hasAccess: true, permissions });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
