@@ -337,7 +337,7 @@ export default function PridatStavZmluvy() {
   ];
 
   return (
-    <div className="flex flex-col" style={{ minHeight: "calc(100vh - 56px)" }}>
+    <div className="flex flex-col" style={{ height: "calc(100vh - 108px)", overflow: "hidden" }}>
 
       {/* ── Top: info chip row ─────────────────────────────────────────────── */}
       <div className="px-5 pt-5">
