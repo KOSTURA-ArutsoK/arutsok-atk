@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { useAppUser } from "@/hooks/use-app-user";
 import { formatUid } from "@/lib/utils";
 import { KokpitDialogBody } from "@/components/KokpitDialog";
+import { KokpitAktivityPanel } from "@/components/KokpitAktivityPanel";
 import type { ScanFile } from "@/pages/PridatStavZmluvy";
 import {
   Target, Layers, FileInput, Calculator, Shield, User,
@@ -241,6 +242,7 @@ function PinInput({
 export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = [], onRemoveScanFile, onAddFiles }: KokpitHubProps) {
   const { data: appUser } = useAppUser();
   const [activeLayer, setActiveLayer] = useState<"hub" | "second" | "third" | "mails">("hub");
+  const [selectedFunction, setSelectedFunction] = useState<KokpitFunctionId | null>(null);
   const [hubExiting, setHubExiting] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [pinTargetId, setPinTargetId] = useState<KokpitFunctionId | null>(null);
@@ -264,8 +266,9 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
     setHubExiting(true);
     setTimeout(() => {
       setHubExiting(false);
+      setSelectedFunction(id);
       if (id === "roztriedenie-stavov") {
-        setActiveLayer("third");
+        setActiveLayer("second");
       } else if (id === "roztriedenie-mailov") {
         setActiveLayer("mails");
       } else {
@@ -295,6 +298,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
 
   function handleBackToHub() {
     setActiveLayer("hub");
+    setSelectedFunction(null);
   }
 
   function handleClose() {
@@ -302,6 +306,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
     setTimeout(() => {
       setIsClosing(false);
       setActiveLayer("hub");
+      setSelectedFunction(null);
       setPinTargetId(null);
       onOpenChange(false);
     }, 280);
@@ -417,7 +422,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             )}
           </div>
 
-          {/* Vrstva 2 — stredná (90vw × 90vh): PridatStavZmluvy skeletal */}
+          {/* Vrstva 2 — stredná (90vw × 90vh): Aktivity panel alebo skeletal */}
           <div
             className="absolute flex flex-col overflow-hidden rounded-xl border border-blue-500/15"
             style={{
@@ -429,81 +434,122 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
               background: "linear-gradient(180deg, #0f172a 0%, #0c1930 100%)",
               opacity: activeLayer === "second" ? 1 : 0.78,
               zIndex: activeLayer === "second" ? 3 : 2,
-              padding: "2.5vh 2.5vw",
               transition: "opacity 0.2s ease",
             }}
           >
-            <div
-              className="flex items-center justify-between px-5 py-3 shrink-0"
-              style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
-            >
-              <div className="flex items-center gap-3">
-                {activeLayer === "second" && (
+            {selectedFunction === "roztriedenie-stavov" ? (
+              /* ── Real content: KokpitAktivityPanel ── */
+              <>
+                <div
+                  className="flex items-center gap-3 px-5 py-3 shrink-0"
+                  style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(12,30,58,0.7)" }}
+                >
                   <button
                     type="button"
                     onClick={handleBackToHub}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-blue-300/70 hover:text-blue-100 hover:bg-white/10 transition-colors text-xs font-semibold border border-blue-500/20 hover:border-blue-400/40"
                     data-testid="button-layer2-back"
                   >
-                    ← Späť
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    Späť
                   </button>
-                )}
-                <span className="text-xs font-semibold text-blue-200/50">
-                  {new Date().toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                </span>
-                <div style={{ width: 56, height: 16, borderRadius: 4, background: "rgba(255,255,255,0.07)" }} />
-              </div>
-              <div
-                className="flex items-center gap-1.5 px-3 py-1 rounded"
-                style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.25)" }}
-              >
-                <Target className="w-3 h-3 text-amber-400" />
-                <span className="text-[10px] font-bold tracking-widest text-amber-300">KOKPIT</span>
-              </div>
-            </div>
-
-            <div className="flex flex-1 gap-4 p-4 overflow-hidden">
-              <div className="flex-1 flex flex-col gap-2 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <Inbox className="w-3.5 h-3.5 text-blue-400/60" />
-                  <span className="text-[10px] font-semibold text-blue-300/50 uppercase tracking-wider">Nahraté skeny</span>
+                  <div className="h-3 w-px bg-amber-500/25 mx-1" />
+                  <Target className="w-4 h-4 text-amber-400" />
+                  <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300">KOKPIT</span>
+                  <div className="flex-1" />
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    className="px-3 py-1.5 rounded-lg text-blue-300/60 hover:text-blue-100 hover:bg-white/10 transition-colors text-xs font-semibold tracking-wide border border-blue-500/20 hover:border-blue-400/40"
+                    data-testid="button-layer2-close"
+                  >
+                    Ukončiť
+                  </button>
                 </div>
-                {[90, 75, 82, 68].map((w, i) => (
-                  <div key={i} className="flex gap-2">
-                    <SkeletonRow w="22%" h={28} opacity={0.45} />
-                    <SkeletonRow w={`${w * 0.6}%`} h={28} opacity={0.45} />
-                    <SkeletonRow w="16%" h={28} opacity={0.45} />
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ width: 1, background: "rgba(255,255,255,0.06)", flexShrink: 0 }} />
-
-              <div className="flex-1 flex flex-col gap-2 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <Clock className="w-3.5 h-3.5 text-emerald-400/60" />
-                  <span className="text-[10px] font-semibold text-blue-300/50 uppercase tracking-wider">Dnešné aktivity</span>
+                <div className="flex flex-1 overflow-hidden min-h-0 px-5 py-4">
+                  <KokpitAktivityPanel
+                    scanFiles={scanFiles}
+                    onRemoveScanFile={onRemoveScanFile ?? (() => {})}
+                    onAddFiles={onAddFiles ?? (() => {})}
+                  />
                 </div>
-                {[80, 65, 72].map((w, i) => (
-                  <div key={i} className="flex gap-2">
-                    <SkeletonRow w="14%" h={28} opacity={0.45} />
-                    <SkeletonRow w={`${w * 0.7}%`} h={28} opacity={0.45} />
+              </>
+            ) : (
+              /* ── Skeleton (pre ostatné funkcie v Layer 2) ── */
+              <>
+                <div
+                  className="flex items-center justify-between px-5 py-3 shrink-0"
+                  style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+                >
+                  <div className="flex items-center gap-3">
+                    {activeLayer === "second" && (
+                      <button
+                        type="button"
+                        onClick={handleBackToHub}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-blue-300/70 hover:text-blue-100 hover:bg-white/10 transition-colors text-xs font-semibold border border-blue-500/20 hover:border-blue-400/40"
+                        data-testid="button-layer2-back-skeleton"
+                      >
+                        ← Späť
+                      </button>
+                    )}
+                    <span className="text-xs font-semibold text-blue-200/50">
+                      {new Date().toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                    </span>
+                    <div style={{ width: 56, height: 16, borderRadius: 4, background: "rgba(255,255,255,0.07)" }} />
                   </div>
-                ))}
-                <div className="mt-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <FileText className="w-3.5 h-3.5 text-amber-400/60" />
-                    <span className="text-[10px] font-semibold text-blue-300/40 uppercase tracking-wider">Prenesené nevyriešené</span>
+                  <div
+                    className="flex items-center gap-1.5 px-3 py-1 rounded"
+                    style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.25)" }}
+                  >
+                    <Target className="w-3 h-3 text-amber-400" />
+                    <span className="text-[10px] font-bold tracking-widest text-amber-300">KOKPIT</span>
                   </div>
-                  {[55, 70].map((w, i) => (
-                    <div key={i} className="flex gap-2 mb-2">
-                      <SkeletonRow w="14%" h={26} opacity={0.35} />
-                      <SkeletonRow w={`${w * 0.65}%`} h={26} opacity={0.35} />
+                </div>
+
+                <div className="flex flex-1 gap-4 p-4 overflow-hidden">
+                  <div className="flex-1 flex flex-col gap-2 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Inbox className="w-3.5 h-3.5 text-blue-400/60" />
+                      <span className="text-[10px] font-semibold text-blue-300/50 uppercase tracking-wider">Nahraté skeny</span>
                     </div>
-                  ))}
+                    {[90, 75, 82, 68].map((w, i) => (
+                      <div key={i} className="flex gap-2">
+                        <SkeletonRow w="22%" h={28} opacity={0.45} />
+                        <SkeletonRow w={`${w * 0.6}%`} h={28} opacity={0.45} />
+                        <SkeletonRow w="16%" h={28} opacity={0.45} />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ width: 1, background: "rgba(255,255,255,0.06)", flexShrink: 0 }} />
+
+                  <div className="flex-1 flex flex-col gap-2 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock className="w-3.5 h-3.5 text-emerald-400/60" />
+                      <span className="text-[10px] font-semibold text-blue-300/50 uppercase tracking-wider">Dnešné aktivity</span>
+                    </div>
+                    {[80, 65, 72].map((w, i) => (
+                      <div key={i} className="flex gap-2">
+                        <SkeletonRow w="14%" h={28} opacity={0.45} />
+                        <SkeletonRow w={`${w * 0.7}%`} h={28} opacity={0.45} />
+                      </div>
+                    ))}
+                    <div className="mt-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <FileText className="w-3.5 h-3.5 text-amber-400/60" />
+                        <span className="text-[10px] font-semibold text-blue-300/40 uppercase tracking-wider">Prenesené nevyriešené</span>
+                      </div>
+                      {[55, 70].map((w, i) => (
+                        <div key={i} className="flex gap-2 mb-2">
+                          <SkeletonRow w="14%" h={26} opacity={0.35} />
+                          <SkeletonRow w={`${w * 0.65}%`} h={26} opacity={0.35} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
 
           {/* Vrstva Maily — Roztriedenie mailov placeholder */}
