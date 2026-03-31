@@ -620,43 +620,11 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
   const scansToShow = selectedItem?.scans ?? [];
 
   return (
-    <div className="flex flex-row flex-1 min-h-0 w-full">
+    <div className="flex flex-col flex-1 min-h-0 w-full">
 
-      {/* ─── LEFT: Náhľad skenov ──────────────────────────────────────────── */}
-      <div className="flex flex-col border-r min-w-0" style={{ flex: 1 }}>
-        <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
-          <Eye className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs font-semibold">Náhľad skenov</span>
-          <Badge variant="outline" className="text-xs ml-auto">{scansToShow.length}</Badge>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-3 pt-2 space-y-4">
-          {items.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground pt-8">
-              <TripleRingStatus phase={2} size={32} />
-              <p className="text-xs font-semibold mt-1">Žiadne záznamy</p>
-              <p className="text-[10px] text-center max-w-[160px]">
-                Po stlačení „Dokončiť" sa zmluva s priloženými skenmi objaví tu.
-              </p>
-            </div>
-          )}
-          {items.length > 0 && !selectedItem && (
-            <p className="text-xs text-muted-foreground text-center pt-8">Vyberte záznam vpravo.</p>
-          )}
-          {selectedItem && scansToShow.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center pt-8" data-testid="no-scans-placeholder">
-              Žiadne skeny k tejto zmluve.
-            </p>
-          )}
-          {scansToShow.map((scan, idx) => (
-            <ScanPreview key={`${selectedItem?.id}-${idx}`} scan={scan} idx={idx} />
-          ))}
-        </div>
-      </div>
-
-      {/* ─── RIGHT: Zoznam zmlúv ──────────────────────────────────────────── */}
-      <div className="flex flex-col min-w-0" style={{ flex: 1.1 }}>
-        <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
+      {/* ─── TOP: Prijaté zmluvy ──────────────────────────────────────────── */}
+      <div className="flex flex-col shrink-0 border-b" style={{ height: 200 }}>
+        <div className="px-3 py-1.5 border-b shrink-0 flex items-center gap-2 bg-muted/20">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
           <span className="text-xs font-semibold">Prijaté zmluvy</span>
           <Badge className="text-xs bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-400/50 ml-auto">{items.length}</Badge>
@@ -670,15 +638,14 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
                 <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b bg-muted/30 sticky top-0 z-10">Subjekt</th>
                 <th className="py-1.5 px-2 text-center font-semibold text-muted-foreground border-b bg-muted/30 sticky top-0 z-10 w-10">Sk.</th>
                 <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b bg-muted/30 sticky top-0 z-10">Stav</th>
-                <th className="py-1.5 px-2 text-right font-semibold text-muted-foreground border-b bg-muted/30 sticky top-0 z-10 w-12">Čas</th>
+                <th className="py-1.5 px-2 text-right font-semibold text-muted-foreground border-b bg-muted/30 sticky top-0 z-10 w-14">Čas</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-10 text-center text-xs text-muted-foreground">
-                    Zatiaľ žiadne záznamy.<br />
-                    <span className="text-[10px]">Po stlačení „Dokončiť" v ROZDELENÍ SKENOV sa zmluva objaví tu.</span>
+                  <td colSpan={5} className="py-6 text-center text-xs text-muted-foreground">
+                    Zatiaľ žiadne záznamy — po stlačení „Dokončiť" v ROZDELENÍ SKENOV sa zmluva objaví tu.
                   </td>
                 </tr>
               )}
@@ -697,7 +664,7 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
                     }`}
                   >
                     <td className="py-1 px-2 font-mono text-[10px] text-blue-700 dark:text-blue-400 whitespace-nowrap">{item.contractLabel}</td>
-                    <td className="py-1 px-2 text-[10px] max-w-[90px] truncate">{item.subjectLabel}</td>
+                    <td className="py-1 px-2 text-[10px] truncate max-w-[120px]">{item.subjectLabel}</td>
                     <td className="py-1 px-2 text-center">
                       <Badge variant="outline" className="text-[9px] px-1 h-4">{item.scans.length}</Badge>
                     </td>
@@ -717,6 +684,35 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
               })}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* ─── BOTTOM: Náhľad skenov ────────────────────────────────────────── */}
+      <div className="flex flex-col flex-1 min-h-0">
+        <div className="px-3 py-1.5 border-b shrink-0 flex items-center gap-2 bg-muted/20">
+          <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold">Náhľad skenov</span>
+          <Badge variant="outline" className="text-xs ml-auto">{scansToShow.length}</Badge>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-3 pt-2 space-y-4">
+          {items.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+              <TripleRingStatus phase={2} size={28} />
+              <p className="text-xs font-semibold mt-1">Žiadne záznamy</p>
+            </div>
+          )}
+          {items.length > 0 && !selectedItem && (
+            <p className="text-xs text-muted-foreground text-center pt-6">Vyberte záznam vyššie.</p>
+          )}
+          {selectedItem && scansToShow.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center pt-6" data-testid="no-scans-placeholder">
+              Žiadne skeny k tejto zmluve.
+            </p>
+          )}
+          {scansToShow.map((scan, idx) => (
+            <ScanPreview key={`${selectedItem?.id}-${idx}`} scan={scan} idx={idx} />
+          ))}
         </div>
       </div>
 
