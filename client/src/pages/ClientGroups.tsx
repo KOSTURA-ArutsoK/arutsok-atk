@@ -101,7 +101,7 @@ function GroupDetailDialog({
         setAllowCalculators(group.allowCalculators ?? true);
         setPermissionGroupId(group.permissionGroupId ? String(group.permissionGroupId) : "");
         setCustomFields(Array.isArray((group as any).customFields) ? (group as any).customFields : []);
-        setKokpitConfig(Array.isArray((group as any).kokpitConfig) ? (group as any).kokpitConfig : []);
+        setKokpitConfig(Array.isArray(group.kokpitConfig) ? (group.kokpitConfig as Array<{ stateId: number | null; companyId: number | null; divisionIds: number[] }>) : []);
       } else {
         setName("");
         setDescription("");
@@ -750,7 +750,7 @@ function GroupDetailDialog({
                         <SelectContent>
                           <SelectItem value="null">Všetky spoločnosti</SelectItem>
                           {(boCompanies || [])
-                            .filter(c => !c.deletedAt && (newKokpitStateId === null || (c as any).stateId === newKokpitStateId))
+                            .filter(c => !c.deletedAt && (newKokpitStateId === null || c.stateId === newKokpitStateId))
                             .map(c => (
                               <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                             ))}
