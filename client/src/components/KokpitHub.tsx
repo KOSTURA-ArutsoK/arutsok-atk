@@ -8,7 +8,7 @@ import { KokpitAktivityPanel } from "@/components/KokpitAktivityPanel";
 import type { ScanFile } from "@/pages/PridatStavZmluvy";
 import {
   Target, Layers, FileInput, Calculator, Shield, User,
-  Inbox, FileText, Clock, ChevronLeft, FileDown, Zap, Mail,
+  Inbox, FileText, Clock, ChevronLeft, FileDown, Zap, Mail, Upload,
 } from "lucide-react";
 
 export type KokpitFunctionId = "roztriedenie-stavov" | "zadavanie-provizii" | "vypocet-odmien" | "roztriedenie-mailov" | "dokumenty-na-stiahnutie" | "hromadny-import-stavov";
@@ -246,6 +246,8 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
   const [hubExiting, setHubExiting] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [pinTargetId, setPinTargetId] = useState<KokpitFunctionId | null>(null);
+  const [layer2DragOver, setLayer2DragOver] = useState(false);
+  const layer2FileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: kokpitAccess } = useQuery<KokpitAccessData>({
     queryKey: ["/api/kokpit/access"],
@@ -466,6 +468,42 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                     Ukončiť
                   </button>
                 </div>
+                <div
+                  data-testid="drop-zone-scans"
+                  onDragOver={e => { e.preventDefault(); setLayer2DragOver(true); }}
+                  onDragLeave={() => setLayer2DragOver(false)}
+                  onDrop={e => {
+                    e.preventDefault();
+                    setLayer2DragOver(false);
+                    const files = Array.from(e.dataTransfer.files).filter(f => f.size > 0);
+                    if (onAddFiles) onAddFiles(files);
+                  }}
+                  onClick={() => layer2FileInputRef.current?.click()}
+                  className="mx-5 mt-3 border-2 border-dashed rounded-lg p-5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors shrink-0"
+                  style={{
+                    borderColor: layer2DragOver ? "#1e40af" : "var(--border)",
+                    background: layer2DragOver ? "rgba(30,64,175,0.05)" : "var(--muted)/5",
+                    minHeight: 140,
+                  }}
+                >
+                  <Upload size={28} className="text-muted-foreground/60" />
+                  <p className="text-xs text-center text-muted-foreground leading-snug">
+                    Pretiahnite skeny sem<br />
+                    <span className="text-muted-foreground/60">alebo kliknite na výber</span>
+                  </p>
+                </div>
+                <input
+                  ref={layer2FileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  data-testid="input-file-scans-layer2"
+                  onChange={e => {
+                    const files = Array.from(e.target.files ?? []).filter(f => f.size > 0);
+                    if (onAddFiles) onAddFiles(files);
+                    if (layer2FileInputRef.current) layer2FileInputRef.current.value = "";
+                  }}
+                />
                 <div className="flex flex-1 overflow-hidden min-h-0 px-5 py-4">
                   <KokpitAktivityPanel
                     scanFiles={scanFiles}

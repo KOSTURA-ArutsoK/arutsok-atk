@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
-import { Upload, CalendarDays, Star, Server } from "lucide-react";
+import { CalendarDays, Star, Server } from "lucide-react";
 import { KokpitHub, type KokpitFunctionId } from "@/components/KokpitHub";
 import type { KokpitStagedScan } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -111,8 +111,6 @@ export default function PridatStavZmluvy() {
   const [, setLocation] = useLocation();
   const [hubOpen, setHubOpen] = useState(false);
   const [scanFiles, setScanFiles] = useState<ScanFile[]>([]);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const dbInitializedRef = useRef(false);
 
   const [now, setNow] = useState(() => new Date());
@@ -245,19 +243,6 @@ export default function PridatStavZmluvy() {
     }
   }
 
-  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    setIsDragOver(false);
-    const files = Array.from(e.dataTransfer.files).filter(f => f.size > 0);
-    uploadFiles(files);
-  }
-
-  function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []).filter(f => f.size > 0);
-    uploadFiles(files);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
   function removeScanFile(id: string, reason: string = 'user') {
     const file = scanFiles.find(f => f.id === id);
     if (file?.dbId) {
@@ -328,44 +313,9 @@ export default function PridatStavZmluvy() {
         </p>
       </div>
 
-      {/* 2-column top section: CENTER (KOKPIT button) + RIGHT (drop zone) */}
-      <div className="flex gap-4 items-start justify-center">
-
-        {/* CENTER: KOKPIT button */}
-        <div className="flex flex-col items-center gap-3 pt-2">
-          <KokpitCard onClick={() => setHubOpen(true)} />
-        </div>
-
-        {/* RIGHT: Scan drop zone */}
-        <div className="min-w-[200px] flex-1 max-w-[320px] pt-2">
-          <div
-            data-testid="drop-zone-scans"
-            onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
-            onDragLeave={() => setIsDragOver(false)}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed rounded-lg p-5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors"
-            style={{
-              borderColor: isDragOver ? "#1e40af" : "var(--border)",
-              background: isDragOver ? "rgba(30,64,175,0.05)" : "var(--muted)/5",
-              minHeight: 140,
-            }}
-          >
-            <Upload size={28} className="text-muted-foreground/60" />
-            <p className="text-xs text-center text-muted-foreground leading-snug">
-              Pretiahnite skeny sem<br />
-              <span className="text-muted-foreground/60">alebo kliknite na výber</span>
-            </p>
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            data-testid="input-file-scans"
-            onChange={handleFileInput}
-          />
-        </div>
+      {/* KOKPIT button */}
+      <div className="flex justify-center pt-2">
+        <KokpitCard onClick={() => setHubOpen(true)} />
       </div>
 
       {/* Backoffice info chip row */}
