@@ -135,6 +135,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
 
   // Klik na funkciu: Hub (Layer 3) odíde, cieľová vrstva príde dopredu
   function handleSelectFunction(id: KokpitFunctionId) {
+    onSelectFunction(id);
     setHubExiting(true);
     setTimeout(() => {
       setHubExiting(false);
