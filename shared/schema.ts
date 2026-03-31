@@ -3087,3 +3087,19 @@ export const atkAssetSnapshots = pgTable("atk_asset_snapshots", {
 export const insertAtkAssetSnapshotSchema = createInsertSchema(atkAssetSnapshots).omit({ id: true, snapshotAt: true });
 export type AtkAssetSnapshot = typeof atkAssetSnapshots.$inferSelect;
 export type InsertAtkAssetSnapshot = z.infer<typeof insertAtkAssetSnapshotSchema>;
+
+export const downloadableDocuments = pgTable("downloadable_documents", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  fileUrl: text("file_url").notNull(),
+  fileName: text("file_name").notNull(),
+  fileSize: integer("file_size").notNull(),
+  uploadedByUserId: integer("uploaded_by_user_id"),
+  companyId: integer("company_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const insertDownloadableDocumentSchema = createInsertSchema(downloadableDocuments).omit({ id: true, createdAt: true });
+export type DownloadableDocument = typeof downloadableDocuments.$inferSelect;
+export type InsertDownloadableDocument = z.infer<typeof insertDownloadableDocumentSchema>;

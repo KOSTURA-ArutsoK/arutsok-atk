@@ -6,7 +6,7 @@ import { setupAuth, isAuthenticated, resolveContextLabel, getAuditActorId } from
 import { z } from "zod";
 import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts, subjectLinks, revocationTickets, insertProductDisplayParamSchema, insertContractParamVerificationSchema, productDisplayParams, contractParamVerifications } from "@shared/schema";
 import type { DocEntry, WebRoutingRule } from "@shared/schema";
-import { kokpitStagedScans, atkAssetSnapshots, atkLicenseCosts, insertAtkLicenseCostSchema, kokpitRiesenieRecords } from "@shared/schema";
+import { kokpitStagedScans, atkAssetSnapshots, atkLicenseCosts, insertAtkLicenseCostSchema, kokpitRiesenieRecords, downloadableDocuments } from "@shared/schema";
 import { getUncachableGitHubClient } from "./github";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, syncSubjectParameters, seedAssetPanels, seedEventAndEntityPanels, seedNsVsTemplates, cleanupZombieTemplateParams, ensureOsClientType } from "./seed-subject-params";
@@ -559,11 +559,12 @@ fs.mkdirSync(path.join(UPLOADS_DIR, "status-change-docs"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "subject-photos"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "supiska-attachments"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "contract-docs"), { recursive: true });
+fs.mkdirSync(path.join(UPLOADS_DIR, "downloadable-docs"), { recursive: true });
 
 const uploadStorage = multer.diskStorage({
   destination: (req, _file, cb) => {
     const section = (req.params as any).section || (req as any)._uploadSection;
-    const validDirs = ["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs", "subject-photos", "datova-linka", "supiska-attachments", "contract-docs"];
+    const validDirs = ["official", "work", "logos", "amendments", "profiles", "flags", "status-change-docs", "subject-photos", "datova-linka", "supiska-attachments", "contract-docs", "downloadable-docs"];
     const dir = validDirs.includes(section) ? section : "official";
     cb(null, path.join(UPLOADS_DIR, dir));
   },
@@ -4994,7 +4995,7 @@ export async function registerRoutes(
   app.get("/api/files/:section/:filename", isAuthenticated, (req, res) => {
     const section = req.params.section as string;
     const filename = req.params.filename as string;
-    if (!["official", "work", "tax", "logos", "amendments", "profiles", "flags", "status-change-docs", "generated-docs", "contract-docs"].includes(section)) return res.status(400).json({ message: "Invalid section" });
+    if (!["official", "work", "tax", "logos", "amendments", "profiles", "flags", "status-change-docs", "generated-docs", "contract-docs", "downloadable-docs"].includes(section)) return res.status(400).json({ message: "Invalid section" });
     const filePath = path.join(UPLOADS_DIR, section, filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ message: "File not found" });
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -26402,6 +26403,68 @@ app.post("/api/document-validity/refresh", isAuthenticated, async (_req, res) =>
       const id = parseInt(req.params.id, 10);
       if (isNaN(id)) return res.status(400).json({ message: 'Neplatné ID' });
       await db.delete(atkLicenseCosts).where(eq(atkLicenseCosts.id, id));
+      res.json({ ok: true });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ message: msg });
+    }
+  });
+
+  // ── Downloadable documents ──────────────────────────────────────────────────
+
+  app.get('/api/downloadable-documents', isAuthenticated, async (_req, res) => {
+    try {
+      const docs = await db.select().from(downloadableDocuments).orderBy(downloadableDocuments.createdAt);
+      res.json(docs);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ message: msg });
+    }
+  });
+
+  app.post('/api/downloadable-documents', isAuthenticated, (req: any, res: any, next: any) => {
+    (req as any)._uploadSection = "downloadable-docs";
+    next();
+  }, upload.single("file"), async (req: any, res: any) => {
+    try {
+      const appUser = (req as any).appUser;
+      if (!hasAdminAccess(appUser)) return res.status(403).json({ message: 'Prístup zamietnutý' });
+      const file = req.file;
+      if (!file) return res.status(400).json({ message: 'Súbor je povinný' });
+      const name = (req.body.name || file.originalname).trim();
+      const description = (req.body.description || "").trim() || null;
+      const fileUrl = `/api/files/downloadable-docs/${file.filename}`;
+      const [doc] = await db.insert(downloadableDocuments).values({
+        name,
+        description,
+        fileUrl,
+        fileName: file.originalname,
+        fileSize: file.size,
+        uploadedByUserId: appUser?.id ?? null,
+        companyId: appUser?.activeCompanyId ?? null,
+      }).returning();
+      res.json(doc);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ message: msg });
+    }
+  });
+
+  app.delete('/api/downloadable-documents/:id', isAuthenticated, async (req: any, res: any) => {
+    try {
+      const appUser = (req as any).appUser;
+      if (!hasAdminAccess(appUser)) return res.status(403).json({ message: 'Prístup zamietnutý' });
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) return res.status(400).json({ message: 'Neplatné ID' });
+      const [doc] = await db.select({ fileUrl: downloadableDocuments.fileUrl }).from(downloadableDocuments).where(eq(downloadableDocuments.id, id));
+      if (doc?.fileUrl) {
+        const seg = doc.fileUrl.split("/").pop();
+        if (seg) {
+          const physPath = path.join(UPLOADS_DIR, "downloadable-docs", seg);
+          try { fs.unlinkSync(physPath); } catch {}
+        }
+      }
+      await db.delete(downloadableDocuments).where(eq(downloadableDocuments.id, id));
       res.json({ ok: true });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

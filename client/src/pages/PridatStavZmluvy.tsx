@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { ChevronLeft, ChevronRight, X, Upload, FileText, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { TripleRingStatus } from "@/components/TripleRingStatus";
@@ -217,6 +218,7 @@ function fmtTime(ts: number): string {
 
 export default function PridatStavZmluvy() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [hubOpen, setHubOpen] = useState(false);
   const [kokpitOpen, setKokpitOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
@@ -293,9 +295,16 @@ export default function PridatStavZmluvy() {
     setKokpitOpen(true);
   }
 
-  function handleHubSelectFunction(_fn: KokpitFunctionId) {
-    // Hub teraz renderuje obsah priamo v Layer 1 (roztriedenie-stavov)
-    // alebo Layer 2 (zadavanie-provizii, vypocet-odmien) bez otvárania samostatného dialógu
+  function handleHubSelectFunction(fn: KokpitFunctionId) {
+    if (fn === "dokumenty-na-stiahnutie") {
+      setHubOpen(false);
+      setLocation("/dokumenty-na-stiahnutie");
+    } else if (fn === "hromadny-import-stavov") {
+      setHubOpen(false);
+      setLocation("/hromadne-stavy");
+    }
+    // roztriedenie-stavov → Hub renderuje Layer 1 (KokpitDialogBody)
+    // zadavanie-provizii, vypocet-odmien → Hub zobrazuje Layer 2
   }
 
   // ── File upload ──────────────────────────────────────────────────────────────

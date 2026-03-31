@@ -7,10 +7,10 @@ import { KokpitDialogBody } from "@/components/KokpitDialog";
 import type { ScanFile } from "@/pages/PridatStavZmluvy";
 import {
   Target, Layers, FileInput, Calculator, Shield, User,
-  Inbox, FileText, Clock, ChevronLeft,
+  Inbox, FileText, Clock, ChevronLeft, FileDown, Zap,
 } from "lucide-react";
 
-export type KokpitFunctionId = "roztriedenie-stavov" | "zadavanie-provizii" | "vypocet-odmien";
+export type KokpitFunctionId = "roztriedenie-stavov" | "zadavanie-provizii" | "vypocet-odmien" | "dokumenty-na-stiahnutie" | "hromadny-import-stavov";
 
 interface KokpitHubProps {
   open: boolean;
@@ -91,6 +91,30 @@ const HUB_FUNCTIONS: Array<{
     borderColor: "border-violet-500/30",
     hoverBorderColor: "hover:border-violet-400/60",
     iconColor: "text-violet-400",
+  },
+  {
+    id: "dokumenty-na-stiahnutie",
+    Icon: FileDown,
+    title: "Dokumenty na stiahnutie",
+    subtitle: "Upload · Správa",
+    description: "Nahrávanie a správa dokumentov dostupných na stiahnutie v sekcii Informácie.",
+    gradientFrom: "from-teal-800/50",
+    gradientTo: "to-teal-900/70",
+    borderColor: "border-teal-500/30",
+    hoverBorderColor: "hover:border-teal-400/60",
+    iconColor: "text-teal-400",
+  },
+  {
+    id: "hromadny-import-stavov",
+    Icon: Zap,
+    title: "Hromadný import stavov",
+    subtitle: "CSV · Excel",
+    description: "Hromadná aktualizácia stavov zmlúv z CSV alebo Excel súboru podľa identifikátora.",
+    gradientFrom: "from-amber-800/50",
+    gradientTo: "to-amber-900/70",
+    borderColor: "border-amber-500/30",
+    hoverBorderColor: "hover:border-amber-400/60",
+    iconColor: "text-amber-400",
   },
 ];
 
