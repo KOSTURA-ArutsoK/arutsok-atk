@@ -910,7 +910,7 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
                 variant="outline"
                 size="sm"
                 data-testid="button-kokpit-ukoncit"
-                className="shrink-0 h-7 px-3 text-xs"
+                className="shrink-0 h-7 px-3 text-xs hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-foreground"
                 onClick={() => setShowConfirmClose(true)}
               >
                 Ukončiť
