@@ -885,7 +885,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
               // Smart hiding: hide state chip if all companies share one state and user can't switch
               const uniqueStateIds = new Set((companies ?? []).map((c: any) => c.stateId).filter(Boolean));
-              const showStateChip = canSwitch || uniqueStateIds.size > 1;
+              // Use ?? 2 as fallback when companies not yet loaded to avoid flash-hiding
+              const showStateChip = canSwitch || (companies === undefined || uniqueStateIds.size > 1);
               // Hide company chip if user has only 1 company and can't switch
               const showCompanyChip = canSwitch || (companies?.length ?? 2) > 1;
 

@@ -78,7 +78,7 @@ export function InfoChipRow({ variant, chips }: InfoChipRowProps) {
               border: `2px solid ${borderColor}`,
               background: chipBg,
               boxShadow: glowColor,
-              minWidth: "calc(50% - 4px)",
+              minWidth: 160,
               transition: "box-shadow 0.2s ease, border-color 0.2s ease",
             }}
           >
