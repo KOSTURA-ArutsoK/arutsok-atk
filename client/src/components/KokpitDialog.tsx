@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useAppUser } from "@/hooks/use-app-user";
 import { apiRequest } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -37,6 +38,8 @@ type CompletedItem = {
   contract: TrezorContract;
   contractLabel: string;
   subjectLabel: string;
+  companyLabel: string | null;
+  divisionLabel: string | null;
   partnerLabel: string;
   productLabel: string;
   scans: ScanFile[];
@@ -88,9 +91,11 @@ interface Step1PanelProps {
   onAddFiles: (files: File[]) => void;
   onComplete: (item: CompletedItem) => void;
   onSwitchTab: (tab: string) => void;
+  companyLabel: string | null;
+  divisionLabel: string | null;
 }
 
-function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwitchTab }: Step1PanelProps) {
+function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwitchTab, companyLabel, divisionLabel }: Step1PanelProps) {
   const { toast } = useToast();
   const [selectedScanIds, setSelectedScanIds] = useState<Set<string>>(new Set());
   const [inboxDragOver, setInboxDragOver] = useState(false);
@@ -172,6 +177,8 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
       contract,
       contractLabel,
       subjectLabel: subjectDisplay(sub),
+      companyLabel,
+      divisionLabel,
       partnerLabel: partner?.code ?? partner?.name ?? "—",
       productLabel: product?.name ?? "—",
       scans: pairedScans,
@@ -558,6 +565,8 @@ type RiesenieDisplayItem = {
   id: string;
   contractLabel: string;
   subjectLabel: string;
+  companyLabel: string | null;
+  divisionLabel: string | null;
   statusId: number | null;
   scans: ScanInfo[];
   completedAt: number;
@@ -621,6 +630,9 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
 
   const selectedStatus = contractStatuses.find(s => s.id === selectedItem?.statusId) ?? null;
 
+  const showDivision = items.some(i => i.divisionLabel);
+  const colSpanEmpty = 5 + (showDivision ? 1 : 0);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', overflow: 'hidden' }}>
 
@@ -637,7 +649,10 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
               <tr>
                 <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b border-border border-r border-r-border/30 bg-muted/30 sticky top-0 z-10">Zmluva</th>
                 <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b border-border border-r border-r-border/30 bg-muted/30 sticky top-0 z-10">Subjekt</th>
-                <th className="py-1.5 px-2 text-center font-semibold text-muted-foreground border-b border-border border-r border-r-border/30 bg-muted/30 sticky top-0 z-10 w-10">Sk.</th>
+                <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b border-border border-r border-r-border/30 bg-muted/30 sticky top-0 z-10">Spoločnosť</th>
+                {showDivision && (
+                  <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b border-border border-r border-r-border/30 bg-muted/30 sticky top-0 z-10">Divízia</th>
+                )}
                 <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b border-border border-r border-r-border/30 bg-muted/30 sticky top-0 z-10">Stav</th>
                 <th className="py-1.5 px-2 text-right font-semibold text-muted-foreground border-b border-border bg-muted/30 sticky top-0 z-10 w-14">Čas</th>
               </tr>
@@ -645,7 +660,7 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
             <tbody>
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-xs text-muted-foreground">
+                  <td colSpan={colSpanEmpty} className="py-6 text-center text-xs text-muted-foreground">
                     Zatiaľ žiadne záznamy — po stlačení „Dokončiť" v ROZDELENÍ SKENOV sa zmluva objaví tu.
                   </td>
                 </tr>
@@ -666,9 +681,10 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
                   >
                     <td className="py-1 px-2 font-mono text-[10px] text-blue-700 dark:text-blue-400 whitespace-nowrap border-r border-border/30">{item.contractLabel}</td>
                     <td className="py-1 px-2 text-[10px] truncate max-w-[140px] border-r border-border/30">{item.subjectLabel}</td>
-                    <td className="py-1 px-2 text-center border-r border-border/30">
-                      <Badge variant="outline" className="text-[9px] px-1 h-4">{item.scans.length}</Badge>
-                    </td>
+                    <td className="py-1 px-2 text-[10px] truncate max-w-[100px] border-r border-border/30">{item.companyLabel ?? "—"}</td>
+                    {showDivision && (
+                      <td className="py-1 px-2 text-[10px] truncate max-w-[120px] border-r border-border/30">{item.divisionLabel ?? "—"}</td>
+                    )}
                     <td className="py-1 px-2 border-r border-border/30">
                       {status ? (
                         <div className="flex items-center gap-1 min-w-0">
@@ -793,6 +809,8 @@ type RiesenieRecord = {
   statusId: number | null;
   contractLabel: string | null;
   subjectLabel: string | null;
+  companyLabel: string | null;
+  divisionLabel: string | null;
   scansJson: ScanInfo[] | null;
   completedAt: string;
 };
@@ -807,6 +825,36 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
   useEffect(() => {
     if (open) dialogOpenedAt.current = Date.now();
   }, [open]);
+
+  const { data: appUser } = useAppUser();
+  const activeCompanyId = appUser?.activeCompanyId ?? null;
+  const activeDivisionId = appUser?.activeDivisionId ?? null;
+
+  type MyCompanyMin = { id: number; name: string; code: string };
+  type CompanyDivisionMin = { divisionId: number; division: { id: number; name: string } };
+
+  const { data: myCompanies = [] } = useQuery<MyCompanyMin[]>({
+    queryKey: ["/api/my-companies"],
+    enabled: open,
+  });
+
+  const { data: companyDivisions = [] } = useQuery<CompanyDivisionMin[]>({
+    queryKey: ["/api/companies", activeCompanyId, "divisions"],
+    queryFn: () => fetch(`/api/companies/${activeCompanyId}/divisions`, { credentials: "include" }).then(r => r.json()),
+    enabled: open && !!activeCompanyId,
+  });
+
+  const companyLabel = useMemo(() => {
+    if (!activeCompanyId) return null;
+    const c = myCompanies.find(c => c.id === activeCompanyId);
+    return c?.code || c?.name || null;
+  }, [activeCompanyId, myCompanies]);
+
+  const divisionLabel = useMemo(() => {
+    if (!activeDivisionId) return null;
+    const d = companyDivisions.find(cd => cd.divisionId === activeDivisionId);
+    return d?.division?.name || null;
+  }, [activeDivisionId, companyDivisions]);
 
   const { data: items = [] } = useQuery<KokpitItemExt[]>({
     queryKey: ["/api/kokpit/items"],
@@ -827,6 +875,8 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
       statusId: item.contract.statusId ?? null,
       contractLabel: item.contractLabel,
       subjectLabel: item.subjectLabel,
+      companyLabel: item.companyLabel,
+      divisionLabel: item.divisionLabel,
       scansJson: item.scans.filter(s => s.url && s.done).map(s => ({ name: s.name, url: s.url!, size: s.size })),
     }).catch(() => {
       toast({ title: "Chyba ukladania", description: "Záznam sa nepodarilo uložiť do databázy.", variant: "destructive" });
@@ -837,6 +887,8 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
     id: item.id,
     contractLabel: item.contractLabel,
     subjectLabel: item.subjectLabel,
+    companyLabel: item.companyLabel,
+    divisionLabel: item.divisionLabel,
     statusId: item.contract.statusId ?? null,
     scans: item.scans.filter(s => s.url && s.done).map(s => ({ name: s.name, url: s.url!, size: s.size })),
     completedAt: item.completedAt,
@@ -848,6 +900,8 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
       id: `db-${r.id}`,
       contractLabel: r.contractLabel ?? "—",
       subjectLabel: r.subjectLabel ?? "—",
+      companyLabel: r.companyLabel ?? null,
+      divisionLabel: r.divisionLabel ?? null,
       statusId: r.statusId,
       scans: r.scansJson ?? [],
       completedAt: new Date(r.completedAt).getTime(),
@@ -952,6 +1006,8 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
                   onAddFiles={onAddFiles}
                   onComplete={handleComplete}
                   onSwitchTab={setActiveTab}
+                  companyLabel={companyLabel}
+                  divisionLabel={divisionLabel}
                 />
               </div>
 

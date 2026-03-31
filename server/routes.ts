@@ -26201,6 +26201,8 @@ export async function registerRoutes(
         statusId: z.number().int().nullable().optional(),
         contractLabel: z.string().max(500).nullable().optional(),
         subjectLabel: z.string().max(500).nullable().optional(),
+        companyLabel: z.string().max(500).nullable().optional(),
+        divisionLabel: z.string().max(500).nullable().optional(),
         scansJson: z.array(z.object({
           name: z.string(),
           url: z.string().url(),
@@ -26209,7 +26211,7 @@ export async function registerRoutes(
       });
       const parsed = bodySchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Neplatné dáta", errors: parsed.error.flatten() });
-      const { contractId, statusId, contractLabel, subjectLabel, scansJson } = parsed.data;
+      const { contractId, statusId, contractLabel, subjectLabel, companyLabel, divisionLabel, scansJson } = parsed.data;
       const record = await storage.addRiesenieRecord({
         companyId,
         appUserId,
@@ -26217,6 +26219,8 @@ export async function registerRoutes(
         statusId: statusId ?? null,
         contractLabel: contractLabel ?? null,
         subjectLabel: subjectLabel ?? null,
+        companyLabel: companyLabel ?? null,
+        divisionLabel: divisionLabel ?? null,
         scansJson: scansJson ?? [],
       });
       res.json(record);

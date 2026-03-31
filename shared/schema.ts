@@ -3037,6 +3037,8 @@ export const kokpitRiesenieRecords = pgTable("kokpit_riesenie_records", {
   statusId: integer("status_id"),
   contractLabel: text("contract_label"),
   subjectLabel: text("subject_label"),
+  companyLabel: text("company_label"),
+  divisionLabel: text("division_label"),
   scansJson: jsonb("scans_json").$type<{ name: string; url: string; size: number }[]>(),
   completedAt: timestamp("completed_at", { withTimezone: true }).defaultNow(),
 });
