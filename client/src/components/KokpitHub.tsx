@@ -84,8 +84,8 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
         <div
           className="flex flex-col overflow-hidden rounded-xl shadow-2xl border border-amber-500/20"
           style={{
-            width: "90vw",
-            height: "86vh",
+            width: "92vw",
+            height: "88vh",
             background: "linear-gradient(160deg, #0c1e3a 0%, #07111f 100%)",
           }}
         >
