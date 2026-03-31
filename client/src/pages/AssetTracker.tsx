@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useAppUser } from "@/hooks/use-app-user";
 import { isAdmin as checkIsAdmin } from "@/lib/utils";
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   TrendingUp, Code2, GitCommit, Cpu, RefreshCw,
-  Loader2, Trophy, Layers, Zap, Shield, Lock, BarChart3,
+  Loader2, Trophy, Layers, Zap, Shield, Lock, BarChart3, History,
 } from "lucide-react";
 import type { AtkAssetSnapshot } from "@shared/schema";
 
@@ -21,10 +22,17 @@ const FINTECH_LOC = 50_000;
 const FINTECH_VALUE = FINTECH_LOC * LOC_PRICE;
 
 const IP_ITEMS = [
-  { label: "Decoy (návnadový) modul", value: 500_000, color: "text-amber-500", desc: "Umelá architektúra na detekciu kopírowania" },
+  { label: "Decoy (návnadový) modul", value: 500_000, color: "text-amber-500", desc: "Umelá architektúra na detekciu kopírování" },
   { label: "Trezor / Holding štruktúra", value: 750_000, color: "text-blue-500", desc: "Proprietárna viacúrovňová štruktúra holdingu" },
   { label: "Zrkadlový kontext (KTO/KDE)", value: 300_000, color: "text-violet-500", desc: "Patentovateľný bezpečnostný mechanizmus kontextu" },
 ];
+
+interface CommitRecord {
+  sha: string;
+  message: string;
+  date: string;
+  author: string;
+}
 
 function formatEur(n: number): string {
   return new Intl.NumberFormat("sk-SK", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
@@ -36,6 +44,10 @@ function formatNum(n: number): string {
 
 function formatDate(d: string): string {
   return new Date(d).toLocaleString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function formatDateShort(d: string): string {
+  return new Date(d).toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
 function GrowthIndicator({ current, previous }: { current: number; previous: number | null }) {
@@ -74,10 +86,14 @@ function BenchmarkBar({ value, benchmark, label }: { value: number; benchmark: n
 }
 
 export default function AssetTracker() {
-  const { data: appUser } = useAppUser();
+  const { data: appUser, isLoading: userLoading } = useAppUser();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const isAdmin = checkIsAdmin(appUser);
+  const [, navigate] = useLocation();
+  const autoSnapshotFired = useRef(false);
+
+  const isAdmin = !userLoading && checkIsAdmin(appUser);
+  const isAdminKnown = !userLoading;
 
   const { data: history = [], isLoading: histLoading } = useQuery<AtkAssetSnapshot[]>({
     queryKey: ["/api/admin/asset-tracker/history"],
@@ -87,21 +103,32 @@ export default function AssetTracker() {
   const latest = history[0] ?? null;
   const previous = history[1] ?? null;
 
+  const recentCommits: CommitRecord[] = Array.isArray((latest as AtkAssetSnapshot & { recentCommitsJson?: unknown })?.recentCommitsJson)
+    ? ((latest as AtkAssetSnapshot & { recentCommitsJson?: CommitRecord[] }).recentCommitsJson ?? [])
+    : [];
+
   const snapshotMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("GET", "/api/admin/asset-tracker/snapshot");
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Snímka uložená", description: "Nová ocenenie aktíva bolo zaznamenané." });
+      toast({ title: "Snímka uložená", description: "Nové ocenenie aktíva bolo zaznamenané." });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/asset-tracker/history"] });
     },
-    onError: (e: any) => {
-      toast({ title: "Chyba", description: e.message, variant: "destructive" });
+    onError: (err: Error) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
     },
   });
 
-  if (!isAdmin) {
+  useEffect(() => {
+    if (isAdmin && !histLoading && !autoSnapshotFired.current && !snapshotMutation.isPending) {
+      autoSnapshotFired.current = true;
+      snapshotMutation.mutate();
+    }
+  }, [isAdmin, histLoading]);
+
+  if (isAdminKnown && !isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <Lock className="w-12 h-12 text-muted-foreground" />
@@ -112,6 +139,7 @@ export default function AssetTracker() {
 
   const locByExt: Record<string, number> = (latest?.locByExtension as Record<string, number>) ?? {};
   const extEntries = Object.entries(locByExt).sort((a, b) => b[1] - a[1]);
+  const isRefreshing = snapshotMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -131,22 +159,22 @@ export default function AssetTracker() {
         </div>
         <Button
           onClick={() => snapshotMutation.mutate()}
-          disabled={snapshotMutation.isPending}
+          disabled={isRefreshing}
           data-testid="button-take-snapshot"
           className="shrink-0"
         >
-          {snapshotMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-          Nová snímka
+          {isRefreshing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+          {isRefreshing ? "Snímam..." : "Nová snímka"}
         </Button>
       </div>
 
-      {histLoading && (
+      {(histLoading || isRefreshing) && !latest && (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       )}
 
-      {!histLoading && !latest && (
+      {!histLoading && !isRefreshing && !latest && (
         <Card className="border-2">
           <CardContent className="py-12 text-center text-muted-foreground">
             <BarChart3 className="w-10 h-10 mx-auto mb-3 opacity-30" />
@@ -171,6 +199,7 @@ export default function AssetTracker() {
                 <GrowthIndicator current={latest.totalValueEur} previous={previous?.totalValueEur ?? null} />
                 <p className="text-xs text-muted-foreground mt-1">
                   Snímka: {formatDate(String(latest.snapshotAt))}
+                  {isRefreshing && <span className="ml-2 text-primary animate-pulse">• Aktualizujem...</span>}
                 </p>
               </div>
               <Separator className="my-3" />
@@ -336,7 +365,46 @@ export default function AssetTracker() {
             </CardContent>
           </Card>
 
-          {/* HISTORY */}
+          {/* COMMIT HISTORY TABLE (last 30 days) */}
+          {recentCommits.length > 0 && (
+            <Card className="border-2">
+              <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-2">
+                <div className="p-2 rounded-md bg-emerald-500/10 text-emerald-500"><History className="h-4 w-4" /></div>
+                <CardTitle className="text-base">
+                  Commity — posledných 30 dní
+                  <Badge variant="secondary" className="ml-2 text-xs">{recentCommits.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 px-2 text-xs text-muted-foreground font-semibold">SHA</th>
+                        <th className="text-left py-2 px-2 text-xs text-muted-foreground font-semibold">Správa</th>
+                        <th className="text-left py-2 px-2 text-xs text-muted-foreground font-semibold">Autor</th>
+                        <th className="text-right py-2 px-2 text-xs text-muted-foreground font-semibold">Dátum</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentCommits.map((c, idx) => (
+                        <tr key={`${c.sha}-${idx}`} className="border-b last:border-0 hover:bg-muted/30 transition-colors" data-testid={`commit-row-${c.sha}`}>
+                          <td className="py-2 px-2 font-mono text-xs text-muted-foreground">{c.sha}</td>
+                          <td className="py-2 px-2 max-w-[260px]">
+                            <span className="truncate block text-xs" title={c.message}>{c.message}</span>
+                          </td>
+                          <td className="py-2 px-2 text-xs">{c.author}</td>
+                          <td className="py-2 px-2 text-right font-mono text-xs whitespace-nowrap">{c.date ? formatDateShort(c.date) : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* SNAPSHOT HISTORY */}
           {history.length > 1 && (
             <Card className="border-2">
               <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-2">

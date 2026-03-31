@@ -26164,8 +26164,9 @@ export async function registerRoutes(
       const codeValueEur = netLoc * LOC_PRICE;
       const ipPremiumEur = 500000 + 750000 + 300000; // Decoy + Trezor/Holding + Mirror context
       const totalValueEur = codeValueEur + ipPremiumEur;
-      let commitCount30d = null;
-      let repoName = null;
+      let commitCount30d: number | null = null;
+      let repoName: string | null = null;
+      let recentCommits: { sha: string; message: string; date: string; author: string }[] = [];
       try {
         const octokit = await getUncachableGitHubClient();
         const { data: ghUser } = await octokit.rest.users.getAuthenticated();
@@ -26176,10 +26177,15 @@ export async function registerRoutes(
           const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
           const { data: commits } = await octokit.rest.repos.listCommits({ owner: ghUser.login, repo: repo.name, since, per_page: 100 });
           commitCount30d = commits.length;
+          recentCommits = commits.slice(0, 30).map(c => ({
+            sha: c.sha.substring(0, 7),
+            message: (c.commit.message || '').split(String.fromCharCode(10))[0].substring(0, 80),
+            date: c.commit.committer?.date || c.commit.author?.date || '',
+            author: c.commit.author?.name || c.author?.login || 'unknown',
+          }));
         }
-      } catch (_e) { /* GitHub not linked */ }
+      } catch (_githubErr) { /* GitHub not linked — skip gracefully */ }
       const avgCommitsPerDay = commitCount30d !== null ? Math.round((commitCount30d / 30) * 100) / 100 : null;
-      const dailyValueGrowthEur = avgCommitsPerDay !== null ? Math.round(avgCommitsPerDay * (netLoc / (commitCount30d || 1)) * LOC_PRICE) : null;
       const [saved] = await db.insert(atkAssetSnapshots).values({
         totalLoc, netLoc, fileCount,
         locByExtension: byExt,
@@ -26188,12 +26194,14 @@ export async function registerRoutes(
         totalValueEur,
         commitCount30d,
         avgCommitsPerDay,
+        recentCommitsJson: recentCommits.length > 0 ? recentCommits : null,
         repoName,
         takenByUserId: appUser.id,
       }).returning();
       res.json(saved);
-    } catch (e) {
-      res.status(500).json({ message: e.message });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ message: msg });
     }
   });
 
@@ -26203,8 +26211,9 @@ export async function registerRoutes(
       if (!hasAdminAccess(appUser)) return res.status(403).json({ message: 'Prístup zamietnutý' });
       const rows = await db.select().from(atkAssetSnapshots).orderBy(desc(atkAssetSnapshots.snapshotAt)).limit(90);
       res.json(rows);
-    } catch (e) {
-      res.status(500).json({ message: e.message });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ message: msg });
     }
   });
 

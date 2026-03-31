@@ -3044,6 +3044,7 @@ export const atkAssetSnapshots = pgTable("atk_asset_snapshots", {
   totalValueEur: integer("total_value_eur").notNull(),
   commitCount30d: integer("commit_count_30d"),
   avgCommitsPerDay: real("avg_commits_per_day"),
+  recentCommitsJson: jsonb("recent_commits_json"),
   repoName: text("repo_name"),
   takenByUserId: integer("taken_by_user_id"),
 });

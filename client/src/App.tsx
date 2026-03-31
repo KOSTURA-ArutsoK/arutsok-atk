@@ -8,7 +8,8 @@ import { HelpProvider } from "@/contexts/help-context";
 import { TTSProvider } from "@/contexts/tts-context";
 import { useAuth } from "@/hooks/use-auth";
 import { useAppUser } from "@/hooks/use-app-user";
-import { Loader2 } from "lucide-react";
+import { isAdmin as checkIsAdmin } from "@/lib/utils";
+import { Loader2, Lock } from "lucide-react";
 import type { Subject } from "@shared/schema";
 import { SubjektView } from "@/components/subjekt-view";
 
@@ -103,6 +104,36 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
       {children}
     </AppShell>
   );
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading: authLoading } = useAuth();
+  const { data: appUser, isLoading: userLoading } = useAppUser();
+
+  if (authLoading || userLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage />;
+  }
+
+  if (!checkIsAdmin(appUser)) {
+    return (
+      <AppShell>
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <Lock className="w-12 h-12 text-muted-foreground" />
+          <p className="text-muted-foreground text-lg">Prístup len pre administrátorov.</p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  return <AppShell>{children}</AppShell>;
 }
 
 function AuthOnlyRoute({ children }: { children: React.ReactNode }) {
@@ -207,7 +238,7 @@ const PrivateSektorySubjektovVizia = () => <PrivateRoute><SektorySubjektovVizia 
 const PrivateHoldingTree = () => <PrivateRoute><HoldingTree /></PrivateRoute>;
 const PrivateSystemLinks = () => <PrivateRoute><SystemLinks /></PrivateRoute>;
 const PrivateClientProfile = () => <PrivateRoute><ClientProfilePage /></PrivateRoute>;
-const PrivateAssetTracker = () => <PrivateRoute><AssetTracker /></PrivateRoute>;
+const PrivateAssetTracker = () => <AdminRoute><AssetTracker /></AdminRoute>;
 
 function Router() {
   return (
