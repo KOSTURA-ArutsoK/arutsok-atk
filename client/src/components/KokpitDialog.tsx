@@ -619,17 +619,18 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
   const selectedItem = items.find(i => i.id === selectedId) ?? null;
   const scansToShow = selectedItem?.scans ?? [];
 
+  const selectedStatus = contractStatuses.find(s => s.id === selectedItem?.statusId) ?? null;
+
   return (
     <div className="flex flex-col flex-1 min-h-0 w-full">
 
-      {/* ─── TOP: Prijaté zmluvy ──────────────────────────────────────────── */}
-      <div className="flex flex-col shrink-0 border-b" style={{ height: 200 }}>
+      {/* ─── HORE: Prijaté zmluvy — cez celú šírku ───────────────────────── */}
+      <div className="flex flex-col shrink-0 border-b" style={{ height: 195 }}>
         <div className="px-3 py-1.5 border-b shrink-0 flex items-center gap-2 bg-muted/20">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
           <span className="text-xs font-semibold">Prijaté zmluvy</span>
           <Badge className="text-xs bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-400/50 ml-auto">{items.length}</Badge>
         </div>
-
         <div className="flex-1 min-h-0 overflow-y-auto">
           <table className="w-full text-xs border-collapse">
             <thead>
@@ -664,7 +665,7 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
                     }`}
                   >
                     <td className="py-1 px-2 font-mono text-[10px] text-blue-700 dark:text-blue-400 whitespace-nowrap">{item.contractLabel}</td>
-                    <td className="py-1 px-2 text-[10px] truncate max-w-[120px]">{item.subjectLabel}</td>
+                    <td className="py-1 px-2 text-[10px] truncate max-w-[140px]">{item.subjectLabel}</td>
                     <td className="py-1 px-2 text-center">
                       <Badge variant="outline" className="text-[9px] px-1 h-4">{item.scans.length}</Badge>
                     </td>
@@ -687,33 +688,89 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
         </div>
       </div>
 
-      {/* ─── BOTTOM: Náhľad skenov ────────────────────────────────────────── */}
-      <div className="flex flex-col flex-1 min-h-0">
-        <div className="px-3 py-1.5 border-b shrink-0 flex items-center gap-2 bg-muted/20">
-          <Eye className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs font-semibold">Náhľad skenov</span>
-          <Badge variant="outline" className="text-xs ml-auto">{scansToShow.length}</Badge>
+      {/* ─── DOLE: dva panely vedľa seba ─────────────────────────────────── */}
+      <div className="flex flex-row flex-1 min-h-0">
+
+        {/* DOLE ĽAVÝ: Náhľad skenov */}
+        <div className="flex flex-col flex-1 min-h-0 min-w-0 border-r">
+          <div className="px-3 py-1.5 border-b shrink-0 flex items-center gap-2 bg-muted/20">
+            <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-semibold">Náhľad skenov</span>
+            <Badge variant="outline" className="text-xs ml-auto">{scansToShow.length}</Badge>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-3 pt-2 space-y-4">
+            {items.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+                <TripleRingStatus phase={2} size={26} />
+                <p className="text-xs font-semibold mt-1">Žiadne záznamy</p>
+              </div>
+            )}
+            {items.length > 0 && !selectedItem && (
+              <p className="text-xs text-muted-foreground text-center pt-6">Vyberte záznam vyššie.</p>
+            )}
+            {selectedItem && scansToShow.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center pt-6" data-testid="no-scans-placeholder">
+                Žiadne skeny k tejto zmluve.
+              </p>
+            )}
+            {scansToShow.map((scan, idx) => (
+              <ScanPreview key={`${selectedItem?.id}-${idx}`} scan={scan} idx={idx} />
+            ))}
+          </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-3 pt-2 space-y-4">
-          {items.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
-              <TripleRingStatus phase={2} size={28} />
-              <p className="text-xs font-semibold mt-1">Žiadne záznamy</p>
-            </div>
-          )}
-          {items.length > 0 && !selectedItem && (
-            <p className="text-xs text-muted-foreground text-center pt-6">Vyberte záznam vyššie.</p>
-          )}
-          {selectedItem && scansToShow.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center pt-6" data-testid="no-scans-placeholder">
-              Žiadne skeny k tejto zmluve.
-            </p>
-          )}
-          {scansToShow.map((scan, idx) => (
-            <ScanPreview key={`${selectedItem?.id}-${idx}`} scan={scan} idx={idx} />
-          ))}
+        {/* DOLE PRAVÝ: Detail záznamu */}
+        <div className="flex flex-col flex-1 min-h-0 min-w-0">
+          <div className="px-3 py-1.5 border-b shrink-0 flex items-center gap-2 bg-muted/20">
+            <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-semibold">Detail záznamu</span>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
+            {!selectedItem ? (
+              <p className="text-xs text-muted-foreground text-center pt-6">Vyberte záznam vyššie.</p>
+            ) : (
+              <div className="flex flex-col gap-2.5 text-xs">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Zmluva</span>
+                  <span className="font-mono font-semibold text-blue-700 dark:text-blue-400">{selectedItem.contractLabel}</span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Subjekt</span>
+                  <span className="font-medium">{selectedItem.subjectLabel}</span>
+                </div>
+                {selectedStatus && (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Stav</span>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: selectedStatus.color }} />
+                      <span className="font-medium">{selectedStatus.name}</span>
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Skeny</span>
+                  <span>{selectedItem.scans.length} súbor{selectedItem.scans.length === 1 ? "" : selectedItem.scans.length < 5 ? "y" : "ov"}</span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Čas dokončenia</span>
+                  <span className="text-muted-foreground">{new Date(selectedItem.completedAt).toLocaleString("sk-SK")}</span>
+                </div>
+                {selectedItem.scans.length > 0 && (
+                  <div className="flex flex-col gap-1 mt-1">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Priložené súbory</span>
+                    {selectedItem.scans.map((scan, i) => (
+                      <div key={i} className="flex items-center gap-1.5 py-0.5 border-b border-border/30 last:border-0">
+                        <FileText className="w-3 h-3 text-muted-foreground shrink-0" />
+                        <span className="text-[10px] truncate">{scan.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
+
       </div>
 
     </div>
