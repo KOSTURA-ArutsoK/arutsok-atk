@@ -201,7 +201,7 @@ const nastavenieDirectItems = [
 ];
 
 const nastavenieAdminOnlyItems = [
-  { href: "/admin/asset-tracker", icon: TrendingUp, label: "Asset Tracker" },
+  { href: "/admin/asset-tracker", icon: TrendingUp, label: "Ocenenie systému ATK" },
 ];
 
 const allNastavenieHrefs = [

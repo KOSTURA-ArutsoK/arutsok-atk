@@ -151,7 +151,7 @@ export default function AssetTracker() {
               <path d="M8 14l2.5-3 2.5 2 3-4" stroke="#1d4ed8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
               <circle cx="12" cy="12" r="2" fill="#f59e0b" />
             </svg>
-            ATK Asset Tracker
+            Ocenenie systému ATK
           </h2>
           <p className="text-sm text-muted-foreground mt-1 text-justify">
             Ocenenie kódovej základne systému ArutsoK na základe LOC × 25 €/riadok + IP prémie.

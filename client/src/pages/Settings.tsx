@@ -536,7 +536,7 @@ export default function Settings() {
         {isAdmin && (
           <Card className="border-2">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-base">ATK Asset Tracker</CardTitle>
+              <CardTitle className="text-base">Ocenenie systému ATK</CardTitle>
               <div className="p-2 rounded-md bg-blue-500/10 text-blue-500">
                 <TrendingUp className="h-4 w-4" />
               </div>
@@ -549,7 +549,7 @@ export default function Settings() {
               <Button asChild variant="outline" size="sm" className="w-full" data-testid="link-asset-tracker">
                 <Link href="/admin/asset-tracker">
                   <ExternalLink className="w-3.5 h-3.5 mr-2" />
-                  Otvoriť Asset Tracker
+                  Otvoriť Ocenenie systému ATK
                 </Link>
               </Button>
             </CardContent>
