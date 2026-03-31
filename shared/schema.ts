@@ -3053,6 +3053,20 @@ export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?:
 export type UpdatePartnerRequest = Partial<InsertPartner> & { changeReason?: string };
 
 // === ATK ASSET TRACKER ===
+export const atkLicenseCosts = pgTable("atk_license_costs", {
+  id: serial("id").primaryKey(),
+  date: date("date").notNull(),
+  licenceName: text("licence_name").notNull(),
+  source: text("source").notNull(),
+  amountWithVat: integer("amount_with_vat").notNull(),
+  amountWithoutVat: integer("amount_without_vat").notNull(),
+  note: text("note"),
+});
+
+export const insertAtkLicenseCostSchema = createInsertSchema(atkLicenseCosts).omit({ id: true });
+export type AtkLicenseCost = typeof atkLicenseCosts.$inferSelect;
+export type InsertAtkLicenseCost = z.infer<typeof insertAtkLicenseCostSchema>;
+
 export const atkAssetSnapshots = pgTable("atk_asset_snapshots", {
   id: serial("id").primaryKey(),
   snapshotAt: timestamp("snapshot_at", { withTimezone: true }).defaultNow().notNull(),

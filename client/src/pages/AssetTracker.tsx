@@ -9,11 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   TrendingUp, Code2, GitCommit, Cpu, RefreshCw,
   Loader2, Trophy, Layers, Zap, Shield, Lock, BarChart3, History,
+  Receipt, Trash2, Plus,
 } from "lucide-react";
-import type { AtkAssetSnapshot } from "@shared/schema";
+import type { AtkAssetSnapshot, AtkLicenseCost } from "@shared/schema";
 
 const LOC_PRICE = 25;
 const WP_LOC = 1_400_000;
@@ -62,6 +65,223 @@ function GrowthIndicator({ current, previous }: { current: number; previous: num
   );
 }
 
+function formatEurCents(cents: number): string {
+  return new Intl.NumberFormat("sk-SK", { style: "currency", currency: "EUR", minimumFractionDigits: 2 }).format(cents / 100);
+}
+
+function LicenseCostsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: costs = [], isLoading } = useQuery<AtkLicenseCost[]>({
+    queryKey: ["/api/asset-license-costs"],
+    enabled: open,
+  });
+
+  const [form, setForm] = useState({
+    date: new Date().toISOString().slice(0, 10),
+    licenceName: "",
+    source: "",
+    amountWithVat: "",
+    amountWithoutVat: "",
+    note: "",
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async () => {
+      const withVat = Math.round(parseFloat(form.amountWithVat.replace(",", ".")) * 100);
+      const withoutVat = Math.round(parseFloat(form.amountWithoutVat.replace(",", ".")) * 100);
+      if (isNaN(withVat) || isNaN(withoutVat)) throw new Error("Neplatná suma");
+      const res = await apiRequest("POST", "/api/asset-license-costs", {
+        date: form.date,
+        licenceName: form.licenceName.trim(),
+        source: form.source.trim(),
+        amountWithVat: withVat,
+        amountWithoutVat: withoutVat,
+        note: form.note.trim() || null,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Záznam pridaný" });
+      queryClient.invalidateQueries({ queryKey: ["/api/asset-license-costs"] });
+      setForm({ date: new Date().toISOString().slice(0, 10), licenceName: "", source: "", amountWithVat: "", amountWithoutVat: "", note: "" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/asset-license-costs/${id}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Záznam vymazaný" });
+      queryClient.invalidateQueries({ queryKey: ["/api/asset-license-costs"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const totalWithVat = costs.reduce((s, r) => s + r.amountWithVat, 0);
+
+  const canAdd = form.date && form.licenceName.trim() && form.source.trim() &&
+    form.amountWithVat && !isNaN(parseFloat(form.amountWithVat.replace(",", "."))) &&
+    form.amountWithoutVat && !isNaN(parseFloat(form.amountWithoutVat.replace(",", ".")));
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl w-full max-h-[85vh] overflow-hidden flex flex-col" data-testid="dialog-license-costs">
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-base font-bold">
+            <Receipt className="w-4 h-4 text-amber-500" />
+            Náklady na licencie
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-auto min-h-0">
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="text-left py-2 px-2 font-semibold">Dátum</th>
+                  <th className="text-left py-2 px-2 font-semibold">Za akú licenciu</th>
+                  <th className="text-left py-2 px-2 font-semibold">Odkiaľ</th>
+                  <th className="text-right py-2 px-2 font-semibold">Suma s DPH</th>
+                  <th className="text-right py-2 px-2 font-semibold">Suma bez DPH</th>
+                  <th className="text-left py-2 px-2 font-semibold">Poznámka</th>
+                  <th className="py-2 px-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {costs.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-6 text-center text-muted-foreground text-sm">Žiadne záznamy</td>
+                  </tr>
+                )}
+                {costs.map(row => (
+                  <tr key={row.id} className="border-b hover:bg-muted/40 group" data-testid={`row-license-${row.id}`}>
+                    <td className="py-2 px-2 text-xs">{row.date}</td>
+                    <td className="py-2 px-2 font-medium">{row.licenceName}</td>
+                    <td className="py-2 px-2 text-muted-foreground">{row.source}</td>
+                    <td className="py-2 px-2 text-right font-mono">{formatEurCents(row.amountWithVat)}</td>
+                    <td className="py-2 px-2 text-right font-mono text-muted-foreground">{formatEurCents(row.amountWithoutVat)}</td>
+                    <td className="py-2 px-2 text-muted-foreground text-xs">{row.note ?? "—"}</td>
+                    <td className="py-2 px-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive"
+                        data-testid={`button-delete-license-${row.id}`}
+                        onClick={() => deleteMutation.mutate(row.id)}
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              {costs.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 font-bold">
+                    <td colSpan={3} className="py-2 px-2 text-right text-xs uppercase tracking-wider text-muted-foreground">Celková suma</td>
+                    <td className="py-2 px-2 text-right font-mono text-blue-600 dark:text-blue-400">{formatEurCents(totalWithVat)}</td>
+                    <td colSpan={3}></td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          )}
+        </div>
+
+        <div className="shrink-0 pt-3 border-t">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Pridať záznam</p>
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-2 items-end">
+            <div className="md:col-span-1">
+              <label className="text-xs text-muted-foreground mb-1 block">Dátum</label>
+              <Input
+                type="date"
+                value={form.date}
+                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                className="h-8 text-xs"
+                data-testid="input-license-date"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-xs text-muted-foreground mb-1 block">Za akú licenciu</label>
+              <Input
+                value={form.licenceName}
+                onChange={e => setForm(f => ({ ...f, licenceName: e.target.value }))}
+                placeholder="napr. Adobe CC"
+                className="h-8 text-xs"
+                data-testid="input-license-name"
+              />
+            </div>
+            <div className="md:col-span-1">
+              <label className="text-xs text-muted-foreground mb-1 block">Odkiaľ</label>
+              <Input
+                value={form.source}
+                onChange={e => setForm(f => ({ ...f, source: e.target.value }))}
+                placeholder="napr. Adobe"
+                className="h-8 text-xs"
+                data-testid="input-license-source"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Suma s DPH (€)</label>
+              <Input
+                value={form.amountWithVat}
+                onChange={e => setForm(f => ({ ...f, amountWithVat: e.target.value }))}
+                placeholder="0.00"
+                className="h-8 text-xs"
+                data-testid="input-license-amount-vat"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Suma bez DPH (€)</label>
+              <Input
+                value={form.amountWithoutVat}
+                onChange={e => setForm(f => ({ ...f, amountWithoutVat: e.target.value }))}
+                placeholder="0.00"
+                className="h-8 text-xs"
+                data-testid="input-license-amount-no-vat"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Poznámka</label>
+              <div className="flex gap-1">
+                <Input
+                  value={form.note}
+                  onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+                  placeholder="voliteľné"
+                  className="h-8 text-xs"
+                  data-testid="input-license-note"
+                />
+                <Button
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => addMutation.mutate()}
+                  disabled={!canAdd || addMutation.isPending}
+                  data-testid="button-add-license"
+                >
+                  {addMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function BenchmarkBar({ value, benchmark, label }: { value: number; benchmark: number; label: string }) {
   const pct = Math.min(100, Math.round((value / benchmark) * 100));
   return (
@@ -91,6 +311,7 @@ export default function AssetTracker() {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const autoSnapshotFired = useRef(false);
+  const [licenseCostsOpen, setLicenseCostsOpen] = useState(false);
 
   const isAdmin = !userLoading && checkIsAdmin(appUser);
   const isAdminKnown = !userLoading;
@@ -142,6 +363,7 @@ export default function AssetTracker() {
   const isRefreshing = snapshotMutation.isPending;
 
   return (
+    <>
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
@@ -186,7 +408,17 @@ export default function AssetTracker() {
       {latest && (
         <>
           {/* MAIN VALUE CARD */}
-          <Card className="border-2 bg-gradient-to-br from-blue-950/10 via-background to-amber-500/5">
+          <Card className="border-2 bg-gradient-to-br from-blue-950/10 via-background to-amber-500/5 relative">
+            <Button
+              variant="outline"
+              size="icon"
+              className="absolute top-3 right-3 rounded-full w-9 h-9 border-amber-400/60 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 z-10"
+              onClick={() => setLicenseCostsOpen(true)}
+              title="Náklady na licencie"
+              data-testid="button-open-license-costs"
+            >
+              <Receipt className="w-4 h-4" />
+            </Button>
             <CardContent className="pt-6 pb-4">
               <div className="flex flex-col items-center gap-2 py-4">
                 <span className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">Aktuálna hodnota aktíva</span>
@@ -464,5 +696,8 @@ export default function AssetTracker() {
         </CardContent>
       </Card>
     </div>
+
+    <LicenseCostsDialog open={licenseCostsOpen} onOpenChange={setLicenseCostsOpen} />
+    </>
   );
 }
