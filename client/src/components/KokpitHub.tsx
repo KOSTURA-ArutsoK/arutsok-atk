@@ -575,31 +575,34 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                     />
                   </div>
 
-                  {/* Drop zone sidebar — 15vw */}
+                  {/* Drop zone sidebar — 15vw, full height */}
                   <div
                     style={{
                       width: "15vw",
-                      minWidth: 140,
+                      minWidth: 148,
                       borderLeft: "1px solid rgba(255,255,255,0.07)",
                       display: "flex",
                       flexDirection: "column",
-                      background: layer2DragOver ? "rgba(30,64,175,0.07)" : "rgba(7,17,36,0.6)",
+                      background: layer2DragOver ? "rgba(14,165,233,0.08)" : "rgba(5,15,30,0.75)",
                       transition: "background 0.15s ease",
                     }}
                   >
+                    {/* Sidebar title */}
                     <div
                       style={{
                         borderBottom: "1px solid rgba(255,255,255,0.06)",
-                        padding: "8px 10px",
+                        padding: "8px 12px",
                         fontSize: 10,
                         fontWeight: 700,
-                        letterSpacing: "0.12em",
-                        color: "rgba(148,163,184,0.5)",
+                        letterSpacing: "0.14em",
+                        color: "rgba(125,211,252,0.55)",
                         textTransform: "uppercase",
                       }}
                     >
-                      Nahrávanie
+                      Nahrávanie skenov
                     </div>
+
+                    {/* Drop zone — flex-1, full height */}
                     <div
                       data-testid="drop-zone-scans"
                       onDragOver={e => { e.preventDefault(); setLayer2DragOver(true); }}
@@ -611,40 +614,81 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                         if (onAddFiles) onAddFiles(files);
                       }}
                       onClick={() => layer2FileInputRef.current?.click()}
-                      className="flex-1 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors"
+                      className="flex-1 flex flex-col items-center justify-center gap-2.5 cursor-pointer transition-all"
                       style={{
-                        borderBottom: "1px dashed rgba(255,255,255,0.10)",
-                        borderStyle: layer2DragOver ? "solid" : "dashed",
-                        borderColor: layer2DragOver ? "#1e40af" : "transparent",
-                        margin: "8px",
-                        borderRadius: 8,
-                        border: `2px dashed ${layer2DragOver ? "#1e40af" : "rgba(99,102,241,0.25)"}`,
-                        minHeight: 90,
-                        maxHeight: 160,
+                        margin: "10px 10px 0 10px",
+                        borderRadius: 10,
+                        border: layer2DragOver
+                          ? "2px solid rgba(56,189,248,0.7)"
+                          : "2px dashed rgba(56,189,248,0.28)",
+                        background: layer2DragOver
+                          ? "rgba(14,165,233,0.12)"
+                          : "rgba(14,165,233,0.04)",
                       }}
                     >
-                      <Upload size={20} style={{ color: "rgba(99,102,241,0.5)" }} />
-                      <p style={{ fontSize: 10, color: "rgba(148,163,184,0.5)", textAlign: "center", lineHeight: 1.4, padding: "0 6px" }}>
-                        Pretiahnite<br />skeny sem<br />
-                        <span style={{ color: "rgba(148,163,184,0.35)" }}>alebo kliknite</span>
-                      </p>
-                    </div>
-                    {/* Scan file count badge */}
-                    {scanFiles.length > 0 && (
                       <div
                         style={{
-                          padding: "6px 10px",
-                          fontSize: 10,
-                          color: "rgba(251,191,36,0.7)",
+                          width: 40,
+                          height: 40,
+                          borderRadius: "50%",
+                          background: layer2DragOver ? "rgba(56,189,248,0.2)" : "rgba(56,189,248,0.09)",
                           display: "flex",
                           alignItems: "center",
-                          gap: 4,
+                          justifyContent: "center",
+                          transition: "background 0.15s ease",
                         }}
                       >
-                        <Upload size={10} />
-                        {scanFiles.length} súbor{scanFiles.length === 1 ? "" : scanFiles.length < 5 ? "y" : "ov"}
+                        <Upload size={18} style={{ color: layer2DragOver ? "rgba(56,189,248,0.9)" : "rgba(56,189,248,0.55)" }} />
                       </div>
-                    )}
+                      <p style={{ fontSize: 10, color: "rgba(148,163,184,0.55)", textAlign: "center", lineHeight: 1.5, padding: "0 8px" }}>
+                        Pretiahnite<br />skeny sem<br />
+                        <span style={{ color: "rgba(56,189,248,0.4)", fontSize: 9 }}>alebo kliknite</span>
+                      </p>
+                      {scanFiles.length > 0 && (
+                        <div
+                          style={{
+                            padding: "3px 10px",
+                            borderRadius: 20,
+                            background: "rgba(251,191,36,0.15)",
+                            border: "1px solid rgba(251,191,36,0.3)",
+                            fontSize: 10,
+                            color: "rgba(251,191,36,0.85)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          <Upload size={9} />
+                          {scanFiles.length} súbor{scanFiles.length === 1 ? "" : scanFiles.length < 5 ? "y" : "ov"}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Pokračovať button — prominent, at bottom */}
+                    <div style={{ padding: "10px 10px 12px 10px" }}>
+                      <button
+                        type="button"
+                        data-testid="button-layer2-pokracovat"
+                        onClick={handleBackToHub}
+                        className="w-full flex items-center justify-center gap-2 rounded-lg font-bold transition-all"
+                        style={{
+                          padding: "10px 0",
+                          fontSize: 12,
+                          letterSpacing: "0.06em",
+                          background: "linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)",
+                          color: "#fff",
+                          border: "1px solid rgba(56,189,248,0.5)",
+                          boxShadow: "0 0 16px rgba(14,165,233,0.25), 0 2px 8px rgba(0,0,0,0.4)",
+                          cursor: "pointer",
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 0 24px rgba(14,165,233,0.45), 0 2px 8px rgba(0,0,0,0.4)")}
+                        onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 0 16px rgba(14,165,233,0.25), 0 2px 8px rgba(0,0,0,0.4)")}
+                      >
+                        Pokračovať
+                        <ChevronLeft className="w-3.5 h-3.5 rotate-180" />
+                      </button>
+                    </div>
+
                     <input
                       ref={layer2FileInputRef}
                       type="file"
