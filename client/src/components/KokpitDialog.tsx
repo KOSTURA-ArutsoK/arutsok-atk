@@ -224,10 +224,10 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
   }, []);
 
   return (
-    <div className="flex flex-row flex-1 min-h-0 w-full">
+    <div style={{ display: 'flex', flexDirection: 'row', width: '100%', height: '100%', alignItems: 'stretch', overflow: 'hidden' }}>
 
       {/* ─── LEFT: Náhľad skenu (flex-4) ──────────────────────────────────── */}
-      <div className="flex flex-col border-r min-w-0" style={{ flex: 4 }}>
+      <div style={{ flex: 4, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', minWidth: 0, overflow: 'hidden' }}>
         <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
           <Eye className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-xs font-semibold">Náhľad skenu</span>
@@ -297,7 +297,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
       </div>
 
       {/* ─── MIDDLE: Inbox (flex-2) ───────────────────────────────────────── */}
-      <div className="flex flex-col border-r min-w-0" style={{ flex: 2 }}>
+      <div style={{ flex: 2, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', minWidth: 0, overflow: 'hidden' }}>
         <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
           <Inbox className="w-3.5 h-3.5 text-blue-500" />
           <span className="text-xs font-medium text-blue-600 dark:text-blue-400">Inbox</span>
@@ -414,7 +414,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
         const displayedContracts = [...pinnedContracts, ...extraFiltered];
 
         return (
-          <div className="flex flex-col min-w-0" style={{ flex: 3 }}>
+          <div style={{ flex: 3, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
             <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
               <Archive className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-xs font-semibold">Vyhľadávanie zmluvy</span>
