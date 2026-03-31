@@ -4,6 +4,7 @@ import { queryClient } from "@/lib/queryClient";
 import { ChevronLeft, ChevronRight, X, Upload, FileText, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { TripleRingStatus } from "@/components/TripleRingStatus";
 import { KokpitDialog } from "@/components/KokpitDialog";
+import { KokpitHub } from "@/components/KokpitHub";
 import { formatRemainingHHMM, isOverdue, isAdminAlert } from "@/lib/workingHours";
 import { getSlovakNameDay } from "@/lib/slovakNameDays";
 import type { KokpitItem, KokpitStagedScan } from "@shared/schema";
@@ -216,6 +217,7 @@ function fmtTime(ts: number): string {
 
 export default function PridatStavZmluvy() {
   const { toast } = useToast();
+  const [hubOpen, setHubOpen] = useState(false);
   const [kokpitOpen, setKokpitOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
   const [viewDate, setViewDate] = useState(new Date().toISOString().slice(0, 10));
@@ -289,6 +291,13 @@ export default function PridatStavZmluvy() {
 
   function handleRowClick(_item: KokpitItemExt) {
     setKokpitOpen(true);
+  }
+
+  function handleHubSelectFunction(fn: "roztriedenie-stavov") {
+    setHubOpen(false);
+    if (fn === "roztriedenie-stavov") {
+      setKokpitOpen(true);
+    }
   }
 
   // ── File upload ──────────────────────────────────────────────────────────────
@@ -525,7 +534,7 @@ export default function PridatStavZmluvy() {
 
         {/* CENTER: KOKPIT button */}
         <div className="flex-1 flex flex-col items-center gap-3 pt-2">
-          <KokpitCard onClick={() => setKokpitOpen(true)} />
+          <KokpitCard onClick={() => setHubOpen(true)} />
         </div>
 
         {/* RIGHT: Scan drop zone */}
@@ -735,6 +744,12 @@ export default function PridatStavZmluvy() {
           </tbody>
         </table>
       </div>
+
+      <KokpitHub
+        open={hubOpen}
+        onOpenChange={setHubOpen}
+        onSelectFunction={handleHubSelectFunction}
+      />
 
       <KokpitDialog
         open={kokpitOpen}
