@@ -163,8 +163,9 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
             style={{
               width: "95vw",
               height: "95vh",
-              top: "16px",
-              left: "16px",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
               background: DARK_BG,
               opacity: 0.55,
               zIndex: 1,
@@ -228,8 +229,9 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
             style={{
               width: "90vw",
               height: "90vh",
-              top: "8px",
-              left: "8px",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
               background: "linear-gradient(180deg, #0f172a 0%, #0c1930 100%)",
               opacity: 0.78,
               zIndex: 2,
@@ -308,14 +310,14 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
             style={{
               width: "85vw",
               height: "85vh",
-              top: 0,
-              left: 0,
+              top: "50%",
+              left: "50%",
               background: DARK_BG,
               zIndex: 3,
               transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease",
               transform: isLeaving
-                ? "translateX(-60px) translateY(-20px) scale(0.94)"
-                : "translateX(0) translateY(0) scale(1)",
+                ? "translate(-50%, -50%) translateX(-60px) translateY(-20px) scale(0.94)"
+                : "translate(-50%, -50%)",
               opacity: isLeaving ? 0 : 1,
             }}
           >
