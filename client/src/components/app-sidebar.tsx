@@ -883,7 +883,7 @@ export function AppSidebar() {
             if (!hasCompany) {
               kokpitLabel = "(Holding)";
             } else {
-              const names = [...new Set(perms.filter(p => p.companyCode || p.companyName).map(p => p.companyCode || p.companyName!.split(" ")[0]))];
+              const names = [...new Set(perms.filter(p => p.companyCode || p.companyName).map(p => p.companyCode ?? p.companyName!))];
               kokpitLabel = `(${names.join(" | ")})`;
             }
           }

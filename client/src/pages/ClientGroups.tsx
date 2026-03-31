@@ -791,6 +791,7 @@ function GroupDetailDialog({
                     <Button
                       size="sm"
                       variant="outline"
+                      disabled={newKokpitStateId === null && newKokpitCompanyId === null}
                       onClick={() => {
                         setKokpitConfig([...kokpitConfig, { stateId: newKokpitStateId, companyId: newKokpitCompanyId, divisionIds: newKokpitDivisionIds }]);
                         setNewKokpitStateId(null);
