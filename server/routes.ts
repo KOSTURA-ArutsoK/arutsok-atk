@@ -10863,6 +10863,11 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Pristup zamietnuty" });
       }
       const input = api.clientGroupsApi.update.input.parse(req.body);
+      if (Array.isArray(input.kokpitConfig)) {
+        type KCEntry = { stateId: number | null; companyId: number | null; divisionIds: number[] };
+        const hasInvalid = (input.kokpitConfig as KCEntry[]).some(e => e.stateId === null && e.companyId === null);
+        if (hasInvalid) return res.status(400).json({ message: "Každý záznam Kokpit musí mať nastavený aspoň štát alebo spoločnosť." });
+      }
       const updated = await storage.updateClientGroup(Number(req.params.id), input);
       await logAudit(req, { action: "UPDATE", module: "skupiny_klientov", entityId: Number(req.params.id), entityName: updated.name, newData: input });
       res.json(updated);
