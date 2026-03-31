@@ -2,7 +2,11 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
-import { CalendarDays, Star, Server, ChevronLeft, ChevronRight, X } from "lucide-react";
+import {
+  CalendarDays, Star, Server, ChevronLeft, ChevronRight, X,
+  AlertTriangle, ArrowDownToLine, GitBranch, CheckCircle2 as CheckCircle2Icon,
+  ScanLine, ListTodo,
+} from "lucide-react";
 import { KokpitHub, type KokpitFunctionId } from "@/components/KokpitHub";
 import { InlineCalendar } from "@/components/KokpitAktivityPanel";
 import type { KokpitStagedScan } from "@shared/schema";
@@ -52,7 +56,7 @@ function KokpitCard({ onClick }: { onClick: () => void }) {
         transform: pressed ? "scale(0.96)" : hovered ? "scale(1.04)" : "scale(1)",
       }}
     >
-      <svg width="160" height="160" viewBox="0 0 180 180" fill="none" style={{ overflow: "visible" }}>
+      <svg width="240" height="240" viewBox="0 0 180 180" fill="none" style={{ overflow: "visible" }}>
         <defs>
           <filter id="kokpitGlow1" x="-90%" y="-90%" width="280%" height="280%">
             <feGaussianBlur stdDeviation="22" result="blur" />
@@ -120,8 +124,32 @@ export default function PridatStavZmluvy() {
     return () => clearInterval(timer);
   }, []);
 
-  // ── Lifted viewMode + viewDate (shared with KokpitHub Layer 2) ────────────
+  // ── Stats queries ─────────────────────────────────────────────────────────
   const todayStr = new Date().toISOString().slice(0, 10);
+
+  type KokpitItemStat = { phase: number; dayCreated: string; resolvedAt: string | null };
+  const { data: kokpitItems = [] } = useQuery<KokpitItemStat[]>({
+    queryKey: ["/api/kokpit/items", "today-stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/kokpit/items?mode=today", { credentials: "include" });
+      return res.json();
+    },
+    refetchInterval: 60_000,
+  });
+
+  type TasksCount = { count: number; nonCalendarCount: number; unprocessedAcceptedSprievodkyCount: number };
+  const { data: tasksCount } = useQuery<TasksCount>({
+    queryKey: ["/api/my-tasks/count"],
+  });
+
+  const statPhase1 = kokpitItems.filter(i => i.phase === 1).length;
+  const statPhase2 = kokpitItems.filter(i => i.phase === 2).length;
+  const statPhase3 = kokpitItems.filter(i => i.phase === 3).length;
+  const statOverdue = kokpitItems.filter(i => i.dayCreated < todayStr && !i.resolvedAt).length;
+  const statScans   = scanFiles.length;
+  const statTasks   = tasksCount?.nonCalendarCount ?? 0;
+
+  // ── Lifted viewMode + viewDate (shared with KokpitHub Layer 2) ────────────
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
   const [viewDate, setViewDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [calendarVisible, setCalendarVisible] = useState(false);
@@ -320,24 +348,12 @@ export default function PridatStavZmluvy() {
   ];
 
   return (
-    <div className="p-5 space-y-5">
-      {/* Page title */}
-      <div>
-        <h1 className="text-2xl font-bold">KOKPIT</h1>
-        <p className="text-sm text-muted-foreground">
-          Kokpit je centrálne miesto pre správu stavov zmlúv a zmlúv.
-        </p>
-      </div>
+    <div className="p-5 space-y-4">
 
-      {/* KOKPIT button */}
-      <div className="flex justify-center pt-2">
-        <KokpitCard onClick={() => setHubOpen(true)} />
-      </div>
-
-      {/* Backoffice info chip row */}
+      {/* ── Backoffice info chip row ────────────────────────────────────────── */}
       <InfoChipRow variant="backoffice" chips={boChips} />
 
-      {/* Date navigation row (← viewDate →, collapsible calendar) */}
+      {/* ── Date navigation row (← viewDate →, collapsible calendar) ─────── */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-1.5">
           <button
@@ -399,6 +415,98 @@ export default function PridatStavZmluvy() {
             />
           </div>
         )}
+      </div>
+
+      {/* ── KOKPIT button (centered, 1.5× size) ───────────────────────────── */}
+      <div className="flex justify-center py-2">
+        <KokpitCard onClick={() => setHubOpen(true)} />
+      </div>
+
+      {/* ── Dashboard statistics ───────────────────────────────────────────── */}
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+        {/* Prenesené / nedokončené */}
+        <div
+          data-testid="stat-overdue"
+          className="flex flex-col items-center gap-1 rounded-xl p-3 border"
+          style={{
+            background: "linear-gradient(135deg, rgba(220,38,38,0.08) 0%, rgba(127,29,29,0.04) 100%)",
+            borderColor: "rgba(220,38,38,0.25)",
+          }}
+        >
+          <AlertTriangle size={18} color="#dc2626" />
+          <span className="text-2xl font-black" style={{ color: "#dc2626", lineHeight: 1 }}>{statOverdue}</span>
+          <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Prenesené</span>
+        </div>
+
+        {/* Príchod — fáza 1 */}
+        <div
+          data-testid="stat-phase1"
+          className="flex flex-col items-center gap-1 rounded-xl p-3 border"
+          style={{
+            background: "linear-gradient(135deg, rgba(30,64,175,0.10) 0%, rgba(30,64,175,0.03) 100%)",
+            borderColor: "rgba(59,130,246,0.25)",
+          }}
+        >
+          <ArrowDownToLine size={18} color="#3b82f6" />
+          <span className="text-2xl font-black" style={{ color: "#3b82f6", lineHeight: 1 }}>{statPhase1}</span>
+          <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Príchod</span>
+        </div>
+
+        {/* Rozdelenie — fáza 2 */}
+        <div
+          data-testid="stat-phase2"
+          className="flex flex-col items-center gap-1 rounded-xl p-3 border"
+          style={{
+            background: "linear-gradient(135deg, rgba(124,58,237,0.10) 0%, rgba(124,58,237,0.03) 100%)",
+            borderColor: "rgba(139,92,246,0.25)",
+          }}
+        >
+          <GitBranch size={18} color="#8b5cf6" />
+          <span className="text-2xl font-black" style={{ color: "#8b5cf6", lineHeight: 1 }}>{statPhase2}</span>
+          <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Rozdelenie</span>
+        </div>
+
+        {/* Vybavené dnes */}
+        <div
+          data-testid="stat-phase3"
+          className="flex flex-col items-center gap-1 rounded-xl p-3 border"
+          style={{
+            background: "linear-gradient(135deg, rgba(5,150,105,0.10) 0%, rgba(5,150,105,0.03) 100%)",
+            borderColor: "rgba(16,185,129,0.25)",
+          }}
+        >
+          <CheckCircle2Icon size={18} color="#10b981" />
+          <span className="text-2xl font-black" style={{ color: "#10b981", lineHeight: 1 }}>{statPhase3}</span>
+          <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Vybavené</span>
+        </div>
+
+        {/* Nahraté skeny */}
+        <div
+          data-testid="stat-scans"
+          className="flex flex-col items-center gap-1 rounded-xl p-3 border"
+          style={{
+            background: "linear-gradient(135deg, rgba(245,158,11,0.10) 0%, rgba(245,158,11,0.03) 100%)",
+            borderColor: "rgba(245,158,11,0.25)",
+          }}
+        >
+          <ScanLine size={18} color="#f59e0b" />
+          <span className="text-2xl font-black" style={{ color: "#f59e0b", lineHeight: 1 }}>{statScans}</span>
+          <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Skeny</span>
+        </div>
+
+        {/* Moje úlohy */}
+        <div
+          data-testid="stat-tasks"
+          className="flex flex-col items-center gap-1 rounded-xl p-3 border"
+          style={{
+            background: "linear-gradient(135deg, rgba(6,182,212,0.10) 0%, rgba(6,182,212,0.03) 100%)",
+            borderColor: "rgba(6,182,212,0.25)",
+          }}
+        >
+          <ListTodo size={18} color="#06b6d4" />
+          <span className="text-2xl font-black" style={{ color: "#06b6d4", lineHeight: 1 }}>{statTasks}</span>
+          <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Moje úlohy</span>
+        </div>
       </div>
 
       <KokpitHub
