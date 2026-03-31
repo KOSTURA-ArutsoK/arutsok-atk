@@ -744,6 +744,7 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
   const [completedItems, setCompletedItems] = useState<CompletedItem[]>([]);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
   const dialogOpenedAt = useRef<number>(Date.now());
+  const { toast } = useToast();
 
   useEffect(() => {
     if (open) dialogOpenedAt.current = Date.now();
@@ -769,7 +770,9 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
       contractLabel: item.contractLabel,
       subjectLabel: item.subjectLabel,
       scansJson: item.scans.filter(s => s.url && s.done).map(s => ({ name: s.name, url: s.url!, size: s.size })),
-    }).catch(() => {});
+    }).catch(() => {
+      toast({ title: "Chyba ukladania", description: "Záznam sa nepodarilo uložiť do databázy.", variant: "destructive" });
+    });
   }
 
   const sessionDisplayItems: RiesenieDisplayItem[] = completedItems.map(item => ({
