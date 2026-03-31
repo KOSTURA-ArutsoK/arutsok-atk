@@ -5,7 +5,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { formatUid } from "@/lib/utils";
 import {
   Target, Layers, FileInput, Calculator, Shield, User,
-  Inbox, FileText, Clock,
+  Inbox, FileText, Clock, ChevronLeft,
 } from "lucide-react";
 
 export type KokpitFunctionId = "roztriedenie-stavov" | "zadavanie-provizii" | "vypocet-odmien";
@@ -108,11 +108,11 @@ const DARK_BG = "linear-gradient(160deg, #0c1e3a 0%, #07111f 100%)";
 
 export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubProps) {
   const { data: appUser } = useAppUser();
-  // layer3Exiting: true počas animácie odchodu Layer 3
-  const [layer3Exiting, setLayer3Exiting] = useState(false);
-  // pendingFn: nastavené keď Layer 3 odišiel a Layer 2 je prednou vrstvou
-  const [pendingFn, setPendingFn] = useState<KokpitFunctionId | null>(null);
-  // isClosing: true počas zatvárania celého Hubu
+  // activeLayer: ktorá vrstva je momentálne predná a interaktívna
+  const [activeLayer, setActiveLayer] = useState<"hub" | "second" | "third">("hub");
+  // hubExiting: animácia odchodu Hubu (Layer 3)
+  const [hubExiting, setHubExiting] = useState(false);
+  // isClosing: animácia zatvárania celého dialógu
   const [isClosing, setIsClosing] = useState(false);
 
   const { data: kokpitAccess } = useQuery<KokpitAccessData>({
@@ -128,25 +128,27 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
     "—";
   const userUid = appUser?.uid ? formatUid(appUser.uid) : null;
 
-  // Klik na funkciu v Layer 3 → Layer 3 odíde, Layer 2 sa stane prednou vrstvou
+  // Klik na funkciu: Hub (Layer 3) odíde, cieľová vrstva príde dopredu
   function handleSelectFunction(id: KokpitFunctionId) {
-    setLayer3Exiting(true);
+    setHubExiting(true);
     setTimeout(() => {
-      setLayer3Exiting(false);
-      setPendingFn(id);
+      setHubExiting(false);
+      // roztriedenie-stavov → odkryje vrstvu 1 (KokpitDialog)
+      // ostatné → odkryje vrstvu 2 (PridatStavZmluvy)
+      setActiveLayer(id === "roztriedenie-stavov" ? "third" : "second");
     }, 280);
   }
 
-  // "Späť" v Layer 2 → okamžite vráti Layer 3 do popredia
+  // "Späť" v ľubovoľnej odkrytej vrstve → vráti Hub (Layer 3)
   function handleBackToHub() {
-    setPendingFn(null);
+    setActiveLayer("hub");
   }
 
   function handleClose() {
     setIsClosing(true);
     setTimeout(() => {
       setIsClosing(false);
-      setPendingFn(null);
+      setActiveLayer("hub");
       onOpenChange(false);
     }, 280);
   }
@@ -179,9 +181,10 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               left: "50%",
               transform: "translate(-50%, -50%)",
               background: DARK_BG,
-              opacity: 0.55,
-              zIndex: 1,
-              padding: "5vh 5vw",
+              opacity: activeLayer === "third" ? 1 : 0.55,
+              zIndex: activeLayer === "third" ? 3 : 1,
+              padding: activeLayer === "third" ? "2.5vh 2.5vw" : "5vh 5vw",
+              transition: "opacity 0.2s ease",
             }}
           >
             {/* Header */}
@@ -189,6 +192,15 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               className="flex items-center gap-3 px-5 py-3 shrink-0"
               style={{ borderBottom: "1px solid rgba(245,158,11,0.15)", background: "rgba(12,30,58,0.7)" }}
             >
+              {activeLayer === "third" && (
+                <button
+                  onClick={handleBackToHub}
+                  className="flex items-center gap-1.5 text-[11px] font-semibold text-blue-300/70 hover:text-blue-200 mr-2 transition-colors"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  Späť
+                </button>
+              )}
               <Target className="w-4 h-4 text-amber-400" />
               <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300">KOKPIT</span>
               <div className="h-3 w-px bg-amber-500/25 mx-1" />
@@ -246,8 +258,8 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               left: "50%",
               transform: "translate(-50%, -50%)",
               background: "linear-gradient(180deg, #0f172a 0%, #0c1930 100%)",
-              opacity: pendingFn ? 1 : 0.78,
-              zIndex: pendingFn ? 3 : 2,
+              opacity: activeLayer === "second" ? 1 : 0.78,
+              zIndex: activeLayer === "second" ? 3 : 2,
               padding: "2.5vh 2.5vw",
               transition: "opacity 0.2s ease",
             }}
@@ -258,7 +270,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
             >
               <div className="flex items-center gap-3">
-                {pendingFn && (
+                {activeLayer === "second" && (
                   <button
                     type="button"
                     onClick={handleBackToHub}
@@ -338,13 +350,13 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               top: "50%",
               left: "50%",
               background: DARK_BG,
-              zIndex: pendingFn ? 0 : 3,
-              pointerEvents: pendingFn ? "none" : "auto",
+              zIndex: activeLayer !== "hub" ? 0 : 3,
+              pointerEvents: activeLayer !== "hub" ? "none" : "auto",
               transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease",
-              transform: (layer3Exiting || isClosing || pendingFn)
+              transform: (hubExiting || isClosing || activeLayer !== "hub")
                 ? "translate(-50%, -50%) translateX(-60px) translateY(-20px) scale(0.94)"
                 : "translate(-50%, -50%)",
-              opacity: (layer3Exiting || isClosing || pendingFn) ? 0 : 1,
+              opacity: (hubExiting || isClosing || activeLayer !== "hub") ? 0 : 1,
             }}
           >
             {/* Header */}
