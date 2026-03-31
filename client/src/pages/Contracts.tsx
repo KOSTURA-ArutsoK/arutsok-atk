@@ -2310,6 +2310,7 @@ function BOVerificationConsole({
   contract,
   open,
   onClose,
+  onNavigateToPhase9,
   subjects,
   products,
   appUsersAll,
@@ -2317,6 +2318,7 @@ function BOVerificationConsole({
   contract: Contract | null;
   open: boolean;
   onClose: () => void;
+  onNavigateToPhase9?: () => void;
   subjects?: Subject[];
   products?: Product[];
   appUsersAll?: AppUser[];
@@ -2452,6 +2454,7 @@ function BOVerificationConsole({
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       toast({ title: "Postúpené do fázy 9", description: "Zmluva odoslaná obchodnému partnerovi" });
       onClose();
+      onNavigateToPhase9?.();
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa postúpiť zmluvu", variant: "destructive" }),
   });
@@ -12878,6 +12881,7 @@ export default function Contracts() {
           contract={boConsoleContract}
           open={!!boConsoleContract}
           onClose={() => setBoConsoleContract(null)}
+          onNavigateToPhase9={() => setActiveFolder(9)}
           subjects={subjects || []}
           products={products || []}
           appUsersAll={appUsersAll || []}
@@ -13263,6 +13267,7 @@ export default function Contracts() {
         contract={boConsoleContract}
         open={!!boConsoleContract}
         onClose={() => setBoConsoleContract(null)}
+        onNavigateToPhase9={() => setActiveFolder(9)}
         subjects={subjects || []}
         products={products || []}
         appUsersAll={appUsersAll || []}
