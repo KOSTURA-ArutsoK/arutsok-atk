@@ -23,6 +23,7 @@ interface KokpitHubProps {
   viewMode: 'day' | 'week' | 'month';
   setViewMode: (m: 'day' | 'week' | 'month') => void;
   viewDate: string;
+  setViewDate: (d: string) => void;
 }
 
 type KokpitAccessData = {
@@ -242,7 +243,7 @@ function PinInput({
   );
 }
 
-export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = [], onRemoveScanFile, onAddFiles, viewMode, setViewMode, viewDate }: KokpitHubProps) {
+export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = [], onRemoveScanFile, onAddFiles, viewMode, setViewMode, viewDate, setViewDate }: KokpitHubProps) {
   const { data: appUser } = useAppUser();
   const [activeLayer, setActiveLayer] = useState<"hub" | "second" | "third" | "mails">("hub");
   const [selectedFunction, setSelectedFunction] = useState<KokpitFunctionId | null>(null);
@@ -318,6 +319,18 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
   }
 
   const hubIsInactive = activeLayer !== "hub";
+
+  const l2TodayStr = new Date().toISOString().slice(0, 10);
+  function l2PrevDay() {
+    const d = new Date(viewDate + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() - 1);
+    setViewDate(d.toISOString().slice(0, 10));
+  }
+  function l2NextDay() {
+    const d = new Date(viewDate + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + 1);
+    setViewDate(d.toISOString().slice(0, 10));
+  }
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
@@ -447,24 +460,77 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
               <>
                 {/* ── Layer 2 header ─────────────────────────────────────────── */}
                 <div
-                  className="flex items-center gap-3 px-5 py-3 shrink-0"
+                  className="flex items-center gap-2 px-5 py-3 shrink-0"
                   style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(12,30,58,0.7)" }}
                 >
                   <button
                     type="button"
                     onClick={handleBackToHub}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-blue-300/70 hover:text-blue-100 hover:bg-white/10 transition-colors text-xs font-semibold border border-blue-500/20 hover:border-blue-400/40"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-blue-300/70 hover:text-blue-100 hover:bg-white/10 transition-colors text-xs font-semibold border border-blue-500/20 hover:border-blue-400/40 shrink-0"
                     data-testid="button-layer2-back"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
                     Späť
                   </button>
-                  <div className="h-3 w-px bg-amber-500/25 mx-1" />
-                  <Target className="w-4 h-4 text-amber-400" />
-                  <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300">KOKPIT</span>
+                  <div className="h-3 w-px bg-amber-500/25 mx-1 shrink-0" />
+                  <Target className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300 shrink-0">KOKPIT</span>
                   <div className="flex-1" />
+
+                  {/* Date navigation — ← date → */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      data-testid="button-prev-day-layer2"
+                      onClick={l2PrevDay}
+                      className="p-1 rounded hover:bg-white/10 text-blue-300/60 shrink-0 transition-colors"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+                    <div
+                      data-testid="chip-viewdate-layer2"
+                      className={`text-center rounded-md border px-2.5 py-1 text-[11px] font-semibold min-w-[110px] ${
+                        viewDate !== l2TodayStr
+                          ? "border-amber-400/50 text-amber-300 bg-amber-900/20"
+                          : "border-blue-500/20 text-blue-200/70 bg-transparent"
+                      }`}
+                    >
+                      {(() => {
+                        const vd = new Date(viewDate + "T00:00:00Z");
+                        return (
+                          <>
+                            <span className="opacity-60 font-normal mr-1">
+                              {["Ne","Po","Ut","St","Št","Pi","So"][vd.getUTCDay()]}
+                            </span>
+                            {vd.getUTCDate()}.{vd.getUTCMonth() + 1}.{vd.getUTCFullYear()}
+                          </>
+                        );
+                      })()}
+                    </div>
+                    <button
+                      type="button"
+                      data-testid="button-next-day-layer2"
+                      onClick={l2NextDay}
+                      className="p-1 rounded hover:bg-white/10 text-blue-300/60 shrink-0 transition-colors"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5 rotate-180" />
+                    </button>
+                    {viewDate !== l2TodayStr && (
+                      <button
+                        type="button"
+                        data-testid="button-today-layer2"
+                        onClick={() => setViewDate(l2TodayStr)}
+                        className="text-[10px] text-blue-400 hover:underline px-1"
+                      >
+                        Dnes
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="w-px h-4 bg-white/10 mx-1 shrink-0" />
+
                   {/* Deň / Týždeň / Mesiac toggle */}
-                  <div className="flex rounded-md overflow-hidden text-[11px] font-medium border border-blue-500/20">
+                  <div className="flex rounded-md overflow-hidden text-[11px] font-medium border border-blue-500/20 shrink-0">
                     {(["day", "week", "month"] as const).map((m) => {
                       const labels = { day: "Deň", week: "Týždeň", month: "Mesiac" };
                       return (
@@ -484,63 +550,114 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                       );
                     })}
                   </div>
-                  <div className="w-px h-4 bg-white/10 mx-1" />
+                  <div className="w-px h-4 bg-white/10 mx-1 shrink-0" />
                   <button
                     type="button"
                     onClick={handleClose}
-                    className="px-3 py-1.5 rounded-lg text-blue-300/60 hover:text-blue-100 hover:bg-white/10 transition-colors text-xs font-semibold tracking-wide border border-blue-500/20 hover:border-blue-400/40"
+                    className="px-3 py-1.5 rounded-lg text-blue-300/60 hover:text-blue-100 hover:bg-white/10 transition-colors text-xs font-semibold tracking-wide border border-blue-500/20 hover:border-blue-400/40 shrink-0"
                     data-testid="button-layer2-close"
                   >
                     Ukončiť
                   </button>
                 </div>
 
-                {/* ── Drop zone (compact, full width) ───────────────────────── */}
-                <div
-                  data-testid="drop-zone-scans"
-                  onDragOver={e => { e.preventDefault(); setLayer2DragOver(true); }}
-                  onDragLeave={() => setLayer2DragOver(false)}
-                  onDrop={e => {
-                    e.preventDefault();
-                    setLayer2DragOver(false);
-                    const files = Array.from(e.dataTransfer.files).filter(f => f.size > 0);
-                    if (onAddFiles) onAddFiles(files);
-                  }}
-                  onClick={() => layer2FileInputRef.current?.click()}
-                  className="mx-5 mt-3 shrink-0 border-2 border-dashed rounded-lg px-5 py-2.5 flex flex-row items-center gap-3 cursor-pointer transition-colors"
-                  style={{
-                    borderColor: layer2DragOver ? "#1e40af" : "var(--border)",
-                    background: layer2DragOver ? "rgba(30,64,175,0.07)" : "transparent",
-                  }}
-                >
-                  <Upload size={18} className="text-muted-foreground/60 shrink-0" />
-                  <p className="text-xs text-muted-foreground leading-snug">
-                    Pretiahnite skeny sem
-                    <span className="text-muted-foreground/50"> · alebo kliknite na výber</span>
-                  </p>
-                </div>
-                <input
-                  ref={layer2FileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  data-testid="input-file-scans-layer2"
-                  onChange={e => {
-                    const files = Array.from(e.target.files ?? []).filter(f => f.size > 0);
-                    if (onAddFiles) onAddFiles(files);
-                    if (layer2FileInputRef.current) layer2FileInputRef.current.value = "";
-                  }}
-                />
+                {/* ── Body: activity panel + right drop-zone sidebar (15vw) ── */}
+                <div className="flex flex-1 overflow-hidden min-h-0">
 
-                {/* ── KokpitAktivityPanel (vertical, full width) ────────────── */}
-                <div className="flex flex-col flex-1 overflow-hidden min-h-0 px-5 py-3">
-                  <KokpitAktivityPanel
-                    scanFiles={scanFiles}
-                    onRemoveScanFile={onRemoveScanFile ?? (() => {})}
-                    onAddFiles={onAddFiles ?? (() => {})}
-                    viewMode={viewMode}
-                    viewDate={viewDate}
-                  />
+                  {/* Activity panel — takes remaining width */}
+                  <div className="flex flex-col flex-1 overflow-hidden min-h-0 px-5 py-3">
+                    <KokpitAktivityPanel
+                      scanFiles={scanFiles}
+                      onRemoveScanFile={onRemoveScanFile ?? (() => {})}
+                      onAddFiles={onAddFiles ?? (() => {})}
+                      viewMode={viewMode}
+                      viewDate={viewDate}
+                    />
+                  </div>
+
+                  {/* Drop zone sidebar — 15vw */}
+                  <div
+                    style={{
+                      width: "15vw",
+                      minWidth: 140,
+                      borderLeft: "1px solid rgba(255,255,255,0.07)",
+                      display: "flex",
+                      flexDirection: "column",
+                      background: layer2DragOver ? "rgba(30,64,175,0.07)" : "rgba(7,17,36,0.6)",
+                      transition: "background 0.15s ease",
+                    }}
+                  >
+                    <div
+                      style={{
+                        borderBottom: "1px solid rgba(255,255,255,0.06)",
+                        padding: "8px 10px",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        letterSpacing: "0.12em",
+                        color: "rgba(148,163,184,0.5)",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Nahrávanie
+                    </div>
+                    <div
+                      data-testid="drop-zone-scans"
+                      onDragOver={e => { e.preventDefault(); setLayer2DragOver(true); }}
+                      onDragLeave={() => setLayer2DragOver(false)}
+                      onDrop={e => {
+                        e.preventDefault();
+                        setLayer2DragOver(false);
+                        const files = Array.from(e.dataTransfer.files).filter(f => f.size > 0);
+                        if (onAddFiles) onAddFiles(files);
+                      }}
+                      onClick={() => layer2FileInputRef.current?.click()}
+                      className="flex-1 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors"
+                      style={{
+                        borderBottom: "1px dashed rgba(255,255,255,0.10)",
+                        borderStyle: layer2DragOver ? "solid" : "dashed",
+                        borderColor: layer2DragOver ? "#1e40af" : "transparent",
+                        margin: "8px",
+                        borderRadius: 8,
+                        border: `2px dashed ${layer2DragOver ? "#1e40af" : "rgba(99,102,241,0.25)"}`,
+                        minHeight: 90,
+                        maxHeight: 160,
+                      }}
+                    >
+                      <Upload size={20} style={{ color: "rgba(99,102,241,0.5)" }} />
+                      <p style={{ fontSize: 10, color: "rgba(148,163,184,0.5)", textAlign: "center", lineHeight: 1.4, padding: "0 6px" }}>
+                        Pretiahnite<br />skeny sem<br />
+                        <span style={{ color: "rgba(148,163,184,0.35)" }}>alebo kliknite</span>
+                      </p>
+                    </div>
+                    {/* Scan file count badge */}
+                    {scanFiles.length > 0 && (
+                      <div
+                        style={{
+                          padding: "6px 10px",
+                          fontSize: 10,
+                          color: "rgba(251,191,36,0.7)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <Upload size={10} />
+                        {scanFiles.length} súbor{scanFiles.length === 1 ? "" : scanFiles.length < 5 ? "y" : "ov"}
+                      </div>
+                    )}
+                    <input
+                      ref={layer2FileInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      data-testid="input-file-scans-layer2"
+                      onChange={e => {
+                        const files = Array.from(e.target.files ?? []).filter(f => f.size > 0);
+                        if (onAddFiles) onAddFiles(files);
+                        if (layer2FileInputRef.current) layer2FileInputRef.current.value = "";
+                      }}
+                    />
+                  </div>
                 </div>
               </>
             ) : (

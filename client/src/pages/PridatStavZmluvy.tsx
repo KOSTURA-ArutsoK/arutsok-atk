@@ -3,12 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import {
-  CalendarDays, Star, Server, ChevronLeft, ChevronRight, X,
+  CalendarDays, Star, Server,
   AlertTriangle, ArrowDownToLine, GitBranch, CheckCircle2 as CheckCircle2Icon,
-  ScanLine, ListTodo,
+  ScanLine, ListTodo, MessageSquare,
 } from "lucide-react";
 import { KokpitHub, type KokpitFunctionId } from "@/components/KokpitHub";
-import { InlineCalendar } from "@/components/KokpitAktivityPanel";
 import type { KokpitStagedScan } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { InfoChipRow, getWeatherLucideIcon } from "@/components/InfoChipRow";
@@ -152,16 +151,6 @@ export default function PridatStavZmluvy() {
   // ── Lifted viewMode + viewDate (shared with KokpitHub Layer 2) ────────────
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
   const [viewDate, setViewDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [calendarVisible, setCalendarVisible] = useState(false);
-
-  function prevDay() {
-    const [y, m, d] = viewDate.split('-').map(Number);
-    setViewDate(new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10));
-  }
-  function nextDay() {
-    const [y, m, d] = viewDate.split('-').map(Number);
-    setViewDate(new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10));
-  }
 
   const presovWeather = useWeather(49.0016, 21.2396);
 
@@ -348,164 +337,62 @@ export default function PridatStavZmluvy() {
   ];
 
   return (
-    <div className="p-5 space-y-4">
+    <div className="flex flex-col" style={{ minHeight: "calc(100vh - 56px)" }}>
 
-      {/* ── Backoffice info chip row ────────────────────────────────────────── */}
-      <InfoChipRow variant="backoffice" chips={boChips} />
-
-      {/* ── Date navigation row (← viewDate →, collapsible calendar) ─────── */}
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            data-testid="button-prev-day-layer1"
-            onClick={prevDay}
-            className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0 transition-colors"
-          >
-            <ChevronLeft size={14} />
-          </button>
-          <button
-            type="button"
-            data-testid="button-date-chip-layer1"
-            onClick={() => setCalendarVisible(v => !v)}
-            className={`flex-1 max-w-[180px] text-center rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted/60 ${
-              calendarVisible ? "bg-muted border-blue-500/50" : "bg-muted/30 border-border"
-            } ${viewDate !== todayStr ? "border-amber-400/60 text-amber-700 dark:text-amber-400" : "text-foreground"}`}
-          >
-            {(() => {
-              const vd = new Date(viewDate + "T00:00:00Z");
-              return (
-                <>
-                  <span className="text-muted-foreground font-normal mr-1">
-                    {["Ne","Po","Ut","St","Št","Pi","So"][vd.getUTCDay()]}
-                  </span>
-                  {vd.getUTCDate()}.{vd.getUTCMonth() + 1}.{vd.getUTCFullYear()}
-                </>
-              );
-            })()}
-          </button>
-          <button
-            type="button"
-            data-testid="button-next-day-layer1"
-            onClick={nextDay}
-            className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0 transition-colors"
-          >
-            <ChevronRight size={14} />
-          </button>
-          {viewDate !== todayStr && (
-            <button
-              type="button"
-              data-testid="button-back-today-layer1"
-              onClick={() => { setViewDate(todayStr); setCalendarVisible(false); }}
-              className="flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 hover:underline ml-1"
-            >
-              <X size={10} />
-              Späť na dnes
-            </button>
-          )}
-        </div>
-        {calendarVisible && (
-          <div className="border rounded-md p-2 bg-muted/20" style={{ maxWidth: 220 }}>
-            <InlineCalendar
-              selectedDate={viewDate !== todayStr ? viewDate : null}
-              onSelectDate={(d) => {
-                setViewDate(d ?? todayStr);
-                setCalendarVisible(false);
-              }}
-            />
-          </div>
-        )}
+      {/* ── Top: info chip row ─────────────────────────────────────────────── */}
+      <div className="px-5 pt-5">
+        <InfoChipRow variant="backoffice" chips={boChips} />
       </div>
 
-      {/* ── KOKPIT button (centered, 1.5× size) ───────────────────────────── */}
-      <div className="flex justify-center py-2">
+      {/* ── Center: KOKPIT button — flex-1 vertically and horizontally ─────── */}
+      <div className="flex-1 flex items-center justify-center py-6">
         <KokpitCard onClick={() => setHubOpen(true)} />
       </div>
 
-      {/* ── Dashboard statistics ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-        {/* Prenesené / nedokončené */}
-        <div
-          data-testid="stat-overdue"
-          className="flex flex-col items-center gap-1 rounded-xl p-3 border"
-          style={{
-            background: "linear-gradient(135deg, rgba(220,38,38,0.08) 0%, rgba(127,29,29,0.04) 100%)",
-            borderColor: "rgba(220,38,38,0.25)",
-          }}
-        >
-          <AlertTriangle size={18} color="#dc2626" />
-          <span className="text-2xl font-black" style={{ color: "#dc2626", lineHeight: 1 }}>{statOverdue}</span>
-          <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Prenesené</span>
+      {/* ── Bottom: Dashboard statistics in 2 rows ─────────────────────────── */}
+      <div className="px-5 pb-5 flex flex-col gap-2">
+
+        {/* Row 1: 4 phase tiles */}
+        <div className="grid grid-cols-4 gap-2">
+          <div data-testid="stat-overdue" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(220,38,38,0.08),rgba(127,29,29,0.04))", borderColor: "rgba(220,38,38,0.25)" }}>
+            <AlertTriangle size={16} color="#dc2626" />
+            <span className="text-xl font-black" style={{ color: "#dc2626", lineHeight: 1 }}>{statOverdue}</span>
+            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Prenesené</span>
+          </div>
+          <div data-testid="stat-phase1" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(30,64,175,0.10),rgba(30,64,175,0.03))", borderColor: "rgba(59,130,246,0.25)" }}>
+            <ArrowDownToLine size={16} color="#3b82f6" />
+            <span className="text-xl font-black" style={{ color: "#3b82f6", lineHeight: 1 }}>{statPhase1}</span>
+            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Príchod</span>
+          </div>
+          <div data-testid="stat-phase2" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(124,58,237,0.10),rgba(124,58,237,0.03))", borderColor: "rgba(139,92,246,0.25)" }}>
+            <GitBranch size={16} color="#8b5cf6" />
+            <span className="text-xl font-black" style={{ color: "#8b5cf6", lineHeight: 1 }}>{statPhase2}</span>
+            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Rozdelenie</span>
+          </div>
+          <div data-testid="stat-phase3" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(5,150,105,0.10),rgba(5,150,105,0.03))", borderColor: "rgba(16,185,129,0.25)" }}>
+            <CheckCircle2Icon size={16} color="#10b981" />
+            <span className="text-xl font-black" style={{ color: "#10b981", lineHeight: 1 }}>{statPhase3}</span>
+            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Vybavené</span>
+          </div>
         </div>
 
-        {/* Príchod — fáza 1 */}
-        <div
-          data-testid="stat-phase1"
-          className="flex flex-col items-center gap-1 rounded-xl p-3 border"
-          style={{
-            background: "linear-gradient(135deg, rgba(30,64,175,0.10) 0%, rgba(30,64,175,0.03) 100%)",
-            borderColor: "rgba(59,130,246,0.25)",
-          }}
-        >
-          <ArrowDownToLine size={18} color="#3b82f6" />
-          <span className="text-2xl font-black" style={{ color: "#3b82f6", lineHeight: 1 }}>{statPhase1}</span>
-          <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Príchod</span>
-        </div>
-
-        {/* Rozdelenie — fáza 2 */}
-        <div
-          data-testid="stat-phase2"
-          className="flex flex-col items-center gap-1 rounded-xl p-3 border"
-          style={{
-            background: "linear-gradient(135deg, rgba(124,58,237,0.10) 0%, rgba(124,58,237,0.03) 100%)",
-            borderColor: "rgba(139,92,246,0.25)",
-          }}
-        >
-          <GitBranch size={18} color="#8b5cf6" />
-          <span className="text-2xl font-black" style={{ color: "#8b5cf6", lineHeight: 1 }}>{statPhase2}</span>
-          <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Rozdelenie</span>
-        </div>
-
-        {/* Vybavené dnes */}
-        <div
-          data-testid="stat-phase3"
-          className="flex flex-col items-center gap-1 rounded-xl p-3 border"
-          style={{
-            background: "linear-gradient(135deg, rgba(5,150,105,0.10) 0%, rgba(5,150,105,0.03) 100%)",
-            borderColor: "rgba(16,185,129,0.25)",
-          }}
-        >
-          <CheckCircle2Icon size={18} color="#10b981" />
-          <span className="text-2xl font-black" style={{ color: "#10b981", lineHeight: 1 }}>{statPhase3}</span>
-          <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Vybavené</span>
-        </div>
-
-        {/* Nahraté skeny */}
-        <div
-          data-testid="stat-scans"
-          className="flex flex-col items-center gap-1 rounded-xl p-3 border"
-          style={{
-            background: "linear-gradient(135deg, rgba(245,158,11,0.10) 0%, rgba(245,158,11,0.03) 100%)",
-            borderColor: "rgba(245,158,11,0.25)",
-          }}
-        >
-          <ScanLine size={18} color="#f59e0b" />
-          <span className="text-2xl font-black" style={{ color: "#f59e0b", lineHeight: 1 }}>{statScans}</span>
-          <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Skeny</span>
-        </div>
-
-        {/* Moje úlohy */}
-        <div
-          data-testid="stat-tasks"
-          className="flex flex-col items-center gap-1 rounded-xl p-3 border"
-          style={{
-            background: "linear-gradient(135deg, rgba(6,182,212,0.10) 0%, rgba(6,182,212,0.03) 100%)",
-            borderColor: "rgba(6,182,212,0.25)",
-          }}
-        >
-          <ListTodo size={18} color="#06b6d4" />
-          <span className="text-2xl font-black" style={{ color: "#06b6d4", lineHeight: 1 }}>{statTasks}</span>
-          <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Moje úlohy</span>
+        {/* Row 2: 3 support tiles */}
+        <div className="grid grid-cols-3 gap-2">
+          <div data-testid="stat-scans" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(245,158,11,0.10),rgba(245,158,11,0.03))", borderColor: "rgba(245,158,11,0.25)" }}>
+            <ScanLine size={16} color="#f59e0b" />
+            <span className="text-xl font-black" style={{ color: "#f59e0b", lineHeight: 1 }}>{statScans}</span>
+            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Skeny</span>
+          </div>
+          <div data-testid="stat-tasks" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(6,182,212,0.10),rgba(6,182,212,0.03))", borderColor: "rgba(6,182,212,0.25)" }}>
+            <ListTodo size={16} color="#06b6d4" />
+            <span className="text-xl font-black" style={{ color: "#06b6d4", lineHeight: 1 }}>{statTasks}</span>
+            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Moje úlohy</span>
+          </div>
+          <div data-testid="stat-pokec" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(236,72,153,0.10),rgba(236,72,153,0.03))", borderColor: "rgba(236,72,153,0.25)" }}>
+            <MessageSquare size={16} color="#ec4899" />
+            <span className="text-xl font-black" style={{ color: "#ec4899", lineHeight: 1 }}>0</span>
+            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Pokec</span>
+          </div>
         </div>
       </div>
 
@@ -519,6 +406,7 @@ export default function PridatStavZmluvy() {
         viewMode={viewMode}
         setViewMode={setViewMode}
         viewDate={viewDate}
+        setViewDate={setViewDate}
       />
     </div>
   );
