@@ -883,6 +883,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               const activeDivEmoji = activeDivision?.division?.emoji || activeDivision?.emoji;
               const hasDivisions = activeDivisions && activeDivisions.length > 1 && !isClientUser;
 
+              // Smart hiding: hide state chip if all companies share one state and user can't switch
+              const uniqueStateIds = new Set((companies ?? []).map((c: any) => c.stateId).filter(Boolean));
+              const showStateChip = canSwitch || uniqueStateIds.size > 1;
+              // Hide company chip if user has only 1 company and can't switch
+              const showCompanyChip = canSwitch || (companies?.length ?? 2) > 1;
+
+              if (!showStateChip && !showCompanyChip && !hasDivisions) return null;
+
               return (
                 <div
                   className="flex flex-nowrap items-center gap-1.5 rounded-full min-h-[44px] md:min-h-0 md:h-10 px-2 w-max"
@@ -893,6 +901,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   }}
                   data-testid="holding-context-bubble"
                 >
+                  {showStateChip && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -918,7 +927,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </TooltipTrigger>
                     <TooltipContent>{canSwitch ? "Zmeniť štát" : `${activeState?.name || "Štát"} (fixné)`}</TooltipContent>
                   </Tooltip>
+                  )}
 
+                  {showCompanyChip && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -951,6 +962,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </TooltipTrigger>
                     <TooltipContent>{canSwitch ? "Zmeniť spoločnosť" : `${activeCompany?.name || "Firma"} (fixné)`}</TooltipContent>
                   </Tooltip>
+                  )}
 
                   {hasDivisions && (
                     <>

@@ -60,7 +60,7 @@ export function InfoChipRow({ variant, chips }: InfoChipRowProps) {
   return (
     <div
       data-testid={`info-chip-row-${variant}`}
-      style={{ display: "flex", gap: 8, width: "100%", alignItems: "stretch" }}
+      style={{ display: "flex", flexWrap: "wrap", gap: 8, width: "100%", alignItems: "stretch" }}
     >
       {chips.map((chip, idx) => {
         const Icon = chip.icon;
@@ -78,7 +78,7 @@ export function InfoChipRow({ variant, chips }: InfoChipRowProps) {
               border: `2px solid ${borderColor}`,
               background: chipBg,
               boxShadow: glowColor,
-              minWidth: 0,
+              minWidth: "calc(50% - 4px)",
               transition: "box-shadow 0.2s ease, border-color 0.2s ease",
             }}
           >
