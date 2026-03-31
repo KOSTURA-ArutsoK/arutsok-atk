@@ -971,11 +971,6 @@ function ProductFormDialog({
               </div>
             )}
 
-            <div className="flex items-center justify-end mt-6">
-              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} data-testid="button-product-cancel">
-                Zrusit
-              </Button>
-            </div>
           </div>
         </div>
 
@@ -1349,7 +1344,7 @@ function ProductFormDialog({
                 Zrušiť
               </Button>
             )}
-            <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" />
+            <ProcessingSaveButton isPending={isPending} onClick={handleSubmit} type="button" disabled={allowedSubjectTypes.length === 0} />
           </div>
         )}
         </form>
