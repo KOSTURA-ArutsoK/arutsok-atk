@@ -624,8 +624,8 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
   return (
     <div className="flex flex-col flex-1 min-h-0 w-full">
 
-      {/* ─── HORE: Prijaté zmluvy — cez celú šírku ───────────────────────── */}
-      <div className="flex flex-col shrink-0 border-b" style={{ height: 195 }}>
+      {/* ─── HORE: Prijaté zmluvy — cez celú šírku, vypĺňa dostupný priestor ─ */}
+      <div className="flex flex-col flex-1 min-h-0 border-b">
         <div className="px-3 py-1.5 border-b shrink-0 flex items-center gap-2 bg-muted/20">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
           <span className="text-xs font-semibold">Prijaté zmluvy</span>
@@ -688,8 +688,8 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
         </div>
       </div>
 
-      {/* ─── DOLE: dva panely vedľa seba ─────────────────────────────────── */}
-      <div className="flex flex-row flex-1 min-h-0">
+      {/* ─── DOLE: dva panely vedľa seba — pevná výška ───────────────────── */}
+      <div className="flex flex-row shrink-0" style={{ height: 200 }}>
 
         {/* DOLE ĽAVÝ: Náhľad skenov */}
         <div className="flex flex-col flex-1 min-h-0 min-w-0 border-r">
