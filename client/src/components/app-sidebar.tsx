@@ -198,6 +198,7 @@ const nastavenieDirectItems = [
   { href: "/support", icon: Phone, label: "Podpora a registracia" },
   { href: "/history", icon: History, label: "Logy" },
   { href: "/archive", icon: Trash2, label: "Kos" },
+  { href: "/admin/asset-tracker", icon: TrendingUp, label: "Asset Tracker" },
 ];
 
 const allNastavenieHrefs = [

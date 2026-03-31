@@ -81,6 +81,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { RedListNotificationPopup } from "@/components/red-list-notification-popup";
 import { BlackListNotificationPopup } from "@/components/black-list-notification-popup";
 import GuardianConfirm from "@/pages/GuardianConfirm";
+import AssetTracker from "@/pages/AssetTracker";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -206,6 +207,7 @@ const PrivateSektorySubjektovVizia = () => <PrivateRoute><SektorySubjektovVizia 
 const PrivateHoldingTree = () => <PrivateRoute><HoldingTree /></PrivateRoute>;
 const PrivateSystemLinks = () => <PrivateRoute><SystemLinks /></PrivateRoute>;
 const PrivateClientProfile = () => <PrivateRoute><ClientProfilePage /></PrivateRoute>;
+const PrivateAssetTracker = () => <PrivateRoute><AssetTracker /></PrivateRoute>;
 
 function Router() {
   return (
@@ -283,6 +285,7 @@ function Router() {
       <Route path="/sektory-subjektov-vizia" component={PrivateSektorySubjektovVizia} />
       <Route path="/holding-strom" component={PrivateHoldingTree} />
       <Route path="/admin/prepojenia-subjektov" component={PrivateSystemLinks} />
+      <Route path="/admin/asset-tracker" component={PrivateAssetTracker} />
       <Route component={NotFound} />
     </Switch>
   );

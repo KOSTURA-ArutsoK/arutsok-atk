@@ -72,6 +72,7 @@ The system employs a modern full-stack architecture prioritizing data integrity,
 - **Holding Tree (ATK Hierarchický strom)**: Superadmin-only page (`/holding-strom`) displaying full subject hierarchy rooted at ATK, with recursive tree UI, search, and type badges.
 - **Partner Groups**: Auto-created and synced client groups for partners, visually distinguished, and mutation-protected.
 - **Registry Snapshots (Vzorová pravda)**: Immutable timestamped snapshots of external registry data, auto-saved or manually refreshed, serving as "ground truth" for AI contract audit and synonym learning.
+- **ATK Asset Tracker**: Admin-only module at `/admin/asset-tracker` that computes and archives LOC-based financial valuation of the codebase. Scans .ts/.tsx/.js/.jsx/.css/.html/.sql files, counts net LOC (excluding blanks and comments), multiplies by 25 €/LOC, adds fixed IP premiums (Decoy +500k€, Trezor/Holding +750k€, Mirror Context +300k€), and optionally reads GitHub commit velocity via Octokit. Snapshots are persisted in `atk_asset_snapshots` table. Accessible from sidebar under Nastavenia.
 
 ## External Dependencies
 - **bcryptjs**: Password hashing.

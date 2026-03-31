@@ -6,7 +6,8 @@ import { setupAuth, isAuthenticated, resolveContextLabel, getAuditActorId } from
 import { z } from "zod";
 import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts, subjectLinks, revocationTickets, insertProductDisplayParamSchema, insertContractParamVerificationSchema, productDisplayParams, contractParamVerifications } from "@shared/schema";
 import type { DocEntry, WebRoutingRule } from "@shared/schema";
-import { kokpitStagedScans } from "@shared/schema";
+import { kokpitStagedScans, atkAssetSnapshots } from "@shared/schema";
+import { getUncachableGitHubClient } from "./github";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, syncSubjectParameters, seedAssetPanels, seedEventAndEntityPanels, seedNsVsTemplates, cleanupZombieTemplateParams, ensureOsClientType } from "./seed-subject-params";
 import sharp from "sharp";
@@ -26110,6 +26111,98 @@ export async function registerRoutes(
       });
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+
+  // === ATK ASSET TRACKER ===
+  function countLocInDir(dirPath) {
+    const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.next', '.local', 'uploads', 'attached_assets', '.canvas', 'build', '.cache']);
+    const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.css', '.html', '.sql']);
+    let totalLoc = 0;
+    let netLoc = 0;
+    let fileCount = 0;
+    const byExt = {};
+    function walk(dir) {
+      let entries = [];
+      try { entries = fs.readdirSync(dir); } catch { return; }
+      for (const entry of entries) {
+        if (SKIP_DIRS.has(entry)) continue;
+        const fullPath = path.join(dir, entry);
+        let stat;
+        try { stat = fs.statSync(fullPath); } catch { continue; }
+        if (stat.isDirectory()) { walk(fullPath); continue; }
+        const ext = path.extname(entry).toLowerCase();
+        if (!EXTENSIONS.has(ext)) continue;
+        let raw = '';
+        try { raw = fs.readFileSync(fullPath, 'utf8'); } catch { continue; }
+        const lines = raw.split(String.fromCharCode(10));
+        totalLoc += lines.length;
+        let inBlock = false;
+        for (const line of lines) {
+          const t = line.trim();
+          if (!t) continue;
+          if (inBlock) { if (t.includes('*/')) inBlock = false; continue; }
+          if (t.startsWith('/*') || t.startsWith('/**')) { inBlock = !t.includes('*/'); continue; }
+          if (t.startsWith('//') || t.startsWith('#') || t.startsWith('*')) continue;
+          netLoc++;
+        }
+        byExt[ext] = (byExt[ext] || 0) + lines.filter(l => l.trim()).length;
+        fileCount++;
+      }
+    }
+    walk(dirPath);
+    return { totalLoc, netLoc, fileCount, byExt };
+  }
+
+  app.get('/api/admin/asset-tracker/snapshot', isAuthenticated, async (req, res) => {
+    try {
+      const appUser = (req as any).appUser;
+      if (!hasAdminAccess(appUser)) return res.status(403).json({ message: 'Prístup zamietnutý' });
+      const projectRoot = process.cwd();
+      const { totalLoc, netLoc, fileCount, byExt } = countLocInDir(projectRoot);
+      const LOC_PRICE = 25;
+      const codeValueEur = netLoc * LOC_PRICE;
+      const ipPremiumEur = 500000 + 750000 + 300000; // Decoy + Trezor/Holding + Mirror context
+      const totalValueEur = codeValueEur + ipPremiumEur;
+      let commitCount30d = null;
+      let repoName = null;
+      try {
+        const octokit = await getUncachableGitHubClient();
+        const { data: ghUser } = await octokit.rest.users.getAuthenticated();
+        const { data: repos } = await octokit.rest.repos.listForAuthenticatedUser({ sort: 'pushed', direction: 'desc', per_page: 5 });
+        if (repos.length > 0) {
+          const repo = repos[0];
+          repoName = repo.full_name;
+          const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+          const { data: commits } = await octokit.rest.repos.listCommits({ owner: ghUser.login, repo: repo.name, since, per_page: 100 });
+          commitCount30d = commits.length;
+        }
+      } catch (_e) { /* GitHub not linked */ }
+      const [saved] = await db.insert(atkAssetSnapshots).values({
+        totalLoc, netLoc, fileCount,
+        locByExtension: byExt,
+        codeValueEur,
+        ipPremiumEur,
+        totalValueEur,
+        commitCount30d,
+        repoName,
+        takenByUserId: appUser.id,
+      }).returning();
+      res.json(saved);
+    } catch (e) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get('/api/admin/asset-tracker/history', isAuthenticated, async (req, res) => {
+    try {
+      const appUser = (req as any).appUser;
+      if (!hasAdminAccess(appUser)) return res.status(403).json({ message: 'Prístup zamietnutý' });
+      const rows = await db.select().from(atkAssetSnapshots).orderBy(desc(atkAssetSnapshots.snapshotAt)).limit(90);
+      res.json(rows);
+    } catch (e) {
+      res.status(500).json({ message: e.message });
+    }
   });
 
   return httpServer;

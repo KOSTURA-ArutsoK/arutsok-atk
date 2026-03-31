@@ -3030,3 +3030,23 @@ export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };
 export type UpdatePartnerRequest = Partial<InsertPartner> & { changeReason?: string };
+
+// === ATK ASSET TRACKER ===
+export const atkAssetSnapshots = pgTable("atk_asset_snapshots", {
+  id: serial("id").primaryKey(),
+  snapshotAt: timestamp("snapshot_at", { withTimezone: true }).defaultNow().notNull(),
+  totalLoc: integer("total_loc").notNull(),
+  netLoc: integer("net_loc").notNull(),
+  fileCount: integer("file_count").notNull(),
+  locByExtension: jsonb("loc_by_extension").notNull(),
+  codeValueEur: integer("code_value_eur").notNull(),
+  ipPremiumEur: integer("ip_premium_eur").notNull().default(0),
+  totalValueEur: integer("total_value_eur").notNull(),
+  commitCount30d: integer("commit_count_30d"),
+  repoName: text("repo_name"),
+  takenByUserId: integer("taken_by_user_id"),
+});
+
+export const insertAtkAssetSnapshotSchema = createInsertSchema(atkAssetSnapshots).omit({ id: true, snapshotAt: true });
+export type AtkAssetSnapshot = typeof atkAssetSnapshots.$inferSelect;
+export type InsertAtkAssetSnapshot = z.infer<typeof insertAtkAssetSnapshotSchema>;
