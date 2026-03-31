@@ -4,7 +4,7 @@ import { queryClient } from "@/lib/queryClient";
 import { ChevronLeft, ChevronRight, X, Upload, FileText, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { TripleRingStatus } from "@/components/TripleRingStatus";
 import { KokpitDialog } from "@/components/KokpitDialog";
-import { KokpitHub } from "@/components/KokpitHub";
+import { KokpitHub, type KokpitFunctionId } from "@/components/KokpitHub";
 import { formatRemainingHHMM, isOverdue, isAdminAlert } from "@/lib/workingHours";
 import { getSlovakNameDay } from "@/lib/slovakNameDays";
 import type { KokpitItem, KokpitStagedScan } from "@shared/schema";
@@ -293,11 +293,12 @@ export default function PridatStavZmluvy() {
     setKokpitOpen(true);
   }
 
-  function handleHubSelectFunction(fn: "roztriedenie-stavov") {
+  function handleHubSelectFunction(fn: KokpitFunctionId) {
     setHubOpen(false);
     if (fn === "roztriedenie-stavov") {
       setKokpitOpen(true);
     }
+    // zadavanie-provizii a vypocet-odmien budú implementované v samostatných dialógoch
   }
 
   // ── File upload ──────────────────────────────────────────────────────────────
