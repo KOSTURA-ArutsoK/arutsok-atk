@@ -257,7 +257,7 @@ function GroupMultiSelect({
                   <Checkbox
                     checked={selected.includes(g.id)}
                     onCheckedChange={(checked) => {
-                      if (checked) onChange([...selected, g.id]);
+                      if (checked) onChange([...new Set([...selected, g.id])]);
                       else onChange(selected.filter(id => id !== g.id));
                     }}
                   />
