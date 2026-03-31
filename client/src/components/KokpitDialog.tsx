@@ -622,10 +622,10 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
   const selectedStatus = contractStatuses.find(s => s.id === selectedItem?.statusId) ?? null;
 
   return (
-    <div className="flex flex-col w-full" style={{ flex: '1 1 0', minHeight: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', overflow: 'hidden' }}>
 
       {/* ─── HORE: Prijaté zmluvy — cez celú šírku, vypĺňa dostupný priestor ─ */}
-      <div className="flex flex-col border-b" style={{ flex: '1 1 0', minHeight: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: 0, borderBottom: '1px solid var(--border)' }}>
         <div className="px-3 py-1.5 border-b shrink-0 flex items-center gap-2 bg-muted/20">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
           <span className="text-xs font-semibold">Prijaté zmluvy</span>
@@ -689,7 +689,7 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
       </div>
 
       {/* ─── DOLE: dva panely vedľa seba — pevná výška ───────────────────── */}
-      <div className="flex flex-row shrink-0" style={{ height: 200 }}>
+      <div style={{ display: 'flex', flexDirection: 'row', flexShrink: 0, height: 200 }}>
 
         {/* DOLE ĽAVÝ: Náhľad skenov */}
         <div className="flex flex-col flex-1 min-h-0 min-w-0 border-r">
@@ -952,8 +952,10 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
               </TabsContent>
 
               {/* RIEŠENIE — 3-panel layout */}
-              <TabsContent value="rozdelenie" className="flex-1 m-0" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-                <RieseniePanel items={allRiesenieItems} />
+              <TabsContent value="rozdelenie" className="flex-1 m-0" style={{ position: 'relative', overflow: 'hidden', minHeight: 0 }}>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <RieseniePanel items={allRiesenieItems} />
+                </div>
               </TabsContent>
 
               {/* VYHODNOTENIE — placeholder */}
