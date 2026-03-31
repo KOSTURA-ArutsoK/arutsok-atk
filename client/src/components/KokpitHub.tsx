@@ -89,13 +89,6 @@ const HUB_FUNCTIONS: Array<{
   },
 ];
 
-const CENTERED: React.CSSProperties = {
-  position: "absolute",
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-};
-
 function SkeletonRow({ w = "100%", h = 28, opacity = 1 }: { w?: string; h?: number; opacity?: number }) {
   return (
     <div
@@ -110,6 +103,8 @@ function SkeletonRow({ w = "100%", h = 28, opacity = 1 }: { w?: string; h?: numb
     />
   );
 }
+
+const DARK_BG = "linear-gradient(160deg, #0c1e3a 0%, #07111f 100%)";
 
 export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubProps) {
   const { data: appUser } = useAppUser();
@@ -144,8 +139,6 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
     }, 280);
   }
 
-  const DARK_BG = "linear-gradient(160deg, #0c1e3a 0%, #07111f 100%)";
-
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent
@@ -162,19 +155,16 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
         <DialogTitle className="sr-only">Kokpit Hub</DialogTitle>
         <DialogDescription className="sr-only">Rozcestník pre funkcie Kokpitu</DialogDescription>
 
-        {/* ── Stack container ─────────────────────────────────────────────── */}
         <div className="relative w-full h-full">
 
-          {/* ═══════════════════════════════════════════════════════════════
-              VRSTVA 1 — spodná/zadná (95vw × 95vh)
-              KokpitDialog skeletal mockup
-              ═══════════════════════════════════════════════════════════════ */}
+          {/* Vrstva 1 — spodná/zadná (95vw × 95vh): KokpitDialog skeletal */}
           <div
-            className="flex flex-col overflow-hidden rounded-xl border border-amber-500/10"
+            className="absolute flex flex-col overflow-hidden rounded-xl border border-amber-500/10"
             style={{
-              ...CENTERED,
               width: "95vw",
               height: "95vh",
+              top: "16px",
+              left: "16px",
               background: DARK_BG,
               opacity: 0.55,
               zIndex: 1,
@@ -211,7 +201,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               ))}
             </div>
 
-            {/* Skeleton content — contract rows */}
+            {/* Skeleton rows */}
             <div className="flex-1 p-5 flex flex-col gap-2 overflow-hidden">
               <div className="flex gap-2 mb-1">
                 <SkeletonRow w="8%" h={20} />
@@ -232,22 +222,20 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
             </div>
           </div>
 
-          {/* ═══════════════════════════════════════════════════════════════
-              VRSTVA 2 — stredná (90vw × 90vh)
-              PridatStavZmluvy skeletal mockup
-              ═══════════════════════════════════════════════════════════════ */}
+          {/* Vrstva 2 — stredná (90vw × 90vh): PridatStavZmluvy skeletal */}
           <div
-            className="flex flex-col overflow-hidden rounded-xl border border-blue-500/15"
+            className="absolute flex flex-col overflow-hidden rounded-xl border border-blue-500/15"
             style={{
-              ...CENTERED,
               width: "90vw",
               height: "90vh",
+              top: "8px",
+              left: "8px",
               background: "linear-gradient(180deg, #0f172a 0%, #0c1930 100%)",
               opacity: 0.78,
               zIndex: 2,
             }}
           >
-            {/* Top bar — date + kokpit button */}
+            {/* Top bar */}
             <div
               className="flex items-center justify-between px-5 py-3 shrink-0"
               style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
@@ -265,9 +253,9 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               </div>
             </div>
 
-            {/* 3-column layout skeleton */}
+            {/* Two-column content */}
             <div className="flex flex-1 gap-4 p-4 overflow-hidden">
-              {/* Left: Nahraté skeny */}
+              {/* Nahraté skeny */}
               <div className="flex-1 flex flex-col gap-2 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <Inbox className="w-3.5 h-3.5 text-blue-400/60" />
@@ -282,10 +270,9 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
                 ))}
               </div>
 
-              {/* Divider */}
               <div style={{ width: 1, background: "rgba(255,255,255,0.06)", flexShrink: 0 }} />
 
-              {/* Right: Dnešné aktivity */}
+              {/* Dnešné aktivity */}
               <div className="flex-1 flex flex-col gap-2 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <Clock className="w-3.5 h-3.5 text-emerald-400/60" />
@@ -313,26 +300,24 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
             </div>
           </div>
 
-          {/* ═══════════════════════════════════════════════════════════════
-              VRSTVA 3 — vrchná/predná (85vw × 85vh)
-              Hub s bublinami — interaktívny, animuje von pri výbere funkcie
-              ═══════════════════════════════════════════════════════════════ */}
+          {/* Vrstva 3 — vrchná/predná (85vw × 85vh): Hub s bublinami */}
           <div
-            className="flex flex-col overflow-hidden rounded-xl shadow-2xl border border-amber-500/22"
+            className="absolute flex flex-col overflow-hidden rounded-xl shadow-2xl border border-amber-500/20"
             style={{
-              ...CENTERED,
               width: "85vw",
               height: "85vh",
+              top: 0,
+              left: 0,
               background: DARK_BG,
               zIndex: 3,
               transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease",
               transform: isLeaving
-                ? "translate(-50%, -50%) translateX(-60px) translateY(-20px) scale(0.94)"
-                : "translate(-50%, -50%)",
+                ? "translateX(-60px) translateY(-20px) scale(0.94)"
+                : "translateX(0) translateY(0) scale(1)",
               opacity: isLeaving ? 0 : 1,
             }}
           >
-            {/* ── Header ──────────────────────────────────────────────────── */}
+            {/* Header */}
             <div
               className="flex items-center gap-3 px-6 py-4 shrink-0"
               style={{ borderBottom: "1px solid rgba(245,158,11,0.2)", background: "rgba(12,30,58,0.6)" }}
@@ -388,7 +373,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               </button>
             </div>
 
-            {/* ── Body ────────────────────────────────────────────────────── */}
+            {/* Body */}
             <div className="flex-1 overflow-y-auto p-8">
               <p className="text-[11px] font-semibold text-blue-300/40 uppercase tracking-widest mb-6">
                 Vyberte funkciu
