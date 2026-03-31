@@ -169,6 +169,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               background: DARK_BG,
               opacity: 0.55,
               zIndex: 1,
+              padding: "5vh 5vw",
             }}
           >
             {/* Header */}
@@ -235,6 +236,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               background: "linear-gradient(180deg, #0f172a 0%, #0c1930 100%)",
               opacity: 0.78,
               zIndex: 2,
+              padding: "2.5vh 2.5vw",
             }}
           >
             {/* Top bar */}
