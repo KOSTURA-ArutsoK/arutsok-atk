@@ -227,22 +227,36 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               ))}
             </div>
 
-            {/* Skeleton rows */}
-            <div className="flex-1 p-5 flex flex-col gap-2 overflow-hidden">
-              <div className="flex gap-2 mb-1">
-                <SkeletonRow w="8%" h={20} />
-                <SkeletonRow w="18%" h={20} />
-                <SkeletonRow w="14%" h={20} />
-                <SkeletonRow w="22%" h={20} />
-                <SkeletonRow w="12%" h={20} />
+            {/* Skeleton rows — tabuľka vypĺňa celú výšku */}
+            <div className="flex-1 px-5 pt-3 pb-4 flex flex-col justify-between overflow-hidden">
+              {/* Hlavičkový riadok */}
+              <div className="flex gap-2 pb-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                <SkeletonRow w="7%" h={18} opacity={0.7} />
+                <SkeletonRow w="16%" h={18} opacity={0.7} />
+                <SkeletonRow w="13%" h={18} opacity={0.7} />
+                <SkeletonRow w="20%" h={18} opacity={0.7} />
+                <SkeletonRow w="11%" h={18} opacity={0.7} />
+                <SkeletonRow w="15%" h={18} opacity={0.7} />
               </div>
-              {[85, 70, 60, 90, 55].map((w, i) => (
+              {/* Dátové riadky — roztiahnuté cez celú výšku */}
+              {[
+                [7,16,13,20,11,15],
+                [7,14,10,22,9,13],
+                [7,18,15,17,12,16],
+                [7,12,11,24,10,14],
+                [7,15,14,19,13,12],
+                [7,17,12,21,8,15],
+                [7,13,16,18,11,13],
+                [7,16,11,20,12,14],
+                [7,14,13,23,9,12],
+                [7,15,10,19,13,16],
+                [7,18,14,17,11,13],
+                [7,12,15,22,10,15],
+              ].map((cols, i) => (
                 <div key={i} className="flex gap-2">
-                  <SkeletonRow w="8%" h={26} opacity={0.5} />
-                  <SkeletonRow w={`${w * 0.2}%`} h={26} opacity={0.5} />
-                  <SkeletonRow w={`${w * 0.25}%`} h={26} opacity={0.5} />
-                  <SkeletonRow w={`${w * 0.35}%`} h={26} opacity={0.5} />
-                  <SkeletonRow w={`${w * 0.15}%`} h={26} opacity={0.5} />
+                  {cols.map((w, j) => (
+                    <SkeletonRow key={j} w={`${w}%`} h={24} opacity={0.38 + (i % 3) * 0.06} />
+                  ))}
                 </div>
               ))}
             </div>
