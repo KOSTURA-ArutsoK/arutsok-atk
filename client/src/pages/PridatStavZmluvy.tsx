@@ -384,7 +384,7 @@ export default function PridatStavZmluvy() {
               className="flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 hover:underline ml-1"
             >
               <X size={10} />
-              Dnes
+              Späť na dnes
             </button>
           )}
         </div>
