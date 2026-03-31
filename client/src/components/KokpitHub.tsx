@@ -155,7 +155,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
         <DialogTitle className="sr-only">Kokpit Hub</DialogTitle>
         <DialogDescription className="sr-only">Rozcestník pre funkcie Kokpitu</DialogDescription>
 
-        <div className="relative w-full h-full">
+        <div className="relative w-full h-full overflow-hidden rounded-xl" style={{ background: "#040c17" }}>
 
           {/* Vrstva 1 — spodná/zadná (95vw × 95vh): KokpitDialog skeletal */}
           <div
