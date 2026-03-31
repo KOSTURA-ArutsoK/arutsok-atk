@@ -24,6 +24,7 @@ type TrezorContract = {
   partnerId: number | null;
   productId: number | null;
   lifecyclePhase?: number | null;
+  statusId?: number | null;
 };
 
 type Subject = { id: number; firstName?: string | null; lastName?: string | null; companyName?: string | null };
@@ -548,7 +549,13 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
 
 // ── RieseniePanel ─────────────────────────────────────────────────────────────
 
+type ContractStatusInfo = { id: number; name: string; color: string };
+
 function RieseniePanel({ items }: { items: CompletedItem[] }) {
+  const { data: contractStatuses = [] } = useQuery<ContractStatusInfo[]>({
+    queryKey: ["/api/contract-statuses"],
+  });
+
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground" data-testid="placeholder-rozdelenie">
@@ -561,52 +568,97 @@ function RieseniePanel({ items }: { items: CompletedItem[] }) {
     );
   }
 
+  const allScans = items.flatMap(item =>
+    item.scans.map(scan => ({ ...scan, contractLabel: item.contractLabel }))
+  );
+
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="px-4 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
-        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-        <span className="text-xs font-semibold">Dokončené záznamy</span>
-        <Badge className="text-xs bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-400/50 ml-auto">{items.length}</Badge>
-      </div>
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-        {items.map(item => (
-          <div key={item.id} className="rounded-lg border bg-emerald-500/5 border-emerald-500/20 p-3 space-y-2" data-testid={`completed-item-${item.id}`}>
-            <div className="flex items-start justify-between gap-2">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span className="text-xs font-semibold font-mono text-blue-700 dark:text-blue-400">{item.contractLabel}</span>
-                </div>
-                <div className="text-[10px] text-muted-foreground pl-5 space-y-0.5">
-                  {item.subjectLabel !== "—" && <p>Subjekt: <span className="text-foreground">{item.subjectLabel}</span></p>}
-                  {item.partnerLabel !== "—" && <p>Partner: <span className="text-foreground">{item.partnerLabel}</span></p>}
-                  {item.productLabel !== "—" && <p>Produkt: <span className="text-foreground">{item.productLabel}</span></p>}
-                </div>
+    <div className="flex flex-row flex-1 min-h-0 w-full">
+
+      {/* ─── LEFT: Skeny ──────────────────────────────────────────────────── */}
+      <div className="flex flex-col border-r min-w-0" style={{ flex: 1 }}>
+        <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
+          <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold">Skeny</span>
+          <Badge variant="outline" className="text-xs ml-auto">{allScans.length}</Badge>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 pt-1.5 space-y-1">
+          {allScans.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center pt-4">Žiadne skeny</p>
+          )}
+          {allScans.map((scan) => (
+            <div
+              key={scan.id}
+              data-testid={`file-riesenie-${scan.id}`}
+              className="rounded-md border px-1.5 py-1 border-border hover:bg-muted/30 transition-colors"
+            >
+              <div className="flex items-center gap-1 min-w-0">
+                {getFileTypeIcon(scan.name, "w-3 h-3 shrink-0")}
+                <span className="text-[10px] font-mono truncate flex-1">{scan.name}</span>
+                {getFileTypeBadge(scan.name)}
               </div>
-              <div className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
-                <Clock className="w-3 h-3" />
-                {fmtTime(item.completedAt)}
+              <div className="flex items-center justify-between mt-0.5">
+                <p className="text-[9px] text-emerald-600 dark:text-emerald-400 truncate">→ {scan.contractLabel}</p>
+                <span className="text-[9px] text-muted-foreground shrink-0 ml-1">{fmtSize(scan.size)}</span>
               </div>
             </div>
-
-            {item.scans.length > 0 && (
-              <div className="pl-5 space-y-1">
-                <p className="text-[10px] text-muted-foreground font-medium">{item.scans.length} sken{item.scans.length === 1 ? "" : "ov"}:</p>
-                {item.scans.map(scan => (
-                  <div key={scan.id} className="flex items-center gap-1 text-[10px]">
-                    {getFileTypeIcon(scan.name, "w-3 h-3 shrink-0")}
-                    <span className="truncate">{scan.name}</span>
-                    <span className="text-muted-foreground shrink-0 ml-auto">{fmtSize(scan.size)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {item.scans.length === 0 && (
-              <p className="text-[10px] text-muted-foreground pl-5">Bez priradených skenov</p>
-            )}
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
+
+      {/* ─── RIGHT: Stav zmluvy ───────────────────────────────────────────── */}
+      <div className="flex flex-col min-w-0" style={{ flex: 1 }}>
+        <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+          <span className="text-xs font-semibold">Stav zmluvy</span>
+          <Badge className="text-xs bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-400/50 ml-auto">{items.length}</Badge>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b bg-muted/20 sticky top-0">
+                <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">Zmluva</th>
+                <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">Subjekt</th>
+                <th className="py-1.5 px-2 text-center font-medium text-muted-foreground">Skeny</th>
+                <th className="py-1.5 px-2 text-left font-medium text-muted-foreground">Stav</th>
+                <th className="py-1.5 px-2 text-right font-medium text-muted-foreground">Čas</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map(item => {
+                const status = contractStatuses.find(s => s.id === item.contract.statusId);
+                return (
+                  <tr
+                    key={item.id}
+                    data-testid={`row-riesenie-${item.id}`}
+                    className="border-b border-border/40 last:border-0 hover:bg-muted/20 transition-colors"
+                  >
+                    <td className="py-1.5 px-2 font-mono text-[10px] text-blue-700 dark:text-blue-400">{item.contractLabel}</td>
+                    <td className="py-1.5 px-2 truncate max-w-[80px] text-[10px]">{item.subjectLabel}</td>
+                    <td className="py-1.5 px-2 text-center">
+                      <Badge variant="outline" className="text-[9px] px-1">{item.scans.length}</Badge>
+                    </td>
+                    <td className="py-1.5 px-2">
+                      {status ? (
+                        <div className="flex items-center gap-1">
+                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: status.color }} />
+                          <span className="text-[10px] truncate">{status.name}</span>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="py-1.5 px-2 text-right text-muted-foreground text-[10px]">{fmtTime(item.completedAt)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   );
 }
@@ -730,8 +782,8 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
                 />
               </TabsContent>
 
-              {/* RIEŠENIE — dokončené záznamy */}
-              <TabsContent value="rozdelenie" className="flex-1 min-h-0 m-0" style={{ display: activeTab === "rozdelenie" ? 'flex' : 'none', flexDirection: 'column' }}>
+              {/* RIEŠENIE — split layout (skeny | stav zmluvy) */}
+              <TabsContent value="rozdelenie" className="flex-1 min-h-0 m-0" style={{ display: 'flex' }}>
                 <RieseniePanel items={completedItems} />
               </TabsContent>
 
