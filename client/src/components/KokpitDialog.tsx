@@ -647,12 +647,12 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr>
-                <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b border-border border-r border-r-border/30 bg-muted/30 sticky top-0 z-10">Zmluva</th>
-                <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b border-border border-r border-r-border/30 bg-muted/30 sticky top-0 z-10">Subjekt</th>
                 <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b border-border border-r border-r-border/30 bg-muted/30 sticky top-0 z-10">Spoločnosť</th>
                 {showDivision && (
                   <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b border-border border-r border-r-border/30 bg-muted/30 sticky top-0 z-10">Divízia</th>
                 )}
+                <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b border-border border-r border-r-border/30 bg-muted/30 sticky top-0 z-10">Zmluva</th>
+                <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b border-border border-r border-r-border/30 bg-muted/30 sticky top-0 z-10">Subjekt</th>
                 <th className="py-1.5 px-2 text-left font-semibold text-muted-foreground border-b border-border border-r border-r-border/30 bg-muted/30 sticky top-0 z-10">Stav</th>
                 <th className="py-1.5 px-2 text-right font-semibold text-muted-foreground border-b border-border bg-muted/30 sticky top-0 z-10 w-14">Čas</th>
               </tr>
@@ -679,12 +679,12 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
                         : "hover:bg-muted/20"
                     }`}
                   >
-                    <td className="py-1 px-2 font-mono text-[10px] text-blue-700 dark:text-blue-400 whitespace-nowrap border-r border-border/30">{item.contractLabel}</td>
-                    <td className="py-1 px-2 text-[10px] truncate max-w-[140px] border-r border-border/30">{item.subjectLabel}</td>
                     <td className="py-1 px-2 text-[10px] truncate max-w-[100px] border-r border-border/30">{item.companyLabel ?? "—"}</td>
                     {showDivision && (
                       <td className="py-1 px-2 text-[10px] truncate max-w-[120px] border-r border-border/30">{item.divisionLabel ?? "—"}</td>
                     )}
+                    <td className="py-1 px-2 font-mono text-[10px] text-blue-700 dark:text-blue-400 whitespace-nowrap border-r border-border/30">{item.contractLabel}</td>
+                    <td className="py-1 px-2 text-[10px] truncate max-w-[140px] border-r border-border/30">{item.subjectLabel}</td>
                     <td className="py-1 px-2 border-r border-border/30">
                       {status ? (
                         <div className="flex items-center gap-1 min-w-0">
