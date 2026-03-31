@@ -31,7 +31,16 @@ function formatDecimalN(value: string | number | null | undefined, places: numbe
   if (isNaN(num)) return `0,${'0'.repeat(places)}`;
   return num.toFixed(places).replace('.', ',');
 }
+function formatDecimalNGrouped(value: string | number | null | undefined, places: number): string {
+  const num = parseFloat(String(value || '0').replace(',', '.'));
+  if (isNaN(num)) return `0,${'0'.repeat(places)}`;
+  const fixed = num.toFixed(places);
+  const [intPart, decPart] = fixed.split('.');
+  const intFormatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '\u202F');
+  return decPart ? `${intFormatted},${decPart}` : intFormatted;
+}
 function formatDecimal8(value: string | number | null | undefined): string { return formatDecimalN(value, 8); }
+function formatDecimal8Grouped(value: string | number | null | undefined): string { return formatDecimalNGrouped(value, 8); }
 function formatDecimal6(value: string | number | null | undefined): string { return formatDecimalN(value, 6); }
 function formatDecimal4(value: string | number | null | undefined): string { return formatDecimalN(value, 4); }
 
@@ -470,10 +479,10 @@ export default function Body() {
                         {level.positionCode}
                       </TableCell>}
                       {careerColumnVisibility.isVisible("pointsFrom") && <TableCell className={getYellowCellClass(level.colorZone)}>
-                        {formatDecimal8(level.pointsFrom)}
+                        {formatDecimal8Grouped(level.pointsFrom)}
                       </TableCell>}
                       {careerColumnVisibility.isVisible("pointsTo") && <TableCell className={getYellowCellClass(level.colorZone)}>
-                        {formatDecimal8(level.pointsTo)}
+                        {formatDecimal8Grouped(level.pointsTo)}
                       </TableCell>}
                       {careerColumnVisibility.isVisible("pricePerPoint") && <TableCell className={getZoneTextClass(level.colorZone)}>
                         {formatDecimal4(level.pricePerPoint)} €

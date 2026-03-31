@@ -24355,8 +24355,27 @@ export async function registerRoutes(
           effectiveRoot = visibleSubjects.find(s => s.id === linkedSubjectId) ?? effectiveRoot;
         }
 
+      } else if (linkedSubjectId) {
+        // No company context but user has a personal linked subject → personal subtree only.
+        // This prevents admins from seeing the full system tree when in FO/SZCO personal context.
+        const personalVisited = new Set([linkedSubjectId]);
+        let pChanged2 = true;
+        while (pChanged2) {
+          pChanged2 = false;
+          for (const link of allLinksBuilt) {
+            if (personalVisited.has(link.guarantorSubjectId) && !personalVisited.has(link.subjectId)) {
+              personalVisited.add(link.subjectId);
+              pChanged2 = true;
+            }
+          }
+        }
+        visibleSubjects = allSubjectsBuilt.filter(s => personalVisited.has(s.id));
+        visibleLinks = allLinksBuilt.filter(
+          l => personalVisited.has(l.subjectId) && personalVisited.has(l.guarantorSubjectId)
+        );
+        effectiveRoot = visibleSubjects.find(s => s.id === linkedSubjectId) ?? rootSubject;
       } else if (!isAdminUser) {
-        // Non-admin without KDE/KTO context must not see the full tree
+        // Non-admin without any context must not see the full tree
         visibleSubjects = [];
         visibleLinks = [];
         effectiveRoot = rootSubject;
