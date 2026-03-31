@@ -7501,7 +7501,7 @@ export async function registerRoutes(
         if (!supiska || (supiska as any).supiskaType !== "processing") continue;
         if (stateFilter && supiska.stateId !== appUser.activeStateId) continue;
         if (companyFilter && supiska.companyId !== appUser.activeCompanyId) continue;
-        if (phase === 9 && (supiska.status === "Odoslana" || supiska.status === "Odpocet" || supiska.status === "Prijata")) continue;
+        if (phase === 9 && (supiska.status === "Odpocet" || supiska.status === "Prijata")) continue;
 
         const supiskaLinks = await storage.getSupiskaContracts(sid);
         const cids = supiskaLinks.map(l => l.contractId);
