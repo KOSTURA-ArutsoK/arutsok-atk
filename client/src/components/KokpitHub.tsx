@@ -3,7 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useAppUser } from "@/hooks/use-app-user";
 import { formatUid } from "@/lib/utils";
-import { Target, Layers, FileInput, Calculator, Shield, User } from "lucide-react";
+import {
+  Target, Layers, FileInput, Calculator, Shield, User,
+  Inbox, FileText, Clock,
+} from "lucide-react";
 
 export type KokpitFunctionId = "roztriedenie-stavov" | "zadavanie-provizii" | "vypocet-odmien";
 
@@ -86,6 +89,28 @@ const HUB_FUNCTIONS: Array<{
   },
 ];
 
+const CENTERED: React.CSSProperties = {
+  position: "absolute",
+  top: "50%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+};
+
+function SkeletonRow({ w = "100%", h = 28, opacity = 1 }: { w?: string; h?: number; opacity?: number }) {
+  return (
+    <div
+      style={{
+        width: w,
+        height: h,
+        borderRadius: 5,
+        background: "rgba(255,255,255,0.07)",
+        opacity,
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
 export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubProps) {
   const { data: appUser } = useAppUser();
   const [isLeaving, setIsLeaving] = useState(false);
@@ -119,15 +144,14 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
     }, 280);
   }
 
-  const CARD_W = "91vw";
-  const CARD_H = "87vh";
+  const DARK_BG = "linear-gradient(160deg, #0c1e3a 0%, #07111f 100%)";
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent
         noInnerScroll
         className="p-0 bg-transparent shadow-none border-0 overflow-visible"
-        style={{ maxWidth: "97vw", width: "97vw", height: "94vh", maxHeight: "94vh" }}
+        style={{ maxWidth: "97vw", width: "97vw", height: "97vh", maxHeight: "97vh" }}
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => {
@@ -141,49 +165,178 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
         {/* ── Stack container ─────────────────────────────────────────────── */}
         <div className="relative w-full h-full">
 
-          {/* Card 3 — backmost (smallest visible, bottom-right offset) */}
+          {/* ═══════════════════════════════════════════════════════════════
+              VRSTVA 1 — spodná/zadná (95vw × 95vh)
+              KokpitDialog skeletal mockup
+              ═══════════════════════════════════════════════════════════════ */}
           <div
-            className="absolute rounded-xl border border-amber-500/10"
+            className="flex flex-col overflow-hidden rounded-xl border border-amber-500/10"
             style={{
-              width: CARD_W,
-              height: CARD_H,
-              top: "14px",
-              left: "14px",
-              background: "linear-gradient(160deg, #081527 0%, #040c17 100%)",
-              opacity: 0.45,
+              ...CENTERED,
+              width: "95vw",
+              height: "95vh",
+              background: DARK_BG,
+              opacity: 0.55,
+              zIndex: 1,
             }}
-          />
+          >
+            {/* Header */}
+            <div
+              className="flex items-center gap-3 px-5 py-3 shrink-0"
+              style={{ borderBottom: "1px solid rgba(245,158,11,0.15)", background: "rgba(12,30,58,0.7)" }}
+            >
+              <Target className="w-4 h-4 text-amber-400" />
+              <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300">KOKPIT</span>
+              <div className="h-3 w-px bg-amber-500/25 mx-1" />
+              <span className="text-[11px] text-blue-300/50 font-mono">{userUid ?? "—"}</span>
+            </div>
 
-          {/* Card 2 — middle */}
+            {/* Tabs */}
+            <div
+              className="flex items-center gap-1 px-4 py-2 shrink-0"
+              style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+            >
+              {["ROZDELENIE SKENOV", "RIEŠENIE", "VYHODNOTENIE"].map((tab, i) => (
+                <div
+                  key={tab}
+                  className="px-4 py-1.5 rounded-t text-[11px] font-semibold tracking-wide"
+                  style={{
+                    background: i === 0 ? "rgba(59,130,246,0.2)" : "transparent",
+                    color: i === 0 ? "rgba(147,197,253,0.9)" : "rgba(147,197,253,0.35)",
+                    border: i === 0 ? "1px solid rgba(59,130,246,0.25)" : "1px solid transparent",
+                  }}
+                >
+                  {tab}
+                </div>
+              ))}
+            </div>
+
+            {/* Skeleton content — contract rows */}
+            <div className="flex-1 p-5 flex flex-col gap-2 overflow-hidden">
+              <div className="flex gap-2 mb-1">
+                <SkeletonRow w="8%" h={20} />
+                <SkeletonRow w="18%" h={20} />
+                <SkeletonRow w="14%" h={20} />
+                <SkeletonRow w="22%" h={20} />
+                <SkeletonRow w="12%" h={20} />
+              </div>
+              {[85, 70, 60, 90, 55].map((w, i) => (
+                <div key={i} className="flex gap-2">
+                  <SkeletonRow w="8%" h={26} opacity={0.5} />
+                  <SkeletonRow w={`${w * 0.2}%`} h={26} opacity={0.5} />
+                  <SkeletonRow w={`${w * 0.25}%`} h={26} opacity={0.5} />
+                  <SkeletonRow w={`${w * 0.35}%`} h={26} opacity={0.5} />
+                  <SkeletonRow w={`${w * 0.15}%`} h={26} opacity={0.5} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════════
+              VRSTVA 2 — stredná (90vw × 90vh)
+              PridatStavZmluvy skeletal mockup
+              ═══════════════════════════════════════════════════════════════ */}
           <div
-            className="absolute rounded-xl border border-amber-500/15"
+            className="flex flex-col overflow-hidden rounded-xl border border-blue-500/15"
             style={{
-              width: CARD_W,
-              height: CARD_H,
-              top: "7px",
-              left: "7px",
-              background: "linear-gradient(160deg, #0a1a2e 0%, #060f1c 100%)",
-              opacity: 0.7,
+              ...CENTERED,
+              width: "90vw",
+              height: "90vh",
+              background: "linear-gradient(180deg, #0f172a 0%, #0c1930 100%)",
+              opacity: 0.78,
+              zIndex: 2,
             }}
-          />
+          >
+            {/* Top bar — date + kokpit button */}
+            <div
+              className="flex items-center justify-between px-5 py-3 shrink-0"
+              style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+            >
+              <div className="flex items-center gap-3">
+                <div style={{ width: 80, height: 18, borderRadius: 4, background: "rgba(255,255,255,0.1)" }} />
+                <div style={{ width: 56, height: 18, borderRadius: 4, background: "rgba(255,255,255,0.07)" }} />
+              </div>
+              <div
+                className="flex items-center gap-1.5 px-3 py-1 rounded"
+                style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.25)" }}
+              >
+                <Target className="w-3 h-3 text-amber-400" />
+                <span className="text-[10px] font-bold tracking-widest text-amber-300">KOKPIT</span>
+              </div>
+            </div>
 
-          {/* Card 1 — front (main content), animates out on select */}
+            {/* 3-column layout skeleton */}
+            <div className="flex flex-1 gap-4 p-4 overflow-hidden">
+              {/* Left: Nahraté skeny */}
+              <div className="flex-1 flex flex-col gap-2 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <Inbox className="w-3.5 h-3.5 text-blue-400/60" />
+                  <span className="text-[10px] font-semibold text-blue-300/50 uppercase tracking-wider">Nahraté skeny</span>
+                </div>
+                {[90, 75, 82, 68].map((w, i) => (
+                  <div key={i} className="flex gap-2">
+                    <SkeletonRow w="22%" h={28} opacity={0.45} />
+                    <SkeletonRow w={`${w * 0.6}%`} h={28} opacity={0.45} />
+                    <SkeletonRow w="16%" h={28} opacity={0.45} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Divider */}
+              <div style={{ width: 1, background: "rgba(255,255,255,0.06)", flexShrink: 0 }} />
+
+              {/* Right: Dnešné aktivity */}
+              <div className="flex-1 flex flex-col gap-2 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock className="w-3.5 h-3.5 text-emerald-400/60" />
+                  <span className="text-[10px] font-semibold text-blue-300/50 uppercase tracking-wider">Dnešné aktivity</span>
+                </div>
+                {[80, 65, 72].map((w, i) => (
+                  <div key={i} className="flex gap-2">
+                    <SkeletonRow w="14%" h={28} opacity={0.45} />
+                    <SkeletonRow w={`${w * 0.7}%`} h={28} opacity={0.45} />
+                  </div>
+                ))}
+                <div className="mt-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <FileText className="w-3.5 h-3.5 text-amber-400/60" />
+                    <span className="text-[10px] font-semibold text-blue-300/40 uppercase tracking-wider">Prenesené nevyriešené</span>
+                  </div>
+                  {[55, 70].map((w, i) => (
+                    <div key={i} className="flex gap-2 mb-2">
+                      <SkeletonRow w="14%" h={26} opacity={0.35} />
+                      <SkeletonRow w={`${w * 0.65}%`} h={26} opacity={0.35} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════════
+              VRSTVA 3 — vrchná/predná (85vw × 85vh)
+              Hub s bublinami — interaktívny, animuje von pri výbere funkcie
+              ═══════════════════════════════════════════════════════════════ */}
           <div
-            className="absolute flex flex-col overflow-hidden rounded-xl shadow-2xl border border-amber-500/20"
+            className="flex flex-col overflow-hidden rounded-xl shadow-2xl border border-amber-500/22"
             style={{
-              width: CARD_W,
-              height: CARD_H,
-              top: 0,
-              left: 0,
-              background: "linear-gradient(160deg, #0c1e3a 0%, #07111f 100%)",
+              ...CENTERED,
+              width: "85vw",
+              height: "85vh",
+              background: DARK_BG,
+              zIndex: 3,
               transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease",
-              transform: isLeaving ? "translateX(-40px) translateY(-16px) scale(0.96)" : "translateX(0) translateY(0) scale(1)",
+              transform: isLeaving
+                ? "translate(-50%, -50%) translateX(-60px) translateY(-20px) scale(0.94)"
+                : "translate(-50%, -50%)",
               opacity: isLeaving ? 0 : 1,
             }}
           >
             {/* ── Header ──────────────────────────────────────────────────── */}
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-amber-500/20 bg-[#0c1e3a]/60 shrink-0">
-              {/* Title */}
+            <div
+              className="flex items-center gap-3 px-6 py-4 shrink-0"
+              style={{ borderBottom: "1px solid rgba(245,158,11,0.2)", background: "rgba(12,30,58,0.6)" }}
+            >
               <div className="flex items-center gap-2">
                 <Target className="w-5 h-5 text-amber-400 shrink-0" />
                 <span
@@ -196,7 +349,6 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
 
               <div className="h-4 w-px bg-amber-500/25 shrink-0" />
 
-              {/* User info */}
               <div className="flex items-center gap-2 min-w-0">
                 <User className="w-3.5 h-3.5 text-blue-400/70 shrink-0" />
                 <span className="text-sm font-semibold text-blue-100 truncate" data-testid="hub-user-name">
@@ -214,7 +366,6 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
 
               <div className="h-4 w-px bg-amber-500/25 shrink-0" />
 
-              {/* Permissions label */}
               <div className="flex items-center gap-1.5 shrink-0">
                 <Shield className="w-3.5 h-3.5 text-amber-400/60" />
                 <span
@@ -225,10 +376,8 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
                 </span>
               </div>
 
-              {/* Spacer */}
               <div className="flex-1" />
 
-              {/* Close button — text "Zavrieť" */}
               <button
                 type="button"
                 onClick={handleClose}
@@ -239,7 +388,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               </button>
             </div>
 
-            {/* ── Body ──────────────────────────────────────────────────────── */}
+            {/* ── Body ────────────────────────────────────────────────────── */}
             <div className="flex-1 overflow-y-auto p-8">
               <p className="text-[11px] font-semibold text-blue-300/40 uppercase tracking-widest mb-6">
                 Vyberte funkciu
@@ -282,6 +431,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               </div>
             </div>
           </div>
+
         </div>
       </DialogContent>
     </Dialog>
