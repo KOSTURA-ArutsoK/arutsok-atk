@@ -20,6 +20,9 @@ interface KokpitHubProps {
   scanFiles?: ScanFile[];
   onRemoveScanFile?: (id: string, reason?: string) => void;
   onAddFiles?: (files: File[]) => void;
+  viewMode: 'day' | 'week' | 'month';
+  setViewMode: (m: 'day' | 'week' | 'month') => void;
+  viewDate: string;
 }
 
 type KokpitAccessData = {
@@ -239,7 +242,7 @@ function PinInput({
   );
 }
 
-export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = [], onRemoveScanFile, onAddFiles }: KokpitHubProps) {
+export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = [], onRemoveScanFile, onAddFiles, viewMode, setViewMode, viewDate }: KokpitHubProps) {
   const { data: appUser } = useAppUser();
   const [activeLayer, setActiveLayer] = useState<"hub" | "second" | "third" | "mails">("hub");
   const [selectedFunction, setSelectedFunction] = useState<KokpitFunctionId | null>(null);
@@ -442,6 +445,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             {selectedFunction === "roztriedenie-stavov" ? (
               /* ── Real content: KokpitAktivityPanel ── */
               <>
+                {/* ── Layer 2 header ─────────────────────────────────────────── */}
                 <div
                   className="flex items-center gap-3 px-5 py-3 shrink-0"
                   style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(12,30,58,0.7)" }}
@@ -459,6 +463,28 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                   <Target className="w-4 h-4 text-amber-400" />
                   <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300">KOKPIT</span>
                   <div className="flex-1" />
+                  {/* Deň / Týždeň / Mesiac toggle */}
+                  <div className="flex rounded-md overflow-hidden text-[11px] font-medium border border-blue-500/20">
+                    {(["day", "week", "month"] as const).map((m) => {
+                      const labels = { day: "Deň", week: "Týždeň", month: "Mesiac" };
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          data-testid={`button-viewmode-header-${m}`}
+                          onClick={() => setViewMode(m)}
+                          className={`px-2.5 py-1 transition-colors ${
+                            viewMode === m
+                              ? "bg-blue-700 text-white"
+                              : "text-blue-300/60 hover:bg-white/10 hover:text-blue-200"
+                          }`}
+                        >
+                          {labels[m]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="w-px h-4 bg-white/10 mx-1" />
                   <button
                     type="button"
                     onClick={handleClose}
@@ -468,6 +494,8 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                     Ukončiť
                   </button>
                 </div>
+
+                {/* ── Drop zone (compact, full width) ───────────────────────── */}
                 <div
                   data-testid="drop-zone-scans"
                   onDragOver={e => { e.preventDefault(); setLayer2DragOver(true); }}
@@ -479,17 +507,16 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                     if (onAddFiles) onAddFiles(files);
                   }}
                   onClick={() => layer2FileInputRef.current?.click()}
-                  className="mx-5 mt-3 border-2 border-dashed rounded-lg p-5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors shrink-0"
+                  className="mx-5 mt-3 shrink-0 border-2 border-dashed rounded-lg px-5 py-2.5 flex flex-row items-center gap-3 cursor-pointer transition-colors"
                   style={{
                     borderColor: layer2DragOver ? "#1e40af" : "var(--border)",
-                    background: layer2DragOver ? "rgba(30,64,175,0.05)" : "var(--muted)/5",
-                    minHeight: 140,
+                    background: layer2DragOver ? "rgba(30,64,175,0.07)" : "transparent",
                   }}
                 >
-                  <Upload size={28} className="text-muted-foreground/60" />
-                  <p className="text-xs text-center text-muted-foreground leading-snug">
-                    Pretiahnite skeny sem<br />
-                    <span className="text-muted-foreground/60">alebo kliknite na výber</span>
+                  <Upload size={18} className="text-muted-foreground/60 shrink-0" />
+                  <p className="text-xs text-muted-foreground leading-snug">
+                    Pretiahnite skeny sem
+                    <span className="text-muted-foreground/50"> · alebo kliknite na výber</span>
                   </p>
                 </div>
                 <input
@@ -504,11 +531,15 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                     if (layer2FileInputRef.current) layer2FileInputRef.current.value = "";
                   }}
                 />
-                <div className="flex flex-1 overflow-hidden min-h-0 px-5 py-4">
+
+                {/* ── KokpitAktivityPanel (vertical, full width) ────────────── */}
+                <div className="flex flex-col flex-1 overflow-hidden min-h-0 px-5 py-3">
                   <KokpitAktivityPanel
                     scanFiles={scanFiles}
                     onRemoveScanFile={onRemoveScanFile ?? (() => {})}
                     onAddFiles={onAddFiles ?? (() => {})}
+                    viewMode={viewMode}
+                    viewDate={viewDate}
                   />
                 </div>
               </>

@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
-import { CalendarDays, Star, Server } from "lucide-react";
+import { CalendarDays, Star, Server, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { KokpitHub, type KokpitFunctionId } from "@/components/KokpitHub";
+import { InlineCalendar } from "@/components/KokpitAktivityPanel";
 import type { KokpitStagedScan } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { InfoChipRow, getWeatherLucideIcon } from "@/components/InfoChipRow";
@@ -118,6 +119,21 @@ export default function PridatStavZmluvy() {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // ── Lifted viewMode + viewDate (shared with KokpitHub Layer 2) ────────────
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
+  const [viewDate, setViewDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [calendarVisible, setCalendarVisible] = useState(false);
+
+  function prevDay() {
+    const [y, m, d] = viewDate.split('-').map(Number);
+    setViewDate(new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10));
+  }
+  function nextDay() {
+    const [y, m, d] = viewDate.split('-').map(Number);
+    setViewDate(new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10));
+  }
 
   const presovWeather = useWeather(49.0016, 21.2396);
 
@@ -321,6 +337,70 @@ export default function PridatStavZmluvy() {
       {/* Backoffice info chip row */}
       <InfoChipRow variant="backoffice" chips={boChips} />
 
+      {/* Date navigation row (← viewDate →, collapsible calendar) */}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            data-testid="button-prev-day-layer1"
+            onClick={prevDay}
+            className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0 transition-colors"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <button
+            type="button"
+            data-testid="button-date-chip-layer1"
+            onClick={() => setCalendarVisible(v => !v)}
+            className={`flex-1 max-w-[180px] text-center rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted/60 ${
+              calendarVisible ? "bg-muted border-blue-500/50" : "bg-muted/30 border-border"
+            } ${viewDate !== todayStr ? "border-amber-400/60 text-amber-700 dark:text-amber-400" : "text-foreground"}`}
+          >
+            {(() => {
+              const vd = new Date(viewDate + "T00:00:00Z");
+              return (
+                <>
+                  <span className="text-muted-foreground font-normal mr-1">
+                    {["Ne","Po","Ut","St","Št","Pi","So"][vd.getUTCDay()]}
+                  </span>
+                  {vd.getUTCDate()}.{vd.getUTCMonth() + 1}.{vd.getUTCFullYear()}
+                </>
+              );
+            })()}
+          </button>
+          <button
+            type="button"
+            data-testid="button-next-day-layer1"
+            onClick={nextDay}
+            className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0 transition-colors"
+          >
+            <ChevronRight size={14} />
+          </button>
+          {viewDate !== todayStr && (
+            <button
+              type="button"
+              data-testid="button-back-today-layer1"
+              onClick={() => { setViewDate(todayStr); setCalendarVisible(false); }}
+              className="flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 hover:underline ml-1"
+            >
+              <X size={10} />
+              Dnes
+            </button>
+          )}
+        </div>
+        {calendarVisible && (
+          <div className="border rounded-md p-2 bg-muted/20" style={{ maxWidth: 220 }}>
+            <InlineCalendar
+              selectedDate={viewDate !== todayStr ? viewDate : null}
+              onSelectDate={(d) => {
+                setViewDate(d ?? todayStr);
+                setCalendarVisible(false);
+              }}
+            />
+          </div>
+        )}
+      </div>
+
       <KokpitHub
         open={hubOpen}
         onOpenChange={setHubOpen}
@@ -328,6 +408,9 @@ export default function PridatStavZmluvy() {
         scanFiles={scanFiles}
         onRemoveScanFile={removeScanFile}
         onAddFiles={uploadFiles}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        viewDate={viewDate}
       />
     </div>
   );
