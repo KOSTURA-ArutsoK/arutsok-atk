@@ -622,16 +622,16 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
   const selectedStatus = contractStatuses.find(s => s.id === selectedItem?.statusId) ?? null;
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 w-full">
+    <div className="flex flex-col w-full" style={{ flex: '1 1 0', minHeight: 0 }}>
 
       {/* ─── HORE: Prijaté zmluvy — cez celú šírku, vypĺňa dostupný priestor ─ */}
-      <div className="flex flex-col flex-1 min-h-0 border-b">
+      <div className="flex flex-col border-b" style={{ flex: '1 1 0', minHeight: 0 }}>
         <div className="px-3 py-1.5 border-b shrink-0 flex items-center gap-2 bg-muted/20">
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
           <span className="text-xs font-semibold">Prijaté zmluvy</span>
           <Badge className="text-xs bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-400/50 ml-auto">{items.length}</Badge>
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="overflow-y-auto" style={{ flex: '1 1 0', minHeight: 0 }}>
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr>
@@ -951,8 +951,8 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
                 />
               </TabsContent>
 
-              {/* RIEŠENIE — split layout (náhľad skenov | stav zmluvy) */}
-              <TabsContent value="rozdelenie" className="flex-1 min-h-0 m-0" style={{ display: 'flex' }}>
+              {/* RIEŠENIE — 3-panel layout */}
+              <TabsContent value="rozdelenie" className="flex-1 m-0" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                 <RieseniePanel items={allRiesenieItems} />
               </TabsContent>
 
