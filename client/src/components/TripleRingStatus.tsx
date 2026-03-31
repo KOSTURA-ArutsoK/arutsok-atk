@@ -1,7 +1,8 @@
 interface TripleRingStatusProps {
-  phase: 1 | 2 | 3;
+  phase?: 1 | 2 | 3;
   size?: number;
   pulsing?: boolean;
+  color?: string;
 }
 
 const PHASE_COLORS: Record<1 | 2 | 3, { ring: string; glow: string; label: string }> = {
@@ -10,8 +11,8 @@ const PHASE_COLORS: Record<1 | 2 | 3, { ring: string; glow: string; label: strin
   3: { ring: "#059669", glow: "rgba(5,150,105,0.7)", label: "Vybavené" },
 };
 
-export function TripleRingStatus({ phase, size = 24, pulsing = false }: TripleRingStatusProps) {
-  const cfg = PHASE_COLORS[phase];
+export function TripleRingStatus({ phase, size = 24, pulsing = false, color }: TripleRingStatusProps) {
+  const cfg = phase ? PHASE_COLORS[phase] : { ring: color ?? "#dc2626", glow: `${color ?? "#dc2626"}b3`, label: "" };
   const cx = size / 2;
   const r1 = size * 0.46;
   const r2 = size * 0.33;

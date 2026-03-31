@@ -663,20 +663,9 @@ export default function PridatStavZmluvy() {
                   {row.phase ? (
                     <TripleRingStatus phase={row.phase} size={14} />
                   ) : (
-                    <span style={{
-                      display: "inline-block",
-                      width: 14,
-                      height: 14,
-                      borderRadius: "50%",
-                      background: "#dc2626",
-                      opacity: 0.85,
-                      flexShrink: 0,
-                    }} />
+                    <TripleRingStatus color={row.color} size={14} />
                   )}
-                  <span className="text-xs font-bold" style={{ color: row.color }}>
-                    {row.count}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{row.label}</span>
+                  <span className="text-xs text-muted-foreground break-words whitespace-normal max-w-[120px]">{row.label}</span>
                 </div>
               ))}
             </div>
