@@ -4865,7 +4865,6 @@ export default function Contracts() {
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: isEvidencia,
   });
 
   const phase10Contracts: Contract[] = [];
@@ -6235,7 +6234,7 @@ export default function Contracts() {
     { id: 5, label: "Odoslané sprievodky a prijatie do centrály", icon: ShieldCheckDoubleIcon, color: "text-green-500", bgColor: "bg-green-500/15", count: activeAccepted.length, tooltip: "Zmluvy prijaté centrálou partnera. Čakajú na spracovanie a evidenciu v systéme partnera." },
     { id: 6, label: "Roztriedenie kontraktov", icon: SortDownloadIcon, color: "text-yellow-500", bgColor: "bg-yellow-500/15", count: phase6Contracts.length, tooltip: "Zmluvy aktívne spracovávané centrálou — kontrola údajov, validácia dokumentov a evidencia." },
     { id: 8, label: "Manuálna kontrola kontraktov", icon: ListChecks, color: "text-emerald-500", bgColor: "bg-emerald-500/15", count: phase8Contracts.length, tooltip: "Zmluvy kompletne spracované a pripravené na odoslanie späť obchodnému partnerovi." },
-    { id: 9, label: "Odoslať obchodnému partnerovi", icon: SendForwardIcon, color: "text-blue-500", bgColor: "bg-blue-500/15", count: phase9Supisky.reduce((sum: number, s: any) => sum + (s.contracts?.length || 0), 0), tooltip: "Sprievodky pripravené na odoslanie obchodnému partnerovi." },
+    { id: 9, label: "Odoslať obchodnému partnerovi", icon: SendForwardIcon, color: "text-blue-500", bgColor: "bg-blue-500/15", count: phase9Contracts.length, tooltip: "Sprievodky pripravené na odoslanie obchodnému partnerovi." },
   ];
 
   const SPECIALIST_MAX_FOLDER = 6;
