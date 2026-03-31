@@ -12,6 +12,7 @@ import { TripleRingStatus } from "@/components/TripleRingStatus";
 import {
   FileText, Loader2, X, Archive, Search, Inbox, Upload,
   Image as ImageIcon, File, FileCheck, Eye, CheckCircle2, Clock, Pin,
+  ChevronLeft, Target,
 } from "lucide-react";
 import type { KokpitItem } from "@shared/schema";
 import type { ScanFile } from "@/pages/PridatStavZmluvy";
@@ -878,6 +879,7 @@ interface KokpitDialogBodyProps {
   onAddFiles: (files: File[]) => void;
   onClose: () => void;
   enabled: boolean;
+  onBack?: () => void;
 }
 
 type RiesenieRecord = {
@@ -892,7 +894,7 @@ type RiesenieRecord = {
   completedAt: string;
 };
 
-export function KokpitDialogBody({ scanFiles, onRemoveScanFile, onAddFiles, onClose, enabled }: KokpitDialogBodyProps) {
+export function KokpitDialogBody({ scanFiles, onRemoveScanFile, onAddFiles, onClose, enabled, onBack }: KokpitDialogBodyProps) {
   const [activeTab, setActiveTab] = useState("prichod");
   const [completedItems, setCompletedItems] = useState<CompletedItem[]>([]);
   const openedAt = useRef<number>(Date.now());
@@ -990,9 +992,32 @@ export function KokpitDialogBody({ scanFiles, onRemoveScanFile, onAddFiles, onCl
 
   return (
     <div className="flex flex-col bg-background rounded-xl shadow-2xl border overflow-hidden w-full h-full">
-      {/* Hlavička */}
-      <div className="px-6 pt-4 pb-3 border-b shrink-0 flex items-center justify-between gap-4">
-        <span className="text-lg font-bold">KOKPIT</span>
+      {/* Hlavička — jeden riadok: [← Späť | divider | 🎯 KOKPIT] [flex-1] [Ukončiť] */}
+      <div
+        className="px-5 pt-3 pb-3 border-b shrink-0 flex items-center gap-3"
+        style={{ borderBottomColor: onBack ? "rgba(245,158,11,0.15)" : undefined, background: onBack ? "rgba(12,30,58,0.7)" : undefined }}
+      >
+        {onBack && (
+          <>
+            <button
+              onClick={onBack}
+              className="flex items-center gap-1.5 text-[11px] font-semibold text-blue-300/70 hover:text-blue-200 transition-colors shrink-0"
+              data-testid="button-body-back"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              Späť
+            </button>
+            <div className="h-4 w-px bg-amber-500/25 shrink-0" />
+          </>
+        )}
+        {onBack ? (
+          <>
+            <Target className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300 flex-1">KOKPIT</span>
+          </>
+        ) : (
+          <span className="text-lg font-bold flex-1">KOKPIT</span>
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -1006,20 +1031,22 @@ export function KokpitDialogBody({ scanFiles, onRemoveScanFile, onAddFiles, onCl
 
       {/* ── Tab lišta ── */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mx-6 mt-3 shrink-0 grid grid-cols-3 bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 p-1 gap-1">
-          <TabsTrigger value="prichod" data-testid="tab-prichod" className="w-full text-center font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
+        <TabsList className="mx-6 mt-3 shrink-0 flex bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md overflow-hidden p-0">
+          <TabsTrigger value="prichod" data-testid="tab-prichod" className="flex-1 rounded-none text-center font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
             ROZDELENIE SKENOV
             {scanFiles.filter(f => f.done && !f.error).length > 0 && (
               <Badge variant="secondary" className="ml-1.5 text-xs">{scanFiles.filter(f => f.done && !f.error).length}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="rozdelenie" data-testid="tab-rozdelenie" className="w-full text-center font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
+          <div className="w-px bg-slate-400/50 dark:bg-slate-500/40 flex-shrink-0 self-stretch" />
+          <TabsTrigger value="rozdelenie" data-testid="tab-rozdelenie" className="flex-1 rounded-none text-center font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
             RIEŠENIE
             {allRiesenieItems.length > 0 && (
               <Badge variant="secondary" className="ml-1.5 text-xs">{allRiesenieItems.length}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="riesenie" data-testid="tab-riesenie" className="w-full text-center font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
+          <div className="w-px bg-slate-400/50 dark:bg-slate-500/40 flex-shrink-0 self-stretch" />
+          <TabsTrigger value="riesenie" data-testid="tab-riesenie" className="flex-1 rounded-none text-center font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
             VYHODNOTENIE
             {phase3Items.length > 0 && (
               <Badge variant="secondary" className="ml-1.5 text-xs">{phase3Items.length}</Badge>

@@ -219,35 +219,15 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             }}
           >
             {activeLayer === "third" ? (
-              /* Skutočný KokpitDialog obsah */
-              <div className="flex flex-col w-full h-full">
-                {/* Späť tlačidlo nad obsahom */}
-                <div
-                  className="flex items-center gap-3 px-5 py-2 shrink-0"
-                  style={{ borderBottom: "1px solid rgba(245,158,11,0.15)", background: "rgba(12,30,58,0.7)" }}
-                >
-                  <button
-                    onClick={handleBackToHub}
-                    className="flex items-center gap-1.5 text-[11px] font-semibold text-blue-300/70 hover:text-blue-200 transition-colors"
-                    data-testid="button-layer1-back"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                    Späť
-                  </button>
-                  <div className="h-3 w-px bg-amber-500/25 mx-1" />
-                  <Target className="w-4 h-4 text-amber-400" />
-                  <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300">KOKPIT</span>
-                </div>
-                <div style={{ flex: "1 1 0", minHeight: 0 }}>
-                  <KokpitDialogBody
-                    scanFiles={scanFiles}
-                    onRemoveScanFile={onRemoveScanFile ?? (() => {})}
-                    onAddFiles={onAddFiles ?? (() => {})}
-                    onClose={handleBackToHub}
-                    enabled={activeLayer === "third"}
-                  />
-                </div>
-              </div>
+              /* Skutočný KokpitDialog obsah — hlavička je vnútri KokpitDialogBody (onBack prop) */
+              <KokpitDialogBody
+                scanFiles={scanFiles}
+                onRemoveScanFile={onRemoveScanFile ?? (() => {})}
+                onAddFiles={onAddFiles ?? (() => {})}
+                onClose={handleBackToHub}
+                onBack={handleBackToHub}
+                enabled={activeLayer === "third"}
+              />
             ) : (
               /* Skeletal pozadie */
               <>
@@ -492,40 +472,92 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                 Vyberte funkciu
               </p>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
-                {HUB_FUNCTIONS.map(({ id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    data-testid={`button-hub-${id}`}
-                    onClick={() => handleSelectFunction(id)}
-                    className={`
-                      flex flex-col items-start gap-4 p-5 rounded-xl border
-                      bg-gradient-to-br ${gradientFrom} ${gradientTo}
-                      ${borderColor} ${hoverBorderColor}
-                      hover:scale-[1.03] hover:shadow-lg hover:shadow-blue-900/40
-                      active:scale-[0.98]
-                      transition-all duration-200 text-left cursor-pointer group
-                    `}
-                  >
-                    <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-white/5 border border-white/10 group-hover:border-amber-500/30 transition-colors">
-                      <Icon className={`w-6 h-6 ${iconColor} group-hover:text-amber-400 transition-colors`} />
-                    </div>
-                    <div>
-                      <div className="font-bold text-blue-100 text-sm leading-snug group-hover:text-white transition-colors">
-                        {title}
+              {/* ── Skupina: Spracovanie zmlúv ── */}
+              <div className="mb-6">
+                <p className="text-[10px] font-bold text-blue-400/35 uppercase tracking-widest mb-2.5">
+                  Spracovanie zmlúv
+                </p>
+                <div
+                  className="grid grid-cols-2 gap-5 rounded-2xl border border-blue-500/15 bg-blue-950/20 p-4"
+                >
+                  {HUB_FUNCTIONS.filter(f => f.id === "roztriedenie-stavov" || f.id === "hromadny-import-stavov")
+                    .map(({ id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      data-testid={`button-hub-${id}`}
+                      onClick={() => handleSelectFunction(id)}
+                      className={`
+                        flex flex-col items-start gap-4 p-5 rounded-xl border
+                        bg-gradient-to-br ${gradientFrom} ${gradientTo}
+                        ${borderColor} ${hoverBorderColor}
+                        hover:scale-[1.03] hover:shadow-lg hover:shadow-blue-900/40
+                        active:scale-[0.98]
+                        transition-all duration-200 text-left cursor-pointer group
+                      `}
+                    >
+                      <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-white/5 border border-white/10 group-hover:border-amber-500/30 transition-colors">
+                        <Icon className={`w-6 h-6 ${iconColor} group-hover:text-amber-400 transition-colors`} />
                       </div>
-                      {subtitle && (
-                        <div className="text-[10px] font-semibold text-amber-400/60 mt-0.5 tracking-wide uppercase">
-                          {subtitle}
+                      <div>
+                        <div className="font-bold text-blue-100 text-sm leading-snug group-hover:text-white transition-colors">
+                          {title}
                         </div>
-                      )}
-                      <div className="text-xs text-blue-300/50 mt-1.5 leading-relaxed">
-                        {description}
+                        {subtitle && (
+                          <div className="text-[10px] font-semibold text-amber-400/60 mt-0.5 tracking-wide uppercase">
+                            {subtitle}
+                          </div>
+                        )}
+                        <div className="text-xs text-blue-300/50 mt-1.5 leading-relaxed">
+                          {description}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Ostatné funkcie ── */}
+              <div>
+                <p className="text-[10px] font-bold text-blue-400/35 uppercase tracking-widest mb-2.5">
+                  Ostatné
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
+                  {HUB_FUNCTIONS.filter(f => f.id !== "roztriedenie-stavov" && f.id !== "hromadny-import-stavov")
+                    .map(({ id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      data-testid={`button-hub-${id}`}
+                      onClick={() => handleSelectFunction(id)}
+                      className={`
+                        flex flex-col items-start gap-4 p-5 rounded-xl border
+                        bg-gradient-to-br ${gradientFrom} ${gradientTo}
+                        ${borderColor} ${hoverBorderColor}
+                        hover:scale-[1.03] hover:shadow-lg hover:shadow-blue-900/40
+                        active:scale-[0.98]
+                        transition-all duration-200 text-left cursor-pointer group
+                      `}
+                    >
+                      <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-white/5 border border-white/10 group-hover:border-amber-500/30 transition-colors">
+                        <Icon className={`w-6 h-6 ${iconColor} group-hover:text-amber-400 transition-colors`} />
+                      </div>
+                      <div>
+                        <div className="font-bold text-blue-100 text-sm leading-snug group-hover:text-white transition-colors">
+                          {title}
+                        </div>
+                        {subtitle && (
+                          <div className="text-[10px] font-semibold text-amber-400/60 mt-0.5 tracking-wide uppercase">
+                            {subtitle}
+                          </div>
+                        )}
+                        <div className="text-xs text-blue-300/50 mt-1.5 leading-relaxed">
+                          {description}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
