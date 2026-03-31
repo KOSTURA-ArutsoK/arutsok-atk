@@ -108,7 +108,12 @@ const DARK_BG = "linear-gradient(160deg, #0c1e3a 0%, #07111f 100%)";
 
 export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubProps) {
   const { data: appUser } = useAppUser();
-  const [isLeaving, setIsLeaving] = useState(false);
+  // layer3Exiting: true počas animácie odchodu Layer 3
+  const [layer3Exiting, setLayer3Exiting] = useState(false);
+  // pendingFn: nastavené keď Layer 3 odišiel a Layer 2 je prednou vrstvou
+  const [pendingFn, setPendingFn] = useState<KokpitFunctionId | null>(null);
+  // isClosing: true počas zatvárania celého Hubu
+  const [isClosing, setIsClosing] = useState(false);
 
   const { data: kokpitAccess } = useQuery<KokpitAccessData>({
     queryKey: ["/api/kokpit/access"],
@@ -123,18 +128,25 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
     "—";
   const userUid = appUser?.uid ? formatUid(appUser.uid) : null;
 
+  // Klik na funkciu v Layer 3 → Layer 3 odíde, Layer 2 sa stane prednou vrstvou
   function handleSelectFunction(id: KokpitFunctionId) {
-    setIsLeaving(true);
+    setLayer3Exiting(true);
     setTimeout(() => {
-      setIsLeaving(false);
-      onSelectFunction(id);
+      setLayer3Exiting(false);
+      setPendingFn(id);
     }, 280);
   }
 
+  // "Späť" v Layer 2 → okamžite vráti Layer 3 do popredia
+  function handleBackToHub() {
+    setPendingFn(null);
+  }
+
   function handleClose() {
-    setIsLeaving(true);
+    setIsClosing(true);
     setTimeout(() => {
-      setIsLeaving(false);
+      setIsClosing(false);
+      setPendingFn(null);
       onOpenChange(false);
     }, 280);
   }
@@ -234,9 +246,10 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               left: "50%",
               transform: "translate(-50%, -50%)",
               background: "linear-gradient(180deg, #0f172a 0%, #0c1930 100%)",
-              opacity: 0.78,
-              zIndex: 2,
+              opacity: pendingFn ? 1 : 0.78,
+              zIndex: pendingFn ? 3 : 2,
               padding: "2.5vh 2.5vw",
+              transition: "opacity 0.2s ease",
             }}
           >
             {/* Top bar */}
@@ -245,6 +258,16 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
             >
               <div className="flex items-center gap-3">
+                {pendingFn && (
+                  <button
+                    type="button"
+                    onClick={handleBackToHub}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-blue-300/70 hover:text-blue-100 hover:bg-white/10 transition-colors text-xs font-semibold border border-blue-500/20 hover:border-blue-400/40"
+                    data-testid="button-layer2-back"
+                  >
+                    ← Späť
+                  </button>
+                )}
                 <span className="text-xs font-semibold text-blue-200/50">
                   {new Date().toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" })}
                 </span>
@@ -315,12 +338,13 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction }: KokpitHubPro
               top: "50%",
               left: "50%",
               background: DARK_BG,
-              zIndex: 3,
+              zIndex: pendingFn ? 0 : 3,
+              pointerEvents: pendingFn ? "none" : "auto",
               transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease",
-              transform: isLeaving
+              transform: (layer3Exiting || isClosing || pendingFn)
                 ? "translate(-50%, -50%) translateX(-60px) translateY(-20px) scale(0.94)"
                 : "translate(-50%, -50%)",
-              opacity: isLeaving ? 0 : 1,
+              opacity: (layer3Exiting || isClosing || pendingFn) ? 0 : 1,
             }}
           >
             {/* Header */}
