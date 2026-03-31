@@ -6,7 +6,7 @@ import { setupAuth, isAuthenticated, resolveContextLabel, getAuditActorId } from
 import { z } from "zod";
 import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts, subjectLinks, revocationTickets, insertProductDisplayParamSchema, insertContractParamVerificationSchema, productDisplayParams, contractParamVerifications } from "@shared/schema";
 import type { DocEntry, WebRoutingRule } from "@shared/schema";
-import { kokpitStagedScans, atkAssetSnapshots } from "@shared/schema";
+import { kokpitStagedScans, atkAssetSnapshots, kokpitRiesenieRecords } from "@shared/schema";
 import { getUncachableGitHubClient } from "./github";
 import { notifyObjectionCreated, notifyPreDeletion, getProductDaysLimits } from "./email";
 import { seedSubjectParameters, syncSubjectParameters, seedAssetPanels, seedEventAndEntityPanels, seedNsVsTemplates, cleanupZombieTemplateParams, ensureOsClientType } from "./seed-subject-params";
@@ -26113,6 +26113,38 @@ export async function registerRoutes(
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
+
+  // === KOKPIT RIEŠENIE RECORDS ===
+  app.get("/api/kokpit/riesenie-records", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.appUser;
+      const companyId = user?.activeCompanyId;
+      const appUserId = user?.id;
+      if (!companyId || !appUserId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
+      const records = await storage.getRiesenieRecords(companyId, appUserId);
+      res.json(records);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/kokpit/riesenie-records", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.appUser;
+      const companyId = user?.activeCompanyId;
+      const appUserId = user?.id;
+      if (!companyId || !appUserId) return res.status(400).json({ message: "Chýba kontext spoločnosti" });
+      const { contractId, statusId, contractLabel, subjectLabel, scansJson } = req.body;
+      const record = await storage.addRiesenieRecord({
+        companyId,
+        appUserId,
+        contractId: contractId ?? null,
+        statusId: statusId ?? null,
+        contractLabel: contractLabel ?? null,
+        subjectLabel: subjectLabel ?? null,
+        scansJson: scansJson ?? [],
+      });
+      res.json(record);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
 
   // === ATK ASSET TRACKER ===
   function countLocInDir(dirPath) {

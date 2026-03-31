@@ -160,6 +160,8 @@ import {
   type KokpitItem, type InsertKokpitItem,
   kokpitStagedScans,
   type KokpitStagedScan, type InsertKokpitStagedScan,
+  kokpitRiesenieRecords,
+  type KokpitRiesenieRecord, type InsertKokpitRiesenieRecord,
 } from "@shared/schema";
 import { eq, and, or, ne, like, sql, lt, lte, gte, gt, desc, asc, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -479,6 +481,10 @@ export interface IStorage {
   getDeletedStagedScans(appUserId: number): Promise<KokpitStagedScan[]>;
   restoreDeletedStagedScan(id: number, appUserId: number): Promise<void>;
   permanentDeleteStagedScan(id: number, appUserId: number): Promise<void>;
+
+  // Kokpit Riešenie Records (ArutsoK #271)
+  getRiesenieRecords(companyId: number, appUserId: number): Promise<KokpitRiesenieRecord[]>;
+  addRiesenieRecord(data: InsertKokpitRiesenieRecord): Promise<KokpitRiesenieRecord>;
 
   getSystemContractStatusByName(name: string): Promise<ContractStatus | undefined>;
   getAcceptedContracts(companyId?: number, stateId?: number): Promise<Contract[]>;
@@ -6108,6 +6114,23 @@ export class DatabaseStorage implements IStorage {
         eq(kokpitStagedScans.appUserId, appUserId),
         isNotNull(kokpitStagedScans.deletedAt),
       ));
+  }
+
+  async getRiesenieRecords(companyId: number, appUserId: number): Promise<KokpitRiesenieRecord[]> {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    return db.select().from(kokpitRiesenieRecords)
+      .where(and(
+        eq(kokpitRiesenieRecords.companyId, companyId),
+        eq(kokpitRiesenieRecords.appUserId, appUserId),
+        gte(kokpitRiesenieRecords.completedAt, thirtyDaysAgo),
+      ))
+      .orderBy(desc(kokpitRiesenieRecords.completedAt));
+  }
+
+  async addRiesenieRecord(data: InsertKokpitRiesenieRecord): Promise<KokpitRiesenieRecord> {
+    const [row] = await db.insert(kokpitRiesenieRecords).values(data).returning();
+    return row;
   }
 }
 

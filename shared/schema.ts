@@ -3026,6 +3026,23 @@ export const insertKokpitStagedScanSchema = createInsertSchema(kokpitStagedScans
 export type KokpitStagedScan = typeof kokpitStagedScans.$inferSelect;
 export type InsertKokpitStagedScan = z.infer<typeof insertKokpitStagedScanSchema>;
 
+// === KOKPIT RIEŠENIE RECORDS (completed assignments, persistent) ===
+export const kokpitRiesenieRecords = pgTable("kokpit_riesenie_records", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").notNull(),
+  appUserId: integer("app_user_id").notNull(),
+  contractId: integer("contract_id"),
+  statusId: integer("status_id"),
+  contractLabel: text("contract_label"),
+  subjectLabel: text("subject_label"),
+  scansJson: jsonb("scans_json").$type<{ name: string; url: string; size: number }[]>(),
+  completedAt: timestamp("completed_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertKokpitRiesenieRecordSchema = createInsertSchema(kokpitRiesenieRecords).omit({ id: true, completedAt: true });
+export type KokpitRiesenieRecord = typeof kokpitRiesenieRecords.$inferSelect;
+export type InsertKokpitRiesenieRecord = z.infer<typeof insertKokpitRiesenieRecordSchema>;
+
 export type CreateSubjectRequest = InsertSubject;
 export type UpdateSubjectRequest = Partial<InsertSubject> & { changeReason?: string };
 export type UpdateMyCompanyRequest = Partial<InsertMyCompany> & { changeReason?: string };

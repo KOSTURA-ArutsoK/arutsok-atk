@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -551,10 +552,69 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
 
 type ContractStatusInfo = { id: number; name: string; color: string };
 
-function RieseniePanel({ items }: { items: CompletedItem[] }) {
+type ScanInfo = { name: string; url: string; size: number };
+
+type RiesenieDisplayItem = {
+  id: string;
+  contractLabel: string;
+  subjectLabel: string;
+  statusId: number | null;
+  scans: ScanInfo[];
+  completedAt: number;
+};
+
+function ScanPreview({ scan, idx }: { scan: ScanInfo; idx: number }) {
+  const ext = scan.name.split('.').pop()?.toLowerCase() ?? '';
+  const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext);
+  const isPdf = ext === 'pdf';
+
+  return (
+    <div className="space-y-1" data-testid={`scan-preview-block-${idx}`}>
+      <div className="flex items-center gap-1.5 px-0.5">
+        {getFileTypeIcon(scan.name, "w-3 h-3 shrink-0")}
+        <span className="text-[10px] font-mono text-muted-foreground truncate flex-1">{scan.name}</span>
+        {getFileTypeBadge(scan.name)}
+        <span className="text-[9px] text-muted-foreground shrink-0">{fmtSize(scan.size)}</span>
+      </div>
+      {isImage ? (
+        <img
+          src={scan.url}
+          alt={scan.name}
+          className="w-full rounded border object-contain"
+          data-testid={`preview-riesenie-img-${idx}`}
+        />
+      ) : isPdf ? (
+        <iframe
+          src={scan.url}
+          title={scan.name}
+          className="w-full rounded border-0"
+          style={{ height: 420 }}
+          data-testid={`preview-riesenie-pdf-${idx}`}
+        />
+      ) : (
+        <iframe
+          src={`https://docs.google.com/viewer?url=${encodeURIComponent(scan.url)}&embedded=true`}
+          title={scan.name}
+          className="w-full rounded border-0"
+          style={{ height: 420 }}
+          data-testid={`preview-riesenie-doc-${idx}`}
+        />
+      )}
+    </div>
+  );
+}
+
+function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data: contractStatuses = [] } = useQuery<ContractStatusInfo[]>({
     queryKey: ["/api/contract-statuses"],
   });
+
+  useEffect(() => {
+    if (items.length > 0 && !selectedId) {
+      setSelectedId(items[0].id);
+    }
+  }, [items, selectedId]);
 
   if (items.length === 0) {
     return (
@@ -568,41 +628,31 @@ function RieseniePanel({ items }: { items: CompletedItem[] }) {
     );
   }
 
-  const allScans = items.flatMap(item =>
-    item.scans.map(scan => ({ ...scan, contractLabel: item.contractLabel }))
-  );
+  const selectedItem = items.find(i => i.id === selectedId) ?? null;
+  const scansToShow = selectedItem?.scans ?? [];
 
   return (
     <div className="flex flex-row flex-1 min-h-0 w-full">
 
-      {/* ─── LEFT: Skeny ──────────────────────────────────────────────────── */}
+      {/* ─── LEFT: Náhľad skenov ──────────────────────────────────────────── */}
       <div className="flex flex-col border-r min-w-0" style={{ flex: 1 }}>
         <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
-          <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs font-semibold">Skeny</span>
-          <Badge variant="outline" className="text-xs ml-auto">{allScans.length}</Badge>
+          <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold">Náhľad skenov</span>
+          <Badge variant="outline" className="text-xs ml-auto">{scansToShow.length}</Badge>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 pt-1.5 space-y-1">
-          {allScans.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center pt-4">Žiadne skeny</p>
+        <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-3 pt-2 space-y-4">
+          {!selectedItem && (
+            <p className="text-xs text-muted-foreground text-center pt-8">Vyberte záznam vpravo.</p>
           )}
-          {allScans.map((scan) => (
-            <div
-              key={scan.id}
-              data-testid={`file-riesenie-${scan.id}`}
-              className="rounded-md border px-1.5 py-1 border-border hover:bg-muted/30 transition-colors"
-            >
-              <div className="flex items-center gap-1 min-w-0">
-                {getFileTypeIcon(scan.name, "w-3 h-3 shrink-0")}
-                <span className="text-[10px] font-mono truncate flex-1">{scan.name}</span>
-                {getFileTypeBadge(scan.name)}
-              </div>
-              <div className="flex items-center justify-between mt-0.5">
-                <p className="text-[9px] text-emerald-600 dark:text-emerald-400 truncate">→ {scan.contractLabel}</p>
-                <span className="text-[9px] text-muted-foreground shrink-0 ml-1">{fmtSize(scan.size)}</span>
-              </div>
-            </div>
+          {selectedItem && scansToShow.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center pt-8" data-testid="no-scans-placeholder">
+              Žiadne skeny k tejto zmluve.
+            </p>
+          )}
+          {scansToShow.map((scan, idx) => (
+            <ScanPreview key={`${selectedItem?.id}-${idx}`} scan={scan} idx={idx} />
           ))}
         </div>
       </div>
@@ -628,12 +678,18 @@ function RieseniePanel({ items }: { items: CompletedItem[] }) {
             </thead>
             <tbody>
               {items.map(item => {
-                const status = contractStatuses.find(s => s.id === item.contract.statusId);
+                const status = contractStatuses.find(s => s.id === item.statusId);
+                const isSelected = item.id === selectedId;
                 return (
                   <tr
                     key={item.id}
                     data-testid={`row-riesenie-${item.id}`}
-                    className="border-b border-border/40 last:border-0 hover:bg-muted/20 transition-colors"
+                    onClick={() => setSelectedId(item.id)}
+                    className={`border-b border-border/40 last:border-0 cursor-pointer transition-colors ${
+                      isSelected
+                        ? "bg-blue-50 dark:bg-blue-950/40"
+                        : "hover:bg-muted/20"
+                    }`}
                   >
                     <td className="py-1.5 px-2 font-mono text-[10px] text-blue-700 dark:text-blue-400">{item.contractLabel}</td>
                     <td className="py-1.5 px-2 truncate max-w-[80px] text-[10px]">{item.subjectLabel}</td>
@@ -673,13 +729,33 @@ interface KokpitDialogProps {
   onAddFiles: (files: File[]) => void;
 }
 
+type RiesenieRecord = {
+  id: number;
+  contractId: number | null;
+  statusId: number | null;
+  contractLabel: string | null;
+  subjectLabel: string | null;
+  scansJson: ScanInfo[] | null;
+  completedAt: string;
+};
+
 export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, onAddFiles }: KokpitDialogProps) {
   const [activeTab, setActiveTab] = useState("prichod");
   const [completedItems, setCompletedItems] = useState<CompletedItem[]>([]);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const dialogOpenedAt = useRef<number>(Date.now());
+
+  useEffect(() => {
+    if (open) dialogOpenedAt.current = Date.now();
+  }, [open]);
 
   const { data: items = [] } = useQuery<KokpitItemExt[]>({
     queryKey: ["/api/kokpit/items"],
+    enabled: open,
+  });
+
+  const { data: dbRecords = [] } = useQuery<RiesenieRecord[]>({
+    queryKey: ["/api/kokpit/riesenie-records"],
     enabled: open,
   });
 
@@ -687,7 +763,39 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
 
   function handleComplete(item: CompletedItem) {
     setCompletedItems(prev => [item, ...prev]);
+    apiRequest("POST", "/api/kokpit/riesenie-records", {
+      contractId: item.contract.id,
+      statusId: item.contract.statusId ?? null,
+      contractLabel: item.contractLabel,
+      subjectLabel: item.subjectLabel,
+      scansJson: item.scans.filter(s => s.url && s.done).map(s => ({ name: s.name, url: s.url!, size: s.size })),
+    }).catch(() => {});
   }
+
+  const sessionDisplayItems: RiesenieDisplayItem[] = completedItems.map(item => ({
+    id: item.id,
+    contractLabel: item.contractLabel,
+    subjectLabel: item.subjectLabel,
+    statusId: item.contract.statusId ?? null,
+    scans: item.scans.filter(s => s.url && s.done).map(s => ({ name: s.name, url: s.url!, size: s.size })),
+    completedAt: item.completedAt,
+  }));
+
+  const dbDisplayItems: RiesenieDisplayItem[] = dbRecords
+    .filter(r => new Date(r.completedAt).getTime() < dialogOpenedAt.current)
+    .map(r => ({
+      id: `db-${r.id}`,
+      contractLabel: r.contractLabel ?? "—",
+      subjectLabel: r.subjectLabel ?? "—",
+      statusId: r.statusId,
+      scans: r.scansJson ?? [],
+      completedAt: new Date(r.completedAt).getTime(),
+    }));
+
+  const allRiesenieItems: RiesenieDisplayItem[] = [
+    ...sessionDisplayItems,
+    ...dbDisplayItems,
+  ].sort((a, b) => b.completedAt - a.completedAt);
 
   return (
     <>
@@ -759,8 +867,8 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
                 </TabsTrigger>
                 <TabsTrigger value="rozdelenie" data-testid="tab-rozdelenie" className="w-full text-center font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
                   RIEŠENIE
-                  {completedItems.length > 0 && (
-                    <Badge variant="secondary" className="ml-1.5 text-xs">{completedItems.length}</Badge>
+                  {allRiesenieItems.length > 0 && (
+                    <Badge variant="secondary" className="ml-1.5 text-xs">{allRiesenieItems.length}</Badge>
                   )}
                 </TabsTrigger>
                 <TabsTrigger value="riesenie" data-testid="tab-riesenie" className="w-full text-center font-semibold data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=inactive]:text-slate-600 dark:data-[state=inactive]:text-slate-300">
@@ -782,9 +890,9 @@ export function KokpitDialog({ open, onOpenChange, scanFiles, onRemoveScanFile, 
                 />
               </TabsContent>
 
-              {/* RIEŠENIE — split layout (skeny | stav zmluvy) */}
+              {/* RIEŠENIE — split layout (náhľad skenov | stav zmluvy) */}
               <TabsContent value="rozdelenie" className="flex-1 min-h-0 m-0" style={{ display: 'flex' }}>
-                <RieseniePanel items={completedItems} />
+                <RieseniePanel items={allRiesenieItems} />
               </TabsContent>
 
               {/* VYHODNOTENIE — placeholder */}
