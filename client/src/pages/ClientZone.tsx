@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { InfoChipRow, getWeatherLucideIcon } from "@/components/InfoChipRow";
 import { useWeather, getWeatherDesc, getWeatherIcon } from "@/hooks/use-weather";
 import { getSlovakNameDay, getSlovakHoliday } from "@/lib/slovakNameDays";
+import type { Contract } from "@shared/schema";
 
 export default function ClientZone() {
   const { data: appUser } = useAppUser();
@@ -20,7 +21,7 @@ export default function ClientZone() {
 
   const bratislavaWeather = useWeather(48.1486, 17.1077);
 
-  const { data: contracts = [] } = useQuery<any[]>({
+  const { data: contracts = [] } = useQuery<Contract[]>({
     queryKey: ["/api/contracts"],
     queryFn: async () => {
       const res = await fetch("/api/contracts?limit=500", { credentials: "include" });
@@ -30,12 +31,12 @@ export default function ClientZone() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const activeContracts = contracts.filter((c: any) => !c.isDeleted);
+  const activeContracts = contracts.filter((c) => !c.isDeleted);
   const soonestExpiry = activeContracts
-    .map((c: any) => c.expiryDate ? new Date(c.expiryDate).getTime() : null)
+    .map((c) => (c.expiryDate ? new Date(c.expiryDate).getTime() : null))
     .filter((t): t is number => t !== null && t >= Date.now())
     .sort((a, b) => a - b)[0];
-  const daysToExpiry = soonestExpiry
+  const daysToExpiry = soonestExpiry !== undefined
     ? Math.ceil((soonestExpiry - Date.now()) / 86400000)
     : null;
 
@@ -50,11 +51,11 @@ export default function ClientZone() {
     ? "Nedostupné"
     : `${bratislavaWeather.data.temperature}°C · ${getWeatherDesc(bratislavaWeather.data.weatherCode)}`;
 
-  const firstName = (appUser as any)?.firstName || (appUser as any)?.linkedSubjectFirstName || "";
-  const lastName = (appUser as any)?.lastName || (appUser as any)?.linkedSubjectLastName || "";
-  const greetingName = firstName || lastName
+  const firstName = appUser?.firstName ?? "";
+  const lastName = appUser?.lastName ?? "";
+  const greetingName = (firstName || lastName)
     ? `${firstName} ${lastName}`.trim()
-    : appUser?.displayName || "klient";
+    : appUser?.username ?? "klient";
 
   const clientChips = [
     {
