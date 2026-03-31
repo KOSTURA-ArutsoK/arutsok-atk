@@ -130,4 +130,3 @@ export function InfoChipRow({ variant, chips }: InfoChipRowProps) {
   );
 }
 
-export { CalendarDays, Star, Thermometer, Server, User, FileCheck };

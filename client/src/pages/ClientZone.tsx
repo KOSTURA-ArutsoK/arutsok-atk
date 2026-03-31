@@ -61,7 +61,7 @@ export default function ClientZone() {
     {
       icon: User,
       label: "Vitajte",
-      value: `Dobrý deň, ${greetingName}`,
+      value: `Dobrý deň, pán ${greetingName}`,
       testId: "chip-client-greeting",
     },
     {
