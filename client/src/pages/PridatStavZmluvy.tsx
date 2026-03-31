@@ -2,10 +2,13 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
-import { Upload } from "lucide-react";
+import { Upload, CalendarDays, Star, Server } from "lucide-react";
 import { KokpitHub, type KokpitFunctionId } from "@/components/KokpitHub";
 import type { KokpitStagedScan } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { InfoChipRow, getWeatherLucideIcon } from "@/components/InfoChipRow";
+import { useWeather, getWeatherDesc, getWeatherIcon } from "@/hooks/use-weather";
+import { getSlovakNameDay, getSlovakHoliday } from "@/lib/slovakNameDays";
 
 export type ScanFile = {
   id: string;
@@ -111,6 +114,14 @@ export default function PridatStavZmluvy() {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dbInitializedRef = useRef(false);
+
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const presovWeather = useWeather(49.0016, 21.2396);
 
   const { data: stagedScans = [], isSuccess: stagedScansLoaded } = useQuery<KokpitStagedScan[]>({
     queryKey: ["/api/kokpit/staged-scans"],
@@ -267,6 +278,46 @@ export default function PridatStavZmluvy() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
+  const dateStr = `${String(now.getDate()).padStart(2, "0")}.${String(now.getMonth() + 1).padStart(2, "0")}.${now.getFullYear()}`;
+  const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const nameDay = getSlovakNameDay(now);
+  const holiday = getSlovakHoliday(now);
+  const weatherIcon = presovWeather.data ? getWeatherLucideIcon(getWeatherIcon(presovWeather.data.weatherCode)) : CalendarDays;
+  const weatherValue = presovWeather.loading
+    ? "Načítavam..."
+    : presovWeather.error || !presovWeather.data
+    ? "Nedostupné"
+    : `${presovWeather.data.temperature}°C · ${getWeatherDesc(presovWeather.data.weatherCode)}`;
+
+  const boChips = [
+    {
+      icon: CalendarDays,
+      label: "Dátum / Čas",
+      value: `${dateStr} | ${timeStr}`,
+      testId: "chip-bo-datetime",
+    },
+    {
+      icon: Star,
+      label: holiday ? "Meniny / Sviatok" : "Meniny",
+      value: holiday
+        ? `${nameDay || "—"} | ${holiday}`
+        : nameDay || "—",
+      testId: "chip-bo-nameday",
+    },
+    {
+      icon: weatherIcon,
+      label: "Prešov",
+      value: weatherValue,
+      testId: "chip-bo-weather",
+    },
+    {
+      icon: Server,
+      label: "Systém",
+      value: "Trezor: Online | Spojení: —",
+      testId: "chip-bo-system",
+    },
+  ];
+
   return (
     <div className="p-5 space-y-5">
       {/* Page title */}
@@ -316,6 +367,9 @@ export default function PridatStavZmluvy() {
           />
         </div>
       </div>
+
+      {/* Backoffice info chip row */}
+      <InfoChipRow variant="backoffice" chips={boChips} />
 
       <KokpitHub
         open={hubOpen}

@@ -383,3 +383,54 @@ export function getSlovakNameDay(date: Date): string {
   const dd = String(date.getDate()).padStart(2, "0");
   return NAME_DAYS[`${mm}-${dd}`] ?? "";
 }
+
+function getEasterDate(year: number): Date {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31) - 1;
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month, day);
+}
+
+const FIXED_HOLIDAYS: Record<string, string> = {
+  "01-01": "Nový rok / Deň vzniku SR",
+  "01-06": "Zjavenie Pána",
+  "04-01": "Deň bláznov",
+  "05-01": "Sviatok práce",
+  "05-08": "Deň víťazstva nad fašizmom",
+  "07-05": "Cyrilo-metodský deň",
+  "08-29": "Výročie SNP",
+  "09-01": "Deň Ústavy SR",
+  "09-15": "Sedembolestná Panna Mária",
+  "11-01": "Sviatok všetkých svätých",
+  "11-17": "Deň boja za slobodu a demokraciu",
+  "12-24": "Štedrý deň",
+  "12-25": "1. sviatok vianočný",
+  "12-26": "2. sviatok vianočný",
+};
+
+export function getSlovakHoliday(date: Date): string | null {
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const fixed = FIXED_HOLIDAYS[`${mm}-${dd}`];
+  if (fixed) return fixed;
+
+  const year = date.getFullYear();
+  const easter = getEasterDate(year);
+  const easterMs = easter.getTime();
+  const dateMs = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const diff = Math.round((dateMs - easterMs) / 86400000);
+  if (diff === -2) return "Veľký piatok";
+  if (diff === 1) return "Veľkonočný pondelok";
+  return null;
+}
