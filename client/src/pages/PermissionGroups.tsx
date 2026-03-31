@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, ShieldCheck, RefreshCw, Search, Lock, Users, Link2 } from "lucide-react";
+import { Loader2, Plus, Pencil, ShieldCheck, RefreshCw, Search, Lock, Users, Link2, KeyRound, Eye, EyeOff } from "lucide-react";
 import { useSmartFilter } from "@/hooks/use-smart-filter";
 import type { SmartColumnDef } from "@/hooks/use-smart-filter";
 import { SmartFilterBar } from "@/components/smart-filter-bar";
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -549,6 +550,140 @@ function GroupCard({
   );
 }
 
+function PinField({ userId, currentPin }: { userId: number; currentPin: string | null | undefined }) {
+  const { toast } = useToast();
+  const [value, setValue] = useState(currentPin ?? "");
+  const [show, setShow] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const isDirty = value !== (currentPin ?? "");
+
+  async function handleSave() {
+    if (value && !/^\d{4}$/.test(value)) {
+      toast({ title: "Chyba", description: "PIN musí mať presne 4 číslice (0-9)", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiRequest("PATCH", `/api/app-users/${userId}`, { kokpitPin: value || null });
+      queryClient.invalidateQueries({ queryKey: ["/api/app-users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/app-user/me"] });
+      toast({ title: "Uložené", description: "PIN bol aktualizovaný" });
+    } catch (err: any) {
+      toast({ title: "Chyba", description: err?.message || "Uloženie zlyhalo", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="relative">
+        <Input
+          type={show ? "text" : "password"}
+          inputMode="numeric"
+          maxLength={4}
+          value={value}
+          onChange={e => setValue(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
+          placeholder="0000"
+          className="w-24 h-8 text-sm pr-7 font-mono"
+          data-testid={`input-pin-${userId}`}
+        />
+        <button
+          type="button"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          onClick={() => setShow(s => !s)}
+          tabIndex={-1}
+          data-testid={`button-pin-toggle-${userId}`}
+        >
+          {show ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+      {isDirty && (
+        <Button size="sm" className="h-8 text-xs" onClick={handleSave} disabled={saving} data-testid={`button-pin-save-${userId}`}>
+          {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : "Uložiť"}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function BackOfficeMembersPanel({ groupId }: { groupId: number }) {
+  const { toast } = useToast();
+
+  const { data: allUsers = [] } = useQuery<any[]>({
+    queryKey: ["/api/app-users"],
+  });
+
+  const members = allUsers.filter((u: any) => u.permissionGroupId === groupId);
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, kokpitAccess }: { id: number; kokpitAccess: boolean }) =>
+      apiRequest("PATCH", `/api/app-users/${id}`, { kokpitAccess }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/app-users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/app-user/me"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+    },
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <KeyRound className="w-4 h-4 text-amber-600" />
+        <h3 className="text-sm font-semibold" data-testid="text-bo-members-title">Prístup do Kokpitu — Kancelária Back Office</h3>
+        <Badge variant="outline" className="text-xs">{members.length} členov</Badge>
+      </div>
+
+      {members.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Žiadni členovia v tejto skupine. Priraďte používateľov cez správu používateľov.</p>
+      ) : (
+        <Card>
+          <CardContent className="p-0 overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Používateľ</TableHead>
+                  <TableHead className="text-center w-40">Prístup do kokpitu</TableHead>
+                  <TableHead className="w-52">PIN kód (4 číslice)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {members.map((u: any) => {
+                  const fullName = [u.firstName, u.lastName].filter(Boolean).join(" ") || u.username;
+                  return (
+                    <TableRow key={u.id} data-testid={`row-bo-member-${u.id}`}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium text-sm" data-testid={`text-bo-member-name-${u.id}`}>{fullName}</div>
+                          <div className="text-xs text-muted-foreground">{u.username}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={!!u.kokpitAccess}
+                          onCheckedChange={(checked) => updateMutation.mutate({ id: u.id, kokpitAccess: checked })}
+                          disabled={updateMutation.isPending}
+                          data-testid={`switch-kokpit-access-${u.id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <PinField userId={u.id} currentPin={u.kokpitPin} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export default function PermissionGroupsPage() {
   const { toast } = useToast();
   const { data: groups, isLoading: groupsLoading } = useQuery<PermissionGroup[]>({
@@ -578,6 +713,10 @@ export default function PermissionGroupsPage() {
 
   function isSystemGroup(pgId: number): boolean {
     return getLinkedClientGroup(pgId)?.isSystem === true;
+  }
+
+  function isBackOfficeGroup(pgId: number): boolean {
+    return getLinkedClientGroup(pgId)?.groupCode === "kancelaria_back_office";
   }
 
   const systemGroups = tableFilter.filteredData.filter(g => isSystemGroup(g.id));
@@ -697,6 +836,10 @@ export default function PermissionGroupsPage() {
             </div>
           )}
         </div>
+      )}
+
+      {selectedGroupId && isBackOfficeGroup(selectedGroupId) && (
+        <BackOfficeMembersPanel groupId={selectedGroupId} />
       )}
 
       {selectedGroupId && (

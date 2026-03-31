@@ -516,6 +516,8 @@ export const appUsers = pgTable("app_users", {
   credentialNumber: text("credential_number"),
   accessExpiresAt: timestamp("access_expires_at"),
   lastLoginAt: timestamp("last_login_at"),
+  kokpitAccess: boolean("kokpit_access").default(false),
+  kokpitPin: varchar("kokpit_pin", { length: 4 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

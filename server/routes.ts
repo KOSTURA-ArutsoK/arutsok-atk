@@ -4938,6 +4938,32 @@ export async function registerRoutes(
     }
   });
 
+  // PATCH /api/app-users/:id — update kokpitAccess and kokpitPin (admin only)
+  app.patch("/api/app-users/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const appUser = req.appUser;
+      if (!hasAdminAccess(appUser)) return res.status(403).json({ message: "Prístup zamietnutý" });
+      const id = Number(req.params.id);
+      const { kokpitAccess, kokpitPin } = req.body;
+      const updates: any = {};
+      if (typeof kokpitAccess === "boolean") updates.kokpitAccess = kokpitAccess;
+      if (kokpitPin !== undefined) {
+        if (kokpitPin !== null && !/^\d{4}$/.test(kokpitPin)) {
+          return res.status(400).json({ message: "PIN musí mať presne 4 číslice" });
+        }
+        updates.kokpitPin = kokpitPin;
+      }
+      if (Object.keys(updates).length === 0) return res.status(400).json({ message: "Žiadne zmeny" });
+      const updated = await storage.updateAppUser(id, updates);
+      await logAudit(req, { action: "UPDATE", module: "pouzivatelia", entityId: id, newData: { kokpitAccess: updates.kokpitAccess, pinChanged: updates.kokpitPin !== undefined } });
+      const { password: _pw, ...safe } = updated;
+      res.json(safe);
+    } catch (err) {
+      if (err instanceof Error && err.message === "App user not found") return res.status(404).json({ message: err.message });
+      throw err;
+    }
+  });
+
   // === FILE UPLOAD / DOWNLOAD / DELETE ===
   app.post("/api/my-companies/:companyId/files/:section", isAuthenticated, upload.single("file"), async (req, res) => {
     try {
@@ -18114,22 +18140,47 @@ export async function registerRoutes(
 
   {
     // Auto-create "Kancelária — Back office" as isHoldingGroup + isSystem group
-    const existing = await db.select().from(clientGroups).where(eq(clientGroups.groupCode, "kancelaria_back_office"));
-    if (existing.length === 0) {
-      await db.insert(clientGroups).values({
+    // AND link it to a system permission group "Kancelária - Back Office"
+    const existingCg = await db.select().from(clientGroups).where(eq(clientGroups.groupCode, "kancelaria_back_office"));
+    let boClientGroupId: number;
+    if (existingCg.length === 0) {
+      const [created] = await db.insert(clientGroups).values({
         name: "Kancelária — Back office",
         groupCode: "kancelaria_back_office",
         isSystem: true,
         isHoldingGroup: true,
         permissionLevel: 1,
         description: "Špeciálna systémová skupina pre prístup do modulu Kokpit. Členovia skupiny majú prístup k spracovaniu prijatých zmlúv.",
-      });
+      }).returning({ id: clientGroups.id });
+      boClientGroupId = created.id;
       console.log("[SEED] Created system group: Kancelária — Back office");
     } else {
+      boClientGroupId = existingCg[0].id;
       const upd: any = {};
-      if (!existing[0].isSystem) upd.isSystem = true;
-      if (!existing[0].isHoldingGroup) upd.isHoldingGroup = true;
-      if (Object.keys(upd).length > 0) await db.update(clientGroups).set(upd).where(eq(clientGroups.id, existing[0].id));
+      if (!existingCg[0].isSystem) upd.isSystem = true;
+      if (!existingCg[0].isHoldingGroup) upd.isHoldingGroup = true;
+      if (Object.keys(upd).length > 0) await db.update(clientGroups).set(upd).where(eq(clientGroups.id, boClientGroupId));
+    }
+
+    // Ensure the permission group "Kancelária - Back Office" exists and is linked
+    const existingPg = await db.select().from(permissionGroups).where(eq(permissionGroups.name, "Kancelária - Back Office"));
+    let boPgId: number;
+    if (existingPg.length === 0) {
+      const [createdPg] = await db.insert(permissionGroups).values({
+        name: "Kancelária - Back Office",
+        description: "Systémová skupina pre kancelársky back office a správu kokpitu.",
+        sessionTimeoutSeconds: 3600,
+      }).returning({ id: permissionGroups.id });
+      boPgId = createdPg.id;
+      console.log("[SEED] Created permission group: Kancelária - Back Office");
+    } else {
+      boPgId = existingPg[0].id;
+    }
+
+    // Link client group ↔ permission group if not already linked
+    const [cgRow] = await db.select({ permissionGroupId: clientGroups.permissionGroupId }).from(clientGroups).where(eq(clientGroups.id, boClientGroupId));
+    if (cgRow && cgRow.permissionGroupId !== boPgId) {
+      await db.update(clientGroups).set({ permissionGroupId: boPgId }).where(eq(clientGroups.id, boClientGroupId));
     }
   }
 

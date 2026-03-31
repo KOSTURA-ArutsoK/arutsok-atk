@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useAppUser } from "@/hooks/use-app-user";
@@ -7,10 +7,10 @@ import { KokpitDialogBody } from "@/components/KokpitDialog";
 import type { ScanFile } from "@/pages/PridatStavZmluvy";
 import {
   Target, Layers, FileInput, Calculator, Shield, User,
-  Inbox, FileText, Clock, ChevronLeft, FileDown, Zap,
+  Inbox, FileText, Clock, ChevronLeft, FileDown, Zap, Mail,
 } from "lucide-react";
 
-export type KokpitFunctionId = "roztriedenie-stavov" | "zadavanie-provizii" | "vypocet-odmien" | "dokumenty-na-stiahnutie" | "hromadny-import-stavov";
+export type KokpitFunctionId = "roztriedenie-stavov" | "zadavanie-provizii" | "vypocet-odmien" | "roztriedenie-mailov" | "dokumenty-na-stiahnutie" | "hromadny-import-stavov";
 
 interface KokpitHubProps {
   open: boolean;
@@ -46,6 +46,8 @@ function computeKokpitLabel(permissions: KokpitAccessData["permissions"]): strin
   return names.length > 0 ? names.join(" | ") : "Holding";
 }
 
+const PIN_PROTECTED: KokpitFunctionId[] = ["zadavanie-provizii", "vypocet-odmien", "roztriedenie-mailov"];
+
 const HUB_FUNCTIONS: Array<{
   id: KokpitFunctionId;
   Icon: React.ComponentType<{ className?: string }>;
@@ -57,6 +59,7 @@ const HUB_FUNCTIONS: Array<{
   borderColor: string;
   hoverBorderColor: string;
   iconColor: string;
+  pinProtected?: boolean;
 }> = [
   {
     id: "roztriedenie-stavov",
@@ -80,6 +83,7 @@ const HUB_FUNCTIONS: Array<{
     borderColor: "border-emerald-500/30",
     hoverBorderColor: "hover:border-emerald-400/60",
     iconColor: "text-emerald-400",
+    pinProtected: true,
   },
   {
     id: "vypocet-odmien",
@@ -91,6 +95,19 @@ const HUB_FUNCTIONS: Array<{
     borderColor: "border-violet-500/30",
     hoverBorderColor: "hover:border-violet-400/60",
     iconColor: "text-violet-400",
+    pinProtected: true,
+  },
+  {
+    id: "roztriedenie-mailov",
+    Icon: Mail,
+    title: "Roztriedenie mailov",
+    description: "Triedenie a spracovanie prichádzajúcej elektronickej pošty podľa kategórie.",
+    gradientFrom: "from-teal-800/50",
+    gradientTo: "to-teal-900/70",
+    borderColor: "border-teal-500/30",
+    hoverBorderColor: "hover:border-teal-400/60",
+    iconColor: "text-teal-400",
+    pinProtected: true,
   },
   {
     id: "dokumenty-na-stiahnutie",
@@ -135,14 +152,98 @@ function SkeletonRow({ w = "100%", h = 28, opacity = 1 }: { w?: string; h?: numb
 
 const DARK_BG = "linear-gradient(160deg, #0c1e3a 0%, #07111f 100%)";
 
+function PinInput({
+  onSuccess,
+  onCancel,
+  correctPin,
+}: {
+  onSuccess: () => void;
+  onCancel: () => void;
+  correctPin: string | null | undefined;
+}) {
+  const [digits, setDigits] = useState(["", "", "", ""]);
+  const [error, setError] = useState(false);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([null, null, null, null]);
+
+  useEffect(() => {
+    inputRefs.current[0]?.focus();
+  }, []);
+
+  function handleKey(e: React.KeyboardEvent, idx: number) {
+    if (e.key === "Escape") { onCancel(); return; }
+    if (e.key === "Backspace") {
+      e.preventDefault();
+      if (digits[idx] !== "") {
+        const next = [...digits];
+        next[idx] = "";
+        setDigits(next);
+      } else if (idx > 0) {
+        const next = [...digits];
+        next[idx - 1] = "";
+        setDigits(next);
+        inputRefs.current[idx - 1]?.focus();
+      }
+      return;
+    }
+    if (/^\d$/.test(e.key)) {
+      e.preventDefault();
+      const next = [...digits];
+      next[idx] = e.key;
+      setDigits(next);
+      if (idx < 3) {
+        inputRefs.current[idx + 1]?.focus();
+      } else {
+        const pin = [...next].join("");
+        if (!correctPin || pin === correctPin) {
+          onSuccess();
+        } else {
+          setError(true);
+          setTimeout(() => {
+            setError(false);
+            setDigits(["", "", "", ""]);
+            inputRefs.current[0]?.focus();
+          }, 900);
+        }
+      }
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+      {digits.map((d, i) => (
+        <input
+          key={i}
+          ref={(el) => { inputRefs.current[i] = el; }}
+          type="password"
+          inputMode="numeric"
+          maxLength={1}
+          value={d}
+          readOnly
+          onKeyDown={(e) => handleKey(e, i)}
+          onClick={(e) => { e.stopPropagation(); inputRefs.current[i]?.focus(); }}
+          data-testid={`input-pin-digit-${i}`}
+          className={`
+            w-8 h-10 text-center text-sm font-bold rounded
+            border-b-2 border outline-none bg-black/30 text-white caret-transparent
+            transition-colors duration-150
+            ${error
+              ? "border-red-400 border-b-red-400 text-red-400 animate-[shake_0.3s_ease-in-out]"
+              : "border-amber-400/60 border-b-amber-400 focus:border-amber-300 focus:border-b-amber-300"
+            }
+          `}
+          style={{ WebkitTextSecurity: "disc" } as any}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = [], onRemoveScanFile, onAddFiles }: KokpitHubProps) {
   const { data: appUser } = useAppUser();
-  // activeLayer: ktorá vrstva je momentálne predná a interaktívna
-  const [activeLayer, setActiveLayer] = useState<"hub" | "second" | "third">("hub");
-  // hubExiting: animácia odchodu Hubu (Layer 3)
+  const [activeLayer, setActiveLayer] = useState<"hub" | "second" | "third" | "mails">("hub");
   const [hubExiting, setHubExiting] = useState(false);
-  // isClosing: animácia zatvárania celého dialógu
   const [isClosing, setIsClosing] = useState(false);
+  const [pinTargetId, setPinTargetId] = useState<KokpitFunctionId | null>(null);
 
   const { data: kokpitAccess } = useQuery<KokpitAccessData>({
     queryKey: ["/api/kokpit/access"],
@@ -156,20 +257,42 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
     appUser?.username ||
     "—";
   const userUid = appUser?.uid ? formatUid(appUser.uid) : null;
+  const userKokpitPin = (appUser as any)?.kokpitPin as string | null | undefined;
 
-  // Klik na funkciu: Hub (Layer 3) odíde, cieľová vrstva príde dopredu
-  function handleSelectFunction(id: KokpitFunctionId) {
+  function doSelectFunction(id: KokpitFunctionId) {
     onSelectFunction(id);
     setHubExiting(true);
     setTimeout(() => {
       setHubExiting(false);
-      // roztriedenie-stavov → odkryje vrstvu 1 (KokpitDialog)
-      // ostatné → odkryje vrstvu 2 (PridatStavZmluvy)
-      setActiveLayer(id === "roztriedenie-stavov" ? "third" : "second");
+      if (id === "roztriedenie-stavov") {
+        setActiveLayer("third");
+      } else if (id === "roztriedenie-mailov") {
+        setActiveLayer("mails");
+      } else {
+        setActiveLayer("second");
+      }
     }, 280);
   }
 
-  // "Späť" v ľubovoľnej odkrytej vrstve → vráti Hub (Layer 3)
+  function handleTileClick(id: KokpitFunctionId) {
+    if (PIN_PROTECTED.includes(id)) {
+      setPinTargetId(id);
+    } else {
+      doSelectFunction(id);
+    }
+  }
+
+  function handlePinSuccess() {
+    if (!pinTargetId) return;
+    const id = pinTargetId;
+    setPinTargetId(null);
+    doSelectFunction(id);
+  }
+
+  function handlePinCancel() {
+    setPinTargetId(null);
+  }
+
   function handleBackToHub() {
     setActiveLayer("hub");
   }
@@ -179,9 +302,12 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
     setTimeout(() => {
       setIsClosing(false);
       setActiveLayer("hub");
+      setPinTargetId(null);
       onOpenChange(false);
     }, 280);
   }
+
+  const hubIsInactive = activeLayer !== "hub";
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
@@ -229,9 +355,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                 enabled={activeLayer === "third"}
               />
             ) : (
-              /* Skeletal pozadie */
               <>
-                {/* Header */}
                 <div
                   className="flex items-center gap-3 px-5 py-3 shrink-0"
                   style={{ borderBottom: "1px solid rgba(245,158,11,0.15)", background: "rgba(12,30,58,0.7)" }}
@@ -241,8 +365,6 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                   <div className="h-3 w-px bg-amber-500/25 mx-1" />
                   <span className="text-[11px] text-blue-300/50 font-mono">{userUid ?? "—"}</span>
                 </div>
-
-                {/* Tabs */}
                 <div
                   className="flex items-center gap-1 px-4 py-2 shrink-0"
                   style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
@@ -261,10 +383,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                     </div>
                   ))}
                 </div>
-
-                {/* Skeleton rows — tabuľka vypĺňa celú výšku */}
                 <div className="flex-1 px-5 pt-3 pb-4 flex flex-col justify-between overflow-hidden">
-                  {/* Hlavičkový riadok */}
                   <div className="flex gap-2 pb-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
                     <SkeletonRow w="7%" h={18} opacity={0.7} />
                     <SkeletonRow w="16%" h={18} opacity={0.7} />
@@ -273,7 +392,6 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                     <SkeletonRow w="11%" h={18} opacity={0.7} />
                     <SkeletonRow w="15%" h={18} opacity={0.7} />
                   </div>
-                  {/* Dátové riadky — roztiahnuté cez celú výšku */}
                   {[
                     [7,16,13,20,11,15],
                     [7,14,10,22,9,13],
@@ -315,7 +433,6 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
               transition: "opacity 0.2s ease",
             }}
           >
-            {/* Top bar */}
             <div
               className="flex items-center justify-between px-5 py-3 shrink-0"
               style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
@@ -345,9 +462,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
               </div>
             </div>
 
-            {/* Two-column content */}
             <div className="flex flex-1 gap-4 p-4 overflow-hidden">
-              {/* Nahraté skeny */}
               <div className="flex-1 flex flex-col gap-2 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <Inbox className="w-3.5 h-3.5 text-blue-400/60" />
@@ -364,7 +479,6 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
 
               <div style={{ width: 1, background: "rgba(255,255,255,0.06)", flexShrink: 0 }} />
 
-              {/* Dnešné aktivity */}
               <div className="flex-1 flex flex-col gap-2 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <Clock className="w-3.5 h-3.5 text-emerald-400/60" />
@@ -392,6 +506,48 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             </div>
           </div>
 
+          {/* Vrstva Maily — Roztriedenie mailov placeholder */}
+          <div
+            className="absolute flex flex-col overflow-hidden rounded-xl border border-teal-500/15"
+            style={{
+              width: "90vw",
+              height: "90vh",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              background: "linear-gradient(180deg, #0f1f1e 0%, #0b1918 100%)",
+              opacity: activeLayer === "mails" ? 1 : 0,
+              zIndex: activeLayer === "mails" ? 4 : 0,
+              transition: "opacity 0.2s ease",
+              pointerEvents: activeLayer === "mails" ? "auto" : "none",
+            }}
+          >
+            <div
+              className="flex items-center gap-3 px-5 py-3 shrink-0"
+              style={{ borderBottom: "1px solid rgba(20,184,166,0.15)", background: "rgba(10,30,28,0.7)" }}
+            >
+              <button
+                type="button"
+                onClick={handleBackToHub}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-teal-300/70 hover:text-teal-100 hover:bg-white/10 transition-colors text-xs font-semibold border border-teal-500/20 hover:border-teal-400/40"
+                data-testid="button-mails-back"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                Späť
+              </button>
+              <div className="h-3 w-px bg-teal-500/25 mx-1" />
+              <Mail className="w-4 h-4 text-teal-400" />
+              <span className="text-sm font-extrabold tracking-[0.2em] text-teal-300">ROZTRIEDENIE MAILOV</span>
+            </div>
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center space-y-4">
+                <Mail className="w-16 h-16 text-teal-400/30 mx-auto" />
+                <p className="text-teal-300/60 text-lg font-semibold">Roztriedenie mailov – pripravuje sa</p>
+                <p className="text-teal-300/30 text-sm">Táto funkcia bude dostupná v budúcej verzii.</p>
+              </div>
+            </div>
+          </div>
+
           {/* Vrstva 3 — vrchná/predná (85vw × 85vh): Hub s bublinami */}
           <div
             className="absolute flex flex-col overflow-hidden rounded-xl shadow-2xl border border-amber-500/20"
@@ -401,13 +557,13 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
               top: "50%",
               left: "50%",
               background: DARK_BG,
-              zIndex: activeLayer !== "hub" ? 0 : 3,
-              pointerEvents: activeLayer !== "hub" ? "none" : "auto",
+              zIndex: hubIsInactive ? 0 : 3,
+              pointerEvents: hubIsInactive ? "none" : "auto",
               transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease",
-              transform: (hubExiting || isClosing || activeLayer !== "hub")
+              transform: (hubExiting || isClosing || hubIsInactive)
                 ? "translate(-50%, -50%) translateX(-60px) translateY(-20px) scale(0.94)"
                 : "translate(-50%, -50%)",
-              opacity: (hubExiting || isClosing || activeLayer !== "hub") ? 0 : 1,
+              opacity: (hubExiting || isClosing || hubIsInactive) ? 0 : 1,
             }}
           >
             {/* Header */}
@@ -477,43 +633,50 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                 <p className="text-[10px] font-bold text-blue-400/35 uppercase tracking-widest mb-2.5">
                   Spracovanie zmlúv
                 </p>
-                <div
-                  className="grid grid-cols-2 gap-5 rounded-2xl border border-blue-500/15 bg-blue-950/20 p-4"
-                >
+                <div className="grid grid-cols-2 gap-5 rounded-2xl border border-blue-500/15 bg-blue-950/20 p-4">
                   {HUB_FUNCTIONS.filter(f => f.id === "roztriedenie-stavov" || f.id === "hromadny-import-stavov")
-                    .map(({ id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      data-testid={`button-hub-${id}`}
-                      onClick={() => handleSelectFunction(id)}
-                      className={`
-                        flex flex-col items-start gap-4 p-5 rounded-xl border
-                        bg-gradient-to-br ${gradientFrom} ${gradientTo}
-                        ${borderColor} ${hoverBorderColor}
-                        hover:scale-[1.03] hover:shadow-lg hover:shadow-blue-900/40
-                        active:scale-[0.98]
-                        transition-all duration-200 text-left cursor-pointer group
-                      `}
-                    >
-                      <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-white/5 border border-white/10 group-hover:border-amber-500/30 transition-colors">
-                        <Icon className={`w-6 h-6 ${iconColor} group-hover:text-amber-400 transition-colors`} />
-                      </div>
-                      <div>
-                        <div className="font-bold text-blue-100 text-sm leading-snug group-hover:text-white transition-colors">
-                          {title}
-                        </div>
-                        {subtitle && (
-                          <div className="text-[10px] font-semibold text-amber-400/60 mt-0.5 tracking-wide uppercase">
-                            {subtitle}
+                    .map(({ id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor }) => {
+                      const isPinActive = pinTargetId === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          data-testid={`button-hub-${id}`}
+                          onClick={() => !isPinActive && handleTileClick(id)}
+                          className={`
+                            flex flex-col items-start gap-4 p-5 rounded-xl border
+                            bg-gradient-to-br ${gradientFrom} ${gradientTo}
+                            ${borderColor} ${hoverBorderColor}
+                            ${isPinActive ? "ring-2 ring-amber-400/50 scale-[1.02]" : "hover:scale-[1.03] hover:shadow-lg hover:shadow-blue-900/40 active:scale-[0.98]"}
+                            transition-all duration-200 text-left cursor-pointer group
+                          `}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-white/5 border border-white/10 group-hover:border-amber-500/30 transition-colors">
+                              <Icon className={`w-6 h-6 ${iconColor} group-hover:text-amber-400 transition-colors`} />
+                            </div>
+                            {isPinActive && (
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <PinInput correctPin={userKokpitPin} onSuccess={handlePinSuccess} onCancel={handlePinCancel} />
+                              </div>
+                            )}
                           </div>
-                        )}
-                        <div className="text-xs text-blue-300/50 mt-1.5 leading-relaxed">
-                          {description}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                          <div>
+                            <div className="font-bold text-blue-100 text-sm leading-snug group-hover:text-white transition-colors">
+                              {title}
+                            </div>
+                            {subtitle && (
+                              <div className="text-[10px] font-semibold text-amber-400/60 mt-0.5 tracking-wide uppercase">
+                                {subtitle}
+                              </div>
+                            )}
+                            <div className="text-xs text-blue-300/50 mt-1.5 leading-relaxed">
+                              {description}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                 </div>
               </div>
 
@@ -524,39 +687,48 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
                   {HUB_FUNCTIONS.filter(f => f.id !== "roztriedenie-stavov" && f.id !== "hromadny-import-stavov")
-                    .map(({ id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      data-testid={`button-hub-${id}`}
-                      onClick={() => handleSelectFunction(id)}
-                      className={`
-                        flex flex-col items-start gap-4 p-5 rounded-xl border
-                        bg-gradient-to-br ${gradientFrom} ${gradientTo}
-                        ${borderColor} ${hoverBorderColor}
-                        hover:scale-[1.03] hover:shadow-lg hover:shadow-blue-900/40
-                        active:scale-[0.98]
-                        transition-all duration-200 text-left cursor-pointer group
-                      `}
-                    >
-                      <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-white/5 border border-white/10 group-hover:border-amber-500/30 transition-colors">
-                        <Icon className={`w-6 h-6 ${iconColor} group-hover:text-amber-400 transition-colors`} />
-                      </div>
-                      <div>
-                        <div className="font-bold text-blue-100 text-sm leading-snug group-hover:text-white transition-colors">
-                          {title}
-                        </div>
-                        {subtitle && (
-                          <div className="text-[10px] font-semibold text-amber-400/60 mt-0.5 tracking-wide uppercase">
-                            {subtitle}
+                    .map(({ id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor }) => {
+                      const isPinActive = pinTargetId === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          data-testid={`button-hub-${id}`}
+                          onClick={() => !isPinActive && handleTileClick(id)}
+                          className={`
+                            flex flex-col items-start gap-4 p-5 rounded-xl border
+                            bg-gradient-to-br ${gradientFrom} ${gradientTo}
+                            ${borderColor} ${hoverBorderColor}
+                            ${isPinActive ? "ring-2 ring-amber-400/50 scale-[1.02]" : "hover:scale-[1.03] hover:shadow-lg hover:shadow-blue-900/40 active:scale-[0.98]"}
+                            transition-all duration-200 text-left cursor-pointer group
+                          `}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-white/5 border border-white/10 group-hover:border-amber-500/30 transition-colors">
+                              <Icon className={`w-6 h-6 ${iconColor} group-hover:text-amber-400 transition-colors`} />
+                            </div>
+                            {isPinActive && (
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <PinInput correctPin={userKokpitPin} onSuccess={handlePinSuccess} onCancel={handlePinCancel} />
+                              </div>
+                            )}
                           </div>
-                        )}
-                        <div className="text-xs text-blue-300/50 mt-1.5 leading-relaxed">
-                          {description}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                          <div>
+                            <div className="font-bold text-blue-100 text-sm leading-snug group-hover:text-white transition-colors">
+                              {title}
+                            </div>
+                            {subtitle && (
+                              <div className="text-[10px] font-semibold text-amber-400/60 mt-0.5 tracking-wide uppercase">
+                                {subtitle}
+                              </div>
+                            )}
+                            <div className="text-xs text-blue-300/50 mt-1.5 leading-relaxed">
+                              {description}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                 </div>
               </div>
             </div>
