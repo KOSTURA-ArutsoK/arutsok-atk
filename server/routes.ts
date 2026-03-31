@@ -26170,12 +26170,25 @@ export async function registerRoutes(
       try {
         const octokit = await getUncachableGitHubClient();
         const { data: ghUser } = await octokit.rest.users.getAuthenticated();
-        const { data: repos } = await octokit.rest.repos.listForAuthenticatedUser({ sort: 'pushed', direction: 'desc', per_page: 5 });
-        if (repos.length > 0) {
-          const repo = repos[0];
-          repoName = repo.full_name;
+        // Prefer explicit env var (GITHUB_TARGET_REPO=owner/repo); fall back to most-recently-pushed repo
+        let targetOwner = ghUser.login;
+        let targetRepo: string | null = null;
+        const envRepo = process.env.GITHUB_TARGET_REPO;
+        if (envRepo && envRepo.includes('/')) {
+          const [envOwner, envRepoName] = envRepo.split('/');
+          targetOwner = envOwner;
+          targetRepo = envRepoName;
+          repoName = envRepo;
+        } else {
+          const { data: repos } = await octokit.rest.repos.listForAuthenticatedUser({ sort: 'pushed', direction: 'desc', per_page: 5 });
+          if (repos.length > 0) {
+            targetRepo = repos[0].name;
+            repoName = repos[0].full_name;
+          }
+        }
+        if (targetRepo) {
           const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-          const { data: commits } = await octokit.rest.repos.listCommits({ owner: ghUser.login, repo: repo.name, since, per_page: 100 });
+          const { data: commits } = await octokit.rest.repos.listCommits({ owner: targetOwner, repo: targetRepo, since, per_page: 100 });
           commitCount30d = commits.length;
           recentCommits = commits.slice(0, 30).map(c => ({
             sha: c.sha.substring(0, 7),
