@@ -688,6 +688,7 @@ export async function registerRoutes(
     .then(r => { if (r.parametersCount > 0) console.log(`[SYNC] Added ${r.sectionsCount} sections, ${r.parametersCount} params on startup`); })
     .catch(err => console.error("[SEED-OS-NS-VS-TEMPLATES ERROR]", err));
   cleanupZombieTemplateParams().catch(err => console.error("[CLEANUP-ZOMBIE-PARAMS ERROR]", err));
+  migrateSectionTypes().catch(err => console.error("[MIGRATE-SECTION-TYPES ERROR]", err));
 
   (async () => {
     try {
@@ -18070,6 +18071,8 @@ export async function registerRoutes(
   });
 
 
+  await seedDatabase();
+
   {
     const allPgs = await storage.getPermissionGroups();
     let synced = 0;
@@ -18159,6 +18162,8 @@ export async function registerRoutes(
 
   await storage.autoArchiveExpiredBindings();
   setInterval(() => storage.autoArchiveExpiredBindings(), 60 * 60 * 1000);
+
+  scheduleUndeliveredContractsCheck();
 
 
   // === ANALYTICS & REPORTING ===
@@ -20937,7 +20942,6 @@ export async function registerRoutes(
   });
 
   
-  async function refreshDocumentStatuses(): Promise<number> { return 0; }
 app.post("/api/document-validity/refresh", isAuthenticated, async (_req, res) => {
     try {
       const count = await refreshDocumentStatuses();
@@ -26295,7 +26299,7 @@ app.post("/api/document-validity/refresh", isAuthenticated, async (_req, res) =>
       const codeValueEur = netLoc * LOC_PRICE;
       const ipPremiumEur = 500000 + 750000 + 300000; // Decoy + Trezor/Holding + Mirror context
       const licenseCostsRows = await db.select().from(atkLicenseCosts);
-      const totalLicenseCostEur = licenseCostsRows.reduce((sum, r) => sum + (r.amountWithoutVat || 0), 0);
+      const totalLicenseCostEur = Math.round(licenseCostsRows.reduce((sum, r) => sum + (r.amountWithoutVat || 0), 0) / 100);
       const totalValueEur = codeValueEur + ipPremiumEur + totalLicenseCostEur;
       let commitCount30d: number | null = null;
       let repoName: string | null = null;
@@ -26407,3 +26411,714 @@ app.post("/api/document-validity/refresh", isAuthenticated, async (_req, res) =>
 
   return httpServer;
 }
+async function seedTestContracts() {
+  const existingContracts = await db.select({ id: contracts.id }).from(contracts).where(eq(contracts.isDeleted, false)).limit(5);
+  if (existingContracts.length >= 5) {
+    return { message: "Už existuje 5+ zmlúv, seed preskočený", count: existingContracts.length };
+  }
+
+  const allSubjects = await db.select().from(subjects).limit(10);
+  const allPartners = await db.select().from(partners).where(eq(partners.isDeleted, false)).limit(10);
+  const allProducts = await db.select().from(products).where(eq(products.isDeleted, false)).limit(10);
+  const allStatuses = await db.select().from(contractStatuses).limit(10);
+  const allCompanies = await db.select().from(myCompanies).where(eq(myCompanies.isDeleted, false)).limit(5);
+
+  const subjectId = allSubjects.length > 0 ? allSubjects[0].id : null;
+  const subjectId2 = allSubjects.length > 1 ? allSubjects[1].id : subjectId;
+  const subjectId3 = allSubjects.length > 2 ? allSubjects[2].id : subjectId;
+  const partnerId = allPartners.length > 0 ? allPartners[0].id : null;
+  const partnerId2 = allPartners.length > 1 ? allPartners[1].id : partnerId;
+  const productId = allProducts.length > 0 ? allProducts[0].id : null;
+  const productId2 = allProducts.length > 1 ? allProducts[1].id : productId;
+  const statusId = allStatuses.length > 0 ? allStatuses[0].id : null;
+  const statusId2 = allStatuses.length > 1 ? allStatuses[1].id : statusId;
+  const companyId = allCompanies.length > 0 ? allCompanies[0].id : null;
+
+  const now = new Date();
+  const daysMs = 24 * 60 * 60 * 1000;
+
+  const testContracts = [
+    {
+      contractNumber: "TST-2025-001",
+      proposalNumber: "NAV-001",
+      subjectId,
+      partnerId,
+      productId,
+      statusId,
+      companyId,
+      contractType: "Nova",
+      paymentFrequency: "mesačne",
+      signedDate: new Date(now.getTime() - 365 * daysMs),
+      effectiveDate: new Date(now.getTime() - 360 * daysMs),
+      expiryDate: new Date(now.getTime() + 60 * daysMs),
+      premiumAmount: 15000,
+      annualPremium: 18000,
+      commissionAmount: 2500,
+      currency: "EUR",
+      notes: "Testovacia zmluva - blížiaca sa expirácia (60 dní)",
+      lifecyclePhase: 5,
+      isDeleted: false,
+    },
+    {
+      contractNumber: "TST-2025-002",
+      proposalNumber: "NAV-002",
+      subjectId: subjectId2,
+      partnerId: partnerId2,
+      productId: productId2,
+      statusId: statusId2,
+      companyId,
+      contractType: "Nova",
+      paymentFrequency: "štvrťročne",
+      signedDate: new Date(now.getTime() - 400 * daysMs),
+      effectiveDate: new Date(now.getTime() - 395 * daysMs),
+      expiryDate: new Date(now.getTime() + 30 * daysMs),
+      premiumAmount: 25000,
+      annualPremium: 30000,
+      commissionAmount: 4000,
+      currency: "EUR",
+      notes: "Testovacia zmluva - blížiaca sa expirácia (30 dní)",
+      lifecyclePhase: 6,
+      isDeleted: false,
+    },
+    {
+      contractNumber: "TST-2025-003",
+      proposalNumber: "NAV-003",
+      subjectId: subjectId3,
+      partnerId,
+      productId,
+      statusId,
+      companyId,
+      contractType: "Nova",
+      paymentFrequency: "ročne",
+      signedDate: new Date(now.getTime() - 730 * daysMs),
+      effectiveDate: new Date(now.getTime() - 725 * daysMs),
+      expiryDate: new Date(now.getTime() - 45 * daysMs),
+      premiumAmount: 50000,
+      annualPremium: 50000,
+      commissionAmount: 7500,
+      currency: "EUR",
+      notes: "Testovacia zmluva - expirovaná",
+      lifecyclePhase: 10,
+      isDeleted: false,
+    },
+    {
+      contractNumber: "TST-2025-004",
+      proposalNumber: "NAV-004",
+      subjectId,
+      partnerId: partnerId2,
+      productId: productId2,
+      statusId: statusId2,
+      companyId,
+      contractType: "Nova",
+      paymentFrequency: "mesačne",
+      signedDate: new Date(now.getTime() - 180 * daysMs),
+      effectiveDate: new Date(now.getTime() - 175 * daysMs),
+      expiryDate: new Date(now.getTime() + 550 * daysMs),
+      premiumAmount: 12000,
+      annualPremium: 14400,
+      commissionAmount: 1800,
+      currency: "EUR",
+      notes: "Testovacia zmluva - aktívna",
+      lifecyclePhase: 5,
+      isDeleted: false,
+    },
+    {
+      contractNumber: "TST-2025-005",
+      proposalNumber: "NAV-005",
+      subjectId: subjectId2,
+      partnerId,
+      productId,
+      statusId,
+      companyId,
+      contractType: "Nova",
+      paymentFrequency: "polročne",
+      signedDate: new Date(now.getTime() - 90 * daysMs),
+      effectiveDate: new Date(now.getTime() - 85 * daysMs),
+      expiryDate: new Date(now.getTime() + 1000 * daysMs),
+      premiumAmount: 35000,
+      annualPremium: 42000,
+      commissionAmount: 5200,
+      currency: "EUR",
+      notes: "Testovacia zmluva - aktívna",
+      lifecyclePhase: 5,
+      isDeleted: false,
+    },
+  ];
+
+  const inserted = [];
+  for (const c of testContracts) {
+    const existing = await db.select({ id: contracts.id }).from(contracts).where(eq(contracts.contractNumber, c.contractNumber!)).limit(1);
+    if (existing.length > 0) continue;
+    const [row] = await db.insert(contracts).values(c as any).returning();
+    inserted.push(row);
+  }
+
+  console.log(`[SEED] Vytvorených ${inserted.length} testovacích zmlúv`);
+  return { message: `Vytvorených ${inserted.length} testovacích zmlúv`, count: inserted.length, ids: inserted.map(r => r.id) };
+}
+
+async function refreshDocumentStatuses(): Promise<number> {
+  const VALIDITY_FIELDS = ['op_platnost', 'pas_platnost', 'platnost_dokladu'];
+
+  const subjects = await db.execute(sql`
+    SELECT id, details FROM subjects WHERE is_active = true AND deleted_at IS NULL
+  `);
+
+  let count = 0;
+  for (const subject of (subjects.rows || [])) {
+    const details = (subject as any).details || {};
+    const dynamicFields = details.dynamicFields || details;
+
+    for (const fieldKey of VALIDITY_FIELDS) {
+      const dateVal = dynamicFields[fieldKey];
+      if (!dateVal) continue;
+
+      const expiry = new Date(dateVal);
+      expiry.setHours(23, 59, 59, 999);
+      const now = new Date();
+      const diffMs = expiry.getTime() - now.getTime();
+      const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+      let status = 'valid';
+      if (daysRemaining <= 0) status = 'expired';
+      else if (daysRemaining <= 90) status = 'expiring';
+
+      await db.execute(sql`
+        INSERT INTO subject_document_status (subject_id, field_key, expiry_date, status, days_remaining, updated_at)
+        VALUES (${(subject as any).id}, ${fieldKey}, ${dateVal}::date, ${status}, ${daysRemaining}, NOW())
+        ON CONFLICT (subject_id, field_key) 
+        DO UPDATE SET expiry_date = ${dateVal}::date, status = ${status}, days_remaining = ${daysRemaining}, updated_at = NOW()
+      `);
+      count++;
+    }
+
+    const docs = dynamicFields.documents || [];
+    for (let i = 0; i < docs.length; i++) {
+      const doc = docs[i];
+      if (!doc.validUntil) continue;
+      const fk = `doc_${i}_validUntil`;
+
+      const expiry = new Date(doc.validUntil);
+      expiry.setHours(23, 59, 59, 999);
+      const now = new Date();
+      const diffMs = expiry.getTime() - now.getTime();
+      const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+      let status = 'valid';
+      if (daysRemaining <= 0) status = 'expired';
+      else if (daysRemaining <= 90) status = 'expiring';
+
+      await db.execute(sql`
+        INSERT INTO subject_document_status (subject_id, field_key, expiry_date, status, days_remaining, updated_at)
+        VALUES (${(subject as any).id}, ${fk}, ${doc.validUntil}::date, ${status}, ${daysRemaining}, NOW())
+        ON CONFLICT (subject_id, field_key) 
+        DO UPDATE SET expiry_date = ${doc.validUntil}::date, status = ${status}, days_remaining = ${daysRemaining}, updated_at = NOW()
+      `);
+      count++;
+    }
+  }
+
+  console.log(`[DOC VALIDITY] Refreshed ${count} document statuses`);
+  return count;
+}
+
+function scheduleUndeliveredContractsCheck() {
+  const TARGET_HOUR = 3;
+  const TARGET_MINUTE = 30;
+
+  function runAndScheduleNext() {
+    storage.autoMoveUndeliveredContracts().then(count => {
+      if (count > 0) {
+        console.log(`[CRON] autoMoveUndeliveredContracts: ${count} zmluv presunutych do vyhrad`);
+      }
+    }).catch(err => {
+      console.error("[CRON] autoMoveUndeliveredContracts error:", err);
+    });
+    scheduleNext();
+  }
+
+  function scheduleNext() {
+    const now = new Date();
+    const next = new Date(now);
+    next.setHours(TARGET_HOUR, TARGET_MINUTE, 0, 0);
+    if (next <= now) {
+      next.setDate(next.getDate() + 1);
+    }
+    const delay = next.getTime() - now.getTime();
+    setTimeout(runAndScheduleNext, delay);
+  }
+
+  scheduleNext();
+}
+
+async function seedDatabase() {
+  const existingContinents = await storage.getContinents();
+  if (existingContinents.length === 0) {
+    const [europe] = await db.insert(continents).values({ name: "Europa", code: "01" }).returning();
+    const [namerica] = await db.insert(continents).values({ name: "Severn\u00e1 Amerika", code: "02" }).returning();
+    await db.insert(continents).values([
+      { name: "Južn\u00e1 Amerika", code: "03" },
+      { name: "\u00c1zia", code: "04" },
+      { name: "Afrika", code: "05" },
+      { name: "Oce\u00e1nia", code: "06" },
+      { name: "Antarkt\u00edda", code: "07" },
+    ]);
+    
+    const [slovakia] = await db.insert(states).values([
+      { continentId: europe.id, name: "Slovensko", code: "421", currency: "EUR", flagUrl: "https://flagcdn.com/w40/sk.png" },
+      { continentId: europe.id, name: "\u010cesko", code: "420", currency: "CZK", flagUrl: "https://flagcdn.com/w40/cz.png" },
+      { continentId: namerica.id, name: "USA", code: "001", currency: "USD", flagUrl: "https://flagcdn.com/w40/us.png" },
+    ]).returning();
+    
+    const [company1] = await db.insert(myCompanies).values([
+      { name: "SFA Financie s.r.o.", specialization: "SFA", code: "01", ico: "12345678", dic: "2012345678", city: "Bratislava", street: "Hlavn\u00e1", streetNumber: "1", postalCode: "81101", stateId: slovakia.id },
+      { name: "Reality Pro s.r.o.", specialization: "Reality", code: "02", ico: "87654321", city: "Ko\u0161ice", street: "Hlavn\u00e1", streetNumber: "55", postalCode: "04001", stateId: slovakia.id },
+    ]).returning();
+
+    await db.insert(appUsers).values({
+      username: "admin",
+      password: "password123",
+      firstName: "Super",
+      lastName: "Admin",
+      role: "admin",
+      securityLevel: 4,
+      adminCode: "1234",
+      allowedCompanyIds: [company1.id],
+      activeCompanyId: company1.id,
+      activeStateId: slovakia.id,
+    });
+
+    await storage.createSubject({
+      type: "person",
+      firstName: "Super",
+      lastName: "Admin",
+      continentId: europe.id,
+      stateId: slovakia.id,
+      myCompanyId: company1.id,
+      isActive: true,
+      details: { role: "SuperAdmin" },
+    });
+  }
+
+  const existingTypes = await storage.getClientTypes();
+  if (existingTypes.length === 0) {
+    await db.insert(clientTypes).values([
+      { code: "FO", name: "Fyzicka osoba", baseParameter: "rc", isActive: true },
+      { code: "PO", name: "Pravnicka osoba", baseParameter: "ico", isActive: true },
+      { code: "SZCO", name: "Samostatne zamestnan\u00e1 osoba", baseParameter: "ico", isActive: true },
+    ]);
+  }
+
+  const existingTabs = await storage.getClientDataTabs();
+  if (existingTabs.length === 0) {
+    const [tab1] = await db.insert(clientDataTabs).values({ code: "identita", name: "Identita", icon: "UserCheck", sortOrder: 0 }).returning();
+    const [tab2] = await db.insert(clientDataTabs).values({ code: "legislativa", name: "Legislat\u00edva", icon: "Scale", sortOrder: 1 }).returning();
+    const [tab3] = await db.insert(clientDataTabs).values({ code: "rodina", name: "Rodina a vz\u0165ahy", icon: "Users", sortOrder: 2 }).returning();
+    const [tab4] = await db.insert(clientDataTabs).values({ code: "financie", name: "Financie a majetok", icon: "Wallet", sortOrder: 3 }).returning();
+    const [tab5] = await db.insert(clientDataTabs).values({ code: "profil", name: "Profil a marketing", icon: "BarChart3", sortOrder: 4 }).returning();
+    const [tab6] = await db.insert(clientDataTabs).values({ code: "digital", name: "Digit\u00e1lna stopa", icon: "Wifi", sortOrder: 5 }).returning();
+    const [tab7] = await db.insert(clientDataTabs).values({ code: "servis", name: "Servis a arch\u00edv", icon: "Archive", sortOrder: 6 }).returning();
+
+    await db.insert(clientDataCategories).values([
+      { tabId: tab1.id, code: "povinne", name: "Povinn\u00e9", description: "Z\u00e1kladn\u00e9 identifika\u010dn\u00e9 \u00fadaje", color: "#ef4444", icon: "AlertCircle", sortOrder: 0 },
+      { tabId: tab1.id, code: "dobrovolne", name: "Dobrovo\u013en\u00e9", description: "Dop\u013a\u0148uj\u00face osobn\u00e9 \u00fadaje", color: "#f59e0b", icon: "Plus", sortOrder: 1 },
+      { tabId: tab1.id, code: "dokumentacne", name: "Dokumenta\u010dn\u00e9", description: "Doklady toto\u017enosti a k\u00f3pie", color: "#6366f1", icon: "FileText", sortOrder: 2 },
+      { tabId: tab1.id, code: "komunikacne", name: "Komunika\u010dn\u00e9", description: "Kontaktn\u00e9 \u00fadaje a kan\u00e1ly", color: "#06b6d4", icon: "MessageSquare", sortOrder: 3 },
+      { tabId: tab2.id, code: "zakonne", name: "Z\u00e1konn\u00e9", description: "Z\u00e1konom vy\u017eadovan\u00e9 \u00fadaje", color: "#dc2626", icon: "Gavel", sortOrder: 0 },
+      { tabId: tab2.id, code: "aml", name: "AML", description: "Anti-money laundering \u00fadaje", color: "#b91c1c", icon: "Shield", sortOrder: 1 },
+      { tabId: tab2.id, code: "pravne", name: "Pr\u00e1vne", description: "Pr\u00e1vne z\u00e1le\u017eitosti a exek\u00facie", color: "#7c3aed", icon: "Scale", sortOrder: 2 },
+      { tabId: tab2.id, code: "citlive", name: "Citliv\u00e9", description: "Osobitn\u00e1 kateg\u00f3ria osobn\u00fdch \u00fadajov", color: "#be185d", icon: "Lock", sortOrder: 3 },
+      { tabId: tab3.id, code: "vztahove", name: "Vz\u0165ahov\u00e9", description: "Rodinn\u00e9 a osobn\u00e9 vz\u0165ahy", color: "#ec4899", icon: "Heart", sortOrder: 0 },
+      { tabId: tab3.id, code: "dedicske", name: "Dedi\u010dsk\u00e9", description: "Dedi\u010dsk\u00e9 inform\u00e1cie", color: "#a855f7", icon: "Scroll", sortOrder: 1 },
+      { tabId: tab3.id, code: "rodokmen", name: "Rodokme\u0148", description: "Genealogick\u00e9 \u00fadaje", color: "#8b5cf6", icon: "GitBranch", sortOrder: 2 },
+      { tabId: tab3.id, code: "socialne", name: "Soci\u00e1lne", description: "Soci\u00e1lne v\u00e4zby a komunity", color: "#f472b6", icon: "Users", sortOrder: 3 },
+      { tabId: tab4.id, code: "majetkove", name: "Majetkov\u00e9", description: "Nehnute\u013enosti a majetok", color: "#059669", icon: "Building", sortOrder: 0 },
+      { tabId: tab4.id, code: "zmluvne", name: "Zmluvn\u00e9", description: "\u00dadaje viazan\u00e9 na zmluvy", color: "#0d9488", icon: "FileSignature", sortOrder: 1 },
+      { tabId: tab4.id, code: "transakcne", name: "Transak\u010dn\u00e9", description: "Hist\u00f3ria transakci\u00ed", color: "#0891b2", icon: "ArrowLeftRight", sortOrder: 2 },
+      { tabId: tab4.id, code: "bonita", name: "Bonita a Discipl\u00edna", description: "Kreditn\u00fd rating a platobn\u00e1 mor\u00e1lka", color: "#16a34a", icon: "TrendingUp", sortOrder: 3 },
+      { tabId: tab5.id, code: "doplnkove", name: "Doplnkov\u00e9/Servisn\u00e9", description: "Servisn\u00e9 a doplnkov\u00e9 inform\u00e1cie", color: "#f97316", icon: "Settings", sortOrder: 0 },
+      { tabId: tab5.id, code: "marketingove", name: "Marketingov\u00e9", description: "S\u00fahlasy a preferencie (per firma)", color: "#eab308", icon: "Megaphone", sortOrder: 1 },
+      { tabId: tab5.id, code: "segmentacne", name: "Segmenta\u010dn\u00e9", description: "Segment\u00e1cia a cie\u013eov\u00e9 skupiny", color: "#84cc16", icon: "Target", sortOrder: 2 },
+      { tabId: tab5.id, code: "psychograficke", name: "Psychografick\u00e9", description: "Osobnostn\u00e9 rysy a hodnoty", color: "#a3e635", icon: "Brain", sortOrder: 3 },
+      { tabId: tab5.id, code: "vzdelanostne", name: "Vzdelanostn\u00e9", description: "Vzdelanie a kvalifik\u00e1cie", color: "#22d3ee", icon: "GraduationCap", sortOrder: 4 },
+      { tabId: tab6.id, code: "digitalne", name: "Digit\u00e1lne/Tech", description: "Digit\u00e1lne \u00fa\u010dty a zariadenia", color: "#3b82f6", icon: "Monitor", sortOrder: 0 },
+      { tabId: tab6.id, code: "geolokacne", name: "Geoloka\u010dn\u00e9", description: "Polohy a adresy", color: "#2563eb", icon: "MapPin", sortOrder: 1 },
+      { tabId: tab6.id, code: "behavioralne", name: "Behavior\u00e1lne", description: "Vzorce spr\u00e1vania", color: "#1d4ed8", icon: "Activity", sortOrder: 2 },
+      { tabId: tab6.id, code: "biometricke", name: "Biometrick\u00e9", description: "Biometrick\u00e9 identifik\u00e1tory", color: "#7c3aed", icon: "Fingerprint", sortOrder: 3 },
+      { tabId: tab6.id, code: "iot_zdravie", name: "IoT (Zdravie)", description: "Zdravotn\u00e9 a IoT d\u00e1ta", color: "#10b981", icon: "Heartbeat", sortOrder: 4 },
+      { tabId: tab7.id, code: "systemove", name: "Syst\u00e9mov\u00e9", description: "Intern\u00e9 syst\u00e9mov\u00e9 z\u00e1znamy", color: "#64748b", icon: "Database", sortOrder: 0 },
+      { tabId: tab7.id, code: "staznostne", name: "S\u0165a\u017enostn\u00e9", description: "Reklam\u00e1cie a s\u0165a\u017enosti", color: "#ef4444", icon: "AlertTriangle", sortOrder: 1 },
+      { tabId: tab7.id, code: "externy_scoring", name: "Extern\u00fd scoring", description: "Extern\u00e9 hodnotenia a scoring", color: "#0ea5e9", icon: "BarChart", sortOrder: 2 },
+      { tabId: tab7.id, code: "ai_predikcie", name: "AI predikcie", description: "Strojov\u00e9 u\u010denie a predikcie", color: "#8b5cf6", icon: "Cpu", sortOrder: 3 },
+    ]);
+    console.log("[SEED] Created 7 client data tabs and 30 categories");
+  }
+
+  // ── Seed empty ui_blueprints for all subject types ─────────────────────────
+  // FO is included so the record exists (renderer needs it); admin fills content.
+  // Non-FO types start empty; their megaBlocks are configured in the editor.
+  const SUBJECT_BLUEPRINT_CODES = ["FO", "SZCO", "PO", "TS", "VS", "OS"];
+  for (const code of SUBJECT_BLUEPRINT_CODES) {
+    const existing = await storage.getUiBlueprint("SUBJECT", code);
+    if (!existing) {
+      await storage.createUiBlueprint({ type: "SUBJECT", targetId: code, layoutJson: { megaBlocks: [] } });
+      console.log(`[SEED] Created empty ui_blueprint for subject type ${code}`);
+    }
+  }
+}
+
+async function seedSubjectParameters() {
+  const STATIC_SECTIONS = [
+    { clientTypeId: 1, name: "POVINNÉ ÚDAJE", code: "fo_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 1, name: "DOPLNKOVÉ ÚDAJE", code: "fo_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 1, name: "VOLITEĽNÉ ÚDAJE", code: "fo_volitelne", folderCategory: "volitelne", sortOrder: 2, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 1, name: "Osobné údaje", code: "fo_osobne", folderCategory: "povinne", sortOrder: 0, isPanel: true, parentSectionId: null, gridColumns: 5 },
+    { clientTypeId: 1, name: "Adresa", code: "fo_adresa", folderCategory: "povinne", sortOrder: 1, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 1, name: "Cudzinec bez rodného čísla", code: "fo_cudzinec", folderCategory: "povinne", sortOrder: 2, isPanel: true, gridColumns: 1 },
+    { clientTypeId: 1, name: "Doklady", code: "fo_doklady", folderCategory: "povinne", sortOrder: 3, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 1, name: "Kontaktné údaje", code: "fo_kontakt", folderCategory: "povinne", sortOrder: 4, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 1, name: "Rodinný kontakt a zastihnutie", code: "fo_rodina", folderCategory: "doplnkove", sortOrder: 0, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 1, name: "Doručovacia adresa", code: "fo_dorucovacia", folderCategory: "doplnkove", sortOrder: 1, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 1, name: "AML – PEP a KUV", code: "fo_aml", folderCategory: "doplnkove", sortOrder: 2, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 1, name: "Zákonné údaje", code: "fo_zakonne", folderCategory: "doplnkove", sortOrder: 3, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 1, name: "Bankové údaje", code: "fo_zmluvne", folderCategory: "doplnkove", sortOrder: 4, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 1, name: "Majetkové údaje", code: "fo_majetkove", folderCategory: "doplnkove", sortOrder: 5, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 3, name: "POVINNÉ ÚDAJE", code: "szco_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 3, name: "DOPLNKOVÉ ÚDAJE", code: "szco_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 3, name: "VOLITEĽNÉ ÚDAJE", code: "szco_volitelne", folderCategory: "volitelne", sortOrder: 2, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 3, name: "Subjekt SZČO", code: "szco_subjekt", folderCategory: "povinne", sortOrder: 0, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 3, name: "Sídlo", code: "szco_sidlo", folderCategory: "povinne", sortOrder: 1, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 3, name: "Osobné údaje", code: "szco_osobne", folderCategory: "povinne", sortOrder: 2, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 3, name: "Adresa trvalého pobytu", code: "szco_adresa", folderCategory: "povinne", sortOrder: 3, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 3, name: "Kontaktné údaje", code: "szco_kontakt", folderCategory: "povinne", sortOrder: 4, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 3, name: "Doklady", code: "szco_doklady", folderCategory: "povinne", sortOrder: 5, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 3, name: "AML – KUV", code: "szco_aml", folderCategory: "doplnkove", sortOrder: 0, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 3, name: "Firemný profil", code: "szco_firemny", folderCategory: "doplnkove", sortOrder: 1, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 3, name: "Zákonné údaje", code: "szco_zakonne", folderCategory: "doplnkove", sortOrder: 2, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 3, name: "Bankové údaje", code: "szco_zmluvne", folderCategory: "doplnkove", sortOrder: 3, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 4, name: "POVINNÉ ÚDAJE", code: "po_povinne", folderCategory: "povinne", sortOrder: 0, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 4, name: "DOPLNKOVÉ ÚDAJE", code: "po_doplnkove", folderCategory: "doplnkove", sortOrder: 1, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 4, name: "VOLITEĽNÉ ÚDAJE", code: "po_volitelne", folderCategory: "volitelne", sortOrder: 2, isPanel: false, gridColumns: 1 },
+    { clientTypeId: 4, name: "Subjekt PO", code: "po_subjekt", folderCategory: "povinne", sortOrder: 0, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 4, name: "Sídlo", code: "po_sidlo", folderCategory: "povinne", sortOrder: 1, isPanel: true, gridColumns: 4 },
+    { clientTypeId: 4, name: "Kontaktné údaje", code: "po_kontakt", folderCategory: "povinne", sortOrder: 2, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 4, name: "AML – KUV", code: "po_aml", folderCategory: "doplnkove", sortOrder: 0, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 4, name: "Firemný profil", code: "po_firemny", folderCategory: "doplnkove", sortOrder: 1, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 4, name: "Zákonné údaje", code: "po_zakonne", folderCategory: "doplnkove", sortOrder: 2, isPanel: true, gridColumns: 2 },
+    { clientTypeId: 4, name: "Bankové údaje", code: "po_zmluvne", folderCategory: "doplnkove", sortOrder: 3, isPanel: true, gridColumns: 3 },
+    { clientTypeId: 4, name: "Štatutári", code: "po_statutari", folderCategory: "doplnkove", sortOrder: 4, isPanel: true, gridColumns: 2 },
+  ];
+
+  const sectionMap: Record<string, number> = {};
+  for (const sec of STATIC_SECTIONS) {
+    const [inserted] = await db.insert(subjectParamSections).values(sec as any).returning();
+    sectionMap[sec.code] = inserted.id;
+  }
+
+  const parentCodes: Record<string, string> = {
+    fo_osobne: "fo_povinne", fo_adresa: "fo_povinne", fo_cudzinec: "fo_povinne", fo_doklady: "fo_povinne", fo_kontakt: "fo_povinne",
+    fo_rodina: "fo_doplnkove", fo_dorucovacia: "fo_doplnkove", fo_aml: "fo_doplnkove", fo_zakonne: "fo_doplnkove", fo_zmluvne: "fo_doplnkove", fo_majetkove: "fo_doplnkove",
+    szco_subjekt: "szco_povinne", szco_sidlo: "szco_povinne", szco_osobne: "szco_povinne", szco_adresa: "szco_povinne", szco_kontakt: "szco_povinne", szco_doklady: "szco_povinne",
+    szco_aml: "szco_doplnkove", szco_firemny: "szco_doplnkove", szco_zakonne: "szco_doplnkove", szco_zmluvne: "szco_doplnkove",
+    po_subjekt: "po_povinne", po_sidlo: "po_povinne", po_kontakt: "po_povinne",
+    po_aml: "po_doplnkove", po_firemny: "po_doplnkove", po_zakonne: "po_doplnkove", po_zmluvne: "po_doplnkove", po_statutari: "po_doplnkove",
+  };
+
+  for (const [childCode, parentCode] of Object.entries(parentCodes)) {
+    const childId = sectionMap[childCode];
+    const parentId = sectionMap[parentCode];
+    if (childId && parentId) {
+      await db.update(subjectParamSections).set({ parentSectionId: parentId }).where(eq(subjectParamSections.id, childId));
+    }
+  }
+
+  type FieldSeed = {
+    clientTypeId: number; sectionCode: string; panelCode: string | null; fieldKey: string; label: string;
+    shortLabel?: string; fieldType: string; isRequired: boolean; isHidden: boolean; options: string[];
+    defaultValue: string | null; visibilityRule: { dependsOn: string; value: string } | null;
+    unit: string | null; decimalPlaces: number; fieldCategory: string; categoryCode?: string;
+    sortOrder: number; rowNumber: number; widthPercent: number;
+  };
+
+  const FIELDS: FieldSeed[] = [
+    // === FO: Osobné údaje ===
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_osobne", fieldKey: "titul_pred", label: "Titul pred menom", shortLabel: "Titul pred", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 1, widthPercent: 12 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_osobne", fieldKey: "meno", label: "Meno", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 1, widthPercent: 33 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_osobne", fieldKey: "priezvisko", label: "Priezvisko", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 1, widthPercent: 43 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_osobne", fieldKey: "titul_za", label: "Titul za menom", shortLabel: "Titul za", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 40, rowNumber: 1, widthPercent: 12 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_osobne", fieldKey: "rodne_priezvisko", label: "Rodné priezvisko", shortLabel: "Rod. priez.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 50, rowNumber: 2, widthPercent: 50 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_osobne", fieldKey: "rodne_cislo", label: "Rodné číslo", shortLabel: "Rod. číslo", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 60, rowNumber: 2, widthPercent: 25 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_osobne", fieldKey: "datum_narodenia", label: "Dátum narodenia", shortLabel: "Dát. nar.", fieldType: "date", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 70, rowNumber: 2, widthPercent: 25 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_osobne", fieldKey: "vek", label: "Vek", fieldType: "number", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 80, rowNumber: 3, widthPercent: 15 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_osobne", fieldKey: "pohlavie", label: "Pohlavie", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["muž", "žena"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 90, rowNumber: 3, widthPercent: 20 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_osobne", fieldKey: "miesto_narodenia", label: "Miesto narodenia", shortLabel: "Miesto nar.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 100, rowNumber: 4, widthPercent: 50 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_osobne", fieldKey: "statna_prislusnost", label: "Štátna príslušnosť", shortLabel: "Št. príslušnosť", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 110, rowNumber: 4, widthPercent: 50 },
+    // === FO: Adresa ===
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "tp_ulica", label: "Ulica (trvalý pobyt)", shortLabel: "Ulica", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "tp_supisne", label: "Súpisné číslo", shortLabel: "Súpisné č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "tp_orientacne", label: "Orientačné číslo", shortLabel: "Orient. č.", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "tp_mesto", label: "Mesto", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "tp_psc", label: "PSČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 50, rowNumber: 1, widthPercent: 25 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "tp_stat", label: "Štát", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 60, rowNumber: 1, widthPercent: 25 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "korespond_rovnaka", label: "Adresa prech. pobytu sa zhoduje s trvalou", shortLabel: "Prech. = trvalá", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 100, rowNumber: 2, widthPercent: 100 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "ka_ulica", label: "Ulica (prechodný pobyt)", shortLabel: "Ulica (prech.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "korespond_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 110, rowNumber: 3, widthPercent: 40 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "ka_supisne", label: "Súpisné číslo (prechodný)", shortLabel: "Súp. č. (prech.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "korespond_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 120, rowNumber: 3, widthPercent: 30 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "ka_orientacne", label: "Orientačné číslo (prechodný)", shortLabel: "Or. č. (prech.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "korespond_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 130, rowNumber: 3, widthPercent: 30 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "ka_mesto", label: "Mesto (prechodný)", shortLabel: "Mesto (prech.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "korespond_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 140, rowNumber: 4, widthPercent: 50 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "ka_psc", label: "PSČ (prechodný)", shortLabel: "PSČ (prech.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "korespond_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 150, rowNumber: 4, widthPercent: 25 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "ka_stat", label: "Štát (prechodný)", shortLabel: "Štát (prech.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "korespond_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 160, rowNumber: 4, widthPercent: 25 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "kontaktna_rovnaka", label: "Kontaktná adresa sa zhoduje s trvalou", shortLabel: "Kontakt. = trvalá", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 200, rowNumber: 5, widthPercent: 100 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "koa_ulica", label: "Ulica (kontaktná)", shortLabel: "Ulica (kont.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "kontaktna_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 210, rowNumber: 6, widthPercent: 40 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "koa_supisne", label: "Súpisné číslo (kontaktná)", shortLabel: "Súp. č. (kont.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "kontaktna_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 220, rowNumber: 6, widthPercent: 30 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "koa_orientacne", label: "Orientačné číslo (kontaktná)", shortLabel: "Or. č. (kont.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "kontaktna_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 230, rowNumber: 6, widthPercent: 30 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "koa_mesto", label: "Mesto (kontaktná)", shortLabel: "Mesto (kont.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "kontaktna_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 240, rowNumber: 7, widthPercent: 50 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "koa_psc", label: "PSČ (kontaktná)", shortLabel: "PSČ (kont.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "kontaktna_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 250, rowNumber: 7, widthPercent: 25 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_adresa", fieldKey: "koa_stat", label: "Štát (kontaktná)", shortLabel: "Štát (kont.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "kontaktna_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 260, rowNumber: 7, widthPercent: 25 },
+    // === FO: Doklady ===
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_doklady", fieldKey: "typ_dokladu", label: "Typ dokladu totožnosti", shortLabel: "Typ dokladu", fieldType: "jedna_moznost", isRequired: true, isHidden: false, options: ["Občiansky preukaz", "Cestovný pas", "Vodičský preukaz", "Povolenie na pobyt", "Preukaz diplomata", "Iný"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 20 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_doklady", fieldKey: "typ_dokladu_iny", label: "Špecifikácia dokladu", shortLabel: "Špecifikácia", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "typ_dokladu", value: "Iný" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 20 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_doklady", fieldKey: "cislo_dokladu", label: "Číslo dokladu totožnosti", shortLabel: "Č. dokladu", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_doklady", fieldKey: "platnost_dokladu", label: "Platnosť dokladu do", shortLabel: "Platnosť do", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 40, rowNumber: 0, widthPercent: 20 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_doklady", fieldKey: "vydal_organ", label: "Vydal (orgán)", shortLabel: "Vydal", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 50, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_doklady", fieldKey: "kod_vydavajuceho_organu", label: "Kód vydávajúceho orgánu", shortLabel: "Kód orgánu", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 60, rowNumber: 1, widthPercent: 100 },
+    // === FO: Kontakt ===
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_kontakt", fieldKey: "telefon", label: "Telefónne číslo (primárne)", shortLabel: "Tel. číslo", fieldType: "phone", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+    { clientTypeId: 1, sectionCode: "fo_povinne", panelCode: "fo_kontakt", fieldKey: "email", label: "Email (primárny)", shortLabel: "Email", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+    // === FO: Doplnkove - Rodina ===
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_rodina", fieldKey: "rodinny_kontakt_meno", label: "Meno rodinného kontaktu", shortLabel: "Rod. kontakt", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "komunikacne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_rodina", fieldKey: "rodinny_kontakt_telefon", label: "Telefón rodinného kontaktu", shortLabel: "Rod. telefón", fieldType: "phone", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "komunikacne", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_rodina", fieldKey: "rodinny_kontakt_vztah", label: "Vzťah", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Manžel/ka", "Partner/ka", "Rodič", "Dieťa", "Súrodenec", "Iný"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "komunikacne", sortOrder: 30, rowNumber: 1, widthPercent: 50 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_rodina", fieldKey: "zastihnutie", label: "Najlepšie zastihnutie", shortLabel: "Zastihnutie", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Ráno (8-12)", "Poobede (12-17)", "Večer (17-21)", "Kedykoľvek"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "komunikacne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+    // === FO: Doplnkove - Dorucovacia ===
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_dorucovacia", fieldKey: "doruc_rovnaka", label: "Doručovacia adresa sa zhoduje s trvalou", shortLabel: "Doruč. = trvalá", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "geolokacne", sortOrder: 10, rowNumber: 0, widthPercent: 100 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_dorucovacia", fieldKey: "doruc_ulica", label: "Ulica (doručovacia)", shortLabel: "Ulica (doruč.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "doruc_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "geolokacne", sortOrder: 20, rowNumber: 1, widthPercent: 100 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_dorucovacia", fieldKey: "doruc_mesto", label: "Mesto (doručovacia)", shortLabel: "Mesto (doruč.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "doruc_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "geolokacne", sortOrder: 30, rowNumber: 2, widthPercent: 50 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_dorucovacia", fieldKey: "doruc_psc", label: "PSČ (doručovacia)", shortLabel: "PSČ (doruč.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "doruc_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "geolokacne", sortOrder: 40, rowNumber: 2, widthPercent: 25 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_dorucovacia", fieldKey: "doruc_stat", label: "Štát (doručovacia)", shortLabel: "Štát (doruč.)", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "doruc_rovnaka", value: "false" }, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "geolokacne", sortOrder: 50, rowNumber: 2, widthPercent: 25 },
+    // === FO: AML ===
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_aml", fieldKey: "pep", label: "Politicky exponovaná osoba (PEP)", shortLabel: "PEP", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["Áno", "Nie"], defaultValue: "Nie", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 10, rowNumber: 0, widthPercent: 33 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_aml", fieldKey: "pep_funkcia", label: "PEP – verejná funkcia", shortLabel: "PEP funkcia", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "pep", value: "Áno" }, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 20, rowNumber: 0, widthPercent: 33 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_aml", fieldKey: "pep_vztah", label: "PEP – vzťah k PEP osobe", shortLabel: "PEP vzťah", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "pep", value: "Áno" }, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 30, rowNumber: 0, widthPercent: 33 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_aml", fieldKey: "kuv_meno_1", label: "KUV 1 – Meno a priezvisko", shortLabel: "KUV 1 Meno", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 40, rowNumber: 1, widthPercent: 40 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_aml", fieldKey: "kuv_rc_1", label: "KUV 1 – Rodné číslo", shortLabel: "KUV 1 RČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 50, rowNumber: 1, widthPercent: 30 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_aml", fieldKey: "kuv_podiel_1", label: "KUV 1 – % podiel", shortLabel: "KUV 1 %", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "%", decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 60, rowNumber: 1, widthPercent: 30 },
+    // === FO: Zákonné ===
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_zakonne", fieldKey: "dic", label: "DIČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_zakonne", fieldKey: "ic_dph", label: "IČ DPH", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_zakonne", fieldKey: "suhlas_gdpr", label: "Súhlas so spracovaním osobných údajov (GDPR)", shortLabel: "GDPR súhlas", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 30, rowNumber: 1, widthPercent: 50 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_zakonne", fieldKey: "suhlas_marketing", label: "Súhlas s marketingovou komunikáciou", shortLabel: "Marketing súhlas", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+    // === FO: Bankové ===
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_zmluvne", fieldKey: "iban", label: "IBAN", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zmluvne", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_zmluvne", fieldKey: "bic", label: "BIC/SWIFT", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zmluvne", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_zmluvne", fieldKey: "cislo_uctu", label: "Číslo účtu", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zmluvne", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+    // === FO: Majetkové ===
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_majetkove", fieldKey: "spz", label: "ŠPZ vozidla", shortLabel: "ŠPZ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "majetkove", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+    { clientTypeId: 1, sectionCode: "fo_doplnkove", panelCode: "fo_majetkove", fieldKey: "vin", label: "VIN číslo", shortLabel: "VIN", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "majetkove", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+    // === SZČO: Subjekt ===
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_subjekt", fieldKey: "nazov_firmy", label: "Obchodné meno SZČO", shortLabel: "Obch. meno", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 60 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_subjekt", fieldKey: "ico", label: "IČO", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 40 },
+    // === SZČO: Sídlo ===
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_sidlo", fieldKey: "sidlo_ulica", label: "Ulica (sídlo)", shortLabel: "Ulica", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_sidlo", fieldKey: "sidlo_supisne", label: "Súpisné číslo", shortLabel: "Súpisné č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_sidlo", fieldKey: "sidlo_orientacne", label: "Orientačné číslo", shortLabel: "Orient. č.", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_sidlo", fieldKey: "sidlo_mesto", label: "Mesto/Obec", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_sidlo", fieldKey: "sidlo_psc", label: "PSČ", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 50, rowNumber: 1, widthPercent: 25 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_sidlo", fieldKey: "sidlo_stat", label: "Štát", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 60, rowNumber: 1, widthPercent: 25 },
+    // === SZČO: Osobné ===
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_osobne", fieldKey: "titul_pred", label: "Titul pred menom", shortLabel: "Titul pred", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 12 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_osobne", fieldKey: "meno", label: "Meno", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 33 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_osobne", fieldKey: "priezvisko", label: "Priezvisko", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 0, widthPercent: 43 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_osobne", fieldKey: "titul_za", label: "Titul za menom", shortLabel: "Titul za", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 40, rowNumber: 0, widthPercent: 12 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_osobne", fieldKey: "rodne_cislo", label: "Rodné číslo", shortLabel: "Rod. číslo", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 50, rowNumber: 1, widthPercent: 33 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_osobne", fieldKey: "datum_narodenia", label: "Dátum narodenia", shortLabel: "Dát. narodenia", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 60, rowNumber: 1, widthPercent: 33 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_osobne", fieldKey: "vek", label: "Vek", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 70, rowNumber: 1, widthPercent: 15 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_osobne", fieldKey: "statna_prislusnost", label: "Štátna príslušnosť", shortLabel: "Št. príslušnosť", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 80, rowNumber: 2, widthPercent: 100 },
+    // === SZČO: Kontakt ===
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_kontakt", fieldKey: "telefon", label: "Telefónne číslo (primárne)", shortLabel: "Tel. číslo", fieldType: "phone", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_kontakt", fieldKey: "email", label: "Email (primárny)", shortLabel: "Email", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+    // === SZČO: Doklady ===
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_doklady", fieldKey: "typ_dokladu", label: "Typ dokladu totožnosti", shortLabel: "Typ dokladu", fieldType: "jedna_moznost", isRequired: true, isHidden: false, options: ["Občiansky preukaz", "Cestovný pas", "Vodičský preukaz", "Povolenie na pobyt", "Preukaz diplomata", "Iný"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 20 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_doklady", fieldKey: "typ_dokladu_iny", label: "Špecifikácia dokladu", shortLabel: "Špecifikácia", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: { dependsOn: "typ_dokladu", value: "Iný" }, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 20 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_doklady", fieldKey: "cislo_dokladu", label: "Číslo dokladu totožnosti", shortLabel: "Č. dokladu", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_doklady", fieldKey: "platnost_dokladu", label: "Platnosť dokladu do", shortLabel: "Platnosť do", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 40, rowNumber: 0, widthPercent: 20 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_doklady", fieldKey: "vydal_organ", label: "Vydal (orgán)", shortLabel: "Vydal", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 50, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_doklady", fieldKey: "kod_vydavajuceho_organu", label: "Kód vydávajúceho orgánu", shortLabel: "Kód orgánu", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 60, rowNumber: 1, widthPercent: 100 },
+    // === SZČO: Adresa ===
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_adresa", fieldKey: "tp_ulica", label: "Ulica (trvalý pobyt)", shortLabel: "Ulica", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_adresa", fieldKey: "tp_supisne", label: "Súpisné číslo", shortLabel: "Súpisné č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_adresa", fieldKey: "tp_orientacne", label: "Orientačné číslo", shortLabel: "Orient. č.", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_adresa", fieldKey: "tp_mesto", label: "Mesto", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_adresa", fieldKey: "tp_psc", label: "PSČ", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 50, rowNumber: 1, widthPercent: 25 },
+    { clientTypeId: 3, sectionCode: "szco_povinne", panelCode: "szco_adresa", fieldKey: "tp_stat", label: "Štát", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 60, rowNumber: 1, widthPercent: 25 },
+    // === SZČO: AML ===
+    { clientTypeId: 3, sectionCode: "szco_doplnkove", panelCode: "szco_aml", fieldKey: "kuv_meno_1", label: "KUV 1 – Meno a priezvisko", shortLabel: "KUV 1 Meno", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+    { clientTypeId: 3, sectionCode: "szco_doplnkove", panelCode: "szco_aml", fieldKey: "kuv_rc_1", label: "KUV 1 – Rodné číslo", shortLabel: "KUV 1 RČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 3, sectionCode: "szco_doplnkove", panelCode: "szco_aml", fieldKey: "kuv_podiel_1", label: "KUV 1 – % podiel", shortLabel: "KUV 1 %", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "%", decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+    // === SZČO: Zákonné ===
+    { clientTypeId: 3, sectionCode: "szco_doplnkove", panelCode: "szco_zakonne", fieldKey: "dic", label: "DIČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+    { clientTypeId: 3, sectionCode: "szco_doplnkove", panelCode: "szco_zakonne", fieldKey: "ic_dph", label: "IČ DPH", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+    { clientTypeId: 3, sectionCode: "szco_doplnkove", panelCode: "szco_zakonne", fieldKey: "suhlas_gdpr", label: "Súhlas so spracovaním osobných údajov (GDPR)", shortLabel: "GDPR súhlas", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 30, rowNumber: 1, widthPercent: 50 },
+    { clientTypeId: 3, sectionCode: "szco_doplnkove", panelCode: "szco_zakonne", fieldKey: "suhlas_marketing", label: "Súhlas s marketingovou komunikáciou", shortLabel: "Marketing súhlas", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+    // === SZČO: Bankové ===
+    { clientTypeId: 3, sectionCode: "szco_doplnkove", panelCode: "szco_zmluvne", fieldKey: "iban", label: "IBAN", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zmluvne", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+    { clientTypeId: 3, sectionCode: "szco_doplnkove", panelCode: "szco_zmluvne", fieldKey: "bic", label: "BIC/SWIFT", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zmluvne", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 3, sectionCode: "szco_doplnkove", panelCode: "szco_zmluvne", fieldKey: "cislo_uctu", label: "Číslo účtu", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zmluvne", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+    // === SZČO: Firemný profil ===
+    { clientTypeId: 3, sectionCode: "szco_doplnkove", panelCode: "szco_firemny", fieldKey: "obrat", label: "Obrat (ročný)", shortLabel: "Obrat", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "€", decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "firemny_profil", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+    { clientTypeId: 3, sectionCode: "szco_doplnkove", panelCode: "szco_firemny", fieldKey: "pocet_zamestnancov", label: "Počet zamestnancov", shortLabel: "Zamestnanci", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 0, fieldCategory: "doplnkove", categoryCode: "firemny_profil", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+    // === PO: Subjekt ===
+    { clientTypeId: 4, sectionCode: "po_povinne", panelCode: "po_subjekt", fieldKey: "nazov_firmy", label: "Obchodné meno", shortLabel: "Obch. meno", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 60 },
+    { clientTypeId: 4, sectionCode: "po_povinne", panelCode: "po_subjekt", fieldKey: "ico", label: "IČO", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 40 },
+    { clientTypeId: 4, sectionCode: "po_povinne", panelCode: "po_subjekt", fieldKey: "pravna_forma", label: "Právna forma", shortLabel: "Právna forma", fieldType: "jedna_moznost", isRequired: false, isHidden: false, options: ["s.r.o.", "a.s.", "k.s.", "v.o.s.", "družstvo", "nezisková org.", "iná"], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 1, widthPercent: 50 },
+    { clientTypeId: 4, sectionCode: "po_povinne", panelCode: "po_subjekt", fieldKey: "datum_zalozenia", label: "Dátum založenia", shortLabel: "Založenie", fieldType: "date", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+    // === PO: Sídlo ===
+    { clientTypeId: 4, sectionCode: "po_povinne", panelCode: "po_sidlo", fieldKey: "sidlo_ulica", label: "Ulica (sídlo)", shortLabel: "Ulica", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+    { clientTypeId: 4, sectionCode: "po_povinne", panelCode: "po_sidlo", fieldKey: "sidlo_supisne", label: "Súpisné číslo", shortLabel: "Súpisné č.", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 4, sectionCode: "po_povinne", panelCode: "po_sidlo", fieldKey: "sidlo_orientacne", label: "Orientačné číslo", shortLabel: "Orient. č.", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 4, sectionCode: "po_povinne", panelCode: "po_sidlo", fieldKey: "sidlo_mesto", label: "Mesto/Obec", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+    { clientTypeId: 4, sectionCode: "po_povinne", panelCode: "po_sidlo", fieldKey: "sidlo_psc", label: "PSČ", fieldType: "short_text", isRequired: true, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 50, rowNumber: 1, widthPercent: 25 },
+    { clientTypeId: 4, sectionCode: "po_povinne", panelCode: "po_sidlo", fieldKey: "sidlo_stat", label: "Štát", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 60, rowNumber: 1, widthPercent: 25 },
+    // === PO: Kontakt ===
+    { clientTypeId: 4, sectionCode: "po_povinne", panelCode: "po_kontakt", fieldKey: "telefon", label: "Telefónne číslo", shortLabel: "Telefón", fieldType: "phone", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+    { clientTypeId: 4, sectionCode: "po_povinne", panelCode: "po_kontakt", fieldKey: "email", label: "Email", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "povinne", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+    // === PO: AML ===
+    { clientTypeId: 4, sectionCode: "po_doplnkove", panelCode: "po_aml", fieldKey: "kuv_meno_1", label: "KUV 1 – Meno a priezvisko", shortLabel: "KUV 1 Meno", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+    { clientTypeId: 4, sectionCode: "po_doplnkove", panelCode: "po_aml", fieldKey: "kuv_rc_1", label: "KUV 1 – Rodné číslo / IČO", shortLabel: "KUV 1 RČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 4, sectionCode: "po_doplnkove", panelCode: "po_aml", fieldKey: "kuv_podiel_1", label: "KUV 1 – % podiel", shortLabel: "KUV 1 %", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "%", decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "aml", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+    // === PO: Zákonné ===
+    { clientTypeId: 4, sectionCode: "po_doplnkove", panelCode: "po_zakonne", fieldKey: "dic", label: "DIČ", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+    { clientTypeId: 4, sectionCode: "po_doplnkove", panelCode: "po_zakonne", fieldKey: "ic_dph", label: "IČ DPH", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+    { clientTypeId: 4, sectionCode: "po_doplnkove", panelCode: "po_zakonne", fieldKey: "suhlas_gdpr", label: "Súhlas GDPR", shortLabel: "GDPR", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 30, rowNumber: 1, widthPercent: 50 },
+    { clientTypeId: 4, sectionCode: "po_doplnkove", panelCode: "po_zakonne", fieldKey: "suhlas_marketing", label: "Súhlas marketing", shortLabel: "Marketing", fieldType: "switch", isRequired: false, isHidden: false, options: [], defaultValue: "false", visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zakonne", sortOrder: 40, rowNumber: 1, widthPercent: 50 },
+    // === PO: Bankové ===
+    { clientTypeId: 4, sectionCode: "po_doplnkove", panelCode: "po_zmluvne", fieldKey: "iban", label: "IBAN", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zmluvne", sortOrder: 10, rowNumber: 0, widthPercent: 40 },
+    { clientTypeId: 4, sectionCode: "po_doplnkove", panelCode: "po_zmluvne", fieldKey: "bic", label: "BIC/SWIFT", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zmluvne", sortOrder: 20, rowNumber: 0, widthPercent: 30 },
+    { clientTypeId: 4, sectionCode: "po_doplnkove", panelCode: "po_zmluvne", fieldKey: "cislo_uctu", label: "Číslo účtu", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "zmluvne", sortOrder: 30, rowNumber: 0, widthPercent: 30 },
+    // === PO: Firemný profil ===
+    { clientTypeId: 4, sectionCode: "po_doplnkove", panelCode: "po_firemny", fieldKey: "obrat", label: "Obrat (ročný)", shortLabel: "Obrat", fieldType: "desatinne_cislo", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: "€", decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "firemny_profil", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+    { clientTypeId: 4, sectionCode: "po_doplnkove", panelCode: "po_firemny", fieldKey: "pocet_zamestnancov", label: "Počet zamestnancov", shortLabel: "Zamestnanci", fieldType: "number", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 0, fieldCategory: "doplnkove", categoryCode: "firemny_profil", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+    // === PO: Štatutári ===
+    { clientTypeId: 4, sectionCode: "po_doplnkove", panelCode: "po_statutari", fieldKey: "statutar_meno_1", label: "Štatutár 1 – Meno", shortLabel: "Štat. 1 Meno", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "statutarne", sortOrder: 10, rowNumber: 0, widthPercent: 50 },
+    { clientTypeId: 4, sectionCode: "po_doplnkove", panelCode: "po_statutari", fieldKey: "statutar_funkcia_1", label: "Štatutár 1 – Funkcia", shortLabel: "Štat. 1 Funkcia", fieldType: "short_text", isRequired: false, isHidden: false, options: [], defaultValue: null, visibilityRule: null, unit: null, decimalPlaces: 2, fieldCategory: "doplnkove", categoryCode: "statutarne", sortOrder: 20, rowNumber: 0, widthPercent: 50 },
+  ];
+
+  const allInsertedParams: number[] = [];
+  for (const f of FIELDS) {
+    const sectionId = f.sectionCode ? sectionMap[f.sectionCode] : null;
+    const panelId = f.panelCode ? sectionMap[f.panelCode] : null;
+    const [inserted] = await db.insert(subjectParameters).values({
+      clientTypeId: f.clientTypeId,
+      sectionId: sectionId || null,
+      panelId: panelId || null,
+      fieldKey: f.fieldKey,
+      label: f.label,
+      shortLabel: f.shortLabel || null,
+      fieldType: f.fieldType,
+      isRequired: f.isRequired,
+      isHidden: f.isHidden,
+      options: f.options as any,
+      defaultValue: f.defaultValue,
+      visibilityRule: f.visibilityRule as any,
+      unit: f.unit,
+      decimalPlaces: f.decimalPlaces,
+      fieldCategory: f.fieldCategory,
+      categoryCode: f.categoryCode || null,
+      sortOrder: f.sortOrder,
+      rowNumber: f.rowNumber,
+      widthPercent: f.widthPercent,
+    } as any).returning();
+    allInsertedParams.push(inserted.id);
+  }
+
+  const [defaultTemplate] = await db.insert(subjectTemplates).values({
+    name: "Základná šablóna (všetky polia)",
+    code: "zakladna_sablona",
+    description: "Predvolená šablóna obsahujúca všetky parametre pre všetky typy subjektov",
+    isDefault: true,
+    isActive: true,
+  } as any).returning();
+
+  const templateParamValues = allInsertedParams.map((pid, idx) => ({
+    templateId: defaultTemplate.id,
+    parameterId: pid,
+    sortOrder: idx * 10,
+  }));
+
+  for (let i = 0; i < templateParamValues.length; i += 50) {
+    const batch = templateParamValues.slice(i, i + 50);
+    await db.insert(subjectTemplateParams).values(batch);
+  }
+
+  console.log(`[SEED] Created ${STATIC_SECTIONS.length} sections, ${allInsertedParams.length} parameters, 1 default template`);
+}
+
+async function migrateSectionTypes() {
+  const startTime = Date.now();
+  let changes = 0;
+
+  // 1. Fix isPanel=true records that still have sectionType='blok' (legacy panels)
+  const fixPanels = await db.update(subjectParamSections)
+    .set({ sectionType: "panel" })
+    .where(and(eq(subjectParamSections.isPanel, true), sql`section_type != 'panel'`))
+    .returning({ id: subjectParamSections.id });
+  changes += fixPanels.length;
+
+  // 2. Ensure all non-panel, non-kategoria, non-riadok records have sectionType='blok'
+  const fixBloky = await db.update(subjectParamSections)
+    .set({ sectionType: "blok" })
+    .where(sql`section_type NOT IN ('kategoria', 'blok', 'panel', 'riadok')`)
+    .returning({ id: subjectParamSections.id });
+  changes += fixBloky.length;
+
+  // 3. Create missing Kategória records for each (clientTypeId × folderCategory) combo from existing Bloky
+  const FOLDER_CATEGORY_LABELS: Record<string, string> = {
+    povinne: "Povinné",
+    doplnkove: "Doplnkové",
+    volitelne: "Voliteľné",
+    ine: "Iné",
+    general: "Všeobecné",
+  };
+
+  const bloky = await db.select().from(subjectParamSections).where(eq(subjectParamSections.sectionType, "blok"));
+  const existingKategorie = await db.select().from(subjectParamSections).where(eq(subjectParamSections.sectionType, "kategoria"));
+
+  const katMap = new Map<string, number>(); // "clientTypeId:folderCategory" → id
+  for (const k of existingKategorie) {
+    katMap.set(`${k.clientTypeId}:${k.folderCategory}`, k.id);
+  }
+
+  for (const blok of bloky) {
+    const key = `${blok.clientTypeId}:${blok.folderCategory}`;
+    if (!katMap.has(key)) {
+      const label = FOLDER_CATEGORY_LABELS[blok.folderCategory] ?? blok.folderCategory;
+      const code = `kat_${blok.clientTypeId}_${blok.folderCategory}_${Math.random().toString(36).substring(2, 5)}`;
+      const [newKat] = await db.insert(subjectParamSections).values({
+        name: label,
+        code,
+        clientTypeId: blok.clientTypeId,
+        folderCategory: blok.folderCategory,
+        sectionType: "kategoria",
+        isPanel: false,
+        sortOrder: 0,
+      }).returning();
+      katMap.set(key, newKat.id);
+      changes++;
+    }
+
+    // 4. Link blok to its kategoria if parentSectionId is null
+    if (blok.parentSectionId === null) {
+      const katId = katMap.get(key);
+      if (katId) {
+        await db.update(subjectParamSections)
+          .set({ parentSectionId: katId })
+          .where(and(eq(subjectParamSections.id, blok.id), isNull(subjectParamSections.parentSectionId)));
+        changes++;
+      }
+    }
+  }
+
+  if (changes > 0) {
+    console.log(`[MIGRATE-SECTION-TYPES] Applied ${changes} fix(es) in ${Date.now() - startTime}ms`);
+  }
+}
+
