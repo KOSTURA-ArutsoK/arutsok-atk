@@ -26178,6 +26178,8 @@ export async function registerRoutes(
           commitCount30d = commits.length;
         }
       } catch (_e) { /* GitHub not linked */ }
+      const avgCommitsPerDay = commitCount30d !== null ? Math.round((commitCount30d / 30) * 100) / 100 : null;
+      const dailyValueGrowthEur = avgCommitsPerDay !== null ? Math.round(avgCommitsPerDay * (netLoc / (commitCount30d || 1)) * LOC_PRICE) : null;
       const [saved] = await db.insert(atkAssetSnapshots).values({
         totalLoc, netLoc, fileCount,
         locByExtension: byExt,
@@ -26185,6 +26187,7 @@ export async function registerRoutes(
         ipPremiumEur,
         totalValueEur,
         commitCount30d,
+        avgCommitsPerDay,
         repoName,
         takenByUserId: appUser.id,
       }).returning();

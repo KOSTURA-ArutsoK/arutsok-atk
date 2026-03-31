@@ -17,6 +17,8 @@ import type { AtkAssetSnapshot } from "@shared/schema";
 const LOC_PRICE = 25;
 const WP_LOC = 1_400_000;
 const WP_VALUE = WP_LOC * LOC_PRICE;
+const FINTECH_LOC = 50_000;
+const FINTECH_VALUE = FINTECH_LOC * LOC_PRICE;
 
 const IP_ITEMS = [
   { label: "Decoy (návnadový) modul", value: 500_000, color: "text-amber-500", desc: "Umelá architektúra na detekciu kopírowania" },
@@ -236,24 +238,40 @@ export default function AssetTracker() {
               <CardContent className="space-y-4">
                 {latest.commitCount30d !== null ? (
                   <>
-                    <div className="text-center py-4">
+                    <div className="text-center py-3">
                       <span className="text-4xl font-black text-emerald-600 dark:text-emerald-400" data-testid="text-commit-count">
                         {latest.commitCount30d}
                       </span>
                       <p className="text-xs text-muted-foreground mt-1">commitov za posledných 30 dní</p>
                     </div>
                     <Separator />
-                    <div className="space-y-1 text-sm">
+                    <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Priemerný denný počet</span>
-                        <span className="font-semibold">{(latest.commitCount30d / 30).toFixed(1)}</span>
+                        <span className="font-semibold" data-testid="text-avg-commits-day">
+                          {latest.avgCommitsPerDay !== null ? latest.avgCommitsPerDay?.toFixed(2) : (latest.commitCount30d / 30).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Odhadovaný denný rast hodnoty</span>
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400" data-testid="text-daily-value-growth">
+                          ≈ {formatEur(Math.round((latest.netLoc / (latest.commitCount30d || 1)) * LOC_PRICE * (latest.avgCommitsPerDay ?? (latest.commitCount30d / 30))))}
+                        </span>
                       </div>
                       {latest.repoName && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Repozitár</span>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-muted-foreground shrink-0">Repozitár</span>
                           <span className="font-mono text-xs truncate max-w-[140px]" title={latest.repoName}>{latest.repoName}</span>
                         </div>
                       )}
+                    </div>
+                    <Separator />
+                    <div className="rounded bg-muted/40 px-3 py-2">
+                      <p className="text-xs font-semibold text-muted-foreground mb-1">Vysvetlenie výpočtu</p>
+                      <p className="text-[11px] text-muted-foreground text-justify">
+                        Denný rast = (čisté LOC ÷ počet commitov) × cena × priem. commitov/deň.
+                        Reflektuje priemerné LOC pridané za každý commit.
+                      </p>
                     </div>
                   </>
                 ) : (
@@ -271,11 +289,21 @@ export default function AssetTracker() {
                 <div className="p-2 rounded-md bg-amber-500/10 text-amber-500"><Trophy className="h-4 w-4" /></div>
                 <CardTitle className="text-base">Benchmark</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <BenchmarkBar value={latest.totalValueEur} benchmark={WP_VALUE} label="WordPress" />
-                <div className="text-xs text-muted-foreground text-justify pt-1">
-                  WordPress obsahuje cca 1,4 milióna LOC (≈ {formatEur(WP_VALUE)} pri 25 €/LOC).
-                  ATK dosahuje {Math.round((latest.totalValueEur / WP_VALUE) * 100)} % tejto hodnoty vrátane IP prémií.
+              <CardContent className="space-y-5">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">vs. WordPress</p>
+                  <BenchmarkBar value={latest.totalValueEur} benchmark={WP_VALUE} label="WordPress" />
+                  <p className="text-[11px] text-muted-foreground text-justify mt-1">
+                    WordPress ~1,4M LOC ≈ {formatEur(WP_VALUE)} pri 25 €/LOC.
+                  </p>
+                </div>
+                <Separator />
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">vs. Priemerný fintech startup</p>
+                  <BenchmarkBar value={latest.codeValueEur} benchmark={FINTECH_VALUE} label="Fintech startup" />
+                  <p className="text-[11px] text-muted-foreground text-justify mt-1">
+                    Priemerný fintech startup ~50 000 LOC ≈ {formatEur(FINTECH_VALUE)}. ATK ho prevyšuje o {Math.max(0, Math.round(((latest.codeValueEur / FINTECH_VALUE) - 1) * 100))} %.
+                  </p>
                 </div>
               </CardContent>
             </Card>

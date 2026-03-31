@@ -198,6 +198,9 @@ const nastavenieDirectItems = [
   { href: "/support", icon: Phone, label: "Podpora a registracia" },
   { href: "/history", icon: History, label: "Logy" },
   { href: "/archive", icon: Trash2, label: "Kos" },
+];
+
+const nastavenieAdminOnlyItems = [
   { href: "/admin/asset-tracker", icon: TrendingUp, label: "Asset Tracker" },
 ];
 
@@ -206,6 +209,7 @@ const allNastavenieHrefs = [
   ...specifikacieItems.map(i => i.href),
   ...nastavenieSystemuItems.map(i => i.href),
   ...nastavenieDirectItems.map(i => i.href),
+  ...nastavenieAdminOnlyItems.map(i => i.href),
 ];
 
 function CollapsibleMenu({
@@ -662,6 +666,20 @@ export function AppSidebar() {
                       </SidebarMenuSubItem>
 
                       {nastavenieDirectItems.map(item => (
+                        <SidebarMenuSubItem key={item.href}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={location === item.href}
+                            data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+                          >
+                            <Link href={item.href}>
+                              <item.icon className="w-3.5 h-3.5" />
+                              <span>{item.label}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                      {isAdminUser && nastavenieAdminOnlyItems.map(item => (
                         <SidebarMenuSubItem key={item.href}>
                           <SidebarMenuSubButton
                             asChild

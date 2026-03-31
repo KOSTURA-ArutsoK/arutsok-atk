@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, bigint, numeric, varchar, index, uniqueIndex, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, bigint, numeric, varchar, index, uniqueIndex, date, real } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -3043,6 +3043,7 @@ export const atkAssetSnapshots = pgTable("atk_asset_snapshots", {
   ipPremiumEur: integer("ip_premium_eur").notNull().default(0),
   totalValueEur: integer("total_value_eur").notNull(),
   commitCount30d: integer("commit_count_30d"),
+  avgCommitsPerDay: real("avg_commits_per_day"),
   repoName: text("repo_name"),
   takenByUserId: integer("taken_by_user_id"),
 });

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "wouter";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useMyCompanies } from "@/hooks/use-companies";
 import { useStates } from "@/hooks/use-hierarchy";
@@ -7,7 +8,7 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   Settings as SettingsIcon, Shield, Database, Info, Building2, Globe,
   Lock, Phone, Save, Clock, LayoutDashboard, Plus, Trash2, Eye,
-  AlertTriangle, Upload, FileSpreadsheet, Loader2, Ghost
+  AlertTriangle, Upload, FileSpreadsheet, Loader2, Ghost, TrendingUp, ExternalLink
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -530,6 +531,29 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {isAdmin && (
+          <Card className="border-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-base">ATK Asset Tracker</CardTitle>
+              <div className="p-2 rounded-md bg-blue-500/10 text-blue-500">
+                <TrendingUp className="h-4 w-4" />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground text-justify">
+                Modul ocenenia kódovej základne systému ArutsoK. Počíta čistý počet LOC, násobí cenou 25 €/riadok a
+                pridáva IP prémie za inovatívne moduly (Decoy, Trezor/Holding, Zrkadlový kontext).
+              </p>
+              <Button asChild variant="outline" size="sm" className="w-full" data-testid="link-asset-tracker">
+                <Link href="/admin/asset-tracker">
+                  <ExternalLink className="w-3.5 h-3.5 mr-2" />
+                  Otvoriť Asset Tracker
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
