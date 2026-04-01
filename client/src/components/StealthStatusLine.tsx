@@ -31,9 +31,9 @@ export function StealthStatusLine() {
             height: "2px",
             borderRadius: "1px",
             backgroundColor: active ? "#10b981" : "#374151",
-            filter: active
-              ? "var(--stealth-segment-filter, drop-shadow(0 1px 2px rgba(0,0,0,0.25)))"
-              : undefined,
+            /* Light-mode drop-shadow applied to all segments; dark-mode
+               emerald glow applied only to active segments via CSS var */
+            filter: "var(--stealth-segment-filter, none)",
             boxShadow: active
               ? "var(--stealth-segment-glow, none)"
               : undefined,
