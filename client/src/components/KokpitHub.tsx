@@ -294,9 +294,13 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
     : undefined;
   const panelFilter = isDark ? undefined : DROP_SHADOW_LIGHT;
 
+  const closingRef = useRef(false);
   const handleClose = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
     setIsClosing(true);
     setTimeout(() => {
+      closingRef.current = false;
       setIsClosing(false);
       setActiveLayer("hub");
       setSelectedFunction(null);
