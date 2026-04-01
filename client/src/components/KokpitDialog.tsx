@@ -331,20 +331,27 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
               />
             </div>
           ) : previewFile?.url && isPdfFile(previewFile.name) ? (
-            <div className="flex flex-col w-full flex-1 gap-1.5 min-h-0 items-center justify-center">
+            <div style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0 }}>
               {previewPdfLoading ? (
-                <div className="text-center text-muted-foreground space-y-2">
-                  <Loader2 className="w-6 h-6 mx-auto animate-spin" />
+                <div className="flex flex-col flex-1 items-center justify-center text-center text-muted-foreground space-y-2">
+                  <Loader2 className="w-6 h-6 animate-spin" />
                   <p className="text-xs">Načítava PDF…</p>
                 </div>
               ) : previewPdfError ? (
-                <div className="text-center text-muted-foreground space-y-2">
-                  <FileText className="w-8 h-8 mx-auto text-red-400" />
+                <div className="flex flex-col flex-1 items-center justify-center text-center text-muted-foreground space-y-2">
+                  <FileText className="w-8 h-8 text-red-400" />
                   <p className="text-xs">PDF sa nepodarilo načítať</p>
                   <a href={previewFile.url} target="_blank" rel="noopener noreferrer" className="text-[10px] underline text-primary" data-testid="preview-pdf-open-link">Otvoriť v novej záložke</a>
                 </div>
               ) : previewPdfBlobUrl ? (
-                <embed src={previewPdfBlobUrl} type="application/pdf" className="w-full flex-1 rounded border-0" style={{ minHeight: 200 }} data-testid="preview-pdf" title={previewFile.name} />
+                <iframe
+                  key={previewPdfBlobUrl}
+                  src={previewPdfBlobUrl}
+                  className="w-full border-0 rounded"
+                  style={{ flex: 1, minHeight: 0 }}
+                  title={previewFile.name}
+                  data-testid="preview-pdf"
+                />
               ) : null}
             </div>
           ) : previewFile ? (
