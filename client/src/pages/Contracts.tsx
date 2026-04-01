@@ -4321,6 +4321,15 @@ export default function Contracts() {
   });
   const isMigrationMode = migrationModeMainData?.value === "ON";
 
+  const { data: productsWithDisplayParams } = useQuery<number[]>({
+    queryKey: ["/api/products/with-display-params"],
+    staleTime: 60_000,
+  });
+  const productsWithDisplayParamsSet = useMemo(
+    () => new Set(productsWithDisplayParams ?? []),
+    [productsWithDisplayParams],
+  );
+
   const columnVisibility = useColumnVisibility("contracts", CONTRACTS_COLUMNS);
   const evidenciaColumnVisibility = useColumnVisibility("contracts-evidencia", CONTRACTS_EVIDENCIA_COLUMNS);
   const sprievodkaColumnVisibility = useColumnVisibility("contracts-sprievodka", CONTRACTS_SPRIEVODKA_COLUMNS);
@@ -6720,16 +6729,33 @@ export default function Contracts() {
                               </Tooltip>
                             );
                           })()}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 px-2 border-violet-500 text-violet-600 hover:bg-violet-500/10 hover:text-violet-500"
-                            onClick={(e) => { e.stopPropagation(); setBoConsoleContract(contract); }}
-                            data-testid={`button-bo-console-${contract.id}`}
-                          >
-                            <ListChecks className="w-3 h-3 mr-1" />
-                            <span className="text-[11px]">BO Kontrola</span>
-                          </Button>
+                          {(() => {
+                            const boParamsConfigured = !contract.productId || productsWithDisplayParamsSet.size === 0 || productsWithDisplayParamsSet.has(contract.productId);
+                            return (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2 border-violet-500 text-violet-600 hover:bg-violet-500/10 hover:text-violet-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      onClick={(e) => { e.stopPropagation(); setBoConsoleContract(contract); }}
+                                      disabled={!boParamsConfigured}
+                                      data-testid={`button-bo-console-${contract.id}`}
+                                    >
+                                      <ListChecks className="w-3 h-3 mr-1" />
+                                      <span className="text-[11px]">BO Kontrola</span>
+                                    </Button>
+                                  </span>
+                                </TooltipTrigger>
+                                {!boParamsConfigured && (
+                                  <TooltipContent className="text-xs max-w-[200px] text-center">
+                                    Produkt nemá nakonfigurované parametre verifikácie
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            );
+                          })()}
                           <Button
                             size="sm"
                             variant="outline"
@@ -12094,8 +12120,12 @@ export default function Contracts() {
                         return (
                         <div className="divide-y">
                           {phaseId === 8 && looseContracts.length > 0 && (() => {
+                            const p8eligible = productsWithDisplayParamsSet.size > 0
+                              ? looseContracts.filter(c => !c.productId || productsWithDisplayParamsSet.has(c.productId))
+                              : looseContracts;
+                            const p8excluded = looseContracts.length - p8eligible.length;
                             const p8groups = new Map<string, Contract[]>();
-                            looseContracts.forEach(c => {
+                            p8eligible.forEach(c => {
                               const partnerName = partners?.find(p => p.id === c.partnerId)?.name || "Neznámy partner";
                               const productName = products?.find(p => p.id === c.productId)?.name || allSectorProducts?.find(sp => sp.id === c.sectorProductId)?.name || "Neznámy produkt";
                               const key = `${partnerName} — ${productName}`;
@@ -12106,6 +12136,14 @@ export default function Contracts() {
                             const p8hashKey = (s: string) => 400000 + (Math.abs(s.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)) % 99999);
                             return (
                               <div className="divide-y">
+                                {p8excluded > 0 && (
+                                  <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border-b border-amber-500/20" data-testid="text-p8-excluded-note">
+                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                    <span className="text-xs text-amber-700 dark:text-amber-400">
+                                      {p8excluded} {p8excluded === 1 ? "zmluva skrytá" : p8excluded < 5 ? "zmluvy skryté" : "zmlúv skrytých"} — produkt nemá nakonfigurované parametre verifikácie
+                                    </span>
+                                  </div>
+                                )}
                                 {p8sortedGroups.map(([groupName, groupContracts]) => {
                                   const toggleKey = p8hashKey(groupName);
                                   const isGroupExpanded = expandedSprievodky.has(toggleKey);

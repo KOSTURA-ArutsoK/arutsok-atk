@@ -13685,6 +13685,19 @@ export async function registerRoutes(
   });
 
   // === PRODUCT DISPLAY PARAMS (Task #218) ===
+  app.get("/api/products/with-display-params", isAuthenticated, async (_req, res) => {
+    try {
+      const rows = await db
+        .selectDistinct({ productId: productDisplayParams.productId })
+        .from(productDisplayParams)
+        .where(eq(productDisplayParams.displayInSummary, true));
+      res.json(rows.map(r => r.productId));
+    } catch (err) {
+      console.error("[display-params] with-display-params error:", err);
+      res.status(500).json({ message: "Internal error" });
+    }
+  });
+
   app.get("/api/products/:id/display-params", isAuthenticated, async (req, res) => {
     try {
       const productId = Number(req.params.id);
