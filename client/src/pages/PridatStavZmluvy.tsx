@@ -405,8 +405,8 @@ export default function PridatStavZmluvy() {
             </div>
           </div>
 
-          {/* Row 2: 3 support tiles */}
-          <div className="grid grid-cols-3 gap-2">
+          {/* Row 2: 2 support tiles */}
+          <div className="grid grid-cols-2 gap-2">
             <div data-testid="stat-scans" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(245,158,11,0.10),rgba(245,158,11,0.03))", borderColor: "rgba(245,158,11,0.25)" }}>
               <ScanLine size={16} color="#f59e0b" />
               <span className="text-xl font-black" style={{ color: "#f59e0b", lineHeight: 1 }}>{statScans}</span>
@@ -417,13 +417,32 @@ export default function PridatStavZmluvy() {
               <span className="text-xl font-black" style={{ color: "#06b6d4", lineHeight: 1 }}>{statTasks}</span>
               <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Moje úlohy</span>
             </div>
-            <div data-testid="stat-pokec" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(236,72,153,0.10),rgba(236,72,153,0.03))", borderColor: "rgba(236,72,153,0.25)" }}>
-              <MessageSquare size={16} color="#ec4899" />
-              <span className="text-xl font-black" style={{ color: "#ec4899", lineHeight: 1 }}>0</span>
-              <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Pokec</span>
-            </div>
           </div>
         </div>
+      </div>
+
+      {/* POKEC — pinned 5 px from the bottom edge, outside the scale container */}
+      <div
+        data-testid="stat-pokec"
+        style={{
+          position: "absolute",
+          bottom: 5,
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "linear-gradient(135deg,rgba(236,72,153,0.10),rgba(236,72,153,0.03))",
+          border: "1px solid rgba(236,72,153,0.25)",
+          borderRadius: 12,
+          padding: "8px 32px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 4,
+          minWidth: 100,
+        }}
+      >
+        <MessageSquare size={16} color="#ec4899" />
+        <span className="text-xl font-black" style={{ color: "#ec4899", lineHeight: 1 }}>0</span>
+        <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Pokec</span>
       </div>
 
       {/* KokpitHub is a modal overlay — lives outside the scale container */}
