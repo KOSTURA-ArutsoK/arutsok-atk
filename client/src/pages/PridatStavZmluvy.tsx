@@ -8,6 +8,7 @@ import {
   ScanLine, ListTodo, MessageSquare,
 } from "lucide-react";
 import { KokpitHub, type KokpitFunctionId } from "@/components/KokpitHub";
+import { StealthStatusLine } from "@/components/StealthStatusLine";
 import type { KokpitStagedScan } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { InfoChipRow, getWeatherLucideIcon } from "@/components/InfoChipRow";
@@ -374,8 +375,12 @@ export default function PridatStavZmluvy() {
         </div>
 
         {/* ── Center: KOKPIT button — flex-1 vertically and horizontally ── */}
-        <div className="flex-1 flex items-center justify-center py-6">
+        <div className="flex-1 flex flex-col items-center justify-center py-6 gap-0">
           <KokpitCard onClick={() => setHubOpen(true)} />
+          {/* Stealth Status Line — 5 silent pipeline segments, no labels */}
+          <div style={{ width: 240 }}>
+            <StealthStatusLine />
+          </div>
         </div>
 
         {/* ── Bottom: Dashboard statistics in 2 rows ──────────────────── */}

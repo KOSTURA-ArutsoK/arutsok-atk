@@ -14,6 +14,10 @@
 
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
+
+  /* Stealth Status Line — light mode: subtle drop-shadow, no glow */
+  --stealth-segment-filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25));
+  --stealth-segment-glow: none;
   --opaque-button-border-intensity: -8;
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
@@ -84,6 +88,11 @@
 .dark {
   --button-outline: rgba(255,255,255, .10);
   --badge-outline: rgba(255,255,255, .05);
+
+  /* Stealth Status Line — dark mode: emerald outer glow, no drop-shadow */
+  --stealth-segment-filter: none;
+  --stealth-segment-glow: 0 0 6px rgba(16,185,129,0.6);
+
   --opaque-button-border-intensity: 9;
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);

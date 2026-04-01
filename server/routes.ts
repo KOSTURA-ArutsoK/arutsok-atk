@@ -1101,6 +1101,71 @@ export async function registerRoutes(
     }
   });
 
+  // ── Pipeline Status Monitor (Stealth Status Line) ─────────────────────────
+  // ATK_ENV_DIELNA  = Dielňa checkpoint URL
+  // ATK_ENV_PREPRAVA = Preprava checkpoint URL
+  // ATK_ENV_TREZOR  = Trezor checkpoint URL (also runs DB liveness check)
+  // ATK_ENV_OSTRA   = Ostrá checkpoint URL
+  // ATK_ENV_VYKLAD  = Výklad checkpoint URL
+  // All five env vars are empty in dev/Replit — segments show grey by default.
+  // Production server injects actual URLs for real connectivity checks.
+  const PIPELINE_CACHE_TTL_MS = 60_000;
+  let pipelineCache: { data: boolean[]; ts: number } | null = null;
+
+  async function checkPipelinePoint(url: string): Promise<boolean> {
+    if (!url) return false;
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 3000);
+      const res = await fetch(url, { method: "HEAD", signal: ctrl.signal });
+      clearTimeout(timer);
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  app.get("/api/pipeline-status", isAuthenticated, async (req: any, res: any) => {
+    try {
+      const now = Date.now();
+      if (pipelineCache && now - pipelineCache.ts < PIPELINE_CACHE_TTL_MS) {
+        return res.json({ segments: pipelineCache.data });
+      }
+
+      const urls = [
+        process.env.ATK_ENV_DIELNA ?? "",
+        process.env.ATK_ENV_PREPRAVA ?? "",
+        process.env.ATK_ENV_TREZOR ?? "",
+        process.env.ATK_ENV_OSTRA ?? "",
+        process.env.ATK_ENV_VYKLAD ?? "",
+      ];
+
+      const results = await Promise.all(
+        urls.map(async (url, idx) => {
+          const httpOk = await checkPipelinePoint(url);
+          if (idx === 2) {
+            // Segment 3 = TREZOR: also verify DB liveness
+            try { await db.execute(sql`SELECT 1`); } catch { return false; }
+          }
+          return httpOk;
+        })
+      );
+
+      pipelineCache = { data: results, ts: now };
+
+      // Audit log — silent, no user-visible output
+      logAudit(req, {
+        action: "CHECK",
+        module: "PipelineStatus",
+        entityName: new Date().toISOString(),
+      }).catch(() => {});
+
+      return res.json({ segments: results });
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message || "Chyba" });
+    }
+  });
+
   app.use((req: any, res: any, next: any) => {
     if (!req.appUser) return next();
     if (req.method === "DELETE" && req.path.startsWith("/api/audit-logs")) {

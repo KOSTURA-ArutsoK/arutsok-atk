@@ -49,6 +49,11 @@ integrations = ["javascript_log_in_with_replit:2.0.0", "github:1.0.0"]
 [userenv]
 
 [userenv.shared]
+ATK_ENV_DIELNA = ""
+ATK_ENV_PREPRAVA = ""
+ATK_ENV_TREZOR = ""
+ATK_ENV_OSTRA = ""
+ATK_ENV_VYKLAD = ""
 
 [postMerge]
 path = "scripts/post-merge.sh"
