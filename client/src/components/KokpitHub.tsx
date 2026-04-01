@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppUser } from "@/hooks/use-app-user";
 import { formatUid } from "@/lib/utils";
@@ -156,9 +156,7 @@ function SkeletonRow({ w = "100%", h = 28, opacity = 1 }: { w?: string; h?: numb
 
 const DARK_BG = "linear-gradient(160deg, #0c1e3a 0%, #07111f 100%)";
 
-const GLOW_AMBER = "0 0 0 1px rgba(245,158,11,0.12), 0 0 32px 6px rgba(245,158,11,0.20), 0 0 72px 16px rgba(245,158,11,0.10)";
-const GLOW_BLUE  = "0 0 0 1px rgba(59,130,246,0.12), 0 0 32px 6px rgba(59,130,246,0.18), 0 0 72px 16px rgba(59,130,246,0.09)";
-const GLOW_TEAL  = "0 0 0 1px rgba(20,184,166,0.12), 0 0 32px 6px rgba(20,184,166,0.18), 0 0 72px 16px rgba(20,184,166,0.09)";
+const SHADOW_LIGHT = "0 8px 40px rgba(0,0,0,0.28), 0 2px 10px rgba(0,0,0,0.18)";
 
 function PinInput({
   onSuccess,
@@ -270,6 +268,28 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
   const userUid = appUser?.uid ? formatUid(appUser.uid) : null;
   const userKokpitPin = (appUser as any)?.kokpitPin as string | null | undefined;
 
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => obs.disconnect();
+  }, []);
+
+  const shadowAmber = isDark
+    ? "0 0 0 1px rgba(245,158,11,0.15), 0 0 32px 6px rgba(245,158,11,0.22), 0 0 72px 16px rgba(245,158,11,0.12)"
+    : SHADOW_LIGHT;
+  const shadowBlue = isDark
+    ? "0 0 0 1px rgba(59,130,246,0.15), 0 0 32px 6px rgba(59,130,246,0.20), 0 0 72px 16px rgba(59,130,246,0.10)"
+    : SHADOW_LIGHT;
+  const shadowTeal = isDark
+    ? "0 0 0 1px rgba(20,184,166,0.15), 0 0 32px 6px rgba(20,184,166,0.20), 0 0 72px 16px rgba(20,184,166,0.10)"
+    : SHADOW_LIGHT;
+  const shadowAmberHub = isDark
+    ? "0 0 0 1px rgba(245,158,11,0.18), 0 0 40px 8px rgba(245,158,11,0.28), 0 0 90px 20px rgba(245,158,11,0.14)"
+    : SHADOW_LIGHT;
+
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -367,7 +387,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
         onClick={handleClose}
       />
 
-      {/* Root container — all layers live inside */}
+      {/* Root container — all layers live inside; clicking outside panels closes */}
       <div
         style={{
           position: "relative",
@@ -377,6 +397,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
           borderRadius: 16,
           background: "#040c17",
         }}
+        onClick={handleClose}
       >
 
         {/* Vrstva 1 — spodná/zadná (95vw × 95vh): skeletal alebo skutočný KokpitDialog obsah */}
@@ -395,9 +416,10 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             flexDirection: "column",
             overflow: "hidden",
             borderRadius: 12,
-            border: "2px solid rgba(245,158,11,0.50)",
-            boxShadow: GLOW_AMBER,
+            border: "2px solid #f59e0b",
+            boxShadow: shadowAmber,
           }}
+          onClick={(e) => e.stopPropagation()}
         >
           {activeLayer === "third" ? (
             <KokpitDialogBody
@@ -487,9 +509,10 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             zIndex: activeLayer === "second" ? 3 : 2,
             overflow: "hidden",
             borderRadius: 12,
-            border: "2px solid rgba(59,130,246,0.50)",
-            boxShadow: GLOW_BLUE,
+            border: "2px solid #3b82f6",
+            boxShadow: shadowBlue,
           }}
+          onClick={(e) => e.stopPropagation()}
         >
           {selectedFunction === "roztriedenie-stavov" ? (
             <>
@@ -762,9 +785,10 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             pointerEvents: activeLayer === "mails" ? "auto" : "none",
             overflow: "hidden",
             borderRadius: 12,
-            border: "2px solid rgba(20,184,166,0.50)",
-            boxShadow: GLOW_TEAL,
+            border: "2px solid #14b8a6",
+            boxShadow: shadowTeal,
           }}
+          onClick={(e) => e.stopPropagation()}
         >
           <div
             className="flex items-center gap-3 px-5 py-3 shrink-0"
@@ -812,9 +836,10 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             opacity: (hubExiting || isClosing || hubIsInactive) ? 0 : 1,
             overflow: "hidden",
             borderRadius: 12,
-            border: "2px solid rgba(245,158,11,0.60)",
-            boxShadow: GLOW_AMBER,
+            border: "2px solid #f59e0b",
+            boxShadow: shadowAmberHub,
           }}
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div
