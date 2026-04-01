@@ -12051,7 +12051,7 @@ export default function Contracts() {
                     ) : isGroupedPhase ? (
                       (() => {
                         const supiskaContractIds = new Set(supiskyForPhase.flatMap((s: any) => (s.contracts || []).map((c: any) => c.id)));
-                        const looseContracts = phaseId === 8 ? phaseContracts.filter(c => !supiskaContractIds.has(c.id) && !c.lockedBySupiskaId) : [];
+                        const looseContracts = [8, 9].includes(phaseId) ? phaseContracts.filter(c => !supiskaContractIds.has(c.id) && !c.lockedBySupiskaId) : [];
                         const hasContent = supiskyForPhase.length > 0 || looseContracts.length > 0;
                         if (!hasContent) return (
                           <p className="text-sm text-muted-foreground text-center py-8" data-testid={`text-no-phase-${phaseId}`}>Žiadne kontrakty v tejto fáze</p>

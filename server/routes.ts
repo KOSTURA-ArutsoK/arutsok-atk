@@ -8539,7 +8539,9 @@ export async function registerRoutes(
   });
 
   app.get(api.contractsApi.get.path, isAuthenticated, async (req: any, res) => {
-    const contract = await storage.getContract(Number(req.params.id));
+    const contractId = Number(req.params.id);
+    if (!Number.isFinite(contractId)) return res.status(400).json({ message: "Neplatné ID zmluvy" });
+    const contract = await storage.getContract(contractId);
     if (!contract) return res.status(404).json({ message: "Contract not found" });
     const appUser = req.appUser;
     if (appUser && appUser.activeStateId && contract.stateId && contract.stateId !== appUser.activeStateId) {
