@@ -6730,7 +6730,7 @@ export default function Contracts() {
                             );
                           })()}
                           {(() => {
-                            const boParamsConfigured = !contract.productId || productsWithDisplayParamsSet.size === 0 || productsWithDisplayParamsSet.has(contract.productId);
+                            const boParamsConfigured = productsWithDisplayParams === undefined || !contract.productId || productsWithDisplayParamsSet.has(contract.productId);
                             return (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -6750,7 +6750,7 @@ export default function Contracts() {
                                 </TooltipTrigger>
                                 {!boParamsConfigured && (
                                   <TooltipContent className="text-xs max-w-[200px] text-center">
-                                    Produkt nemá nakonfigurované parametre verifikácie
+                                    Produkt nemá nakonfigurované parametre verifikácie.
                                   </TooltipContent>
                                 )}
                               </Tooltip>
@@ -12120,9 +12120,9 @@ export default function Contracts() {
                         return (
                         <div className="divide-y">
                           {phaseId === 8 && looseContracts.length > 0 && (() => {
-                            const p8eligible = productsWithDisplayParamsSet.size > 0
-                              ? looseContracts.filter(c => !c.productId || productsWithDisplayParamsSet.has(c.productId))
-                              : looseContracts;
+                            const p8eligible = productsWithDisplayParams === undefined
+                              ? looseContracts
+                              : looseContracts.filter(c => !c.productId || productsWithDisplayParamsSet.has(c.productId));
                             const p8excluded = looseContracts.length - p8eligible.length;
                             const p8groups = new Map<string, Contract[]>();
                             p8eligible.forEach(c => {
