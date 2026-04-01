@@ -375,12 +375,8 @@ export default function PridatStavZmluvy() {
         </div>
 
         {/* ── Center: KOKPIT button — flex-1 vertically and horizontally ── */}
-        <div className="flex-1 flex flex-col items-center justify-center py-6 gap-0">
+        <div className="flex-1 flex items-center justify-center py-6">
           <KokpitCard onClick={() => setHubOpen(true)} />
-          {/* Stealth Status Line — 5 silent pipeline segments, no labels */}
-          <div style={{ width: 240 }}>
-            <StealthStatusLine />
-          </div>
         </div>
 
         {/* ── Bottom: Dashboard statistics in 2 rows ──────────────────── */}
@@ -429,6 +425,11 @@ export default function PridatStavZmluvy() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Stealth Status Line — pinned to very bottom, full width, outside scale wrapper */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}>
+        <StealthStatusLine />
       </div>
 
       {/* KokpitHub is a modal overlay — lives outside the scale container */}

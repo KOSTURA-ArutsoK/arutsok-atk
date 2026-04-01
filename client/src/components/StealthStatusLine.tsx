@@ -17,10 +17,9 @@ export function StealthStatusLine() {
       style={{
         display: "flex",
         width: "100%",
-        gap: "3px",
-        height: "2px",
-        padding: "0 2px",
-        boxSizing: "border-box",
+        gap: "0.2vw",
+        /* Height scales proportionally with viewport width */
+        height: "clamp(2px, 0.35vw, 7px)",
       }}
     >
       {segments.map((active, i) => (
@@ -28,11 +27,9 @@ export function StealthStatusLine() {
           key={i}
           style={{
             flex: 1,
-            height: "2px",
+            height: "100%",
             borderRadius: "1px",
             backgroundColor: active ? "#10b981" : "#374151",
-            /* Light-mode drop-shadow applied to all segments; dark-mode
-               emerald glow applied only to active segments via CSS var */
             filter: "var(--stealth-segment-filter, none)",
             boxShadow: active
               ? "var(--stealth-segment-glow, none)"
