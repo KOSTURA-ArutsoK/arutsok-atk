@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAppUser } from "@/hooks/use-app-user";
 import { formatUid } from "@/lib/utils";
@@ -268,8 +268,11 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
   const userUid = appUser?.uid ? formatUid(appUser.uid) : null;
   const userKokpitPin = (appUser as any)?.kokpitPin as string | null | undefined;
 
-  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  const [isDark, setIsDark] = useState(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  );
   useEffect(() => {
+    if (typeof MutationObserver === 'undefined') return;
     const obs = new MutationObserver(() => {
       setIsDark(document.documentElement.classList.contains('dark'));
     });
@@ -291,6 +294,17 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
     : undefined;
   const panelFilter = isDark ? undefined : DROP_SHADOW_LIGHT;
 
+  const handleClose = useCallback(() => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsClosing(false);
+      setActiveLayer("hub");
+      setSelectedFunction(null);
+      setPinTargetId(null);
+      onOpenChange(false);
+    }, 280);
+  }, [onOpenChange]);
+
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -308,7 +322,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, handleClose]);
 
   function doSelectFunction(id: KokpitFunctionId) {
     onSelectFunction(id);
@@ -348,17 +362,6 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
   function handleBackToHub() {
     setActiveLayer("hub");
     setSelectedFunction(null);
-  }
-
-  function handleClose() {
-    setIsClosing(true);
-    setTimeout(() => {
-      setIsClosing(false);
-      setActiveLayer("hub");
-      setSelectedFunction(null);
-      setPinTargetId(null);
-      onOpenChange(false);
-    }, 280);
   }
 
   const hubIsInactive = activeLayer !== "hub";
