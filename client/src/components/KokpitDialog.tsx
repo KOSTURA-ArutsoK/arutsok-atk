@@ -85,43 +85,6 @@ const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
 function isImageFile(name: string) { return IMAGE_EXTS.includes(name.split('.').pop()?.toLowerCase() ?? ''); }
 function isPdfFile(name: string) { return name.split('.').pop()?.toLowerCase() === 'pdf'; }
 
-function usePdfBlobUrl(url: string | undefined): { blobUrl: string | null; loading: boolean; error: boolean } {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
-  const blobUrlRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!url) {
-      if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
-      setBlobUrl(null);
-      setLoading(false);
-      setError(false);
-      return;
-    }
-    const controller = new AbortController();
-    setLoading(true);
-    setError(false);
-    setBlobUrl(null);
-    if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
-    fetch(url, { credentials: 'include', signal: controller.signal })
-      .then(r => { if (!r.ok) throw new Error('fetch failed'); return r.blob(); })
-      .then(blob => {
-        const newUrl = URL.createObjectURL(blob);
-        blobUrlRef.current = newUrl;
-        setBlobUrl(newUrl);
-      })
-      .catch(err => { if (err.name !== 'AbortError') setError(true); })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => {
-      controller.abort();
-      if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
-    };
-  }, [url]);
-
-  return { blobUrl, loading, error };
-}
-
 // ── Step1Panel ────────────────────────────────────────────────────────────────
 
 interface Step1PanelProps {
@@ -146,6 +109,9 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
   const isImagePreviewRef = useRef(false);
   const [pinnedContractIds, setPinnedContractIds] = useState<Set<number>>(new Set());
   const [scanPendingDelete, setScanPendingDelete] = useState<string | null>(null);
+  const [pdfToken, setPdfToken] = useState<string | null>(null);
+  const [pdfTokenLoading, setPdfTokenLoading] = useState(false);
+  const [pdfTokenError, setPdfTokenError] = useState(false);
 
   const { data: contractsRaw = [] } = useQuery<TrezorContract[]>({
     queryKey: ["/api/contracts", "trezor-list"],
@@ -256,6 +222,32 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
     setZoomLevel(1);
   }, [previewFile?.id]);
 
+  // Fetch short-lived preview token whenever a PDF is selected
+  useEffect(() => {
+    if (!previewPdfUrl) {
+      setPdfToken(null);
+      setPdfTokenLoading(false);
+      setPdfTokenError(false);
+      return;
+    }
+    const controller = new AbortController();
+    setPdfToken(null);
+    setPdfTokenLoading(true);
+    setPdfTokenError(false);
+    fetch("/api/kokpit/preview-token", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileUrl: previewPdfUrl }),
+      signal: controller.signal,
+    })
+      .then(r => { if (!r.ok) throw new Error("token fetch failed"); return r.json(); })
+      .then((data: { token: string }) => { setPdfToken(data.token); })
+      .catch(err => { if (err.name !== "AbortError") setPdfTokenError(true); })
+      .finally(() => { if (!controller.signal.aborted) setPdfTokenLoading(false); });
+    return () => controller.abort();
+  }, [previewPdfUrl]);
+
   // Non-passive wheel listener for pinch-to-zoom (ctrlKey = pinch on trackpad)
   // Only active when the current preview is an image; PDF uses native browser zoom
   useEffect(() => {
@@ -332,12 +324,12 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
             </div>
           ) : previewPdfUrl ? (
             <div style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0, border: "2px solid #1a2740", borderRadius: 6, overflow: "hidden" }}>
-              <object
-                data={previewPdfUrl}
-                type="application/pdf"
-                data-testid="preview-pdf-object"
-                style={{ flex: 1, width: "100%", height: "100%", border: "none", background: "#1a1a2e" }}
-              >
+              {pdfTokenLoading ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 10, color: "rgba(148,163,184,0.7)" }}>
+                  <Loader2 style={{ width: 24, height: 24 }} className="animate-spin" />
+                  <p style={{ fontSize: 11 }}>Načítavam PDF…</p>
+                </div>
+              ) : pdfTokenError ? (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12, color: "rgba(148,163,184,0.7)", padding: 20 }}>
                   <FileText style={{ width: 32, height: 32, color: "rgba(251,191,36,0.5)" }} />
                   <p style={{ fontSize: 12, textAlign: "center" }}>PDF sa nepodarilo načítať</p>
@@ -346,7 +338,16 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
                     Otvoriť v novej záložke
                   </a>
                 </div>
-              </object>
+              ) : pdfToken ? (
+                <iframe
+                  src={`/api/kokpit/preview-file?token=${pdfToken}`}
+                  title="PDF náhľad"
+                  data-testid="preview-pdf-iframe"
+                  allow="fullscreen"
+                  sandbox="allow-scripts allow-same-origin"
+                  style={{ flex: 1, width: "100%", height: "100%", border: "none", background: "#1a1a2e" }}
+                />
+              ) : null}
             </div>
           ) : previewFile ? (
             <div className="text-center text-muted-foreground space-y-2">

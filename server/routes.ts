@@ -561,6 +561,14 @@ fs.mkdirSync(path.join(UPLOADS_DIR, "supiska-attachments"), { recursive: true })
 fs.mkdirSync(path.join(UPLOADS_DIR, "contract-docs"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "downloadable-docs"), { recursive: true });
 
+const kokpitPreviewTokenStore = new Map<string, { filePath: string; userId: number; expiresAt: number }>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, entry] of kokpitPreviewTokenStore.entries()) {
+    if (entry.expiresAt < now) kokpitPreviewTokenStore.delete(token);
+  }
+}, 60_000);
+
 const uploadStorage = multer.diskStorage({
   destination: (req, _file, cb) => {
     const section = (req.params as any).section || (req as any)._uploadSection;
@@ -5127,6 +5135,56 @@ export async function registerRoutes(
       }
     }
     return res.status(404).json({ message: "File not found" });
+  });
+
+  // ── POST /api/kokpit/preview-token ── issue a short-lived one-time token for PDF preview
+  app.post("/api/kokpit/preview-token", isAuthenticated, (req, res) => {
+    const appUser = (req as any).appUser;
+    if (!appUser) return res.status(401).json({ message: "Unauthorized" });
+    const { fileUrl } = req.body as { fileUrl?: unknown };
+    if (typeof fileUrl !== "string" || !fileUrl.startsWith("/api/files/")) {
+      return res.status(400).json({ message: "Invalid fileUrl" });
+    }
+    const relativeParts = fileUrl.replace(/^\/api\/files\//, "").split("/").filter(Boolean);
+    const allowedSections = ["official", "work", "tax", "logos", "amendments", "profiles", "flags",
+      "status-change-docs", "generated-docs", "contract-docs", "downloadable-docs",
+      "supiska-attachments", "subject-photos"];
+    let filePath = "";
+    if (relativeParts.length >= 2 && allowedSections.includes(relativeParts[0])) {
+      filePath = path.join(UPLOADS_DIR, relativeParts[0], relativeParts[1]);
+    } else if (relativeParts.length === 1) {
+      for (const dir of ["official", "contract-docs"]) {
+        const candidate = path.join(UPLOADS_DIR, dir, relativeParts[0]);
+        if (fs.existsSync(candidate)) { filePath = candidate; break; }
+      }
+    }
+    if (!filePath || !fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "Súbor nenájdený" });
+    }
+    const token = crypto.randomUUID();
+    kokpitPreviewTokenStore.set(token, { filePath, userId: appUser.id, expiresAt: Date.now() + 30_000 });
+    return res.json({ token });
+  });
+
+  // ── GET /api/kokpit/preview-file ── serve file using one-time token (token IS the auth)
+  app.get("/api/kokpit/preview-file", (req, res) => {
+    const token = req.query.token as string | undefined;
+    if (!token) return res.status(400).json({ message: "Chýba token" });
+    const entry = kokpitPreviewTokenStore.get(token);
+    if (!entry || entry.expiresAt < Date.now()) {
+      kokpitPreviewTokenStore.delete(token);
+      return res.status(403).json({ message: "Token neplatný alebo expiroval" });
+    }
+    kokpitPreviewTokenStore.delete(token);
+    const { filePath } = entry;
+    if (!fs.existsSync(filePath)) return res.status(404).json({ message: "Súbor neexistuje" });
+    const filename = path.basename(filePath);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.sendFile(filePath);
   });
 
   app.delete("/api/my-companies/:companyId/files/:section", isAuthenticated, async (req, res) => {
