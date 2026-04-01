@@ -585,7 +585,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                       <button
                         type="button"
                         data-testid="button-layer2-pokracovat"
-                        onClick={handleBackToHub}
+                        onClick={() => setActiveLayer("third")}
                         className="w-full flex items-center justify-center gap-2 rounded-lg font-bold transition-all"
                         style={{
                           padding: "10px 0",
