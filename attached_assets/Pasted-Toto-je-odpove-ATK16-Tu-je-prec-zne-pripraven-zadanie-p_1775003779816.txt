@@ -1,0 +1,56 @@
+Toto je odpoveď ATK16
+
+Tu je precízne pripravené zadanie pre agenta. Je navrhnuté tak, aby kód, ktorý agent vytvorí, bol funkčný a čistý, ale aby pritom nikdy neodhalil tvoje skutočné súkromné adresy.
+
+Tento prístup sa v kybernetickej bezpečnosti nazýva abstrakcia tajomstiev.
+
+Technické zadanie pre implementáciu (Security-First Model)
+Vážený agent, implementujte prepojenie a monitoring infraštruktúry ArutsoK (ATK) podľa nasledujúcich striktných bezpečnostných a dizajnových pravidiel:
+
+1. Abstrakcia adries (Zákaz Hardcodingu)
+V zdrojovom kóde (Replit/GitHub) sa nesmú nachádzať žiadne skutočné URL adresy ani prístupové údaje k serverom.
+
+Pre každý z 5 bodov infraštruktúry definujte v kóde len názvy premenných prostredia (Environment Variables).
+
+Použite tieto názvy: ATK_ENV_DIELNA, ATK_ENV_PREPRAVA, ATK_ENV_TREZOR, ATK_ENV_OSTRA, ATK_ENV_VYKLAD.
+
+Skutočné hodnoty (URL adresy) sa budú do systému vstrekovať až priamo na ostrom Serveri (Trezore).
+
+2. Stealth Status Line (Diagnostika)
+Pod ovládacím prvkom Cockpit vytvorte vizuálny indikátor stavu bez akýchkoľvek textových popisov alebo legiend.
+
+Formát: 5 samostatných horizontálnych úsečiek (segmentov).
+
+Geometria: Hrúbka presne 2px, rozdelené na 5 rovnakých častí.
+
+Layout: Justified (segmenty rovnomerne vypĺňajú celú šírku ovládacieho bloku).
+
+Farebná logika:
+
+Emerald Green: Ak je premenná dostupná a bod odpovedá (Stav OK).
+
+Dark Grey: Ak je bod nedostupný alebo spojenie zlyhalo.
+
+Efekty:
+
+Day Mode: Jemný drop-shadow pod segmentmi.
+
+Night Mode: Decentná žiara (outer glow) vo farbe Emerald Green.
+
+3. Logika prepojenia bodov (The Pipeline)
+Implementujte funkciu check_topology_health(), ktorá v pozadí vykoná tichý ping na premenné:
+
+Bod 1: Overenie dostupnosti vývojového prostredia.
+
+Bod 2: Overenie synchronizácie kódu cez transportný kanál.
+
+Bod 3: Kontrola konektivity k centrálnej databáze (Trezor).
+
+Bod 4: Overenie dostupnosti pracovnej subdomény (Ostrá prevádzka).
+
+Bod 5: Overenie funkčnosti verejného zrkadla (Výkladná skriňa/Decoy).
+
+4. Audit a Integrita
+Každá kontrola stavu musí byť zapísaná do interného auditného logu s časovou pečiatkou.
+
+Systém nesmie navonok (pre bežného používateľa) zobraziť žiadne detaily o tom, čo tieto segmenty znamenajú. Pre personál ide o "estetický dizajnový prvok".

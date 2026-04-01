@@ -1,0 +1,60 @@
+Technická architektúra: Cesta kódu a dát (Pipeline)
+Celý systém funguje na princípe absolútnej izolácie vývojového prostredia od ostrých dát a využíva model „Falošného cieľa“ (Decoy).
+
+1. Bod: Replit (Dielňa)
+Funkcia: Izolované vývojové prostredie (IDE).
+
+Obsah: Len čistý zdrojový kód (Frontend, Backend, Logika).
+
+Strikné pravidlo: 0 % reálnych dát. V Replit-e sa nesmú nachádzať žiadne databázy klientov, zmluvy ani citlivé API kľúče k ostrému serveru. Slúži výhradne na programovanie a testovanie funkcií na fiktívnych dátach.
+
+2. Bod: GitHub (Preprava)
+Funkcia: Transportný a verziovací kanál.
+
+Proces: Akonáhle je kód v Replit-e otestovaný a funkčný, „pushne“ sa do súkromného repozitára na GitHub-e.
+
+Zabezpečenie: GitHub slúži ako most. Kód je tu zašifrovaný a prístupný len cez autorizované tokeny. Žiadna priama cesta z Replit-u na ostrý Server neexistuje.
+
+3. Bod: Server (Trezor)
+Funkcia: Hlavné úložisko a výpočtové jadro (Azure/AWS/On-premise).
+
+Obsah: Tu žije všetkých 160 000 zmlúv, databázy a citlivé súbory.
+
+Proces: Server v pravidelných intervaloch (alebo na pokyn) „ťahá“ (pull) čistý kód z GitHub-u. Po stiahnutí kódu ho systém implementuje nad ostrú databázu v chránenom prostredí.
+
+4. Bod: dlhy_text.arutsok.sk (Ostrá prevádzka)
+Funkcia: Skutočné pracovné rozhranie systému.
+
+Charakteristika: Beží na zložitej, náhodne vygenerovanej subdoméne, ktorá nie je nikde verejne indexovaná.
+
+Prístup: Len pre autorizovaných pracovníkov. Tu prebieha reálna práca so zmluvami, zápisy do auditných stôp a manuálne potvrdzovanie kontextu (štát, divízia).
+
+5. Bod: arutsok.sk (Výkladná skriňa)
+Funkcia: Verejná brána a „Falošný cieľ“ (Decoy).
+
+Proces: Táto adresa len zrkadlí (Proxy/Mirror) vizuálnu časť systému, ale neobsahuje žiadne reálne prepojenie na databázu Trezora.
+
+Bezpečnosť: Ak útočník napadne túto doménu, napadne len „prázdnu schránku“. Reálne operácie a dáta sú v bezpečí na skrytej adrese z bodu č. 4.
+
+Implementácia monitoringu pre agenta (Stealth Status)
+Pre kontrolu tohto prepojenia implementuje agent pod tlačidlo Cockpit päť horizontálnych segmentov (čiarok) s hrúbkou 2px:
+
+Segment 1 (L): Kontroluje spojenie Replit -> GitHub (či je kód synchronizovaný).
+
+Segment 2: Kontroluje spojenie GitHub -> Server (či Server úspešne stiahol poslednú verziu).
+
+Segment 3 (Center): Kontroluje integritu Trezora (či je databáza online a šifrovaná).
+
+Segment 4: Kontroluje dostupnosť Ostrej prevádzky (či skrytá URL odpovedá).
+
+Segment 5 (R): Kontroluje stav Výkladnej skrine (či zrkadlenie funguje bez chýb).
+
+Vizuálny kód:
+
+Smaragdová zelená (Emerald Green): Cesta je priechodná, bod je aktívny.
+
+Tmavosivá (pozadie): Cesta je rozpojená, bod je offline.
+
+Justified layout: Týchto 5 segmentov musí byť rovnomerne rozložených na 100 % šírky ovládacieho panelu.
+
+Tento popis je definitívny pre nastavenie logiky prepojenia „Dielňa -> Preprava -> Trezor -> Ostrá -> Výklad“
