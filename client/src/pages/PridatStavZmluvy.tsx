@@ -110,12 +110,27 @@ function KokpitCard({ onClick }: { onClick: () => void }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+// Design height of the Layer 1 content — used to compute scale factor
+const LAYER1_DESIGN_H = 570;
+
 export default function PridatStavZmluvy() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [hubOpen, setHubOpen] = useState(false);
   const [scanFiles, setScanFiles] = useState<ScanFile[]>([]);
   const dbInitializedRef = useRef(false);
+
+  // ── Responsive scale: shrink everything to fit available height ────────────
+  const [contentScale, setContentScale] = useState(1);
+  useEffect(() => {
+    function calcScale() {
+      const availH = window.innerHeight - 108;
+      setContentScale(Math.min(1, availH / LAYER1_DESIGN_H));
+    }
+    calcScale();
+    window.addEventListener("resize", calcScale);
+    return () => window.removeEventListener("resize", calcScale);
+  }, []);
 
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -336,66 +351,82 @@ export default function PridatStavZmluvy() {
     },
   ];
 
+  const scaled = contentScale < 1;
+
   return (
-    <div className="flex flex-col" style={{ height: "calc(100vh - 108px)", overflow: "hidden" }}>
+    <div style={{ height: "calc(100vh - 108px)", overflow: "hidden", position: "relative" }}>
 
-      {/* ── Top: info chip row ─────────────────────────────────────────────── */}
-      <div className="px-5 pt-5">
-        <InfoChipRow variant="backoffice" chips={boChips} />
-      </div>
+      {/* ── Scale wrapper: shrinks all Layer-1 content proportionally ─────── */}
+      <div
+        style={{
+          width: scaled ? `${(100 / contentScale).toFixed(3)}%` : "100%",
+          height: LAYER1_DESIGN_H,
+          display: "flex",
+          flexDirection: "column",
+          transform: scaled ? `scale(${contentScale})` : undefined,
+          transformOrigin: "top left",
+        }}
+      >
 
-      {/* ── Center: KOKPIT button — flex-1 vertically and horizontally ─────── */}
-      <div className="flex-1 flex items-center justify-center py-6">
-        <KokpitCard onClick={() => setHubOpen(true)} />
-      </div>
-
-      {/* ── Bottom: Dashboard statistics in 2 rows ─────────────────────────── */}
-      <div className="px-5 pb-5 flex flex-col gap-2">
-
-        {/* Row 1: 4 phase tiles */}
-        <div className="grid grid-cols-4 gap-2">
-          <div data-testid="stat-overdue" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(220,38,38,0.08),rgba(127,29,29,0.04))", borderColor: "rgba(220,38,38,0.25)" }}>
-            <AlertTriangle size={16} color="#dc2626" />
-            <span className="text-xl font-black" style={{ color: "#dc2626", lineHeight: 1 }}>{statOverdue}</span>
-            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Prenesené</span>
-          </div>
-          <div data-testid="stat-phase1" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(30,64,175,0.10),rgba(30,64,175,0.03))", borderColor: "rgba(59,130,246,0.25)" }}>
-            <ArrowDownToLine size={16} color="#3b82f6" />
-            <span className="text-xl font-black" style={{ color: "#3b82f6", lineHeight: 1 }}>{statPhase1}</span>
-            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Príchod</span>
-          </div>
-          <div data-testid="stat-phase2" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(124,58,237,0.10),rgba(124,58,237,0.03))", borderColor: "rgba(139,92,246,0.25)" }}>
-            <GitBranch size={16} color="#8b5cf6" />
-            <span className="text-xl font-black" style={{ color: "#8b5cf6", lineHeight: 1 }}>{statPhase2}</span>
-            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Rozdelenie</span>
-          </div>
-          <div data-testid="stat-phase3" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(5,150,105,0.10),rgba(5,150,105,0.03))", borderColor: "rgba(16,185,129,0.25)" }}>
-            <CheckCircle2Icon size={16} color="#10b981" />
-            <span className="text-xl font-black" style={{ color: "#10b981", lineHeight: 1 }}>{statPhase3}</span>
-            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Vybavené</span>
-          </div>
+        {/* ── Top: info chip row ─────────────────────────────────────────── */}
+        <div className="px-5 pt-5">
+          <InfoChipRow variant="backoffice" chips={boChips} />
         </div>
 
-        {/* Row 2: 3 support tiles */}
-        <div className="grid grid-cols-3 gap-2">
-          <div data-testid="stat-scans" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(245,158,11,0.10),rgba(245,158,11,0.03))", borderColor: "rgba(245,158,11,0.25)" }}>
-            <ScanLine size={16} color="#f59e0b" />
-            <span className="text-xl font-black" style={{ color: "#f59e0b", lineHeight: 1 }}>{statScans}</span>
-            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Skeny</span>
+        {/* ── Center: KOKPIT button — flex-1 vertically and horizontally ── */}
+        <div className="flex-1 flex items-center justify-center py-6">
+          <KokpitCard onClick={() => setHubOpen(true)} />
+        </div>
+
+        {/* ── Bottom: Dashboard statistics in 2 rows ──────────────────── */}
+        <div className="px-5 pb-5 flex flex-col gap-2">
+
+          {/* Row 1: 4 phase tiles */}
+          <div className="grid grid-cols-4 gap-2">
+            <div data-testid="stat-overdue" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(220,38,38,0.08),rgba(127,29,29,0.04))", borderColor: "rgba(220,38,38,0.25)" }}>
+              <AlertTriangle size={16} color="#dc2626" />
+              <span className="text-xl font-black" style={{ color: "#dc2626", lineHeight: 1 }}>{statOverdue}</span>
+              <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Prenesené</span>
+            </div>
+            <div data-testid="stat-phase1" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(30,64,175,0.10),rgba(30,64,175,0.03))", borderColor: "rgba(59,130,246,0.25)" }}>
+              <ArrowDownToLine size={16} color="#3b82f6" />
+              <span className="text-xl font-black" style={{ color: "#3b82f6", lineHeight: 1 }}>{statPhase1}</span>
+              <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Príchod</span>
+            </div>
+            <div data-testid="stat-phase2" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(124,58,237,0.10),rgba(124,58,237,0.03))", borderColor: "rgba(139,92,246,0.25)" }}>
+              <GitBranch size={16} color="#8b5cf6" />
+              <span className="text-xl font-black" style={{ color: "#8b5cf6", lineHeight: 1 }}>{statPhase2}</span>
+              <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Rozdelenie</span>
+            </div>
+            <div data-testid="stat-phase3" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(5,150,105,0.10),rgba(5,150,105,0.03))", borderColor: "rgba(16,185,129,0.25)" }}>
+              <CheckCircle2Icon size={16} color="#10b981" />
+              <span className="text-xl font-black" style={{ color: "#10b981", lineHeight: 1 }}>{statPhase3}</span>
+              <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Vybavené</span>
+            </div>
           </div>
-          <div data-testid="stat-tasks" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(6,182,212,0.10),rgba(6,182,212,0.03))", borderColor: "rgba(6,182,212,0.25)" }}>
-            <ListTodo size={16} color="#06b6d4" />
-            <span className="text-xl font-black" style={{ color: "#06b6d4", lineHeight: 1 }}>{statTasks}</span>
-            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Moje úlohy</span>
-          </div>
-          <div data-testid="stat-pokec" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(236,72,153,0.10),rgba(236,72,153,0.03))", borderColor: "rgba(236,72,153,0.25)" }}>
-            <MessageSquare size={16} color="#ec4899" />
-            <span className="text-xl font-black" style={{ color: "#ec4899", lineHeight: 1 }}>0</span>
-            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Pokec</span>
+
+          {/* Row 2: 3 support tiles */}
+          <div className="grid grid-cols-3 gap-2">
+            <div data-testid="stat-scans" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(245,158,11,0.10),rgba(245,158,11,0.03))", borderColor: "rgba(245,158,11,0.25)" }}>
+              <ScanLine size={16} color="#f59e0b" />
+              <span className="text-xl font-black" style={{ color: "#f59e0b", lineHeight: 1 }}>{statScans}</span>
+              <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Skeny</span>
+            </div>
+            <div data-testid="stat-tasks" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(6,182,212,0.10),rgba(6,182,212,0.03))", borderColor: "rgba(6,182,212,0.25)" }}>
+              <ListTodo size={16} color="#06b6d4" />
+              <span className="text-xl font-black" style={{ color: "#06b6d4", lineHeight: 1 }}>{statTasks}</span>
+              <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Moje úlohy</span>
+            </div>
+            <div data-testid="stat-pokec" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(236,72,153,0.10),rgba(236,72,153,0.03))", borderColor: "rgba(236,72,153,0.25)" }}>
+              <MessageSquare size={16} color="#ec4899" />
+              <span className="text-xl font-black" style={{ color: "#ec4899", lineHeight: 1 }}>0</span>
+              <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Pokec</span>
+            </div>
           </div>
         </div>
       </div>
 
+      {/* KokpitHub is a modal overlay — lives outside the scale container */}
       <KokpitHub
         open={hubOpen}
         onOpenChange={setHubOpen}
