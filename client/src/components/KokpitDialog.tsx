@@ -330,14 +330,22 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
               />
             </div>
           ) : previewPdfUrl ? (
-            <div style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0, border: "2px solid rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden" }}>
-              <iframe
-                src={previewPdfUrl}
-                title="PDF náhľad"
-                data-testid="preview-pdf-iframe"
+            <div style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0, border: "2px solid #1a2740", borderRadius: 6, overflow: "hidden" }}>
+              <object
+                data={previewPdfUrl}
+                type="application/pdf"
+                data-testid="preview-pdf-object"
                 style={{ flex: 1, width: "100%", height: "100%", border: "none", background: "#1a1a2e" }}
-                onError={() => {}}
-              />
+              >
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12, color: "rgba(148,163,184,0.7)", padding: 20 }}>
+                  <FileText style={{ width: 32, height: 32, color: "rgba(251,191,36,0.5)" }} />
+                  <p style={{ fontSize: 12, textAlign: "center" }}>PDF sa nepodarilo načítať</p>
+                  <a href={previewPdfUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "rgba(96,165,250,0.8)", textDecoration: "underline", display: "flex", alignItems: "center", gap: 4 }}>
+                    <FileCheck style={{ width: 12, height: 12 }} />
+                    Otvoriť v novej záložke
+                  </a>
+                </div>
+              </object>
             </div>
           ) : previewFile ? (
             <div className="text-center text-muted-foreground space-y-2">
@@ -639,14 +647,22 @@ function ScanPreview({ scan, idx }: { scan: ScanInfo; idx: number }) {
           data-testid={`preview-riesenie-img-${idx}`}
         />
       ) : isPdf ? (
-        <div className="w-full flex flex-col" style={{ minHeight: 120, height: 420, border: "2px solid rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden" }}>
-          <iframe
-            src={scan.url}
-            title="PDF náhľad"
+        <div className="w-full flex flex-col" style={{ minHeight: 120, height: 420, border: "2px solid #1a2740", borderRadius: 6, overflow: "hidden" }}>
+          <object
+            data={scan.url}
+            type="application/pdf"
             data-testid={`preview-riesenie-pdf-${idx}`}
             style={{ flex: 1, width: "100%", height: "100%", border: "none", background: "#1a1a2e" }}
-            onError={() => {}}
-          />
+          >
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12, color: "rgba(148,163,184,0.7)", padding: 20 }}>
+              <FileText style={{ width: 28, height: 28, color: "rgba(251,191,36,0.5)" }} />
+              <p style={{ fontSize: 12, textAlign: "center" }}>PDF sa nepodarilo načítať</p>
+              <a href={scan.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "rgba(96,165,250,0.8)", textDecoration: "underline", display: "flex", alignItems: "center", gap: 4 }}>
+                <FileCheck style={{ width: 12, height: 12 }} />
+                Otvoriť v novej záložke
+              </a>
+            </div>
+          </object>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-2 py-4 text-muted-foreground" data-testid={`preview-riesenie-doc-${idx}`}>
