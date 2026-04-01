@@ -369,7 +369,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
               <>
                 <div
                   className="flex items-center gap-3 px-5 py-3 shrink-0"
-                  style={{ borderBottom: "1px solid rgba(245,158,11,0.15)", background: "rgba(12,30,58,0.7)" }}
+                  style={{ borderBottom: "1px solid rgba(245,158,11,0.15)", background: "#0c1e3a" }}
                 >
                   <Target className="w-4 h-4 text-amber-400" />
                   <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300">KOKPIT</span>
@@ -448,7 +448,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                 {/* ── Layer 2 header ─────────────────────────────────────────── */}
                 <div
                   className="flex items-center gap-2 px-5 py-3 shrink-0"
-                  style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(12,30,58,0.7)" }}
+                  style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", background: "#0c1e3a" }}
                 >
                   <button
                     type="button"
@@ -497,7 +497,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                       borderLeft: "1px solid rgba(255,255,255,0.07)",
                       display: "flex",
                       flexDirection: "column",
-                      background: layer2DragOver ? "rgba(14,165,233,0.08)" : "rgba(5,15,30,0.75)",
+                      background: layer2DragOver ? "rgba(14,165,233,0.08)" : "#050f1e",
                       transition: "background 0.15s ease",
                     }}
                   >
@@ -714,7 +714,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
           >
             <div
               className="flex items-center gap-3 px-5 py-3 shrink-0"
-              style={{ borderBottom: "1px solid rgba(20,184,166,0.15)", background: "rgba(10,30,28,0.7)" }}
+              style={{ borderBottom: "1px solid rgba(20,184,166,0.15)", background: "#0a1e1c" }}
             >
               <button
                 type="button"
@@ -759,7 +759,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             {/* Header */}
             <div
               className="flex items-center gap-3 px-6 py-4 shrink-0"
-              style={{ borderBottom: "1px solid rgba(245,158,11,0.2)", background: "rgba(12,30,58,0.6)" }}
+              style={{ borderBottom: "1px solid rgba(245,158,11,0.2)", background: "#0c1e3a" }}
             >
               <div className="flex items-center gap-2">
                 <Target className="w-5 h-5 text-amber-400 shrink-0" />

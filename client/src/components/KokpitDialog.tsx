@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { TripleRingStatus } from "@/components/TripleRingStatus";
-import { PdfCanvas } from "@/components/PdfCanvas";
 import {
   FileText, Loader2, X, Archive, Search, Inbox, Upload,
   Image as ImageIcon, File, FileCheck, Eye, CheckCircle2, Clock, Pin,
@@ -331,8 +330,14 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
               />
             </div>
           ) : previewPdfUrl ? (
-            <div style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0 }}>
-              <PdfCanvas url={previewPdfUrl} />
+            <div style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0, border: "2px solid rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden" }}>
+              <iframe
+                src={previewPdfUrl}
+                title="PDF náhľad"
+                data-testid="preview-pdf-iframe"
+                style={{ flex: 1, width: "100%", height: "100%", border: "none", background: "#1a1a2e" }}
+                onError={() => {}}
+              />
             </div>
           ) : previewFile ? (
             <div className="text-center text-muted-foreground space-y-2">
@@ -634,8 +639,14 @@ function ScanPreview({ scan, idx }: { scan: ScanInfo; idx: number }) {
           data-testid={`preview-riesenie-img-${idx}`}
         />
       ) : isPdf ? (
-        <div className="w-full flex flex-col" style={{ minHeight: 120, height: 420 }}>
-          <PdfCanvas url={scan.url} />
+        <div className="w-full flex flex-col" style={{ minHeight: 120, height: 420, border: "2px solid rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden" }}>
+          <iframe
+            src={scan.url}
+            title="PDF náhľad"
+            data-testid={`preview-riesenie-pdf-${idx}`}
+            style={{ flex: 1, width: "100%", height: "100%", border: "none", background: "#1a1a2e" }}
+            onError={() => {}}
+          />
         </div>
       ) : (
         <div className="flex flex-col items-center gap-2 py-4 text-muted-foreground" data-testid={`preview-riesenie-doc-${idx}`}>
