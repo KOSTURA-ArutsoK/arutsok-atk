@@ -1114,15 +1114,23 @@ export async function registerRoutes(
 
   async function checkPipelinePoint(url: string): Promise<boolean> {
     if (!url) return false;
-    try {
+    for (const method of ["HEAD", "GET"] as const) {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 3000);
-      const res = await fetch(url, { method: "HEAD", signal: ctrl.signal });
-      clearTimeout(timer);
-      return res.ok;
-    } catch {
-      return false;
+      try {
+        const res = await fetch(url, { method, signal: ctrl.signal });
+        clearTimeout(timer);
+        if (res.ok) return true;
+        if (res.status !== 405) return false;
+        // 405 Method Not Allowed → retry with GET
+      } catch {
+        clearTimeout(timer);
+        return false;
+      } finally {
+        clearTimeout(timer);
+      }
     }
+    return false;
   }
 
   app.get("/api/pipeline-status", isAuthenticated, async (req: any, res: any) => {
