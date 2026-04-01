@@ -420,7 +420,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {activeLayer === "third" ? (
+          {activeLayer === "third" && (
             <KokpitDialogBody
               scanFiles={scanFiles}
               onRemoveScanFile={onRemoveScanFile ?? (() => {})}
@@ -429,66 +429,6 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
               onBack={handleBackToHub}
               enabled={activeLayer === "third"}
             />
-          ) : (
-            <>
-              <div
-                className="flex items-center gap-3 px-5 py-3 shrink-0"
-                style={{ borderBottom: "1px solid rgba(245,158,11,0.15)", background: "#0c1e3a" }}
-              >
-                <Target className="w-4 h-4 text-amber-400" />
-                <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300">KOKPIT</span>
-                <div className="h-3 w-px bg-amber-500/25 mx-1" />
-                <span className="text-[11px] text-blue-300/50 font-mono">{userUid ?? "—"}</span>
-              </div>
-              <div
-                className="flex items-center gap-1 px-4 py-2 shrink-0"
-                style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-              >
-                {["ROZDELENIE SKENOV", "RIEŠENIE", "VYHODNOTENIE"].map((tab, i) => (
-                  <div
-                    key={tab}
-                    className="px-4 py-1.5 rounded-t text-[11px] font-semibold tracking-wide"
-                    style={{
-                      background: i === 0 ? "rgba(59,130,246,0.2)" : "transparent",
-                      color: i === 0 ? "rgba(147,197,253,0.9)" : "rgba(147,197,253,0.35)",
-                      border: i === 0 ? "1px solid rgba(59,130,246,0.25)" : "1px solid transparent",
-                    }}
-                  >
-                    {tab}
-                  </div>
-                ))}
-              </div>
-              <div className="flex-1 px-5 pt-3 pb-4 flex flex-col justify-between overflow-hidden">
-                <div className="flex gap-2 pb-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                  <SkeletonRow w="7%" h={18} opacity={0.7} />
-                  <SkeletonRow w="16%" h={18} opacity={0.7} />
-                  <SkeletonRow w="13%" h={18} opacity={0.7} />
-                  <SkeletonRow w="20%" h={18} opacity={0.7} />
-                  <SkeletonRow w="11%" h={18} opacity={0.7} />
-                  <SkeletonRow w="15%" h={18} opacity={0.7} />
-                </div>
-                {[
-                  [7,16,13,20,11,15],
-                  [7,14,10,22,9,13],
-                  [7,18,15,17,12,16],
-                  [7,12,11,24,10,14],
-                  [7,15,14,19,13,12],
-                  [7,17,12,21,8,15],
-                  [7,13,16,18,11,13],
-                  [7,16,11,20,12,14],
-                  [7,14,13,23,9,12],
-                  [7,15,10,19,13,16],
-                  [7,18,14,17,11,13],
-                  [7,12,15,22,10,15],
-                ].map((cols, i) => (
-                  <div key={i} className="flex gap-2">
-                    {cols.map((w, j) => (
-                      <SkeletonRow key={j} w={`${w}%`} h={24} opacity={0.38 + (i % 3) * 0.06} />
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </>
           )}
         </div>
 
@@ -513,7 +453,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {selectedFunction === "roztriedenie-stavov" ? (
+          {activeLayer === "second" && selectedFunction === "roztriedenie-stavov" && (
             <>
               {/* ── Layer 2 header ─────────────────────────────────────────── */}
               <div
@@ -688,7 +628,8 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                 </div>
               </div>
             </>
-          ) : (
+          )}
+          {activeLayer === "second" && selectedFunction !== "roztriedenie-stavov" && (
             /* ── Skeleton (pre ostatné funkcie v Layer 2) ── */
             <>
               <div
@@ -696,16 +637,14 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                 style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
               >
                 <div className="flex items-center gap-3">
-                  {activeLayer === "second" && (
-                    <button
-                      type="button"
-                      onClick={handleBackToHub}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-blue-300/70 hover:text-blue-100 hover:bg-white/10 transition-colors text-xs font-semibold border border-blue-500/20 hover:border-blue-400/40"
-                      data-testid="button-layer2-back-skeleton"
-                    >
-                      ← Späť
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={handleBackToHub}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-blue-300/70 hover:text-blue-100 hover:bg-white/10 transition-colors text-xs font-semibold border border-blue-500/20 hover:border-blue-400/40"
+                    data-testid="button-layer2-back-skeleton"
+                  >
+                    ← Späť
+                  </button>
                   <span className="text-xs font-semibold text-blue-200/50">
                     {new Date().toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" })}
                   </span>
