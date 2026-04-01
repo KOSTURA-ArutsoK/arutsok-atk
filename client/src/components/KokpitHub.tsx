@@ -472,6 +472,10 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                 <div className="h-3 w-px bg-amber-500/25 mx-1 shrink-0" />
                 <Target className="w-4 h-4 text-amber-400 shrink-0" />
                 <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300 shrink-0">KOKPIT</span>
+                <div className="h-3 w-px bg-amber-500/25 mx-1 shrink-0" />
+                <User className="w-3.5 h-3.5 text-blue-400/70 shrink-0" />
+                <span className="text-sm font-semibold text-blue-100 truncate min-w-0" data-testid="layer2-user-name">{userName}</span>
+                <span className="text-[11px] font-mono text-blue-300/50 whitespace-nowrap shrink-0" data-testid="layer2-user-uid">{userUid ?? "—"}</span>
                 <div className="flex-1" />
                 <button
                   type="button"
@@ -633,30 +637,34 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             /* ── Skeleton (pre ostatné funkcie v Layer 2) ── */
             <>
               <div
-                className="flex items-center justify-between px-5 py-3 shrink-0"
-                style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+                className="flex items-center gap-2 px-5 py-3 shrink-0"
+                style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", background: "#0c1e3a" }}
               >
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleBackToHub}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-blue-300/70 hover:text-blue-100 hover:bg-white/10 transition-colors text-xs font-semibold border border-blue-500/20 hover:border-blue-400/40"
-                    data-testid="button-layer2-back-skeleton"
-                  >
-                    ← Späť
-                  </button>
-                  <span className="text-xs font-semibold text-blue-200/50">
-                    {new Date().toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                  </span>
-                  <div style={{ width: 56, height: 16, borderRadius: 4, background: "rgba(255,255,255,0.07)" }} />
-                </div>
+                <button
+                  type="button"
+                  onClick={handleBackToHub}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-blue-300/70 hover:text-blue-100 hover:bg-white/10 transition-colors text-xs font-semibold border border-blue-500/20 hover:border-blue-400/40 shrink-0"
+                  data-testid="button-layer2-back-skeleton"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  Späť
+                </button>
+                <div className="h-3 w-px bg-amber-500/25 mx-1 shrink-0" />
                 <div
-                  className="flex items-center gap-1.5 px-3 py-1 rounded"
+                  className="flex items-center gap-1.5 px-3 py-1 rounded shrink-0"
                   style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.25)" }}
                 >
                   <Target className="w-3 h-3 text-amber-400" />
                   <span className="text-[10px] font-bold tracking-widest text-amber-300">KOKPIT</span>
                 </div>
+                <div className="h-3 w-px bg-amber-500/25 mx-1 shrink-0" />
+                <User className="w-3.5 h-3.5 text-blue-400/70 shrink-0" />
+                <span className="text-sm font-semibold text-blue-100 truncate min-w-0" data-testid="layer2-skeleton-user-name">{userName}</span>
+                <span className="text-[11px] font-mono text-blue-300/50 whitespace-nowrap shrink-0" data-testid="layer2-skeleton-user-uid">{userUid ?? "—"}</span>
+                <div className="flex-1" />
+                <span className="text-xs font-semibold text-blue-200/50 shrink-0">
+                  {new Date().toLocaleDateString("sk-SK", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                </span>
               </div>
 
               <div className="flex flex-1 gap-4 p-4 overflow-hidden">
@@ -802,14 +810,12 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
               <span className="text-sm font-semibold text-blue-100 truncate" data-testid="hub-user-name">
                 {userName}
               </span>
-              {userUid && (
-                <span
-                  className="text-[11px] font-mono text-blue-300/50 whitespace-nowrap"
-                  data-testid="hub-user-uid"
-                >
-                  {userUid}
-                </span>
-              )}
+              <span
+                className="text-[11px] font-mono text-blue-300/50 whitespace-nowrap"
+                data-testid="hub-user-uid"
+              >
+                {userUid ?? "—"}
+              </span>
             </div>
 
             <div className="h-4 w-px bg-amber-500/25 shrink-0" />

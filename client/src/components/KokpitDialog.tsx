@@ -12,8 +12,9 @@ import { TripleRingStatus } from "@/components/TripleRingStatus";
 import {
   FileText, Loader2, X, Archive, Search, Inbox, Upload,
   Image as ImageIcon, File, FileCheck, Eye, CheckCircle2, Clock, Pin,
-  ChevronLeft, Target,
+  ChevronLeft, Target, User,
 } from "lucide-react";
+import { formatUid } from "@/lib/utils";
 import type { KokpitItem } from "@shared/schema";
 import type { ScanFile } from "@/pages/PridatStavZmluvy";
 
@@ -900,6 +901,11 @@ export function KokpitDialogBody({ scanFiles, onRemoveScanFile, onAddFiles, onCl
   const { data: appUser } = useAppUser();
   const activeCompanyId = appUser?.activeCompanyId ?? null;
   const activeDivisionId = appUser?.activeDivisionId ?? null;
+  const dialogUserName =
+    [appUser?.firstName, appUser?.lastName].filter(Boolean).join(" ") ||
+    appUser?.username ||
+    "—";
+  const dialogUserUid = appUser?.uid ? formatUid(appUser.uid) : "—";
 
   type MyCompanyMin = { id: number; name: string; code: string };
   type CompanyDivisionMin = { divisionId: number; division: { id: number; name: string } };
@@ -1006,11 +1012,26 @@ export function KokpitDialogBody({ scanFiles, onRemoveScanFile, onAddFiles, onCl
         {onBack ? (
           <>
             <Target className="w-4 h-4 text-amber-400 shrink-0" />
-            <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300 flex-1">KOKPIT</span>
+            <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300 shrink-0">KOKPIT</span>
           </>
         ) : (
-          <span className="text-lg font-bold flex-1">KOKPIT</span>
+          <span className="text-lg font-bold shrink-0">KOKPIT</span>
         )}
+        <div className="h-4 w-px bg-amber-500/25 shrink-0" />
+        <User className="w-3.5 h-3.5 text-blue-400/70 shrink-0" />
+        <span
+          className="text-sm font-semibold text-blue-100 truncate min-w-0"
+          data-testid="dialog-user-name"
+        >
+          {dialogUserName}
+        </span>
+        <span
+          className="text-[11px] font-mono text-blue-300/50 whitespace-nowrap shrink-0"
+          data-testid="dialog-user-uid"
+        >
+          {dialogUserUid}
+        </span>
+        <div className="flex-1" />
         <Button
           variant="outline"
           size="sm"
