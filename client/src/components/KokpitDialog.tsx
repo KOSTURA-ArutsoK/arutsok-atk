@@ -249,7 +249,6 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
   const previewFile = selectedIdArr.length === 1 ? scanFiles.find(f => f.id === selectedIdArr[0]) : null;
 
   const previewPdfUrl = previewFile?.url && isPdfFile(previewFile.name) ? previewFile.url : undefined;
-  const { blobUrl: previewPdfBlobUrl, loading: previewPdfLoading, error: previewPdfError } = usePdfBlobUrl(previewPdfUrl);
 
   // Reset zoom when selected file changes; track whether current preview is an image
   useEffect(() => {
@@ -331,22 +330,9 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
                 data-testid="preview-image"
               />
             </div>
-          ) : previewFile?.url && isPdfFile(previewFile.name) ? (
+          ) : previewPdfUrl ? (
             <div style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0 }}>
-              {previewPdfLoading ? (
-                <div className="flex flex-col flex-1 items-center justify-center text-center text-muted-foreground space-y-2">
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                  <p className="text-xs">Načítava PDF…</p>
-                </div>
-              ) : previewPdfError ? (
-                <div className="flex flex-col flex-1 items-center justify-center text-center text-muted-foreground space-y-2">
-                  <FileText className="w-8 h-8 text-red-400" />
-                  <p className="text-xs">PDF sa nepodarilo načítať</p>
-                  <a href={previewFile.url} target="_blank" rel="noopener noreferrer" className="text-[10px] underline text-primary" data-testid="preview-pdf-open-link">Otvoriť v novej záložke</a>
-                </div>
-              ) : previewPdfBlobUrl ? (
-                <PdfCanvas blobUrl={previewPdfBlobUrl} />
-              ) : null}
+              <PdfCanvas url={previewPdfUrl} />
             </div>
           ) : previewFile ? (
             <div className="text-center text-muted-foreground space-y-2">
@@ -632,8 +618,6 @@ function ScanPreview({ scan, idx }: { scan: ScanInfo; idx: number }) {
   const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext);
   const isPdf = ext === 'pdf';
 
-  const { blobUrl, loading, error } = usePdfBlobUrl(isPdf ? scan.url : undefined);
-
   return (
     <div className="space-y-1" data-testid={`scan-preview-block-${idx}`}>
       <div className="flex items-center gap-1.5 px-0.5">
@@ -651,20 +635,7 @@ function ScanPreview({ scan, idx }: { scan: ScanInfo; idx: number }) {
         />
       ) : isPdf ? (
         <div className="w-full flex flex-col" style={{ minHeight: 120, height: 420 }}>
-          {loading ? (
-            <div className="flex flex-col flex-1 items-center justify-center text-muted-foreground space-y-2 py-6">
-              <Loader2 className="w-6 h-6 animate-spin" />
-              <p className="text-xs">Načítava PDF…</p>
-            </div>
-          ) : error ? (
-            <div className="flex flex-col flex-1 items-center justify-center text-muted-foreground space-y-2 py-6">
-              <FileText className="w-8 h-8 text-red-400" />
-              <p className="text-xs">PDF sa nepodarilo načítať</p>
-              <a href={scan.url} target="_blank" rel="noopener noreferrer" className="text-[10px] underline text-primary" data-testid={`preview-riesenie-pdf-open-${idx}`}>Otvoriť v novej záložke</a>
-            </div>
-          ) : blobUrl ? (
-            <PdfCanvas blobUrl={blobUrl} />
-          ) : null}
+          <PdfCanvas url={scan.url} />
         </div>
       ) : (
         <div className="flex flex-col items-center gap-2 py-4 text-muted-foreground" data-testid={`preview-riesenie-doc-${idx}`}>
