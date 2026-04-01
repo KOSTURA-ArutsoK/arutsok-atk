@@ -132,7 +132,9 @@ interface KokpitAktivityPanelProps {
   onRemoveScanFile: (id: string, reason?: string) => void;
   onAddFiles: (files: File[]) => void;
   viewMode: 'day' | 'week' | 'month';
+  setViewMode: (m: 'day' | 'week' | 'month') => void;
   viewDate: string;
+  setViewDate: (d: string) => void;
 }
 
 export function KokpitAktivityPanel({
@@ -140,7 +142,9 @@ export function KokpitAktivityPanel({
   onRemoveScanFile,
   onAddFiles,
   viewMode,
+  setViewMode,
   viewDate,
+  setViewDate,
 }: KokpitAktivityPanelProps) {
   const todayStr = new Date().toISOString().slice(0, 10);
   const [kokpitOpen, setKokpitOpen] = useState(false);
@@ -302,9 +306,95 @@ export function KokpitAktivityPanel({
 
       {/* ─── 3. Tabuľka aktivít ───────────────────────────────────────────── */}
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 shrink-0">
-          {tableTitle()}
-        </p>
+        {/* Title row: label + date nav + view-mode toggle */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1.5 shrink-0">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            {tableTitle()}
+          </span>
+          <div className="flex-1" />
+
+          {/* ← date → */}
+          <div className="flex items-center gap-0.5 shrink-0">
+            <button
+              type="button"
+              data-testid="button-prev-day-panel"
+              onClick={() => {
+                const d = new Date(viewDate + "T00:00:00Z");
+                d.setUTCDate(d.getUTCDate() - 1);
+                setViewDate(d.toISOString().slice(0, 10));
+              }}
+              className="p-1 rounded hover:bg-white/10 text-blue-300/60 transition-colors"
+            >
+              <ChevronLeft size={13} />
+            </button>
+            <div
+              data-testid="chip-viewdate-panel"
+              className={`text-center rounded border px-2 py-0.5 text-[11px] font-semibold min-w-[100px] ${
+                viewDate !== todayStr
+                  ? "border-amber-400/50 text-amber-300 bg-amber-900/20"
+                  : "border-blue-500/20 text-blue-200/70"
+              }`}
+            >
+              {(() => {
+                const vd = new Date(viewDate + "T00:00:00Z");
+                return (
+                  <>
+                    <span className="opacity-60 font-normal mr-0.5">
+                      {["Ne","Po","Ut","St","Št","Pi","So"][vd.getUTCDay()]}
+                    </span>
+                    {vd.getUTCDate()}.{vd.getUTCMonth() + 1}.{vd.getUTCFullYear()}
+                  </>
+                );
+              })()}
+            </div>
+            <button
+              type="button"
+              data-testid="button-next-day-panel"
+              onClick={() => {
+                const d = new Date(viewDate + "T00:00:00Z");
+                d.setUTCDate(d.getUTCDate() + 1);
+                setViewDate(d.toISOString().slice(0, 10));
+              }}
+              className="p-1 rounded hover:bg-white/10 text-blue-300/60 transition-colors"
+            >
+              <ChevronRight size={13} />
+            </button>
+            {viewDate !== todayStr && (
+              <button
+                type="button"
+                data-testid="button-today-panel"
+                onClick={() => setViewDate(todayStr)}
+                className="text-[10px] text-blue-400 hover:underline px-1"
+              >
+                Dnes
+              </button>
+            )}
+          </div>
+
+          <div className="w-px h-3.5 bg-border/50 mx-0.5 shrink-0" />
+
+          {/* Deň / Týždeň / Mesiac */}
+          <div className="flex rounded overflow-hidden text-[10px] font-medium border border-blue-500/20 shrink-0">
+            {(["day", "week", "month"] as const).map((m) => {
+              const labels = { day: "Deň", week: "Týždeň", month: "Mesiac" };
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  data-testid={`button-viewmode-panel-${m}`}
+                  onClick={() => setViewMode(m)}
+                  className={`px-2 py-1 transition-colors ${
+                    viewMode === m
+                      ? "bg-blue-700 text-white"
+                      : "text-blue-300/60 hover:bg-white/10 hover:text-blue-200"
+                  }`}
+                >
+                  {labels[m]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div className="border rounded-md overflow-auto flex-1">
           <table className="w-full text-xs">
             <thead>

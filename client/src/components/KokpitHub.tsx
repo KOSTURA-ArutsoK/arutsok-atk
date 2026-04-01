@@ -320,17 +320,6 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
 
   const hubIsInactive = activeLayer !== "hub";
 
-  const l2TodayStr = new Date().toISOString().slice(0, 10);
-  function l2PrevDay() {
-    const d = new Date(viewDate + "T00:00:00Z");
-    d.setUTCDate(d.getUTCDate() - 1);
-    setViewDate(d.toISOString().slice(0, 10));
-  }
-  function l2NextDay() {
-    const d = new Date(viewDate + "T00:00:00Z");
-    d.setUTCDate(d.getUTCDate() + 1);
-    setViewDate(d.toISOString().slice(0, 10));
-  }
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
@@ -476,81 +465,6 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                   <Target className="w-4 h-4 text-amber-400 shrink-0" />
                   <span className="text-sm font-extrabold tracking-[0.25em] text-amber-300 shrink-0">KOKPIT</span>
                   <div className="flex-1" />
-
-                  {/* Date navigation — ← date → */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      data-testid="button-prev-day-layer2"
-                      onClick={l2PrevDay}
-                      className="p-1 rounded hover:bg-white/10 text-blue-300/60 shrink-0 transition-colors"
-                    >
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                    </button>
-                    <div
-                      data-testid="chip-viewdate-layer2"
-                      className={`text-center rounded-md border px-2.5 py-1 text-[11px] font-semibold min-w-[110px] ${
-                        viewDate !== l2TodayStr
-                          ? "border-amber-400/50 text-amber-300 bg-amber-900/20"
-                          : "border-blue-500/20 text-blue-200/70 bg-transparent"
-                      }`}
-                    >
-                      {(() => {
-                        const vd = new Date(viewDate + "T00:00:00Z");
-                        return (
-                          <>
-                            <span className="opacity-60 font-normal mr-1">
-                              {["Ne","Po","Ut","St","Št","Pi","So"][vd.getUTCDay()]}
-                            </span>
-                            {vd.getUTCDate()}.{vd.getUTCMonth() + 1}.{vd.getUTCFullYear()}
-                          </>
-                        );
-                      })()}
-                    </div>
-                    <button
-                      type="button"
-                      data-testid="button-next-day-layer2"
-                      onClick={l2NextDay}
-                      className="p-1 rounded hover:bg-white/10 text-blue-300/60 shrink-0 transition-colors"
-                    >
-                      <ChevronLeft className="w-3.5 h-3.5 rotate-180" />
-                    </button>
-                    {viewDate !== l2TodayStr && (
-                      <button
-                        type="button"
-                        data-testid="button-today-layer2"
-                        onClick={() => setViewDate(l2TodayStr)}
-                        className="text-[10px] text-blue-400 hover:underline px-1"
-                      >
-                        Dnes
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="w-px h-4 bg-white/10 mx-1 shrink-0" />
-
-                  {/* Deň / Týždeň / Mesiac toggle */}
-                  <div className="flex rounded-md overflow-hidden text-[11px] font-medium border border-blue-500/20 shrink-0">
-                    {(["day", "week", "month"] as const).map((m) => {
-                      const labels = { day: "Deň", week: "Týždeň", month: "Mesiac" };
-                      return (
-                        <button
-                          key={m}
-                          type="button"
-                          data-testid={`button-viewmode-header-${m}`}
-                          onClick={() => setViewMode(m)}
-                          className={`px-2.5 py-1 transition-colors ${
-                            viewMode === m
-                              ? "bg-blue-700 text-white"
-                              : "text-blue-300/60 hover:bg-white/10 hover:text-blue-200"
-                          }`}
-                        >
-                          {labels[m]}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="w-px h-4 bg-white/10 mx-1 shrink-0" />
                   <button
                     type="button"
                     onClick={handleClose}
@@ -571,7 +485,9 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                       onRemoveScanFile={onRemoveScanFile ?? (() => {})}
                       onAddFiles={onAddFiles ?? (() => {})}
                       viewMode={viewMode}
+                      setViewMode={setViewMode}
                       viewDate={viewDate}
+                      setViewDate={setViewDate}
                     />
                   </div>
 
