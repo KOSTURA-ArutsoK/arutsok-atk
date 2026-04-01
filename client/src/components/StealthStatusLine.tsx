@@ -2,7 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 
 type PipelineStatus = { segments: boolean[] };
 
-export function StealthStatusLine() {
+interface StealthStatusLineProps {
+  /** Explicit pixel height. Omit to use vw-based scaling (full-page use). */
+  height?: number;
+}
+
+export function StealthStatusLine({ height }: StealthStatusLineProps = {}) {
   const { data } = useQuery<PipelineStatus>({
     queryKey: ["/api/pipeline-status"],
     staleTime: 120_000,
@@ -11,15 +16,16 @@ export function StealthStatusLine() {
 
   const segments: boolean[] = data?.segments ?? [false, false, false, false, false];
 
+  const barHeight = height != null ? `${height}px` : "clamp(2px, 0.35vw, 7px)";
+
   return (
     <div
       aria-hidden="true"
       style={{
         display: "flex",
         width: "100%",
-        gap: "0.2vw",
-        /* Height scales proportionally with viewport width */
-        height: "clamp(2px, 0.35vw, 7px)",
+        gap: height != null ? "2px" : "0.2vw",
+        height: barHeight,
       }}
     >
       {segments.map((active, i) => (

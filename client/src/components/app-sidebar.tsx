@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation, useSearch } from "wouter";
+import { StealthStatusLine } from "@/components/StealthStatusLine";
 import { useAppUser } from "@/hooks/use-app-user";
 import { useHelp } from "@/contexts/help-context";
 import { RankBadge } from "@/components/rank-badge";
@@ -519,7 +520,10 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarSeparator />
+      {/* Stealth pipeline monitor — replaces separator, exact menu width */}
+      <div className="mx-2 my-0">
+        <StealthStatusLine height={2} />
+      </div>
 
       <SidebarContent onClick={handleNavClick}>
         <SidebarGroup>

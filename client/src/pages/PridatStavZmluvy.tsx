@@ -8,7 +8,6 @@ import {
   ScanLine, ListTodo, MessageSquare,
 } from "lucide-react";
 import { KokpitHub, type KokpitFunctionId } from "@/components/KokpitHub";
-import { StealthStatusLine } from "@/components/StealthStatusLine";
 import type { KokpitStagedScan } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { InfoChipRow, getWeatherLucideIcon } from "@/components/InfoChipRow";
@@ -425,11 +424,6 @@ export default function PridatStavZmluvy() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Stealth Status Line — pinned to very bottom, full width, outside scale wrapper */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}>
-        <StealthStatusLine />
       </div>
 
       {/* KokpitHub is a modal overlay — lives outside the scale container */}
