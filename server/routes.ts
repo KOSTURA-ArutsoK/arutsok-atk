@@ -7523,7 +7523,7 @@ export async function registerRoutes(
     }
   });
 
-  // ─── POST /api/contracts/batch-partner-received — confirm receipt for loose phase-9 contracts ───
+  // ─── POST /api/contracts/batch-partner-received — move loose phase-9 → phase-10 ───
   app.post("/api/contracts/batch-partner-received", isAuthenticated, async (req: any, res) => {
     try {
       const { contractIds } = req.body;
@@ -7539,24 +7539,61 @@ export async function registerRoutes(
         const [contract] = await db.select().from(contracts).where(eq(contracts.id, cid));
         if (!contract || contract.lifecyclePhase !== 9 || contract.lockedBySupiskaId) continue;
         await db.update(contracts).set({
-          lifecyclePhase: 0,
+          lifecyclePhase: 10,
           receivedByPartnerAt: now,
           updatedAt: now,
         }).where(eq(contracts.id, cid));
         await db.insert(contractLifecycleHistory).values({
           contractId: cid,
-          phase: 0,
-          phaseName: "Vyradené zo spracovania – prijaté obchodným partnerom (priame potvrdenie)",
+          phase: 10,
+          phaseName: "Prijaté obchodným partnerom – čaká na záverečnú finalizáciu",
           changedByUserId: appUser?.id || null,
-          note: "Priame potvrdenie príjmu (bez súpisky)",
+          note: "Priame potvrdenie príjmu partnerom (bez súpisky)",
         });
-        await logLifecycleStatusChange(cid, contract.statusId, 0, appUser?.id || null);
+        await logLifecycleStatusChange(cid, contract.statusId, 10, appUser?.id || null);
         await logAudit(req, { action: "PARTNER_RECEIVED_DIRECT", module: "contract", entityId: cid, entityName: `Zmluva ID ${cid}` });
         count++;
       }
       res.json({ ok: true, confirmed: count });
     } catch (err: any) {
       console.error("batch-partner-received error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
+  // ─── POST /api/contracts/batch-finalize-phase10 — finalize loose phase-10 → phase-0 ───
+  app.post("/api/contracts/batch-finalize-phase10", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractIds } = req.body;
+      if (!Array.isArray(contractIds) || contractIds.length === 0) {
+        return res.status(400).json({ message: "Žiadne zmluvy" });
+      }
+      const appUser = req.appUser;
+      const now = new Date();
+      let count = 0;
+      for (const rawId of contractIds) {
+        const cid = Number(rawId);
+        if (!Number.isFinite(cid)) continue;
+        const [contract] = await db.select().from(contracts).where(eq(contracts.id, cid));
+        if (!contract || contract.lifecyclePhase !== 10 || contract.lockedBySupiskaId) continue;
+        await db.update(contracts).set({
+          lifecyclePhase: 0,
+          updatedAt: now,
+        }).where(eq(contracts.id, cid));
+        await db.insert(contractLifecycleHistory).values({
+          contractId: cid,
+          phase: 0,
+          phaseName: "Vyradené zo spracovania papierových zmluv – finalizované",
+          changedByUserId: appUser?.id || null,
+          note: "Finalizácia loose fázy 10 (bez súpisky)",
+        });
+        await logLifecycleStatusChange(cid, contract.statusId, 0, appUser?.id || null);
+        await logAudit(req, { action: "FINALIZE_PHASE10_DIRECT", module: "contract", entityId: cid, entityName: `Zmluva ID ${cid}` });
+        count++;
+      }
+      res.json({ ok: true, finalized: count });
+    } catch (err: any) {
+      console.error("batch-finalize-phase10 error:", err);
       res.status(500).json({ message: err?.message || "Internal error" });
     }
   });

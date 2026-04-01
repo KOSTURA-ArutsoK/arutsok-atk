@@ -4867,7 +4867,14 @@ export default function Contracts() {
     },
   });
 
-  const phase10Contracts: Contract[] = [];
+  const { data: phase10Contracts = [] } = useQuery<Contract[]>({
+    queryKey: ["/api/contracts/by-phase", 10],
+    queryFn: async () => {
+      const res = await fetch("/api/contracts/by-phase/10", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
 
   const { data: subjects } = useQuery<Subject[]>({ queryKey: ["/api/subjects"] });
   const { data: partners } = useQuery<Partner[]>({ queryKey: ["/api/partners"] });
@@ -5327,9 +5334,23 @@ export default function Contracts() {
     onSuccess: (data: any) => {
       invalidateContractCaches();
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 9] });
-      toast({ title: "Potvrdené", description: `Príjem ${data.confirmed ?? ""} zmluv partnerom bol zaznamenaný.` });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 10] });
+      toast({ title: "Potvrdené", description: `Príjem ${data.confirmed ?? ""} zmluv partnerom zaznamenaný. Zmluvy sú teraz vo fáze "Potvrdiť prijatie".` });
     },
     onError: () => toast({ title: "Chyba", description: "Nepodarilo sa potvrdiť príjem", variant: "destructive" }),
+  });
+
+  const batchFinalizePhase10Mutation = useMutation({
+    mutationFn: async (contractIds: number[]) => {
+      const res = await apiRequest("POST", "/api/contracts/batch-finalize-phase10", { contractIds });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      invalidateContractCaches();
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 10] });
+      toast({ title: "Finalizované", description: `${data.finalized ?? ""} zmluv bolo úspešne finalizovaných a vyradených zo spracovania.` });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa finalizovať zmluvy", variant: "destructive" }),
   });
 
   const [dispatchDialogOpen, setDispatchDialogOpen] = useState(false);
@@ -6239,7 +6260,7 @@ export default function Contracts() {
     { id: 3, label: "Neprijaté zmluvy – výhrady", icon: XCircle, color: "text-red-500", bgColor: "bg-red-500/15", count: activeRejected.length, tooltip: "Zmluvy, ktoré boli vrátené s výhradami od obchodného partnera alebo centrály. Vyžadujú opravu a opätovné odoslanie." },
     { id: 4, label: "Archív zmlúv (s výhradami)", icon: ArchiveClockIcon, color: "text-zinc-400", bgColor: "bg-zinc-400/15", count: activeArchived.length, tooltip: "Archivované zmluvy s výhradami, ktoré neboli opravené alebo boli trvalo zamietnuté." },
     { id: 7, label: "Interné intervencie", icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-500/15", count: phase7Contracts.length, tooltip: "Zmluvy vyžadujúce interný zásah — napr. chýbajúce dokumenty, nezrovnalosti v údajoch alebo eskalácia." },
-    { id: 10, label: "🏆 Potvrdiť prijatie obch. partnerom", icon: MailCheckIcon, color: "text-green-700", bgColor: "bg-green-700/15", count: phase10Supisky.length, tooltip: "Sprievodky odoslané obchodnému partnerovi — čakajú na potvrdenie prijatia." },
+    { id: 10, label: "🏆 Potvrdiť prijatie obch. partnerom", icon: MailCheckIcon, color: "text-green-700", bgColor: "bg-green-700/15", count: phase10Supisky.length + phase10Contracts.filter((c: Contract) => !c.lockedBySupiskaId).length, tooltip: "Sprievodky odoslané obchodnému partnerovi — čakajú na potvrdenie prijatia." },
   ];
 
   const row2FolderDefs: FolderDef[] = [
@@ -12204,6 +12225,24 @@ export default function Contracts() {
                                       ? <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                                       : <Award className="w-3 h-3 mr-1" />}
                                     Potvrdiť prijatie partnerom ({looseContracts.length})
+                                  </Button>
+                                )}
+                                {phaseId === 10 && (
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    className="bg-green-700 hover:bg-green-800 text-white"
+                                    onClick={() => {
+                                      const ids = looseContracts.map((c: Contract) => c.id);
+                                      batchFinalizePhase10Mutation.mutate(ids);
+                                    }}
+                                    disabled={batchFinalizePhase10Mutation.isPending}
+                                    data-testid="button-batch-finalize-phase10"
+                                  >
+                                    {batchFinalizePhase10Mutation.isPending
+                                      ? <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      : <CheckCircle2 className="w-3 h-3 mr-1" />}
+                                    Finalizovať a vyradiť ({looseContracts.length})
                                   </Button>
                                 )}
                               </div>
