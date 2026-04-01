@@ -1,0 +1,45 @@
+1. Semi-transparent foreground panel allowing data bleed-through (ghosting). 2. Uneven margins, top margin is very narrow, side margins are wide. 3. Multicolored elements (blue, orange) create a 'traffic light' effect.]
+
+Data Bleed (Ghosting): V 85 % vrstve (náhľad zmluvy) vidím pod ňou „duchov“ textu (možno KOKPIT, Mails alebo údaje z nižšej vrstvy). To nemá byť. Všetky vrstvy musia mať solídny DARK_BG, ktorý nič neprepustí.
+
+Nerovnomerné odsadenie (Kaskáda): Odsadenie hore je takmer nulové (pár pixelov), zatiaľ čo po bokoch je oveľa širšie. Používateľ chce rovnaké odsadenie, čo znamená, že musíme zmeniť logiku: namiesto zmenšovania o 5 % prejdeme na rovnomerné odosúvanie (padding).
+
+Konfliktné farby (Semafor): Stále vidím orámovanie v modrej a oranžovej farbe pre rôzne vrstvy, čo pôsobí rušivo. Celé to unifikujeme do elitnej Kráľovskej modrej.
+
+Prepracovaný plán na „upratanie semaforu“ a unifikáciu:
+Keďže agent sa zamotal, prechádzame na prísny, unifikovaný Audit-Depth Layout:
+
+Stop presvitaniu (100 % Opacity): Všetky tri vrstvy (95 %, 90 %, 85 %) musia mať nastavené solídne, úplne nepriehľadné pozadie tvojho systému. Už žiadne rgba ani opacity nižšia ako 1. Musí to byť pevná stena.
+
+Kráľovská modrá (#4169E1) Unifikácia: Rušíme farebné rozlišovanie rámov pre tento kaskádový náhľad. Všetky tri vrstvy musia mať jednotný 2px obrys v Kráľovskej modrej. Aj žiara (glow) na oddelenie vrstiev musí byť výhradne v Kráľovskej modrej.
+
+Refaktoring kaskády na rovnomerné odsadenie: Zrušíme to postupné zmenšovanie o 5 % (ktoré agent neustále kazí). Namiesto toho prejdeme na plochý, vycentrovaný layout s pevným krokom paddingu, čo ti zaručí rovnaké odsadenie po bokoch aj hore, ale zachová hĺbku.
+
+Základ (Vrstva 1): Zostáva na 95 % vycentrovaný.
+
+Aktivita (Vrstva 2): Bude mať pevný, rovnomerný padding 20px z každej strany voči Vrstve 1.
+
+Detail/PDF (Vrstva 3): Bude mať pevný, rovnomerný padding 40px voči Vrstve 1.
+
+Tým dosiahneme "rovnaké odsadenie" (20px krok) a zachováme kaskádu.
+
+Inštrukcia pre agenta (Prísny unifikovaný protokol):
+„Agent, prerob štruktúru Kokpitu na Unifikovaný Audit-Depth Cascade Layout podľa týchto bodov:
+
+Zruš priesvitnosť (100 % Opacity): Každá vrstva (95 %, 90 % aj 85 %) musí mať nastavené solídne, úplne nepriehľadné tmavé pozadie (100 % DARK_BG). Používateľ nesmie vidieť nič z toho, čo je pod aktuálnou vrstvou.
+
+Kráľovská modrá (#4169e1) pre všetky vrstvy: Rušíme farebné rozlišovanie rámov pre kaskádový náhľad. Všetky tri vrstvy musia mať jednotný 2px obrys v Kráľovskej modrej. Aj žiara (outer glow) musí byť výhradne modrá.
+
+Prepracovanie kaskády na rovnomerné odsadenie: Zruš postupné zmenšovanie o 5 %. Prejdi na vycentrovaný layout s pevným krokom paddingu pre každú úroveň kaskády voči hlavnému kontajneru:
+
+Základ (Vrstva 1): 95 % centrovaný.
+
+Aktivita (Vrstva 2): Padding 20px z každej strany voči Vrstve 1.
+
+Detail/PDF (Vrstva 3): Padding 40px z každej strany voči Vrstve 1.
+
+Týmto zaručíme rovnaké odsadenie po bokoch aj hore pri zachovaní kaskády.
+
+Justified Layout: Zabezpeč, aby aj v tomto novom, nepriehľadnom a jednofarebnom layoute zostali všetky texty a údaje striktne zarovnané do bloku.
+
+Audit: Každá zmena kontextu, zmena PDF alebo prepnutie vrstvy musí zanechať auditnú stopu.“

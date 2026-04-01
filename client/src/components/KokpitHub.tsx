@@ -281,7 +281,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
   }, []);
 
   const shadowRoyalBlue = isDark
-    ? "0 0 0 1px rgba(65,105,225,0.18), 0 0 32px 8px rgba(65,105,225,0.20), 0 0 80px 20px rgba(65,105,225,0.10)"
+    ? "0 0 0 1px rgba(27,38,59,0.60), 0 0 24px 6px rgba(27,38,59,0.40), 0 0 56px 14px rgba(27,38,59,0.25)"
     : undefined;
   const panelFilter = isDark ? undefined : DROP_SHADOW_LIGHT;
 
@@ -414,7 +414,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             flexDirection: "column",
             overflow: "hidden",
             borderRadius: 12,
-            border: "2px solid #4169e1",
+            border: "2px solid #1B263B",
             boxShadow: shadowRoyalBlue,
             filter: panelFilter,
           }}
@@ -507,7 +507,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             zIndex: activeLayer === "second" ? 3 : 2,
             overflow: "hidden",
             borderRadius: 12,
-            border: "2px solid #4169e1",
+            border: "2px solid #1B263B",
             boxShadow: shadowRoyalBlue,
             filter: panelFilter,
           }}
@@ -782,7 +782,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             zIndex: 4,
             overflow: "hidden",
             borderRadius: 12,
-            border: "2px solid #4169e1",
+            border: "2px solid #1B263B",
             boxShadow: shadowRoyalBlue,
             filter: panelFilter,
           }}
@@ -835,7 +835,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             opacity: (hubExiting || isClosing || hubIsInactive) ? 0 : 1,
             overflow: "hidden",
             borderRadius: 12,
-            border: "2px solid #4169e1",
+            border: "2px solid #1B263B",
             boxShadow: shadowRoyalBlue,
             filter: panelFilter,
           }}
