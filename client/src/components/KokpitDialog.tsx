@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { TripleRingStatus } from "@/components/TripleRingStatus";
+import { PdfCanvas } from "@/components/PdfCanvas";
 import {
   FileText, Loader2, X, Archive, Search, Inbox, Upload,
   Image as ImageIcon, File, FileCheck, Eye, CheckCircle2, Clock, Pin,
@@ -344,14 +345,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
                   <a href={previewFile.url} target="_blank" rel="noopener noreferrer" className="text-[10px] underline text-primary" data-testid="preview-pdf-open-link">Otvoriť v novej záložke</a>
                 </div>
               ) : previewPdfBlobUrl ? (
-                <iframe
-                  key={previewPdfBlobUrl}
-                  src={previewPdfBlobUrl}
-                  className="w-full border-0 rounded"
-                  style={{ flex: 1, minHeight: 0 }}
-                  title={previewFile.name}
-                  data-testid="preview-pdf"
-                />
+                <PdfCanvas blobUrl={previewPdfBlobUrl} />
               ) : null}
             </div>
           ) : previewFile ? (
@@ -656,26 +650,20 @@ function ScanPreview({ scan, idx }: { scan: ScanInfo; idx: number }) {
           data-testid={`preview-riesenie-img-${idx}`}
         />
       ) : isPdf ? (
-        <div className="w-full flex flex-col items-center justify-center" style={{ minHeight: 120 }}>
+        <div className="w-full flex flex-col" style={{ minHeight: 120, height: 420 }}>
           {loading ? (
-            <div className="text-center text-muted-foreground space-y-2 py-6">
-              <Loader2 className="w-6 h-6 mx-auto animate-spin" />
+            <div className="flex flex-col flex-1 items-center justify-center text-muted-foreground space-y-2 py-6">
+              <Loader2 className="w-6 h-6 animate-spin" />
               <p className="text-xs">Načítava PDF…</p>
             </div>
           ) : error ? (
-            <div className="text-center text-muted-foreground space-y-2 py-6">
-              <FileText className="w-8 h-8 mx-auto text-red-400" />
+            <div className="flex flex-col flex-1 items-center justify-center text-muted-foreground space-y-2 py-6">
+              <FileText className="w-8 h-8 text-red-400" />
               <p className="text-xs">PDF sa nepodarilo načítať</p>
               <a href={scan.url} target="_blank" rel="noopener noreferrer" className="text-[10px] underline text-primary" data-testid={`preview-riesenie-pdf-open-${idx}`}>Otvoriť v novej záložke</a>
             </div>
           ) : blobUrl ? (
-            <embed
-              src={blobUrl}
-              type="application/pdf"
-              className="w-full rounded border-0"
-              style={{ height: 420 }}
-              data-testid={`preview-riesenie-pdf-${idx}`}
-            />
+            <PdfCanvas blobUrl={blobUrl} />
           ) : null}
         </div>
       ) : (
