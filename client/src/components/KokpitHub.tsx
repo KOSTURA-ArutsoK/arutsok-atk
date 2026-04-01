@@ -624,7 +624,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                     >
                       <Upload size={18} style={{ color: layer2DragOver ? "rgba(56,189,248,0.9)" : "rgba(56,189,248,0.55)" }} />
                     </div>
-                    <p style={{ fontSize: 10, color: "rgba(148,163,184,0.55)", textAlign: "center", lineHeight: 1.5, padding: "0 8px" }}>
+                    <p style={{ fontSize: 10, color: "rgba(148,163,184,0.55)", textAlign: "justify", lineHeight: 1.5, padding: "0 8px" }}>
                       Pretiahnite<br />skeny sem<br />
                       <span style={{ color: "rgba(56,189,248,0.4)", fontSize: 9 }}>alebo kliknite</span>
                     </p>
