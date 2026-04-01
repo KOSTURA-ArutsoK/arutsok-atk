@@ -5319,6 +5319,19 @@ export default function Contracts() {
     onError: () => { toast({ title: "Chyba", description: "Nepodarilo sa vyradiť zmluvu zo súpisky", variant: "destructive" }); setRemoveFromSupiskaConfirm(null); },
   });
 
+  const batchPartnerReceivedMutation = useMutation({
+    mutationFn: async (contractIds: number[]) => {
+      const res = await apiRequest("POST", "/api/contracts/batch-partner-received", { contractIds });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      invalidateContractCaches();
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/by-phase", 9] });
+      toast({ title: "Potvrdené", description: `Príjem ${data.confirmed ?? ""} zmluv partnerom bol zaznamenaný.` });
+    },
+    onError: () => toast({ title: "Chyba", description: "Nepodarilo sa potvrdiť príjem", variant: "destructive" }),
+  });
+
   const [dispatchDialogOpen, setDispatchDialogOpen] = useState(false);
   const [dispatchSuopiskaId, setDispatchSuopiskaId] = useState<number | null>(null);
   const [dispatchMethod, setDispatchMethod] = useState("");
@@ -12171,10 +12184,28 @@ export default function Contracts() {
                           })()}
                           {phaseId !== 8 && looseContracts.length > 0 && (
                             <div>
-                              <div className="flex items-center gap-3 p-3 border-b bg-emerald-500/5">
+                              <div className="flex items-center gap-3 p-3 border-b bg-emerald-500/5 flex-wrap">
                                 <ListChecks className="w-4 h-4 text-emerald-500 shrink-0" />
                                 <span className="text-sm font-medium flex-1">Nezaradené kontrakty</span>
                                 <Badge variant="outline" className="text-xs">{looseContracts.length} {looseContracts.length === 1 ? "zmluva" : looseContracts.length < 5 ? "zmluvy" : "zmluv"}</Badge>
+                                {phaseId === 9 && (
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                                    onClick={() => {
+                                      const ids = looseContracts.map((c: Contract) => c.id);
+                                      batchPartnerReceivedMutation.mutate(ids);
+                                    }}
+                                    disabled={batchPartnerReceivedMutation.isPending}
+                                    data-testid="button-batch-partner-received"
+                                  >
+                                    {batchPartnerReceivedMutation.isPending
+                                      ? <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                      : <Award className="w-3 h-3 mr-1" />}
+                                    Potvrdiť prijatie partnerom ({looseContracts.length})
+                                  </Button>
+                                )}
                               </div>
                               {renderContractTable(looseContracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true })}
                             </div>

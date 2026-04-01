@@ -7523,6 +7523,44 @@ export async function registerRoutes(
     }
   });
 
+  // ─── POST /api/contracts/batch-partner-received — confirm receipt for loose phase-9 contracts ───
+  app.post("/api/contracts/batch-partner-received", isAuthenticated, async (req: any, res) => {
+    try {
+      const { contractIds } = req.body;
+      if (!Array.isArray(contractIds) || contractIds.length === 0) {
+        return res.status(400).json({ message: "Žiadne zmluvy" });
+      }
+      const appUser = req.appUser;
+      const now = new Date();
+      let count = 0;
+      for (const rawId of contractIds) {
+        const cid = Number(rawId);
+        if (!Number.isFinite(cid)) continue;
+        const [contract] = await db.select().from(contracts).where(eq(contracts.id, cid));
+        if (!contract || contract.lifecyclePhase !== 9 || contract.lockedBySupiskaId) continue;
+        await db.update(contracts).set({
+          lifecyclePhase: 0,
+          receivedByPartnerAt: now,
+          updatedAt: now,
+        }).where(eq(contracts.id, cid));
+        await db.insert(contractLifecycleHistory).values({
+          contractId: cid,
+          phase: 0,
+          phaseName: "Vyradené zo spracovania – prijaté obchodným partnerom (priame potvrdenie)",
+          changedByUserId: appUser?.id || null,
+          note: "Priame potvrdenie príjmu (bez súpisky)",
+        });
+        await logLifecycleStatusChange(cid, contract.statusId, 0, appUser?.id || null);
+        await logAudit(req, { action: "PARTNER_RECEIVED_DIRECT", module: "contract", entityId: cid, entityName: `Zmluva ID ${cid}` });
+        count++;
+      }
+      res.json({ ok: true, confirmed: count });
+    } catch (err: any) {
+      console.error("batch-partner-received error:", err);
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
   async function finalizeSupiskaReceive(supiskaId: number) {
     const supiska = await storage.getSupiska(supiskaId);
     if (!supiska || supiska.status !== "Odpocet") return 0;
