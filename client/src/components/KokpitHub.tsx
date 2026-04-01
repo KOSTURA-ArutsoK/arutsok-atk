@@ -154,7 +154,7 @@ function SkeletonRow({ w = "100%", h = 28, opacity = 1 }: { w?: string; h?: numb
   );
 }
 
-const DARK_BG = "linear-gradient(160deg, #0c1e3a 0%, #07111f 100%)";
+const PANEL_BG = "#07111f";
 
 const DROP_SHADOW_LIGHT = "drop-shadow(0 8px 32px rgba(0,0,0,0.22)) drop-shadow(0 2px 8px rgba(0,0,0,0.15))";
 
@@ -280,17 +280,8 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
     return () => obs.disconnect();
   }, []);
 
-  const shadowAmber = isDark
-    ? "0 0 0 1px rgba(245,158,11,0.15), 0 0 32px 6px rgba(245,158,11,0.22), 0 0 72px 16px rgba(245,158,11,0.12)"
-    : undefined;
-  const shadowBlue = isDark
-    ? "0 0 0 1px rgba(59,130,246,0.15), 0 0 32px 6px rgba(59,130,246,0.20), 0 0 72px 16px rgba(59,130,246,0.10)"
-    : undefined;
-  const shadowTeal = isDark
-    ? "0 0 0 1px rgba(20,184,166,0.15), 0 0 32px 6px rgba(20,184,166,0.20), 0 0 72px 16px rgba(20,184,166,0.10)"
-    : undefined;
-  const shadowAmberHub = isDark
-    ? "0 0 0 1px rgba(245,158,11,0.18), 0 0 40px 8px rgba(245,158,11,0.28), 0 0 90px 20px rgba(245,158,11,0.14)"
+  const shadowRoyalBlue = isDark
+    ? "0 0 0 1px rgba(65,105,225,0.18), 0 0 32px 8px rgba(65,105,225,0.20), 0 0 80px 20px rgba(65,105,225,0.10)"
     : undefined;
   const panelFilter = isDark ? undefined : DROP_SHADOW_LIGHT;
 
@@ -417,15 +408,14 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            background: DARK_BG,
-            opacity: 1,
+            background: PANEL_BG,
             zIndex: activeLayer === "third" ? 3 : 1,
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
             borderRadius: 12,
-            border: "2px solid #f59e0b",
-            boxShadow: shadowAmber,
+            border: "2px solid #4169e1",
+            boxShadow: shadowRoyalBlue,
             filter: panelFilter,
           }}
           onClick={(e) => e.stopPropagation()}
@@ -513,13 +503,12 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            background: "linear-gradient(180deg, #0f172a 0%, #0c1930 100%)",
-            opacity: 1,
+            background: PANEL_BG,
             zIndex: activeLayer === "second" ? 3 : 2,
             overflow: "hidden",
             borderRadius: 12,
-            border: "2px solid #3b82f6",
-            boxShadow: shadowBlue,
+            border: "2px solid #4169e1",
+            boxShadow: shadowRoyalBlue,
             filter: panelFilter,
           }}
           onClick={(e) => e.stopPropagation()}
@@ -778,6 +767,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
         </div>
 
         {/* Vrstva Maily — Roztriedenie mailov placeholder */}
+        {activeLayer === "mails" && (
         <div
           style={{
             position: "absolute",
@@ -788,15 +778,12 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            background: "linear-gradient(180deg, #0f1f1e 0%, #0b1918 100%)",
-            opacity: activeLayer === "mails" ? 1 : 0,
-            zIndex: activeLayer === "mails" ? 4 : 0,
-            transition: "opacity 0.2s ease",
-            pointerEvents: activeLayer === "mails" ? "auto" : "none",
+            background: PANEL_BG,
+            zIndex: 4,
             overflow: "hidden",
             borderRadius: 12,
-            border: "2px solid #14b8a6",
-            boxShadow: shadowTeal,
+            border: "2px solid #4169e1",
+            boxShadow: shadowRoyalBlue,
             filter: panelFilter,
           }}
           onClick={(e) => e.stopPropagation()}
@@ -821,11 +808,12 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center space-y-4">
               <Mail className="w-16 h-16 text-teal-400/30 mx-auto" />
-              <p className="text-teal-300/60 text-lg font-semibold">Roztriedenie mailov – pripravuje sa</p>
-              <p className="text-teal-300/30 text-sm">Táto funkcia bude dostupná v budúcej verzii.</p>
+              <p className="text-teal-300/60 text-lg font-semibold" style={{ textAlign: "justify" }}>Roztriedenie mailov – pripravuje sa</p>
+              <p className="text-teal-300/30 text-sm" style={{ textAlign: "justify" }}>Táto funkcia bude dostupná v budúcej verzii.</p>
             </div>
           </div>
         </div>
+        )}
 
         {/* Vrstva 3 — vrchná/predná (85vw × 85vh): Hub s bublinami */}
         <div
@@ -837,7 +825,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             height: "85vh",
             top: "50%",
             left: "50%",
-            background: DARK_BG,
+            background: PANEL_BG,
             zIndex: hubIsInactive ? 0 : 3,
             pointerEvents: hubIsInactive ? "none" : "auto",
             transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease",
@@ -847,8 +835,8 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             opacity: (hubExiting || isClosing || hubIsInactive) ? 0 : 1,
             overflow: "hidden",
             borderRadius: 12,
-            border: "2px solid #f59e0b",
-            boxShadow: shadowAmberHub,
+            border: "2px solid #4169e1",
+            boxShadow: shadowRoyalBlue,
             filter: panelFilter,
           }}
           onClick={(e) => e.stopPropagation()}
