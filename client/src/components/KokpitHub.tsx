@@ -348,7 +348,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%)",
-              background: activeLayer === "third" ? "transparent" : DARK_BG,
+              background: DARK_BG,
               opacity: activeLayer === "third" ? 1 : 0.55,
               zIndex: activeLayer === "third" ? 3 : 1,
               transition: "opacity 0.2s ease",
