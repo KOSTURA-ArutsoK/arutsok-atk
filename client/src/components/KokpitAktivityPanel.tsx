@@ -302,27 +302,27 @@ export function KokpitAktivityPanel({
 
       {/* ─── 3. Tabuľka aktivít ───────────────────────────────────────────── */}
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 shrink-0">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 shrink-0">
           {tableTitle()}
         </p>
-        <div className="flex-1 overflow-auto min-h-0">
-          <table className="w-full text-sm border-collapse">
+        <div className="border rounded-md overflow-auto flex-1">
+          <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-2 px-2 font-semibold w-8"></th>
-                <th className="text-left py-2 px-2 font-semibold">Názov</th>
-                <th className="text-left py-2 px-2 font-semibold">Zdroj</th>
-                <th className="text-left py-2 px-2 font-semibold">Zmluva</th>
-                <th className="text-left py-2 px-2 font-semibold">⏱ SLA</th>
-                <th className="text-left py-2 px-2 font-semibold">Aging</th>
+              <tr className="border-b bg-muted/30">
+                <th className="text-left py-1.5 px-3 font-medium text-muted-foreground w-8"></th>
+                <th className="text-left py-1.5 px-3 font-medium text-muted-foreground">Názov</th>
+                <th className="text-left py-1.5 px-3 font-medium text-muted-foreground">Zdroj</th>
+                <th className="text-left py-1.5 px-3 font-medium text-muted-foreground">Zmluva</th>
+                <th className="text-left py-1.5 px-3 font-medium text-muted-foreground">⏱ SLA</th>
+                <th className="text-left py-1.5 px-3 font-medium text-muted-foreground">Aging</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
-                <tr><td colSpan={6} className="py-4 text-center text-muted-foreground text-sm">Načítavam...</td></tr>
+                <tr><td colSpan={6} className="py-4 text-center text-muted-foreground">Načítavam...</td></tr>
               )}
               {!isLoading && items.length === 0 && (
-                <tr><td colSpan={6} className="py-4 text-center text-muted-foreground text-sm">Žiadne položky.</td></tr>
+                <tr><td colSpan={6} className="py-4 text-center text-muted-foreground">Žiadne položky.</td></tr>
               )}
               {items.map(item => {
                 const created = new Date(item.createdAt!);
@@ -333,31 +333,31 @@ export function KokpitAktivityPanel({
                   <tr
                     key={item.id}
                     data-testid={`row-item-panel-${item.id}`}
-                    className="border-b border-border/50 hover:bg-muted/40 transition-colors cursor-pointer"
+                    className="border-b border-border/40 last:border-0 hover:bg-muted/40 transition-colors cursor-pointer"
                     style={{ background: overdue ? "rgba(220,38,38,0.05)" : carryOver ? "rgba(245,158,11,0.05)" : undefined }}
                     onClick={() => setKokpitOpen(true)}
                   >
-                    <td className="py-2 px-2">
-                      <TripleRingStatus phase={item.phase as 1 | 2 | 3} size={18} pulsing={pulse} />
+                    <td className="py-1.5 px-3">
+                      <TripleRingStatus phase={item.phase as 1 | 2 | 3} size={16} pulsing={pulse} />
                     </td>
-                    <td className="py-2 px-2 font-medium">{item.title}</td>
-                    <td className="py-2 px-2 text-muted-foreground">{item.source || "—"}</td>
-                    <td className="py-2 px-2 text-muted-foreground font-mono text-xs">{item.contractUid || "—"}</td>
-                    <td className="py-2 px-2">
+                    <td className="py-1.5 px-3 font-medium">{item.title}</td>
+                    <td className="py-1.5 px-3 text-muted-foreground">{item.source || "—"}</td>
+                    <td className="py-1.5 px-3 text-muted-foreground font-mono">{item.contractUid || "—"}</td>
+                    <td className="py-1.5 px-3">
                       {item.resolvedAt ? (
-                        <span className="text-xs text-green-600 font-semibold">Vybavené</span>
+                        <span className="text-green-600 font-semibold">Vybavené</span>
                       ) : (
-                        <span className="text-xs font-bold" style={{ color: overdue ? "#dc2626" : "#f59e0b" }}>
+                        <span className="font-bold" style={{ color: overdue ? "#dc2626" : "#f59e0b" }}>
                           {formatRemainingHHMM(created)}
                         </span>
                       )}
                     </td>
-                    <td className="py-2 px-2">
+                    <td className="py-1.5 px-3">
                       {(() => {
                         const diff = Math.floor((new Date(todayStr).getTime() - new Date(item.dayCreated).getTime()) / 86400000);
-                        if (diff <= 0) return <span className="text-xs text-muted-foreground">dnes</span>;
+                        if (diff <= 0) return <span className="text-muted-foreground">dnes</span>;
                         return (
-                          <span className="text-xs font-bold" style={{ color: diff >= 3 ? "#ea580c" : "#f59e0b" }}>
+                          <span className="font-bold" style={{ color: diff >= 3 ? "#ea580c" : "#f59e0b" }}>
                             +{diff}d
                           </span>
                         );
