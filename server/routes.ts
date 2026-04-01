@@ -561,7 +561,7 @@ fs.mkdirSync(path.join(UPLOADS_DIR, "supiska-attachments"), { recursive: true })
 fs.mkdirSync(path.join(UPLOADS_DIR, "contract-docs"), { recursive: true });
 fs.mkdirSync(path.join(UPLOADS_DIR, "downloadable-docs"), { recursive: true });
 
-const kokpitPreviewTokenStore = new Map<string, { filePath: string; userId: number; expiresAt: number }>();
+const kokpitPreviewTokenStore = new Map<string, { filePath: string; expiresAt: number }>();
 setInterval(() => {
   const now = Date.now();
   for (const [token, entry] of kokpitPreviewTokenStore.entries()) {
@@ -5162,7 +5162,7 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Súbor nenájdený" });
     }
     const token = crypto.randomUUID();
-    kokpitPreviewTokenStore.set(token, { filePath, userId: appUser.id, expiresAt: Date.now() + 30_000 });
+    kokpitPreviewTokenStore.set(token, { filePath, expiresAt: Date.now() + 30_000 });
     return res.json({ token });
   });
 
