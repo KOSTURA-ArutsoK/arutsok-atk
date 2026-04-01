@@ -1151,8 +1151,9 @@ export async function registerRoutes(
       const results = await Promise.all(
         urls.map(async (url, idx) => {
           const httpOk = await checkPipelinePoint(url);
-          if (idx === 2) {
-            // Segment 3 = TREZOR: also verify DB liveness
+          if (idx === 2 && url) {
+            // Segment 3 = TREZOR: additionally verify DB liveness
+            // (only when ATK_ENV_TREZOR is set — skip in dev to avoid needless pings)
             try { await db.execute(sql`SELECT 1`); } catch { return false; }
           }
           return httpOk;
