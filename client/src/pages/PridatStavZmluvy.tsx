@@ -378,71 +378,54 @@ export default function PridatStavZmluvy() {
           <KokpitCard onClick={() => setHubOpen(true)} />
         </div>
 
-        {/* ── Bottom: Dashboard statistics in 2 rows ──────────────────── */}
-        <div className="px-5 pb-5 flex flex-col gap-2">
-
-          {/* Row 1: 4 phase tiles */}
-          <div className="grid grid-cols-4 gap-2">
-            <div data-testid="stat-overdue" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(220,38,38,0.08),rgba(127,29,29,0.04))", borderColor: "rgba(220,38,38,0.25)" }}>
-              <AlertTriangle size={16} color="#dc2626" />
-              <span className="text-xl font-black" style={{ color: "#dc2626", lineHeight: 1 }}>{statOverdue}</span>
-              <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Prenesené</span>
-            </div>
-            <div data-testid="stat-phase1" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(30,64,175,0.10),rgba(30,64,175,0.03))", borderColor: "rgba(59,130,246,0.25)" }}>
-              <ArrowDownToLine size={16} color="#3b82f6" />
-              <span className="text-xl font-black" style={{ color: "#3b82f6", lineHeight: 1 }}>{statPhase1}</span>
-              <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Príchod</span>
-            </div>
-            <div data-testid="stat-phase2" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(124,58,237,0.10),rgba(124,58,237,0.03))", borderColor: "rgba(139,92,246,0.25)" }}>
-              <GitBranch size={16} color="#8b5cf6" />
-              <span className="text-xl font-black" style={{ color: "#8b5cf6", lineHeight: 1 }}>{statPhase2}</span>
-              <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Rozdelenie</span>
-            </div>
-            <div data-testid="stat-phase3" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(5,150,105,0.10),rgba(5,150,105,0.03))", borderColor: "rgba(16,185,129,0.25)" }}>
-              <CheckCircle2Icon size={16} color="#10b981" />
-              <span className="text-xl font-black" style={{ color: "#10b981", lineHeight: 1 }}>{statPhase3}</span>
-              <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Vybavené</span>
-            </div>
-          </div>
-
-          {/* Row 2: 2 support tiles */}
-          <div className="grid grid-cols-2 gap-2">
-            <div data-testid="stat-scans" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(245,158,11,0.10),rgba(245,158,11,0.03))", borderColor: "rgba(245,158,11,0.25)" }}>
-              <ScanLine size={16} color="#f59e0b" />
-              <span className="text-xl font-black" style={{ color: "#f59e0b", lineHeight: 1 }}>{statScans}</span>
-              <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Skeny</span>
-            </div>
-            <div data-testid="stat-tasks" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(6,182,212,0.10),rgba(6,182,212,0.03))", borderColor: "rgba(6,182,212,0.25)" }}>
-              <ListTodo size={16} color="#06b6d4" />
-              <span className="text-xl font-black" style={{ color: "#06b6d4", lineHeight: 1 }}>{statTasks}</span>
-              <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Moje úlohy</span>
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* POKEC — pinned 5 px from the bottom edge, outside the scale container */}
-      <div
-        data-testid="stat-pokec"
-        style={{
-          position: "absolute",
-          bottom: 5,
-          left: "50%",
-          transform: "translateX(-50%)",
-          background: "linear-gradient(135deg,rgba(236,72,153,0.10),rgba(236,72,153,0.03))",
-          border: "1px solid rgba(236,72,153,0.25)",
-          borderRadius: 12,
-          padding: "8px 32px",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 4,
-          minWidth: 100,
-        }}
-      >
-        <MessageSquare size={16} color="#ec4899" />
-        <span className="text-xl font-black" style={{ color: "#ec4899", lineHeight: 1 }}>0</span>
-        <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Pokec</span>
+      {/* ── All stat tiles — pinned 5 px from bottom, outside the scale container ── */}
+      <div style={{ position: "absolute", bottom: 5, left: 20, right: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+
+        {/* Row 1: 4 phase tiles */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+          <div data-testid="stat-overdue" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(220,38,38,0.08),rgba(127,29,29,0.04))", borderColor: "rgba(220,38,38,0.25)" }}>
+            <AlertTriangle size={16} color="#dc2626" />
+            <span className="text-xl font-black" style={{ color: "#dc2626", lineHeight: 1 }}>{statOverdue}</span>
+            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Prenesené</span>
+          </div>
+          <div data-testid="stat-phase1" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(30,64,175,0.10),rgba(30,64,175,0.03))", borderColor: "rgba(59,130,246,0.25)" }}>
+            <ArrowDownToLine size={16} color="#3b82f6" />
+            <span className="text-xl font-black" style={{ color: "#3b82f6", lineHeight: 1 }}>{statPhase1}</span>
+            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Príchod</span>
+          </div>
+          <div data-testid="stat-phase2" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(124,58,237,0.10),rgba(124,58,237,0.03))", borderColor: "rgba(139,92,246,0.25)" }}>
+            <GitBranch size={16} color="#8b5cf6" />
+            <span className="text-xl font-black" style={{ color: "#8b5cf6", lineHeight: 1 }}>{statPhase2}</span>
+            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Rozdelenie</span>
+          </div>
+          <div data-testid="stat-phase3" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(5,150,105,0.10),rgba(5,150,105,0.03))", borderColor: "rgba(16,185,129,0.25)" }}>
+            <CheckCircle2Icon size={16} color="#10b981" />
+            <span className="text-xl font-black" style={{ color: "#10b981", lineHeight: 1 }}>{statPhase3}</span>
+            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Vybavené</span>
+          </div>
+        </div>
+
+        {/* Row 2: 3 support tiles */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+          <div data-testid="stat-scans" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(245,158,11,0.10),rgba(245,158,11,0.03))", borderColor: "rgba(245,158,11,0.25)" }}>
+            <ScanLine size={16} color="#f59e0b" />
+            <span className="text-xl font-black" style={{ color: "#f59e0b", lineHeight: 1 }}>{statScans}</span>
+            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Skeny</span>
+          </div>
+          <div data-testid="stat-tasks" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(6,182,212,0.10),rgba(6,182,212,0.03))", borderColor: "rgba(6,182,212,0.25)" }}>
+            <ListTodo size={16} color="#06b6d4" />
+            <span className="text-xl font-black" style={{ color: "#06b6d4", lineHeight: 1 }}>{statTasks}</span>
+            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Moje úlohy</span>
+          </div>
+          <div data-testid="stat-pokec" className="flex flex-col items-center gap-1 rounded-xl p-3 border" style={{ background: "linear-gradient(135deg,rgba(236,72,153,0.10),rgba(236,72,153,0.03))", borderColor: "rgba(236,72,153,0.25)" }}>
+            <MessageSquare size={16} color="#ec4899" />
+            <span className="text-xl font-black" style={{ color: "#ec4899", lineHeight: 1 }}>0</span>
+            <span className="text-[10px] font-semibold text-muted-foreground text-center leading-tight uppercase tracking-wide">Pokec</span>
+          </div>
+        </div>
+
       </div>
 
       {/* KokpitHub is a modal overlay — lives outside the scale container */}
