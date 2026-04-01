@@ -156,7 +156,7 @@ function SkeletonRow({ w = "100%", h = 28, opacity = 1 }: { w?: string; h?: numb
 
 const DARK_BG = "linear-gradient(160deg, #0c1e3a 0%, #07111f 100%)";
 
-const SHADOW_LIGHT = "0 8px 40px rgba(0,0,0,0.28), 0 2px 10px rgba(0,0,0,0.18)";
+const DROP_SHADOW_LIGHT = "drop-shadow(0 8px 32px rgba(0,0,0,0.22)) drop-shadow(0 2px 8px rgba(0,0,0,0.15))";
 
 function PinInput({
   onSuccess,
@@ -279,16 +279,17 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
 
   const shadowAmber = isDark
     ? "0 0 0 1px rgba(245,158,11,0.15), 0 0 32px 6px rgba(245,158,11,0.22), 0 0 72px 16px rgba(245,158,11,0.12)"
-    : SHADOW_LIGHT;
+    : undefined;
   const shadowBlue = isDark
     ? "0 0 0 1px rgba(59,130,246,0.15), 0 0 32px 6px rgba(59,130,246,0.20), 0 0 72px 16px rgba(59,130,246,0.10)"
-    : SHADOW_LIGHT;
+    : undefined;
   const shadowTeal = isDark
     ? "0 0 0 1px rgba(20,184,166,0.15), 0 0 32px 6px rgba(20,184,166,0.20), 0 0 72px 16px rgba(20,184,166,0.10)"
-    : SHADOW_LIGHT;
+    : undefined;
   const shadowAmberHub = isDark
     ? "0 0 0 1px rgba(245,158,11,0.18), 0 0 40px 8px rgba(245,158,11,0.28), 0 0 90px 20px rgba(245,158,11,0.14)"
-    : SHADOW_LIGHT;
+    : undefined;
+  const panelFilter = isDark ? undefined : DROP_SHADOW_LIGHT;
 
   useEffect(() => {
     if (!open) return;
@@ -418,6 +419,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             borderRadius: 12,
             border: "2px solid #f59e0b",
             boxShadow: shadowAmber,
+            filter: panelFilter,
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -511,6 +513,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             borderRadius: 12,
             border: "2px solid #3b82f6",
             boxShadow: shadowBlue,
+            filter: panelFilter,
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -787,6 +790,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             borderRadius: 12,
             border: "2px solid #14b8a6",
             boxShadow: shadowTeal,
+            filter: panelFilter,
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -838,6 +842,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             borderRadius: 12,
             border: "2px solid #f59e0b",
             boxShadow: shadowAmberHub,
+            filter: panelFilter,
           }}
           onClick={(e) => e.stopPropagation()}
         >
