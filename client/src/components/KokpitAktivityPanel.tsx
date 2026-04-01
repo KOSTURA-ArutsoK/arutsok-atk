@@ -116,13 +116,13 @@ export function InlineCalendar({ selectedDate, onSelectDate }: InlineCalendarPro
   );
 }
 
-// ── Phase legend (static — always shown) ─────────────────────────────────────
+// ── Phase legend ─────────────────────────────────────────────────────────────
 
 const PHASE_LEGEND = [
-  { label: "1. Nedokončené z minulosti", phase: null as (1 | 2 | 3 | null), color: "#dc2626" },
-  { label: "2. Príchod",                 phase: 1 as const,                 color: "#1e40af" },
-  { label: "3. Rozdelenie",              phase: 2 as const,                 color: "#7c3aed" },
-  { label: "4. Vybavené dnes",           phase: 3 as const,                 color: "#059669" },
+  { label: "Nedokončené z minulosti", phase: null as (1 | 2 | 3 | null), color: "#dc2626" },
+  { label: "Príchod",                 phase: 1 as const,                 color: "#1e40af" },
+  { label: "Rozdelenie",              phase: 2 as const,                 color: "#7c3aed" },
+  { label: "Vybavené dnes",           phase: 3 as const,                 color: "#059669" },
 ];
 
 // ── KokpitAktivityPanel ───────────────────────────────────────────────────────
@@ -275,36 +275,7 @@ export function KokpitAktivityPanel({
         </div>
       )}
 
-      {/* ─── 2. Vysvetlivky / legenda fáz ────────────────────────────────── */}
-      <div
-        className="shrink-0 flex flex-wrap items-center gap-x-5 gap-y-1.5 px-1 py-2"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.07)", borderBottom: "1px solid rgba(255,255,255,0.07)" }}
-      >
-        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Vysvetlivky</span>
-        {PHASE_LEGEND.map((entry, idx) => {
-          const count = idx === 0 ? phaseCounts.overdue : phaseCounts[`p${entry.phase}`] ?? 0;
-          return (
-            <div key={idx} className="flex items-center gap-1.5">
-              {entry.phase !== null ? (
-                <TripleRingStatus phase={entry.phase} size={14} />
-              ) : (
-                <TripleRingStatus color={entry.color} size={14} />
-              )}
-              <span className="text-[11px] text-muted-foreground">{entry.label}</span>
-              {count > 0 && (
-                <span
-                  className="text-[10px] font-bold px-1 rounded"
-                  style={{ background: entry.color + "22", color: entry.color }}
-                >
-                  {count}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ─── 3. Tabuľka aktivít ───────────────────────────────────────────── */}
+      {/* ─── 2. Tabuľka aktivít ───────────────────────────────────────────── */}
       <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
         {/* Title row: label + date nav + view-mode toggle */}
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1.5 shrink-0">
@@ -460,6 +431,33 @@ export function KokpitAktivityPanel({
           </table>
         </div>
       </div>
+
+      {/* ─── 3. Vysvetlivky — pinned to bottom, only present phases ─────── */}
+      {PHASE_LEGEND.filter((entry, idx) => {
+        const count = idx === 0 ? phaseCounts.overdue : phaseCounts[`p${entry.phase}`] ?? 0;
+        return count > 0;
+      }).length > 0 && (
+        <div
+          className="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 py-1.5"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Vysvetlivky</span>
+          {PHASE_LEGEND.map((entry, idx) => {
+            const count = idx === 0 ? phaseCounts.overdue : phaseCounts[`p${entry.phase}`] ?? 0;
+            if (count === 0) return null;
+            return (
+              <div key={idx} className="flex items-center gap-1.5">
+                {entry.phase !== null ? (
+                  <TripleRingStatus phase={entry.phase} size={14} />
+                ) : (
+                  <TripleRingStatus color={entry.color} size={14} />
+                )}
+                <span className="text-[11px] text-muted-foreground">{entry.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Local KokpitDialog for row clicks */}
       <KokpitDialog
