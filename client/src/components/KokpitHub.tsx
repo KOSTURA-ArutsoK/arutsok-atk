@@ -349,9 +349,8 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
               left: "50%",
               transform: "translate(-50%, -50%)",
               background: DARK_BG,
-              opacity: activeLayer === "third" ? 1 : 0.55,
+              opacity: 1,
               zIndex: activeLayer === "third" ? 3 : 1,
-              transition: "opacity 0.2s ease",
               display: "flex",
               flexDirection: "column",
             }}
@@ -439,9 +438,8 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
               left: "50%",
               transform: "translate(-50%, -50%)",
               background: "linear-gradient(180deg, #0f172a 0%, #0c1930 100%)",
-              opacity: activeLayer === "second" ? 1 : 0.78,
+              opacity: 1,
               zIndex: activeLayer === "second" ? 3 : 2,
-              transition: "opacity 0.2s ease",
             }}
           >
             {selectedFunction === "roztriedenie-stavov" ? (
