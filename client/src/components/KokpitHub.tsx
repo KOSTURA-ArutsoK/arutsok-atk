@@ -791,7 +791,8 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
+          {(!hubIsInactive || hubExiting) && (
+          <div style={{ display: "contents" }}>
           <div
             className="flex items-center gap-3 px-6 py-4 shrink-0"
             style={{ borderBottom: "1px solid rgba(245,158,11,0.2)", background: "#0c1e3a" }}
@@ -955,6 +956,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
               </div>
             </div>
           </div>
+          </div>)}
         </div>
 
       </div>
