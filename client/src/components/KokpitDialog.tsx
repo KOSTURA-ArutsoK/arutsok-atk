@@ -12,7 +12,7 @@ import { TripleRingStatus } from "@/components/TripleRingStatus";
 import {
   FileText, Loader2, X, Archive, Search, Inbox, Upload,
   Image as ImageIcon, File, FileCheck, Eye, CheckCircle2, Clock, Pin,
-  ChevronLeft, Target, User,
+  ChevronLeft, ChevronUp, ChevronDown, Target, User,
 } from "lucide-react";
 import { formatUid } from "@/lib/utils";
 import type { KokpitItem } from "@shared/schema";
@@ -99,9 +99,10 @@ interface Step1PanelProps {
 
 function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwitchTab, companyLabel, divisionLabel }: Step1PanelProps) {
   const { toast } = useToast();
-  const [selectedScanIds, setSelectedScanIds] = useState<Set<string>>(new Set());
+  const [previewScanId, setPreviewScanId] = useState<string | null>(null);
   const [inboxDragOver, setInboxDragOver] = useState(false);
   const inboxFileInputRef = useRef<HTMLInputElement>(null);
+  const inboxListRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [pairedMap, setPairedMap] = useState<Record<string, { contractId: number; contractUid: string }>>({});
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -112,6 +113,14 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
   const [pdfToken, setPdfToken] = useState<string | null>(null);
   const [pdfTokenLoading, setPdfTokenLoading] = useState(false);
   const [pdfTokenError, setPdfTokenError] = useState(false);
+
+  const doneScans = scanFiles.filter(f => f.done && !f.error);
+  const previewIndex = previewScanId ? doneScans.findIndex(f => f.id === previewScanId) : -1;
+
+  const doneScansRef = useRef(doneScans);
+  const previewScanIdRef = useRef(previewScanId);
+  useEffect(() => { doneScansRef.current = doneScans; });
+  useEffect(() => { previewScanIdRef.current = previewScanId; }, [previewScanId]);
 
   const { data: contractsRaw = [] } = useQuery<TrezorContract[]>({
     queryKey: ["/api/contracts", "trezor-list"],
@@ -143,27 +152,20 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
     return uid.includes(qNoSpace) || code.includes(q) || subName.includes(q) || partnerName.includes(q) || productName.includes(q);
   }).slice(0, 100);
 
-  function toggleScan(id: string) {
-    setSelectedScanIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }
-
   function handleAssign(contract: TrezorContract) {
-    if (selectedScanIds.size === 0) {
-      toast({ title: "Vyberte skeny", description: "Najprv vyberte jeden alebo viac skenov v strednom paneli.", variant: "destructive" });
+    if (!previewScanId) {
+      toast({ title: "Vyberte sken", description: "Kliknite na sken v Inboxe alebo použite šípky ↑↓.", variant: "destructive" });
       return;
     }
     const contractUid = contract.uid ?? String(contract.id);
-    setPairedMap(prev => {
-      const next = { ...prev };
-      selectedScanIds.forEach(id => { next[id] = { contractId: contract.id, contractUid }; });
-      return next;
-    });
-    setSelectedScanIds(new Set());
-    toast({ title: "Pridelené", description: `${selectedScanIds.size} sken(ov) priradených ku zmluve ${contractUid}` });
+    const currentId = previewScanId;
+    const currentIdx = doneScans.findIndex(f => f.id === currentId);
+    setPairedMap(prev => ({ ...prev, [currentId]: { contractId: contract.id, contractUid } }));
+    const nextUnpaired =
+      doneScans.slice(currentIdx + 1).find(f => f.id !== currentId && !pairedMap[f.id]) ??
+      doneScans.slice(0, currentIdx).find(f => !pairedMap[f.id]);
+    if (nextUnpaired) setPreviewScanId(nextUnpaired.id);
+    toast({ title: "Priradené", description: `Sken priradený ku zmluve ${contractUid}` });
   }
 
   function handleComplete(contract: TrezorContract) {
@@ -211,8 +213,7 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
     });
   }
 
-  const selectedIdArr = [...selectedScanIds];
-  const previewFile = selectedIdArr.length === 1 ? scanFiles.find(f => f.id === selectedIdArr[0]) : null;
+  const previewFile = previewScanId ? scanFiles.find(f => f.id === previewScanId) : null;
 
   const previewPdfUrl = previewFile?.url && isPdfFile(previewFile.name) ? previewFile.url : undefined;
 
@@ -221,6 +222,50 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
     isImagePreviewRef.current = !!(previewFile?.url && isImageFile(previewFile.name));
     setZoomLevel(1);
   }, [previewFile?.id]);
+
+  // Auto-focus: keď sú done skeny ale žiaden nie je focusnutý, sfocusneme prvý
+  useEffect(() => {
+    if (previewScanIdRef.current === null && doneScansRef.current.length > 0) {
+      setPreviewScanId(doneScansRef.current[0].id);
+    }
+  }, [doneScans.length]);
+
+  // Reset previewScanId ak bol sken vymazaný
+  useEffect(() => {
+    if (previewScanId && !scanFiles.find(f => f.id === previewScanId)) {
+      const idx = doneScans.findIndex(f => f.id === previewScanId);
+      const next = doneScans[idx + 1] ?? doneScans[idx - 1] ?? null;
+      setPreviewScanId(next?.id ?? null);
+    }
+  }, [scanFiles]);
+
+  // Scroll focused row into view
+  useEffect(() => {
+    if (!previewScanId || !inboxListRef.current) return;
+    const el = inboxListRef.current.querySelector(`[data-scan-id="${previewScanId}"]`);
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [previewScanId]);
+
+  // Klávesová navigácia ↑↓ (registrovaná raz, číta cez refs)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      const scans = doneScansRef.current;
+      if (scans.length === 0) return;
+      e.preventDefault();
+      const currentId = previewScanIdRef.current;
+      const currentIdx = currentId ? scans.findIndex(f => f.id === currentId) : -1;
+      let nextIdx: number;
+      if (e.key === 'ArrowUp') {
+        nextIdx = currentIdx <= 0 ? 0 : currentIdx - 1;
+      } else {
+        nextIdx = currentIdx >= scans.length - 1 ? scans.length - 1 : currentIdx + 1;
+      }
+      if (scans[nextIdx]) setPreviewScanId(scans[nextIdx].id);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
 
   // Fetch short-lived preview token whenever a PDF is selected
   useEffect(() => {
@@ -271,6 +316,31 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
         <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
           <Eye className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-xs font-semibold">Náhľad skenu</span>
+          {doneScans.length > 0 && (
+            <div className="ml-auto flex items-center gap-0.5">
+              <button
+                data-testid="button-preview-prev"
+                onClick={() => { if (previewIndex > 0) setPreviewScanId(doneScans[previewIndex - 1].id); }}
+                disabled={previewIndex <= 0}
+                title="Predchádzajúci sken (↑)"
+                className="p-0.5 rounded hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed text-muted-foreground"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-[10px] text-muted-foreground tabular-nums px-0.5">
+                {previewIndex >= 0 ? previewIndex + 1 : 0}&thinsp;/&thinsp;{doneScans.length}
+              </span>
+              <button
+                data-testid="button-preview-next"
+                onClick={() => { if (previewIndex < doneScans.length - 1) setPreviewScanId(doneScans[previewIndex + 1].id); }}
+                disabled={previewIndex < 0 || previewIndex >= doneScans.length - 1}
+                title="Nasledujúci sken (↓)"
+                className="p-0.5 rounded hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed text-muted-foreground"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
         <div
           ref={previewContainerRef}
@@ -288,16 +358,11 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
             </button>
           )}
 
-          {selectedScanIds.size === 0 ? (
+          {!previewFile ? (
             <div className="text-center text-muted-foreground space-y-2">
               <ImageIcon className="w-10 h-10 mx-auto opacity-20" />
               <p className="text-xs" style={{ textAlign: "justify" }}>Vyberte sken</p>
-              <p className="text-[10px] opacity-60" style={{ textAlign: "justify" }}>Zaškrtnite sken v strednom stĺpci</p>
-            </div>
-          ) : selectedScanIds.size > 1 ? (
-            <div className="text-center text-muted-foreground space-y-1">
-              <p className="text-xs font-medium" style={{ textAlign: "justify" }}>Vyberte 1 sken pre náhľad</p>
-              <p className="text-[10px]" style={{ textAlign: "justify" }}>{selectedScanIds.size} skenov vybraných</p>
+              <p className="text-[10px] opacity-60" style={{ textAlign: "justify" }}>Kliknite na sken v Inboxe alebo použite šípky ↑↓</p>
             </div>
           ) : previewFile && !previewFile.done && !previewFile.error ? (
             <div className="text-center text-muted-foreground space-y-2">
@@ -363,15 +428,11 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
         <div className="px-3 py-2 border-b shrink-0 flex items-center gap-2 bg-muted/20">
           <Inbox className="w-3.5 h-3.5 text-blue-500" />
           <span className="text-xs font-medium text-blue-600 dark:text-blue-400">Inbox</span>
-          {(() => {
-            const selectable = scanFiles.filter(f => f.done && !f.error).length;
-            const sel = selectedScanIds.size;
-            return (
-              <Badge className={`text-xs ${sel > 0 ? "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-400/50" : "bg-muted/50 text-muted-foreground border-border"}`}>
-                {sel} / {selectable}
-              </Badge>
-            );
-          })()}
+          {doneScans.length > 0 && (
+            <Badge className={`text-xs ${previewIndex >= 0 ? "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-400/50" : "bg-muted/50 text-muted-foreground border-border"}`}>
+              {previewIndex >= 0 ? previewIndex + 1 : 0}&thinsp;/&thinsp;{doneScans.length}
+            </Badge>
+          )}
           <Badge variant="outline" className="text-xs ml-auto">{scanFiles.length}</Badge>
         </div>
 
@@ -407,35 +468,29 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
           />
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 space-y-1">
+        <div ref={inboxListRef} className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 space-y-1">
           {scanFiles.length === 0 && (
             <p className="text-xs text-muted-foreground text-center pt-4">Žiadne súbory</p>
           )}
           {scanFiles.map((file) => {
-            const isSelected = selectedScanIds.has(file.id);
+            const isFocused = previewScanId === file.id;
             const paired = pairedMap[file.id];
             const isUploadDone = file.done && !file.error;
             return (
               <div
                 key={file.id}
                 data-testid={`file-inbox-${file.id}`}
+                data-scan-id={file.id}
                 className={`rounded-md border px-1.5 py-1 transition-colors ${
-                  isSelected ? "bg-orange-500/10 border-orange-500 ring-1 ring-orange-500/40 cursor-pointer"
+                  isFocused ? "bg-blue-600/15 border-blue-500 ring-1 ring-blue-500/40 cursor-pointer"
                   : paired ? "bg-emerald-500/10 border-emerald-500/30 cursor-pointer"
                   : isUploadDone ? "hover:bg-muted/40 border-border cursor-pointer"
                   : "border-border"
                 } ${!file.done && !file.error ? "opacity-70" : ""}`}
-                onClick={() => { if (isUploadDone) toggleScan(file.id); }}
+                onClick={() => { if (isUploadDone) setPreviewScanId(file.id); }}
               >
                 <div className="flex items-center gap-1 min-w-0">
-                  {isUploadDone ? (
-                    <input type="checkbox" className="h-3 w-3 shrink-0 accent-orange-500" checked={isSelected}
-                      onChange={(e) => { e.stopPropagation(); toggleScan(file.id); }}
-                      onClick={(e) => e.stopPropagation()}
-                      data-testid={`checkbox-scan-${file.id}`}
-                    />
-                  ) : <span className="w-3 h-3 shrink-0" />}
-                  {isSelected ? getFileTypeIcon(file.name, "w-3 h-3 shrink-0 text-orange-500")
+                  {isFocused ? getFileTypeIcon(file.name, "w-3 h-3 shrink-0 text-blue-400")
                     : paired ? getFileTypeIcon(file.name, "w-3 h-3 shrink-0 text-emerald-500")
                     : getFileTypeIcon(file.name, "w-3 h-3 shrink-0")}
                   <span className="text-[10px] font-mono truncate flex-1">{file.name}</span>
@@ -461,12 +516,6 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
             );
           })}
         </div>
-
-        {selectedScanIds.size > 0 && (
-          <div className="px-2 py-1.5 border-t text-[10px] text-muted-foreground bg-blue-500/5 shrink-0">
-            {selectedScanIds.size} sken{selectedScanIds.size === 1 ? "" : "ov"} vybraných — vyberte zmluvu vpravo
-          </div>
-        )}
       </div>
 
       {/* ─── RIGHT: Vyhľadávanie zmluvy (flex-3) ─────────────────────────── */}
