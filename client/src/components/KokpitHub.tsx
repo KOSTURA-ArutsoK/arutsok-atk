@@ -865,39 +865,27 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto p-8">
-            {/* ── Full-width top tile ── */}
-            {HUB_FUNCTIONS.filter(f => f.id === "spracovanie-papierovych-zmluv").map(({ id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor }) => {
+          <div className="flex-1 overflow-hidden p-5 flex flex-col gap-3">
+
+            {/* ── Full-width: Spracovanie papierových zmlúv ── */}
+            {(() => {
+              const fn = HUB_FUNCTIONS.find(f => f.id === "spracovanie-papierovych-zmluv")!;
+              const { id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor } = fn;
               const isPinActive = pinTargetId === id;
               return (
                 <button
-                  key={id}
                   type="button"
                   data-testid={`button-hub-${id}`}
                   onClick={() => !isPinActive && handleTileClick(id)}
-                  className={`
-                    w-full flex flex-row items-center gap-6 px-6 py-5 rounded-xl border mb-5
-                    bg-gradient-to-br ${gradientFrom} ${gradientTo}
-                    ${borderColor} ${hoverBorderColor}
-                    ${isPinActive ? "ring-2 ring-amber-400/50 scale-[1.005]" : "hover:scale-[1.005] hover:shadow-lg hover:shadow-blue-900/40 active:scale-[0.998]"}
-                    transition-all duration-200 text-left cursor-pointer group
-                  `}
+                  className={`w-full flex flex-row items-center gap-5 px-5 py-4 rounded-xl border bg-gradient-to-br ${gradientFrom} ${gradientTo} ${borderColor} ${hoverBorderColor} ${isPinActive ? "ring-2 ring-amber-400/50" : "hover:scale-[1.005] hover:shadow-lg hover:shadow-blue-900/40 active:scale-[0.998]"} transition-all duration-200 text-left cursor-pointer group shrink-0`}
                 >
-                  <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-white/5 border border-white/10 group-hover:border-amber-500/30 transition-colors shrink-0">
-                    <Icon className={`w-6 h-6 ${iconColor} group-hover:text-amber-400 transition-colors`} />
+                  <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-white/5 border border-white/10 group-hover:border-amber-500/30 transition-colors shrink-0">
+                    <Icon className={`w-5 h-5 ${iconColor} group-hover:text-amber-400 transition-colors`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-blue-100 text-sm leading-snug group-hover:text-white transition-colors">
-                      {title}
-                    </div>
-                    {subtitle && (
-                      <div className="text-[10px] font-semibold text-amber-400/60 mt-0.5 tracking-wide uppercase">
-                        {subtitle}
-                      </div>
-                    )}
-                    <div className="text-xs text-blue-300/50 mt-1 leading-relaxed">
-                      {description}
-                    </div>
+                    <div className="font-bold text-blue-100 text-sm leading-snug group-hover:text-white transition-colors">{title}</div>
+                    {subtitle && <div className="text-[10px] font-semibold text-amber-400/60 mt-0.5 tracking-wide uppercase">{subtitle}</div>}
+                    <div className="text-xs text-blue-300/50 mt-0.5 leading-relaxed">{description}</div>
                   </div>
                   {isPinActive && (
                     <div onClick={(e) => e.stopPropagation()} className="shrink-0">
@@ -906,52 +894,48 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                   )}
                 </button>
               );
-            })}
-            {/* ── 3-column grid ── */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
-              {HUB_FUNCTIONS.filter(f => f.id !== "spracovanie-papierovych-zmluv").map(({ id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor }) => {
-                const isPinActive = pinTargetId === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    data-testid={`button-hub-${id}`}
-                    onClick={() => !isPinActive && handleTileClick(id)}
-                    className={`
-                      flex flex-col items-start gap-4 p-5 rounded-xl border
-                      bg-gradient-to-br ${gradientFrom} ${gradientTo}
-                      ${borderColor} ${hoverBorderColor}
-                      ${isPinActive ? "ring-2 ring-amber-400/50 scale-[1.02]" : "hover:scale-[1.03] hover:shadow-lg hover:shadow-blue-900/40 active:scale-[0.98]"}
-                      transition-all duration-200 text-left cursor-pointer group
-                    `}
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-white/5 border border-white/10 group-hover:border-amber-500/30 transition-colors">
-                        <Icon className={`w-6 h-6 ${iconColor} group-hover:text-amber-400 transition-colors`} />
-                      </div>
-                      {isPinActive && (
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <PinInput correctPin={userKokpitPin} onSuccess={handlePinSuccess} onCancel={handlePinCancel} />
+            })()}
+
+            {/* ── Skupinové kontajnery ── */}
+            {([
+              ["roztriedenie-stavov", "hromadny-import-stavov"],
+              ["roztriedenie-mailov", "dokumenty-na-stiahnutie"],
+              ["zadavanie-provizii", "vypocet-odmien"],
+            ] as KokpitFunctionId[][]).map((group, gi) => (
+              <div key={gi} className="flex gap-3 flex-1 min-h-0">
+                {group.map(fnId => {
+                  const fn = HUB_FUNCTIONS.find(f => f.id === fnId)!;
+                  const { id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor } = fn;
+                  const isPinActive = pinTargetId === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      data-testid={`button-hub-${id}`}
+                      onClick={() => !isPinActive && handleTileClick(id)}
+                      className={`flex-1 flex flex-col justify-between p-4 rounded-xl border bg-gradient-to-br ${gradientFrom} ${gradientTo} ${borderColor} ${hoverBorderColor} ${isPinActive ? "ring-2 ring-amber-400/50" : "hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-900/40 active:scale-[0.98]"} transition-all duration-200 text-left cursor-pointer group overflow-hidden`}
+                    >
+                      <div className="flex items-start justify-between w-full">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/5 border border-white/10 group-hover:border-amber-500/30 transition-colors shrink-0">
+                          <Icon className={`w-4.5 h-4.5 ${iconColor} group-hover:text-amber-400 transition-colors`} style={{ width: 18, height: 18 }} />
                         </div>
-                      )}
-                    </div>
-                    <div>
-                      <div className="font-bold text-blue-100 text-sm leading-snug group-hover:text-white transition-colors">
-                        {title}
+                        {isPinActive && (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <PinInput correctPin={userKokpitPin} onSuccess={handlePinSuccess} onCancel={handlePinCancel} />
+                          </div>
+                        )}
                       </div>
-                      {subtitle && (
-                        <div className="text-[10px] font-semibold text-amber-400/60 mt-0.5 tracking-wide uppercase">
-                          {subtitle}
-                        </div>
-                      )}
-                      <div className="text-xs text-blue-300/50 mt-1.5 leading-relaxed" style={{ textAlign: "justify" }}>
-                        {description}
+                      <div className="mt-2">
+                        <div className="font-bold text-blue-100 text-sm leading-snug group-hover:text-white transition-colors">{title}</div>
+                        {subtitle && <div className="text-[10px] font-semibold text-amber-400/60 mt-0.5 tracking-wide uppercase">{subtitle}</div>}
+                        <div className="text-xs text-blue-300/50 mt-1 leading-relaxed line-clamp-2">{description}</div>
                       </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+
           </div>
           </div>)}
         </div>
