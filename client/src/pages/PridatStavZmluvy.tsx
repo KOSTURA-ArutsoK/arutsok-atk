@@ -433,6 +433,10 @@ export default function PridatStavZmluvy() {
         open={hubOpen}
         onOpenChange={setHubOpen}
         onSelectFunction={handleHubSelectFunction}
+        onLaunchImportType={(_typeId) => {
+          setHubOpen(false);
+          setLocation("/hromadne-stavy");
+        }}
         scanFiles={scanFiles}
         onRemoveScanFile={removeScanFile}
         onAddFiles={uploadFiles}

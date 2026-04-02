@@ -2753,6 +2753,7 @@ export const bulkStatusImportTypes = pgTable("bulk_status_import_types", {
   description: text("description"),
   companyId: integer("company_id").references(() => myCompanies.id),
   identifierType: text("identifier_type").notNull().default("proposalNumber"),
+  columnMapping: jsonb("column_mapping").default({}),
   sortOrder: integer("sort_order").default(0),
   isActive: boolean("is_active").default(true),
   createdBy: integer("created_by").references(() => appUsers.id),

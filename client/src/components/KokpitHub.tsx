@@ -4,6 +4,7 @@ import { useAppUser } from "@/hooks/use-app-user";
 import { formatUid } from "@/lib/utils";
 import { KokpitDialogBody } from "@/components/KokpitDialog";
 import { KokpitAktivityPanel } from "@/components/KokpitAktivityPanel";
+import { HromadnyImportPanel } from "@/components/HromadnyImportPanel";
 import type { ScanFile } from "@/pages/PridatStavZmluvy";
 import {
   Target, Layers, FileInput, Calculator, Shield, User,
@@ -16,6 +17,7 @@ interface KokpitHubProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSelectFunction: (fn: KokpitFunctionId) => void;
+  onLaunchImportType?: (typeId?: number) => void;
   scanFiles?: ScanFile[];
   onRemoveScanFile?: (id: string, reason?: string) => void;
   onAddFiles?: (files: File[]) => void;
@@ -256,9 +258,9 @@ function PinInput({
   );
 }
 
-export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = [], onRemoveScanFile, onAddFiles, viewMode, setViewMode, viewDate, setViewDate }: KokpitHubProps) {
+export function KokpitHub({ open, onOpenChange, onSelectFunction, onLaunchImportType, scanFiles = [], onRemoveScanFile, onAddFiles, viewMode, setViewMode, viewDate, setViewDate }: KokpitHubProps) {
   const { data: appUser } = useAppUser();
-  const [activeLayer, setActiveLayer] = useState<"hub" | "second" | "third" | "mails">("hub");
+  const [activeLayer, setActiveLayer] = useState<"hub" | "second" | "third" | "mails" | "import-builder">("hub");
   const [selectedFunction, setSelectedFunction] = useState<KokpitFunctionId | null>(null);
   const [hubExiting, setHubExiting] = useState(false);
   const [hubEntering, setHubEntering] = useState(false);
@@ -313,6 +315,13 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
     }, 280);
   }, [onOpenChange]);
 
+  function handleLaunchImportType(typeId?: number) {
+    handleClose();
+    setTimeout(() => {
+      onLaunchImportType?.(typeId);
+    }, 300);
+  }
+
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -333,6 +342,15 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
   }, [open, handleClose]);
 
   function doSelectFunction(id: KokpitFunctionId) {
+    if (id === "hromadny-import-stavov") {
+      setHubExiting(true);
+      setTimeout(() => {
+        setHubExiting(false);
+        setSelectedFunction(id);
+        setActiveLayer("import-builder");
+      }, 280);
+      return;
+    }
     onSelectFunction(id);
     setHubExiting(true);
     setTimeout(() => {
@@ -380,6 +398,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
   }
 
   const hubIsInactive = activeLayer !== "hub";
+  const isImportBuilderActive = activeLayer === "import-builder";
 
   if (!open) return null;
 
@@ -733,6 +752,16 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             </>
           )}
         </div>
+
+        {/* Vrstva Import Builder */}
+        {isImportBuilderActive && (
+          <HromadnyImportPanel
+            onBack={handleBackToHub}
+            onLaunchType={handleLaunchImportType}
+            shadowRoyalBlue={shadowRoyalBlue}
+            panelFilter={panelFilter}
+          />
+        )}
 
         {/* Vrstva Maily — Roztriedenie mailov placeholder */}
         {activeLayer === "mails" && (

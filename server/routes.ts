@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { setupAuth, isAuthenticated, resolveContextLabel, getAuditActorId } from "./auth";
 import { z } from "zod";
-import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts, subjectLinks, revocationTickets, insertProductDisplayParamSchema, insertContractParamVerificationSchema, productDisplayParams, contractParamVerifications } from "@shared/schema";
+import { continents, states, myCompanies, appUsers, clientTypes, clientSubGroups, clientGroupMembers, productFolderAssignments, folderPanels, panelParameters, userClientGroupMemberships, clientGroups, permissionGroups, insertCareerLevelSchema, insertProductPointRateSchema, careerLevels, importLogs, commissions, contracts, contractStatuses, contractStatusChangeLogs, contractStatusParameters, clientDataTabs, clientDataCategories, subjects, subjectPointsLog, subjectFieldHistory, subjectCollaborators, clientMarketingConsents, clientDocumentHistory, contractAcquirers, contractPasswords, contractRewardDistributions, contractParameterValues, subjectArchive, auditLogs, globalCounters, subjectPhotos, activityEvents, subjectParamSections, subjectParameters, subjectTemplates, subjectTemplateParams, commissionCalculationLogs, parameterSynonyms, dataConflictAlerts, transactionDedupLog, relationRoleTypes, subjectRelations, maturityAlerts, inheritancePrompts, guardianshipArchive, households, householdMembers, householdAssets, privacyBlocks, accessConsentLog, maturityEvents, addressGroups, addressGroupMembers, companySubjectRoles, notificationQueue, batchJobs, subjectObjects, objectDataSources, sectors, sections, sectorProducts, parameters, panels, productPanels, contractFolders, fieldLayoutConfigs, sectorCategoryMapping, suggestedRelations, statusEvidence, contractLifecycleHistory, systemNotifications, partners, partnerContracts, partnerCompanyLinks, partnerProducts, products, contractInventories, contractTemplates, redListAlerts, subjectAddresses, divisions, companyDivisions, insertDivisionSchema, ocrProcessingJobs, networkLinks, guarantorTransferRequests, nbsReportStatuses, nbsPartnerReports, supisky, supiskaContracts, lifecyclePhaseConfigs, registrySnapshots, bulkStatusImportTypes, bulkStatusImportSessions, bulkStatusImportRows, companyOfficers, appUserLoginHistory, subjectContacts, subjectLinks, revocationTickets, insertProductDisplayParamSchema, insertContractParamVerificationSchema, productDisplayParams, contractParamVerifications } from "@shared/schema";
 import type { DocEntry, WebRoutingRule } from "@shared/schema";
 import { kokpitStagedScans, atkAssetSnapshots, atkLicenseCosts, insertAtkLicenseCostSchema, kokpitRiesenieRecords, downloadableDocuments } from "@shared/schema";
 import { getUncachableGitHubClient } from "./github";
@@ -15404,15 +15404,33 @@ export async function registerRoutes(
   app.patch("/api/bulk-status-import-types/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { name, description, identifierType, sortOrder, isActive } = req.body;
+      const { name, description, identifierType, sortOrder, isActive, columnMapping } = req.body;
       const updates: any = { updatedAt: new Date() };
       if (name !== undefined) updates.name = name.trim();
       if (description !== undefined) updates.description = description;
       if (identifierType !== undefined) updates.identifierType = identifierType;
       if (sortOrder !== undefined) updates.sortOrder = sortOrder;
       if (isActive !== undefined) updates.isActive = isActive;
+      if (columnMapping !== undefined) updates.columnMapping = columnMapping;
       const [row] = await db.update(bulkStatusImportTypes).set(updates).where(eq(bulkStatusImportTypes.id, id)).returning();
       res.json(row);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
+
+  app.get("/api/contract-status-parameters/all", isAuthenticated, async (req: any, res) => {
+    try {
+      const params = await db
+        .select({
+          id: contractStatusParameters.id,
+          name: contractStatusParameters.name,
+          paramType: contractStatusParameters.paramType,
+          statusId: contractStatusParameters.statusId,
+          statusName: contractStatuses.name,
+        })
+        .from(contractStatusParameters)
+        .leftJoin(contractStatuses, eq(contractStatusParameters.statusId, contractStatuses.id))
+        .orderBy(contractStatusParameters.statusId, contractStatusParameters.sortOrder, contractStatusParameters.name);
+      res.json(params);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
