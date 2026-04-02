@@ -6674,14 +6674,14 @@ export default function Contracts() {
                   {(() => {
                     const c = contract as any;
                     const limit = c.objectionDaysLimit ?? 100;
-                    const enteredAt = c.objectionEnteredAt;
-                    if (!enteredAt) return <span className="text-xs text-muted-foreground">-</span>;
-                    const daysPassed = Math.floor((Date.now() - new Date(enteredAt).getTime()) / (1000 * 60 * 60 * 24));
+                    const refDate = c.objectionEnteredAt ?? c.receivedByPartnerAt;
+                    if (!refDate) return <span className="text-xs text-muted-foreground">-</span>;
+                    const daysPassed = Math.floor((Date.now() - new Date(refDate).getTime()) / (1000 * 60 * 60 * 24));
                     const remaining = Math.max(0, limit - daysPassed);
                     const isUrgent = remaining <= Math.min(limit * 0.3, 10) || limit <= 30;
                     const isWarning = remaining <= limit * 0.5;
                     return (
-                      <span className={`text-xs font-mono font-bold ${isUrgent ? "text-red-500" : isWarning ? "text-amber-500" : "text-green-400"}`}>
+                      <span className={`text-xs font-mono font-bold ${isUrgent ? "text-red-500" : isWarning ? "text-amber-500" : "text-green-400"}`} title={`Od: ${new Date(refDate).toLocaleDateString("sk-SK")} | Limit: ${limit} dní`}>
                         {remaining > 0 ? `${remaining} dní` : "EXPIROVANÉ"}
                       </span>
                     );
@@ -12111,7 +12111,7 @@ export default function Contracts() {
                     ) : isGroupedPhase ? (
                       (() => {
                         const supiskaContractIds = new Set(supiskyForPhase.flatMap((s: any) => (s.contracts || []).map((c: any) => c.id)));
-                        const looseContracts = [8, 9].includes(phaseId) ? phaseContracts.filter(c => !supiskaContractIds.has(c.id) && !c.lockedBySupiskaId) : [];
+                        const looseContracts = [8, 9, 10].includes(phaseId) ? phaseContracts.filter(c => !supiskaContractIds.has(c.id) && !c.lockedBySupiskaId) : [];
                         const hasContent = supiskyForPhase.length > 0 || looseContracts.length > 0;
                         if (!hasContent) return (
                           <p className="text-sm text-muted-foreground text-center py-8" data-testid={`text-no-phase-${phaseId}`}>Žiadne kontrakty v tejto fáze</p>
@@ -12284,7 +12284,7 @@ export default function Contracts() {
                                   </Button>
                                 )}
                               </div>
-                              {renderContractTable(looseContracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true })}
+                              {renderContractTable(looseContracts, { showStatus: true, showRegistration: true, showActions: true, showRerouteCheckbox: true, showTimer: phaseId === 10 })}
                             </div>
                           )}
                           {supiskyForPhase.map((sup: any) => {
