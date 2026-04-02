@@ -150,7 +150,14 @@ export function HromadnyImportPanel({ onBack, onLaunchType, shadowRoyalBlue, pan
   function assignToLetter(letter: string, paramKey: string) {
     const param = allParamsFlat.find(p => p.key === paramKey);
     if (!param) return;
-    setColMap(prev => ({ ...prev, [letter]: { key: param.key, label: param.label, paramType: param.paramType, paramId: param.paramId } }));
+    setColMap(prev => {
+      const next: ColMapping = {};
+      for (const [l, v] of Object.entries(prev)) {
+        if (v.key !== paramKey) next[l] = v;
+      }
+      next[letter] = { key: param.key, label: param.label, paramType: param.paramType, paramId: param.paramId };
+      return next;
+    });
     setSelectedParamKey(null);
   }
 
