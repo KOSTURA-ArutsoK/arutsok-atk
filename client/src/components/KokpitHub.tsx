@@ -10,7 +10,7 @@ import {
   Inbox, FileText, Clock, ChevronLeft, FileDown, Zap, Mail, Upload,
 } from "lucide-react";
 
-export type KokpitFunctionId = "roztriedenie-stavov" | "zadavanie-provizii" | "vypocet-odmien" | "roztriedenie-mailov" | "dokumenty-na-stiahnutie" | "hromadny-import-stavov";
+export type KokpitFunctionId = "roztriedenie-stavov" | "zadavanie-provizii" | "vypocet-odmien" | "roztriedenie-mailov" | "dokumenty-na-stiahnutie" | "hromadny-import-stavov" | "spracovanie-papierovych-zmluv";
 
 interface KokpitHubProps {
   open: boolean;
@@ -136,6 +136,18 @@ const HUB_FUNCTIONS: Array<{
     borderColor: "border-amber-500/30",
     hoverBorderColor: "hover:border-amber-400/60",
     iconColor: "text-amber-400",
+  },
+  {
+    id: "spracovanie-papierovych-zmluv",
+    Icon: FileText,
+    title: "Spracovanie papierových zmlúv",
+    subtitle: "Skeny · Príjem · Archivácia",
+    description: "Príjem, kontrola a spracovanie papierových zmlúv — nahrávanie skenov, verifikácia a odovzdanie obchodnému partnerovi.",
+    gradientFrom: "from-orange-800/50",
+    gradientTo: "to-orange-900/70",
+    borderColor: "border-orange-500/30",
+    hoverBorderColor: "hover:border-orange-400/60",
+    iconColor: "text-orange-400",
   },
 ];
 
@@ -854,112 +866,49 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
 
           {/* Body */}
           <div className="flex-1 overflow-y-auto p-8">
-            <p className="text-[11px] font-semibold text-blue-300/40 uppercase tracking-widest mb-6">
-              Vyberte funkciu
-            </p>
-
-            {/* ── Skupina: Spracovanie zmlúv ── */}
-            <div className="mb-6">
-              <p className="text-[10px] font-bold text-blue-400/35 uppercase tracking-widest mb-2.5">
-                Spracovanie zmlúv
-              </p>
-              <div className="grid grid-cols-2 gap-5 rounded-2xl border border-blue-500/15 bg-blue-950/20 p-4">
-                {HUB_FUNCTIONS.filter(f => f.id === "roztriedenie-stavov" || f.id === "hromadny-import-stavov")
-                  .map(({ id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor }) => {
-                    const isPinActive = pinTargetId === id;
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        data-testid={`button-hub-${id}`}
-                        onClick={() => !isPinActive && handleTileClick(id)}
-                        className={`
-                          flex flex-col items-start gap-4 p-5 rounded-xl border
-                          bg-gradient-to-br ${gradientFrom} ${gradientTo}
-                          ${borderColor} ${hoverBorderColor}
-                          ${isPinActive ? "ring-2 ring-amber-400/50 scale-[1.02]" : "hover:scale-[1.03] hover:shadow-lg hover:shadow-blue-900/40 active:scale-[0.98]"}
-                          transition-all duration-200 text-left cursor-pointer group
-                        `}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-white/5 border border-white/10 group-hover:border-amber-500/30 transition-colors">
-                            <Icon className={`w-6 h-6 ${iconColor} group-hover:text-amber-400 transition-colors`} />
-                          </div>
-                          {isPinActive && (
-                            <div onClick={(e) => e.stopPropagation()}>
-                              <PinInput correctPin={userKokpitPin} onSuccess={handlePinSuccess} onCancel={handlePinCancel} />
-                            </div>
-                          )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
+              {HUB_FUNCTIONS.map(({ id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor }) => {
+                const isPinActive = pinTargetId === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    data-testid={`button-hub-${id}`}
+                    onClick={() => !isPinActive && handleTileClick(id)}
+                    className={`
+                      flex flex-col items-start gap-4 p-5 rounded-xl border
+                      bg-gradient-to-br ${gradientFrom} ${gradientTo}
+                      ${borderColor} ${hoverBorderColor}
+                      ${isPinActive ? "ring-2 ring-amber-400/50 scale-[1.02]" : "hover:scale-[1.03] hover:shadow-lg hover:shadow-blue-900/40 active:scale-[0.98]"}
+                      transition-all duration-200 text-left cursor-pointer group
+                    `}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-white/5 border border-white/10 group-hover:border-amber-500/30 transition-colors">
+                        <Icon className={`w-6 h-6 ${iconColor} group-hover:text-amber-400 transition-colors`} />
+                      </div>
+                      {isPinActive && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <PinInput correctPin={userKokpitPin} onSuccess={handlePinSuccess} onCancel={handlePinCancel} />
                         </div>
-                        <div>
-                          <div className="font-bold text-blue-100 text-sm leading-snug group-hover:text-white transition-colors">
-                            {title}
-                          </div>
-                          {subtitle && (
-                            <div className="text-[10px] font-semibold text-amber-400/60 mt-0.5 tracking-wide uppercase">
-                              {subtitle}
-                            </div>
-                          )}
-                          <div className="text-xs text-blue-300/50 mt-1.5 leading-relaxed" style={{ textAlign: "justify" }}>
-                            {description}
-                          </div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="font-bold text-blue-100 text-sm leading-snug group-hover:text-white transition-colors">
+                        {title}
+                      </div>
+                      {subtitle && (
+                        <div className="text-[10px] font-semibold text-amber-400/60 mt-0.5 tracking-wide uppercase">
+                          {subtitle}
                         </div>
-                      </button>
-                    );
-                  })}
-              </div>
-            </div>
-
-            {/* ── Ostatné funkcie ── */}
-            <div>
-              <p className="text-[10px] font-bold text-blue-400/35 uppercase tracking-widest mb-2.5">
-                Ostatné
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
-                {HUB_FUNCTIONS.filter(f => f.id !== "roztriedenie-stavov" && f.id !== "hromadny-import-stavov")
-                  .map(({ id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor }) => {
-                    const isPinActive = pinTargetId === id;
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        data-testid={`button-hub-${id}`}
-                        onClick={() => !isPinActive && handleTileClick(id)}
-                        className={`
-                          flex flex-col items-start gap-4 p-5 rounded-xl border
-                          bg-gradient-to-br ${gradientFrom} ${gradientTo}
-                          ${borderColor} ${hoverBorderColor}
-                          ${isPinActive ? "ring-2 ring-amber-400/50 scale-[1.02]" : "hover:scale-[1.03] hover:shadow-lg hover:shadow-blue-900/40 active:scale-[0.98]"}
-                          transition-all duration-200 text-left cursor-pointer group
-                        `}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-white/5 border border-white/10 group-hover:border-amber-500/30 transition-colors">
-                            <Icon className={`w-6 h-6 ${iconColor} group-hover:text-amber-400 transition-colors`} />
-                          </div>
-                          {isPinActive && (
-                            <div onClick={(e) => e.stopPropagation()}>
-                              <PinInput correctPin={userKokpitPin} onSuccess={handlePinSuccess} onCancel={handlePinCancel} />
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-bold text-blue-100 text-sm leading-snug group-hover:text-white transition-colors">
-                            {title}
-                          </div>
-                          {subtitle && (
-                            <div className="text-[10px] font-semibold text-amber-400/60 mt-0.5 tracking-wide uppercase">
-                              {subtitle}
-                            </div>
-                          )}
-                          <div className="text-xs text-blue-300/50 mt-1.5 leading-relaxed" style={{ textAlign: "justify" }}>
-                            {description}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-              </div>
+                      )}
+                      <div className="text-xs text-blue-300/50 mt-1.5 leading-relaxed" style={{ textAlign: "justify" }}>
+                        {description}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
           </div>)}
