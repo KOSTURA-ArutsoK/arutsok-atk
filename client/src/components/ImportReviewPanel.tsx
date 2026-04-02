@@ -202,10 +202,7 @@ export function ImportReviewPanel({ onBack, parsedData, type, shadowRoyalBlue, p
 
   function selectRow(i: number) {
     const state = rowStates[i] ?? "pending";
-    if (state === "done") {
-      setSelectedRowIndex(i);
-      return;
-    }
+    if (state === "done" || state === "error") return;
     setSelectedRowIndex(i);
   }
 
