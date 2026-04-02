@@ -635,6 +635,11 @@ const upload = multer({
   fileFilter: fileFilterFn,
 });
 
+const importParseUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
+
 const contractDocsUpload = multer({
   storage: uploadStorage,
   limits: { fileSize: 25 * 1024 * 1024 },
@@ -15590,7 +15595,7 @@ export async function registerRoutes(
   });
 
   // PARSE Excel for bulk status import
-  app.post("/api/bulk-status-import/parse", isAuthenticated, upload.single("file"), async (req: any, res) => {
+  app.post("/api/bulk-status-import/parse", isAuthenticated, importParseUpload.single("file"), async (req: any, res) => {
     try {
       if (!req.file) return res.status(400).json({ message: "Súbor je povinný" });
       const ExcelJS = await import("exceljs");
