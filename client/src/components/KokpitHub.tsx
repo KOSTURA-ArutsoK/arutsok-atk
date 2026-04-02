@@ -866,8 +866,50 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
 
           {/* Body */}
           <div className="flex-1 overflow-y-auto p-8">
+            {/* ── Full-width top tile ── */}
+            {HUB_FUNCTIONS.filter(f => f.id === "spracovanie-papierovych-zmluv").map(({ id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor }) => {
+              const isPinActive = pinTargetId === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  data-testid={`button-hub-${id}`}
+                  onClick={() => !isPinActive && handleTileClick(id)}
+                  className={`
+                    w-full flex flex-row items-center gap-6 px-6 py-5 rounded-xl border mb-5
+                    bg-gradient-to-br ${gradientFrom} ${gradientTo}
+                    ${borderColor} ${hoverBorderColor}
+                    ${isPinActive ? "ring-2 ring-amber-400/50 scale-[1.005]" : "hover:scale-[1.005] hover:shadow-lg hover:shadow-blue-900/40 active:scale-[0.998]"}
+                    transition-all duration-200 text-left cursor-pointer group
+                  `}
+                >
+                  <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-white/5 border border-white/10 group-hover:border-amber-500/30 transition-colors shrink-0">
+                    <Icon className={`w-6 h-6 ${iconColor} group-hover:text-amber-400 transition-colors`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-blue-100 text-sm leading-snug group-hover:text-white transition-colors">
+                      {title}
+                    </div>
+                    {subtitle && (
+                      <div className="text-[10px] font-semibold text-amber-400/60 mt-0.5 tracking-wide uppercase">
+                        {subtitle}
+                      </div>
+                    )}
+                    <div className="text-xs text-blue-300/50 mt-1 leading-relaxed">
+                      {description}
+                    </div>
+                  </div>
+                  {isPinActive && (
+                    <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+                      <PinInput correctPin={userKokpitPin} onSuccess={handlePinSuccess} onCancel={handlePinCancel} />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+            {/* ── 3-column grid ── */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
-              {HUB_FUNCTIONS.map(({ id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor }) => {
+              {HUB_FUNCTIONS.filter(f => f.id !== "spracovanie-papierovych-zmluv").map(({ id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor }) => {
                 const isPinActive = pinTargetId === id;
                 return (
                   <button
