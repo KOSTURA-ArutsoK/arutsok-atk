@@ -903,7 +903,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
               ["roztriedenie-mailov", "dokumenty-na-stiahnutie"],
               ["zadavanie-provizii", "vypocet-odmien"],
             ] as KokpitFunctionId[][]).map((group, gi) => (
-              <div key={gi} className="flex gap-3 flex-1 min-h-0">
+              <div key={gi} className="flex gap-2 flex-1 min-h-0 rounded-2xl border border-blue-500/15 bg-blue-950/20 p-2">
                 {group.map(fnId => {
                   const fn = HUB_FUNCTIONS.find(f => f.id === fnId);
                   if (!fn) return null;
