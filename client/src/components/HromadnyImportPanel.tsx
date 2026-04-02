@@ -32,23 +32,16 @@ function genExcelLetter(n: number): string {
 
 type ColMapping = Record<string, { key: string; label: string; paramType?: string; paramId?: number }>;
 
-interface BuiltinParam { key: string; label: string; paramType: string }
-interface CustomParam { id: number; name: string; paramType: string; statusId: number; statusName: string | null }
-type AnyParam = { key: string; label: string; paramType: string; paramId?: number };
-
-function allParamsFromData(customs: CustomParam[]): AnyParam[] {
-  const builtins: BuiltinParam[] = [
-    { key: "identifier", label: "Identifikátor", paramType: "text" },
-    { key: "status", label: "Stav", paramType: "text" },
-  ];
-  const customMapped: AnyParam[] = customs.map(c => ({
-    key: `param-${c.id}`,
-    label: c.name,
-    paramType: c.paramType,
-    paramId: c.id,
-  }));
-  return [...builtins.map(b => ({ ...b })), ...customMapped];
+interface ServerParam {
+  id: number | null;
+  name: string;
+  paramType: string;
+  statusId: number | null;
+  statusName: string | null;
+  isBuiltin: boolean;
+  key: string;
 }
+type AnyParam = { key: string; label: string; paramType: string; paramId?: number; isBuiltin?: boolean };
 
 function isParamAssigned(colMap: ColMapping, key: string): string | null {
   for (const [letter, val] of Object.entries(colMap)) {
@@ -67,9 +60,16 @@ interface HromadnyImportPanelProps {
 export function HromadnyImportPanel({ onBack, onLaunchType, shadowRoyalBlue, panelFilter }: HromadnyImportPanelProps) {
   const { toast } = useToast();
 
-  const { data: allParams = [], isLoading: paramsLoading } = useQuery<CustomParam[]>({
+  const { data: serverParams = [], isLoading: paramsLoading } = useQuery<ServerParam[]>({
     queryKey: ["/api/contract-status-parameters/all"],
   });
+  const allParams: AnyParam[] = serverParams.map(p => ({
+    key: p.key,
+    label: p.name,
+    paramType: p.paramType,
+    paramId: p.id ?? undefined,
+    isBuiltin: p.isBuiltin,
+  }));
   const { data: types = [], isLoading: typesLoading } = useQuery<any[]>({
     queryKey: ["/api/bulk-status-import-types"],
   });

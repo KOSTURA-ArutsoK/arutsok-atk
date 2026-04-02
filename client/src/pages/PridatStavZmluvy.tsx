@@ -433,9 +433,9 @@ export default function PridatStavZmluvy() {
         open={hubOpen}
         onOpenChange={setHubOpen}
         onSelectFunction={handleHubSelectFunction}
-        onLaunchImportType={(_typeId) => {
+        onLaunchImportType={(typeId) => {
           setHubOpen(false);
-          setLocation("/hromadne-stavy");
+          setLocation(typeId ? `/hromadne-stavy?typeId=${typeId}` : "/hromadne-stavy");
         }}
         scanFiles={scanFiles}
         onRemoveScanFile={removeScanFile}

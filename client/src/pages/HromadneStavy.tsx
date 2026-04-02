@@ -1,4 +1,5 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -247,7 +248,7 @@ function SessionDetailDialog({ sessionId, onClose }: { sessionId: number; onClos
 }
 
 // ===================== CREATE IMPORT DIALOG =====================
-function CreateImportDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (id: number) => void }) {
+function CreateImportDialog({ open, onClose, onCreated, initialTypeId }: { open: boolean; onClose: () => void; onCreated: (id: number) => void; initialTypeId?: number }) {
   const { toast } = useToast();
   const [step, setStep] = useState<CreateStep>("info");
   const [sessionId, setSessionId] = useState<number | null>(null);
@@ -255,7 +256,7 @@ function CreateImportDialog({ open, onClose, onCreated }: { open: boolean; onClo
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [infoForm, setInfoForm] = useState({ name: "", typeId: "" });
+  const [infoForm, setInfoForm] = useState({ name: "", typeId: initialTypeId ? String(initialTypeId) : "" });
   const [parsedData, setParsedData] = useState<any>(null);
   const [identifierCol, setIdentifierCol] = useState("");
   const [statusCol, setStatusCol] = useState("");
@@ -560,10 +561,22 @@ function SessionList({ archived, onViewDetail }: { archived: boolean; onViewDeta
 
 // ===================== MAIN PAGE =====================
 export default function HromadneStavy() {
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const urlTypeId = params.get("typeId") ? parseInt(params.get("typeId")!) : undefined;
+
   const [tab, setTab] = useState("import");
   const [showCreate, setShowCreate] = useState(false);
+  const [launchTypeId, setLaunchTypeId] = useState<number | undefined>(undefined);
   const [showTypeManager, setShowTypeManager] = useState(false);
   const [viewDetailId, setViewDetailId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (urlTypeId) {
+      setLaunchTypeId(urlTypeId);
+      setShowCreate(true);
+    }
+  }, [urlTypeId]);
 
   const { data: types = [] } = useQuery<any[]>({ queryKey: ["/api/bulk-status-import-types"] });
 
@@ -624,8 +637,9 @@ export default function HromadneStavy() {
       {showCreate && (
         <CreateImportDialog
           open={showCreate}
-          onClose={() => setShowCreate(false)}
-          onCreated={id => setViewDetailId(id)}
+          onClose={() => { setShowCreate(false); setLaunchTypeId(undefined); }}
+          onCreated={id => { setShowCreate(false); setLaunchTypeId(undefined); setViewDetailId(id); }}
+          initialTypeId={launchTypeId}
         />
       )}
 

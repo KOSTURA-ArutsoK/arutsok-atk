@@ -15419,7 +15419,7 @@ export async function registerRoutes(
 
   app.get("/api/contract-status-parameters/all", isAuthenticated, async (req: any, res) => {
     try {
-      const params = await db
+      const customParams = await db
         .select({
           id: contractStatusParameters.id,
           name: contractStatusParameters.name,
@@ -15430,7 +15430,11 @@ export async function registerRoutes(
         .from(contractStatusParameters)
         .leftJoin(contractStatuses, eq(contractStatusParameters.statusId, contractStatuses.id))
         .orderBy(contractStatusParameters.statusId, contractStatusParameters.sortOrder, contractStatusParameters.name);
-      res.json(params);
+      const builtins = [
+        { id: null, name: "Identifikátor", paramType: "text", statusId: null, statusName: null, isBuiltin: true, key: "identifier" },
+        { id: null, name: "Stav", paramType: "text", statusId: null, statusName: null, isBuiltin: true, key: "status" },
+      ];
+      res.json([...builtins, ...customParams.map(p => ({ ...p, isBuiltin: false, key: `param-${p.id}` }))]);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
