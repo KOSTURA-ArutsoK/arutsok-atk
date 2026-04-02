@@ -869,7 +869,8 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
 
             {/* ── Full-width: Spracovanie papierových zmlúv ── */}
             {(() => {
-              const fn = HUB_FUNCTIONS.find(f => f.id === "spracovanie-papierovych-zmluv")!;
+              const fn = HUB_FUNCTIONS.find(f => f.id === "spracovanie-papierovych-zmluv");
+              if (!fn) return null;
               const { id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor } = fn;
               const isPinActive = pinTargetId === id;
               return (
@@ -904,7 +905,8 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             ] as KokpitFunctionId[][]).map((group, gi) => (
               <div key={gi} className="flex gap-3 flex-1 min-h-0">
                 {group.map(fnId => {
-                  const fn = HUB_FUNCTIONS.find(f => f.id === fnId)!;
+                  const fn = HUB_FUNCTIONS.find(f => f.id === fnId);
+                  if (!fn) return null;
                   const { id, Icon, title, subtitle, description, gradientFrom, gradientTo, borderColor, hoverBorderColor, iconColor } = fn;
                   const isPinActive = pinTargetId === id;
                   return (
