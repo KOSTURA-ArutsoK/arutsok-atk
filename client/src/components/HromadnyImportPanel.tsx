@@ -30,6 +30,14 @@ function genExcelLetter(n: number): string {
   return result;
 }
 
+function excelLetterToIndex(letter: string): number {
+  let n = 0;
+  for (let i = 0; i < letter.length; i++) {
+    n = n * 26 + (letter.charCodeAt(i) - 64);
+  }
+  return n;
+}
+
 type ColMapping = Record<string, { key: string; label: string; paramType?: string; paramId?: number }>;
 
 interface ServerParam {
@@ -117,13 +125,10 @@ export function HromadnyImportPanel({ onBack, onLaunchType, shadowRoyalBlue, pan
     const cm: ColMapping = (t.columnMapping && typeof t.columnMapping === "object") ? t.columnMapping : {};
     setColMap(cm);
     const usedLetters = Object.keys(cm);
-    const maxIdx = usedLetters.reduce((acc, letter) => {
-      const idx = letters.indexOf(letter);
-      return Math.max(acc, idx + 1);
-    }, 9);
-    if (maxIdx >= letters.length) {
-      setLetters(Array.from({ length: maxIdx + 2 }, (_, i) => genExcelLetter(i + 1)));
-    }
+    const maxIndex = usedLetters.reduce((acc, letter) => {
+      return Math.max(acc, excelLetterToIndex(letter));
+    }, 10);
+    setLetters(Array.from({ length: Math.max(maxIndex, 10) }, (_, i) => genExcelLetter(i + 1)));
   }
 
   function handleTypeClick(t: any) {

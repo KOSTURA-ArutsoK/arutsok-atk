@@ -15428,7 +15428,10 @@ export async function registerRoutes(
           statusName: contractStatuses.name,
         })
         .from(contractStatusParameters)
-        .leftJoin(contractStatuses, eq(contractStatusParameters.statusId, contractStatuses.id))
+        .innerJoin(contractStatuses, and(
+          eq(contractStatusParameters.statusId, contractStatuses.id),
+          isNull(contractStatuses.deletedAt),
+        ))
         .orderBy(contractStatusParameters.statusId, contractStatusParameters.sortOrder, contractStatusParameters.name);
       const builtins = [
         { id: null, name: "Identifikátor", paramType: "text", statusId: null, statusName: null, isBuiltin: true, key: "identifier" },
