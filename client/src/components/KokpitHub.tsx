@@ -409,7 +409,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             left: "50%",
             transform: "translate(-50%, -50%)",
             background: PANEL_BG,
-            zIndex: 1,
+            zIndex: activeLayer === "third" ? 3 : 1,
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
@@ -417,7 +417,6 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             border: "2px solid #1B263B",
             boxShadow: shadowRoyalBlue,
             filter: panelFilter,
-            pointerEvents: activeLayer === "third" ? "auto" : "none",
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -444,15 +443,13 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            background: activeLayer === "second" ? PANEL_BG : "transparent",
-            transition: "background 0.22s ease",
-            zIndex: 2,
+            background: PANEL_BG,
+            zIndex: activeLayer === "second" ? 3 : 2,
             overflow: "hidden",
             borderRadius: 12,
             border: "2px solid #1B263B",
             boxShadow: shadowRoyalBlue,
             filter: panelFilter,
-            pointerEvents: activeLayer === "second" ? "auto" : "none",
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -775,14 +772,14 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             height: "85vh",
             top: "50%",
             left: "50%",
-            background: (hubIsInactive && !hubExiting && !isClosing) ? "transparent" : PANEL_BG,
-            zIndex: 3,
+            background: PANEL_BG,
+            zIndex: hubIsInactive ? 0 : 3,
             pointerEvents: hubIsInactive ? "none" : "auto",
-            transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease, background 0.22s ease",
-            transform: (hubExiting || isClosing)
+            transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease",
+            transform: (hubExiting || isClosing || hubIsInactive)
               ? "translate(-50%, -50%) translateX(-60px) translateY(-20px) scale(0.94)"
               : "translate(-50%, -50%)",
-            opacity: (hubExiting || isClosing) ? 0 : 1,
+            opacity: (hubExiting || isClosing || hubIsInactive) ? 0 : 1,
             overflow: "hidden",
             borderRadius: 12,
             border: "2px solid #1B263B",
