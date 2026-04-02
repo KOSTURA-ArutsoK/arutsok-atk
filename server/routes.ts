@@ -5761,6 +5761,65 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/contracts/lookup", isAuthenticated, async (req: any, res) => {
+    try {
+      const { q, identifierType } = req.query as { q?: string; identifierType?: string };
+      if (!q || !q.trim()) return res.status(400).json({ message: "Parametr q je povinný" });
+      const validTypes = ["proposalNumber", "contractNumber", "insuranceContractNumber"];
+      if (!identifierType || !validTypes.includes(identifierType)) {
+        return res.status(400).json({ message: "Neplatný identifierType" });
+      }
+      const colMap: Record<string, any> = {
+        proposalNumber: contracts.proposalNumber,
+        contractNumber: contracts.contractNumber,
+        insuranceContractNumber: contracts.insuranceContractNumber,
+      };
+      const col = colMap[identifierType];
+      const companyId = req.appUser?.activeCompanyId;
+      const conditions: any[] = [eq(col, q.trim()), eq(contracts.isDeleted, false)];
+      if (companyId) conditions.push(eq(contracts.companyId, companyId));
+
+      const rows = await db
+        .select({
+          id: contracts.id,
+          uid: contracts.uid,
+          proposalNumber: contracts.proposalNumber,
+          contractNumber: contracts.contractNumber,
+          insuranceContractNumber: contracts.insuranceContractNumber,
+          statusId: contracts.statusId,
+          statusName: contractStatuses.name,
+          statusColor: contractStatuses.color,
+          subjectId: contracts.subjectId,
+          subjectFirstName: subjects.firstName,
+          subjectLastName: subjects.lastName,
+          subjectCompanyName: subjects.companyName,
+        })
+        .from(contracts)
+        .leftJoin(contractStatuses, eq(contracts.statusId, contractStatuses.id))
+        .leftJoin(subjects, eq(contracts.subjectId, subjects.id))
+        .where(and(...conditions))
+        .limit(1);
+
+      if (!rows.length) return res.status(404).json({ message: "Zmluva nenájdená" });
+      const r = rows[0];
+      const subjectName = [r.subjectFirstName, r.subjectLastName].filter(Boolean).join(" ") || r.subjectCompanyName || null;
+      return res.json({
+        id: r.id,
+        uid: r.uid,
+        proposalNumber: r.proposalNumber,
+        contractNumber: r.contractNumber,
+        insuranceContractNumber: r.insuranceContractNumber,
+        statusId: r.statusId,
+        statusName: r.statusName,
+        statusColor: r.statusColor,
+        subjectId: r.subjectId,
+        subjectName,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || "Internal error" });
+    }
+  });
+
   app.patch("/api/contracts/:id", isAuthenticated, async (req: any, res) => {
     try {
       const contractId = Number(req.params.id);

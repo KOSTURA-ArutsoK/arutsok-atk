@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronLeft, Plus, X, Check, Loader2, Zap, GripVertical } from "lucide-react";
+import { ChevronLeft, Plus, X, Check, Loader2, Zap, GripVertical, Upload } from "lucide-react";
 
 const PANEL_BG = "#07111f";
 
@@ -61,11 +61,12 @@ function isParamAssigned(colMap: ColMapping, key: string): string | null {
 interface HromadnyImportPanelProps {
   onBack: () => void;
   onLaunchType: (typeId?: number) => void;
+  onStartImportReview?: (parsedData: any, selectedType: any) => void;
   shadowRoyalBlue?: string;
   panelFilter?: string;
 }
 
-export function HromadnyImportPanel({ onBack, onLaunchType, shadowRoyalBlue, panelFilter }: HromadnyImportPanelProps) {
+export function HromadnyImportPanel({ onBack, onLaunchType, onStartImportReview, shadowRoyalBlue, panelFilter }: HromadnyImportPanelProps) {
   const { toast } = useToast();
 
   const { data: serverParams = [], isLoading: paramsLoading } = useQuery<ServerParam[]>({
@@ -93,6 +94,8 @@ export function HromadnyImportPanel({ onBack, onLaunchType, shadowRoyalBlue, pan
   const [showNewTypeForm, setShowNewTypeForm] = useState(false);
   const [newTypeForm, setNewTypeForm] = useState({ name: "", description: "", identifierType: "proposalNumber" });
   const lastClickRef = useRef<{ id: number; ts: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isParsing, setIsParsing] = useState(false);
 
   const saveMut = useMutation({
     mutationFn: ({ id, columnMapping }: { id: number; columnMapping: ColMapping }) =>
@@ -206,6 +209,35 @@ export function HromadnyImportPanel({ onBack, onLaunchType, shadowRoyalBlue, pan
   function handleSave() {
     if (!selectedTypeId) return;
     saveMut.mutate({ id: selectedTypeId, columnMapping: colMap });
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    const selectedTypeObj = types.find((t: any) => t.id === selectedTypeId);
+    if (!selectedTypeObj) return;
+    setIsParsing(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/bulk-status-import/parse", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Chyba pri parsovaní súboru" }));
+        toast({ title: "Chyba", description: err.message, variant: "destructive" });
+        return;
+      }
+      const data = await res.json();
+      onStartImportReview?.(data, selectedTypeObj);
+    } catch (err: any) {
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa načítať súbor", variant: "destructive" });
+    } finally {
+      setIsParsing(false);
+    }
   }
 
   const selectedType = types.find((t: any) => t.id === selectedTypeId);
@@ -666,8 +698,48 @@ export function HromadnyImportPanel({ onBack, onLaunchType, shadowRoyalBlue, pan
               );
             })}
           </div>
+
+          {/* Footer: Importovať button — visible only when template selected */}
+          {selectedTypeId !== null && (
+            <div
+              className="shrink-0 px-4 py-3 flex justify-end"
+              style={{ borderTop: "1px solid #1B263B", background: "rgba(255,255,255,0.015)" }}
+            >
+              <button
+                type="button"
+                disabled={isParsing}
+                onClick={() => fileInputRef.current?.click()}
+                data-testid="button-importovat"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all select-none"
+                style={{
+                  background: isParsing ? "rgba(34,197,94,0.08)" : "rgba(34,197,94,0.15)",
+                  border: "1.5px solid rgba(34,197,94,0.4)",
+                  color: isParsing ? "rgba(134,239,172,0.5)" : "rgba(134,239,172,0.9)",
+                  boxShadow: isParsing ? "none" : "0 0 12px rgba(34,197,94,0.12)",
+                  cursor: isParsing ? "not-allowed" : "pointer",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {isParsing
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Upload className="w-4 h-4" />
+                }
+                {isParsing ? "Načítavam..." : "Importovať"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Hidden file input for Excel upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx,.xls"
+        style={{ display: "none" }}
+        onChange={handleFileChange}
+        data-testid="input-import-file"
+      />
     </div>
   );
 }

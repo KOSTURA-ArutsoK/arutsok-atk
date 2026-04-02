@@ -5,6 +5,7 @@ import { formatUid } from "@/lib/utils";
 import { KokpitDialogBody } from "@/components/KokpitDialog";
 import { KokpitAktivityPanel } from "@/components/KokpitAktivityPanel";
 import { HromadnyImportPanel } from "@/components/HromadnyImportPanel";
+import { ImportReviewPanel } from "@/components/ImportReviewPanel";
 import type { ScanFile } from "@/pages/PridatStavZmluvy";
 import {
   Target, Layers, FileInput, Calculator, Shield, User,
@@ -260,7 +261,8 @@ function PinInput({
 
 export function KokpitHub({ open, onOpenChange, onSelectFunction, onLaunchImportType, scanFiles = [], onRemoveScanFile, onAddFiles, viewMode, setViewMode, viewDate, setViewDate }: KokpitHubProps) {
   const { data: appUser } = useAppUser();
-  const [activeLayer, setActiveLayer] = useState<"hub" | "second" | "third" | "mails" | "import-builder">("hub");
+  const [activeLayer, setActiveLayer] = useState<"hub" | "second" | "third" | "mails" | "import-builder" | "import-review">("hub");
+  const [importReviewPayload, setImportReviewPayload] = useState<{ parsedData: any; type: any } | null>(null);
   const [selectedFunction, setSelectedFunction] = useState<KokpitFunctionId | null>(null);
   const [hubExiting, setHubExiting] = useState(false);
   const [hubEntering, setHubEntering] = useState(false);
@@ -397,8 +399,14 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, onLaunchImport
     setSelectedFunction(null);
   }
 
+  function handleStartImportReview(parsedData: any, type: any) {
+    setImportReviewPayload({ parsedData, type });
+    setActiveLayer("import-review");
+  }
+
   const hubIsInactive = activeLayer !== "hub";
   const isImportBuilderActive = activeLayer === "import-builder";
+  const isImportReviewActive = activeLayer === "import-review";
 
   if (!open) return null;
 
@@ -758,6 +766,18 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, onLaunchImport
           <HromadnyImportPanel
             onBack={handleBackToHub}
             onLaunchType={handleLaunchImportType}
+            onStartImportReview={handleStartImportReview}
+            shadowRoyalBlue={shadowRoyalBlue}
+            panelFilter={panelFilter}
+          />
+        )}
+
+        {/* Vrstva Import Review */}
+        {isImportReviewActive && importReviewPayload && (
+          <ImportReviewPanel
+            onBack={() => setActiveLayer("import-builder")}
+            parsedData={importReviewPayload.parsedData}
+            type={importReviewPayload.type}
             shadowRoyalBlue={shadowRoyalBlue}
             panelFilter={panelFilter}
           />
