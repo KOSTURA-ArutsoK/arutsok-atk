@@ -291,18 +291,18 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
           {selectedScanIds.size === 0 ? (
             <div className="text-center text-muted-foreground space-y-2">
               <ImageIcon className="w-10 h-10 mx-auto opacity-20" />
-              <p className="text-xs">Vyberte sken</p>
-              <p className="text-[10px] opacity-60">Zaškrtnite sken v strednom stĺpci</p>
+              <p className="text-xs" style={{ textAlign: "justify" }}>Vyberte sken</p>
+              <p className="text-[10px] opacity-60" style={{ textAlign: "justify" }}>Zaškrtnite sken v strednom stĺpci</p>
             </div>
           ) : selectedScanIds.size > 1 ? (
             <div className="text-center text-muted-foreground space-y-1">
-              <p className="text-xs font-medium">Vyberte 1 sken pre náhľad</p>
-              <p className="text-[10px]">{selectedScanIds.size} skenov vybraných</p>
+              <p className="text-xs font-medium" style={{ textAlign: "justify" }}>Vyberte 1 sken pre náhľad</p>
+              <p className="text-[10px]" style={{ textAlign: "justify" }}>{selectedScanIds.size} skenov vybraných</p>
             </div>
           ) : previewFile && !previewFile.done && !previewFile.error ? (
             <div className="text-center text-muted-foreground space-y-2">
               <Loader2 className="w-6 h-6 mx-auto animate-spin" />
-              <p className="text-xs">Nahráva sa… {previewFile.progress}%</p>
+              <p className="text-xs" style={{ textAlign: "justify" }}>Nahráva sa… {previewFile.progress}%</p>
             </div>
           ) : previewFile?.url && isImageFile(previewFile.name) ? (
             <div
@@ -323,16 +323,16 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
               />
             </div>
           ) : previewPdfUrl ? (
-            <div style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0, border: "2px solid #1a2740", borderRadius: 6, overflow: "hidden" }}>
+            <div style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0, border: "2px solid #1B263B", borderRadius: 6, overflow: "hidden" }}>
               {pdfTokenLoading ? (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 10, color: "rgba(148,163,184,0.7)" }}>
                   <Loader2 style={{ width: 24, height: 24 }} className="animate-spin" />
-                  <p style={{ fontSize: 11 }}>Načítavam PDF…</p>
+                  <p style={{ fontSize: 11, textAlign: "justify" }}>Načítavam PDF…</p>
                 </div>
               ) : pdfTokenError ? (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12, color: "rgba(148,163,184,0.7)", padding: 20 }}>
                   <FileText style={{ width: 32, height: 32, color: "rgba(251,191,36,0.5)" }} />
-                  <p style={{ fontSize: 12, textAlign: "center" }}>PDF sa nepodarilo načítať</p>
+                  <p style={{ fontSize: 12, textAlign: "justify" }}>PDF sa nepodarilo načítať</p>
                   <a href={previewPdfUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "rgba(96,165,250,0.8)", textDecoration: "underline", display: "flex", alignItems: "center", gap: 4 }}>
                     <FileCheck style={{ width: 12, height: 12 }} />
                     Otvoriť v novej záložke
@@ -351,8 +351,8 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
           ) : previewFile ? (
             <div className="text-center text-muted-foreground space-y-2">
               {getFileTypeIcon(previewFile.name, "w-10 h-10 mx-auto")}
-              <p className="text-xs truncate max-w-[130px]">{previewFile.name}</p>
-              <p className="text-[10px]">Náhľad nedostupný</p>
+              <p className="text-xs truncate max-w-[130px]" style={{ textAlign: "justify" }}>{previewFile.name}</p>
+              <p className="text-[10px]" style={{ textAlign: "justify" }}>Náhľad nedostupný</p>
             </div>
           ) : null}
         </div>
@@ -391,8 +391,8 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
           data-testid="dropzone-kokpit-inbox"
         >
           <Upload className="w-4 h-4 text-blue-500 mb-0.5" />
-          <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">Pretiahnite skeny</p>
-          <p className="text-[9px] text-muted-foreground">alebo kliknite</p>
+          <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium" style={{ textAlign: "justify" }}>Pretiahnite skeny</p>
+          <p className="text-[9px] text-muted-foreground" style={{ textAlign: "justify" }}>alebo kliknite</p>
           <input
             ref={inboxFileInputRef}
             type="file"
@@ -794,10 +794,10 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
               </div>
             )}
             {items.length > 0 && !selectedItem && (
-              <p className="text-xs text-muted-foreground text-center pt-6">Vyberte záznam vyššie.</p>
+              <p className="text-xs text-muted-foreground pt-6" style={{ textAlign: "justify" }}>Vyberte záznam vyššie.</p>
             )}
             {selectedItem && scansToShow.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center pt-6" data-testid="no-scans-placeholder">
+              <p className="text-xs text-muted-foreground pt-6" data-testid="no-scans-placeholder" style={{ textAlign: "justify" }}>
                 Žiadne skeny k tejto zmluve.
               </p>
             )}
@@ -815,7 +815,7 @@ function RieseniePanel({ items }: { items: RiesenieDisplayItem[] }) {
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
             {!selectedItem ? (
-              <p className="text-xs text-muted-foreground text-center pt-6">Vyberte záznam vyššie.</p>
+              <p className="text-xs text-muted-foreground pt-6" style={{ textAlign: "justify" }}>Vyberte záznam vyššie.</p>
             ) : (
               <div className="flex flex-col gap-2.5 text-xs">
                 <div className="flex flex-col gap-0.5">

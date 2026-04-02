@@ -445,6 +445,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             transform: "translate(-50%, -50%)",
             background: PANEL_BG,
             zIndex: activeLayer === "second" ? 3 : 2,
+            visibility: activeLayer === "second" ? "visible" : "hidden",
             overflow: "hidden",
             borderRadius: 12,
             border: "2px solid #1B263B",
@@ -775,6 +776,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             background: PANEL_BG,
             zIndex: hubIsInactive ? 0 : 3,
             pointerEvents: hubIsInactive ? "none" : "auto",
+            visibility: (hubIsInactive && !hubExiting && !isClosing) ? "hidden" : "visible",
             transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease",
             transform: (hubExiting || isClosing || hubIsInactive)
               ? "translate(-50%, -50%) translateX(-60px) translateY(-20px) scale(0.94)"
@@ -890,7 +892,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                               {subtitle}
                             </div>
                           )}
-                          <div className="text-xs text-blue-300/50 mt-1.5 leading-relaxed">
+                          <div className="text-xs text-blue-300/50 mt-1.5 leading-relaxed" style={{ textAlign: "justify" }}>
                             {description}
                           </div>
                         </div>
@@ -942,7 +944,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
                               {subtitle}
                             </div>
                           )}
-                          <div className="text-xs text-blue-300/50 mt-1.5 leading-relaxed">
+                          <div className="text-xs text-blue-300/50 mt-1.5 leading-relaxed" style={{ textAlign: "justify" }}>
                             {description}
                           </div>
                         </div>
