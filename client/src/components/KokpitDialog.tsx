@@ -344,7 +344,6 @@ function Step1Panel({ scanFiles, onRemoveScanFile, onAddFiles, onComplete, onSwi
                   title="PDF náhľad"
                   data-testid="preview-pdf-iframe"
                   allow="fullscreen"
-                  sandbox="allow-scripts allow-same-origin"
                   style={{ flex: 1, width: "100%", height: "100%", border: "none", background: "#1a1a2e" }}
                 />
               ) : null}
