@@ -5162,7 +5162,7 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Súbor nenájdený" });
     }
     const token = crypto.randomUUID();
-    kokpitPreviewTokenStore.set(token, { filePath, expiresAt: Date.now() + 30_000 });
+    kokpitPreviewTokenStore.set(token, { filePath, expiresAt: Date.now() + 300_000 });
     return res.json({ token });
   });
 
@@ -5175,7 +5175,6 @@ export async function registerRoutes(
       kokpitPreviewTokenStore.delete(token);
       return res.status(403).json({ message: "Token neplatný alebo expiroval" });
     }
-    kokpitPreviewTokenStore.delete(token);
     const { filePath } = entry;
     if (!fs.existsSync(filePath)) return res.status(404).json({ message: "Súbor neexistuje" });
     const filename = path.basename(filePath);
@@ -5183,7 +5182,7 @@ export async function registerRoutes(
     res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
     res.setHeader("X-Frame-Options", "SAMEORIGIN");
     res.setHeader("Content-Security-Policy", "frame-ancestors 'self'");
-    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Cache-Control", "private, no-store");
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.sendFile(filePath);
   });
