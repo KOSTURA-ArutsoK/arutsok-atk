@@ -781,14 +781,14 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             height: "85vh",
             top: "50%",
             left: "50%",
-            background: hubIsInactive ? "transparent" : PANEL_BG,
-            zIndex: 3,
+            background: PANEL_BG,
+            zIndex: hubIsInactive ? 0 : 3,
             pointerEvents: hubIsInactive ? "none" : "auto",
             transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease",
-            transform: (hubExiting || isClosing)
+            transform: (hubExiting || isClosing || hubIsInactive)
               ? "translate(-50%, -50%) translateX(-60px) translateY(-20px) scale(0.94)"
               : "translate(-50%, -50%)",
-            opacity: (hubExiting || isClosing || hubEntering) ? 0 : 1,
+            opacity: (hubExiting || isClosing || hubIsInactive || hubEntering) ? 0 : 1,
             overflow: "hidden",
             borderRadius: 12,
             border: "2px solid #1B263B",
