@@ -5,8 +5,9 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 3000
+const TOAST_LIMIT = 5
+const TOAST_DISPLAY_DURATION = 5000
+const TOAST_REMOVE_DELAY = 800
 
 type ToasterToast = ToastProps & {
   id: string
@@ -151,7 +152,7 @@ function toast({ ...props }: Toast) {
 
   setTimeout(() => {
     dismiss()
-  }, TOAST_REMOVE_DELAY)
+  }, TOAST_DISPLAY_DURATION)
 
   dispatch({
     type: "ADD_TOAST",
