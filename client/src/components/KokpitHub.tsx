@@ -249,6 +249,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
   const [activeLayer, setActiveLayer] = useState<"hub" | "second" | "third" | "mails">("hub");
   const [selectedFunction, setSelectedFunction] = useState<KokpitFunctionId | null>(null);
   const [hubExiting, setHubExiting] = useState(false);
+  const [hubEntering, setHubEntering] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [pinTargetId, setPinTargetId] = useState<KokpitFunctionId | null>(null);
   const [layer2DragOver, setLayer2DragOver] = useState(false);
@@ -354,7 +355,14 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
     setPinTargetId(null);
   }
 
+  useEffect(() => {
+    if (!hubEntering) return;
+    const raf = requestAnimationFrame(() => setHubEntering(false));
+    return () => cancelAnimationFrame(raf);
+  }, [hubEntering]);
+
   function handleBackToHub() {
+    setHubEntering(true);
     setActiveLayer("hub");
     setSelectedFunction(null);
   }
@@ -409,7 +417,7 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             left: "50%",
             transform: "translate(-50%, -50%)",
             background: PANEL_BG,
-            zIndex: activeLayer === "third" ? 3 : 1,
+            zIndex: activeLayer === "third" ? 4 : 1,
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
@@ -444,7 +452,8 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             left: "50%",
             transform: "translate(-50%, -50%)",
             background: PANEL_BG,
-            zIndex: activeLayer === "second" ? 3 : 2,
+            zIndex: 2,
+            pointerEvents: activeLayer === "second" ? "auto" : "none",
             overflow: "hidden",
             borderRadius: 12,
             border: "2px solid #1B263B",
@@ -772,14 +781,14 @@ export function KokpitHub({ open, onOpenChange, onSelectFunction, scanFiles = []
             height: "85vh",
             top: "50%",
             left: "50%",
-            background: PANEL_BG,
-            zIndex: hubIsInactive ? 0 : 3,
+            background: hubIsInactive ? "transparent" : PANEL_BG,
+            zIndex: 3,
             pointerEvents: hubIsInactive ? "none" : "auto",
             transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s ease",
-            transform: (hubExiting || isClosing || hubIsInactive)
+            transform: (hubExiting || isClosing)
               ? "translate(-50%, -50%) translateX(-60px) translateY(-20px) scale(0.94)"
               : "translate(-50%, -50%)",
-            opacity: (hubExiting || isClosing || hubIsInactive) ? 0 : 1,
+            opacity: (hubExiting || isClosing || hubEntering) ? 0 : 1,
             overflow: "hidden",
             borderRadius: 12,
             border: "2px solid #1B263B",
