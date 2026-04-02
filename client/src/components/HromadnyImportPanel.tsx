@@ -110,7 +110,7 @@ export function HromadnyImportPanel({ onBack, onLaunchType, shadowRoyalBlue, pan
     onError: (e: any) => toast({ title: "Chyba", description: e.message, variant: "destructive" }),
   });
 
-  const allParamsFlat = allParamsFromData(allParams);
+  const allParamsFlat = allParams;
 
   function selectType(t: any) {
     setSelectedTypeId(t.id);
