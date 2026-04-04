@@ -1351,6 +1351,19 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-3 space-y-2">
+        <Link href="/profil">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+            data-testid="link-user-profile"
+          >
+            <User className="w-4 h-4" />
+            <span className="text-xs font-medium">
+              {appUser ? `${appUser.firstName || ""} ${appUser.lastName || ""}`.trim() || appUser.username : "Môj profil"}
+            </span>
+          </Button>
+        </Link>
         <div className="border border-sidebar-border rounded-md p-2" data-testid="rank-display">
           <p className="text-xs font-semibold truncate mb-1.5" data-testid="text-rank-name">
             {appUser?.careerLevel?.positionName || "Nepriradená"} • {pointsData?.points?.toFixed(1) ?? "0"} bodov

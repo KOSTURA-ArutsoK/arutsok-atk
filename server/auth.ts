@@ -1241,6 +1241,38 @@ export async function setupAuth(app: Express) {
       });
   });
 
+  app.post("/api/me/change-password", async (req, res) => {
+    if (!req.session.userId || req.session.loginStep !== "done") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "Chýbajúce polia" });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "Nové heslo musí mať aspoň 6 znakov" });
+    }
+    try {
+      const [user] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
+      if (!user) {
+        return res.status(401).json({ message: "Používateľ neexistuje" });
+      }
+      if (!user.password) {
+        return res.status(400).json({ message: "Účet nemá nastavené heslo" });
+      }
+      const valid = await bcrypt.compare(currentPassword, user.password);
+      if (!valid) {
+        return res.status(400).json({ message: "Aktuálne heslo je nesprávne" });
+      }
+      const hash = await bcrypt.hash(newPassword, 10);
+      await db.update(appUsers).set({ password: hash }).where(eq(appUsers.id, user.id));
+      res.json({ message: "Heslo bolo úspešne zmenené" });
+    } catch (err) {
+      console.error("[CHANGE PASSWORD]", err);
+      res.status(500).json({ message: "Interná chyba servera" });
+    }
+  });
+
   // ============================================================
   // ACCOUNT LINKING & SWITCHING
   // ============================================================
@@ -3039,7 +3071,28 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
 async function seedAdminPassword() {
   try {
     const allUsers = await db.select().from(appUsers);
-    if (allUsers.length === 0) return;
+
+    if (allUsers.length === 0) {
+      const adminEmail = process.env.ADMIN_EMAIL;
+      const adminPassword = process.env.ADMIN_PASSWORD;
+      if (!adminEmail || !adminPassword) {
+        console.warn(
+          "[AUTH SEED] DB is empty. Set ADMIN_EMAIL and ADMIN_PASSWORD env vars to create the first admin."
+        );
+        return;
+      }
+      const hash = await bcrypt.hash(adminPassword, 10);
+      await db.insert(appUsers).values({
+        username: adminEmail,
+        email: adminEmail,
+        password: hash,
+        role: "superadmin",
+        firstName: "Admin",
+        lastName: "",
+      });
+      console.log(`[AUTH SEED] First superadmin created: ${adminEmail}`);
+      return;
+    }
 
     const usersWithoutPassword = allUsers.filter((u) => !u.password);
     if (usersWithoutPassword.length > 0) {
