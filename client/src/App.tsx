@@ -84,6 +84,7 @@ import { BlackListNotificationPopup } from "@/components/black-list-notification
 import GuardianConfirm from "@/pages/GuardianConfirm";
 import AssetTracker from "@/pages/AssetTracker";
 import UserProfile from "@/pages/UserProfile";
+import NahlasitStratu from "@/pages/NahlasitStratu";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -250,6 +251,7 @@ function Router() {
       <Route path="/register" component={RegisterPage} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/potvrdenie-spravy" component={GuardianConfirm} />
+      <Route path="/nahlasit-stratu" component={NahlasitStratu} />
       <Route path="/vyber-identity" component={() => <AuthOnlyRoute><IdentityPicker /></AuthOnlyRoute>} />
       <Route path="/client-zone" component={ClientZone} />
       <Route path="/client-profile" component={PrivateClientProfile} />

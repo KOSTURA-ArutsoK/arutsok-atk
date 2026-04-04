@@ -100,17 +100,17 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const MFA_OPTIONS = [
-  { value: "none", label: "Ziadne" },
-  { value: "email", label: "Email" },
-  { value: "mobile", label: "Mobil" },
-  { value: "both", label: "Obe" },
+  { value: "none", label: "Žiadne" },
+  { value: "sms", label: "SMS" },
+  { value: "email", label: "E-mail" },
 ];
 
 const MFA_LABELS: Record<string, string> = {
-  none: "Ziadne",
-  email: "Email",
-  mobile: "Mobil",
-  both: "Obe",
+  none: "Žiadne",
+  sms: "SMS",
+  mobile: "SMS",
+  email: "E-mail",
+  both: "Auto",
 };
 
 interface UserFormData {
@@ -122,6 +122,7 @@ interface UserFormData {
   phone: string;
   role: string;
   mfaType: string;
+  mfaEmailBlocked: boolean;
   securityLevel: number;
   permissionGroupId: number | null;
   adminCode: string;
@@ -139,6 +140,7 @@ const emptyForm: UserFormData = {
   phone: "",
   role: "user",
   mfaType: "none",
+  mfaEmailBlocked: false,
   securityLevel: 1,
   permissionGroupId: null,
   adminCode: "",
@@ -238,6 +240,7 @@ function UserFormDialog({
           phone: editingUser.phone || "",
           role: editingUser.role || "user",
           mfaType: editingUser.mfaType || "none",
+          mfaEmailBlocked: (editingUser as any).mfaEmailBlocked ?? false,
           securityLevel: editingUser.securityLevel || 1,
           permissionGroupId: editingUser.permissionGroupId || null,
           adminCode: editingUser.adminCode || "",
@@ -268,6 +271,7 @@ function UserFormDialog({
       phone: form.phone || null,
       role: form.role,
       mfaType: form.mfaType,
+      mfaEmailBlocked: form.mfaEmailBlocked,
       securityLevel: form.securityLevel,
       permissionGroupId: form.permissionGroupId,
       adminCode: form.adminCode || null,
@@ -387,6 +391,17 @@ function UserFormDialog({
                     </div>
                   ))}
                 </RadioGroup>
+                {form.mfaType === "sms" && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <Checkbox
+                      id="mfa-email-blocked"
+                      checked={form.mfaEmailBlocked}
+                      onCheckedChange={(v) => setForm(f => ({ ...f, mfaEmailBlocked: !!v }))}
+                      data-testid="checkbox-mfa-email-blocked"
+                    />
+                    <Label htmlFor="mfa-email-blocked" className="text-xs cursor-pointer text-muted-foreground">Zakázať e-mail ako zálohu</Label>
+                  </div>
+                )}
               </div>
             </div>
           </div>

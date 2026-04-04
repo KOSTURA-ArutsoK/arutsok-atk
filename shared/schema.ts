@@ -518,6 +518,7 @@ export const appUsers = pgTable("app_users", {
   lastLoginAt: timestamp("last_login_at"),
   kokpitAccess: boolean("kokpit_access").default(false),
   kokpitPin: varchar("kokpit_pin", { length: 4 }),
+  mfaEmailBlocked: boolean("mfa_email_blocked").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -528,6 +529,16 @@ export const appUserArchive = pgTable("app_user_archive", {
   data: jsonb("data").notNull(),
   archivedAt: timestamp("archived_at").defaultNow(),
   reason: text("reason"),
+});
+
+// === EMERGENCY LOGOUT TOKENS ===
+export const emergencyLogoutTokens = pgTable("emergency_logout_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => appUsers.id),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // === APP USER LOGIN HISTORY ===

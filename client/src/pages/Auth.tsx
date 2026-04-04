@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Link, useLocation } from "wouter";
 
-type LoginStep = "credentials" | "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "blocked" | "entity_rc_verify";
+type LoginStep = "credentials" | "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "blocked" | "entity_rc_verify" | "mfa_verify";
 
 interface DocumentHint {
   documentType: string | null;
@@ -111,6 +111,11 @@ export default function AuthPage() {
   const [entityRcEntityName, setEntityRcEntityName] = useState<string | null>(null);
   const [entityRcAttemptsLeft, setEntityRcAttemptsLeft] = useState<number>(3);
 
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaMethod, setMfaMethod] = useState<"sms" | "email">("email");
+  const [mfaMaskedTarget, setMfaMaskedTarget] = useState<string>("");
+  const [mfaResendLoading, setMfaResendLoading] = useState(false);
+
   const { isLoggingIn } = useAuth();
 
   useEffect(() => {
@@ -135,7 +140,12 @@ export default function AuthPage() {
       const res = await apiRequest("POST", "/api/login", { email: email.trim(), password });
       const data = await res.json();
 
-      if (data.loginStep === "subject_select" && data.subjects) {
+      if (data.loginStep === "mfa_verify") {
+        setMfaMethod(data.method || "email");
+        setMfaMaskedTarget(data.maskedTarget || "");
+        setMfaCode("");
+        setStep("mfa_verify");
+      } else if (data.loginStep === "subject_select" && data.subjects) {
         setSubjectOptions(data.subjects);
         setStep("subject_select");
       } else if (data.loginStep === "sms_verify") {
@@ -287,6 +297,66 @@ export default function AuthPage() {
     }
   };
 
+  const handleVerifyMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (mfaCode.length !== 6) { setError("Overovací kód musí mať 6 číslic"); return; }
+    setLoading(true);
+    try {
+      const res = await apiRequest("POST", "/api/login/verify-mfa", { code: mfaCode });
+      const data = await res.json();
+      if (data.loginStep === "subject_select" && data.subjects) {
+        setSubjectOptions(data.subjects);
+        setStep("subject_select");
+      } else if (data.loginStep === "sms_verify") {
+        setSmsPhone(data.maskedPhone || null);
+        setStep("sms_verify");
+      } else if (data.loginStep === "rc_verify") {
+        setStep("rc_verify");
+      } else if (data.loginStep === "doc_verify") {
+        setDocHint(data.documentHint || null);
+        setStep("doc_verify");
+      } else if (data.loginStep === "entity_rc_verify") {
+        setEntityRcEntityName(data.entityName || null);
+        setEntityRcAttemptsLeft(3);
+        setEntityRcValue("");
+        setStep("entity_rc_verify");
+      } else if (data.loginStep === "blocked") {
+        setBlockedMessage(data.message || "Prístup bol zamietnutý.");
+        setStep("blocked");
+      } else {
+        await finalizeLogin();
+      }
+    } catch (err: any) {
+      const msg = err?.message || "";
+      if (msg.includes("400")) {
+        setError("Nesprávny alebo vypršaný overovací kód");
+      } else {
+        setError("Chyba pri overení. Skúste znova.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendMfa = async () => {
+    setError(null);
+    setMfaResendLoading(true);
+    try {
+      const res = await apiRequest("POST", "/api/login/resend-mfa", {});
+      const data = await res.json();
+      if (data.ok) {
+        setMfaMethod(data.method || mfaMethod);
+        setMfaMaskedTarget(data.maskedTarget || mfaMaskedTarget);
+        setMfaCode("");
+      }
+    } catch {
+      setError("Nepodarilo sa odoslať nový kód.");
+    } finally {
+      setMfaResendLoading(false);
+    }
+  };
+
   const finalizeLogin = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] }),
@@ -332,6 +402,83 @@ export default function AuthPage() {
     setSubjectSearch("");
     setStep("subject_select");
   };
+
+  if (step === "mfa_verify") {
+    const isEmailMethod = mfaMethod === "email";
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md rounded-2xl">
+          <CardContent className="pt-8 pb-6 px-6 space-y-6">
+            <div className="text-center space-y-3">
+              <div className="w-14 h-14 rounded-md bg-primary/10 flex items-center justify-center mx-auto">
+                {isEmailMethod ? <Mail className="w-8 h-8 text-primary" /> : <Phone className="w-8 h-8 text-primary" />}
+              </div>
+              <div>
+                <h1 className="text-xl font-bold" data-testid="text-mfa-verify-title">Dvojstupňové overenie</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {isEmailMethod
+                    ? <>Kód bol odoslaný na e-mail <span className="font-mono font-semibold">{mfaMaskedTarget || "…"}</span></>
+                    : <>Kód bol odoslaný na číslo <span className="font-mono font-semibold">{mfaMaskedTarget || "…"}</span></>}
+                </p>
+              </div>
+            </div>
+
+            {renderError()}
+
+            <form onSubmit={handleVerifyMfa} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="mfaCodeInput">Overovací kód (6 číslic)</Label>
+                <Input
+                  id="mfaCodeInput"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="000000"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  className="text-center text-2xl tracking-[0.5em] font-mono"
+                  autoFocus
+                  data-testid="input-mfa-code"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={loading || mfaCode.length !== 6}
+                data-testid="button-verify-mfa"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                {loading ? "Overujem..." : "Potvrdiť kód"}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full text-sm"
+                onClick={handleResendMfa}
+                disabled={mfaResendLoading || loading}
+                data-testid="button-resend-mfa"
+              >
+                {mfaResendLoading ? "Odosielajú sa..." : "Odoslať nový kód"}
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-sm"
+                onClick={() => { setStep("credentials"); setMfaCode(""); setError(null); }}
+                data-testid="button-back-to-login-mfa"
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Späť na prihlásenie
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (step === "subject_select") {
     const totalCount = subjectOptions.length;
@@ -895,6 +1042,12 @@ export default function AuthPage() {
             >
               Registrovať sa
             </Button>
+          </Link>
+        </div>
+
+        <div className="text-center">
+          <Link href="/nahlasit-stratu" className="text-xs text-muted-foreground hover:text-destructive underline underline-offset-2" data-testid="link-emergency-logout">
+            Stratili ste prístup k zariadeniu? Núdzové odhlásenie
           </Link>
         </div>
       </div>

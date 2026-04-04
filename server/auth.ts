@@ -5,19 +5,22 @@ import type { Express, RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { db } from "./db";
-import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts, myCompanies, subjectContacts, guardianConfirmationTokens, systemNotifications, subjectLinks, clientGroups, clientGroupMembers } from "@shared/schema";
+import { appUsers, subjects, auditLogs, appUserLoginHistory, clientDocumentHistory, companyOfficers, accountLinks, partners, partnerContacts, myCompanies, subjectContacts, guardianConfirmationTokens, systemNotifications, subjectLinks, clientGroups, clientGroupMembers, emergencyLogoutTokens } from "@shared/schema";
 import { eq, and, or, ne, isNull, isNotNull, gte, desc, inArray, sql } from "drizzle-orm";
 import { storage } from "./storage";
 import { decryptField } from "./crypto";
-import { processPendingSmsNotifications } from "./email";
+import { processPendingSmsNotifications, sendEmail } from "./email";
 
 declare module "express-session" {
   interface SessionData {
     userId: number;
     loginSubjectId: number | null;
-    loginStep: "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "entity_rc_verify" | "done";
+    loginStep: "subject_select" | "sms_verify" | "rc_verify" | "doc_verify" | "entity_rc_verify" | "mfa_verify" | "done";
     pendingSmsCode?: string;
     pendingSubjectPhone?: string;
+    pendingMfaCode?: string;
+    pendingMfaExpiry?: number;
+    pendingMfaMethod?: "sms" | "email";
     pendingVerifyReason?: string;
     pendingEntitySubjectId?: number;
     pendingEntityCandidateIds?: number[];
@@ -541,13 +544,13 @@ async function resolveSubjectLoginStep(
       const hasUniquePhone = !!selectedPhone && !otherPersonPhones.includes(selectedPhone);
 
       if (hasUniquePhone) {
-        const code = "151515";
-        console.log(`[AUTH SMS MOCK] SMS kód pre ${selected.phone}: ${code}`);
+        const code = generateOtp();
         session.loginSubjectId = selected.id;
         session.loginStep = "sms_verify";
         session.pendingSmsCode = code;
         session.pendingSubjectPhone = selected.phone ?? null;
-        return { nextStep: "sms_verify", maskedPhone: session.pendingSubjectPhone };
+        await sendSmsDirectOtp(selected.phone!, code).catch(() => null);
+        return { nextStep: "sms_verify", maskedPhone: maskPhone(selected.phone ?? "") };
       }
     }
 
@@ -561,6 +564,238 @@ async function resolveSubjectLoginStep(
   await writeLoginAudit(user.id, selected.id, name, "DIRECT", null, ip);
   await recordLoginHistory(user.id, ip, undefined, userAgent);
   return { nextStep: "done" };
+}
+
+// ── MFA helpers ──────────────────────────────────────────────────────────────
+
+function maskEmail(email: string): string {
+  const atIdx = email.indexOf("@");
+  if (atIdx < 0) return "***";
+  const local = email.slice(0, atIdx);
+  const domain = email.slice(atIdx);
+  const masked = local.length > 1 ? `${local[0]}***` : "***";
+  return `${masked}${domain}`;
+}
+
+async function sendSmsDirectOtp(phone: string, code: string): Promise<boolean> {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_FROM_NUMBER;
+  if (!sid || !token || !from) {
+    console.warn(`[MFA SMS] Twilio not configured — kód ${code} pre ${phone}`);
+    return false;
+  }
+  const body = `ArutsoK (ATK): Váš overovací kód je ${code}. Platný 10 minút.`;
+  const creds = Buffer.from(`${sid}:${token}`).toString("base64");
+  try {
+    const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: "POST",
+      headers: { "Authorization": `Basic ${creds}`, "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ To: phone, From: from, Body: body }).toString(),
+    });
+    if (!r.ok) {
+      const err = await r.text();
+      console.error(`[MFA SMS] Twilio error: ${err.slice(0, 200)}`);
+    }
+    return r.ok;
+  } catch (e: any) {
+    console.error(`[MFA SMS] Send failed:`, e?.message);
+    return false;
+  }
+}
+
+async function sendMfaEmailOtp(toEmail: string, code: string): Promise<boolean> {
+  const html = `<!DOCTYPE html>
+<html lang="sk">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0f1923;font-family:Arial,Helvetica,sans-serif;color:#e2e8f0;">
+<div style="max-width:480px;margin:0 auto;padding:32px 24px;">
+<div style="background:#1a2332;border:1px solid #2d3748;border-radius:4px;padding:32px;text-align:center;">
+<h2 style="color:#63b3ed;margin:0 0 24px 0;font-size:18px;letter-spacing:1px;">ArutsoK (ATK)</h2>
+<p style="font-size:14px;color:#e2e8f0;margin:0 0 20px 0;">Váš overovací kód na prihlásenie do systému:</p>
+<div style="background:#0f1923;border:1px solid #2d3748;border-radius:4px;padding:20px;margin:0 0 20px 0;">
+<span style="font-size:36px;font-family:monospace;letter-spacing:0.4em;color:#63b3ed;font-weight:bold;">${code}</span>
+</div>
+<p style="font-size:12px;color:#718096;margin:0 0 8px 0;">Kód je platný <strong style="color:#a0aec0;">10 minút</strong>.</p>
+<p style="font-size:12px;color:#718096;margin:0;">Ak ste sa o prihlásenie nepokúšali, ihneď kontaktujte správcu systému.</p>
+</div>
+</div>
+</body>
+</html>`;
+  return sendEmail(toEmail, "ArutsoK (ATK) — Overovací kód", html);
+}
+
+async function initiateMfaVerify(
+  user: typeof appUsers.$inferSelect,
+  session: Express.Request["session"],
+  ua: string
+): Promise<{ ok: boolean; method: "sms" | "email"; maskedTarget: string }> {
+  const code = generateOtp();
+  const expiry = Date.now() + 10 * 60 * 1000;
+  const mfaType = user.mfaType ?? "none";
+  const mfaEmailBlocked = user.mfaEmailBlocked ?? false;
+
+  let method: "sms" | "email" = "email";
+
+  if (mfaType === "email") {
+    method = "email";
+  } else if (mfaType === "sms" || mfaType === "mobile") {
+    if (user.phone) {
+      method = "sms";
+    } else if (!mfaEmailBlocked) {
+      method = "email";
+    } else {
+      method = "sms";
+    }
+  } else {
+    const deviceType = detectDeviceType(ua);
+    if (deviceType === "mobile" || !user.phone) {
+      method = "email";
+    } else {
+      method = "sms";
+    }
+  }
+
+  session.pendingMfaCode = code;
+  session.pendingMfaExpiry = expiry;
+  session.pendingMfaMethod = method;
+
+  if (method === "sms" && user.phone) {
+    await sendSmsDirectOtp(user.phone, code);
+    return { ok: true, method, maskedTarget: maskPhone(user.phone) };
+  } else {
+    const email = user.email ?? "";
+    await sendMfaEmailOtp(email, code);
+    return { ok: true, method, maskedTarget: maskEmail(email) };
+  }
+}
+
+async function resolvePostAuthStep(
+  user: typeof appUsers.$inferSelect,
+  req: any,
+  res: any,
+  ip: string | null
+): Promise<void> {
+  const peerSubjectsRaw = await db
+    .select({
+      id: subjects.id, uid: subjects.uid, firstName: subjects.firstName,
+      lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type,
+      phone: subjects.phone, birthNumber: subjects.birthNumber, listStatus: subjects.listStatus,
+      parentSubjectId: subjects.parentSubjectId, myCompanyId: subjects.myCompanyId,
+      idCardNumber: subjects.idCardNumber,
+    })
+    .from(subjects)
+    .where(and(eq(subjects.email, user.email!.trim().toLowerCase()), isNull(subjects.deletedAt)));
+
+  const shadowSubjectsRaw = user.linkedSubjectId
+    ? await db
+        .select({
+          id: subjects.id, uid: subjects.uid, firstName: subjects.firstName,
+          lastName: subjects.lastName, companyName: subjects.companyName, type: subjects.type,
+          phone: subjects.phone, birthNumber: subjects.birthNumber, listStatus: subjects.listStatus,
+          parentSubjectId: subjects.parentSubjectId, myCompanyId: subjects.myCompanyId,
+          idCardNumber: subjects.idCardNumber,
+        })
+        .from(subjects)
+        .where(and(eq(subjects.parentSubjectId, user.linkedSubjectId), isNull(subjects.deletedAt)))
+    : [];
+
+  const peerIds = new Set(peerSubjectsRaw.map((s) => s.id));
+  const shadowOnly = shadowSubjectsRaw.filter((s) => !peerIds.has(s.id));
+
+  req.session.userId = user.id;
+
+  const allSubjectIds = [...peerSubjectsRaw, ...shadowOnly].map((s) => s.id);
+  const subjectGroupCodesMap = new Map<number, string[]>();
+  if (allSubjectIds.length > 0) {
+    const memberships = await db
+      .select({ subjectId: clientGroupMembers.subjectId, groupCode: clientGroups.groupCode })
+      .from(clientGroupMembers)
+      .innerJoin(clientGroups, eq(clientGroupMembers.groupId, clientGroups.id))
+      .where(inArray(clientGroupMembers.subjectId, allSubjectIds));
+    for (const m of memberships) {
+      if (!subjectGroupCodesMap.has(m.subjectId)) subjectGroupCodesMap.set(m.subjectId, []);
+      if (m.groupCode) subjectGroupCodesMap.get(m.subjectId)!.push(m.groupCode);
+    }
+  }
+
+  const buildSubjectMeta = async (s: typeof peerSubjectsRaw[0], isShadow: boolean) => {
+    let adultStatus: boolean | null = null;
+    let documentHint: { documentType: string | null; masked: string | null } | null = null;
+    if (isPerson(s.type)) {
+      if (s.birthNumber) {
+        adultStatus = isPersonAdult(decryptField(s.birthNumber));
+      } else {
+        const [latestDoc] = await db
+          .select({ documentType: clientDocumentHistory.documentType, documentNumber: clientDocumentHistory.documentNumber })
+          .from(clientDocumentHistory)
+          .where(eq(clientDocumentHistory.subjectId, s.id))
+          .orderBy(desc(clientDocumentHistory.archivedAt))
+          .limit(1);
+        documentHint = latestDoc
+          ? { documentType: latestDoc.documentType, masked: latestDoc.documentNumber ? maskDocNumber(latestDoc.documentNumber) : null }
+          : { documentType: null, masked: null };
+      }
+    }
+    return {
+      id: s.id, uid: s.uid, firstName: s.firstName, lastName: s.lastName,
+      companyName: s.companyName, type: s.type, phone: s.phone ?? null,
+      isShadow, isAdult: adultStatus,
+      hasRisk: s.listStatus === "cerveny", documentHint,
+      groups: subjectGroupCodesMap.get(s.id) ?? [],
+    };
+  };
+
+  if (peerSubjectsRaw.length === 0 && shadowOnly.length === 0) {
+    req.session.loginSubjectId = null;
+    req.session.loginStep = "done";
+    await recordLoginHistory(user.id, ip, undefined, req.headers["user-agent"] as string | undefined);
+    return req.session.save((err: any) => {
+      if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
+      res.json({ id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role, loginStep: "done" });
+    });
+  }
+
+  if (peerSubjectsRaw.length === 1 && shadowOnly.length === 0) {
+    req.session.loginSubjectId = peerSubjectsRaw[0].id;
+    req.session.loginStep = "done";
+    await recordLoginHistory(user.id, ip, undefined, req.headers["user-agent"] as string | undefined);
+    return req.session.save((err: any) => {
+      if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
+      res.json({ id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role, loginStep: "done" });
+    });
+  }
+
+  if (user.linkedSubjectId) {
+    const autoInPeers = peerSubjectsRaw.find((s) => s.id === user.linkedSubjectId);
+    if (autoInPeers) {
+      const [selectedFull] = await db.select().from(subjects).where(and(eq(subjects.id, user.linkedSubjectId), isNull(subjects.deletedAt)));
+      if (selectedFull) {
+        const allPeers = await db.select().from(subjects).where(and(eq(subjects.email, user.email!.toLowerCase()), isNull(subjects.deletedAt)));
+        const result = await resolveSubjectLoginStep(req.session, user, selectedFull, allPeers, ip, req.headers["user-agent"] as string | undefined);
+        return req.session.save((err: any) => {
+          if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
+          const { nextStep, ...rest } = result;
+          res.json({ id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role, loginStep: nextStep, ...rest });
+        });
+      }
+    }
+  }
+
+  req.session.loginSubjectId = null;
+  req.session.loginStep = "subject_select";
+
+  const peerMetas = await Promise.all(peerSubjectsRaw.map((s) => buildSubjectMeta(s, false)));
+  const shadowMetas = await Promise.all(shadowOnly.map((s) => buildSubjectMeta(s, true)));
+
+  return req.session.save((err: any) => {
+    if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
+    res.json({
+      id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role,
+      loginStep: "subject_select",
+      subjects: [...peerMetas, ...shadowMetas],
+    });
+  });
 }
 
 export async function setupAuth(app: Express) {
@@ -603,175 +838,20 @@ export async function setupAuth(app: Express) {
         return res.status(401).json({ message: "Nesprávny e-mail alebo heslo" });
       }
 
-      const peerSubjectsRaw = await db
-        .select({
-          id: subjects.id,
-          uid: subjects.uid,
-          firstName: subjects.firstName,
-          lastName: subjects.lastName,
-          companyName: subjects.companyName,
-          type: subjects.type,
-          phone: subjects.phone,
-          birthNumber: subjects.birthNumber,
-          listStatus: subjects.listStatus,
-          parentSubjectId: subjects.parentSubjectId,
-          myCompanyId: subjects.myCompanyId,
-          idCardNumber: subjects.idCardNumber,
-        })
-        .from(subjects)
-        .where(
-          and(
-            eq(subjects.email, email.trim().toLowerCase()),
-            isNull(subjects.deletedAt)
-          )
-        );
-
-      const shadowSubjectsRaw = user.linkedSubjectId
-        ? await db
-            .select({
-              id: subjects.id,
-              uid: subjects.uid,
-              firstName: subjects.firstName,
-              lastName: subjects.lastName,
-              companyName: subjects.companyName,
-              type: subjects.type,
-              phone: subjects.phone,
-              birthNumber: subjects.birthNumber,
-              listStatus: subjects.listStatus,
-              parentSubjectId: subjects.parentSubjectId,
-              myCompanyId: subjects.myCompanyId,
-              idCardNumber: subjects.idCardNumber,
-            })
-            .from(subjects)
-            .where(
-              and(
-                eq(subjects.parentSubjectId, user.linkedSubjectId),
-                isNull(subjects.deletedAt)
-              )
-            )
-        : [];
-
-      const peerIds = new Set(peerSubjectsRaw.map((s) => s.id));
-      const shadowOnly = shadowSubjectsRaw.filter((s) => !peerIds.has(s.id));
-
+      const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
       req.session.userId = user.id;
 
-      const allSubjectIds = [...peerSubjectsRaw, ...shadowOnly].map((s) => s.id);
-      const subjectGroupCodesMap = new Map<number, string[]>();
-      if (allSubjectIds.length > 0) {
-        const memberships = await db
-          .select({ subjectId: clientGroupMembers.subjectId, groupCode: clientGroups.groupCode })
-          .from(clientGroupMembers)
-          .innerJoin(clientGroups, eq(clientGroupMembers.groupId, clientGroups.id))
-          .where(inArray(clientGroupMembers.subjectId, allSubjectIds));
-        for (const m of memberships) {
-          if (!subjectGroupCodesMap.has(m.subjectId)) subjectGroupCodesMap.set(m.subjectId, []);
-          if (m.groupCode) subjectGroupCodesMap.get(m.subjectId)!.push(m.groupCode);
-        }
-      }
-
-      const buildSubjectMeta = async (s: typeof peerSubjectsRaw[0], isShadow: boolean) => {
-        let adultStatus: boolean | null = null;
-        let documentHint: { documentType: string | null; masked: string | null } | null = null;
-
-        if (isPerson(s.type)) {
-          if (s.birthNumber) {
-            const decrypted = decryptField(s.birthNumber);
-            adultStatus = isPersonAdult(decrypted);
-          } else {
-            const [latestDoc] = await db
-              .select({
-                documentType: clientDocumentHistory.documentType,
-                documentNumber: clientDocumentHistory.documentNumber,
-              })
-              .from(clientDocumentHistory)
-              .where(eq(clientDocumentHistory.subjectId, s.id))
-              .orderBy(desc(clientDocumentHistory.archivedAt))
-              .limit(1);
-
-            if (latestDoc) {
-              documentHint = {
-                documentType: latestDoc.documentType,
-                masked: latestDoc.documentNumber ? maskDocNumber(latestDoc.documentNumber) : null,
-              };
-            } else {
-              documentHint = { documentType: null, masked: null };
-            }
-          }
-        }
-
-        return {
-          id: s.id,
-          uid: s.uid,
-          firstName: s.firstName,
-          lastName: s.lastName,
-          companyName: s.companyName,
-          type: s.type,
-          phone: s.phone ?? null,
-          isShadow,
-          isAdult: adultStatus,
-          hasRisk: s.listStatus === "cerveny",
-          documentHint,
-          groups: subjectGroupCodesMap.get(s.id) ?? [],
-        };
-      };
-
-      const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
-
-      if (peerSubjectsRaw.length === 0 && shadowOnly.length === 0) {
-        req.session.loginSubjectId = null;
-        req.session.loginStep = "done";
-        await recordLoginHistory(user.id, ip, undefined, req.headers['user-agent'] as string | undefined);
+      if (user.mfaType && user.mfaType !== "none") {
+        const ua = (req.headers["user-agent"] as string) ?? "";
+        const { method, maskedTarget } = await initiateMfaVerify(user, req.session, ua);
+        req.session.loginStep = "mfa_verify";
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
-          res.json({ id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role, loginStep: "done" });
+          res.json({ loginStep: "mfa_verify", method, maskedTarget });
         });
       }
 
-      if (peerSubjectsRaw.length === 1 && shadowOnly.length === 0) {
-        req.session.loginSubjectId = peerSubjectsRaw[0].id;
-        req.session.loginStep = "done";
-        await recordLoginHistory(user.id, ip, undefined, req.headers['user-agent'] as string | undefined);
-        return req.session.save((err) => {
-          if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
-          res.json({
-            id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role,
-            loginStep: "done",
-          });
-        });
-      }
-
-      // Auto-select primary subject when user has linkedSubjectId among their peers
-      if (user.linkedSubjectId) {
-        const autoInPeers = peerSubjectsRaw.find((s) => s.id === user.linkedSubjectId);
-        if (autoInPeers) {
-          const [selectedFull] = await db.select().from(subjects).where(and(eq(subjects.id, user.linkedSubjectId), isNull(subjects.deletedAt)));
-          if (selectedFull) {
-            const allPeers = await db.select().from(subjects).where(and(eq(subjects.email, user.email!.toLowerCase()), isNull(subjects.deletedAt)));
-            const result = await resolveSubjectLoginStep(req.session, user, selectedFull, allPeers, ip, req.headers['user-agent'] as string | undefined);
-            return req.session.save((err) => {
-              if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
-              const { nextStep, ...rest } = result;
-              res.json({ id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role, loginStep: nextStep, ...rest });
-            });
-          }
-        }
-      }
-
-      req.session.loginSubjectId = null;
-      req.session.loginStep = "subject_select";
-
-      const peerMetas = await Promise.all(peerSubjectsRaw.map((s) => buildSubjectMeta(s, false)));
-      const shadowMetas = await Promise.all(shadowOnly.map((s) => buildSubjectMeta(s, true)));
-
-      return req.session.save((err) => {
-        if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
-        res.json({
-          id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role,
-          loginStep: "subject_select",
-          subjects: [...peerMetas, ...shadowMetas],
-        });
-      });
+      return resolvePostAuthStep(user, req, res, ip);
     } catch (err: any) {
       console.error("Login error:", err);
       res.status(500).json({ message: "Interná chyba" });
@@ -1176,6 +1256,152 @@ export async function setupAuth(app: Express) {
       });
     } catch (err) {
       console.error("Verify doc error:", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.post("/api/login/verify-mfa", loginLimiter, async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "mfa_verify") {
+        return res.status(403).json({ message: "Neplatný krok prihlásenia" });
+      }
+
+      const { code } = req.body;
+      if (!code || !/^\d{6}$/.test(code)) {
+        return res.status(400).json({ message: "Zadajte platný 6-miestny kód" });
+      }
+
+      if (!req.session.pendingMfaCode) {
+        return res.status(400).json({ message: "Neplatný stav overenia" });
+      }
+
+      if (Date.now() > (req.session.pendingMfaExpiry ?? 0)) {
+        return res.status(400).json({ message: "Kód vypršal. Prihláste sa znova." });
+      }
+
+      if (code !== req.session.pendingMfaCode) {
+        return res.status(400).json({ message: "Nesprávny overovací kód" });
+      }
+
+      req.session.pendingMfaCode = undefined;
+      req.session.pendingMfaExpiry = undefined;
+      req.session.pendingMfaMethod = undefined;
+
+      const [user] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
+      if (!user) return res.status(401).json({ message: "Používateľ nenájdený" });
+
+      const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
+      return resolvePostAuthStep(user, req, res, ip);
+    } catch (err) {
+      console.error("Verify MFA error:", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.post("/api/login/resend-mfa", loginLimiter, async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.loginStep !== "mfa_verify") {
+        return res.status(403).json({ message: "Neplatný krok prihlásenia" });
+      }
+
+      const [user] = await db.select().from(appUsers).where(eq(appUsers.id, req.session.userId));
+      if (!user) return res.status(401).json({ message: "Používateľ nenájdený" });
+
+      const ua = (req.headers["user-agent"] as string) ?? "";
+      const { method, maskedTarget } = await initiateMfaVerify(user, req.session, ua);
+
+      return req.session.save((err) => {
+        if (err) return res.status(500).json({ message: "Chyba session" });
+        res.json({ ok: true, method, maskedTarget });
+      });
+    } catch (err) {
+      console.error("Resend MFA error:", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.post("/api/auth/emergency-logout", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ message: "Zadajte e-mailovú adresu" });
+      }
+
+      const [user] = await db.select().from(appUsers).where(eq(appUsers.email, email.trim().toLowerCase()));
+      if (!user) {
+        return res.json({ ok: true });
+      }
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+
+      await db.insert(emergencyLogoutTokens).values({ userId: user.id, token, expiresAt });
+
+      const baseUrl = process.env.REPLIT_DOMAINS
+        ? `https://${process.env.REPLIT_DOMAINS.split(",")[0].trim()}`
+        : (process.env.APP_URL ?? "http://localhost:5000");
+      const confirmUrl = `${baseUrl}/nahlasit-stratu?confirm=${token}`;
+
+      const html = `<!DOCTYPE html>
+<html lang="sk">
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#0f1923;font-family:Arial,Helvetica,sans-serif;color:#e2e8f0;">
+<div style="max-width:520px;margin:0 auto;padding:32px 24px;">
+<div style="background:#1a2332;border:1px solid #2d3748;border-radius:4px;padding:32px;">
+<h2 style="color:#e53e3e;margin:0 0 16px 0;font-size:18px;">ArutsoK (ATK) — Núdzové odhlásenie</h2>
+<p style="font-size:14px;color:#e2e8f0;margin:0 0 12px 0;">Prijali sme žiadosť o núdzové odhlásenie zo všetkých zariadení pre účet <strong>${user.email}</strong>.</p>
+<p style="font-size:14px;color:#e2e8f0;margin:0 0 20px 0;">Ak ste to boli Vy, kliknite na tlačidlo nižšie. Platnosť odkazu je <strong>2 hodiny</strong>.</p>
+<div style="text-align:center;margin:24px 0;">
+<a href="${confirmUrl}" style="background:#e53e3e;color:#fff;text-decoration:none;padding:12px 32px;border-radius:4px;font-size:14px;font-weight:bold;display:inline-block;">Odhlásiť zo všetkých zariadení</a>
+</div>
+<p style="font-size:12px;color:#718096;margin:0;">Ak ste túto žiadosť nepodali, ignorujte tento e-mail. Váš účet zostáva v bezpečí.</p>
+</div>
+</div>
+</body>
+</html>`;
+
+      await sendEmail(user.email!, "ArutsoK (ATK) — Núdzové odhlásenie", html);
+
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Emergency logout error:", err);
+      res.status(500).json({ message: "Interná chyba" });
+    }
+  });
+
+  app.get("/api/auth/emergency-logout/confirm", async (req, res) => {
+    try {
+      const { token } = req.query;
+      if (!token || typeof token !== "string") {
+        return res.status(400).json({ message: "Neplatný token" });
+      }
+
+      const [record] = await db
+        .select()
+        .from(emergencyLogoutTokens)
+        .where(eq(emergencyLogoutTokens.token, token));
+
+      if (!record) {
+        return res.status(400).json({ message: "Token nebol nájdený" });
+      }
+      if (record.usedAt) {
+        return res.status(400).json({ message: "Token bol už použitý" });
+      }
+      if (new Date() > record.expiresAt) {
+        return res.status(400).json({ message: "Token vypršal" });
+      }
+
+      await db.execute(
+        sql`DELETE FROM sessions WHERE (sess::jsonb->>'userId')::text = ${String(record.userId)}`
+      );
+
+      await db.update(emergencyLogoutTokens)
+        .set({ usedAt: new Date() })
+        .where(eq(emergencyLogoutTokens.id, record.id));
+
+      res.json({ ok: true, message: "Boli ste úspešne odhlásení zo všetkých zariadení." });
+    } catch (err) {
+      console.error("Emergency logout confirm error:", err);
       res.status(500).json({ message: "Interná chyba" });
     }
   });
@@ -2973,7 +3199,7 @@ function detectDeviceType(ua: string): "mobile" | "desktop" | "other" {
 }
 
 function generateOtp(): string {
-  return "151515"; // TODO: remove hardcoded test code before go-live
+  return crypto.randomInt(100000, 999999).toString();
 }
 
 /**
