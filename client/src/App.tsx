@@ -319,7 +319,7 @@ function Router() {
       <Route path="/holding-strom" component={PrivateHoldingTree} />
       <Route path="/admin/prepojenia-subjektov" component={PrivateSystemLinks} />
       <Route path="/admin/asset-tracker" component={PrivateAssetTracker} />
-      <Route path="/profil" component={PrivateUserProfile} />
+      <Route path="/profile" component={PrivateUserProfile} />
       <Route component={NotFound} />
     </Switch>
   );

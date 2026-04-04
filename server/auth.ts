@@ -3096,7 +3096,14 @@ async function seedAdminPassword() {
 
     const usersWithoutPassword = allUsers.filter((u) => !u.password);
     if (usersWithoutPassword.length > 0) {
-      const hash = await bcrypt.hash("admin", 10);
+      const fallbackPassword = process.env.ADMIN_PASSWORD;
+      if (!fallbackPassword) {
+        console.warn(
+          `[AUTH SEED] ${usersWithoutPassword.length} user(s) have no password. Set ADMIN_PASSWORD env var to auto-seed passwords.`
+        );
+        return;
+      }
+      const hash = await bcrypt.hash(fallbackPassword, 10);
       for (const user of usersWithoutPassword) {
         await db
           .update(appUsers)

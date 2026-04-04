@@ -1351,7 +1351,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-3 space-y-2">
-        <Link href="/profil">
+        <Link href="/profile">
           <Button
             variant="ghost"
             size="sm"

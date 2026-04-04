@@ -47,12 +47,16 @@ export default function UserProfile() {
       setSuccess(true);
       form.reset();
     },
-    onError: async (err: any) => {
+    onError: async (err: Error) => {
       let msg = "Nepodarilo sa zmeniť heslo";
       try {
-        const body = await err?.response?.json?.();
-        if (body?.message) msg = body.message;
-      } catch {}
+        const response = (err as Error & { response?: Response }).response;
+        if (response) {
+          const body = await response.json();
+          if (body?.message) msg = body.message;
+        }
+      } catch {
+      }
       toast({ title: msg, variant: "destructive" });
     },
   });
