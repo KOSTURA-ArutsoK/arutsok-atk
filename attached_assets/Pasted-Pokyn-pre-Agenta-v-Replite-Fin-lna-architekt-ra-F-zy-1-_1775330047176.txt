@@ -1,0 +1,39 @@
+Pokyn pre Agenta v Replite (Finálna architektúra Fázy 1):
+Cieľ: Implementovať inteligentný Secure Proxy Bridge a automatizované krížové 2FA overovanie.
+
+1. Architektúra "Skrytého Trezoru" (Reverse Proxy Logic):
+
+Vstupná brána: Všetka komunikácia navonok musí prebiehať pod maskou verejnej domény (napr. vstup.arutsok.sk).
+
+Bridge: Agent, vytvor mechanizmus, kde klientska aplikácia (Frontend) posiela požiadavky na verejnú bránu, ktorá ich v pozadí (server-to-server) preposiela na skrytú adresu Trezoru.
+
+Maskovanie: Klient nesmie v sieťovej komunikácii (Network tab) nikdy vidieť priamu adresu 456.arutsok.sk.
+
+2. Automatizované krížové 2FA (Logic Engine):
+
+Detekcia zariadenia: Pri prihlásení systém identifikuje, či ide o PC, mobilný prehliadač alebo PWA.
+
+Smart Routing kódu:
+
+PC prihlásenie → Automaticky pošli kód cez SMS (ak je číslo overené) alebo Push do PWA (ak je mobil spárovaný).
+
+Mobilné prihlásenie (web) → Automaticky pošli kód na E-mail.
+
+PWA prihlásenie → Použi biometriu alebo uložený token (bezpečná relácia).
+
+Záloha: E-mail je povolený len ako automatická záloha, ak nie je nastavené iné zariadenie, alebo ak to Ty (Admin) v profile klienta nezakážeš globálnym pravidlom.
+
+3. Automatizovaný "Kill Switch" cez E-mail:
+
+Vytvor endpoint /api/auth/emergency-logout.
+
+Ak používateľ stratí mobil, klikne na "Nahlásiť stratu" na verejnej bráne. Systém mu pošle overovací link na e-mail.
+
+Po kliknutí na link v e-maile systém okamžite a automaticky zruší všetky aktívne relácie (Tokens) a odhlási všetky zariadenia spojené s daným UID.
+
+Pre teba (Ako to bude fungovať v praxi):
+Žiadne ručné klikanie: Keď do systému nahodíš 10 000 klientov, ArutsoK im pridelí ich UID a automaticky nastaví e-mail ako prvotný overovací kanál.
+
+Samoobsluha: Akonáhle si klient v systéme overí mobilné číslo, ArutsoK inteligentne prepne prioritu z E-mailu na SMS/PWA. Ty len sleduješ štatistiky v Cockpite.
+
+Bezpečnosť: Aj keby niekto sledoval prevádzku na PC klienta, uvidí len komunikáciu s "verejnou bránou". Cesta k tvojmu Trezoru zostáva pod kapotou.
