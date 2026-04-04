@@ -240,13 +240,13 @@ function UserFormDialog({
           phone: editingUser.phone || "",
           role: editingUser.role || "user",
           mfaType: editingUser.mfaType || "none",
-          mfaEmailBlocked: (editingUser as any).mfaEmailBlocked ?? false,
+          mfaEmailBlocked: editingUser.mfaEmailBlocked ?? false,
           securityLevel: editingUser.securityLevel || 1,
           permissionGroupId: editingUser.permissionGroupId || null,
           adminCode: editingUser.adminCode || "",
           allowedIps: editingUser.allowedIps || "",
-          institutionName: (editingUser as any).institutionName || "",
-          credentialNumber: (editingUser as any).credentialNumber || "",
+          institutionName: editingUser.institutionName || "",
+          credentialNumber: editingUser.credentialNumber || "",
         });
       } else {
         setForm({ ...emptyForm });

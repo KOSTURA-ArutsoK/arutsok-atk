@@ -1,23 +1,29 @@
 import { useState } from "react";
 import { Shield, Mail, CheckCircle, AlertTriangle, ChevronLeft, LogOut } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/queryClient";
 
-type PageState = "form" | "success" | "confirming" | "confirmed" | "error";
+const REASON_MESSAGES: Record<string, string> = {
+  invalid: "Neplatný odkaz.",
+  notfound: "Token nebol nájdený. Odkaz je neplatný.",
+  used: "Tento odkaz bol už použitý.",
+  expired: "Platnosť odkazu vypršala (30 minút). Požiadajte o nový.",
+  server: "Nastala serverová chyba. Skúste znova.",
+};
 
 export default function NahlasitStratu() {
-  const [, navigate] = useLocation();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [pageState, setPageState] = useState<PageState>("form");
+  const [submitted, setSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
-  const confirmToken = params.get("confirm");
+  const status = params.get("status");
+  const reason = params.get("reason") ?? "";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +32,7 @@ export default function NahlasitStratu() {
     setErrorMsg(null);
     try {
       await apiRequest("POST", "/api/auth/emergency-logout", { email: email.trim() });
-      setPageState("success");
+      setSubmitted(true);
     } catch {
       setErrorMsg("Nastala chyba. Skúste znova.");
     } finally {
@@ -34,96 +40,7 @@ export default function NahlasitStratu() {
     }
   };
 
-  const handleConfirm = async () => {
-    if (!confirmToken) return;
-    setLoading(true);
-    setPageState("confirming");
-    setErrorMsg(null);
-    try {
-      const res = await fetch(`/api/auth/emergency-logout/confirm?token=${encodeURIComponent(confirmToken)}`, {
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (res.ok && data.ok) {
-        setPageState("confirmed");
-      } else {
-        setErrorMsg(data.message || "Token je neplatný alebo vypršal.");
-        setPageState("error");
-      }
-    } catch {
-      setErrorMsg("Nastala chyba. Skúste znova.");
-      setPageState("error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (confirmToken && pageState === "form") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md rounded-2xl">
-          <CardContent className="pt-8 pb-6 px-6 space-y-6">
-            <div className="text-center space-y-3">
-              <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
-                <LogOut className="w-8 h-8 text-destructive" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold" data-testid="text-confirm-logout-title">Núdzové odhlásenie</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Kliknutím odhlásíte váš účet zo všetkých zariadení.
-                </p>
-              </div>
-            </div>
-
-            {errorMsg && (
-              <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/20">
-                <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
-                <p className="text-sm text-destructive">{errorMsg}</p>
-              </div>
-            )}
-
-            <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/20 text-sm text-destructive">
-              Táto akcia okamžite zneplatní všetky aktívne relácie pre váš účet.
-            </div>
-
-            <Button
-              onClick={handleConfirm}
-              className="w-full bg-destructive hover:bg-destructive/90 text-white"
-              disabled={loading}
-              data-testid="button-confirm-emergency-logout"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              {loading ? "Odhlasovanie..." : "Odhlásiť zo všetkých zariadení"}
-            </Button>
-
-            <Link href="/login">
-              <Button variant="ghost" className="w-full text-sm" data-testid="button-back-to-login-confirm">
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Späť na prihlásenie
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (pageState === "confirming") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md rounded-2xl">
-          <CardContent className="pt-8 pb-6 px-6 text-center space-y-4">
-            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto animate-pulse">
-              <Shield className="w-8 h-8 text-primary" />
-            </div>
-            <p className="text-sm text-muted-foreground">Odhlasovanie prebieha...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (pageState === "confirmed") {
+  if (status === "confirmed") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md rounded-2xl">
@@ -139,20 +56,19 @@ export default function NahlasitStratu() {
                 </p>
               </div>
             </div>
-            <Button
-              onClick={() => navigate("/")}
-              className="w-full"
-              data-testid="button-go-to-login"
-            >
-              Prihlásiť sa znova
-            </Button>
+            <Link href="/">
+              <Button className="w-full" data-testid="button-go-to-login">
+                Prihlásiť sa znova
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  if (pageState === "error") {
+  if (status === "error") {
+    const message = REASON_MESSAGES[reason] ?? "Nastala neznáma chyba.";
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md rounded-2xl">
@@ -162,8 +78,8 @@ export default function NahlasitStratu() {
                 <AlertTriangle className="w-8 h-8 text-destructive" />
               </div>
               <div>
-                <h1 className="text-xl font-bold">Chyba</h1>
-                <p className="text-sm text-muted-foreground mt-1">{errorMsg || "Nastala neznáma chyba."}</p>
+                <h1 className="text-xl font-bold" data-testid="text-error-title">Chyba</h1>
+                <p className="text-sm text-muted-foreground mt-1" data-testid="text-error-message">{message}</p>
               </div>
             </div>
             <Link href="/nahlasit-stratu">
@@ -183,7 +99,7 @@ export default function NahlasitStratu() {
     );
   }
 
-  if (pageState === "success") {
+  if (submitted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md rounded-2xl">
@@ -195,13 +111,13 @@ export default function NahlasitStratu() {
               <div>
                 <h1 className="text-xl font-bold" data-testid="text-success-title">Skontrolujte e-mail</h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Ak sa e-mail nachádza v systéme, odoslali sme potvrdzovací odkaz na odhlásenie. Skontrolujte svoju schránku.
+                  Ak sa e-mail nachádza v systéme, odoslali sme potvrdzovací odkaz. Skontrolujte svoju schránku.
                 </p>
               </div>
             </div>
 
             <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm text-muted-foreground">
-              Odkaz je platný <strong>2 hodiny</strong>. Ak e-mail nedostanete, skontrolujte priečinok Nevyžiadaná pošta (Spam).
+              Odkaz je platný <strong>30 minút</strong>. Kliknite naň a odhlásenie prebehne okamžite. Ak e-mail nedostanete, skontrolujte priečinok Spam.
             </div>
 
             <Link href="/">
@@ -258,7 +174,7 @@ export default function NahlasitStratu() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Odošleme potvrdzovací odkaz na tento e-mail. Odhlásenie nastane až po kliknutí na odkaz.
+                  Odošleme jednorazový odkaz (platný 30 minút). Odhlásenie nastane automaticky po kliknutí naň.
                 </p>
               </div>
 

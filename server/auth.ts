@@ -629,7 +629,7 @@ async function initiateMfaVerify(
   user: typeof appUsers.$inferSelect,
   session: Express.Request["session"],
   ua: string
-): Promise<{ ok: boolean; method: "sms" | "email"; maskedTarget: string }> {
+): Promise<{ ok: boolean; method: "sms" | "email"; maskedTarget: string } | { ok: false; error: string }> {
   const code = generateOtp();
   const expiry = Date.now() + 10 * 60 * 1000;
   const mfaType = user.mfaType ?? "none";
@@ -645,7 +645,8 @@ async function initiateMfaVerify(
     } else if (!mfaEmailBlocked) {
       method = "email";
     } else {
-      method = "sms";
+      // SMS required but no phone, email fallback blocked — cannot proceed
+      return { ok: false, error: "mfa_unavailable" };
     }
   } else {
     const deviceType = detectDeviceType(ua);
@@ -843,7 +844,11 @@ export async function setupAuth(app: Express) {
 
       if (user.mfaType && user.mfaType !== "none") {
         const ua = (req.headers["user-agent"] as string) ?? "";
-        const { method, maskedTarget } = await initiateMfaVerify(user, req.session, ua);
+        const mfaResult = await initiateMfaVerify(user, req.session, ua);
+        if (!mfaResult.ok) {
+          return res.status(403).json({ message: "MFA nie je možné doručiť: telefónne číslo chýba a e-mail záloha je zakázaná." });
+        }
+        const { method, maskedTarget } = mfaResult;
         req.session.loginStep = "mfa_verify";
         return req.session.save((err) => {
           if (err) return res.status(500).json({ message: "Chyba pri prihlásení" });
@@ -1308,7 +1313,11 @@ export async function setupAuth(app: Express) {
       if (!user) return res.status(401).json({ message: "Používateľ nenájdený" });
 
       const ua = (req.headers["user-agent"] as string) ?? "";
-      const { method, maskedTarget } = await initiateMfaVerify(user, req.session, ua);
+      const mfaResult = await initiateMfaVerify(user, req.session, ua);
+      if (!mfaResult.ok) {
+        return res.status(403).json({ message: "MFA nie je možné doručiť: telefónne číslo chýba a e-mail záloha je zakázaná." });
+      }
+      const { method, maskedTarget } = mfaResult;
 
       return req.session.save((err) => {
         if (err) return res.status(500).json({ message: "Chyba session" });
@@ -1332,15 +1341,15 @@ export async function setupAuth(app: Express) {
         return res.json({ ok: true });
       }
 
-      const token = crypto.randomBytes(32).toString("hex");
-      const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+      const token = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
       await db.insert(emergencyLogoutTokens).values({ userId: user.id, token, expiresAt });
 
       const baseUrl = process.env.REPLIT_DOMAINS
         ? `https://${process.env.REPLIT_DOMAINS.split(",")[0].trim()}`
         : (process.env.APP_URL ?? "http://localhost:5000");
-      const confirmUrl = `${baseUrl}/nahlasit-stratu?confirm=${token}`;
+      const confirmUrl = `${baseUrl}/api/auth/emergency-logout/confirm?token=${token}`;
 
       const html = `<!DOCTYPE html>
 <html lang="sk">
@@ -1350,7 +1359,7 @@ export async function setupAuth(app: Express) {
 <div style="background:#1a2332;border:1px solid #2d3748;border-radius:4px;padding:32px;">
 <h2 style="color:#e53e3e;margin:0 0 16px 0;font-size:18px;">ArutsoK (ATK) — Núdzové odhlásenie</h2>
 <p style="font-size:14px;color:#e2e8f0;margin:0 0 12px 0;">Prijali sme žiadosť o núdzové odhlásenie zo všetkých zariadení pre účet <strong>${user.email}</strong>.</p>
-<p style="font-size:14px;color:#e2e8f0;margin:0 0 20px 0;">Ak ste to boli Vy, kliknite na tlačidlo nižšie. Platnosť odkazu je <strong>2 hodiny</strong>.</p>
+<p style="font-size:14px;color:#e2e8f0;margin:0 0 20px 0;">Ak ste to boli Vy, kliknite na tlačidlo nižšie. Platnosť odkazu je <strong>30 minút</strong>.</p>
 <div style="text-align:center;margin:24px 0;">
 <a href="${confirmUrl}" style="background:#e53e3e;color:#fff;text-decoration:none;padding:12px 32px;border-radius:4px;font-size:14px;font-weight:bold;display:inline-block;">Odhlásiť zo všetkých zariadení</a>
 </div>
@@ -1373,7 +1382,7 @@ export async function setupAuth(app: Express) {
     try {
       const { token } = req.query;
       if (!token || typeof token !== "string") {
-        return res.status(400).json({ message: "Neplatný token" });
+        return res.redirect("/nahlasit-stratu?status=error&reason=invalid");
       }
 
       const [record] = await db
@@ -1382,13 +1391,13 @@ export async function setupAuth(app: Express) {
         .where(eq(emergencyLogoutTokens.token, token));
 
       if (!record) {
-        return res.status(400).json({ message: "Token nebol nájdený" });
+        return res.redirect("/nahlasit-stratu?status=error&reason=notfound");
       }
       if (record.usedAt) {
-        return res.status(400).json({ message: "Token bol už použitý" });
+        return res.redirect("/nahlasit-stratu?status=error&reason=used");
       }
       if (new Date() > record.expiresAt) {
-        return res.status(400).json({ message: "Token vypršal" });
+        return res.redirect("/nahlasit-stratu?status=error&reason=expired");
       }
 
       await db.execute(
@@ -1399,10 +1408,10 @@ export async function setupAuth(app: Express) {
         .set({ usedAt: new Date() })
         .where(eq(emergencyLogoutTokens.id, record.id));
 
-      res.json({ ok: true, message: "Boli ste úspešne odhlásení zo všetkých zariadení." });
+      return res.redirect("/nahlasit-stratu?status=confirmed");
     } catch (err) {
       console.error("Emergency logout confirm error:", err);
-      res.status(500).json({ message: "Interná chyba" });
+      return res.redirect("/nahlasit-stratu?status=error&reason=server");
     }
   });
 
