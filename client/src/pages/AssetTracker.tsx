@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import {
   TrendingUp, Code2, GitCommit, Cpu, RefreshCw,
   Loader2, Trophy, Layers, Zap, Shield, Lock, BarChart3, History,
-  Receipt, Trash2, Plus,
+  Receipt, Trash2, Plus, Package,
 } from "lucide-react";
 import type { AtkAssetSnapshot, AtkLicenseCost } from "@shared/schema";
 
@@ -36,6 +36,28 @@ interface CommitRecord {
   date: string;
   author: string;
 }
+
+interface ModuleLocEntry {
+  module: string;
+  description: string;
+  loc: number;
+  valueEur: number;
+  pct: number;
+}
+
+const MODULE_COLORS = [
+  "bg-blue-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+  "bg-violet-500",
+  "bg-cyan-500",
+  "bg-rose-500",
+  "bg-orange-500",
+  "bg-teal-500",
+  "bg-indigo-500",
+  "bg-lime-500",
+  "bg-pink-500",
+];
 
 function formatEur(n: number): string {
   return new Intl.NumberFormat("sk-SK", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
@@ -312,6 +334,7 @@ export default function AssetTracker() {
   const [, navigate] = useLocation();
   const autoSnapshotFired = useRef(false);
   const [licenseCostsOpen, setLicenseCostsOpen] = useState(false);
+  const [locByModule, setLocByModule] = useState<ModuleLocEntry[]>([]);
 
   const isAdmin = !userLoading && checkIsAdmin(appUser);
   const isAdminKnown = !userLoading;
@@ -333,7 +356,10 @@ export default function AssetTracker() {
       const res = await apiRequest("GET", "/api/admin/asset-tracker/snapshot");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: AtkAssetSnapshot & { locByModule?: ModuleLocEntry[] }) => {
+      if (Array.isArray(data?.locByModule) && data.locByModule.length > 0) {
+        setLocByModule(data.locByModule);
+      }
       toast({ title: "Snímka uložená", description: "Nové ocenenie aktíva bolo zaznamenané." });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/asset-tracker/history"] });
     },
@@ -596,6 +622,57 @@ export default function AssetTracker() {
               </div>
             </CardContent>
           </Card>
+
+          {/* FUNCTIONAL MODULES */}
+          {locByModule.length > 0 && (
+            <Card className="border-2" data-testid="card-functional-modules">
+              <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-2">
+                <div className="p-2 rounded-md bg-indigo-500/10 text-indigo-500"><Package className="h-4 w-4" /></div>
+                <CardTitle className="text-base">Funkcionálne moduly ATK</CardTitle>
+                <span className="text-xs text-muted-foreground ml-1">— za čo je tvorená hodnota</span>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {locByModule.map((m, idx) => {
+                    const barColor = MODULE_COLORS[idx % MODULE_COLORS.length];
+                    const barWidth = locByModule[0]?.loc ? Math.round((m.loc / locByModule[0].loc) * 100) : 0;
+                    return (
+                      <div key={m.module} data-testid={`module-row-${idx}`}>
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div className="min-w-0">
+                            <span className="text-sm font-semibold leading-tight block">{m.module}</span>
+                            <span className="text-xs text-muted-foreground">{m.description}</span>
+                          </div>
+                          <div className="text-right shrink-0 space-y-0.5">
+                            <div className="text-xs font-mono font-bold text-amber-500">{formatEur(m.valueEur)}</div>
+                            <div className="text-xs text-muted-foreground">{formatNum(m.loc)} LOC · {m.pct} %</div>
+                          </div>
+                        </div>
+                        <div className="bg-muted h-2 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${barColor} transition-all duration-700`}
+                            style={{ width: `${barWidth}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <Separator className="my-3" />
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Spolu (mapované moduly)</span>
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-amber-500 block">
+                      {formatEur(locByModule.reduce((s, m) => s + m.valueEur, 0))}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatNum(locByModule.reduce((s, m) => s + m.loc, 0))} LOC
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* COMMIT HISTORY TABLE (last 30 days) */}
           {recentCommits.length > 0 && (

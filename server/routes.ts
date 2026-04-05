@@ -26652,6 +26652,135 @@ app.post("/api/document-validity/refresh", isAuthenticated, async (_req, res) =>
     return { totalLoc, netLoc, fileCount, byExt };
   }
 
+  // Module mapping: each entry defines patterns (lowercase, no extension) that match file paths
+  const ATK_MODULE_MAP: Array<{ module: string; description: string; patterns: string[] }> = [
+    {
+      module: "CRM — Správa klientov",
+      description: "Evidencia fyzických osôb a firiem, profily subjektov, skupiny klientov, žiadosti a prestupy.",
+      patterns: ["subjects", "profilsubjektu", "novysubjekt", "pridatsubjekt", "prestup", "clientzone", "clientgroups", "supisky", "ziadosti"],
+    },
+    {
+      module: "Zmluvy a dokumenty",
+      description: "Tvorba, správa a archivácia zmlúv, šablón, príloh, digitálnych zmlúv a hromadné operácie.",
+      patterns: ["contracts", "contractform", "contractfieldsettings", "contractstatuses", "contracttemplates", "contractinventories", "archive", "importarchive", "digitalnezmluvy", "hromadnestavy", "bulkactions", "bulkimport", "dokumentynastiahnutie"],
+    },
+    {
+      module: "Provízny systém",
+      description: "Výpočet, distribúcia a história provízií, odmien a bodového ohodnotenia obchodníkov.",
+      patterns: ["commissions", "provizie", "odmeny", "body"],
+    },
+    {
+      module: "Produktový katalóg & Partneri",
+      description: "Správa finančných produktov, partnerských spoločností a kontaktov na partnerov.",
+      patterns: ["products", "partners", "partnercontacts"],
+    },
+    {
+      module: "Sieť a štruktúra",
+      description: "Vizualizácia obchodnej siete, holdingová pyramída, novinky a vlastné úlohy poradcu.",
+      patterns: ["networksiet", "holdingdashboard", "holdingtree", "novinky", "mojeulohy"],
+    },
+    {
+      module: "A-Vízia (Builder)",
+      description: "Konfigurátor zmluvných sekcií, parametrov, obchodných príležitostí a reportingových pohľadov.",
+      patterns: ["sektoryzmluv", "sektorysubjektov", "sectors", "kniznicaparametrov", "nastavenieobchodnychprilezitosti", "nastavenieodkazov", "nastavenieprehladov", "obchodneprilezitosti"],
+    },
+    {
+      module: "Bezpečnosť a prístupy",
+      description: "Prihlasovanie, MFA, správa používateľov, skupiny oprávnení, núdzové odhlásenie a externé prístupy.",
+      patterns: ["auth", "users", "userprofile", "permissiongroups", "externepristupy", "guardianconfirm", "nahlasitstratu", "dobaprihlasenia"],
+    },
+    {
+      module: "Reporting & Štatistiky",
+      description: "Reporty pre NBS, odosielanie výkazov, štatistiky, dashboard a dátové linky.",
+      patterns: ["reports", "reportynbs", "reportyodosielanie", "dashboard", "datatovalinka", "kalendar"],
+    },
+    {
+      module: "Nastavenia systému",
+      description: "Konfigurácia aplikácie, stavy, divízie, systémové linky a ocenenie aktíva.",
+      patterns: ["settings", "settingsdivisions", "settingsstates", "pridatstavzmluvy", "systemlinks", "assettracker"],
+    },
+    {
+      module: "Backend / API vrstva",
+      description: "Express API, databázová vrstva, autentifikácia, e-mail, integrácie a seed skripty.",
+      patterns: ["server/"],
+    },
+    {
+      module: "Infraštruktúra & UI",
+      description: "Zdieľané komponenty, hooks, utility knižnice, typy, schémy a konfigurácia.",
+      patterns: ["components/", "hooks/", "lib/", "shared/"],
+    },
+  ];
+
+  function countLocByModule(dirPath: string, totalNetLoc: number): Array<{ module: string; description: string; loc: number; valueEur: number; pct: number }> {
+    const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.next', '.local', 'uploads', 'attached_assets', '.canvas', 'build', '.cache']);
+    const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.css', '.html', '.sql']);
+    const LOC_PRICE = 25;
+    const moduleLoc: Record<string, number> = {};
+    for (const m of ATK_MODULE_MAP) moduleLoc[m.module] = 0;
+
+    function matchModule(relPath: string): string | null {
+      const rel = relPath.replace(/\\/g, '/').toLowerCase();
+      // Remove extension from basename for page matching
+      const base = path.basename(rel, path.extname(rel)).toLowerCase();
+      for (const m of ATK_MODULE_MAP) {
+        for (const pat of m.patterns) {
+          if (pat.endsWith('/')) {
+            // Directory prefix match
+            if (rel.includes(pat)) return m.module;
+          } else {
+            // Basename match (exact)
+            if (base === pat.toLowerCase()) return m.module;
+          }
+        }
+      }
+      return null;
+    }
+
+    function walk(dir: string, projectRoot: string) {
+      let entries: string[] = [];
+      try { entries = fs.readdirSync(dir); } catch { return; }
+      for (const entry of entries) {
+        if (SKIP_DIRS.has(entry)) continue;
+        const fullPath = path.join(dir, entry);
+        let stat: any;
+        try { stat = fs.statSync(fullPath); } catch { continue; }
+        if (stat.isDirectory()) { walk(fullPath, projectRoot); continue; }
+        const ext = path.extname(entry).toLowerCase();
+        if (!EXTENSIONS.has(ext)) continue;
+        const relPath = fullPath.substring(projectRoot.length + 1);
+        const mod = matchModule(relPath);
+        if (!mod) continue;
+        let raw = '';
+        try { raw = fs.readFileSync(fullPath, 'utf8'); } catch { continue; }
+        const lines = raw.split('\n');
+        let fileLoc = 0;
+        let inBlock = false;
+        for (const line of lines) {
+          const t = line.trim();
+          if (!t) continue;
+          if (inBlock) { if (t.includes('*/')) inBlock = false; continue; }
+          if (t.startsWith('/*') || t.startsWith('/**')) { inBlock = !t.includes('*/'); continue; }
+          if (t.startsWith('//') || t.startsWith('#') || t.startsWith('*')) continue;
+          fileLoc++;
+        }
+        moduleLoc[mod] = (moduleLoc[mod] || 0) + fileLoc;
+      }
+    }
+
+    walk(dirPath, dirPath);
+    const safeTotal = totalNetLoc || 1;
+    return ATK_MODULE_MAP
+      .map(m => ({
+        module: m.module,
+        description: m.description,
+        loc: moduleLoc[m.module] || 0,
+        valueEur: (moduleLoc[m.module] || 0) * LOC_PRICE,
+        pct: Math.round(((moduleLoc[m.module] || 0) / safeTotal) * 1000) / 10,
+      }))
+      .filter(m => m.loc > 0)
+      .sort((a, b) => b.loc - a.loc);
+  }
+
   app.get('/api/admin/asset-tracker/snapshot', isAuthenticated, async (req, res) => {
     try {
       const appUser = (req as any).appUser;
@@ -26699,6 +26828,7 @@ app.post("/api/document-validity/refresh", isAuthenticated, async (_req, res) =>
         }
       } catch (_githubErr) { /* GitHub not linked — skip gracefully */ }
       const avgCommitsPerDay = commitCount30d !== null ? Math.round((commitCount30d / 30) * 100) / 100 : null;
+      const locByModule = countLocByModule(projectRoot, netLoc);
       const [saved] = await db.insert(atkAssetSnapshots).values({
         totalLoc, netLoc, fileCount,
         locByExtension: byExt,
@@ -26711,7 +26841,7 @@ app.post("/api/document-validity/refresh", isAuthenticated, async (_req, res) =>
         repoName,
         takenByUserId: appUser.id,
       }).returning();
-      res.json(saved);
+      res.json({ ...saved, locByModule });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       res.status(500).json({ message: msg });
