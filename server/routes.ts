@@ -26682,7 +26682,7 @@ app.post("/api/document-validity/refresh", isAuthenticated, async (_req, res) =>
     {
       module: "A-Vízia (Builder)",
       description: "Konfigurátor zmluvných sekcií, parametrov, obchodných príležitostí a reportingových pohľadov.",
-      patterns: ["sektoryzmluv", "sektorysubjektov", "sectors", "kniznicaparametrov", "nastavenieobchodnychprilezitosti", "nastavenieodkazov", "nastavenieprehladov", "obchodneprilezitosti"],
+      patterns: ["sektoryzmluv", "sektoryzmluvvizia", "sektorysubjektov", "sektorysubjektovvizia", "sectors", "kniznicaparametrov", "nastavenieobchodnychprilezitosti", "nastavenieodkazov", "nastavenieprehladov", "obchodneprilezitosti"],
     },
     {
       module: "Bezpečnosť a prístupy",
@@ -26720,17 +26720,17 @@ app.post("/api/document-validity/refresh", isAuthenticated, async (_req, res) =>
 
     function matchModule(relPath: string): string | null {
       const rel = relPath.replace(/\\/g, '/').toLowerCase();
-      // Remove extension from basename for page matching
       const base = path.basename(rel, path.extname(rel)).toLowerCase();
+      // Pass 1: directory prefix patterns take priority (e.g. server/, components/)
       for (const m of ATK_MODULE_MAP) {
         for (const pat of m.patterns) {
-          if (pat.endsWith('/')) {
-            // Directory prefix match
-            if (rel.includes(pat)) return m.module;
-          } else {
-            // Basename match (exact)
-            if (base === pat.toLowerCase()) return m.module;
-          }
+          if (pat.endsWith('/') && rel.includes(pat)) return m.module;
+        }
+      }
+      // Pass 2: exact basename match (pages)
+      for (const m of ATK_MODULE_MAP) {
+        for (const pat of m.patterns) {
+          if (!pat.endsWith('/') && base === pat.toLowerCase()) return m.module;
         }
       }
       return null;
