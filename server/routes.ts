@@ -26742,7 +26742,7 @@ app.post("/api/document-validity/refresh", isAuthenticated, async (_req, res) =>
       for (const entry of entries) {
         if (SKIP_DIRS.has(entry)) continue;
         const fullPath = path.join(dir, entry);
-        let stat: any;
+        let stat: fs.Stats;
         try { stat = fs.statSync(fullPath); } catch { continue; }
         if (stat.isDirectory()) { walk(fullPath, projectRoot); continue; }
         const ext = path.extname(entry).toLowerCase();

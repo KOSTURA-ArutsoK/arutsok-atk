@@ -357,9 +357,7 @@ export default function AssetTracker() {
       return res.json();
     },
     onSuccess: (data: AtkAssetSnapshot & { locByModule?: ModuleLocEntry[] }) => {
-      if (Array.isArray(data?.locByModule) && data.locByModule.length > 0) {
-        setLocByModule(data.locByModule);
-      }
+      setLocByModule(Array.isArray(data?.locByModule) ? data.locByModule : []);
       toast({ title: "Snímka uložená", description: "Nové ocenenie aktíva bolo zaznamenané." });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/asset-tracker/history"] });
     },
