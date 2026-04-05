@@ -1,0 +1,45 @@
+{
+  "name": "ArutsoK (ATK)",
+  "short_name": "ATK",
+  "description": "Systém pre správu zmlúv a sledovanie provízií — ArutsoK (ATK)",
+  "lang": "sk-SK",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0d1c2e",
+  "theme_color": "#C9A84C",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["business", "finance", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Zmluvy",
+      "url": "/evidencia-zmluv",
+      "description": "Evidencia zmlúv"
+    },
+    {
+      "name": "Klienti",
+      "url": "/subjects",
+      "description": "Zoznam klientov"
+    }
+  ]
+}

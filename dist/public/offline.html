@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ArutsoK — Offline</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d1c2e;
+      color: #e2e8f0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 52px;
+      font-weight: 800;
+      color: #C9A84C;
+      letter-spacing: -2px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .logo-sub {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: rgba(201,168,76,0.5);
+      text-transform: uppercase;
+      margin-bottom: 40px;
+    }
+
+    .divider {
+      width: 60px;
+      height: 2px;
+      background: rgba(201,168,76,0.3);
+      margin: 0 auto 40px;
+      border-radius: 1px;
+    }
+
+    .icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 24px;
+      opacity: 0.4;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #e2e8f0;
+      margin-bottom: 12px;
+    }
+
+    p {
+      font-size: 14px;
+      color: rgba(148,163,184,0.8);
+      line-height: 1.6;
+      max-width: 340px;
+      margin: 0 auto 32px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 999px;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.25);
+      color: rgba(252,165,165,0.85);
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 32px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(239,68,68,0.8);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    button {
+      background: rgba(201,168,76,0.12);
+      border: 1.5px solid rgba(201,168,76,0.35);
+      color: #C9A84C;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 10px 28px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    button:hover {
+      background: rgba(201,168,76,0.2);
+      border-color: rgba(201,168,76,0.55);
+    }
+
+    .footer {
+      position: fixed;
+      bottom: 20px;
+      font-size: 11px;
+      color: rgba(148,163,184,0.3);
+      letter-spacing: 0.1em;
+    }
+
+    .online-msg {
+      display: none;
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: rgba(34,197,94,0.1);
+      border: 1px solid rgba(34,197,94,0.3);
+      border-radius: 8px;
+      color: rgba(134,239,172,0.85);
+      font-size: 13px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo">ATK</div>
+  <div class="logo-sub">ArutsoK</div>
+  <div class="divider"></div>
+
+  <svg class="icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M32 8C18.7 8 8 18.7 8 32s10.7 24 24 24 24-10.7 24-24S45.3 8 32 8z" stroke="currentColor" stroke-width="2.5"/>
+    <path d="M32 20v16M32 42v2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M20 12.5C14 16.8 10 24 10 32" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+    <path d="M44 51.5C50 47.2 54 40 54 32" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  </svg>
+
+  <div class="status-badge">
+    <div class="dot"></div>
+    Žiadne internetové pripojenie
+  </div>
+
+  <h1>Ste offline</h1>
+  <p>Systém ArutsoK nedokáže načítať dáta bez internetového pripojenia. Skontrolujte Wi-Fi alebo mobilné dáta a skúste znova.</p>
+
+  <button onclick="tryReconnect()">Skúsiť znova</button>
+
+  <div class="online-msg" id="onlineMsg">
+    Pripojenie obnovené — presmerovanie...
+  </div>
+
+  <div class="footer">ArutsoK (ATK) &nbsp;·&nbsp; Správa zmlúv a provízií</div>
+
+  <script>
+    function tryReconnect() {
+      window.location.reload();
+    }
+
+    window.addEventListener('online', function() {
+      document.getElementById('onlineMsg').style.display = 'block';
+      setTimeout(function() { window.location.href = '/'; }, 1500);
+    });
+  </script>
+</body>
+</html>
